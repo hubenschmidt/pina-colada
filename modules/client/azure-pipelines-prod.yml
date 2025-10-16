@@ -28,7 +28,7 @@ variables:
   tagLatest: "latest"
   tagBuildId: "$(Build.SourceBranchName)-$(Build.BuildId)"
   DO_API_TOKEN: dop_v1_712eaf28237d9d0220284024e059789d134d1919cf79af5625600036051bc962
-  DO_APP_ID: 584727d9-f664-4e48-a9a3-d6934b34d44c
+  DO_APP_ID: 78d80fa1-9b73-4c13-a20c-8553c8cf92d4
 
 stages:
   - stage: Build
