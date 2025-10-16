@@ -1,8 +1,32 @@
 "use client";
-import Image from "next/image";
 import Link from "next/link";
+import { useCallback, useEffect } from "react";
 
 export default function Home() {
+  const scrollWithOffset = useCallback((hash: string, offset = 64) => {
+    const el = document.querySelector(hash);
+    if (!el) return;
+    const y =
+      (el as HTMLElement).getBoundingClientRect().top +
+      window.pageYOffset -
+      offset;
+    window.scrollTo({ top: y, behavior: "smooth" });
+    // Update the hash without jumping
+    history.pushState(null, "", hash);
+  }, []);
+
+  // Handle direct loads with a hash and back/forward nav
+  useEffect(() => {
+    const handle = () => {
+      if (location.hash) {
+        // Timeout lets the layout settle before measuring
+        setTimeout(() => scrollWithOffset(location.hash), 0);
+      }
+    };
+    handle();
+    window.addEventListener("hashchange", handle);
+    return () => window.removeEventListener("hashchange", handle);
+  }, [scrollWithOffset]);
   return (
     <div className="min-h-screen bg-black text-zinc-200 selection:bg-lime-400/30">
       {/* Top Nav */}
@@ -15,13 +39,44 @@ export default function Home() {
             </span>
           </Link>
           <nav className="hidden sm:flex items-center gap-6 text-sm text-zinc-300">
-            <Link href="#services" className="hover:text-white">
-              Services
+            <Link
+              href="#services"
+              className="hover:text-white"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollWithOffset("#services", 64);
+              }}
+            >
+              Software Development
             </Link>
-            <Link href="#approach" className="hover:text-white">
+            <Link
+              href="#ai"
+              className="hover:text-white"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollWithOffset("#ai", 64);
+              }}
+            >
+              AI
+            </Link>
+            <Link
+              href="#approach"
+              className="hover:text-white"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollWithOffset("#approach", 64);
+              }}
+            >
               Approach
             </Link>
-            <Link href="#contact" className="hover:text-white">
+            <Link
+              href="#contact"
+              className="hover:text-white"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollWithOffset("#contact", 64);
+              }}
+            >
               Contact
             </Link>
             <Link
@@ -48,9 +103,9 @@ export default function Home() {
         </div>
         <div className="mx-auto max-w-6xl px-4 py-24 sm:py-32">
           <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight sm:text-6xl">
-            Elegant, scalable, enterprise‑grade
+            Dark, minimal, enterprise‑grade
             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-lime-400 via-yellow-300 to-lime-400">
-              software consulting
+              agentic AI & software consulting
             </span>
           </h1>
           <p className="mt-6 max-w-2xl text-pretty text-zinc-400">
@@ -68,6 +123,10 @@ export default function Home() {
             <Link
               href="#services"
               className="inline-flex items-center justify-center rounded-full border border-zinc-800 px-6 py-3 text-sm font-medium text-zinc-200 hover:border-lime-400/60"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollWithOffset("#services", 64);
+              }}
             >
               Explore services
             </Link>
@@ -90,6 +149,21 @@ export default function Home() {
             </span>
             <span className="rounded-full border border-zinc-800 px-3 py-1">
               Docker
+            </span>
+            <span className="rounded-full border border-zinc-800 px-3 py-1">
+              LangGraph
+            </span>
+            <span className="rounded-full border border-zinc-800 px-3 py-1">
+              OpenAI Agents SDK
+            </span>
+            <span className="rounded-full border border-zinc-800 px-3 py-1">
+              MCP
+            </span>
+            <span className="rounded-full border border-zinc-800 px-3 py-1">
+              RAG
+            </span>
+            <span className="rounded-full border border-zinc-800 px-3 py-1">
+              Azure
             </span>
           </div>
         </div>
@@ -117,7 +191,7 @@ export default function Home() {
               points: ["Next.js/React UIs", "Node & APIs", "Testing & CI/CD"],
             },
             {
-              title: "Solutions Consulting",
+              title: "Solutions Consulting (SMBs)",
               points: [
                 "Roadmaps & audits",
                 "Cost‑effective modernization",
@@ -166,6 +240,46 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Agentic AI */}
+      <section id="ai" className="mx-auto max-w-6xl px-4 pb-10">
+        <div className="mb-10 flex items-center justify-between">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Agentic AI Development
+          </h2>
+          <span className="h-px w-24 bg-gradient-to-r from-lime-400/60 via-yellow-300/60 to-transparent" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-3">
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6">
+            <div className="text-lg font-medium text-white">
+              Agent Workflows
+            </div>
+            <p className="mt-2 text-sm text-zinc-400">
+              Design and implement graph-based, tool-using agents with
+              LangGraph, OpenAI Agents SDK, and MCP. Multimodal where it moves
+              the needle.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6">
+            <div className="text-lg font-medium text-white">
+              RAG & Knowledge
+            </div>
+            <p className="mt-2 text-sm text-zinc-400">
+              Retrieval-augmented pipelines with embeddings, chunking, and
+              evaluators for accuracy, latency, and cost.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6">
+            <div className="text-lg font-medium text-white">
+              Production & Governance
+            </div>
+            <p className="mt-2 text-sm text-zinc-400">
+              CI/CD on Azure DevOps, observability, guardrails, SOC2-ready auth,
+              and secure data paths.
+            </p>
+          </div>
+        </div>
+      </section>
+
       {/* Approach */}
       <section id="approach" className="mx-auto max-w-6xl px-4 pb-20">
         <div className="mb-10 flex items-center justify-between">
@@ -199,6 +313,49 @@ export default function Home() {
               <p className="mt-2 text-sm text-zinc-400">{a.p}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Selected Work */}
+      <section id="work" className="mx-auto max-w-6xl px-4 pb-20">
+        <div className="mb-10 flex items-center justify-between">
+          <h2 className="text-2xl font-semibold tracking-tight">
+            Selected Work
+          </h2>
+          <span className="h-px w-24 bg-gradient-to-r from-yellow-300/60 via-lime-400/60 to-transparent" />
+        </div>
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-white">
+                Helios — B2B Integration Platform
+              </h3>
+              <span className="h-2 w-2 rounded-full bg-lime-400/80" />
+            </div>
+            <p className="mt-2 text-sm text-zinc-400">
+              Multitenant iPaaS adopted by enterprise manufacturers.
+              Domain-driven microservices, React/Node, MSSQL, Docker, Azure
+              DevOps. SOC2-ready auth (Okta/JWT/MFA) and sub-2s IoT edge syncs.
+            </p>
+            <div className="mt-3 text-xs text-zinc-500">
+              React • Node • MSSQL • Azure • Docker • IoT
+            </div>
+          </div>
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-medium text-white">
+                TuneCrook — DJ Music Discovery
+              </h3>
+              <span className="h-2 w-2 rounded-full bg-yellow-300/80" />
+            </div>
+            <p className="mt-2 text-sm text-zinc-400">
+              Agentic AI curates tracks from Discogs and YouTube with RAG. Built
+              with React, Node, Postgres; deployed with Azure DevOps.
+            </p>
+            <div className="mt-3 text-xs text-zinc-500">
+              RAG • Agents • React • Node • Postgres
+            </div>
+          </div>
         </div>
       </section>
 
@@ -242,18 +399,17 @@ export default function Home() {
           <div className="flex items-center gap-2">
             <span>© {new Date().getFullYear()} PinaColada.co</span>
             <span className="text-zinc-600">•</span>
-            <span>Built with Next.js</span>
           </div>
           <div className="flex items-center gap-4">
             <Link
-              href="https://github.com/hubenschmidt"
+              href="https://github.com/your-handle"
               target="_blank"
               className="hover:text-white"
             >
               GitHub
             </Link>
             <Link
-              href="https://www.linkedin.com/in/williamhubenschmidt"
+              href="https://www.linkedin.com/in/your-handle"
               target="_blank"
               className="hover:text-white"
             >
