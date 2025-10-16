@@ -18,7 +18,6 @@ pr:
 resources:
   - repo: self
 
-# ---------------- Variables ----------------
 variables:
   dockerRegistryServiceConnection: "ghcr-conn"
   owner: "hubenschmidt"
