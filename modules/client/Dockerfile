@@ -16,8 +16,8 @@ COPY . .
 # Build the application
 RUN npm run build
 
-# Make port 3001 available in development and production
-EXPOSE 3001
+# Make port 4000 available in development and production
+EXPOSE 4000
 
 # Define the command to run the app
 CMD ["npm", "start"]
