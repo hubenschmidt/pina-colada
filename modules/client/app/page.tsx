@@ -90,7 +90,7 @@ export default function Home() {
               Contact
             </Link>
             <Link
-              href="mailto:hello@pinacolada.co?subject=Project%20Inquiry"
+              href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
               className="inline-flex h-9 items-center rounded-full border border-zinc-800 px-4 text-sm font-medium hover:border-lime-400/60 hover:text-white"
             >
               Start a project
@@ -125,7 +125,7 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-col sm:flex-row gap-3">
             <Link
-              href="mailto:hello@pinacolada.co?subject=Project%20Inquiry"
+              href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
               className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-black shadow-[0_0_0_1px_rgba(255,255,255,0.06)_inset] hover:brightness-95"
             >
               Book a free consult
@@ -383,10 +383,10 @@ export default function Home() {
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link
-                  href="mailto:hello@pinacolada.co?subject=Project%20Inquiry"
+                  href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
                   className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-black hover:brightness-95"
                 >
-                  Email hello@pinacolada.co
+                  Email us
                 </Link>
                 <Link
                   href="https://cal.com/your-handle/intro"
