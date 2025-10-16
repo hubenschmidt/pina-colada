@@ -70,6 +70,16 @@ export default function Home() {
               Approach
             </Link>
             <Link
+              href="#portfolio"
+              className="hover:text-white"
+              onClick={(e) => {
+                e.preventDefault();
+                scrollWithOffset("#approach", 64);
+              }}
+            >
+              Portfolio
+            </Link>
+            <Link
               href="#contact"
               className="hover:text-white"
               onClick={(e) => {
@@ -103,9 +113,9 @@ export default function Home() {
         </div>
         <div className="mx-auto max-w-6xl px-4 py-24 sm:py-32">
           <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight sm:text-6xl">
-            Dark, minimal, enterprise‑grade
+            Elegant, enterprise‑grade
             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-lime-400 via-yellow-300 to-lime-400">
-              agentic AI & software consulting
+              AI & software solutions consulting
             </span>
           </h1>
           <p className="mt-6 max-w-2xl text-pretty text-zinc-400">
@@ -213,6 +223,7 @@ export default function Home() {
             {
               title: "Web Development",
               points: [
+                "E-commerce integration",
                 "Marketing sites",
                 "Dashboards & portals",
                 "Accessibility",
@@ -316,12 +327,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Selected Work */}
-      <section id="work" className="mx-auto max-w-6xl px-4 pb-20">
+      {/* Portfolio */}
+      <section id="portfolio" className="mx-auto max-w-6xl px-4 pb-20">
         <div className="mb-10 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold tracking-tight">
-            Selected Work
-          </h2>
+          <h2 className="text-2xl font-semibold tracking-tight">Portfolio</h2>
           <span className="h-px w-24 bg-gradient-to-r from-yellow-300/60 via-lime-400/60 to-transparent" />
         </div>
         <div className="grid gap-4 md:grid-cols-2">
@@ -398,18 +407,17 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-4 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-zinc-400">
           <div className="flex items-center gap-2">
             <span>© {new Date().getFullYear()} PinaColada.co</span>
-            <span className="text-zinc-600">•</span>
           </div>
           <div className="flex items-center gap-4">
             <Link
-              href="https://github.com/your-handle"
+              href="https://github.com/hubenschmidt"
               target="_blank"
               className="hover:text-white"
             >
               GitHub
             </Link>
             <Link
-              href="https://www.linkedin.com/in/your-handle"
+              href="https://www.linkedin.com/company/pinacoladaco"
               target="_blank"
               className="hover:text-white"
             >
