@@ -25,7 +25,7 @@ export default function Home() {
   }, [scrollWithOffset]);
 
   return (
-    <div className="min-h-screen bg-white text-zinc-800 selection:bg-lime-300/40">
+    <div className="min-h-screen text-zinc-800 selection:bg-lime-300/40">
       {/* Top Nav */}
 
       {/* Hero */}
@@ -41,7 +41,7 @@ export default function Home() {
           <div className="absolute -bottom-24 right-12 h-72 w-72 rounded-full bg-yellow-300/20 blur-3xl" />
         </div>
         <div className="mx-auto max-w-6xl px-4 py-24 sm:py-32">
-          <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight text-zinc-900 sm:text-6xl">
+          <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight text-orange-400 sm:text-6xl">
             Elegant, enterprise-grade
             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
               AI & software solutions consulting
@@ -78,7 +78,7 @@ export default function Home() {
         <div id="services" className="mx-auto max-w-6xl px-4 py-20">
           <div className="mb-10 flex items-center justify-between">
             <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
-              Services
+              Software Development
             </h2>
             <span className="h-px w-24 bg-gradient-to-r from-lime-400/60 via-yellow-400/60 to-transparent" />
           </div>
@@ -129,7 +129,7 @@ export default function Home() {
             ].map((s) => (
               <div
                 key={s.title}
-                className="group rounded-2xl border border-zinc-200 bg-white p-5 transition-colors hover:border-lime-400/40"
+                className="group rounded-2xl border border-zinc-200 p-5 transition-colors hover:border-lime-400/40"
               >
                 <div className="mb-3 flex items-start justify-between">
                   <h3 className="text-base font-medium text-zinc-900">
@@ -156,7 +156,7 @@ export default function Home() {
         <div id="ai" className="mx-auto max-w-6xl px-4 py-20">
           <div className="mb-10 flex items-center justify-between">
             <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
-              Agentic AI Development
+              AI Development
             </h2>
             <span className="h-px w-24 bg-gradient-to-r from-lime-400/60 via-yellow-400/60 to-transparent" />
           </div>
@@ -175,10 +175,7 @@ export default function Home() {
                 p: "CI/CD on Azure DevOps, observability, guardrails, SOC2-ready auth, and secure data paths.",
               },
             ].map((a) => (
-              <div
-                key={a.h}
-                className="rounded-2xl border border-zinc-200 bg-white p-6"
-              >
+              <div key={a.h} className="rounded-2xl border border-zinc-200 p-6">
                 <div className="text-lg font-medium text-zinc-900">{a.h}</div>
                 <p className="mt-2 text-sm text-zinc-600">{a.p}</p>
               </div>
@@ -214,10 +211,7 @@ export default function Home() {
                 p: "Harden for production: security, infra, and support so your team can move fast.",
               },
             ].map((a) => (
-              <div
-                key={a.k}
-                className="rounded-2xl border border-zinc-200 bg-white p-6"
-              >
+              <div key={a.k} className="rounded-2xl border border-zinc-200 p-6">
                 <div className="mb-2 text-sm text-zinc-500">Step {a.k}</div>
                 <div className="text-lg font-medium text-zinc-900">{a.h}</div>
                 <p className="mt-2 text-sm text-zinc-600">{a.p}</p>
@@ -239,7 +233,7 @@ export default function Home() {
 
           <div className="grid gap-4 md:grid-cols-2">
             {/* Helios */}
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 transition hover:border-zinc-300 hover:bg-zinc-50">
+            <div className="rounded-2xl border border-zinc-200 p-6 transition hover:border-zinc-300 hover:bg-zinc-50">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium text-zinc-900">
                   <a
@@ -266,7 +260,7 @@ export default function Home() {
             </div>
 
             {/* TuneCrook */}
-            <div className="rounded-2xl border border-zinc-200 bg-white p-6 transition hover:border-zinc-300 hover:bg-zinc-50">
+            <div className="rounded-2xl border border-zinc-200 p-6 transition hover:border-zinc-300 hover:bg-zinc-50">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium text-zinc-900">
                   <a
@@ -296,7 +290,7 @@ export default function Home() {
       {/* CTA / Contact */}
       <section id="contact" className="relative">
         <div className="mx-auto max-w-6xl px-4 pb-28">
-          <div className="rounded-3xl border border-zinc-200 bg-white p-8 md:p-10 shadow-sm">
+          <div className="rounded-3xl border border-zinc-200 p-8 md:p-10 shadow-sm">
             <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
               <div>
                 <h3 className="text-xl font-semibold text-zinc-900">
