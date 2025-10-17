@@ -1,8 +1,35 @@
 "use client";
+import { useEffect } from "react";
 import Link from "next/link";
 import SectionFrame from "../components/SectionFrame";
 
 export default function Home() {
+  // Clear the hash when user scrolls back to (near) top
+  useEffect(() => {
+    let ticking = false;
+
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+
+      requestAnimationFrame(() => {
+        const nearTop = window.scrollY <= 2; // small tolerance
+        if (nearTop && window.location.hash) {
+          // remove only the hash, keep path + query
+          history.replaceState(
+            null,
+            "",
+            window.location.pathname + window.location.search
+          );
+        }
+        ticking = false;
+      });
+    };
+
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   return (
     <div className="min-h-screen text-zinc-800 selection:bg-lime-300/40">
       {/* Hero */}
