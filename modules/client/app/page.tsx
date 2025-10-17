@@ -14,6 +14,7 @@ export default function Home() {
     history.pushState(null, "", hash);
   }, []);
 
+  // Apply offset scrolling for hash changes on home
   useEffect(() => {
     const handle = () => {
       if (location.hash) setTimeout(() => scrollWithOffset(location.hash), 0);
@@ -26,74 +27,6 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-white text-zinc-800 selection:bg-lime-300/40">
       {/* Top Nav */}
-      <header className="sticky top-0 z-40 border-b border-zinc-200 backdrop-blur supports-[backdrop-filter]:bg-white/70">
-        <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
-          <Link href="#" className="flex items-center gap-2">
-            <span className="text-2xl leading-none">🍍</span>
-            <span className="font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
-              PinaColada.co
-            </span>
-          </Link>
-          <nav className="hidden sm:flex items-center gap-6 text-sm text-zinc-600">
-            <Link
-              href="#services"
-              className="hover:text-black"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollWithOffset("#services", 64);
-              }}
-            >
-              Software Development
-            </Link>
-            <Link
-              href="#ai"
-              className="hover:text-black"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollWithOffset("#ai", 64);
-              }}
-            >
-              AI
-            </Link>
-            <Link
-              href="#approach"
-              className="hover:text-black"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollWithOffset("#approach", 64);
-              }}
-            >
-              Approach
-            </Link>
-            <Link
-              href="#portfolio"
-              className="hover:text-black"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollWithOffset("#portfolio", 64);
-              }}
-            >
-              Portfolio
-            </Link>
-            <Link
-              href="#contact"
-              className="hover:text-black"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollWithOffset("#contact", 64);
-              }}
-            >
-              Contact
-            </Link>
-            <Link
-              href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
-              className="inline-flex h-9 items-center rounded-full border border-zinc-300 px-4 text-sm font-medium hover:border-lime-400/60 hover:text-black"
-            >
-              Start a project
-            </Link>
-          </nav>
-        </div>
-      </header>
 
       {/* Hero */}
       <section className="relative overflow-hidden">
