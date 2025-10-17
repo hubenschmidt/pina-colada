@@ -1,34 +1,10 @@
 "use client";
 import Link from "next/link";
-import { useCallback, useEffect } from "react";
 import SectionFrame from "../components/SectionFrame";
 
 export default function Home() {
-  const scrollWithOffset = useCallback((hash: string, offset = 64) => {
-    const el = document.querySelector(hash);
-    if (!el) return;
-    const y =
-      (el as HTMLElement).getBoundingClientRect().top +
-      window.pageYOffset -
-      offset;
-    window.scrollTo({ top: y, behavior: "smooth" });
-    history.pushState(null, "", hash);
-  }, []);
-
-  // Apply offset scrolling for hash changes on home
-  useEffect(() => {
-    const handle = () => {
-      if (location.hash) setTimeout(() => scrollWithOffset(location.hash), 0);
-    };
-    handle();
-    window.addEventListener("hashchange", handle);
-    return () => window.removeEventListener("hashchange", handle);
-  }, [scrollWithOffset]);
-
   return (
     <div className="min-h-screen text-zinc-800 selection:bg-lime-300/40">
-      {/* Top Nav */}
-
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div
@@ -64,10 +40,6 @@ export default function Home() {
             <Link
               href="#services"
               className="inline-flex items-center justify-center rounded-full border border-zinc-300 px-6 py-3 text-sm font-medium text-zinc-800 hover:border-lime-400/60"
-              onClick={(e) => {
-                e.preventDefault();
-                scrollWithOffset("#services", 64);
-              }}
             >
               Explore services
             </Link>

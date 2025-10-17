@@ -1,7 +1,15 @@
+// components/Header.tsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+
+function scrollToHash(id: string) {
+  const el = document.querySelector(id);
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Keep URL synced (optional). This won't trigger navigation if same hash.
+  history.replaceState(null, "", id);
+}
 
 export default function Header() {
   const pathname = usePathname();
@@ -18,36 +26,77 @@ export default function Header() {
         </Link>
 
         <nav className="hidden sm:flex items-center gap-6 text-sm text-zinc-600">
-          {/* About is a real route */}
           <Link href="/about" className="hover:text-black">
             About
           </Link>
 
-          {/* These go to hash on home; on other pages they route back to home with hash */}
           <Link
             href={onHome ? "#services" : "/#services"}
             className="hover:text-black"
+            onClick={
+              onHome
+                ? (e) => {
+                    e.preventDefault();
+                    scrollToHash("#services");
+                  }
+                : undefined
+            }
           >
             Software Development
           </Link>
-          <Link href={onHome ? "#ai" : "/#ai"} className="hover:text-black">
+          <Link
+            href={onHome ? "#ai" : "/#ai"}
+            className="hover:text-black"
+            onClick={
+              onHome
+                ? (e) => {
+                    e.preventDefault();
+                    scrollToHash("#ai");
+                  }
+                : undefined
+            }
+          >
             AI
           </Link>
           <Link
             href={onHome ? "#approach" : "/#approach"}
             className="hover:text-black"
+            onClick={
+              onHome
+                ? (e) => {
+                    e.preventDefault();
+                    scrollToHash("#approach");
+                  }
+                : undefined
+            }
           >
             Approach
           </Link>
           <Link
             href={onHome ? "#portfolio" : "/#portfolio"}
             className="hover:text-black"
+            onClick={
+              onHome
+                ? (e) => {
+                    e.preventDefault();
+                    scrollToHash("#portfolio");
+                  }
+                : undefined
+            }
           >
             Portfolio
           </Link>
           <Link
             href={onHome ? "#contact" : "/#contact"}
             className="hover:text-black"
+            onClick={
+              onHome
+                ? (e) => {
+                    e.preventDefault();
+                    scrollToHash("#contact");
+                  }
+                : undefined
+            }
           >
             Contact
           </Link>
