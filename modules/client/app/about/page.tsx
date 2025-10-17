@@ -1,4 +1,6 @@
 // app/about/page.tsx
+import Image from "next/image";
+
 export const metadata = { title: "About — PinaColada.co" };
 
 export default function AboutPage() {
@@ -8,21 +10,20 @@ export default function AboutPage() {
         <h1 className="text-3xl font-semibold tracking-tight text-zinc-900">
           About
         </h1>
-        <p className="mt-2 text-zinc-600">A quick intro and a friendly face.</p>
       </div>
 
       <div className="grid gap-8 md:grid-cols-[240px_1fr] items-start">
-        {/* Placeholder portrait */}
+        {/* Portrait */}
         <div className="flex items-center justify-center">
-          <div
-            className="h-60 w-60 rounded-2xl border border-zinc-200 bg-zinc-100 shadow-sm"
-            aria-label="Placeholder for portrait"
-            role="img"
-          >
-            {/* Optional: simple placeholder mark */}
-            <div className="h-full w-full grid place-items-center text-zinc-400">
-              <span className="text-sm">Your photo here</span>
-            </div>
+          <div className="relative h-60 w-60 overflow-hidden rounded-2xl border border-zinc-200 shadow-sm">
+            <Image
+              src="/wh.jpg"
+              alt="William Hubenschmidt"
+              width={240}
+              height={240}
+              className="object-cover"
+              priority
+            />
           </div>
         </div>
 

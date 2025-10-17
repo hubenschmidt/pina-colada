@@ -30,7 +30,7 @@ export default function SectionFrame({
           containerClassName,
           roundedClassName,
           borderClassName,
-          "bg-white shadow-sm",
+          "bg-blue-100 shadow-sm",
           "p-5 sm:p-6 md:p-8",
           className
         )}

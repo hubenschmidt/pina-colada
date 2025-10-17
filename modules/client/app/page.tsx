@@ -3,48 +3,6 @@ import { useEffect } from "react";
 import Link from "next/link";
 import SectionFrame from "../components/SectionFrame";
 
-function HashScroll({ offset = 64 }: { offset?: number }) {
-  useEffect(() => {
-    const scrollToHash = (hash: string) => {
-      const el = document.querySelector(hash) as HTMLElement | null;
-      if (!el) return;
-      const top = el.getBoundingClientRect().top + window.scrollY - offset;
-      window.scrollTo({ top, behavior: "smooth" });
-    };
-
-    // Handle clicks on any <a href="#...">, always scroll (even if same hash)
-    const onClick = (e: MouseEvent) => {
-      const a = (e.target as HTMLElement).closest(
-        'a[href^="#"]'
-      ) as HTMLAnchorElement | null;
-      if (!a) return;
-      const href = a.getAttribute("href");
-      if (!href || href === "#") return;
-
-      e.preventDefault();
-      // keep URL in sync (works even if the hash is the same)
-      history.replaceState(null, "", href);
-      scrollToHash(href);
-    };
-
-    // Handle direct loads / back-forward with a hash
-    const onHash = () => {
-      if (location.hash) scrollToHash(location.hash);
-    };
-
-    document.addEventListener("click", onClick);
-    window.addEventListener("hashchange", onHash);
-    onHash(); // run once on mount
-
-    return () => {
-      document.removeEventListener("click", onClick);
-      window.removeEventListener("hashchange", onHash);
-    };
-  }, [offset]);
-
-  return null;
-}
-
 export default function Home() {
   // Clear the hash when user scrolls back to (near) top
   useEffect(() => {
@@ -74,7 +32,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen text-zinc-800 selection:bg-lime-300/40">
-      <HashScroll offset={96} /> {/* match your sticky header height */}
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div
@@ -90,7 +47,7 @@ export default function Home() {
         <div className="mx-auto max-w-6xl px-4 py-24 sm:py-32">
           <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight text-orange-400 sm:text-6xl leading-[1.1] md:leading-[1.05]">
             Elegant, enterprise-grade
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 leading-[1.05] pb-1">
+            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 leading-[1.05] pb-2">
               AI & software solutions consulting
             </span>
           </h1>
@@ -117,7 +74,7 @@ export default function Home() {
         </div>
       </section>
       {/* Services — zinc-50 */}
-      <SectionFrame id="services" bandBg="bg-blue-100">
+      <SectionFrame id="services" bandBg="bg-blue-200">
         <div className="mb-10 flex items-center justify-between">
           <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
             Software Development
