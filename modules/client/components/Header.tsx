@@ -1,13 +1,21 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Header() {
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 backdrop-blur bg-blue-100">
       <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
-          <span className="text-3xl leading-none">🍍</span>
+          <Image
+            src="/logo.png" // lives in /public
+            alt="PinaColada.co"
+            width={48}
+            height={48}
+            priority // preloads on homepage
+            className="rounded-md shadow-[0_1px_6px_rgba(0,0,0,0.12)]"
+          />
           <span className="text-3xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
             PinaColada.co
           </span>
