@@ -1,19 +1,10 @@
-// components/Header.tsx
 "use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-function scrollToHash(id: string) {
-  const el = document.querySelector(id);
-  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  // Keep URL synced (optional). This won't trigger navigation if same hash.
-  history.replaceState(null, "", id);
-}
-
 export default function Header() {
-  const pathname = usePathname();
-  const onHome = pathname === "/";
+  const onHome = usePathname() === "/";
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 backdrop-blur supports-[backdrop-filter]:bg-white/100">
@@ -30,76 +21,43 @@ export default function Header() {
             About
           </Link>
 
-          <Link
-            href={onHome ? "#services" : "/#services"}
-            className="hover:text-black"
-            onClick={
-              onHome
-                ? (e) => {
-                    e.preventDefault();
-                    scrollToHash("#services");
-                  }
-                : undefined
-            }
-          >
-            Software Development
-          </Link>
-          <Link
-            href={onHome ? "#ai" : "/#ai"}
-            className="hover:text-black"
-            onClick={
-              onHome
-                ? (e) => {
-                    e.preventDefault();
-                    scrollToHash("#ai");
-                  }
-                : undefined
-            }
-          >
-            AI
-          </Link>
-          <Link
-            href={onHome ? "#approach" : "/#approach"}
-            className="hover:text-black"
-            onClick={
-              onHome
-                ? (e) => {
-                    e.preventDefault();
-                    scrollToHash("#approach");
-                  }
-                : undefined
-            }
-          >
-            Approach
-          </Link>
-          <Link
-            href={onHome ? "#portfolio" : "/#portfolio"}
-            className="hover:text-black"
-            onClick={
-              onHome
-                ? (e) => {
-                    e.preventDefault();
-                    scrollToHash("#portfolio");
-                  }
-                : undefined
-            }
-          >
-            Portfolio
-          </Link>
-          <Link
-            href={onHome ? "#contact" : "/#contact"}
-            className="hover:text-black"
-            onClick={
-              onHome
-                ? (e) => {
-                    e.preventDefault();
-                    scrollToHash("#contact");
-                  }
-                : undefined
-            }
-          >
-            Contact
-          </Link>
+          {onHome ? (
+            <>
+              <a href="#services" className="hover:text-black">
+                Software Development
+              </a>
+              <a href="#ai" className="hover:text-black">
+                AI
+              </a>
+              <a href="#approach" className="hover:text-black">
+                Approach
+              </a>
+              <a href="#portfolio" className="hover:text-black">
+                Portfolio
+              </a>
+              <a href="#contact" className="hover:text-black">
+                Contact
+              </a>
+            </>
+          ) : (
+            <>
+              <Link href="/#services" className="hover:text-black">
+                Software Development
+              </Link>
+              <Link href="/#ai" className="hover:text-black">
+                AI
+              </Link>
+              <Link href="/#approach" className="hover:text-black">
+                Approach
+              </Link>
+              <Link href="/#portfolio" className="hover:text-black">
+                Portfolio
+              </Link>
+              <Link href="/#contact" className="hover:text-black">
+                Contact
+              </Link>
+            </>
+          )}
 
           <Link
             href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
