@@ -9,12 +9,11 @@ export default function Header() {
       <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <Image
-            src="/logo.png" // lives in /public
+            src="/logo.png"
             alt="PinaColada.co"
             width={48}
             height={48}
-            priority // preloads on homepage
-            className="rounded-md shadow-[0_1px_6px_rgba(0,0,0,0.12)]"
+            priority
           />
           <span className="text-3xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
             PinaColada.co
