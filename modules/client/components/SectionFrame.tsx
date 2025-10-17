@@ -9,10 +9,7 @@ type SectionFrameProps = {
   containerClassName?: string; // default container classes
 };
 
-// Tiny local helper to concat classes safely
-function cx(...parts: Array<string | false | null | undefined>) {
-  return parts.filter(Boolean).join(" ");
-}
+import cx from "../util/concat-classes";
 
 export default function SectionFrame({
   id,

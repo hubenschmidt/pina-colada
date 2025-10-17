@@ -2,6 +2,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import SectionFrame from "../components/SectionFrame";
+import { CheckCircle2 } from "lucide-react"; // you already use lucide-react
+import { Card, SectionTitle, CardLink } from "../components/ui";
 
 export default function Home() {
   // Clear the hash when user scrolls back to (near) top
@@ -74,11 +76,11 @@ export default function Home() {
         </div>
       </section>
       <SectionFrame id="services" bandBg="bg-blue-200">
+        <SectionTitle kicker="Our Services" title="" />
         <div className="mb-10 flex items-center justify-between">
           <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
             Software Development
           </h2>
-          <span className="h-px w-24 bg-gradient-to-r from-lime-400/60 via-yellow-400/60 to-transparent" />
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -125,25 +127,22 @@ export default function Home() {
               ],
             },
           ].map((s) => (
-            <div
-              key={s.title}
-              className="group rounded-2xl border border-zinc-200 p-5 transition-colors hover:border-lime-400/40"
-            >
+            <Card key={s.title} className="p-5">
               <div className="mb-3 flex items-start justify-between">
                 <h3 className="text-base font-medium text-zinc-900">
                   {s.title}
                 </h3>
-                <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-70 group-hover:opacity-100" />
+                <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
               </div>
-              <ul className="space-y-1 text-sm text-zinc-600">
+              <ul className="space-y-1.5 text-sm text-zinc-600">
                 {s.points.map((p) => (
                   <li key={p} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-lime-400/70" />{" "}
-                    {p}
+                    <CheckCircle2 className="size-4 text-lime-500/80" />
+                    <span>{p}</span>
                   </li>
                 ))}
               </ul>
-            </div>
+            </Card>
           ))}
         </div>
 
@@ -158,63 +157,93 @@ export default function Home() {
           <div className="grid gap-4 md:grid-cols-3">
             {[
               {
-                h: "Agent Workflows",
-                p: "Design and implement graph-based, tool-using agents with LangGraph, OpenAI Agents SDK, and MCP. Multimodal where it moves the needle.",
+                title: "Agent Workflows",
+                points: [
+                  "Design and implement graph-based, tool-using agents with LangGraph, OpenAI Agents SDK, and MCP. Multimodal where it moves the needle.",
+                ],
               },
               {
-                h: "RAG & Knowledge",
-                p: "Retrieval-augmented pipelines with embeddings, chunking, and evaluators for accuracy, latency, and cost.",
+                title: "RAG & Knowledge",
+                points: [
+                  "Retrieval-augmented pipelines with embeddings, chunking, and evaluators for accuracy, latency, and cost.",
+                ],
               },
               {
-                h: "Production & Governance",
-                p: "CI/CD on Azure DevOps, observability, guardrails, SOC2-ready auth, and secure data paths.",
+                title: "Production & Governance",
+                points: [
+                  "CI/CD on Azure DevOps, observability, guardrails, SOC2-ready auth, and secure data paths.",
+                ],
               },
-            ].map((a) => (
-              <div
-                key={a.h}
-                className="rounded-2xl border border-zinc-200 p-6 transition-colors hover:border-lime-400/40"
-              >
-                <div className="text-lg font-medium text-zinc-900">{a.h}</div>
-                <p className="mt-2 text-sm text-zinc-600">{a.p}</p>
-              </div>
+            ].map((s) => (
+              <Card key={s.title} className="p-5">
+                <div className="mb-3 flex items-start justify-between">
+                  <h3 className="text-base font-medium text-zinc-900">
+                    {s.title}
+                  </h3>
+                  <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
+                </div>
+                <ul className="space-y-1.5 text-sm text-zinc-600">
+                  {s.points.map((p) => (
+                    <li key={p} className="flex items-center gap-2">
+                      <CheckCircle2 className="size-4 text-lime-500/80" />
+                      <span>{p}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
             ))}
           </div>
         </div>
       </SectionFrame>
+
       {/* Approach — zinc-200 */}
       <SectionFrame id="approach" bandBg="bg-blue-200">
+        <SectionTitle kicker="Our Approach" title="" />
         <div className="mb-10 flex items-center justify-between">
           <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
-            Approach
+            Continuous Integration and Delivery
           </h2>
-          <span className="h-px w-24 bg-gradient-to-r from-yellow-400/60 via-lime-400/60 to-transparent" />
         </div>
         <div className="grid gap-4 md:grid-cols-3">
           {[
             {
               k: "1",
-              h: "Discover",
-              p: "Quickly map goals, constraints, and ROI. We favor lean specs and high-signal prototypes.",
+              title: "Discover",
+              points: [
+                "Quickly map goals, constraints, and ROI. We favor lean specs and high-signal prototypes.",
+              ],
             },
             {
               k: "2",
-              h: "Build",
-              p: "Ship in vertical slices with strong CI/CD, observability, and performance budgets.",
+              title: "Build",
+              points: [
+                "Ship in vertical slices with strong CI/CD, observability, and performance budgets.",
+              ],
             },
             {
               k: "3",
-              h: "Scale",
-              p: "Harden for production: security, infra, and support so your team can move fast.",
+              title: "Scale",
+              points: [
+                "Harden for production: security, infra, and support so your team can move fast.",
+              ],
             },
-          ].map((a) => (
-            <div
-              key={a.k}
-              className="rounded-2xl border border-zinc-200 p-6 transition-colors hover:border-lime-400/40"
-            >
-              <div className="mb-2 text-sm text-zinc-500">Step {a.k}</div>
-              <div className="text-lg font-medium text-zinc-900">{a.h}</div>
-              <p className="mt-2 text-sm text-zinc-600">{a.p}</p>
-            </div>
+          ].map((s) => (
+            <Card key={s.title} className="p-5">
+              <div className="mb-3 flex items-start justify-between">
+                <h3 className="text-base font-medium text-zinc-900">
+                  {s.title}
+                </h3>
+                <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
+              </div>
+              <ul className="space-y-1.5 text-sm text-zinc-600">
+                {s.points.map((p) => (
+                  <li key={p} className="flex items-center gap-2">
+                    <CheckCircle2 className="size-4 text-lime-500/80" />
+                    <span>{p}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
           ))}
         </div>
       </SectionFrame>
@@ -228,50 +257,32 @@ export default function Home() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          {/* Helios */}
-          <div className="rounded-2xl border border-zinc-200 p-6 transition hover:bg-zinc-50 transition-colors hover:border-lime-400/40">
+          <CardLink href="https://www.cumulus-erp.com/helios-ipaas/">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-zinc-900">
-                <a
-                  href="https://www.cumulus-erp.com/helios-ipaas/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:underline focus-visible:underline underline-offset-4 decoration-2"
-                  aria-label="Open Helios — B2B Integration Platform"
-                >
-                  Helios — B2B Integration Platform
-                </a>
+                Helios — B2B Integration Platform
               </h3>
               <span className="h-2 w-2 rounded-full bg-lime-400/80" />
             </div>
             <p className="mt-2 text-sm text-zinc-600">
               Multitenant iPaaS adopted by enterprise manufacturers.
               Domain-driven microservices, React/Node, MSSQL, Docker, Azure
-              DevOps. SOC2-ready auth (Okta/JWT/MFA) and sub-2s IoT edge syncs.
+              DevOps. SOC2-ready auth and sub-2s IoT edge syncs.
             </p>
-          </div>
+          </CardLink>
 
-          {/* TuneCrook */}
-          <div className="rounded-2xl border border-zinc-200 p-6 transition hover:bg-zinc-50 transition-colors hover:border-lime-400/40">
+          <CardLink href="https://www.tunecrook.com/">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-zinc-900">
-                <a
-                  href="https://www.tunecrook.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:underline focus-visible:underline underline-offset-4 decoration-2"
-                  aria-label="Open TuneCrook — DJ Music Discovery"
-                >
-                  TuneCrook — DJ Music Discovery
-                </a>
+                TuneCrook — DJ Music Discovery
               </h3>
               <span className="h-2 w-2 rounded-full bg-yellow-300/80" />
             </div>
             <p className="mt-2 text-sm text-zinc-600">
-              Agentic AI curates tracks from Discogs and YouTube with RAG. Built
-              with React, Node, Postgres; deployed with Azure DevOps.
+              Agentic AI curates tracks from Discogs and YouTube with RAG.
+              React, Node, Postgres; DigitalOcean App Platform.
             </p>
-          </div>
+          </CardLink>
         </div>
       </SectionFrame>
       {/* CTA / Contact */}

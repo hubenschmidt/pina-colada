@@ -5,6 +5,12 @@
   --foreground: #171717;
   --font-sans: var(--font-sans); /* Inter */
   --font-display: var(--font-display); /* Playfair */
+  --grain: radial-gradient(transparent 65%, rgba(0, 0, 0, 0.04));
+}
+.bg-grain {
+  background-image: var(--grain);
+  background-size: 200% 200%;
+  mask-image: radial-gradient(ellipse at center, black, transparent 70%);
 }
 
 @theme inline {
@@ -20,6 +26,10 @@
 html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+a {
+  text-underline-offset: 3px;
+  text-decoration-thickness: 2px;
 }
 body {
   background: var(--background);
