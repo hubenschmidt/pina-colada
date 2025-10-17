@@ -281,15 +281,15 @@ export default function Home() {
       </SectionFrame>
 
       {/* CTA / Contact */}
-      <section id="contact" className="relative">
-        <div className="mx-auto max-w-6xl px-4 pb-28">
-          <div className="rounded-3xl border border-zinc-200 p-8 md:p-10 shadow-sm">
+      <section id="contact" className="relative bg-blue-800 text-blue-50">
+        <div className="mx-auto max-w-6xl px-4 pt-20 pb-28">
+          <div className="rounded-3xl border border-blue-600/60 bg-blue-700/40 p-8 md:p-10 shadow-sm">
             <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
               <div>
-                <h3 className="text-xl font-semibold text-zinc-900">
+                <h3 className="text-xl font-semibold text-white">
                   Have a project in mind?
                 </h3>
-                <p className="mt-1 text-sm text-zinc-600">
+                <p className="mt-1 text-sm text-blue-200">
                   Let's connect and talk about goals for your technical domain.
                 </p>
               </div>
@@ -307,8 +307,8 @@ export default function Home() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-zinc-200">
-        <div className="mx-auto max-w-6xl px-4 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-zinc-500">
+      <footer className="border-t border-blue-700 bg-blue-800">
+        <div className="mx-auto max-w-6xl px-4 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-blue-200">
           <div className="flex items-center gap-2">
             <span>© {new Date().getFullYear()} PinaColada.co</span>
           </div>
@@ -316,14 +316,14 @@ export default function Home() {
             <Link
               href="https://github.com/hubenschmidt"
               target="_blank"
-              className="hover:text-black"
+              className="hover:text-white"
             >
               GitHub
             </Link>
             <Link
               href="https://www.linkedin.com/company/pinacoladaco"
               target="_blank"
-              className="hover:text-black"
+              className="hover:text-white"
             >
               LinkedIn
             </Link>
