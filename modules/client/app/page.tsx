@@ -4,6 +4,7 @@ import Link from "next/link";
 import SectionFrame from "../components/SectionFrame";
 import { CheckCircle2 } from "lucide-react"; // you already use lucide-react
 import { Card, SectionTitle, CardLink } from "../components/ui";
+import Image from "next/image";
 
 export default function Home() {
   // Clear the hash when user scrolls back to (near) top
@@ -36,9 +37,18 @@ export default function Home() {
     <div className="min-h-screen text-zinc-800 selection:bg-lime-300/40">
       {/* Hero */}
       <section className="relative overflow-hidden">
+        <Image
+          src="/pc.png"
+          alt=""
+          fill
+          priority
+          aria-hidden
+          className="object-cover object-center opacity-25 [filter:brightness(0.98)_contrast(1.1)]"
+          sizes="100vw"
+        />
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-40"
+          className="pointer-events-none absolute inset-0 opacity-0"
         >
           {/* subtle grid for light bg: darker lines, soft mask */}
           <div className="[mask-image:radial-gradient(ellipse_at_center,black,transparent_65%)] absolute inset-0 bg-[linear-gradient(to_right,transparent_95%,rgba(0,0,0,0.06)_96%),linear-gradient(to_bottom,transparent_95%,rgba(0,0,0,0.06)_96%)] bg-[size:24px_24px]" />
@@ -46,7 +56,7 @@ export default function Home() {
           <div className="absolute -top-24 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-lime-300/30 blur-3xl" />
           <div className="absolute -bottom-24 right-12 h-72 w-72 rounded-full bg-yellow-300/20 blur-3xl" />
         </div>
-        <div className="mx-auto max-w-6xl px-4 py-24 sm:py-32">
+        <div className="relative z-10 mx-auto max-w-6xl px-4 py-24 sm:py-32">
           <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight text-orange-400 sm:text-6xl leading-[1.1] md:leading-[1.05]">
             Elegant, enterprise-grade
             <span className="block text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 leading-[1.05] pb-2">
@@ -54,7 +64,7 @@ export default function Home() {
             </span>
           </h1>
 
-          <p className="mt-6 max-w-2xl text-pretty text-zinc-600">
+          <p className="text-xl mt-6 max-w-2xl text-pretty text-zinc-600">
             We design and build robust systems for small and medium-sized
             businesses— from greenfield apps to integrations that tame complex
             CRM/ERP landscapes.
