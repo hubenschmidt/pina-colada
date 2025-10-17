@@ -74,7 +74,7 @@ export default function Home() {
               className="hover:text-white"
               onClick={(e) => {
                 e.preventDefault();
-                scrollWithOffset("#approach", 64);
+                scrollWithOffset("#portfolio", 64);
               }}
             >
               Portfolio
@@ -88,12 +88,6 @@ export default function Home() {
               }}
             >
               Contact
-            </Link>
-            <Link
-              href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
-              className="inline-flex h-9 items-center rounded-full border border-zinc-800 px-4 text-sm font-medium hover:border-lime-400/60 hover:text-white"
-            >
-              Start a project
             </Link>
           </nav>
         </div>
@@ -145,7 +139,10 @@ export default function Home() {
       </section>
 
       {/* Services */}
-      <section id="services" className="mx-auto max-w-6xl px-4 py-20">
+      <section
+        id="services"
+        className="rounded-2xl mx-auto max-w-6xl px-4 py-20"
+      >
         <div className="mb-10 flex items-center justify-between">
           <h2 className="text-2xl font-semibold tracking-tight">Services</h2>
           <span className="h-px w-24 bg-gradient-to-r from-lime-400/60 via-yellow-300/60 to-transparent" />
@@ -217,9 +214,12 @@ export default function Home() {
       </section>
 
       {/* Agentic AI */}
-      <section id="ai" className="mx-auto max-w-6xl px-4 pb-10">
+      <section
+        id="ai"
+        className="rounded-2xl mx-auto max-w-6xl px-4 pb-10 bg-zinc-950 mb-20"
+      >
         <div className="mb-10 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold tracking-tight">
+          <h2 className="mt-10 text-2xl font-semibold tracking-tight">
             Agentic AI Development
           </h2>
           <span className="h-px w-24 bg-gradient-to-r from-lime-400/60 via-yellow-300/60 to-transparent" />
@@ -257,9 +257,14 @@ export default function Home() {
       </section>
 
       {/* Approach */}
-      <section id="approach" className="mx-auto max-w-6xl px-4 pb-20">
+      <section
+        id="approach"
+        className="rounded-2xl mx-auto max-w-6xl px-4 pb-20 bg-zinc-900 mb-20"
+      >
         <div className="mb-10 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold tracking-tight">Approach</h2>
+          <h2 className="mt-10 text-2xl font-semibold tracking-tight">
+            Approach
+          </h2>
           <span className="h-px w-24 bg-gradient-to-r from-yellow-300/60 via-lime-400/60 to-transparent" />
         </div>
         <div className="grid gap-4 md:grid-cols-3">
@@ -293,9 +298,14 @@ export default function Home() {
       </section>
 
       {/* Portfolio */}
-      <section id="portfolio" className="mx-auto max-w-6xl px-4 pb-20">
+      <section
+        id="portfolio"
+        className="rounded-2xl mx-auto max-w-6xl px-4 pb-20 bg-zinc-800 mb-20"
+      >
         <div className="mb-10 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold tracking-tight">Portfolio</h2>
+          <h2 className="mt-10 text-2xl font-semibold tracking-tight">
+            Portfolio
+          </h2>
           <span className="h-px w-24 bg-gradient-to-r from-yellow-300/60 via-lime-400/60 to-transparent" />
         </div>
 
@@ -371,7 +381,7 @@ export default function Home() {
                   href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
                   className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-black hover:brightness-95"
                 >
-                  Email us
+                  Email William
                 </Link>
               </div>
             </div>
