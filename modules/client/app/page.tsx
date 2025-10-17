@@ -3,6 +3,48 @@ import { useEffect } from "react";
 import Link from "next/link";
 import SectionFrame from "../components/SectionFrame";
 
+function HashScroll({ offset = 64 }: { offset?: number }) {
+  useEffect(() => {
+    const scrollToHash = (hash: string) => {
+      const el = document.querySelector(hash) as HTMLElement | null;
+      if (!el) return;
+      const top = el.getBoundingClientRect().top + window.scrollY - offset;
+      window.scrollTo({ top, behavior: "smooth" });
+    };
+
+    // Handle clicks on any <a href="#...">, always scroll (even if same hash)
+    const onClick = (e: MouseEvent) => {
+      const a = (e.target as HTMLElement).closest(
+        'a[href^="#"]'
+      ) as HTMLAnchorElement | null;
+      if (!a) return;
+      const href = a.getAttribute("href");
+      if (!href || href === "#") return;
+
+      e.preventDefault();
+      // keep URL in sync (works even if the hash is the same)
+      history.replaceState(null, "", href);
+      scrollToHash(href);
+    };
+
+    // Handle direct loads / back-forward with a hash
+    const onHash = () => {
+      if (location.hash) scrollToHash(location.hash);
+    };
+
+    document.addEventListener("click", onClick);
+    window.addEventListener("hashchange", onHash);
+    onHash(); // run once on mount
+
+    return () => {
+      document.removeEventListener("click", onClick);
+      window.removeEventListener("hashchange", onHash);
+    };
+  }, [offset]);
+
+  return null;
+}
+
 export default function Home() {
   // Clear the hash when user scrolls back to (near) top
   useEffect(() => {
@@ -32,6 +74,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen text-zinc-800 selection:bg-lime-300/40">
+      <HashScroll offset={96} /> {/* match your sticky header height */}
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div
@@ -73,7 +116,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
       {/* Services — zinc-50 */}
       <SectionFrame id="services" bandBg="bg-blue-100">
         <div className="mb-10 flex items-center justify-between">
@@ -180,7 +222,6 @@ export default function Home() {
           </div>
         </div>
       </SectionFrame>
-
       {/* Approach — zinc-200 */}
       <SectionFrame id="approach" bandBg="bg-blue-200">
         <div className="mb-10 flex items-center justify-between">
@@ -215,7 +256,6 @@ export default function Home() {
           ))}
         </div>
       </SectionFrame>
-
       {/* Portfolio — zinc-300 */}
       <SectionFrame id="portfolio" bandBg="bg-blue-300">
         <div className="mb-10 flex items-center justify-between">
@@ -278,7 +318,6 @@ export default function Home() {
           </div>
         </div>
       </SectionFrame>
-
       {/* CTA / Contact */}
       <section id="contact" className="relative bg-blue-800 text-blue-50">
         <div className="mx-auto max-w-6xl px-4 pt-20 pb-28">
@@ -304,7 +343,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-
       {/* Footer */}
       <footer className="border-t border-blue-700 bg-blue-800">
         <div className="mx-auto max-w-6xl px-4 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-blue-200">
