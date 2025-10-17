@@ -73,7 +73,6 @@ export default function Home() {
           </div>
         </div>
       </section>
-      {/* Services — zinc-50 */}
       <SectionFrame id="services" bandBg="bg-blue-200">
         <div className="mb-10 flex items-center justify-between">
           <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
@@ -148,7 +147,7 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Agentic AI — zinc-100 */}
+        {/* Agentic AI */}
         <div id="ai" className="mx-auto max-w-6xl px-4 py-20">
           <div className="mb-10 flex items-center justify-between">
             <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
@@ -171,7 +170,10 @@ export default function Home() {
                 p: "CI/CD on Azure DevOps, observability, guardrails, SOC2-ready auth, and secure data paths.",
               },
             ].map((a) => (
-              <div key={a.h} className="rounded-2xl border border-zinc-200 p-6">
+              <div
+                key={a.h}
+                className="rounded-2xl border border-zinc-200 p-6 transition-colors hover:border-lime-400/40"
+              >
                 <div className="text-lg font-medium text-zinc-900">{a.h}</div>
                 <p className="mt-2 text-sm text-zinc-600">{a.p}</p>
               </div>
@@ -205,7 +207,10 @@ export default function Home() {
               p: "Harden for production: security, infra, and support so your team can move fast.",
             },
           ].map((a) => (
-            <div key={a.k} className="rounded-2xl border border-zinc-200 p-6">
+            <div
+              key={a.k}
+              className="rounded-2xl border border-zinc-200 p-6 transition-colors hover:border-lime-400/40"
+            >
               <div className="mb-2 text-sm text-zinc-500">Step {a.k}</div>
               <div className="text-lg font-medium text-zinc-900">{a.h}</div>
               <p className="mt-2 text-sm text-zinc-600">{a.p}</p>
@@ -224,7 +229,7 @@ export default function Home() {
 
         <div className="grid gap-4 md:grid-cols-2">
           {/* Helios */}
-          <div className="rounded-2xl border border-zinc-200 p-6 transition hover:border-zinc-300 hover:bg-zinc-50">
+          <div className="rounded-2xl border border-zinc-200 p-6 transition hover:bg-zinc-50 transition-colors hover:border-lime-400/40">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-zinc-900">
                 <a
@@ -244,13 +249,10 @@ export default function Home() {
               Domain-driven microservices, React/Node, MSSQL, Docker, Azure
               DevOps. SOC2-ready auth (Okta/JWT/MFA) and sub-2s IoT edge syncs.
             </p>
-            <div className="mt-3 text-xs text-zinc-500">
-              React • Node • MSSQL • Azure • Docker • IoT
-            </div>
           </div>
 
           {/* TuneCrook */}
-          <div className="rounded-2xl border border-zinc-200 p-6 transition hover:border-zinc-300 hover:bg-zinc-50">
+          <div className="rounded-2xl border border-zinc-200 p-6 transition hover:bg-zinc-50 transition-colors hover:border-lime-400/40">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-zinc-900">
                 <a
@@ -269,9 +271,6 @@ export default function Home() {
               Agentic AI curates tracks from Discogs and YouTube with RAG. Built
               with React, Node, Postgres; deployed with Azure DevOps.
             </p>
-            <div className="mt-3 text-xs text-zinc-500">
-              RAG • Agents • React • Node • Postgres
-            </div>
           </div>
         </div>
       </SectionFrame>
