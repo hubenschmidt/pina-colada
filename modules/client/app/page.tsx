@@ -141,41 +141,6 @@ export default function Home() {
               Explore services
             </Link>
           </div>
-          <div className="mt-10 flex flex-wrap items-center gap-3 text-xs text-zinc-400">
-            <span className="rounded-full border border-zinc-800 px-3 py-1">
-              Next.js
-            </span>
-            <span className="rounded-full border border-zinc-800 px-3 py-1">
-              React
-            </span>
-            <span className="rounded-full border border-zinc-800 px-3 py-1">
-              Node
-            </span>
-            <span className="rounded-full border border-zinc-800 px-3 py-1">
-              Postgres
-            </span>
-            <span className="rounded-full border border-zinc-800 px-3 py-1">
-              Azure DevOps
-            </span>
-            <span className="rounded-full border border-zinc-800 px-3 py-1">
-              Docker
-            </span>
-            <span className="rounded-full border border-zinc-800 px-3 py-1">
-              LangGraph
-            </span>
-            <span className="rounded-full border border-zinc-800 px-3 py-1">
-              OpenAI Agents SDK
-            </span>
-            <span className="rounded-full border border-zinc-800 px-3 py-1">
-              MCP
-            </span>
-            <span className="rounded-full border border-zinc-800 px-3 py-1">
-              RAG
-            </span>
-            <span className="rounded-full border border-zinc-800 px-3 py-1">
-              Azure
-            </span>
-          </div>
         </div>
       </section>
 
@@ -333,11 +298,21 @@ export default function Home() {
           <h2 className="text-2xl font-semibold tracking-tight">Portfolio</h2>
           <span className="h-px w-24 bg-gradient-to-r from-yellow-300/60 via-lime-400/60 to-transparent" />
         </div>
+
         <div className="grid gap-4 md:grid-cols-2">
-          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6">
+          {/* Helios */}
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6 transition hover:border-zinc-800 hover:bg-zinc-900/40">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-white">
-                Helios — B2B Integration Platform
+                <a
+                  href="https://www.cumulus-erp.com/helios-ipaas/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline focus-visible:underline underline-offset-4 decoration-2"
+                  aria-label="Open Helios — B2B Integration Platform"
+                >
+                  Helios — B2B Integration Platform
+                </a>
               </h3>
               <span className="h-2 w-2 rounded-full bg-lime-400/80" />
             </div>
@@ -350,10 +325,20 @@ export default function Home() {
               React • Node • MSSQL • Azure • Docker • IoT
             </div>
           </div>
-          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6">
+
+          {/* TuneCrook */}
+          <div className="rounded-2xl border border-zinc-900 bg-zinc-950 p-6 transition hover:border-zinc-800 hover:bg-zinc-900/40">
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-medium text-white">
-                TuneCrook — DJ Music Discovery
+                <a
+                  href="https://www.tunecrook.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:underline focus-visible:underline underline-offset-4 decoration-2"
+                  aria-label="Open TuneCrook — DJ Music Discovery"
+                >
+                  TuneCrook — DJ Music Discovery
+                </a>
               </h3>
               <span className="h-2 w-2 rounded-full bg-yellow-300/80" />
             </div>
@@ -378,7 +363,7 @@ export default function Home() {
                   Have a project in mind?
                 </h3>
                 <p className="mt-1 text-sm text-zinc-400">
-                  Let's align on goals and craft a pragmatic plan.
+                  Let's connect and talk about goals for your technical domain.
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3">
@@ -387,14 +372,6 @@ export default function Home() {
                   className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-black hover:brightness-95"
                 >
                   Email us
-                </Link>
-                <Link
-                  href="https://cal.com/your-handle/intro"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center justify-center rounded-full border border-zinc-800 px-6 py-3 text-sm font-medium text-zinc-200 hover:border-lime-400/60"
-                >
-                  Book a 20‑min intro
                 </Link>
               </div>
             </div>
