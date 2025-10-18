@@ -37,13 +37,7 @@ const Home = () => {
     <div className="min-h-screen text-zinc-800 selection:bg-lime-300/40">
       <Hero />
       <SectionFrame id="services" bandBg="bg-blue-200">
-        <SectionTitle kicker="Our Services" />
-        <div className="mb-10 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
-            Software Development
-          </h2>
-        </div>
-
+        <SectionTitle kicker="Software and AI Development" />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[
             {
@@ -69,7 +63,7 @@ const Home = () => {
             {
               title: "CRM & ERP Systems",
               points: [
-                "Plex, Dynamics, Salesforce",
+                "Plex, Salesforce",
                 "Customization & extensions",
                 "Data hygiene",
               ],
@@ -84,18 +78,15 @@ const Home = () => {
                 "E-commerce integration",
                 "Marketing sites",
                 "Dashboards & portals",
-                "Accessibility",
               ],
             },
           ].map((s) => (
             <Card key={s.title} className="p-5">
               <div className="mb-3 flex items-start justify-between">
-                <h3 className="text-base font-medium text-zinc-900">
-                  {s.title}
-                </h3>
+                <h3 className="text-2xl text-zinc-900">{s.title}</h3>
                 <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
               </div>
-              <ul className="space-y-1.5 text-sm text-zinc-600">
+              <ul className="text-xl space-y-1.5 text-sm text-zinc-600">
                 {s.points.map((p) => (
                   <li key={p} className="flex items-center gap-2">
                     <CheckCircle2 className="size-4 text-lime-500/80" />
@@ -117,32 +108,30 @@ const Home = () => {
           <div className="grid gap-4 md:grid-cols-3">
             {[
               {
-                title: "Agent Workflows",
+                title: "Agentic AI",
                 points: [
-                  "Design and implement graph-based, tool-using agents with LangGraph, OpenAI Agents SDK, and MCP. Multimodal where it moves the needle.",
+                  "Graph-based agents with LangGraph, OpenAI Agents SDK, MCP, and custom tooling.",
                 ],
               },
               {
                 title: "RAG & Knowledge",
                 points: [
-                  "Retrieval-augmented pipelines with embeddings, chunking, and evaluators for accuracy, latency, and cost.",
+                  "Retrieval-augmented pipelines with evaluators for accuracy, latency, and cost.",
                 ],
               },
               {
                 title: "Production & Governance",
                 points: [
-                  "CI/CD on Azure DevOps, observability, guardrails, SOC2-ready auth, and secure data paths.",
+                  "CI/CD on Azure DevOps, observability, guardrails, and secure data paths.",
                 ],
               },
             ].map((s) => (
               <Card key={s.title} className="p-5">
                 <div className="mb-3 flex items-start justify-between">
-                  <h3 className="text-base font-medium text-zinc-900">
-                    {s.title}
-                  </h3>
+                  <h3 className="text-2xl text-zinc-900">{s.title}</h3>
                   <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
                 </div>
-                <ul className="space-y-1.5 text-sm text-zinc-600">
+                <ul className="text-xl space-y-1.5 text-sm text-zinc-600">
                   {s.points.map((p) => (
                     <li key={p} className="flex items-center gap-2">
                       <span>{p}</span>
@@ -168,35 +157,32 @@ const Home = () => {
               k: "1",
               title: "Discover",
               points: [
-                "Quickly map goals, constraints, and ROI. We favor lean specs and high-signal prototypes.",
+                "Clearly map goals, constraints, and ROI. We favor lean specs and rapid prototypes.",
               ],
             },
             {
               k: "2",
-              title: "Build",
+              title: "Build and Ship",
               points: [
-                "Ship in vertical slices with strong CI/CD, observability, and performance budgets.",
+                "Continuously integrate feedback to respond quickly to your customer needs.",
               ],
             },
             {
               k: "3",
               title: "Scale",
               points: [
-                "Harden for production: security, infra, and support so your team can move fast.",
+                "Cloud solutions for security, infra, and support to optimize your software.",
               ],
             },
           ].map((s) => (
             <Card key={s.title} className="p-5">
               <div className="mb-3 flex items-start justify-between">
-                <h3 className="text-base font-medium text-zinc-900">
-                  {s.title}
-                </h3>
+                <h3 className="text-2xl text-zinc-900">{s.title}</h3>
                 <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
               </div>
-              <ul className="space-y-1.5 text-sm text-zinc-600">
+              <ul className="text-xl space-y-1.5 text-sm text-zinc-600">
                 {s.points.map((p) => (
                   <li key={p} className="flex items-center gap-2">
-                    <CheckCircle2 className="size-4 text-lime-500/80" />
                     <span>{p}</span>
                   </li>
                 ))}
@@ -207,41 +193,33 @@ const Home = () => {
       </SectionFrame>
 
       <SectionFrame id="portfolio" bandBg="bg-blue-300">
-        <div className="mb-10 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
-            Portfolio
-          </h2>
-          <span className="h-px w-24 bg-gradient-to-r from-yellow-400/60 via-lime-400/60 to-transparent" />
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2">
-          <CardLink href="https://www.cumulus-erp.com/helios-ipaas/">
+        <SectionTitle kicker="Portfolio" />
+        {[
+          {
+            k: "helios",
+            href: "https://www.cumulus-erp.com/helios-ipaas/",
+            title: "Helios — B2B Integration Platform",
+            description: "iPaaS adopted by enterprise manufacturers.",
+          },
+          {
+            k: "tunecrook",
+            href: "https://www.tunecrook.com/",
+            title: "TuneCrook — DJ Music Discovery",
+            description: "Agentic AI curates your Discogs collection.",
+          },
+        ].map((p) => (
+          <CardLink key={p.k} href={p.href}>
             <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-zinc-900">
-                Helios — B2B Integration Platform
-              </h3>
-              <span className="h-2 w-2 rounded-full bg-lime-400/80" />
+              <h3 className="text-2xl font-medium text-zinc-900">{p.title}</h3>
+              <span
+                className={`h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400`}
+              />
             </div>
-            <p className="mt-2 text-sm text-zinc-600">
-              Multitenant iPaaS adopted by enterprise manufacturers.
-              Domain-driven microservices, React/Node, MSSQL, Docker, Azure
-              DevOps. SOC2-ready auth and sub-2s IoT edge syncs.
+            <p className="text-xl mt-2 text-sm text-zinc-600">
+              {p.description}
             </p>
           </CardLink>
-
-          <CardLink href="https://www.tunecrook.com/">
-            <div className="flex items-center justify-between">
-              <h3 className="text-lg font-medium text-zinc-900">
-                TuneCrook — DJ Music Discovery
-              </h3>
-              <span className="h-2 w-2 rounded-full bg-yellow-300/80" />
-            </div>
-            <p className="mt-2 text-sm text-zinc-600">
-              Agentic AI curates tracks from Discogs and YouTube with RAG.
-              React, Node, Postgres; DigitalOcean App Platform.
-            </p>
-          </CardLink>
-        </div>
+        ))}
       </SectionFrame>
       {/* CTA / Contact */}
       <section id="contact" className="relative bg-blue-800 text-blue-50">

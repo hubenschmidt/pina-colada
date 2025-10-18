@@ -11,22 +11,20 @@ type SectionFrameProps = {
 
 import cx from "../util/concat-classes";
 
-export default function SectionFrame({
+const SectionFrame = ({
   id,
   bandBg = "",
   className,
   children,
-  borderClassName = "border-2 border-yellow-400",
-  roundedClassName = "rounded-3xl",
+  roundedClassName = "rounded-2xl",
   containerClassName = "mx-auto max-w-6xl px-4",
-}: SectionFrameProps) {
+}: SectionFrameProps) => {
   return (
     <section id={id} className={cx("py-20", bandBg)}>
       <div
         className={cx(
           containerClassName,
           roundedClassName,
-          borderClassName,
           "bg-white shadow-sm",
           "p-5 sm:p-6 md:p-8",
           className
@@ -36,4 +34,6 @@ export default function SectionFrame({
       </div>
     </section>
   );
-}
+};
+
+export default SectionFrame;
