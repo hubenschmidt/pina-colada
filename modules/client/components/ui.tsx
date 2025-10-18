@@ -1,28 +1,27 @@
-import { forwardRef, type PropsWithChildren, type HTMLAttributes } from "react";
+import { type PropsWithChildren, type HTMLAttributes } from "react";
 import Link from "next/link";
 
 import cx from "../util/concat-classes";
 
-export const Card = forwardRef<
-  HTMLDivElement,
-  PropsWithChildren<{ className?: string }>
->(({ className, children, ...rest }, ref) => (
-  <div
-    ref={ref}
-    {...rest}
-    className={cx(
-      // base
-      "group rounded-2xl border border-zinc-200/60 bg-white/70 backdrop-blur-[1px] shadow-[0_1px_0_0_rgba(0,0,0,0.04)_inset]",
-      // hover
-      "transition-all hover:border-lime-400/50 hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.15)] hover:-translate-y-[1px]",
-      // user classes last so they override
-      className
-    )}
-  >
-    {children}
-  </div>
-));
-Card.displayName = "Card";
+type CardProps = PropsWithChildren<HTMLAttributes<HTMLDivElement>>;
+
+export function Card({ className, children, ...rest }: CardProps) {
+  return (
+    <div
+      {...rest}
+      className={cx(
+        // base
+        "group rounded-2xl border border-zinc-200/60 bg-white/70 backdrop-blur-[1px] shadow-[0_1px_0_0_rgba(0,0,0,0.04)_inset]",
+        // hover
+        "transition-all hover:border-lime-400/50 hover:shadow-[0_8px_24px_-12px_rgba(0,0,0,0.15)] hover:-translate-y-[1px]",
+        // user classes last so they override
+        className
+      )}
+    >
+      {children}
+    </div>
+  );
+}
 
 export function CardLink({
   href,
