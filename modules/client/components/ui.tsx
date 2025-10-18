@@ -52,13 +52,11 @@ export function CardLink({
 
 export function SectionTitle({
   kicker,
-  title,
   right,
   className,
   ...rest
 }: {
   kicker?: string;
-  title: string;
   right?: React.ReactNode;
   className?: string;
 }) {
@@ -73,9 +71,6 @@ export function SectionTitle({
             {kicker}
           </div>
         )}
-        <h2 className="mt-1 text-2xl sm:text-3xl font-semibold tracking-tight text-zinc-900">
-          {title}
-        </h2>
       </div>
       <div className="hidden md:flex items-center gap-3">
         {right}

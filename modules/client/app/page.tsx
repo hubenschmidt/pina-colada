@@ -2,11 +2,11 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import SectionFrame from "../components/SectionFrame";
-import { CheckCircle2 } from "lucide-react"; // you already use lucide-react
+import { CheckCircle2 } from "lucide-react";
 import { Card, SectionTitle, CardLink } from "../components/ui";
-import Image from "next/image";
+import Hero from "../components/Hero";
 
-export default function Home() {
+const Home = () => {
   // Clear the hash when user scrolls back to (near) top
   useEffect(() => {
     let ticking = false;
@@ -35,58 +35,9 @@ export default function Home() {
 
   return (
     <div className="min-h-screen text-zinc-800 selection:bg-lime-300/40">
-      {/* Hero */}
-      <section className="relative overflow-hidden">
-        <Image
-          src="/pc.png"
-          alt=""
-          fill
-          priority
-          aria-hidden
-          className="object-cover object-center opacity-25 [filter:brightness(0.98)_contrast(1.1)]"
-          sizes="100vw"
-        />
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 opacity-0"
-        >
-          {/* subtle grid for light bg: darker lines, soft mask */}
-          <div className="[mask-image:radial-gradient(ellipse_at_center,black,transparent_65%)] absolute inset-0 bg-[linear-gradient(to_right,transparent_95%,rgba(0,0,0,0.06)_96%),linear-gradient(to_bottom,transparent_95%,rgba(0,0,0,0.06)_96%)] bg-[size:24px_24px]" />
-          {/* lime/yellow glow */}
-          <div className="absolute -top-24 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-lime-300/30 blur-3xl" />
-          <div className="absolute -bottom-24 right-12 h-72 w-72 rounded-full bg-yellow-300/20 blur-3xl" />
-        </div>
-        <div className="relative z-10 mx-auto max-w-6xl px-4 py-24 sm:py-32">
-          <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight text-orange-400 sm:text-6xl leading-[1.1] md:leading-[1.05]">
-            Elegant, enterprise-grade
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 leading-[1.05] pb-2">
-              AI & software solutions consulting
-            </span>
-          </h1>
-
-          <p className="text-xl mt-6 max-w-2xl text-pretty text-zinc-600">
-            We design and build robust systems for small and medium-sized
-            businesses— from greenfield apps to integrations that tame complex
-            CRM/ERP landscapes.
-          </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-3">
-            <Link
-              href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
-              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-black shadow-[0_0_0_1px_rgba(0,0,0,0.04)_inset] hover:brightness-95"
-            >
-              Book a free consult
-            </Link>
-            <Link
-              href="#services"
-              className="inline-flex items-center justify-center rounded-full border border-zinc-300 px-6 py-3 text-sm font-medium text-zinc-800 hover:border-lime-400/60"
-            >
-              Explore services
-            </Link>
-          </div>
-        </div>
-      </section>
+      <Hero />
       <SectionFrame id="services" bandBg="bg-blue-200">
-        <SectionTitle kicker="Our Services" title="" />
+        <SectionTitle kicker="Our Services" />
         <div className="mb-10 flex items-center justify-between">
           <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
             Software Development
@@ -156,7 +107,6 @@ export default function Home() {
           ))}
         </div>
 
-        {/* Agentic AI */}
         <div id="ai" className="mx-auto max-w-6xl px-4 py-20">
           <div className="mb-10 flex items-center justify-between">
             <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
@@ -195,7 +145,6 @@ export default function Home() {
                 <ul className="space-y-1.5 text-sm text-zinc-600">
                   {s.points.map((p) => (
                     <li key={p} className="flex items-center gap-2">
-                      <CheckCircle2 className="size-4 text-lime-500/80" />
                       <span>{p}</span>
                     </li>
                   ))}
@@ -206,9 +155,8 @@ export default function Home() {
         </div>
       </SectionFrame>
 
-      {/* Approach — zinc-200 */}
       <SectionFrame id="approach" bandBg="bg-blue-200">
-        <SectionTitle kicker="Our Approach" title="" />
+        <SectionTitle kicker="Our Approach" />
         <div className="mb-10 flex items-center justify-between">
           <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
             Continuous Integration and Delivery
@@ -257,7 +205,7 @@ export default function Home() {
           ))}
         </div>
       </SectionFrame>
-      {/* Portfolio — zinc-300 */}
+
       <SectionFrame id="portfolio" bandBg="bg-blue-300">
         <div className="mb-10 flex items-center justify-between">
           <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
@@ -346,4 +294,6 @@ export default function Home() {
       </footer>
     </div>
   );
-}
+};
+
+export default Home;

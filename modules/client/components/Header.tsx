@@ -3,9 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 
-export default function Header() {
+const Header = () => {
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-200 backdrop-blur bg-blue-100">
+    <header className="sticky top-0 z-40 border-b border-zinc-200 bg-blue-50">
       <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <Image
@@ -51,4 +51,6 @@ export default function Header() {
       </div>
     </header>
   );
-}
+};
+
+export default Header;
