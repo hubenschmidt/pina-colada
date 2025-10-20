@@ -21,7 +21,6 @@ const Hero = () => {
       >
         {/* subtle grid for light bg: darker lines, soft mask */}
         <div className="[mask-image:radial-gradient(ellipse_at_center,black,transparent_65%)] absolute inset-0 bg-[linear-gradient(to_right,transparent_95%,rgba(0,0,0,0.06)_96%),linear-gradient(to_bottom,transparent_95%,rgba(0,0,0,0.06)_96%)] bg-[size:24px_24px]" />
-        {/* lime/yellow glow */}
         <div className="absolute -top-24 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-lime-300/30 blur-3xl" />
         <div className="absolute -bottom-24 right-12 h-72 w-72 rounded-full bg-yellow-300/20 blur-3xl" />
       </div>
