@@ -26,9 +26,9 @@ const Hero = () => {
       </div>
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-24 sm:py-32">
         <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight text-orange-400 sm:text-6xl leading-[1.1] md:leading-[1.05]">
-          Elegant, enterprise-grade
+          Elegant, enterprise
           <span className="block text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 pb-2">
-            AI & software solutions consulting
+            AI & software solutions
           </span>
         </h1>
 
