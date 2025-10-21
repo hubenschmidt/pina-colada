@@ -66,7 +66,7 @@ export function SectionTitle({
     >
       <div>
         {kicker && (
-          <div className="text-xs uppercase tracking-[0.18em] text-zinc-500">
+          <div className="text-xs uppercase tracking-[0.18em] text-blue-500">
             {kicker}
           </div>
         )}

@@ -83,10 +83,10 @@ const Home = () => {
           ].map((s) => (
             <Card key={s.title} className="p-5">
               <div className="mb-3 flex items-start justify-between">
-                <h3 className="text-2xl text-zinc-900">{s.title}</h3>
+                <h3 className="text-2xl text-blue-800">{s.title}</h3>
                 <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
               </div>
-              <ul className="text-xl space-y-1.5 text-sm text-zinc-600">
+              <ul className="text-xl space-y-1.5 text-sm text-blue-800">
                 {s.points.map((p) => (
                   <li key={p} className="flex items-center gap-2">
                     <CheckCircle2 className="size-4 text-lime-500/80" />
@@ -100,7 +100,7 @@ const Home = () => {
 
         <div id="ai" className="mx-auto max-w-6xl px-4 py-20">
           <div className="mb-10 flex items-center justify-between">
-            <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
+            <h2 className="text-2xl font-semibold tracking-tight text-blue-800">
               AI Development
             </h2>
             <span className="h-px w-24 bg-gradient-to-r from-lime-400/60 via-yellow-400/60 to-transparent" />
@@ -128,10 +128,10 @@ const Home = () => {
             ].map((s) => (
               <Card key={s.title} className="p-5">
                 <div className="mb-3 flex items-start justify-between">
-                  <h3 className="text-2xl text-zinc-900">{s.title}</h3>
+                  <h3 className="text-2xl text-blue-800">{s.title}</h3>
                   <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
                 </div>
-                <ul className="text-xl space-y-1.5 text-sm text-zinc-600">
+                <ul className="text-xl space-y-1.5 text-sm text-blue-800">
                   {s.points.map((p) => (
                     <li key={p} className="flex items-center gap-2">
                       <span>{p}</span>
@@ -147,7 +147,7 @@ const Home = () => {
       <SectionFrame id="approach" bandBg="bg-blue-200">
         <SectionTitle kicker="Our Approach" />
         <div className="mb-10 flex items-center justify-between">
-          <h2 className="text-2xl font-semibold tracking-tight text-zinc-900">
+          <h2 className="text-2xl font-semibold tracking-tight text-blue-800">
             Continuous Integration and Delivery
           </h2>
         </div>
@@ -177,10 +177,10 @@ const Home = () => {
           ].map((s) => (
             <Card key={s.title} className="p-5">
               <div className="mb-3 flex items-start justify-between">
-                <h3 className="text-2xl text-zinc-900">{s.title}</h3>
+                <h3 className="text-2xl text-blue-800">{s.title}</h3>
                 <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
               </div>
-              <ul className="text-xl space-y-1.5 text-sm text-zinc-600">
+              <ul className="text-xl space-y-1.5 text-sm text-blue-800">
                 {s.points.map((p) => (
                   <li key={p} className="flex items-center gap-2">
                     <span>{p}</span>
@@ -210,12 +210,12 @@ const Home = () => {
         ].map((p) => (
           <CardLink key={p.k} href={p.href}>
             <div className="flex items-center justify-between">
-              <h3 className="text-2xl font-medium text-zinc-900">{p.title}</h3>
+              <h3 className="text-2xl font-medium text-blue-800">{p.title}</h3>
               <span
                 className={`h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400`}
               />
             </div>
-            <p className="text-xl mt-2 text-sm text-zinc-600">
+            <p className="text-xl mt-2 text-sm text-blue-800">
               {p.description}
             </p>
           </CardLink>
@@ -237,7 +237,7 @@ const Home = () => {
               <div className="flex flex-col sm:flex-row gap-3">
                 <Link
                   href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
-                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-black hover:brightness-95"
+                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
                 >
                   Email William
                 </Link>

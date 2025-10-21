@@ -16,34 +16,37 @@ const Header = () => {
             priority
           />
           <span className="text-3xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
-            PinaColada.co
+            PinaColada
           </span>
         </Link>
 
         <nav className="hidden sm:flex items-center gap-6 text-sm text-zinc-600 font-semibold">
-          <Link href="/about" className="hover:text-black">
+          <Link href="/about" className="text-blue-700 hover:text-blue-500">
             About
           </Link>
 
-          <Link href="/#services" className="hover:text-black">
+          <Link href="/#services" className="text-blue-700 hover:text-blue-500">
             Software Development
           </Link>
-          <Link href="/#ai" className="hover:text-black">
+          <Link href="/#ai" className="text-blue-700 hover:text-blue-500">
             AI
           </Link>
-          <Link href="/#approach" className="hover:text-black">
+          <Link href="/#approach" className="text-blue-700 hover:text-blue-500">
             Approach
           </Link>
-          <Link href="/#portfolio" className="hover:text-black">
+          <Link
+            href="/#portfolio"
+            className="text-blue-700 hover:text-blue-500"
+          >
             Portfolio
           </Link>
-          <Link href="/#contact" className="hover:text-black">
+          <Link href="/#contact" className="text-blue-700 hover:text-blue-500">
             Contact
           </Link>
 
           <Link
             href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
-            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-black hover:brightness-95"
+            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
           >
             Start a project
           </Link>
