@@ -30,9 +30,15 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
-# env files (can opt-in for committing if needed)
-.env*
+# Ignore all env files
+.env
+**/.env
+.env.*
+**/.env.*
 
+# But DO track template env files
+!.env.example
+!**/.env.example
 # vercel
 .vercel
 
