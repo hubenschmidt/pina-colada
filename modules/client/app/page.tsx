@@ -41,7 +41,7 @@ const Home = () => {
       <section className="relative overflow-hidden">
         <BandBg />
 
-        <SectionFrame id="agent" bandBg="bg-blue-200">
+        {/* <SectionFrame id="agent" bandBg="bg-blue-200">
           <SectionTitle kicker="Agent" />
           <div className="mb-10 flex items-center justify-between">
             <h2 className="text-2xl font-semibold tracking-tight text-blue-800">
@@ -49,7 +49,7 @@ const Home = () => {
             </h2>
           </div>
           <Chat />
-        </SectionFrame>
+        </SectionFrame> */}
 
         <SectionFrame id="services" bandBg="bg-blue-200">
           <SectionTitle kicker="Software and AI Development" />
