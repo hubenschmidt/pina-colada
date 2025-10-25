@@ -21,10 +21,15 @@ const Header = () => {
         </Link>
 
         <nav className="hidden sm:flex items-center gap-6 text-sm text-zinc-600 font-semibold">
+          <Link
+            href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
+            className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
+          >
+            Chat with agent
+          </Link>
           <Link href="/about" className="text-blue-700 hover:text-blue-500">
             About
           </Link>
-
           <Link href="/#services" className="text-blue-700 hover:text-blue-500">
             Software Development
           </Link>
@@ -43,7 +48,6 @@ const Header = () => {
           <Link href="/#contact" className="text-blue-700 hover:text-blue-500">
             Contact
           </Link>
-
           <Link
             href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
             className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
