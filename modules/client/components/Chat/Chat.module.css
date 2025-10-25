@@ -1,190 +1,231 @@
-/* Component root scope:
-   - holds what used to live on :root, html, body
-   - nothing leaks globally
+/* Chat.module.css */
+
+/* Wrapper around the whole chat component.
+   We no longer force a dark bg here. We inherit global body tokens:
+   --background and --foreground from globals.css.
 */
 .chatRoot {
-  /* formerly :root custom properties */
-  --bg: #001524;
-  --fg: #fbfef9;
-
-  --card-bg: #0b0b0b;
-  --card-border: #e5e7eb22;
-
-  --user-bg: #1f2937;
-  --bot-bg: #111827;
-  --bubble-border: #2b2b2b;
-
-  --accent-green: #16a34a;
-  --accent-red: #dc2626;
-
-  /* formerly body */
-  background: var(--bg);
-  color: var(--fg);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue",
-    Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Noto Color Emoji", sans-serif;
-
-  /* so the card doesn't slam edge-to-edge if parent is dark/transparent */
-  padding: 16px;
-  border-radius: 12px;
-
-  /* optional: make sure text inherits correctly inside */
+  /* Layout container styles (the parent <div>) will use Tailwind classes
+     for spacing and max-width. We DO still want text color inheritance. */
+  color: var(--foreground);
+  font-family: var(
+    --font-sans,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    "Noto Sans",
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    "Segoe UI Symbol",
+    "Noto Color Emoji",
+    sans-serif
+  );
   line-height: 1.4;
 }
 
-/* local reset-ish things that were global before */
-.chatRoot * {
-  box-sizing: border-box;
+/* Inner card shell that visually groups the chat UI.
+   We'll ALSO apply Tailwind classes on the element, but these vars can
+   help our sub-elements know the intent.
+*/
+.shellCard {
+  /* soft surface that sits on the global bg */
+  background-color: var(--background);
+  color: var(--foreground);
+
+  /* faint border and rounded corners to match app aesthetic */
+  border: 1px solid rgb(0 0 0 / 0.08);
+  border-radius: 0.75rem; /* ~12px */
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.04);
+
+  /* internal padding handled with Tailwind but we can keep fallback here */
+  padding: 1rem;
 }
 
-/* App shell */
-.app {
-  max-width: 720px;
-  margin: 0 auto;
-  /* we moved padding:16px up to .chatRoot so that the bg color / radius wrap it.
-     If you prefer spacing INSIDE instead of OUTSIDE, you can
-     remove padding from .chatRoot and put it back here. */
-}
-
-/* Header */
+/* Header row */
 .header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 0.5rem; /* 8px */
+  margin-bottom: 0.75rem; /* 12px */
 }
 
 .title {
-  font-weight: 700;
+  font-weight: 600;
+  font-family: var(--font-serif, inherit); /* uses your display font token */
+  font-size: 1rem;
+  line-height: 1.25rem;
+  color: var(--foreground);
 }
 
 .status {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
-  border: 2px solid #ffffff66;
+  border-radius: 9999px;
+  border: 2px solid rgb(255 255 255 / 0.4);
+  box-shadow: 0 0 8px rgb(0 0 0 / 0.2) inset;
   transition: background-color 0.2s ease-in-out;
 }
 
-.status--online {
-  background: var(--accent-green);
+.statusOnline {
+  background-color: #16a34a;
 }
-.status--offline {
-  background: var(--accent-red);
-}
-
-/* Chat card */
-.chat-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  padding: 12px;
+.statusOffline {
+  background-color: #dc2626;
 }
 
-/* Message list */
-.msg-list {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 240px;
-  /* You probably want this scrollbox instead of page scroll */
-  max-height: 60vh;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding-right: 4px; /* breathing room for scrollbar */
-}
-
-/* Message row alignment */
-.msg-row {
-  display: flex;
-}
-
-.msg-row--user {
-  justify-content: flex-end;
-}
-.msg-row--bot {
-  justify-content: flex-start;
-}
-
-/* Bubbles */
-.bubble {
-  display: inline-block;
-  width: fit-content;
-  max-width: 100%;
-  border: 1px solid var(--bubble-border);
-  padding: 6px 10px;
-  border-radius: 10px;
+/* Chat body card (the “terminal panel” look inside the shell card)
+   We keep the agent vibe here: darker panel, subtle border.
+*/
+.chatPanel {
+  background-color: #0b0b0b;
+  border: 1px solid rgb(229 231 235 / 0.13); /* #e5e7eb22-ish */
+  border-radius: 0.5rem; /* 8px */
+  padding: 0.75rem; /* 12px */
   color: #fff;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  margin-bottom: 12px;
-}
-
-.bubble--user {
-  background: var(--user-bg);
-  max-width: 75%;
-}
-.bubble--bot {
-  background: var(--bot-bg);
-  max-width: 100%;
-}
-
-/* Author label */
-.bubble__author {
-  font-size: 12px;
-  opacity: 0.75;
-  margin-bottom: 4px;
-}
-
-.bubble__author--right {
-  text-align: right;
-}
-.bubble__author--left {
-  text-align: left;
-}
-
-/* Input form */
-.input-form {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.input-form__textarea {
-  resize: vertical;
-  padding: 8px;
-  background: #0f1115;
-  color: #fff;
-  border: 1px solid var(--bubble-border);
-  border-radius: 8px;
-  min-height: 72px;
-  font-family: inherit;
+  font-family: var(
+    --font-sans,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    "Noto Sans"
+  );
   font-size: 0.9rem;
   line-height: 1.4;
 }
 
-.input-form__textarea:focus {
-  outline: 2px solid #2563eb80;
-  border-color: #2563eb80;
+/* Scrollable message list area */
+.msgList {
+  display: flex;
+  flex-direction: column;
+  row-gap: 0.5rem; /* 8px */
+  min-height: 12rem; /* ~192px */
+  max-height: 60vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 0.25rem; /* 4px breathing room for scrollbar */
 }
 
-.input-form__actions {
+/* Message row alignment */
+.msgRow {
   display: flex;
-  gap: 8px;
+  width: 100%;
+}
+
+.msgRowUser {
+  justify-content: flex-end;
+}
+.msgRowBot {
+  justify-content: flex-start;
+}
+
+/* Message bubbles
+   - We keep a "terminal chip" feel but modernize the gray tones a bit.
+*/
+.bubble {
+  display: inline-block;
+  width: fit-content;
+  max-width: 100%;
+  border: 1px solid #2b2b2b;
+  border-radius: 0.625rem; /* 10px */
+  color: #fff;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding: 0.5rem 0.625rem; /* 8px 10px */
+  margin-bottom: 0.5rem; /* 8px, space under */
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+  font-feature-settings: "ss01", "ss02", "liga" 1;
+}
+
+.bubbleUser {
+  background-color: #1f2937; /* slate-800-ish */
+  max-width: 75%;
+}
+.bubbleBot {
+  background-color: #111827; /* slate-900-ish */
+  max-width: 100%;
+}
+
+/* Author label */
+.bubbleAuthor {
+  font-size: 0.7rem;
+  line-height: 1rem;
+  opacity: 0.7;
+  margin-bottom: 0.25rem; /* 4px */
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  color: rgb(226 232 240); /* slate-200 */
+}
+
+.bubbleAuthorRight {
+  text-align: right;
+}
+.bubbleAuthorLeft {
+  text-align: left;
+}
+
+/* Message text body */
+.bubbleText {
+  color: #fff;
+  font-size: 0.9rem;
+  line-height: 1.4rem;
+  font-weight: 400;
+  white-space: pre-wrap;
+}
+
+/* Input form container */
+.inputForm {
+  display: grid;
+  row-gap: 0.5rem; /* 8px */
+  margin-top: 0.75rem; /* 12px */
+}
+
+/* Textarea */
+.textarea {
+  resize: vertical;
+  min-height: 4.5rem; /* 72px */
+  background-color: #0f1115;
+  border: 1px solid #2b2b2b;
+  border-radius: 0.5rem; /* 8px */
+  color: #fff;
+  font-size: 0.9rem;
+  line-height: 1.4rem;
+  padding: 0.5rem; /* 8px */
+  outline: none;
+  font-family: inherit;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
+}
+
+.textarea:focus {
+  border-color: rgb(37 99 235 / 0.5); /* blue-600/50 */
+  box-shadow: 0 0 0 2px rgb(37 99 235 / 0.25), 0 16px 40px rgb(0 0 0 / 0.6);
+}
+
+/* Row of buttons */
+.actions {
+  display: flex;
+  column-gap: 0.5rem; /* 8px */
 }
 
 /* Buttons */
 .btn {
   appearance: none;
-  border: 1px solid var(--bubble-border);
-  background: #1f2937;
+  border-radius: 0.5rem;
+  border: 1px solid #2b2b2b;
+  background-color: #1f2937;
   color: #fff;
-  border-radius: 8px;
-  padding: 8px 12px;
+  padding: 0.5rem 0.75rem; /* 8px 12px */
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.2rem;
   cursor: pointer;
   transition: filter 0.15s ease-in-out, opacity 0.15s ease-in-out;
-  font-size: 0.9rem;
-  line-height: 1.2;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
 }
 
 .btn:hover {
@@ -192,11 +233,12 @@
 }
 
 .btn:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
-.btn--ghost {
-  background: transparent;
-  border-color: var(--bubble-border);
+.btnGhost {
+  background-color: transparent;
+  border-color: #2b2b2b;
+  color: #fff;
 }
