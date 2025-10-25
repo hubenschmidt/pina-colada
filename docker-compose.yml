@@ -26,8 +26,8 @@ services:
     volumes:
       - ./modules/agent:/app
     ports:
-      - "2026:2024" # LangGraph API to host
-      - "8002:8000" # FastAPI server.py
+      - "2024:2024" # LangGraph API to host
+      - "8000:8000" # FastAPI server.py
   # --- Langfuse web/UI ---
   # Make sure to update the credential placeholders with your own secrets.
   # We mark them with # CHANGEME in the file below.
@@ -47,7 +47,7 @@ services:
       clickhouse:
         condition: service_healthy
     ports:
-      - 127.0.0.1:3032:3030
+      - 127.0.0.1:3030:3030
     environment: &langfuse-worker-env
       NEXTAUTH_URL: ${NEXTAUTH_URL}
       DATABASE_URL: ${DATABASE_URL} # CHANGEME
@@ -104,7 +104,7 @@ services:
       postgres:
         condition: service_healthy
     ports:
-      - 3002:3000
+      - 3000:3000
     environment:
       <<: *langfuse-worker-env
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET} # CHANGEME
@@ -130,8 +130,8 @@ services:
       - langfuse_clickhouse_data:/var/lib/clickhouse
       - langfuse_clickhouse_logs:/var/log/clickhouse-server
     ports:
-      - 127.0.0.1:8125:8123
-      - 127.0.0.1:9002:9000
+      - 127.0.0.1:8123:8123
+      - 127.0.0.1:9000:9000
     healthcheck:
       test: wget --no-verbose --tries=1 --spider http://localhost:8123/ping || exit 1
       interval: 5s
@@ -146,11 +146,11 @@ services:
     # create the 'langfuse' bucket before starting the service
     command: -c 'mkdir -p /data/langfuse && minio server --address ":9000" --console-address ":9001" /data'
     environment:
-      MINIO_ROOT_USER: ${COMPOSE_PROJECT_NAME}
-      MINIO_ROOT_PASSWORD: ${COMPOSE_PROJECT_NAME}_miniosecret # CHANGEME
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minio}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-miniosecret} # CHANGEME
     ports:
-      - 9092:9000
-      - 127.0.0.1:9093:9001
+      - 9090:9000
+      - 127.0.0.1:9091:9001
     volumes:
       - langfuse_minio_data:/data
     healthcheck:
@@ -167,7 +167,7 @@ services:
     command: >
       --requirepass ${REDIS_AUTH:-myredissecret}
     ports:
-      - 127.0.0.1:6381:6379
+      - 127.0.0.1:6379:6379
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 3s
@@ -185,11 +185,11 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres} # CHANGEME
-      POSTGRES_DB: ${COMPOSE_PROJECT_NAME}
+      POSTGRES_DB: ${COMPOSE_PROJECT_NAME:-postgres}
       TZ: UTC
       PGTZ: UTC
     ports:
-      - 127.0.0.1:5434:5432
+      - 127.0.0.1:5432:5432
     volumes:
       - langfuse_postgres_data:/var/lib/postgresql/data
 

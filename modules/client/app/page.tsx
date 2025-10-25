@@ -6,6 +6,7 @@ import { CheckCircle2 } from "lucide-react";
 import { Card, SectionTitle, CardLink } from "../components/ui";
 import Hero from "../components/Hero";
 import BandBg from "../components/BandBg";
+import Chat from "../components/Chat/Chat";
 
 const Home = () => {
   // Clear the hash when user scrolls back to (near) top
@@ -39,6 +40,17 @@ const Home = () => {
       <Hero />
       <section className="relative overflow-hidden">
         <BandBg />
+
+        <SectionFrame id="agent" bandBg="bg-blue-200">
+          <SectionTitle kicker="Agent" />
+          <div className="mb-10 flex items-center justify-between">
+            <h2 className="text-2xl font-semibold tracking-tight text-blue-800">
+              Agent
+            </h2>
+          </div>
+          <Chat />
+        </SectionFrame>
+
         <SectionFrame id="services" bandBg="bg-blue-200">
           <SectionTitle kicker="Software and AI Development" />
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
