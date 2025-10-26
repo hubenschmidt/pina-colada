@@ -1,12 +1,13 @@
 /* Chat.module.css */
 
-/* Wrapper around the whole chat component.
-   We no longer force a dark bg here. We inherit global body tokens:
-   --background and --foreground from globals.css.
+/* ROOT WRAPPER
+   - sits above the page background (grain/grid)
+   - we bump z-index so any fancy background behind doesn't visually "bleed through" in stacking
 */
 .chatRoot {
-  /* Layout container styles (the parent <div>) will use Tailwind classes
-     for spacing and max-width. We DO still want text color inheritance. */
+  position: relative;
+  z-index: 10;
+
   color: var(--foreground);
   font-family: var(
     --font-sans,
@@ -26,25 +27,28 @@
   line-height: 1.4;
 }
 
-/* Inner card shell that visually groups the chat UI.
-   We'll ALSO apply Tailwind classes on the element, but these vars can
-   help our sub-elements know the intent.
+/* SHELL CARD
+   OLD: solid var(--background) on white page so it blended in.
+   NEW: translucent "glass" panel so it clearly floats above the global background.
+   - backdrop-filter blur for frosted look
+   - subtle border + shadow
+   - slightly rounded
 */
 .shellCard {
-  /* soft surface that sits on the global bg */
-  background-color: var(--background);
+  background-color: rgba(255, 255, 255, 0.5); /* translucent dark overlay */
   color: var(--foreground);
 
-  /* faint border and rounded corners to match app aesthetic */
-  border: 1px solid rgb(0 0 0 / 0.08);
-  border-radius: 0.75rem; /* ~12px */
-  box-shadow: 0 10px 30px rgb(0 0 0 / 0.04);
+  /* glassy feel */
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 
-  /* internal padding handled with Tailwind but we can keep fallback here */
+  border: 1px solid rgb(255 255 255 / 0.08);
+  border-radius: 0.75rem; /* ~12px */
+  box-shadow: 0 4px 4px rgb(0 0 0 / 0.4);
   padding: 1rem;
 }
 
-/* Header row */
+/* HEADER ROW */
 .header {
   display: flex;
   align-items: center;
@@ -65,7 +69,6 @@
   height: 10px;
   border-radius: 9999px;
   border: 2px solid rgb(255 255 255 / 0.4);
-  box-shadow: 0 0 8px rgb(0 0 0 / 0.2) inset;
   transition: background-color 0.2s ease-in-out;
 }
 
@@ -76,12 +79,13 @@
   background-color: #dc2626;
 }
 
-/* Chat body card (the “terminal panel” look inside the shell card)
-   We keep the agent vibe here: darker panel, subtle border.
+/* CHAT PANEL (inner "terminal" block)
+   We keep this solid to maintain readability over the blurred glass.
+   Also dark-on-dark looks nice layered here.
 */
 .chatPanel {
   background-color: #0b0b0b;
-  border: 1px solid rgb(229 231 235 / 0.13); /* #e5e7eb22-ish */
+  border: 1px solid rgb(229 231 235 / 0.13); /* subtle gray border */
   border-radius: 0.5rem; /* 8px */
   padding: 0.75rem; /* 12px */
   color: #fff;
@@ -99,7 +103,7 @@
   line-height: 1.4;
 }
 
-/* Scrollable message list area */
+/* SCROLLABLE MESSAGE LIST AREA */
 .msgList {
   display: flex;
   flex-direction: column;
@@ -111,7 +115,7 @@
   padding-right: 0.25rem; /* 4px breathing room for scrollbar */
 }
 
-/* Message row alignment */
+/* individual rows */
 .msgRow {
   display: flex;
   width: 100%;
@@ -124,9 +128,7 @@
   justify-content: flex-start;
 }
 
-/* Message bubbles
-   - We keep a "terminal chip" feel but modernize the gray tones a bit.
-*/
+/* MESSAGE BUBBLES */
 .bubble {
   display: inline-block;
   width: fit-content;
@@ -137,7 +139,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   padding: 0.5rem 0.625rem; /* 8px 10px */
-  margin-bottom: 0.5rem; /* 8px, space under */
+  margin-bottom: 0.5rem; /* 8px space under */
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.4);
   font-feature-settings: "ss01", "ss02", "liga" 1;
 }
@@ -151,7 +153,7 @@
   max-width: 100%;
 }
 
-/* Author label */
+/* AUTHOR LABEL */
 .bubbleAuthor {
   font-size: 0.7rem;
   line-height: 1rem;
@@ -169,7 +171,7 @@
   text-align: left;
 }
 
-/* Message text body */
+/* MESSAGE BODY TEXT */
 .bubbleText {
   color: #fff;
   font-size: 0.9rem;
@@ -178,14 +180,14 @@
   white-space: pre-wrap;
 }
 
-/* Input form container */
+/* INPUT FORM */
 .inputForm {
   display: grid;
   row-gap: 0.5rem; /* 8px */
   margin-top: 0.75rem; /* 12px */
 }
 
-/* Textarea */
+/* TEXTAREA */
 .textarea {
   resize: vertical;
   min-height: 4.5rem; /* 72px */
@@ -206,13 +208,13 @@
   box-shadow: 0 0 0 2px rgb(37 99 235 / 0.25), 0 16px 40px rgb(0 0 0 / 0.6);
 }
 
-/* Row of buttons */
+/* ACTION ROW */
 .actions {
   display: flex;
   column-gap: 0.5rem; /* 8px */
 }
 
-/* Buttons */
+/* BUTTONS */
 .btn {
   appearance: none;
   border-radius: 0.5rem;

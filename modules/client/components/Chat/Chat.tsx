@@ -44,7 +44,7 @@ const Chat = () => {
     <div
       className={
         // outer wrapper spacing uses Tailwind so it plays nice w/ the rest of the layout
-        `${styles.chatRoot} w-full max-w-3xl mx-auto p-4`
+        `${styles.chatRoot} w-full max-w-3xl mx-auto -mt-4`
       }
     >
       <section
@@ -59,7 +59,7 @@ const Chat = () => {
             }`}
             title={isOpen ? "Connected" : "Disconnected"}
           />
-          <b className={styles.title}>Agent</b>
+          <b className={styles.title}>Chat</b>
         </header>
 
         {/* dark "terminal" panel */}

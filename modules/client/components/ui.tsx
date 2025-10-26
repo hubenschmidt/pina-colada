@@ -62,18 +62,14 @@ export function SectionTitle({
   return (
     <div
       {...rest}
-      className={cx("mb-8 flex items-end justify-between gap-4", className)}
+      className={cx("mb-6 flex items-end justify-between gap-4", className)}
     >
       <div>
         {kicker && (
-          <div className="text-xs uppercase tracking-[0.18em] text-blue-500">
+          <div className="text-sm uppercase tracking-[0.18em] text-blue-500">
             {kicker}
           </div>
         )}
-      </div>
-      <div className="hidden md:flex items-center gap-3">
-        {right}
-        <span className="h-px w-28 bg-gradient-to-r from-lime-400/70 via-yellow-400/70 to-transparent" />
       </div>
     </div>
   );
