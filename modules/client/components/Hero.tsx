@@ -3,9 +3,11 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useNav } from "../context/navContext";
+import Chat from "./Chat/Chat";
 
 const Hero = () => {
-  const { dispatchNav } = useNav();
+  const { navState, dispatchNav } = useNav();
+  const { agentOpen } = navState;
 
   const handleChatClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     // e.preventDefault();
@@ -23,15 +25,6 @@ const Hero = () => {
         className="object-cover object-center opacity-20 [filter:brightness(0.98)_contrast(1.1)]"
         sizes="100vw"
       />
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-0"
-      >
-        {/* subtle grid for light bg: darker lines, soft mask */}
-        <div className="[mask-image:radial-gradient(ellipse_at_center,black,transparent_65%)] absolute inset-0 bg-[linear-gradient(to_right,transparent_95%,rgba(0,0,0,0.06)_96%),linear-gradient(to_bottom,transparent_95%,rgba(0,0,0,0.06)_96%)] bg-[size:24px_24px]" />
-        <div className="absolute -top-24 left-1/2 h-80 w-80 -translate-x-1/2 rounded-full bg-lime-300/30 blur-3xl" />
-        <div className="absolute -bottom-24 right-12 h-72 w-72 rounded-full bg-yellow-300/20 blur-3xl" />
-      </div>
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-24 sm:py-32">
         <h1 className="max-w-3xl text-balance text-4xl font-semibold tracking-tight text-orange-400 sm:text-6xl leading-[1.1] md:leading-[1.05]">
           Elegant, enterprise

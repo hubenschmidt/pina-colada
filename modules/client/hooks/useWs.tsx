@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 
-export type ChatUser = "User" | "Bot";
+export type ChatUser = "User" | "PinaColada";
 export type ChatMsg = { user: ChatUser; msg: string; streaming?: boolean };
+const GREETING =
+  "Welcome! Ask me anything about our services, I would be glad to help.";
 
 type UseWebSocketReturn = {
   isOpen: boolean;
@@ -13,11 +15,15 @@ type UseWebSocketReturn = {
 /** Apply a streaming chunk to chat state (guard-clause style). */
 const applyStreamChunk = (prev: ChatMsg[], chunk: string): ChatMsg[] => {
   const last = prev.at(-1);
-  const isStreamingBot = !!(last && last.user === "Bot" && last.streaming);
+  const isStreamingBot = !!(
+    last &&
+    last.user === "PinaColada" &&
+    last.streaming
+  );
 
   // if there isn't an active streaming bot bubble, start one
   if (!isStreamingBot) {
-    return [...prev, { user: "Bot", msg: chunk, streaming: true }];
+    return [...prev, { user: "PinaColada", msg: chunk, streaming: true }];
   }
 
   // otherwise append to the current streaming bubble
@@ -30,7 +36,7 @@ const applyStreamChunk = (prev: ChatMsg[], chunk: string): ChatMsg[] => {
 const applyEndOfTurn = (prev: ChatMsg[]): ChatMsg[] => {
   const last = prev.at(-1);
   // nothing to do if last isn't a streaming bot bubble
-  if (!(last && last.user === "Bot" && last.streaming)) return prev;
+  if (!(last && last.user === "PinaColada" && last.streaming)) return prev;
 
   const next = prev.slice();
   next[next.length - 1] = { ...last, streaming: false };
@@ -40,7 +46,7 @@ const applyEndOfTurn = (prev: ChatMsg[]): ChatMsg[] => {
 export const useWs = (url: string): UseWebSocketReturn => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([
-    { user: "Bot", msg: "Welcome! How can I be of service today?" },
+    { user: "PinaColada", msg: GREETING },
   ]);
   const [ws, setWs] = useState<WebSocket | null>(null);
 
@@ -71,7 +77,10 @@ export const useWs = (url: string): UseWebSocketReturn => {
       try {
         parsed = JSON.parse(event.data);
       } catch {
-        setMessages((prev) => [...prev, { user: "Bot", msg: event.data }]);
+        setMessages((prev) => [
+          ...prev,
+          { user: "PinaColada", msg: event.data },
+        ]);
         return;
       }
 
@@ -101,7 +110,7 @@ export const useWs = (url: string): UseWebSocketReturn => {
       const k = payloadKeys[0];
       setMessages((prev) => [
         ...prev,
-        { user: "Bot", msg: `🔔 ${k}: ${JSON.stringify(obj[k])}` },
+        { user: "PinaColada", msg: `🔔 ${k}: ${JSON.stringify(obj[k])}` },
       ]);
     };
 
@@ -126,9 +135,7 @@ export const useWs = (url: string): UseWebSocketReturn => {
   );
 
   const reset = useCallback(() => {
-    setMessages([
-      { user: "Bot", msg: "Welcome! How can I be of service today?" },
-    ]);
+    setMessages([{ user: "PinaColada", msg: GREETING }]);
   }, []);
 
   return { isOpen, messages, sendMessage, reset };
