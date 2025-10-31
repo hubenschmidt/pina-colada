@@ -255,7 +255,9 @@ class SimpleChatGraph:
         if msgs and msgs[0].get("role") == "system":
             # Log a snippet to verify resume content is included
             system_content = msgs[0].get('content', '')
-            if "Resume:" in system_content:
+
+            # Check for Resume
+            if "## Resume:" in system_content:
                 resume_start = system_content.find("## Resume:")
                 logger.info(f"✓ Resume section found at position {resume_start}")
                 # Log first 200 chars of resume to verify
@@ -263,6 +265,16 @@ class SimpleChatGraph:
                 logger.info(f"Resume snippet: {resume_snippet}...")
             else:
                 logger.error("✗ Resume section NOT found in system prompt!")
+            
+            # Check for Summary
+            if "## Summary:" in system_content:
+                summary_start = system_content.find("## Summary:")
+                logger.info(f"✓ Summary section found at position {summary_start}")
+                # Log first 200 chars of summary to verify
+                summary_snippet = system_content[summary_start:summary_start+200]
+                logger.info(f"Summary snippet: {summary_snippet}...")
+            else:
+                logger.error("✗ Summary section NOT found in system prompt!")
         else:
             logger.error("✗ System prompt not found in messages!")
         
