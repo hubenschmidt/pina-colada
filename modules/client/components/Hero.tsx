@@ -2,18 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useNav } from "../context/navContext";
-import Chat from "./Chat/Chat";
 
 const Hero = () => {
-  const { navState, dispatchNav } = useNav();
-  const { agentOpen } = navState;
-
-  const handleChatClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    // e.preventDefault();
-    dispatchNav({ type: "SET_AGENT_OPEN", payload: true });
-  };
-
   return (
     <section className="relative overflow-hidden">
       <Image
@@ -49,13 +39,6 @@ const Hero = () => {
             className="inline-flex items-center justify-center rounded-full border border-zinc-300 px-6 py-3 text-sm font-semibold text-blue-900 hover:border-lime-400/60 hover:text-blue-500"
           >
             Explore services
-          </Link>
-          <Link
-            href="/#agent"
-            onClick={handleChatClick}
-            className="inline-flex items-center justify-center rounded-full border border-zinc-300 px-6 py-3 text-sm font-semibold text-blue-900 hover:border-lime-400/60 hover:text-blue-500"
-          >
-            Chat with us
           </Link>
         </div>
       </div>
