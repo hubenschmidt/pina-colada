@@ -22,7 +22,7 @@ if not API_KEY:
     logger.fatal("Fatal Error: OPENAI_API_KEY is missing.")
     sys.exit(1)
 
-MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-4o")
+MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-5-chat-latest")
 TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0"))
 MAX_TOKENS_ENV = os.getenv("OPENAI_MAX_TOKENS")
 MAX_TOKENS = None if not MAX_TOKENS_ENV else int(MAX_TOKENS_ENV)
@@ -35,18 +35,20 @@ resume_text = ""
 summary = ""
 
 try:
+    logger.info(f"MODEL_NAME: {MODEL_NAME}")
     reader = PdfReader("me/resume.pdf")
     for page in reader.pages:
         text = page.extract_text()
         if text:
             resume_text += text
-    
+
     # Clean up excessive whitespace from PDF extraction
     import re
-    resume_text = re.sub(r'\n\s*\n', '\n\n', resume_text)  # Multiple newlines to double
-    resume_text = re.sub(r' +', ' ', resume_text)  # Multiple spaces to single
+
+    resume_text = re.sub(r"\n\s*\n", "\n\n", resume_text)  # Multiple newlines to double
+    resume_text = re.sub(r" +", " ", resume_text)  # Multiple spaces to single
     resume_text = resume_text.strip()
-    
+
     logger.info(f"Resume loaded successfully: {len(resume_text)} characters")
 except FileNotFoundError:
     logger.warning("Resume PDF not found at me/resume.pdf")
@@ -81,6 +83,10 @@ even if it's about something trivial or unrelated to career.
 If the user is engaging in discussion, try to steer them towards getting in touch via email; \
 ask for their email and record it using your record_user_details tool.
 
+If the user asks questions that do not directly pertain to {RESUME_NAME}'s career, background, skills, \
+and experience, do not answer them and direct the conversation back to {RESUME_NAME}'s career, background, skills, \
+and experience
+
 ## Summary:
 {summary}
 
@@ -96,7 +102,8 @@ logger.info(f"Summary length: {len(summary)} characters")
 # Pushover configuration
 pushover_user = os.getenv("PUSHOVER_USER")
 pushover_token = os.getenv("PUSHOVER_TOKEN")
-pushover_url = 'https://api.pushover.net/1/messages.json'
+pushover_url = "https://api.pushover.net/1/messages.json"
+
 
 # -----------------------------------------------------------------------------
 # Tool Functions
@@ -114,15 +121,20 @@ def push(message):
     except Exception as e:
         logger.error(f"Failed to send push notification: {e}")
 
-def record_user_details(email: str, name: str = "Name not provided", notes: str = "not provided"):
+
+def record_user_details(
+    email: str, name: str = "Name not provided", notes: str = "not provided"
+):
     """Record user contact details"""
     push(f"Recording interest from {name} with email {email} and notes {notes}")
     return {"recorded": "ok", "email": email, "name": name}
+
 
 def record_unknown_question(question: str):
     """Record questions that couldn't be answered"""
     push(f"Recording question that couldn't be answered: {question}")
     return {"recorded": "ok", "question": question}
+
 
 # Tool definitions for OpenAI
 TOOLS = [
@@ -136,21 +148,21 @@ TOOLS = [
                 "properties": {
                     "email": {
                         "type": "string",
-                        "description": "The email address of this user"
+                        "description": "The email address of this user",
                     },
                     "name": {
                         "type": "string",
-                        "description": "The user's name, if they provided it"
+                        "description": "The user's name, if they provided it",
                     },
                     "notes": {
                         "type": "string",
-                        "description": "Any additional information about the conversation that's worth recording to give context"
-                    }
+                        "description": "Any additional information about the conversation that's worth recording to give context",
+                    },
                 },
                 "required": ["email"],
-                "additionalProperties": False
-            }
-        }
+                "additionalProperties": False,
+            },
+        },
     },
     {
         "type": "function",
@@ -162,26 +174,28 @@ TOOLS = [
                 "properties": {
                     "question": {
                         "type": "string",
-                        "description": "The question that couldn't be answered"
+                        "description": "The question that couldn't be answered",
                     }
                 },
                 "required": ["question"],
-                "additionalProperties": False
-            }
-        }
-    }
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 TOOL_MAP = {
     "record_user_details": record_user_details,
-    "record_unknown_question": record_unknown_question
+    "record_unknown_question": record_unknown_question,
 }
+
 
 # -----------------------------------------------------------------------------
 # State type
 # -----------------------------------------------------------------------------
 class ChatState(TypedDict):
     messages: List[Dict[str, str]]
+
 
 # -----------------------------------------------------------------------------
 # Helpers
@@ -194,20 +208,24 @@ def to_openai_messages(messages: List[Any]) -> List[Dict[str, Any]]:
         if isinstance(m, dict) and "role" in m:
             out.append(m)
             continue
-        
+
         # Otherwise normalize
         role = getattr(m, "role", None) or "user"
         content = getattr(m, "content", None) or str(m)
         out.append({"role": role, "content": content})
-    
+
     return out
 
-def ensure_system_prompt(msgs: List[Dict[str, Any]], system_text: str) -> List[Dict[str, Any]]:
+
+def ensure_system_prompt(
+    msgs: List[Dict[str, Any]], system_text: str
+) -> List[Dict[str, Any]]:
     """Ensure system message is always first and up-to-date"""
     # Remove any existing system messages
     non_system_msgs = [m for m in msgs if m.get("role") != "system"]
     # Always prepend fresh system prompt
     return [{"role": "system", "content": system_text}] + non_system_msgs
+
 
 # -----------------------------------------------------------------------------
 # Graph Builder Class
@@ -224,16 +242,20 @@ class SimpleChatGraph:
         return self._client
 
     # Node 1: Optional easter egg
-    async def node_conditional(self, state: ChatState, send_ws: Optional[Callable[[str], Awaitable[None]]]):
+    async def node_conditional(
+        self, state: ChatState, send_ws: Optional[Callable[[str], Awaitable[None]]]
+    ):
         if not state.get("messages"):
             return
-        
+
         last = state["messages"][-1]
         text = last.get("content", "")
         if not text:
             return
-        
-        if send_ws and any(k in text for k in ("LangChain", "langchain", "LangGraph", "langgraph")):
+
+        if send_ws and any(
+            k in text for k in ("LangChain", "langchain", "LangGraph", "langgraph")
+        ):
             await send_ws(json.dumps({"on_easter_egg": True}))
 
     # Node 2: Call OpenAI with tool support
@@ -245,45 +267,48 @@ class SimpleChatGraph:
         stream: bool,
     ) -> Dict[str, Any]:
         client = self._client_or_create()
-        
+
         # Normalize and ensure system prompt is always fresh
         msgs = to_openai_messages(state["messages"])
         msgs = ensure_system_prompt(msgs, SYSTEM_PROMPT)
-        
+
         # Debug: log to verify system prompt and total message count
-        logger.info(f"Processing {len(msgs)} messages, system prompt: {len(msgs[0].get('content', ''))} chars")
+        logger.info(
+            f"Processing {len(msgs)} messages, system prompt: {len(msgs[0].get('content', ''))} chars"
+        )
+        logger.info(f"model: {MODEL_NAME}")
         if msgs and msgs[0].get("role") == "system":
             # Log a snippet to verify resume content is included
-            system_content = msgs[0].get('content', '')
+            system_content = msgs[0].get("content", "")
 
             # Check for Resume
             if "## Resume:" in system_content:
                 resume_start = system_content.find("## Resume:")
                 logger.info(f"✓ Resume section found at position {resume_start}")
                 # Log first 200 chars of resume to verify
-                resume_snippet = system_content[resume_start:resume_start+200]
+                resume_snippet = system_content[resume_start : resume_start + 200]
                 logger.info(f"Resume snippet: {resume_snippet}...")
             else:
                 logger.error("✗ Resume section NOT found in system prompt!")
-            
+
             # Check for Summary
             if "## Summary:" in system_content:
                 summary_start = system_content.find("## Summary:")
                 logger.info(f"✓ Summary section found at position {summary_start}")
                 # Log first 200 chars of summary to verify
-                summary_snippet = system_content[summary_start:summary_start+200]
+                summary_snippet = system_content[summary_start : summary_start + 200]
                 logger.info(f"Summary snippet: {summary_snippet}...")
             else:
                 logger.error("✗ Summary section NOT found in system prompt!")
         else:
             logger.error("✗ System prompt not found in messages!")
-        
+
         # Log all message roles to debug conversation flow
         logger.info(f"Message roles: {[m.get('role') for m in msgs]}")
-        
+
         new_messages = []
         max_iterations = 5  # Prevent infinite tool calling loops
-        
+
         for iteration in range(max_iterations):
             try:
                 # Call OpenAI with tools
@@ -297,41 +322,54 @@ class SimpleChatGraph:
                         tools=TOOLS,
                         stream=True,
                     )
-                    
+
                     pieces: List[str] = []
                     tool_calls = []
                     current_tool_call = None
-                    
+
                     async for chunk in resp_stream:
                         delta = chunk.choices[0].delta
-                        
+
                         # Handle content streaming
                         if delta.content:
                             pieces.append(delta.content)
-                            await send_ws(json.dumps({"on_chat_model_stream": delta.content}))
-                        
+                            await send_ws(
+                                json.dumps({"on_chat_model_stream": delta.content})
+                            )
+
                         # Handle tool calls (accumulated across chunks)
                         if delta.tool_calls:
                             for tc_delta in delta.tool_calls:
                                 if tc_delta.index is not None:
                                     # Start new tool call or update existing
                                     while len(tool_calls) <= tc_delta.index:
-                                        tool_calls.append({
-                                            "id": None,
-                                            "type": "function",
-                                            "function": {"name": "", "arguments": ""}
-                                        })
-                                    
+                                        tool_calls.append(
+                                            {
+                                                "id": None,
+                                                "type": "function",
+                                                "function": {
+                                                    "name": "",
+                                                    "arguments": "",
+                                                },
+                                            }
+                                        )
+
                                     if tc_delta.id:
                                         tool_calls[tc_delta.index]["id"] = tc_delta.id
                                     if tc_delta.function:
                                         if tc_delta.function.name:
-                                            tool_calls[tc_delta.index]["function"]["name"] = tc_delta.function.name
+                                            tool_calls[tc_delta.index]["function"][
+                                                "name"
+                                            ] = tc_delta.function.name
                                         if tc_delta.function.arguments:
-                                            tool_calls[tc_delta.index]["function"]["arguments"] += tc_delta.function.arguments
-                    
-                    finish_reason = chunk.choices[0].finish_reason if chunk.choices else None
-                    
+                                            tool_calls[tc_delta.index]["function"][
+                                                "arguments"
+                                            ] += tc_delta.function.arguments
+
+                    finish_reason = (
+                        chunk.choices[0].finish_reason if chunk.choices else None
+                    )
+
                     # Build assistant message
                     assistant_msg = {"role": "assistant"}
                     if pieces:
@@ -339,12 +377,14 @@ class SimpleChatGraph:
                         await send_ws(json.dumps({"on_chat_model_end": True}))
                     else:
                         assistant_msg["content"] = ""
-                    
+
                     if tool_calls and any(tc["id"] for tc in tool_calls):
                         # Convert to proper format
                         from openai.types.chat import ChatCompletionMessageToolCall
-                        from openai.types.chat.chat_completion_message_tool_call import Function
-                        
+                        from openai.types.chat.chat_completion_message_tool_call import (
+                            Function,
+                        )
+
                         formatted_tool_calls = []
                         for tc in tool_calls:
                             if tc["id"]:
@@ -354,12 +394,12 @@ class SimpleChatGraph:
                                         type="function",
                                         function=Function(
                                             name=tc["function"]["name"],
-                                            arguments=tc["function"]["arguments"]
-                                        )
+                                            arguments=tc["function"]["arguments"],
+                                        ),
                                     )
                                 )
                         assistant_msg["tool_calls"] = formatted_tool_calls
-                    
+
                 else:
                     # Non-streaming mode
                     resp = await client.chat.completions.create(
@@ -370,90 +410,110 @@ class SimpleChatGraph:
                         tools=TOOLS,
                         stream=False,
                     )
-                    
+
                     assistant_msg = resp.choices[0].message.model_dump()
                     finish_reason = resp.choices[0].finish_reason
-                
+
                 # Add assistant message to history
                 msgs.append(assistant_msg)
                 new_messages.append(assistant_msg)
-                
+
                 # If no tool calls, we're done
                 if finish_reason != "tool_calls" or "tool_calls" not in assistant_msg:
                     break
-                
+
                 # Execute tool calls
                 tool_responses = []
                 for tool_call in assistant_msg.get("tool_calls", []):
-                    tool_name = tool_call.function.name if hasattr(tool_call, 'function') else tool_call["function"]["name"]
-                    arguments_str = tool_call.function.arguments if hasattr(tool_call, 'function') else tool_call["function"]["arguments"]
-                    tool_id = tool_call.id if hasattr(tool_call, 'id') else tool_call["id"]
-                    
+                    tool_name = (
+                        tool_call.function.name
+                        if hasattr(tool_call, "function")
+                        else tool_call["function"]["name"]
+                    )
+                    arguments_str = (
+                        tool_call.function.arguments
+                        if hasattr(tool_call, "function")
+                        else tool_call["function"]["arguments"]
+                    )
+                    tool_id = (
+                        tool_call.id if hasattr(tool_call, "id") else tool_call["id"]
+                    )
+
                     logger.info(f"Executing tool: {tool_name}")
-                    
+
                     try:
                         arguments = json.loads(arguments_str)
                         tool_func = TOOL_MAP.get(tool_name)
-                        
+
                         if tool_func:
                             result = tool_func(**arguments)
                             tool_response = {
                                 "role": "tool",
                                 "content": json.dumps(result),
-                                "tool_call_id": tool_id
+                                "tool_call_id": tool_id,
                             }
                         else:
                             tool_response = {
                                 "role": "tool",
-                                "content": json.dumps({"error": f"Unknown tool: {tool_name}"}),
-                                "tool_call_id": tool_id
+                                "content": json.dumps(
+                                    {"error": f"Unknown tool: {tool_name}"}
+                                ),
+                                "tool_call_id": tool_id,
                             }
-                        
+
                         tool_responses.append(tool_response)
-                        
+
                     except Exception as e:
                         logger.error(f"Tool execution error: {e}")
-                        tool_responses.append({
-                            "role": "tool",
-                            "content": json.dumps({"error": str(e)}),
-                            "tool_call_id": tool_id
-                        })
-                
+                        tool_responses.append(
+                            {
+                                "role": "tool",
+                                "content": json.dumps({"error": str(e)}),
+                                "tool_call_id": tool_id,
+                            }
+                        )
+
                 # Add tool responses to conversation
                 msgs.extend(tool_responses)
                 new_messages.extend(tool_responses)
-                
+
                 # Continue loop to get next assistant response
-                
+
             except Exception as e:
                 logger.exception(f"OpenAI call failed: {e}")
-                error_msg = {"role": "assistant", "content": "Sorry—there was an error generating the response."}
+                error_msg = {
+                    "role": "assistant",
+                    "content": "Sorry—there was an error generating the response.",
+                }
                 new_messages.append(error_msg)
                 if stream and send_ws:
                     await send_ws(json.dumps({"on_chat_model_end": True}))
                 break
-        
+
         return {"messages": new_messages}
 
     # Build the graph
-    def build(self, *, send_ws: Optional[Callable[[str], Awaitable[None]]], stream: bool):
+    def build(
+        self, *, send_ws: Optional[Callable[[str], Awaitable[None]]], stream: bool
+    ):
         """Build and compile: START -> conditional -> model -> END"""
         g = StateGraph(ChatState)
-        
+
         async def _conditional(s: ChatState):
             return await self.node_conditional(s, send_ws)
-        
+
         async def _model(s: ChatState):
             return await self.node_model(s, send_ws=send_ws, stream=stream)
-        
+
         g.add_node("conditional", _conditional)
         g.add_node("model", _model)
-        
+
         g.add_edge(START, "conditional")
         g.add_edge("conditional", "model")
         g.add_edge("model", END)
-        
+
         return g.compile(checkpointer=self._memory)
+
 
 # =============================================================================
 # DEFAULT EXPORT for loaders (non-streaming, NO memory)
@@ -461,6 +521,7 @@ class SimpleChatGraph:
 def build_default_graph():
     """Non-streaming graph for auto-import"""
     return SimpleChatGraph(use_memory=False).build(send_ws=None, stream=False)
+
 
 graph = build_default_graph()
 
@@ -470,24 +531,29 @@ graph = build_default_graph()
 from fastapi import WebSocket
 from langfuse import observe
 
+
 def build_streaming_graph(send_ws: Callable[[str], Awaitable[None]]):
     """Build streaming graph with MemorySaver"""
     return SimpleChatGraph(use_memory=True).build(send_ws=send_ws, stream=True)
 
+
 @observe()
-async def invoke_our_graph(websocket: WebSocket, data: Union[str, List[Dict[str, str]]], user_uuid: str):
+async def invoke_our_graph(
+    websocket: WebSocket, data: Union[str, List[Dict[str, str]]], user_uuid: str
+):
     """WebSocket entrypoint - builds streaming graph and invokes it"""
+
     async def _send_ws(payload: str):
         await websocket.send_text(payload)
-    
+
     graph_runnable = build_streaming_graph(_send_ws)
     config = {"configurable": {"thread_id": user_uuid}}
-    
+
     if isinstance(data, list):
         state: ChatState = {"messages": data}
         await graph_runnable.ainvoke(state, config)
         return
-    
+
     # Fallback: treat as single user message
     state: ChatState = {"messages": [{"role": "user", "content": str(data)}]}
     await graph_runnable.ainvoke(state, config)

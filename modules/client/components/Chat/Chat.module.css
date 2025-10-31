@@ -25,10 +25,12 @@
     sans-serif
   );
   line-height: 1.4;
+
+  /* Ensure proper spacing and height constraints */
+  padding: 1rem 0;
 }
 
 /* SHELL CARD
-   OLD: solid var(--background) on white page so it blended in.
    NEW: translucent "glass" panel so it clearly floats above the global background.
    - backdrop-filter blur for frosted look
    - subtle border + shadow
@@ -46,6 +48,13 @@
   border-radius: 0.75rem; /* ~12px */
   box-shadow: 0 4px 4px rgb(0 0 0 / 0.4);
   padding: 1rem;
+
+  /* Force a fixed height that fits in viewport */
+  height: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 /* HEADER ROW */
@@ -54,6 +63,7 @@
   align-items: center;
   gap: 0.5rem; /* 8px */
   margin-bottom: 0.75rem; /* 12px */
+  flex-shrink: 0; /* Keep header from shrinking */
 }
 
 .title {
@@ -101,6 +111,12 @@
   );
   font-size: 0.9rem;
   line-height: 1.4;
+
+  /* Allow panel to shrink and grow within parent */
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0; /* Important for flex children to shrink properly */
 }
 
 /* SCROLLABLE MESSAGE LIST AREA */
@@ -108,11 +124,13 @@
   display: flex;
   flex-direction: column;
   row-gap: 0.5rem; /* 8px */
-  min-height: 12rem; /* ~192px */
-  max-height: 60vh;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 0.25rem; /* 4px breathing room for scrollbar */
+
+  /* Allow to grow and shrink, taking available space */
+  flex: 1;
+  min-height: 0; /* Important for proper scrolling */
 }
 
 /* individual rows */
@@ -185,6 +203,7 @@
   display: grid;
   row-gap: 0.5rem; /* 8px */
   margin-top: 0.75rem; /* 12px */
+  flex-shrink: 0; /* Prevent input from shrinking */
 }
 
 /* TEXTAREA */
