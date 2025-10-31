@@ -15,14 +15,15 @@ HTTP_PORT=${PORT:-8080}
 echo "Starting LangGraph server on port 2024..."
 echo "Starting FastAPI server on port $HTTP_PORT..."
 
-# Start LangGraph API (2024) - production mode
-# Try langgraph command, fall back to python module if needed
+# Start LangGraph API (2024) - use 'dev' mode but without reload for production
+# 'langgraph up' requires Docker, but we're already in a container
+# 'langgraph dev' runs the server directly without Docker
 if command -v langgraph &> /dev/null; then
     echo "Using langgraph CLI from PATH"
-    langgraph up --port 2024 &
+    langgraph dev --host 0.0.0.0 --port 2024 --no-reload &
 else
     echo "Using python -m langgraph_cli (fallback)"
-    python -m langgraph_cli.cli up --port 2024 &
+    python -m langgraph_cli.cli dev --host 0.0.0.0 --port 2024 --no-reload &
 fi
 LG_PID=$!
 
