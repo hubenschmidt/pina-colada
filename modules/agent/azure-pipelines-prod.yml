@@ -24,7 +24,7 @@ variables:
   owner: "hubenschmidt"
   imageName: "pina-colada-agent"
   imageRepository: "$(owner)/$(imageName)"
-  dockerfilePath: "modules/agent/Dockerfile"
+  dockerfilePath: "modules/agent/Dockerfile.prod" # Updated to use prod Dockerfile
   buildContext: "modules/agent"
   tagLatest: "latest"
   tagBuildId: "$(Build.SourceBranchName)-$(Build.BuildId)"
@@ -32,9 +32,6 @@ variables:
   DO_APP_ID: 78d80fa1-9b73-4c13-a20c-8553c8cf92d4
 
 stages:
-  # REMOVED: Build stage (no Node.js needed for Python)
-  # Docker build happens in Push stage
-
   - stage: Push
     displayName: Push Docker Image to GHCR
     # Only deploy on master (avoid PR validations)
@@ -52,12 +49,10 @@ stages:
             inputs:
               command: "buildAndPush"
               containerRegistry: "$(dockerRegistryServiceConnection)"
-              repository: "$(imageRepository)" # owner/name ONLY
+              repository: "$(imageRepository)"
               dockerfile: "$(dockerfilePath)"
               buildContext: "$(buildContext)"
               addPipelineData: false
-              # Build the production target, not dev
-              arguments: "--target base"
               tags: |
                 $(tagLatest)
                 $(tagBuildId)
