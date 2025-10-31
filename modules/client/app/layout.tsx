@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Header from "../components/Header";
+import { NavProvider } from "../context/navContext";
 
 export const metadata: Metadata = {
   title: "PinaColada.co",
@@ -15,8 +16,10 @@ export default function RootLayout({
   return (
     <html lang="en" className="scroll-smooth">
       <body>
-        <Header />
-        {children}
+        <NavProvider>
+          <Header />
+          {children}
+        </NavProvider>
       </body>
     </html>
   );
