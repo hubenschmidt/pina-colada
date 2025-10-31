@@ -16,8 +16,14 @@ echo "Starting LangGraph server on port 2024..."
 echo "Starting FastAPI server on port $HTTP_PORT..."
 
 # Start LangGraph API (2024) - production mode
-# Use python -m since langgraph command may not be in PATH
-python -m langgraph up --port 2024 &
+# Try langgraph command, fall back to python module if needed
+if command -v langgraph &> /dev/null; then
+    echo "Using langgraph CLI from PATH"
+    langgraph up --port 2024 &
+else
+    echo "Using python -m langgraph_cli (fallback)"
+    python -m langgraph_cli.cli up --port 2024 &
+fi
 LG_PID=$!
 
 # Start FastAPI websocket server - production mode

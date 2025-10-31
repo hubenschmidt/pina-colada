@@ -10,20 +10,31 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
+# Install uv package manager
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    ln -s /root/.local/bin/uv /usr/local/bin/uv
+
 # Set Python environment variables
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_SYSTEM_PYTHON=1 \
+    PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 
 # Copy dependency files first (for better layer caching)
 COPY pyproject.toml README.md ./
 COPY src ./src
 
-# Install Python dependencies using pip directly (not uv)
-# This ensures console scripts are properly installed to /usr/local/bin
-RUN pip install --no-cache-dir -e .
+# Install Python dependencies with uv
+RUN uv pip install -e . --no-cache-dir
 
-# Verify installations
-RUN langgraph --version && echo "✓ langgraph CLI is accessible"
+# Find and link langgraph CLI script to /usr/local/bin
+# uv installs scripts to Python's bin directory, we need to make them accessible
+RUN find /usr/local -name "langgraph" -type f -executable 2>/dev/null | head -1 | xargs -I {} ln -sf {} /usr/local/bin/langgraph || \
+    echo "WARNING: langgraph command not found, will use fallback in start script"
+
+# Verify installation
+RUN python -c "import langgraph; import langgraph_cli; print('✓ Packages installed')" && \
+    (langgraph --version 2>/dev/null || echo "Note: Using fallback method for langgraph command")
 
 # Copy the rest of the application (config files, scripts, etc.)
 COPY . .
