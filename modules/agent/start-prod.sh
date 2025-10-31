@@ -16,11 +16,12 @@ echo "Starting LangGraph server on port 2024..."
 echo "Starting FastAPI server on port $HTTP_PORT..."
 
 # Start LangGraph API (2024) - production mode
-uv run langgraph up --host 0.0.0.0 --port 2024 &
+# Note: langgraph up doesn't support --host, it binds to 0.0.0.0 by default
+langgraph up --port 2024 &
 LG_PID=$!
 
 # Start FastAPI websocket server - production mode
-uv run python -m uvicorn agent.server:app \
+python -m uvicorn agent.server:app \
   --host 0.0.0.0 \
   --port "$HTTP_PORT" \
   --log-level info &
