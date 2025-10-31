@@ -14,22 +14,26 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && ln -s /root/.local/bin/uv
 COPY pyproject.toml README.md ./
 COPY src ./src
 
-# Dev image
-FROM base AS dev
+# Install dependencies
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     UV_SYSTEM_PYTHON=1 \
     PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 
-# Python deps (your pyproject must include fastapi/uvicorn/websockets)
-RUN uv pip install -e . --no-cache-dir && \
-    uv pip install watchfiles --no-cache-dir
+RUN uv pip install -e . --no-cache-dir
 
-# Copy start.sh to the Docker container
+# ============ Production Image ============
+FROM base AS prod
 COPY start.sh /usr/src/app/start.sh
-
-# Give execution permissions to the start.sh script
 RUN chmod +x /usr/src/app/start.sh
+EXPOSE 2024 8000
+CMD ["/usr/src/app/start.sh"]
 
+# ============ Dev Image ============
+FROM base AS dev
+# Install dev dependencies
+RUN uv pip install watchfiles --no-cache-dir
+COPY start.sh /usr/src/app/start.sh
+RUN chmod +x /usr/src/app/start.sh
 EXPOSE 2024 8000
 CMD ["/usr/src/app/start.sh"]

@@ -32,29 +32,11 @@ variables:
   DO_APP_ID: 78d80fa1-9b73-4c13-a20c-8553c8cf92d4
 
 stages:
-  - stage: Build
-    displayName: Build agent
-    jobs:
-      - job: Build
-        displayName: Node build
-        pool:
-          name: Default # self-hosted Linux agent pool
-          demands:
-            - Agent.OS -equals Linux
-        steps:
-          - task: NodeTool@0
-            inputs:
-              versionSpec: "18"
-            displayName: "Install Node.js"
-          - task: Npm@1
-            displayName: "npm install (modules/agent)"
-            inputs:
-              command: "install"
-              workingDir: "$(Build.SourcesDirectory)/modules/agent"
+  # REMOVED: Build stage (no Node.js needed for Python)
+  # Docker build happens in Push stage
 
   - stage: Push
     displayName: Push Docker Image to GHCR
-    dependsOn: Build
     # Only deploy on master (avoid PR validations)
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     jobs:
@@ -74,6 +56,8 @@ stages:
               dockerfile: "$(dockerfilePath)"
               buildContext: "$(buildContext)"
               addPipelineData: false
+              # Build the production target, not dev
+              arguments: "--target base"
               tags: |
                 $(tagLatest)
                 $(tagBuildId)
