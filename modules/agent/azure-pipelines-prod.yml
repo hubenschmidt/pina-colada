@@ -1,0 +1,107 @@
+trigger:
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - "**/agent/**"
+
+pr:
+  autoCancel: true
+  branches:
+    include:
+      - master
+  paths:
+    include:
+      - "**/agent/**"
+
+resources:
+  - repo: self
+
+# ---------------- Variables ----------------
+variables:
+  dockerRegistryServiceConnection: "ghcr-conn"
+  owner: "hubenschmidt"
+  imageName: "pina-colada-agent"
+  imageRepository: "$(owner)/$(imageName)"
+  dockerfilePath: "modules/agent/Dockerfile"
+  buildContext: "modules/agent"
+  tagLatest: "latest"
+  tagBuildId: "$(Build.SourceBranchName)-$(Build.BuildId)"
+  DO_API_TOKEN: dop_v1_712eaf28237d9d0220284024e059789d134d1919cf79af5625600036051bc962
+  DO_APP_ID: 78d80fa1-9b73-4c13-a20c-8553c8cf92d4
+
+stages:
+  - stage: Build
+    displayName: Build agent
+    jobs:
+      - job: Build
+        displayName: Node build
+        pool:
+          name: Default # self-hosted Linux agent pool
+          demands:
+            - Agent.OS -equals Linux
+        steps:
+          - task: NodeTool@0
+            inputs:
+              versionSpec: "18"
+            displayName: "Install Node.js"
+          - task: Npm@1
+            displayName: "npm install (modules/agent)"
+            inputs:
+              command: "install"
+              workingDir: "$(Build.SourcesDirectory)/modules/agent"
+
+  - stage: Push
+    displayName: Push Docker Image to GHCR
+    dependsOn: Build
+    # Only deploy on master (avoid PR validations)
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    jobs:
+      - job: Push
+        displayName: Build & push image
+        pool:
+          name: Default # self-hosted Linux agent pool
+          demands:
+            - Agent.OS -equals Linux
+        steps:
+          - task: Docker@2
+            displayName: "Build and push to GHCR"
+            inputs:
+              command: "buildAndPush"
+              containerRegistry: "$(dockerRegistryServiceConnection)"
+              repository: "$(imageRepository)" # owner/name ONLY
+              dockerfile: "$(dockerfilePath)"
+              buildContext: "$(buildContext)"
+              addPipelineData: false
+              tags: |
+                $(tagLatest)
+                $(tagBuildId)
+
+  - stage: Deploy
+    displayName: Deploy to DigitalOcean App Platform
+    dependsOn: Push
+    # Only deploy on master (avoid PR validations)
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    jobs:
+      - job: Deploy
+        displayName: Trigger DigitalOcean Deploy
+        pool:
+          name: Default
+          demands:
+            - Agent.OS -equals Linux
+        steps:
+          - script: |
+              echo "Triggering deployment on DigitalOcean App Platform..."
+              http_code=$(curl -sS -o /tmp/do_deploy.json -w "%{http_code}" \
+                -X POST \
+                -H "Authorization: Bearer $(DO_API_TOKEN)" \
+                -H "Content-Type: application/json" \
+                "https://api.digitalocean.com/v2/apps/$(DO_APP_ID)/deployments")
+              echo "POST /deployments => $http_code"
+              cat /tmp/do_deploy.json
+              case "$http_code" in
+                200|201|202) echo "Deployment triggered." ;;
+                *) echo "Deployment API failed"; exit 1 ;;
+              esac
+            displayName: "Call DigitalOcean API to redeploy"
