@@ -20,7 +20,7 @@ const SectionFrame = ({
   containerClassName = "mx-auto max-w-6xl px-4",
 }: SectionFrameProps) => {
   return (
-    <section id={id} className={cx("py-20", bandBg)}>
+    <section id={id} className={cx("py-15", bandBg)}>
       <div
         className={cx(
           containerClassName,

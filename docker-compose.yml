@@ -4,7 +4,7 @@ services:
       context: ./modules/client
       dockerfile: Dockerfile
     ports:
-      - "4001:4001"
+      - "3001:3001"
     volumes:
       - ./modules/client:/app
       - /app/node_modules
@@ -24,7 +24,11 @@ services:
       - HOST=0.0.0.0
       - LANGFUSE_HOST=http://langfuse:3000 # app talks to Langfuse over the compose network
     volumes:
-      - ./modules/agent:/app
+      # Mount source code with consistency mode for better performance
+      - ./modules/agent:/app:delegated
+      # Exclude these from the mount to avoid conflicts
+      - /app/__pycache__
+      - /app/.pytest_cache
     ports:
       - "2024:2024" # LangGraph API to host
       - "8000:8000" # FastAPI server.py

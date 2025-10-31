@@ -1,202 +1,265 @@
-/* Component root scope:
-   - holds what used to live on :root, html, body
-   - nothing leaks globally
+/* Chat.module.css */
+
+/* ROOT WRAPPER
+   - sits above the page background (grain/grid)
+   - we bump z-index so any fancy background behind doesn't visually "bleed through" in stacking
 */
 .chatRoot {
-  /* formerly :root custom properties */
-  --bg: #001524;
-  --fg: #fbfef9;
+  position: relative;
+  z-index: 10;
 
-  --card-bg: #0b0b0b;
-  --card-border: #e5e7eb22;
-
-  --user-bg: #1f2937;
-  --bot-bg: #111827;
-  --bubble-border: #2b2b2b;
-
-  --accent-green: #16a34a;
-  --accent-red: #dc2626;
-
-  /* formerly body */
-  background: var(--bg);
-  color: var(--fg);
-  font-family: system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue",
-    Arial, "Noto Sans", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol",
-    "Noto Color Emoji", sans-serif;
-
-  /* so the card doesn't slam edge-to-edge if parent is dark/transparent */
-  padding: 16px;
-  border-radius: 12px;
-
-  /* optional: make sure text inherits correctly inside */
+  color: var(--foreground);
+  font-family: var(
+    --font-sans,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    "Noto Sans",
+    "Apple Color Emoji",
+    "Segoe UI Emoji",
+    "Segoe UI Symbol",
+    "Noto Color Emoji",
+    sans-serif
+  );
   line-height: 1.4;
+
+  /* Ensure proper spacing and height constraints */
+  padding: 1rem 0;
 }
 
-/* local reset-ish things that were global before */
-.chatRoot * {
-  box-sizing: border-box;
+/* SHELL CARD
+   White background with subtle styling
+*/
+.shellCard {
+  background-color: #ffffff;
+  color: var(--foreground);
+
+  border: 1px solid rgb(0 0 0 / 0.1);
+  border-radius: 0.75rem; /* ~12px */
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+  padding: 1rem;
+
+  /* Force a fixed height that fits in viewport */
+  height: 600px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
-/* App shell */
-.app {
-  max-width: 720px;
-  margin: 0 auto;
-  /* we moved padding:16px up to .chatRoot so that the bg color / radius wrap it.
-     If you prefer spacing INSIDE instead of OUTSIDE, you can
-     remove padding from .chatRoot and put it back here. */
-}
-
-/* Header */
+/* HEADER ROW */
 .header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 12px;
+  gap: 0.5rem; /* 8px */
+  margin-bottom: 0.75rem; /* 12px */
+  flex-shrink: 0; /* Keep header from shrinking */
 }
 
 .title {
-  font-weight: 700;
+  font-weight: 600;
+  font-family: var(--font-serif, inherit); /* uses your display font token */
+  font-size: 1rem;
+  line-height: 1.25rem;
+  color: var(--foreground);
 }
 
 .status {
   width: 10px;
   height: 10px;
-  border-radius: 50%;
-  border: 2px solid #ffffff66;
+  border-radius: 9999px;
+  border: 2px solid rgb(0 0 0 / 0.2);
   transition: background-color 0.2s ease-in-out;
 }
 
-.status--online {
-  background: var(--accent-green);
+.statusOnline {
+  background-color: #16a34a;
 }
-.status--offline {
-  background: var(--accent-red);
-}
-
-/* Chat card */
-.chat-card {
-  background: var(--card-bg);
-  border: 1px solid var(--card-border);
-  border-radius: 8px;
-  padding: 12px;
+.statusOffline {
+  background-color: #dc2626;
 }
 
-/* Message list */
-.msg-list {
+/* CHAT PANEL
+   White background for clean look
+*/
+.chatPanel {
+  background-color: #ffffff;
+  border: 1px solid rgb(0 0 0 / 0.08);
+  border-radius: 0.5rem; /* 8px */
+  padding: 0.75rem; /* 12px */
+  color: var(--foreground);
+  font-family: var(
+    --font-sans,
+    system-ui,
+    -apple-system,
+    Segoe UI,
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    "Noto Sans"
+  );
+  font-size: 0.9rem;
+  line-height: 1.4;
+
+  /* Allow panel to shrink and grow within parent */
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  min-height: 240px;
-  /* You probably want this scrollbox instead of page scroll */
-  max-height: 60vh;
+  min-height: 0; /* Important for flex children to shrink properly */
+}
+
+/* SCROLLABLE MESSAGE LIST AREA */
+.msgList {
+  display: flex;
+  flex-direction: column;
+  row-gap: 0.5rem; /* 8px */
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding-right: 4px; /* breathing room for scrollbar */
+  padding-right: 0.25rem; /* 4px breathing room for scrollbar */
+
+  /* Allow to grow and shrink, taking available space */
+  flex: 1;
+  min-height: 0; /* Important for proper scrolling */
 }
 
-/* Message row alignment */
-.msg-row {
+/* individual rows */
+.msgRow {
   display: flex;
+  width: 100%;
 }
 
-.msg-row--user {
+.msgRowUser {
   justify-content: flex-end;
 }
-.msg-row--bot {
+.msgRowBot {
   justify-content: flex-start;
 }
 
-/* Bubbles */
+/* MESSAGE BUBBLES - BLUE */
 .bubble {
   display: inline-block;
   width: fit-content;
   max-width: 100%;
-  border: 1px solid var(--bubble-border);
-  padding: 6px 10px;
-  border-radius: 10px;
-  color: #fff;
+  border: 1px solid transparent;
+  border-radius: 0.625rem; /* 10px */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  margin-bottom: 12px;
+  padding: 0.5rem 0.625rem; /* 8px 10px */
+  margin-bottom: 0.5rem; /* 8px space under */
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
+  font-feature-settings: "ss01", "ss02", "liga" 1;
 }
 
-.bubble--user {
-  background: var(--user-bg);
+.bubbleUser {
+  background-color: #3b82f6; /* blue-500 */
+  color: #ffffff;
   max-width: 75%;
 }
-.bubble--bot {
-  background: var(--bot-bg);
+.bubbleBot {
+  background-color: #dbeafe; /* blue-100 */
+  color: #1e3a8a; /* blue-900 */
+  border-color: #93c5fd; /* blue-300 */
   max-width: 100%;
 }
 
-/* Author label */
-.bubble__author {
-  font-size: 12px;
-  opacity: 0.75;
-  margin-bottom: 4px;
+/* AUTHOR LABEL */
+.bubbleAuthor {
+  font-size: 0.7rem;
+  line-height: 1rem;
+  opacity: 0.9;
+  margin-bottom: 0.25rem; /* 4px */
+  font-weight: 500;
+  letter-spacing: -0.02em;
 }
 
-.bubble__author--right {
+.bubbleAuthorRight {
   text-align: right;
+  color: rgba(255, 255, 255, 0.9); /* white for user bubble */
 }
-.bubble__author--left {
+.bubbleAuthorLeft {
   text-align: left;
+  color: #1e40af; /* blue-800 for bot bubble */
 }
 
-/* Input form */
-.input-form {
-  display: grid;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.input-form__textarea {
-  resize: vertical;
-  padding: 8px;
-  background: #0f1115;
-  color: #fff;
-  border: 1px solid var(--bubble-border);
-  border-radius: 8px;
-  min-height: 72px;
-  font-family: inherit;
+/* MESSAGE BODY TEXT */
+.bubbleText {
   font-size: 0.9rem;
-  line-height: 1.4;
+  line-height: 1.4rem;
+  font-weight: 400;
+  white-space: pre-wrap;
 }
 
-.input-form__textarea:focus {
-  outline: 2px solid #2563eb80;
-  border-color: #2563eb80;
+/* INPUT FORM */
+.inputForm {
+  display: grid;
+  row-gap: 0.5rem; /* 8px */
+  margin-top: 0.75rem; /* 12px */
+  flex-shrink: 0; /* Prevent input from shrinking */
 }
 
-.input-form__actions {
+/* TEXTAREA */
+.textarea {
+  resize: vertical;
+  min-height: 4.5rem; /* 72px */
+  background-color: #f9fafb; /* gray-50 */
+  border: 1px solid #d1d5db; /* gray-300 */
+  border-radius: 0.5rem; /* 8px */
+  color: var(--foreground);
+  font-size: 0.9rem;
+  line-height: 1.4rem;
+  padding: 0.5rem; /* 8px */
+  outline: none;
+  font-family: inherit;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+}
+
+.textarea:focus {
+  border-color: #3b82f6; /* blue-500 */
+  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+}
+
+/* ACTION ROW */
+.actions {
   display: flex;
-  gap: 8px;
+  column-gap: 0.5rem; /* 8px */
 }
 
-/* Buttons */
+/* BUTTONS */
 .btn {
   appearance: none;
-  border: 1px solid var(--bubble-border);
-  background: #1f2937;
-  color: #fff;
-  border-radius: 8px;
-  padding: 8px 12px;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+  background-color: #3b82f6; /* blue-500 */
+  color: #ffffff;
+  padding: 0.5rem 0.75rem; /* 8px 12px */
+  font-size: 0.8rem;
+  font-weight: 500;
+  line-height: 1.2rem;
   cursor: pointer;
-  transition: filter 0.15s ease-in-out, opacity 0.15s ease-in-out;
-  font-size: 0.9rem;
-  line-height: 1.2;
+  transition: background-color 0.15s ease-in-out, opacity 0.15s ease-in-out;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
 }
 
 .btn:hover {
-  filter: brightness(1.15);
+  background-color: #2563eb; /* blue-600 */
 }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+  background-color: #9ca3af; /* gray-400 */
 }
 
-.btn--ghost {
-  background: transparent;
-  border-color: var(--bubble-border);
+.btnGhost {
+  background-color: transparent;
+  border-color: #d1d5db; /* gray-300 */
+  color: var(--foreground);
+}
+
+.btnGhost:hover {
+  background-color: #f3f4f6; /* gray-100 */
+  border-color: #9ca3af; /* gray-400 */
 }

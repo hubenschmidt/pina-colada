@@ -12,14 +12,14 @@ const Chat = () => {
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  // Scroll only the message list, not the whole window
+  // scroll the message list, not the page
   useEffect(() => {
     const el = listRef.current;
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  // Focus textarea without jumping page
+  // autofocus textarea on mount
   useEffect(() => {
     inputRef.current?.focus({ preventScroll: true });
   }, []);
@@ -41,22 +41,33 @@ const Chat = () => {
   };
 
   return (
-    <div className={styles.chatRoot}>
-      <div className={styles.app}>
+    <div
+      className={
+        // outer wrapper spacing uses Tailwind so it plays nice w/ the rest of the layout
+        `${styles.chatRoot} w-full max-w-5xl mx-auto -mt-4`
+      }
+    >
+      <section
+        // shell card matches global aesthetic (soft bg, subtle border)
+        className={`${styles.shellCard} w-full`}
+      >
+        {/* header */}
         <header className={styles.header}>
           <div
             className={`${styles.status} ${
-              isOpen ? styles["status--online"] : styles["status--offline"]
+              isOpen ? styles.statusOnline : styles.statusOffline
             }`}
             title={isOpen ? "Connected" : "Disconnected"}
           />
-          <b className={styles.title}>LangGraph-React</b>
+          <b className={styles.title}>Chat</b>
         </header>
 
-        <main className={styles["chat-card"]}>
+        {/* dark "terminal" panel */}
+        <main className={styles.chatPanel}>
+          {/* message list */}
           <section
             ref={listRef}
-            className={styles["msg-list"]}
+            className={styles.msgList}
             onWheel={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
           >
@@ -65,32 +76,33 @@ const Chat = () => {
               return (
                 <div
                   key={i}
-                  className={`${styles["msg-row"]} ${
-                    isUser ? styles["msg-row--user"] : styles["msg-row--bot"]
+                  className={`${styles.msgRow} ${
+                    isUser ? styles.msgRowUser : styles.msgRowBot
                   }`}
                 >
                   <div
                     className={`${styles.bubble} ${
-                      isUser ? styles["bubble--user"] : styles["bubble--bot"]
+                      isUser ? styles.bubbleUser : styles.bubbleBot
                     }`}
                   >
                     <div
-                      className={`${styles["bubble__author"]} ${
+                      className={`${styles.bubbleAuthor} ${
                         isUser
-                          ? styles["bubble__author--right"]
-                          : styles["bubble__author--left"]
+                          ? styles.bubbleAuthorRight
+                          : styles.bubbleAuthorLeft
                       }`}
                     >
                       <strong>{m.user}</strong>
                     </div>
-                    <div className={styles["bubble__text"]}>{m.msg.trim()}</div>
+                    <div className={styles.bubbleText}>{m.msg.trim()}</div>
                   </div>
                 </div>
               );
             })}
           </section>
 
-          <form className={styles["input-form"]} onSubmit={onSubmit}>
+          {/* input */}
+          <form className={styles.inputForm} onSubmit={onSubmit}>
             <textarea
               ref={inputRef}
               value={input}
@@ -101,9 +113,9 @@ const Chat = () => {
               placeholder="Type or paste your message..."
               rows={3}
               spellCheck
-              className={styles["input-form__textarea"]}
+              className={styles.textarea}
             />
-            <div className={styles["input-form__actions"]}>
+            <div className={styles.actions}>
               <button
                 type="submit"
                 className={styles.btn}
@@ -113,7 +125,7 @@ const Chat = () => {
               </button>
               <button
                 type="button"
-                className={`${styles.btn} ${styles["btn--ghost"]}`}
+                className={`${styles.btn} ${styles.btnGhost}`}
                 onClick={reset}
               >
                 Reset
@@ -121,7 +133,7 @@ const Chat = () => {
             </div>
           </form>
         </main>
-      </div>
+      </section>
     </div>
   );
 };
