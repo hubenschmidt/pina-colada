@@ -24,7 +24,7 @@ variables:
   owner: "hubenschmidt"
   imageName: "pina-colada-agent"
   imageRepository: "$(owner)/$(imageName)"
-  dockerfilePath: "modules/agent/Dockerfile.prod" # Updated to use prod Dockerfile
+  dockerfilePath: "modules/agent/Dockerfile.prod"
   buildContext: "modules/agent"
   tagLatest: "latest"
   tagBuildId: "$(Build.SourceBranchName)-$(Build.BuildId)"
@@ -32,27 +32,47 @@ variables:
   DO_APP_ID: 78d80fa1-9b73-4c13-a20c-8553c8cf92d4
 
 stages:
-  - stage: Push
-    displayName: Push Docker Image to GHCR
-    # Only deploy on master (avoid PR validations)
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  - stage: Build
+    displayName: Build agent
     jobs:
-      - job: Push
-        displayName: Build & push image
+      - job: Build
+        displayName: Docker build
         pool:
           name: Default # self-hosted Linux agent pool
           demands:
             - Agent.OS -equals Linux
         steps:
           - task: Docker@2
-            displayName: "Build and push to GHCR"
+            displayName: "Build Docker image"
             inputs:
-              command: "buildAndPush"
+              command: "build"
               containerRegistry: "$(dockerRegistryServiceConnection)"
               repository: "$(imageRepository)"
               dockerfile: "$(dockerfilePath)"
               buildContext: "$(buildContext)"
-              addPipelineData: false
+              tags: |
+                $(tagLatest)
+                $(tagBuildId)
+
+  - stage: Push
+    displayName: Push Docker Image to GHCR
+    dependsOn: Build
+    # Only deploy on master (avoid PR validations)
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    jobs:
+      - job: Push
+        displayName: Push image
+        pool:
+          name: Default # self-hosted Linux agent pool
+          demands:
+            - Agent.OS -equals Linux
+        steps:
+          - task: Docker@2
+            displayName: "Push to GHCR"
+            inputs:
+              command: "push"
+              containerRegistry: "$(dockerRegistryServiceConnection)"
+              repository: "$(imageRepository)"
               tags: |
                 $(tagLatest)
                 $(tagBuildId)
