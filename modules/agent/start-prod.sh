@@ -16,8 +16,8 @@ echo "Starting LangGraph server on port 2024..."
 echo "Starting FastAPI server on port $HTTP_PORT..."
 
 # Start LangGraph API (2024) - production mode
-# Note: langgraph up doesn't support --host, it binds to 0.0.0.0 by default
-langgraph up --port 2024 &
+# Use python -m since langgraph command may not be in PATH
+python -m langgraph up --port 2024 &
 LG_PID=$!
 
 # Start FastAPI websocket server - production mode
