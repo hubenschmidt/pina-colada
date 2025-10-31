@@ -4,6 +4,11 @@ import styles from "./Chat.module.css";
 
 // Runtime configuration - detects environment based on hostname
 const getWsUrl = () => {
+  // Guard against SSR - return localhost during build
+  if (typeof window === "undefined") {
+    return "ws://localhost:8000/ws";
+  }
+
   // Production: detect pinacolada.co domain
   if (window.location.hostname.includes("pinacolada.co")) {
     // TODO: Replace with your actual DigitalOcean agent URL
