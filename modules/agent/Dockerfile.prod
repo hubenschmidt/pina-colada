@@ -1,6 +1,5 @@
 # syntax=docker/dockerfile:1.6
 FROM python:3.12-slim
-
 WORKDIR /app
 
 # Install OS dependencies
@@ -21,19 +20,20 @@ ENV PYTHONUNBUFFERED=1 \
     UV_SYSTEM_PYTHON=1 \
     PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
 
-# Copy application files
+# Copy dependency files first (for better layer caching)
 COPY pyproject.toml README.md ./
-COPY src ./src
 
-# Install Python dependencies
+# Install Python dependencies (this layer gets cached if deps don't change)
 RUN uv pip install -e . --no-cache-dir
 
-# Copy and set up start script
-COPY start.sh /usr/src/app/start.sh
-RUN chmod +x /usr/src/app/start.sh
+# Copy the rest of the application
+COPY . .
 
-# Expose ports
+# Give execution permissions to the start script
+RUN chmod +x start-prod.sh
+
+# Expose ports (8080 for HTTP/health checks, 2024 for LangGraph)
 EXPOSE 8080 2024
 
 # Start the application
-CMD ["/usr/src/app/start.sh"]
+CMD ["./start-prod.sh"]
