@@ -10,22 +10,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
  && rm -rf /var/lib/apt/lists/*
 
-# Install uv package manager
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    ln -s /root/.local/bin/uv /usr/local/bin/uv
-
 # Set Python environment variables
 ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    UV_SYSTEM_PYTHON=1 \
-    PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+    PYTHONDONTWRITEBYTECODE=1
 
 # Copy dependency files first (for better layer caching)
 COPY pyproject.toml README.md ./
 COPY src ./src
 
-# Install Python dependencies (this layer gets cached if deps don't change)
-RUN uv pip install -e . --no-cache-dir
+# Install Python dependencies using pip directly (not uv)
+# This ensures console scripts are properly installed to /usr/local/bin
+RUN pip install --no-cache-dir -e .
+
+# Verify installations
+RUN langgraph --version && echo "✓ langgraph CLI is accessible"
 
 # Copy the rest of the application (config files, scripts, etc.)
 COPY . .
