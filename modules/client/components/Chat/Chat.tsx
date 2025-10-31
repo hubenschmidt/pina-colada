@@ -11,7 +11,7 @@ const getWsUrl = () => {
 
   // Production: detect pinacolada.co domain
   if (window.location.hostname.includes("pinacolada.co")) {
-    return "wss://pinacolada.co/ws";
+    return "wss:/api.pinacolada.co/";
   }
 
   // Development: localhost
