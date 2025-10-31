@@ -33,7 +33,7 @@ COPY start.sh /usr/src/app/start.sh
 RUN chmod +x /usr/src/app/start.sh
 
 # Expose ports
-EXPOSE 8080
+EXPOSE 8080 2024
 
 # Start the application
 CMD ["/usr/src/app/start.sh"]
