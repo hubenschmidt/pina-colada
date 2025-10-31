@@ -2,9 +2,19 @@ import React, { useEffect, useRef, useState } from "react";
 import { useWs, ChatMsg } from "../../hooks/useWs";
 import styles from "./Chat.module.css";
 
-// Use environment variable for WebSocket URL
-// In production, this should be wss://your-agent-url.ondigitalocean.app/ws
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws";
+// Runtime configuration - detects environment based on hostname
+const getWsUrl = () => {
+  // Production: detect pinacolada.co domain
+  if (window.location.hostname.includes("pinacolada.co")) {
+    // TODO: Replace with your actual DigitalOcean agent URL
+    return "wss://pina-colada-43do6.ondigitalocean.app/ws";
+  }
+
+  // Development: localhost
+  return "ws://localhost:8000/ws";
+};
+
+const WS_URL = getWsUrl();
 
 const Chat = () => {
   const { isOpen, messages, sendMessage, reset } = useWs(WS_URL);
