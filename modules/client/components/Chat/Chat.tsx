@@ -11,8 +11,7 @@ const getWsUrl = () => {
 
   // Production: detect pinacolada.co domain
   if (window.location.hostname.includes("pinacolada.co")) {
-    // TODO: Replace with your actual DigitalOcean agent URL
-    return "wss://pinacolada.co/ws";
+    return "wss://pina-colada-43do6.ondigitalocean.app/ws";
   }
 
   // Development: localhost
@@ -22,7 +21,11 @@ const getWsUrl = () => {
 const WS_URL = getWsUrl();
 
 const Chat = () => {
-  console.log(WS_URL, "WS_URL");
+  // Log the WebSocket URL on mount for debugging
+  useEffect(() => {
+    console.log("WebSocket URL:", WS_URL);
+  }, []);
+
   const { isOpen, messages, sendMessage, reset } = useWs(WS_URL);
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);

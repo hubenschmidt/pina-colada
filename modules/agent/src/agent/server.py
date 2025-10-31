@@ -25,16 +25,37 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "https://pinacolada.co",  # Your production domain
-        "https://www.pinacolada.co",  # www version
-        "http://localhost:3000",  # Local development
-        "http://localhost:3001",  # Local development (alternate port)
+        "https://pinacolada.co",           # Your production domain
+        "https://www.pinacolada.co",       # www version
+        "http://localhost:3000",           # Local development
+        "http://localhost:3001",           # Local development (alternate port)
     ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# -----------------------------------------------------------------------------
+# Health check endpoint
+# -----------------------------------------------------------------------------
+@app.get("/")
+async def health_check():
+    return {"status": "ok", "message": "FastAPI server is running"}
+
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
+
+# -----------------------------------------------------------------------------
+# Middleware to log all requests
+# -----------------------------------------------------------------------------
+from fastapi import Request
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    logger.info(f"Request: {request.method} {request.url.path}")
+    response = await call_next(request)
+    return response
 
 # -----------------------------------------------------------------------------
 # WebSocket endpoint (frontend connects here)
@@ -49,42 +70,30 @@ async def websocket_endpoint(websocket: WebSocket):
         try:
             payload = json.loads(raw)
         except json.JSONDecodeError as e:
-            logger.error(
-                json.dumps(
-                    {
-                        "timestamp": datetime.now().isoformat(),
-                        "uuid": uid,
-                        "op": f"JSON encoding error - {e}",
-                    }
-                )
-            )
+            logger.error(json.dumps({
+                "timestamp": datetime.now().isoformat(),
+                "uuid": uid,
+                "op": f"JSON encoding error - {e}"
+            }))
             return uid
 
         # Log what we received
-        logger.info(
-            json.dumps(
-                {
-                    "timestamp": datetime.now().isoformat(),
-                    "uuid": uid,
-                    "received": payload,
-                }
-            )
-        )
+        logger.info(json.dumps({
+            "timestamp": datetime.now().isoformat(),
+            "uuid": uid,
+            "received": payload
+        }))
 
         # Track conversation id if provided
         new_uid = payload.get("uuid") or uid
 
         # Init ping? Just log and return
         if payload.get("init"):
-            logger.info(
-                json.dumps(
-                    {
-                        "timestamp": datetime.now().isoformat(),
-                        "uuid": new_uid,
-                        "op": "Initializing ws with client.",
-                    }
-                )
-            )
+            logger.info(json.dumps({
+                "timestamp": datetime.now().isoformat(),
+                "uuid": new_uid,
+                "op": "Initializing ws with client."
+            }))
             return new_uid
 
         # No message? Nothing to do
@@ -100,44 +109,30 @@ async def websocket_endpoint(websocket: WebSocket):
         async for data in websocket.iter_text():
             user_uuid = await handle_frame(data, user_uuid)
     except Exception as e:
-        logger.error(
-            json.dumps(
-                {
-                    "timestamp": datetime.now().isoformat(),
-                    "uuid": user_uuid,
-                    "op": f"Error: {e}",
-                }
-            )
-        )
+        logger.error(json.dumps({
+            "timestamp": datetime.now().isoformat(),
+            "uuid": user_uuid,
+            "op": f"Error: {e}"
+        }))
     finally:
         if user_uuid:
-            logger.info(
-                json.dumps(
-                    {
-                        "timestamp": datetime.now().isoformat(),
-                        "uuid": user_uuid,
-                        "op": "Closing connection.",
-                    }
-                )
-            )
+            logger.info(json.dumps({
+                "timestamp": datetime.now().isoformat(),
+                "uuid": user_uuid,
+                "op": "Closing connection."
+            }))
         try:
             await websocket.close()
         except RuntimeError as e:
-            logger.error(
-                json.dumps(
-                    {
-                        "timestamp": datetime.now().isoformat(),
-                        "uuid": user_uuid,
-                        "op": f"WebSocket close error: {e}",
-                    }
-                )
-            )
-
+            logger.error(json.dumps({
+                "timestamp": datetime.now().isoformat(),
+                "uuid": user_uuid,
+                "op": f"WebSocket close error: {e}"
+            }))
 
 # -----------------------------------------------------------------------------
 # Local dev entrypoint (uvicorn)
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")
