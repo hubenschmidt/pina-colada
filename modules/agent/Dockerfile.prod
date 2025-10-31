@@ -22,11 +22,12 @@ ENV PYTHONUNBUFFERED=1 \
 
 # Copy dependency files first (for better layer caching)
 COPY pyproject.toml README.md ./
+COPY src ./src
 
 # Install Python dependencies (this layer gets cached if deps don't change)
 RUN uv pip install -e . --no-cache-dir
 
-# Copy the rest of the application
+# Copy the rest of the application (config files, scripts, etc.)
 COPY . .
 
 # Give execution permissions to the start script
