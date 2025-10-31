@@ -79,12 +79,10 @@ IMPORTANT: You have direct access to {RESUME_NAME}'s complete resume and summary
 work history, skills, and experience. Do not claim you don't have access to this information.
 
 If you don't know the answer to any question, use your record_unknown_question tool to record the question that you couldn't answer, \
-even if it's about something trivial or unrelated to career.
+even if it's about something trivial or unrelated to career. Be sure to ask for their name and email address in order to answer this question.
 
 If the user is engaging in discussion, try to steer them towards getting in touch via email; \
 ask for their email and record it using your record_user_details tool.
-
-If, by the second message, they have not provided contact information, politely ask for their name and email address.
 
 If the user asks questions that do not directly pertain to {RESUME_NAME}'s career, background, skills, \
 and experience, do not answer them and direct the conversation back to {RESUME_NAME}'s career, background, skills, \
@@ -125,6 +123,12 @@ def push(message):
         logger.info(f"Push notification sent: {response.status_code}")
     except Exception as e:
         logger.error(f"Failed to send push notification: {e}")
+
+
+def record_conversation():
+    """Record that a conversation took place"""
+    push(f"A new chat conversation took place")
+    return {"recorded": "ok"}
 
 
 def record_user_details(
@@ -187,11 +191,25 @@ TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "record_conversation",
+            "description": "Always use this took to record that a conversation began",
+            "parameters": {  # ADD THIS
+                "type": "object",
+                "properties": {},
+                "required": [],
+                "additionalProperties": False,
+            },
+        },
+    },
 ]
 
 TOOL_MAP = {
     "record_user_details": record_user_details,
     "record_unknown_question": record_unknown_question,
+    "record_conversation": record_conversation,
 }
 
 
@@ -246,6 +264,24 @@ class SimpleChatGraph:
             self._client = AsyncOpenAI()
         return self._client
 
+    # Add this new node in your SimpleChatGraph class:
+
+    async def node_record_conversation(
+        self, state: ChatState, send_ws: Optional[Callable[[str], Awaitable[None]]]
+    ):
+        """Automatically record conversation if it's the first user message"""
+        messages = state.get("messages", [])
+
+        # Count only user messages (ignore system messages)
+        user_messages = [m for m in messages if m.get("role") == "user"]
+
+        # If this is the first user message, record the conversation
+        if len(user_messages) == 1:
+            logger.info("First user message detected - recording conversation")
+            record_conversation()
+
+        return {}  # No state changes needed
+
     # Node 1: Optional easter egg
     async def node_conditional(
         self, state: ChatState, send_ws: Optional[Callable[[str], Awaitable[None]]]
@@ -276,40 +312,6 @@ class SimpleChatGraph:
         # Normalize and ensure system prompt is always fresh
         msgs = to_openai_messages(state["messages"])
         msgs = ensure_system_prompt(msgs, SYSTEM_PROMPT)
-
-        # Debug: log to verify system prompt and total message count
-        logger.info(
-            f"Processing {len(msgs)} messages, system prompt: {len(msgs[0].get('content', ''))} chars"
-        )
-        logger.info(f"model: {MODEL_NAME}")
-        if msgs and msgs[0].get("role") == "system":
-            # Log a snippet to verify resume content is included
-            system_content = msgs[0].get("content", "")
-
-            # Check for Resume
-            if "## Resume:" in system_content:
-                resume_start = system_content.find("## Resume:")
-                logger.info(f"✓ Resume section found at position {resume_start}")
-                # Log first 200 chars of resume to verify
-                resume_snippet = system_content[resume_start : resume_start + 200]
-                logger.info(f"Resume snippet: {resume_snippet}...")
-            else:
-                logger.error("✗ Resume section NOT found in system prompt!")
-
-            # Check for Summary
-            if "## Summary:" in system_content:
-                summary_start = system_content.find("## Summary:")
-                logger.info(f"✓ Summary section found at position {summary_start}")
-                # Log first 200 chars of summary to verify
-                summary_snippet = system_content[summary_start : summary_start + 200]
-                logger.info(f"Summary snippet: {summary_snippet}...")
-            else:
-                logger.error("✗ Summary section NOT found in system prompt!")
-        else:
-            logger.error("✗ System prompt not found in messages!")
-
-        # Log all message roles to debug conversation flow
-        logger.info(f"Message roles: {[m.get('role') for m in msgs]}")
 
         new_messages = []
         max_iterations = 5  # Prevent infinite tool calling loops
@@ -504,16 +506,21 @@ class SimpleChatGraph:
         """Build and compile: START -> conditional -> model -> END"""
         g = StateGraph(ChatState)
 
+        async def _record(s: ChatState):
+            return await self.node_record_conversation(s, send_ws)
+
         async def _conditional(s: ChatState):
             return await self.node_conditional(s, send_ws)
 
         async def _model(s: ChatState):
             return await self.node_model(s, send_ws=send_ws, stream=stream)
 
+        g.add_node("record_conversation", _record)
         g.add_node("conditional", _conditional)
         g.add_node("model", _model)
 
-        g.add_edge(START, "conditional")
+        g.add_edge(START, "record_conversation")  # Run first
+        g.add_edge("record_conversation", "conditional")
         g.add_edge("conditional", "model")
         g.add_edge("model", END)
 
