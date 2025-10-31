@@ -22,6 +22,7 @@ const getWsUrl = () => {
 const WS_URL = getWsUrl();
 
 const Chat = () => {
+  console.log(WS_URL, "WS_URL");
   const { isOpen, messages, sendMessage, reset } = useWs(WS_URL);
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
