@@ -2,7 +2,9 @@ import React, { useEffect, useRef, useState } from "react";
 import { useWs, ChatMsg } from "../../hooks/useWs";
 import styles from "./Chat.module.css";
 
-const WS_URL = "ws://localhost:8000/ws";
+// Use environment variable for WebSocket URL
+// In production, this should be wss://your-agent-url.ondigitalocean.app/ws
+const WS_URL = process.env.NEXT_PUBLIC_WS_URL || "ws://localhost:8000/ws";
 
 const Chat = () => {
   const { isOpen, messages, sendMessage, reset } = useWs(WS_URL);
