@@ -25,6 +25,7 @@ app = FastAPI()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
+        "wss://api.pinacolada.co",  # Your production domain
         "https://pinacolada.co",  # Your production domain
         "https://www.pinacolada.co",  # www version
         "http://localhost:3000",  # Local development
@@ -62,102 +63,130 @@ async def log_requests(request: Request, call_next):
     return response
 
 
-# -----------------------------------------------------------------------------
-# WebSocket endpoint (frontend connects here)
-# -----------------------------------------------------------------------------
 @app.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket):
-    await websocket.accept()
-    user_uuid: str | None = None
-
-    async def handle_frame(raw: str, uid: str | None) -> str | None:
-        # Parse JSON; on error, log and return
-        try:
-            payload = json.loads(raw)
-        except json.JSONDecodeError as e:
-            logger.error(
-                json.dumps(
-                    {
-                        "timestamp": datetime.now().isoformat(),
-                        "uuid": uid,
-                        "op": f"JSON encoding error - {e}",
-                    }
-                )
-            )
-            return uid
-
-        # Log what we received
-        logger.info(
-            json.dumps(
-                {
-                    "timestamp": datetime.now().isoformat(),
-                    "uuid": uid,
-                    "received": payload,
-                }
-            )
-        )
-
-        # Track conversation id if provided
-        new_uid = payload.get("uuid") or uid
-
-        # Init ping? Just log and return
-        if payload.get("init"):
-            logger.info(
-                json.dumps(
-                    {
-                        "timestamp": datetime.now().isoformat(),
-                        "uuid": new_uid,
-                        "op": "Initializing ws with client.",
-                    }
-                )
-            )
-            return new_uid
-
-        # No message? Nothing to do
-        message = payload.get("message")
-        if not message:
-            return new_uid
-
-        # We have a message: invoke the graph (it streams back over this WS)
-        await invoke_our_graph(websocket, message, new_uid)
-        return new_uid
-
+async def ws(ws: WebSocket):
+    await ws.accept()
     try:
-        async for data in websocket.iter_text():
-            user_uuid = await handle_frame(data, user_uuid)
-    except Exception as e:
-        logger.error(
-            json.dumps(
-                {
-                    "timestamp": datetime.now().isoformat(),
-                    "uuid": user_uuid,
-                    "op": f"Error: {e}",
-                }
-            )
-        )
-    finally:
-        if user_uuid:
-            logger.info(
-                json.dumps(
-                    {
-                        "timestamp": datetime.now().isoformat(),
-                        "uuid": user_uuid,
-                        "op": "Closing connection.",
-                    }
-                )
-            )
-        try:
-            await websocket.close()
-        except RuntimeError as e:
-            logger.error(
-                json.dumps(
-                    {
-                        "timestamp": datetime.now().isoformat(),
-                        "uuid": user_uuid,
-                        "op": f"WebSocket close error: {e}",
-                    }
-                )
-            )
+        while True:
+            msg = await ws.receive_text()
+            await ws.send_text(f"echo:{msg}")
+    except WebSocketDisconnect:
+        pass
+
+
+# # -----------------------------------------------------------------------------
+# # WebSocket endpoint (frontend connects here)
+# # -----------------------------------------------------------------------------
+# @app.websocket("/ws")
+# async def websocket_endpoint(websocket: WebSocket):
+#     # Log the attempted origin / ua before accept
+#     origin = websocket.headers.get("origin")
+#     ua = websocket.headers.get("user-agent")
+#     cf_ray = websocket.headers.get("cf-ray")
+#     logger.info(json.dumps({
+#         "ts": datetime.now().isoformat(),
+#         "op": "ws.connect_attempt",
+#         "origin": origin,
+#         "user_agent": ua,
+#         "cf_ray": cf_ray,
+#         "client": websocket.client and f"{websocket.client.host}:{websocket.client.port}",
+#     }))
+
+#     await websocket.accept()
+#     logger.info(json.dumps({
+#         "ts": datetime.now().isoformat(),
+#         "op": "ws.accepted",
+#     }))
+#     user_uuid: str | None = None
+
+#     async def handle_frame(raw: str, uid: str | None) -> str | None:
+#         # Parse JSON; on error, log and return
+#         try:
+#             payload = json.loads(raw)
+#         except json.JSONDecodeError as e:
+#             logger.error(
+#                 json.dumps(
+#                     {
+#                         "timestamp": datetime.now().isoformat(),
+#                         "uuid": uid,
+#                         "op": f"JSON encoding error - {e}",
+#                     }
+#                 )
+#             )
+#             return uid
+
+#         # Log what we received
+#         logger.info(
+#             json.dumps(
+#                 {
+#                     "timestamp": datetime.now().isoformat(),
+#                     "uuid": uid,
+#                     "received": payload,
+#                 }
+#             )
+#         )
+
+#         # Track conversation id if provided
+#         new_uid = payload.get("uuid") or uid
+
+#         # Init ping? Just log and return
+#         if payload.get("init"):
+#             logger.info(
+#                 json.dumps(
+#                     {
+#                         "timestamp": datetime.now().isoformat(),
+#                         "uuid": new_uid,
+#                         "op": "Initializing ws with client.",
+#                     }
+#                 )
+#             )
+#             return new_uid
+
+#         # No message? Nothing to do
+#         message = payload.get("message")
+#         if not message:
+#             return new_uid
+
+#         # We have a message: invoke the graph (it streams back over this WS)
+#         await invoke_our_graph(websocket, message, new_uid)
+#         return new_uid
+
+#     try:
+#         async for data in websocket.iter_text():
+#             user_uuid = await handle_frame(data, user_uuid)
+#     except Exception as e:
+#         logger.error(
+#             json.dumps(
+#                 {
+#                     "timestamp": datetime.now().isoformat(),
+#                     "uuid": user_uuid,
+#                     "op": f"Error: {e}",
+#                 }
+#             )
+#         )
+#     finally:
+#         if user_uuid:
+#             logger.info(
+#                 json.dumps(
+#                     {
+#                         "timestamp": datetime.now().isoformat(),
+#                         "uuid": user_uuid,
+#                         "op": "Closing connection.",
+#                     }
+#                 )
+#             )
+#         try:
+#             await websocket.close()
+#         except RuntimeError as e:
+#             logger.error(
+#                 json.dumps(
+#                     {
+#                         "timestamp": datetime.now().isoformat(),
+#                         "uuid": user_uuid,
+#                         "op": f"WebSocket close error: {e}",
+#                     }
+#                 )
+#             )
 
 
 # -----------------------------------------------------------------------------
