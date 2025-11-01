@@ -66,6 +66,49 @@ const supports = {
   },
 };
 
+function getPositionOnce(): Promise<GeolocationPosition | null> {
+  return new Promise((resolve) => {
+    if (!("geolocation" in navigator)) return resolve(null);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => resolve(pos),
+      () => resolve(null),
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+  });
+}
+
+async function buildInitialContext(): Promise<UserContextV1> {
+  const ctx = await withOptionalBattery(baseContext());
+
+  // Only enrich with geo if permission is ALREADY granted.
+  try {
+    // permissions API might not exist; treat as "unknown"
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const perm: any = (navigator as any).permissions?.query
+      ? await (navigator as any).permissions.query({
+          name: "geolocation" as PermissionName,
+        })
+      : null;
+
+    if (perm?.state === "granted") {
+      const pos = await getPositionOnce();
+      if (pos) {
+        ctx.geo = {
+          lat: pos.coords.latitude,
+          lon: pos.coords.longitude,
+          accuracy: pos.coords.accuracy,
+          source: "geolocation",
+        };
+      }
+    }
+    // If state is "prompt" or "denied", do nothing (no second send later)
+  } catch {
+    // ignore permission errors; keep ctx as-is
+  }
+
+  return ctx;
+}
+
 function baseContext(): UserContextV1 {
   const nav = navigator as any;
   const url = new URL(window.location.href);
@@ -139,60 +182,6 @@ async function withOptionalBattery(ctx: UserContextV1): Promise<UserContextV1> {
   return ctx;
 }
 
-// Attempt geolocation automatically on localhost (browser may still prompt)
-async function tryAutoGeoForLocalDev(send: (s: string) => void) {
-  const isLocal = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
-  if (!isLocal || !("geolocation" in navigator)) return;
-
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const perm = await (navigator as any).permissions?.query?.({
-      name: "geolocation" as PermissionName,
-    });
-    if (!perm || perm.state === "granted" || perm.state === "prompt") {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          send(
-            JSON.stringify({
-              type: "user_context_update",
-              ctx: {
-                geo: {
-                  lat: pos.coords.latitude,
-                  lon: pos.coords.longitude,
-                  accuracy: pos.coords.accuracy,
-                  source: "geolocation",
-                },
-              },
-            })
-          );
-        },
-        () => {},
-        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-      );
-    }
-  } catch {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        send(
-          JSON.stringify({
-            type: "user_context_update",
-            ctx: {
-              geo: {
-                lat: pos.coords.latitude,
-                lon: pos.coords.longitude,
-                accuracy: pos.coords.accuracy,
-                source: "geolocation",
-              },
-            },
-          })
-        );
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-    );
-  }
-}
-
 // ---------- Runtime configuration ----------
 
 const getWsUrl = () => {
@@ -216,36 +205,15 @@ const Chat = () => {
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  const sentCtxRef = useRef(false);
 
   // --- Send rich user context as soon as WS opens (testing-only) ---
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || sentCtxRef.current) return;
     (async () => {
-      const ctx = await withOptionalBattery(baseContext());
-      sendControl({ type: "user_context", ctx }); // silent
-      // geo update (build object directly; avoid string serializer)
-      const isLocal = ["localhost", "127.0.0.1", "::1"].includes(
-        location.hostname
-      );
-      if (isLocal && "geolocation" in navigator) {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => {
-            sendControl({
-              type: "user_context_update",
-              ctx: {
-                geo: {
-                  lat: pos.coords.latitude,
-                  lon: pos.coords.longitude,
-                  accuracy: pos.coords.accuracy,
-                  source: "geolocation",
-                },
-              },
-            });
-          },
-          () => {},
-          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
-        );
-      }
+      const ctx = await buildInitialContext();
+      sendControl({ type: "user_context", ctx }); // single, silent send
+      sentCtxRef.current = true;
     })();
   }, [isOpen, sendControl]);
 

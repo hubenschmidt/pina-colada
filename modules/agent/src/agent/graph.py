@@ -163,8 +163,7 @@ def record_unknown_question(question: str):
 # -----------------------------------------------------------------------------
 
 # keep the hardcoded string, or allow env override:
-IP_BLACKLIST_STR = os.getenv("IP_BLACKLIST", "127.0.0.1, 10.0.0.0/8, 172.18.0.1")
-
+IP_BLACKLIST_STR = os.getenv("IP_BLACKLIST", "127.0.0.1, 10.0.0.0/8, 172.18.0.2")
 
 def _parse_ip_blacklist(raw: str):
     items = []
