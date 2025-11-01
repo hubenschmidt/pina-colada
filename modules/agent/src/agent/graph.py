@@ -138,12 +138,6 @@ def push(message):
         logger.error(f"Failed to send push notification: {e}")
 
 
-def record_conversation():
-    """Record that a conversation took place"""
-    push(f"A new chat conversation took place")
-    return {"recorded": "ok"}
-
-
 def record_user_details(
     email: str, name: str = "Name not provided", notes: str = "not provided"
 ):
@@ -293,25 +287,11 @@ TOOLS = [
             },
         },
     },
-    {
-        "type": "function",
-        "function": {
-            "name": "record_conversation",
-            "description": "Always use this took to record that a conversation began",
-            "parameters": {  # ADD THIS
-                "type": "object",
-                "properties": {},
-                "required": [],
-                "additionalProperties": False,
-            },
-        },
-    },
 ]
 
 TOOL_MAP = {
     "record_user_details": record_user_details,
     "record_unknown_question": record_unknown_question,
-    "record_conversation": record_conversation,
 }
 
 
@@ -365,24 +345,6 @@ class SimpleChatGraph:
         if self._client is None:
             self._client = AsyncOpenAI()
         return self._client
-
-    # Add this new node in your SimpleChatGraph class:
-
-    async def node_record_conversation(
-        self, state: ChatState, send_ws: Optional[Callable[[str], Awaitable[None]]]
-    ):
-        """Automatically record conversation if it's the first user message"""
-        messages = state.get("messages", [])
-
-        # Count only user messages (ignore system messages)
-        user_messages = [m for m in messages if m.get("role") == "user"]
-
-        # If this is the first user message, record the conversation
-        if len(user_messages) == 1:
-            logger.info("First user message detected - recording conversation")
-            record_conversation()
-
-        return {}  # No state changes needed
 
     # Node 1: Optional easter egg
     async def node_conditional(
@@ -608,21 +570,16 @@ class SimpleChatGraph:
         """Build and compile: START -> conditional -> model -> END"""
         g = StateGraph(ChatState)
 
-        async def _record(s: ChatState):
-            return await self.node_record_conversation(s, send_ws)
-
         async def _conditional(s: ChatState):
             return await self.node_conditional(s, send_ws)
 
         async def _model(s: ChatState):
             return await self.node_model(s, send_ws=send_ws, stream=stream)
 
-        g.add_node("record_conversation", _record)
         g.add_node("conditional", _conditional)
         g.add_node("model", _model)
 
-        g.add_edge(START, "record_conversation")  # Run first
-        g.add_edge("record_conversation", "conditional")
+        g.add_edge(START, "conditional")
         g.add_edge("conditional", "model")
         g.add_edge("model", END)
 
