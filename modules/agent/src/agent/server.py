@@ -140,6 +140,11 @@ async def websocket_endpoint(websocket: WebSocket):
             )
             return new_uid
 
+        # Control/telemetry envelopes -> forward to graph (it will silently store & return)
+        if payload.get("type") in ("user_context", "user_context_update"):
+            await invoke_our_graph(websocket, payload, new_uid)
+            return new_uid
+
         # No message? Nothing to do
         message = payload.get("message")
         if not message:

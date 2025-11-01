@@ -2,19 +2,203 @@ import React, { useEffect, useRef, useState } from "react";
 import { useWs, ChatMsg } from "../../hooks/useWs";
 import styles from "./Chat.module.css";
 
-// Runtime configuration - detects environment based on hostname
+// ---------- User context (testing-only; no consent prompts) ----------
+
+type UserContextV1 = {
+  schema: "user_context@v1";
+  ua: string;
+  platform?: string;
+  vendor?: string;
+  languages: string[];
+  tz: string;
+  dnt: boolean | null;
+  gpc: boolean | null;
+  deviceMemory?: number;
+  hardwareConcurrency?: number;
+  maxTouchPoints?: number;
+  screen: { w: number; h: number; dpr: number; colorDepth: number };
+  viewport: { w: number; h: number };
+  prefersColorScheme?: "light" | "dark" | "no-preference";
+  prefersReducedMotion?: boolean;
+  connection?: {
+    effectiveType?: string;
+    downlink?: number;
+    rtt?: number;
+    saveData?: boolean;
+  };
+  url: string;
+  ref: string | null;
+  utm?: Record<string, string>;
+  storage: { cookies: boolean; local: boolean; session: boolean };
+  // Optional extras we may add later
+  battery?: { charging: boolean; level?: number };
+  geo?: {
+    lat: number;
+    lon: number;
+    accuracy?: number;
+    source: "geolocation" | "ip";
+  };
+};
+
+const parseUTM = (u: URL) =>
+  Array.from(u.searchParams.entries())
+    .filter(([k]) => k.startsWith("utm_"))
+    .reduce((acc, [k, v]) => ((acc[k] = v), acc), {} as Record<string, string>);
+
+const supports = {
+  local: () => {
+    try {
+      localStorage.setItem("__t", "1");
+      localStorage.removeItem("__t");
+      return true;
+    } catch {
+      return false;
+    }
+  },
+  session: () => {
+    try {
+      sessionStorage.setItem("__t", "1");
+      sessionStorage.removeItem("__t");
+      return true;
+    } catch {
+      return false;
+    }
+  },
+};
+
+function baseContext(): UserContextV1 {
+  const nav = navigator as any;
+  const url = new URL(window.location.href);
+
+  const languages: string[] =
+    Array.isArray(navigator.languages) && navigator.languages.length
+      ? [...navigator.languages] // <- makes a mutable copy
+      : [navigator.language];
+
+  return {
+    schema: "user_context@v1",
+    ua: navigator.userAgent,
+    platform: navigator.platform,
+    vendor: nav.vendor,
+    languages, // <- now string[]
+    tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    dnt: typeof nav.doNotTrack === "string" ? nav.doNotTrack === "1" : null,
+    gpc:
+      typeof (nav as any).globalPrivacyControl === "boolean"
+        ? (nav as any).globalPrivacyControl
+        : null,
+    deviceMemory: nav.deviceMemory,
+    hardwareConcurrency: nav.hardwareConcurrency,
+    maxTouchPoints: nav.maxTouchPoints,
+    screen: {
+      w: screen.width,
+      h: screen.height,
+      dpr: window.devicePixelRatio,
+      colorDepth: screen.colorDepth,
+    },
+    viewport: { w: window.innerWidth, h: window.innerHeight },
+    prefersColorScheme: window.matchMedia?.("(prefers-color-scheme: dark)")
+      .matches
+      ? "dark"
+      : window.matchMedia?.("(prefers-color-scheme: light)").matches
+      ? "light"
+      : "no-preference",
+    prefersReducedMotion: !!window.matchMedia?.(
+      "(prefers-reduced-motion: reduce)"
+    ).matches,
+    connection: nav.connection
+      ? {
+          effectiveType: nav.connection.effectiveType,
+          downlink: nav.connection.downlink,
+          rtt: nav.connection.rtt,
+          saveData: nav.connection.saveData,
+        }
+      : undefined,
+    url: url.toString(),
+    ref: document.referrer || null,
+    utm: parseUTM(url),
+    storage: {
+      cookies: navigator.cookieEnabled,
+      local: supports.local(),
+      session: supports.session(),
+    },
+  };
+}
+
+async function withOptionalBattery(ctx: UserContextV1): Promise<UserContextV1> {
+  try {
+    if ("getBattery" in navigator) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const b: any = await (navigator as any).getBattery();
+      ctx.battery = {
+        charging: !!b.charging,
+        level: typeof b.level === "number" ? b.level : undefined,
+      };
+    }
+  } catch {}
+  return ctx;
+}
+
+// Attempt geolocation automatically on localhost (browser may still prompt)
+async function tryAutoGeoForLocalDev(send: (s: string) => void) {
+  const isLocal = ["localhost", "127.0.0.1", "::1"].includes(location.hostname);
+  if (!isLocal || !("geolocation" in navigator)) return;
+
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const perm = await (navigator as any).permissions?.query?.({
+      name: "geolocation" as PermissionName,
+    });
+    if (!perm || perm.state === "granted" || perm.state === "prompt") {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          send(
+            JSON.stringify({
+              type: "user_context_update",
+              ctx: {
+                geo: {
+                  lat: pos.coords.latitude,
+                  lon: pos.coords.longitude,
+                  accuracy: pos.coords.accuracy,
+                  source: "geolocation",
+                },
+              },
+            })
+          );
+        },
+        () => {},
+        { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      );
+    }
+  } catch {
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        send(
+          JSON.stringify({
+            type: "user_context_update",
+            ctx: {
+              geo: {
+                lat: pos.coords.latitude,
+                lon: pos.coords.longitude,
+                accuracy: pos.coords.accuracy,
+                source: "geolocation",
+              },
+            },
+          })
+        );
+      },
+      () => {},
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+    );
+  }
+}
+
+// ---------- Runtime configuration ----------
+
 const getWsUrl = () => {
-  // Guard against SSR - return localhost during build
-  if (typeof window === "undefined") {
-    return "ws://localhost:8000/ws";
-  }
-
-  // Production: detect pinacolada.co domain
-  if (window.location.hostname.includes("pinacolada.co")) {
+  if (typeof window === "undefined") return "ws://localhost:8000/ws";
+  if (window.location.hostname.includes("pinacolada.co"))
     return "wss://api.pinacolada.co/ws";
-  }
-
-  // Development: localhost
   return "ws://localhost:8000/ws";
 };
 
@@ -26,12 +210,44 @@ const Chat = () => {
     console.log("WebSocket URL:", WS_URL);
   }, []);
 
-  const { isOpen, messages, sendMessage, reset } = useWs(WS_URL);
+  const { isOpen, messages, sendMessage, sendControl, reset } = useWs(WS_URL);
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
+
+  // --- Send rich user context as soon as WS opens (testing-only) ---
+  useEffect(() => {
+    if (!isOpen) return;
+    (async () => {
+      const ctx = await withOptionalBattery(baseContext());
+      sendControl({ type: "user_context", ctx }); // silent
+      // geo update (build object directly; avoid string serializer)
+      const isLocal = ["localhost", "127.0.0.1", "::1"].includes(
+        location.hostname
+      );
+      if (isLocal && "geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            sendControl({
+              type: "user_context_update",
+              ctx: {
+                geo: {
+                  lat: pos.coords.latitude,
+                  lon: pos.coords.longitude,
+                  accuracy: pos.coords.accuracy,
+                  source: "geolocation",
+                },
+              },
+            });
+          },
+          () => {},
+          { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+        );
+      }
+    })();
+  }, [isOpen, sendControl]);
 
   // scroll the message list, not the page
   useEffect(() => {
@@ -63,15 +279,9 @@ const Chat = () => {
 
   return (
     <div
-      className={
-        // outer wrapper spacing uses Tailwind so it plays nice w/ the rest of the layout
-        `${styles.chatRoot} w-full max-w-5xl mx-auto min-h-[80svh] flex items-center px-4 py-6`
-      }
+      className={`${styles.chatRoot} w-full max-w-5xl mx-auto min-h-[80svh] flex items-center px-4 py-6`}
     >
-      <section
-        // shell card matches global aesthetic (soft bg, subtle border)
-        className={`${styles.shellCard} w-full`}
-      >
+      <section className={`${styles.shellCard} w-full`}>
         {/* header */}
         <header className={styles.header}>
           <div

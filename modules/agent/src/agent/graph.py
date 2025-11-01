@@ -8,6 +8,7 @@ from typing import TypedDict, List, Dict, Any, Optional, Callable, Awaitable, Un
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from pypdf import PdfReader
+from ipaddress import ip_address
 from langgraph.graph import START, END, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -88,7 +89,8 @@ If the user asks questions that do not directly pertain to {RESUME_NAME}'s caree
 and experience, do not answer them and direct the conversation back to {RESUME_NAME}'s career, background, skills, \
 and experience.
 
-
+When responding, do not format the text using any special characters, emojis, bolded fonts, or asterisks to stylize the text in any way. \
+Your responses should be easily consumed by other LLMs or AI agents, or easily copied and pasted from the screen without additional formatting.
 
 ## Summary:
 {summary}
@@ -143,6 +145,49 @@ def record_unknown_question(question: str):
     """Record questions that couldn't be answered"""
     push(f"Recording question that couldn't be answered: {question}")
     return {"recorded": "ok", "question": question}
+
+
+# -----------------------------------------------------------------------------
+# Tool-Free server-side recorder for client metadata
+# -----------------------------------------------------------------------------
+def record_user_context(ctx: Dict[str, Any]):
+    """Persist raw user context (testing: push as a notification)"""
+    try:
+        # Pretty JSON for the push
+        pretty = json.dumps(ctx, indent=2, ensure_ascii=False, sort_keys=True)
+
+        # Pushover message size is ~1024 chars; keep a short header + trimmed body
+        header = "[user_context]\n"
+        max_len = 1024
+        space_for_body = max_len - len(header)
+        body = (
+            pretty
+            if len(pretty) <= space_for_body
+            else (pretty[: space_for_body - 1] + "…")
+        )
+
+        push(header + body)
+
+        # Log the full, untrimmed JSON for debugging
+        logger.info("[user_context_full] %s", pretty)
+    except Exception as e:
+        logger.error(f"record_user_context failed: {e}")
+    return {"ok": True}
+
+
+def extract_client_ip(headers: Dict[str, str], peer_host: str) -> str:
+    # Trust right-most hop from X-Forwarded-For if your proxy/CDN sets it
+    xff = headers.get("x-forwarded-for")
+    if xff:
+        parts = [p.strip() for p in xff.split(",") if p.strip()]
+        # last element is closest to server; adjust if you trust multiple hops
+        candidate = parts[-1]
+        try:
+            ip_address(candidate)
+            return candidate
+        except Exception:
+            pass
+    return peer_host
 
 
 # Tool definitions for OpenAI
@@ -551,21 +596,70 @@ def build_streaming_graph(send_ws: Callable[[str], Awaitable[None]]):
 
 @observe()
 async def invoke_our_graph(
-    websocket: WebSocket, data: Union[str, List[Dict[str, str]]], user_uuid: str
+    websocket: WebSocket,
+    data: Union[str, Dict[str, Any], List[Dict[str, str]]],
+    user_uuid: str,
 ):
-    """WebSocket entrypoint - builds streaming graph and invokes it"""
+    """WebSocket entrypoint - handles control envelopes silently, runs chat graph otherwise."""
+    logger.info(
+        f"invoke_our_graph recv: type={type(data).__name__} keys={list(data.keys()) if isinstance(data, dict) else 'n/a'}"
+    )
+    # ---------- 0) Normalize the incoming frame ----------
+    payload: Optional[Dict[str, Any]] = None
+    if isinstance(data, str):
+        try:
+            payload = json.loads(data)
+        except Exception:
+            payload = None
+    elif isinstance(data, dict):
+        payload = data  # server already parsed JSON
 
-    async def _send_ws(payload: str):
-        await websocket.send_text(payload)
+    # ---------- 1) Control envelopes (silent) ----------
+    if isinstance(payload, dict):
+        # Ignore handshake frames like {"uuid": "...", "init": true}
+        if payload.get("init") is True:
+            return
+
+        # Telemetry/control frames
+        if payload.get("type") in ("user_context", "user_context_update"):
+            ctx = payload.get("ctx") or {}
+
+            # Attach server-known info
+            hdrs = {k.decode().lower(): v.decode() for k, v in websocket.headers.raw}
+            client_ip = extract_client_ip(
+                hdrs, websocket.client.host if websocket.client else ""
+            )
+            ctx.setdefault("server", {})
+            ctx["server"].update(
+                {
+                    "ip": client_ip,
+                    "user_uuid": user_uuid,
+                    "ua": hdrs.get("user-agent"),
+                    "origin": hdrs.get("origin"),
+                }
+            )
+
+            record_user_context(ctx)
+            return  # ✅ do not run the chat graph or echo anything
+
+    # ---------- 2) Build graph only for chat turns ----------
+    async def _send_ws(payload_text: str):
+        await websocket.send_text(payload_text)
 
     graph_runnable = build_streaming_graph(_send_ws)
     config = {"configurable": {"thread_id": user_uuid}}
 
+    # Batch path: list of {role, content}
     if isinstance(data, list):
         state: ChatState = {"messages": data}
         await graph_runnable.ainvoke(state, config)
         return
 
-    # Fallback: treat as single user message
-    state: ChatState = {"messages": [{"role": "user", "content": str(data)}]}
+    # Single-turn chat path: prefer payload["message"] if present
+    if isinstance(payload, dict) and "message" in payload:
+        content = str(payload["message"])
+    else:
+        content = str(data)
+
+    state: ChatState = {"messages": [{"role": "user", "content": content}]}
     await graph_runnable.ainvoke(state, config)
