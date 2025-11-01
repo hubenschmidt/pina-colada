@@ -43,8 +43,9 @@
   padding: 1rem;
 
   /* Force a fixed height that fits in viewport */
-  height: 600px;
-  max-height: 80vh;
+  height: auto;
+  min-height: 80svh;
+  max-height: min(84svh, 720px);
   display: flex;
   flex-direction: column;
   overflow: hidden;

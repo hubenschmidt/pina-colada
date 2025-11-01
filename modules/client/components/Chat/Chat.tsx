@@ -65,7 +65,7 @@ const Chat = () => {
     <div
       className={
         // outer wrapper spacing uses Tailwind so it plays nice w/ the rest of the layout
-        `${styles.chatRoot} w-full max-w-5xl mx-auto -mt-4`
+        `${styles.chatRoot} w-full max-w-5xl mx-auto min-h-[100svh] flex items-center px-4 py-6`
       }
     >
       <section
