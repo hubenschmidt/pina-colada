@@ -161,7 +161,7 @@ def record_user_context(ctx: Dict[str, Any]):
         pretty = json.dumps(ctx, indent=2, ensure_ascii=False, sort_keys=True)
 
         # Pushover message size is ~1024 chars; keep a short header + trimmed body
-        header = "new visitor\n"
+        header = "new visitor:\n"
         max_len = 1024
         space_for_body = max_len - len(header)
         body = (
