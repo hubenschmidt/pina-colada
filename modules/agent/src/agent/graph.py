@@ -163,7 +163,8 @@ def record_unknown_question(question: str):
 # -----------------------------------------------------------------------------
 
 # keep the hardcoded string, or allow env override:
-IP_BLACKLIST_STR = os.getenv("IP_BLACKLIST", "127.0.0.1, 10.0.0.0/8, 172.18.0.2")
+IP_BLACKLIST_STR = os.getenv("IP_BLACKLIST", "127.0.0.1, 10.0.0.0/8, 172.18.0.1")
+
 
 def _parse_ip_blacklist(raw: str):
     items = []
@@ -217,16 +218,14 @@ def record_user_context(ctx: Dict[str, Any]):
             return {"ok": True, "pushed": False, "reason": "ip_blacklisted"}
 
         # Pushover practical limit ~1024 chars
-        header = "new visitor:\n"
         max_len = 1024
-        space = max_len - len(header)
         body = (
             pretty_full
-            if len(pretty_full) <= space
-            else (pretty_full[: space - 1] + "…")
+            if len(pretty_full) <= max_len
+            else (pretty_full[: max_len - 1] + "…")
         )
 
-        push(header + body)
+        push(body)
         return {"ok": True, "pushed": True}
     except Exception as e:
         logger.error(f"record_user_context failed: {e}")
