@@ -160,20 +160,25 @@ def _parse_ip_blacklist(raw: str):
 IP_BLACKLIST = _parse_ip_blacklist(IP_BLACKLIST_STR)
 
 
+_ADDR_CLASSES = (IPv4Address, IPv6Address)
+_NET_CLASSES = (IPv4Network, IPv6Network)
+
+
 def _is_ip_blacklisted(ip_str: str | None) -> bool:
     if not ip_str:
         return False
+
     try:
         ip = ip_address(ip_str)
     except Exception:
         return False
+
     for item in IP_BLACKLIST:
-        if isinstance(item, (IPv4Address, IPv6Address)):
-            if ip == item:
-                return True
-        elif isinstance(item, (IPv4Network, IPv6Network)):
-            if ip in item:
-                return True
+        if isinstance(item, _ADDR_CLASSES) and ip == item:
+            return True
+        if isinstance(item, _NET_CLASSES) and ip in item:
+            return True
+
     return False
 
 
@@ -194,32 +199,34 @@ def record_user_context(ctx: Dict[str, Any]):
 
         # Pushover practical limit ~1024 chars
         max_len = 1024
-        body = (
-            pretty_full
-            if len(pretty_full) <= max_len
-            else (pretty_full[: max_len - 1] + "…")
-        )
+        body = pretty_full
+        if len(body) > max_len:
+            body = body[: max_len - 1] + "…"
 
         push(body)
         return {"ok": True, "pushed": True}
+
     except Exception as e:
         logger.error(f"record_user_context failed: {e}")
         return {"ok": False, "error": str(e)}
 
 
 def extract_client_ip(headers: Dict[str, str], peer_host: str) -> str:
-    # Trust right-most hop from X-Forwarded-For if your proxy/CDN sets it
     xff = headers.get("x-forwarded-for")
-    if xff:
-        parts = [p.strip() for p in xff.split(",") if p.strip()]
-        # last element is closest to server; adjust if you trust multiple hops
-        candidate = parts[-1]
-        try:
-            ip_address(candidate)
-            return candidate
-        except Exception:
-            pass
-    return peer_host
+    if not xff:
+        return peer_host
+
+    parts = [p.strip() for p in xff.split(",") if p.strip()]
+    if not parts:
+        return peer_host
+
+    # right-most hop (closest to your server)
+    candidate = parts[-1]
+    try:
+        ip_address(candidate)
+        return candidate
+    except Exception:
+        return peer_host
 
 
 # Tool definitions for OpenAI
@@ -290,15 +297,14 @@ def to_openai_messages(messages: List[Any]) -> List[Dict[str, Any]]:
     """Normalize messages to OpenAI format, preserving tool calls and tool responses"""
     out: List[Dict[str, Any]] = []
     for m in messages:
-        # If it's already a proper dict, use it as-is (preserves tool_calls, tool_call_id, etc.)
-        if isinstance(m, dict) and "role" in m:
+        already_dict_with_role = isinstance(m, dict) and "role" in m
+        if already_dict_with_role:
             out.append(m)
-            continue
 
-        # Otherwise normalize
-        role = getattr(m, "role", None) or "user"
-        content = getattr(m, "content", None) or str(m)
-        out.append({"role": role, "content": content})
+        if not already_dict_with_role:
+            role = getattr(m, "role", None) or "user"
+            content = getattr(m, "content", None) or str(m)
+            out.append({"role": role, "content": content})
 
     return out
 
@@ -311,6 +317,10 @@ def ensure_system_prompt(
     non_system_msgs = [m for m in msgs if m.get("role") != "system"]
     # Always prepend fresh system prompt
     return [{"role": "system", "content": system_text}] + non_system_msgs
+
+
+from openai.types.chat import ChatCompletionMessageToolCall
+from openai.types.chat.chat_completion_message_tool_call import Function
 
 
 # -----------------------------------------------------------------------------
@@ -345,6 +355,7 @@ class SimpleChatGraph:
             await send_ws(json.dumps({"on_easter_egg": True}))
 
     # Node 2: Call OpenAI with tool support
+    # Node 2: Call OpenAI with tool support — guard clauses only, no nested ifs, no else/elif/continue/break
     async def node_model(
         self,
         state: ChatState,
@@ -354,195 +365,250 @@ class SimpleChatGraph:
     ) -> Dict[str, Any]:
         client = self._client_or_create()
 
-        # Normalize and ensure system prompt is always fresh
         msgs = to_openai_messages(state["messages"])
         msgs = ensure_system_prompt(msgs, SYSTEM_PROMPT)
 
-        new_messages = []
-        max_iterations = 5  # Prevent infinite tool calling loops
+        new_messages: List[Dict[str, Any]] = []
+        max_iterations = 5
 
-        for iteration in range(max_iterations):
+        # ---------- helpers (guard clauses only) ----------
+
+        def _accumulate_tool_call(tool_calls: List[Dict[str, Any]], tc_delta) -> None:
+            idx = getattr(tc_delta, "index", None)
+            if idx is None:
+                return
+
+            while len(tool_calls) <= idx:
+                tool_calls.append(
+                    {
+                        "id": None,
+                        "type": "function",
+                        "function": {"name": "", "arguments": ""},
+                    }
+                )
+
+            if tc_delta.id:
+                tool_calls[idx]["id"] = tc_delta.id
+            if getattr(tc_delta, "function", None) and getattr(
+                tc_delta.function, "name", None
+            ):
+                tool_calls[idx]["function"]["name"] = tc_delta.function.name
+            if getattr(tc_delta, "function", None) and getattr(
+                tc_delta.function, "arguments", None
+            ):
+                tool_calls[idx]["function"]["arguments"] += tc_delta.function.arguments
+
+        async def _stream_once(
+            messages: List[Dict[str, Any]],
+        ) -> tuple[Dict[str, Any], Optional[str]]:
+            resp_stream = await client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=messages,
+                temperature=TEMPERATURE,
+                max_tokens=MAX_TOKENS,
+                tools=TOOLS,
+                stream=True,
+            )
+
+            pieces: List[str] = []
+            tool_calls: List[Dict[str, Any]] = []
+            last_chunk = None
+
+            async for chunk in resp_stream:
+                last_chunk = chunk
+                delta = chunk.choices[0].delta
+
+                text = getattr(delta, "content", None) or ""
+                if text:
+                    pieces.append(text)
+                    await _send_ws_chunk(text)
+
+                calls = getattr(delta, "tool_calls", None) or []
+                for tc_delta in calls:
+                    _accumulate_tool_call(tool_calls, tc_delta)
+
+            finish_reason = _finish_reason(last_chunk)
+
+            assistant_msg: Dict[str, Any] = {"role": "assistant", "content": ""}
+            if pieces:
+                assistant_msg["content"] = "".join(pieces)
+                await _send_ws_end()
+
+            formatted = _format_tool_calls(tool_calls)
+            if formatted:
+                assistant_msg["tool_calls"] = formatted
+
+            return assistant_msg, finish_reason
+
+        # --- helpers used above ---
+        async def _send_ws_chunk(text: str) -> None:
+            if not send_ws:
+                return
+            await send_ws(json.dumps({"on_chat_model_stream": text}))
+
+        async def _send_ws_end() -> None:
+            if not send_ws:
+                return
+            await send_ws(json.dumps({"on_chat_model_end": True}))
+
+        def _finish_reason(last_chunk) -> Optional[str]:
+            if not last_chunk:
+                return None
+            if not getattr(last_chunk, "choices", None):
+                return None
+            return last_chunk.choices[0].finish_reason
+
+        async def _nonstream_once(
+            messages: List[Dict[str, Any]],
+        ) -> tuple[Dict[str, Any], Optional[str]]:
+            resp = await client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=messages,
+                temperature=TEMPERATURE,
+                max_tokens=MAX_TOKENS,
+                tools=TOOLS,
+                stream=False,
+            )
+            assistant_msg = resp.choices[0].message.model_dump()
+            finish_reason = resp.choices[0].finish_reason
+            return assistant_msg, finish_reason
+
+        def _format_tool_calls(tool_calls: List[Dict[str, Any]]):
+            if not tool_calls:
+                return []
+            # filter out tool calls without an id
+            candidates = [tc for tc in tool_calls if tc.get("id")]
+            if not candidates:
+                return []
+
+            return [
+                ChatCompletionMessageToolCall(
+                    id=tc["id"],
+                    type="function",
+                    function=Function(
+                        name=tc["function"]["name"],
+                        arguments=tc["function"]["arguments"],
+                    ),
+                )
+                for tc in candidates
+            ]
+
+        def _should_stop(
+            finish_reason: Optional[str], assistant_msg: Dict[str, Any]
+        ) -> bool:
+            if finish_reason != "tool_calls":
+                return True
+            if "tool_calls" not in assistant_msg:
+                return True
+            return False
+
+        def _extract_tool_fields(tool_call: Any):
+            fn = getattr(tool_call, "function", None)
+            if fn is None and isinstance(tool_call, dict):
+                fn = tool_call.get("function")
+
+            name = getattr(fn, "name", None)
+            if name is None and isinstance(fn, dict):
+                name = fn.get("name")
+
+            args = getattr(fn, "arguments", None)
+            if args is None and isinstance(fn, dict):
+                args = fn.get("arguments")
+
+            tid = getattr(tool_call, "id", None)
+            if tid is None and isinstance(tool_call, dict):
+                tid = tool_call.get("id")
+            return name, args, tid
+
+        def _exec_tool(
+            tool_name: Optional[str],
+            arguments_str: Optional[str],
+            tool_id: Optional[str],
+        ) -> Dict[str, Any]:
+            if not tool_name:
+                return {
+                    "role": "tool",
+                    "content": json.dumps({"error": "Missing tool name"}),
+                    "tool_call_id": tool_id,
+                }
+            if arguments_str is None:
+                return {
+                    "role": "tool",
+                    "content": json.dumps({"error": "Missing tool arguments"}),
+                    "tool_call_id": tool_id,
+                }
+
+            logger.info(f"Executing tool: {tool_name}")
             try:
-                # Call OpenAI with tools
-                if stream and send_ws:
-                    # Streaming mode
-                    resp_stream = await client.chat.completions.create(
-                        model=MODEL_NAME,
-                        messages=msgs,
-                        temperature=TEMPERATURE,
-                        max_tokens=MAX_TOKENS,
-                        tools=TOOLS,
-                        stream=True,
-                    )
+                arguments = json.loads(arguments_str)
+            except Exception as e:
+                return {
+                    "role": "tool",
+                    "content": json.dumps({"error": f"Bad arguments JSON: {e}"}),
+                    "tool_call_id": tool_id,
+                }
 
-                    pieces: List[str] = []
-                    tool_calls = []
-                    current_tool_call = None
+            tool_func = TOOL_MAP.get(tool_name)
+            if not tool_func:
+                return {
+                    "role": "tool",
+                    "content": json.dumps({"error": f"Unknown tool: {tool_name}"}),
+                    "tool_call_id": tool_id,
+                }
 
-                    async for chunk in resp_stream:
-                        delta = chunk.choices[0].delta
+            try:
+                result = tool_func(**arguments)
+                return {
+                    "role": "tool",
+                    "content": json.dumps(result),
+                    "tool_call_id": tool_id,
+                }
+            except Exception as e:
+                return {
+                    "role": "tool",
+                    "content": json.dumps({"error": str(e)}),
+                    "tool_call_id": tool_id,
+                }
 
-                        # Handle content streaming
-                        if delta.content:
-                            pieces.append(delta.content)
-                            await send_ws(
-                                json.dumps({"on_chat_model_stream": delta.content})
-                            )
+        async def _call_once(
+            messages: List[Dict[str, Any]],
+        ) -> tuple[Dict[str, Any], Optional[str]]:
+            if stream and send_ws:
+                return await _stream_once(messages)
+            return await _nonstream_once(messages)
 
-                        # Handle tool calls (accumulated across chunks)
-                        if delta.tool_calls:
-                            for tc_delta in delta.tool_calls:
-                                if tc_delta.index is not None:
-                                    # Start new tool call or update existing
-                                    while len(tool_calls) <= tc_delta.index:
-                                        tool_calls.append(
-                                            {
-                                                "id": None,
-                                                "type": "function",
-                                                "function": {
-                                                    "name": "",
-                                                    "arguments": "",
-                                                },
-                                            }
-                                        )
+        # ---------- main loop (guarded) ----------
+        try:
+            for _ in range(max_iterations):
+                assistant_msg, finish_reason = await _call_once(msgs)
 
-                                    if tc_delta.id:
-                                        tool_calls[tc_delta.index]["id"] = tc_delta.id
-                                    if tc_delta.function:
-                                        if tc_delta.function.name:
-                                            tool_calls[tc_delta.index]["function"][
-                                                "name"
-                                            ] = tc_delta.function.name
-                                        if tc_delta.function.arguments:
-                                            tool_calls[tc_delta.index]["function"][
-                                                "arguments"
-                                            ] += tc_delta.function.arguments
-
-                    finish_reason = (
-                        chunk.choices[0].finish_reason if chunk.choices else None
-                    )
-
-                    # Build assistant message
-                    assistant_msg = {"role": "assistant"}
-                    if pieces:
-                        assistant_msg["content"] = "".join(pieces)
-                        await send_ws(json.dumps({"on_chat_model_end": True}))
-                    else:
-                        assistant_msg["content"] = ""
-
-                    if tool_calls and any(tc["id"] for tc in tool_calls):
-                        # Convert to proper format
-                        from openai.types.chat import ChatCompletionMessageToolCall
-                        from openai.types.chat.chat_completion_message_tool_call import (
-                            Function,
-                        )
-
-                        formatted_tool_calls = []
-                        for tc in tool_calls:
-                            if tc["id"]:
-                                formatted_tool_calls.append(
-                                    ChatCompletionMessageToolCall(
-                                        id=tc["id"],
-                                        type="function",
-                                        function=Function(
-                                            name=tc["function"]["name"],
-                                            arguments=tc["function"]["arguments"],
-                                        ),
-                                    )
-                                )
-                        assistant_msg["tool_calls"] = formatted_tool_calls
-
-                else:
-                    # Non-streaming mode
-                    resp = await client.chat.completions.create(
-                        model=MODEL_NAME,
-                        messages=msgs,
-                        temperature=TEMPERATURE,
-                        max_tokens=MAX_TOKENS,
-                        tools=TOOLS,
-                        stream=False,
-                    )
-
-                    assistant_msg = resp.choices[0].message.model_dump()
-                    finish_reason = resp.choices[0].finish_reason
-
-                # Add assistant message to history
                 msgs.append(assistant_msg)
                 new_messages.append(assistant_msg)
 
-                # If no tool calls, we're done
-                if finish_reason != "tool_calls" or "tool_calls" not in assistant_msg:
-                    break
+                if _should_stop(finish_reason, assistant_msg):
+                    return {"messages": new_messages}
 
-                # Execute tool calls
-                tool_responses = []
+                tool_responses: List[Dict[str, Any]] = []
                 for tool_call in assistant_msg.get("tool_calls", []):
-                    tool_name = (
-                        tool_call.function.name
-                        if hasattr(tool_call, "function")
-                        else tool_call["function"]["name"]
-                    )
-                    arguments_str = (
-                        tool_call.function.arguments
-                        if hasattr(tool_call, "function")
-                        else tool_call["function"]["arguments"]
-                    )
-                    tool_id = (
-                        tool_call.id if hasattr(tool_call, "id") else tool_call["id"]
-                    )
+                    name, args, tid = _extract_tool_fields(tool_call)
+                    tool_responses.append(_exec_tool(name, args, tid))
 
-                    logger.info(f"Executing tool: {tool_name}")
+                if tool_responses:
+                    msgs.extend(tool_responses)
+                    new_messages.extend(tool_responses)
 
-                    try:
-                        arguments = json.loads(arguments_str)
-                        tool_func = TOOL_MAP.get(tool_name)
+            return {"messages": new_messages}
 
-                        if tool_func:
-                            result = tool_func(**arguments)
-                            tool_response = {
-                                "role": "tool",
-                                "content": json.dumps(result),
-                                "tool_call_id": tool_id,
-                            }
-                        else:
-                            tool_response = {
-                                "role": "tool",
-                                "content": json.dumps(
-                                    {"error": f"Unknown tool: {tool_name}"}
-                                ),
-                                "tool_call_id": tool_id,
-                            }
-
-                        tool_responses.append(tool_response)
-
-                    except Exception as e:
-                        logger.error(f"Tool execution error: {e}")
-                        tool_responses.append(
-                            {
-                                "role": "tool",
-                                "content": json.dumps({"error": str(e)}),
-                                "tool_call_id": tool_id,
-                            }
-                        )
-
-                # Add tool responses to conversation
-                msgs.extend(tool_responses)
-                new_messages.extend(tool_responses)
-
-                # Continue loop to get next assistant response
-
-            except Exception as e:
-                logger.exception(f"OpenAI call failed: {e}")
-                error_msg = {
-                    "role": "assistant",
-                    "content": "Sorry—there was an error generating the response.",
-                }
-                new_messages.append(error_msg)
-                if stream and send_ws:
-                    await send_ws(json.dumps({"on_chat_model_end": True}))
-                break
-
-        return {"messages": new_messages}
+        except Exception as e:
+            logger.exception(f"OpenAI call failed: {e}")
+            error_msg = {
+                "role": "assistant",
+                "content": "Sorry—there was an error generating the response.",
+            }
+            new_messages.append(error_msg)
+            if stream and send_ws:
+                await send_ws(json.dumps({"on_chat_model_end": True}))
+            return {"messages": new_messages}
 
     # Build the graph
     def build(
@@ -599,43 +665,47 @@ async def invoke_our_graph(
     logger.info(
         f"invoke_our_graph recv: type={type(data).__name__} keys={list(data.keys()) if isinstance(data, dict) else 'n/a'}"
     )
+
     # ---------- 0) Normalize the incoming frame ----------
     payload: Optional[Dict[str, Any]] = None
+
     if isinstance(data, str):
         try:
             payload = json.loads(data)
         except Exception:
             payload = None
-    elif isinstance(data, dict):
+
+    if isinstance(data, dict):
         payload = data  # server already parsed JSON
 
     # ---------- 1) Control envelopes (silent) ----------
-    if isinstance(payload, dict):
-        # Ignore handshake frames like {"uuid": "...", "init": true}
-        if payload.get("init") is True:
-            return
+    if isinstance(payload, dict) and payload.get("init") is True:
+        return  # handshake; ignore
 
-        # Telemetry/control frames
-        if payload.get("type") in ("user_context", "user_context_update"):
-            ctx = payload.get("ctx") or {}
+    if isinstance(payload, dict) and payload.get("type") in (
+        "user_context",
+        "user_context_update",
+    ):
+        ctx = payload.get("ctx") or {}
 
-            # Attach server-known info
-            hdrs = {k.decode().lower(): v.decode() for k, v in websocket.headers.raw}
-            client_ip = extract_client_ip(
-                hdrs, websocket.client.host if websocket.client else ""
-            )
-            ctx.setdefault("server", {})
-            ctx["server"].update(
-                {
-                    "ip": client_ip,
-                    "user_uuid": user_uuid,
-                    "ua": hdrs.get("user-agent"),
-                    "origin": hdrs.get("origin"),
-                }
-            )
+        # Attach server-known info
+        hdrs = {k.decode().lower(): v.decode() for k, v in websocket.headers.raw}
+        client_ip = extract_client_ip(
+            hdrs, websocket.client.host if websocket.client else ""
+        )
 
-            record_user_context(ctx)
-            return  # ✅ do not run the chat graph or echo anything
+        ctx.setdefault("server", {})
+        ctx["server"].update(
+            {
+                "ip": client_ip,
+                "user_uuid": user_uuid,
+                "ua": hdrs.get("user-agent"),
+                "origin": hdrs.get("origin"),
+            }
+        )
+
+        record_user_context(ctx)
+        return  # ✅ do not run the chat graph or echo anything
 
     # ---------- 2) Build graph only for chat turns ----------
     async def _send_ws(payload_text: str):
