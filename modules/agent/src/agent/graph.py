@@ -38,43 +38,10 @@ MAX_TOKENS = None if not MAX_TOKENS_ENV else int(MAX_TOKENS_ENV)
 # Resume tooling setup
 RESUME_NAME = "William Hubenschmidt"
 
-# Load resume and summary
-resume_text = ""
-summary = ""
+from agent.document_scanner import load_documents
 
-try:
-    logger.info(f"MODEL_NAME: {MODEL_NAME}")
-    reader = PdfReader("me/resume.pdf")
-    for page in reader.pages:
-        text = page.extract_text()
-        if text:
-            resume_text += text
+resume_text, summary, cover_letters = load_documents("me")
 
-    # Clean up excessive whitespace from PDF extraction
-    import re
-
-    resume_text = re.sub(r"\n\s*\n", "\n\n", resume_text)  # Multiple newlines to double
-    resume_text = re.sub(r" +", " ", resume_text)  # Multiple spaces to single
-    resume_text = resume_text.strip()
-
-    logger.info(f"Resume loaded successfully: {len(resume_text)} characters")
-except FileNotFoundError:
-    logger.warning("Resume PDF not found at me/resume.pdf")
-    resume_text = "[Resume not available]"
-except Exception as e:
-    logger.error(f"Could not load resume PDF: {e}")
-    resume_text = "[Resume not available]"
-
-try:
-    with open("me/summary.txt", "r", encoding="utf-8") as f:
-        summary = f.read()
-    logger.info(f"Summary loaded successfully: {len(summary)} characters")
-except FileNotFoundError:
-    logger.warning("Summary file not found at me/summary.txt")
-    summary = "[Summary not available]"
-except Exception as e:
-    logger.error(f"Could not load summary: {e}")
-    summary = "[Summary not available]"
 
 SYSTEM_PROMPT = f"""You are acting as {RESUME_NAME}. You are answering questions on {RESUME_NAME}'s website,
 particularly questions related to {RESUME_NAME}'s career, background, skills and experience. Your responsibility
@@ -102,13 +69,22 @@ record_user_details tool to store it if they provide it.
 If the user asks questions that do not directly pertain to {RESUME_NAME}'s career, background, skills, and experience,
 do not answer them; briefly steer the conversation back to those topics.
 
+If the user prompts you to write a cover letter for a job on your behalf, please ask for a URL link to the job posting. Read the job posting, \
+and then use the examples in {cover_letters}.  Do not ask the user to confirm, just read the job posting and write the cover letter.
+
 SUMMARY:
 {summary}
 
 RESUME:
 {resume_text}
 
-With this context, chat with the user, always staying in character as {RESUME_NAME}."""
+COVER_LETTERS:
+{cover_letters}
+
+With this context, chat with the user, always staying in character as {RESUME_NAME}.
+
+
+"""
 
 
 logger.info(f"System prompt length: {len(SYSTEM_PROMPT)} characters")
