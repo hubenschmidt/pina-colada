@@ -8,7 +8,14 @@ from typing import TypedDict, List, Dict, Any, Optional, Callable, Awaitable, Un
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from pypdf import PdfReader
-from ipaddress import ip_address
+from ipaddress import (
+    ip_address,
+    ip_network,
+    IPv4Address,
+    IPv6Address,
+    IPv4Network,
+    IPv6Network,
+)
 from langgraph.graph import START, END, StateGraph
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -154,29 +161,77 @@ def record_unknown_question(question: str):
 # -----------------------------------------------------------------------------
 # Tool-Free server-side recorder for client metadata
 # -----------------------------------------------------------------------------
+
+# keep the hardcoded string, or allow env override:
+IP_BLACKLIST_STR = os.getenv("IP_BLACKLIST", "127.0.0.1, 10.0.0.0/8, 172.18.0.1")
+
+
+def _parse_ip_blacklist(raw: str):
+    items = []
+    for token in (t.strip() for t in raw.split(",") if t.strip()):
+        # try CIDR first, then single IP
+        try:
+            items.append(ip_network(token, strict=False))
+            continue
+        except Exception:
+            pass
+        try:
+            items.append(ip_address(token))
+        except Exception:
+            pass
+    return tuple(items)
+
+
+IP_BLACKLIST = _parse_ip_blacklist(IP_BLACKLIST_STR)
+
+
+def _is_ip_blacklisted(ip_str: str | None) -> bool:
+    if not ip_str:
+        return False
+    try:
+        ip = ip_address(ip_str)
+    except Exception:
+        return False
+    for item in IP_BLACKLIST:
+        if isinstance(item, (IPv4Address, IPv6Address)):
+            if ip == item:
+                return True
+        elif isinstance(item, (IPv4Network, IPv6Network)):
+            if ip in item:
+                return True
+    return False
+
+
+# --- Pretty push with blacklist check ---
 def record_user_context(ctx: Dict[str, Any]):
     """Persist raw user context (testing: push as a notification)"""
     try:
-        # Pretty JSON for the push
-        pretty = json.dumps(ctx, indent=2, ensure_ascii=False, sort_keys=True)
+        ip = ((ctx.get("server") or {}).get("ip")) or None
 
-        # Pushover message size is ~1024 chars; keep a short header + trimmed body
+        # Always log full JSON for debugging
+        pretty_full = json.dumps(ctx, indent=2, ensure_ascii=False, sort_keys=True)
+        logger.info("[user_context_full] %s", pretty_full)
+
+        # Skip push for blacklisted IPs
+        if _is_ip_blacklisted(ip):
+            logger.info("user_context suppressed (blacklisted ip=%s)", ip)
+            return {"ok": True, "pushed": False, "reason": "ip_blacklisted"}
+
+        # Pushover practical limit ~1024 chars
         header = "new visitor:\n"
         max_len = 1024
-        space_for_body = max_len - len(header)
+        space = max_len - len(header)
         body = (
-            pretty
-            if len(pretty) <= space_for_body
-            else (pretty[: space_for_body - 1] + "…")
+            pretty_full
+            if len(pretty_full) <= space
+            else (pretty_full[: space - 1] + "…")
         )
 
         push(header + body)
-
-        # Log the full, untrimmed JSON for debugging
-        logger.info("[user_context_full] %s", pretty)
+        return {"ok": True, "pushed": True}
     except Exception as e:
         logger.error(f"record_user_context failed: {e}")
-    return {"ok": True}
+        return {"ok": False, "error": str(e)}
 
 
 def extract_client_ip(headers: Dict[str, str], peer_host: str) -> str:
