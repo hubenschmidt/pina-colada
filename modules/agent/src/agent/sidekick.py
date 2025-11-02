@@ -193,40 +193,50 @@ With this feedback, please continue to try to answer the question, ensuring that
 
         # Update or add system message
         messages = state["messages"].copy()
-        found_system_message = False
-        for i, message in enumerate(messages):
-            if isinstance(message, SystemMessage):
-                messages[i] = SystemMessage(content=system_message)
-                found_system_message = True
-                break
 
-        if not found_system_message:
+        sys_idx = next(
+            (i for i, m in enumerate(messages) if isinstance(m, SystemMessage)), None
+        )
+        if sys_idx is not None:
+            messages[sys_idx] = SystemMessage(content=system_message)
+
+        if sys_idx is None:
             messages = [SystemMessage(content=system_message)] + messages
 
         # Invoke the LLM with tools
         logger.info(f"   Calling GPT-5 with {len(messages)} messages...")
         response = self.worker_llm_with_tools.invoke(messages)
 
-        # Log what worker produced
-        if hasattr(response, "tool_calls") and response.tool_calls:
-            # Handle both dict and object formats
-            tool_names = []
-            for tc in response.tool_calls:
-                if isinstance(tc, dict):
-                    tool_names.append(
-                        tc.get("name", tc.get("function", {}).get("name", "unknown"))
-                    )
-                else:
-                    tool_names.append(
-                        getattr(tc, "name", getattr(tc.function, "name", "unknown"))
-                    )
-            logger.info(
-                f"✓ Worker called {len(response.tool_calls)} tool(s): {tool_names}"
-            )
-        else:
-            response_preview = response.content[:100] if response.content else "[empty]"
-            logger.info(f"✓ Worker generated response: {response_preview}...")
+        def tool_name(tc):
+            # 1) attribute: name
+            name_attr = getattr(tc, "name", None)
+            if name_attr:
+                return name_attr
 
+            # 2) attribute: function.name (safe getattr chain; no ternary)
+            fn_name_attr = getattr(getattr(tc, "function", None), "name", None)
+            if fn_name_attr:
+                return fn_name_attr
+
+            # 3) dict: name
+            if not isinstance(tc, dict):
+                return "unknown"
+            name_dict = tc.get("name")
+            if name_dict:
+                return name_dict
+
+            # 4) dict: function.name
+            fn_dict = tc.get("function")
+            if not isinstance(fn_dict, dict):
+                return "unknown"
+            fn_name_dict = fn_dict.get("name")
+            if fn_name_dict:
+                return fn_name_dict
+
+            return "unknown"
+
+        tool_names = [tool_name(tc) for tc in response.tool_calls]
+        logger.info(f"✓ Worker called {len(response.tool_calls)} tool(s): {tool_names}")
         return {"messages": [response]}
 
     def worker_router(self, state: State) -> str:
@@ -391,10 +401,13 @@ The Assistant has access to tools to record user details and unknown questions. 
 
         config = {"configurable": {"thread_id": thread_id}}
 
+        sc = success_criteria
+        if not sc:
+            sc = "Provide a clear and accurate response to the user's question"
+
         state = {
             "messages": [HumanMessage(content=message)],
-            "success_criteria": success_criteria
-            or "Provide a clear and accurate response to the user's question",
+            "success_criteria": sc,
             "feedback_on_work": None,
             "success_criteria_met": False,
             "user_input_needed": False,
@@ -402,54 +415,57 @@ The Assistant has access to tools to record user details and unknown questions. 
             "resume_context": self.resume_context,
         }
 
-        # Stream events if WebSocket is available
-        if self.send_ws:
-            await self.send_ws(json.dumps({"type": "start"}))
-
-            last_content = ""
-            iteration = 0
-
-            async for event in self.graph.astream(
-                state, config=config, stream_mode="values"
-            ):
-                iteration += 1
-                logger.info(f"   Graph iteration {iteration}")
-
-                # Get the last message
-                if "messages" in event and event["messages"]:
-                    last_msg = event["messages"][-1]
-
-                    # Stream AI responses
-                    if isinstance(last_msg, AIMessage) and last_msg.content:
-                        current_content = last_msg.content
-
-                        # Only send if content changed
-                        if current_content != last_content:
-                            last_content = current_content
-                            await self.send_ws(
-                                json.dumps(
-                                    {
-                                        "type": "content",
-                                        "content": current_content,
-                                        "is_final": False,
-                                    }
-                                )
-                            )
-
-            # Send final message
-            await self.send_ws(
-                json.dumps(
-                    {"type": "content", "content": last_content, "is_final": True}
-                )
-            )
-            await self.send_ws(json.dumps({"type": "end"}))
-
-            logger.info(f"✅ Graph execution completed in {iteration} iterations")
-        else:
-            # No streaming, just invoke
+        # Guard: no websocket sender available → non-streaming path
+        if not self.send_ws:
             result = await self.graph.ainvoke(state, config=config)
-            logger.info(f"✅ Graph execution completed")
+            logger.info("✅ Graph execution completed")
             return result
+
+        # Streaming path
+        await self.send_ws(json.dumps({"type": "start"}))
+
+        last_content = ""
+        iteration = 0
+
+        async for event in self.graph.astream(
+            state, config=config, stream_mode="values"
+        ):
+            iteration += 1
+            logger.info(f"   Graph iteration {iteration}")
+
+            messages = event.get("messages")
+            last_msg = None
+            try:
+                last_msg = (messages or [])[-1]
+            except Exception:
+                last_msg = None
+
+            current_content = getattr(last_msg, "content", None)
+            is_ai = isinstance(last_msg, AIMessage)
+            changed = (
+                isinstance(current_content, str)
+                and current_content
+                and current_content != last_content
+            )
+            should_emit = is_ai and changed
+
+            if should_emit:
+                last_content = current_content
+                await self.send_ws(
+                    json.dumps(
+                        {
+                            "type": "content",
+                            "content": current_content,
+                            "is_final": False,
+                        }
+                    )
+                )
+
+        await self.send_ws(
+            json.dumps({"type": "content", "content": last_content, "is_final": True})
+        )
+        await self.send_ws(json.dumps({"type": "end"}))
+        logger.info(f"✅ Graph execution completed in {iteration} iterations")
 
         return state
 
