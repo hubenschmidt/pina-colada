@@ -1,218 +1,91 @@
-# graph.py — LangGraph + OpenAI with integrated resume tooling
-# - Streaming graph for WebSocket with memory
-# - Tool calling integrated into the graph flow
-# - Per-conversation memory via MemorySaver()
+"""
+LangGraph Chat Application with Sidekick Agent
+===============================================
+This module creates an intelligent chatbot using the Sidekick worker/evaluator pattern.
 
-import os, sys, json, logging, uuid, requests
-from typing import TypedDict, List, Dict, Any, Optional, Callable, Awaitable, Union
+Graph Flow (via Sidekick):
+    START → worker → [tools] → evaluator → [worker or END]
+
+Key Components:
+    - Sidekick: Worker/evaluator agent pattern
+    - Document loading from me/ directory
+    - WebSocket streaming support
+"""
+
+__all__ = ["graph", "invoke_our_graph", "build_default_graph", "build_streaming_graph"]
+
+import json
+import logging
+import uuid
+from typing import Dict, Any, Optional, Callable, Awaitable, Union, List
+from fastapi import WebSocket
+from langfuse import observe
 from dotenv import load_dotenv
-from openai import AsyncOpenAI
-from pypdf import PdfReader
-from ipaddress import (
-    ip_address,
-    ip_network,
-    IPv4Address,
-    IPv6Address,
-    IPv4Network,
-    IPv6Network,
-)
-from langgraph.graph import START, END, StateGraph
-from langgraph.checkpoint.memory import MemorySaver
 
-# -----------------------------------------------------------------------------
-# Setup
-# -----------------------------------------------------------------------------
+from agent.sidekick import Sidekick
+from agent.document_scanner import load_documents
+
+# =============================================================================
+# CONFIGURATION
+# =============================================================================
+
 logger = logging.getLogger("app.graph")
 load_dotenv(override=True)
 
-API_KEY = os.getenv("OPENAI_API_KEY")
-if not API_KEY:
-    logger.fatal("Fatal Error: OPENAI_API_KEY is missing.")
-    sys.exit(1)
-
-MODEL_NAME = os.getenv("OPENAI_MODEL", "gpt-5-chat-latest")
-TEMPERATURE = float(os.getenv("OPENAI_TEMPERATURE", "0"))
-MAX_TOKENS_ENV = os.getenv("OPENAI_MAX_TOKENS")
-MAX_TOKENS = None if not MAX_TOKENS_ENV else int(MAX_TOKENS_ENV)
-
-# Resume tooling setup
+# Load resume documents
 RESUME_NAME = "William Hubenschmidt"
-
-from agent.document_scanner import load_documents
-
+logger.info("Loading documents from me/ directory...")
 resume_text, summary, cover_letters = load_documents("me")
+logger.info(
+    f"Documents loaded - Resume: {len(resume_text)} chars, Summary: {len(summary)} chars, Cover letters: {len(cover_letters)}"
+)
+
+# =============================================================================
+# SIDEKICK INSTANCE (Singleton)
+# =============================================================================
+
+_sidekick_instance: Optional[Sidekick] = None
 
 
-SYSTEM_PROMPT = f"""
-ROLE
-You are {RESUME_NAME} on his personal website. Answer questions about his career, background, skills, and experience. Speak as {RESUME_NAME}, professionally and succinctly. \
-If the user is offering short replies, such as "yes", continue the conversation not with questions but more detail about his career.
+async def get_sidekick() -> Sidekick:
+    """Get or create the Sidekick instance."""
+    global _sidekick_instance
 
-DATA ACCESS
-You have the resume and summary below. Use them. Do not say you lack this information.
+    if _sidekick_instance is None:
+        logger.info("Initializing Sidekick...")
+        _sidekick_instance = Sidekick(
+            resume_text=resume_text, summary=summary, cover_letters=cover_letters
+        )
+        await _sidekick_instance.setup()
+        logger.info("Sidekick initialized successfully")
 
-CONVERSATION FLOW
-- First user message: give one sentence of intro and offer one simple choice (e.g., “background” or “recent projects”). Do not list more than two options. Do not say “I’ll start with…”.
-- After the first turn: continue the active topic directly. Do not restate your name/title/location. Do not list options again. Do not use scaffold phrases like “I’ll start with…”.
-- Short/affirmative replies (“sure”, “ok”, “yes”, “cool”): continue the current topic with the next concrete detail. No reconfirmation, no options list.
-- Numeric replies (e.g., “1.”): treat as choosing the first previously offered option. If no list was offered, continue the current topic.
-- End with at most one brief, forward-moving question tied to the current topic (optional). Never ask multiple questions.
-
-CONTACT CAPTURE (ASK ONCE, RECORD ONCE)
-- After your third substantive answer, briefly ask once for the user’s name and email for follow-up.
-- If an email is provided (with or without a name), immediately call record_user_details with provided fields.
-- If a name is provided but no email, ask once for the email. If declined, acknowledge and continue. Do not ask again once asked or recorded.
-
-UNKNOWN ANSWERS
-- If you do not know an answer, call record_unknown_question with the question, then (only if not already collected) ask once for name/email as above.
-
-SCOPE CONTROL
-- If a request is not about {RESUME_NAME}'s career, background, skills, or experience, briefly steer back to those topics.
-
-COVER LETTER WORKFLOW
-- If asked to write a cover letter, ask for a job-posting URL, read it, then write the letter directly using COVER_LETTERS for style. Do not ask for confirmation.
-
-STYLE (MUST FOLLOW)
-- Plain text only (no Markdown or formatting).
-- No decorative characters.
-- Be concise; short paragraphs with newlines only.
-- Never re-greet or re-introduce yourself after the first turn.
-- Do not repeat sentences or re-list the same options.
-
-SUMMARY
-{summary}
-
-RESUME
-{resume_text}
-
-COVER_LETTERS
-{cover_letters}
-
-Stay in character as {RESUME_NAME} for the entire conversation.
-"""
+    return _sidekick_instance
 
 
-logger.info(f"System prompt length: {len(SYSTEM_PROMPT)} characters")
-logger.info(f"Resume text length: {len(resume_text)} characters")
-logger.info(f"Summary length: {len(summary)} characters")
-
-# Pushover configuration
-pushover_user = os.getenv("PUSHOVER_USER")
-pushover_token = os.getenv("PUSHOVER_TOKEN")
-pushover_url = "https://api.pushover.net/1/messages.json"
+# =============================================================================
+# USER CONTEXT RECORDING (for analytics)
+# =============================================================================
 
 
-# -----------------------------------------------------------------------------
-# Tool Functions
-# -----------------------------------------------------------------------------
-def push(message):
-    """Send notification via Pushover"""
-    print(f"Push: {message}")
-    if not pushover_user or not pushover_token:
-        logger.warning("Pushover credentials not configured")
-        return
-    try:
-        payload = {"user": pushover_user, "token": pushover_token, "message": message}
-        response = requests.post(pushover_url, data=payload, timeout=5)
-        logger.info(f"Push notification sent: {response.status_code}")
-    except Exception as e:
-        logger.error(f"Failed to send push notification: {e}")
-
-
-def record_user_details(
-    email: str, name: str = "Name not provided", notes: str = "not provided"
-):
-    """Record user contact details"""
-    push(f"Recording interest from {name} with email {email} and notes {notes}")
-    return {"recorded": "ok", "email": email, "name": name}
-
-
-def record_unknown_question(question: str):
-    """Record questions that couldn't be answered"""
-    push(f"Recording question that couldn't be answered: {question}")
-    return {"recorded": "ok", "question": question}
-
-
-# -----------------------------------------------------------------------------
-# Tool-Free server-side recorder for client metadata
-# -----------------------------------------------------------------------------
-
-# keep the hardcoded string, or allow env override:
-IP_BLACKLIST_STR = os.getenv("IP_BLACKLIST", "127.0.0.1, 10.0.0.0/8, 172.18.0.1")
-
-
-def _parse_ip_blacklist(raw: str):
-    items = []
-    for token in (t.strip() for t in raw.split(",") if t.strip()):
-        # try CIDR first, then single IP
-        try:
-            items.append(ip_network(token, strict=False))
-            continue
-        except Exception:
-            pass
-        try:
-            items.append(ip_address(token))
-        except Exception:
-            pass
-    return tuple(items)
-
-
-IP_BLACKLIST = _parse_ip_blacklist(IP_BLACKLIST_STR)
-
-
-_ADDR_CLASSES = (IPv4Address, IPv6Address)
-_NET_CLASSES = (IPv4Network, IPv6Network)
-
-
-def _is_ip_blacklisted(ip_str: str | None) -> bool:
-    if not ip_str:
-        return False
-
-    try:
-        ip = ip_address(ip_str)
-    except Exception:
-        return False
-
-    for item in IP_BLACKLIST:
-        if isinstance(item, _ADDR_CLASSES) and ip == item:
-            return True
-        if isinstance(item, _NET_CLASSES) and ip in item:
-            return True
-
-    return False
-
-
-# --- Pretty push with blacklist check ---
-def record_user_context(ctx: Dict[str, Any]):
-    """Persist raw user context (testing: push as a notification)"""
+def record_user_context(ctx: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Record user context (browser info, device info, etc) for analytics.
+    This is a simplified version - you can expand it as needed.
+    """
     try:
         ip = ((ctx.get("server") or {}).get("ip")) or None
-
-        # Always log full JSON for debugging
-        pretty_full = json.dumps(ctx, indent=2, ensure_ascii=False, sort_keys=True)
-        logger.info("[user_context_full] %s", pretty_full)
-
-        # Skip push for blacklisted IPs
-        if _is_ip_blacklisted(ip):
-            logger.info("user_context suppressed (blacklisted ip=%s)", ip)
-            return {"ok": True, "pushed": False, "reason": "ip_blacklisted"}
-
-        # Pushover practical limit ~1024 chars
-        max_len = 1024
-        body = pretty_full
-        if len(body) > max_len:
-            body = body[: max_len - 1] + "…"
-
-        push(body)
-        return {"ok": True, "pushed": True}
-
+        logger.info(f"User context received from IP: {ip}")
+        # You can add pushover notifications here if needed
+        return {"ok": True}
     except Exception as e:
         logger.error(f"record_user_context failed: {e}")
         return {"ok": False, "error": str(e)}
 
 
 def extract_client_ip(headers: Dict[str, str], peer_host: str) -> str:
+    """Extract the real client IP from headers (handling proxies/CDNs)."""
     xff = headers.get("x-forwarded-for")
+
     if not xff:
         return peer_host
 
@@ -220,439 +93,121 @@ def extract_client_ip(headers: Dict[str, str], peer_host: str) -> str:
     if not parts:
         return peer_host
 
-    # right-most hop (closest to your server)
-    candidate = parts[-1]
-    try:
-        ip_address(candidate)
-        return candidate
-    except Exception:
-        return peer_host
+    return parts[-1]
 
 
-# Tool definitions for OpenAI
-TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "record_user_details",
-            "description": "Use this tool to record that a user is interested in being in touch and provided an email address",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "email": {
-                        "type": "string",
-                        "description": "The email address of this user",
-                    },
-                    "name": {
-                        "type": "string",
-                        "description": "The user's name, if they provided it",
-                    },
-                    "notes": {
-                        "type": "string",
-                        "description": "Any additional information about the conversation that's worth recording to give context",
-                    },
-                },
-                "required": ["email"],
-                "additionalProperties": False,
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "record_unknown_question",
-            "description": "Always use this tool to record any question that couldn't be answered as you didn't know the answer",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "question": {
-                        "type": "string",
-                        "description": "The question that couldn't be answered",
-                    }
-                },
-                "required": ["question"],
-                "additionalProperties": False,
-            },
-        },
-    },
-]
-
-TOOL_MAP = {
-    "record_user_details": record_user_details,
-    "record_unknown_question": record_unknown_question,
-}
+# =============================================================================
+# WEBSOCKET STREAMING ADAPTER
+# =============================================================================
 
 
-# -----------------------------------------------------------------------------
-# State type
-# -----------------------------------------------------------------------------
-class ChatState(TypedDict):
-    messages: List[Dict[str, str]]
+class WebSocketStreamAdapter:
+    """
+    Adapts Sidekick's streaming format to match the frontend's expectations.
 
+    Frontend expects:
+        - {"on_chat_model_stream": "content"} for each chunk
+        - {"on_chat_model_end": true} when done
 
-# -----------------------------------------------------------------------------
-# Helpers
-# -----------------------------------------------------------------------------
-def to_openai_messages(messages: List[Any]) -> List[Dict[str, Any]]:
-    """Normalize messages to OpenAI format, preserving tool calls and tool responses"""
-    out: List[Dict[str, Any]] = []
-    for m in messages:
-        already_dict_with_role = isinstance(m, dict) and "role" in m
-        if already_dict_with_role:
-            out.append(m)
+    Sidekick sends:
+        - {"type": "start"} at beginning
+        - {"type": "content", "content": "...", "is_final": false} for chunks
+        - {"type": "end"} at end
+    """
 
-        if not already_dict_with_role:
-            role = getattr(m, "role", None) or "user"
-            content = getattr(m, "content", None) or str(m)
-            out.append({"role": role, "content": content})
+    def __init__(self, websocket: WebSocket):
+        self.websocket = websocket
+        self.current_content = ""
+        self.last_sent_length = 0
 
-    return out
-
-
-def ensure_system_prompt(
-    msgs: List[Dict[str, Any]], system_text: str
-) -> List[Dict[str, Any]]:
-    """Ensure system message is always first and up-to-date"""
-    # Remove any existing system messages
-    non_system_msgs = [m for m in msgs if m.get("role") != "system"]
-    # Always prepend fresh system prompt
-    return [{"role": "system", "content": system_text}] + non_system_msgs
-
-
-from openai.types.chat import ChatCompletionMessageToolCall
-from openai.types.chat.chat_completion_message_tool_call import Function
-
-
-# -----------------------------------------------------------------------------
-# Graph Builder Class
-# -----------------------------------------------------------------------------
-class SimpleChatGraph:
-    def __init__(self, *, use_memory: bool):
-        self.id = str(uuid.uuid4())
-        self._client: Optional[AsyncOpenAI] = None
-        self._memory = MemorySaver() if use_memory else None
-
-    def _client_or_create(self) -> AsyncOpenAI:
-        if self._client is None:
-            self._client = AsyncOpenAI()
-        return self._client
-
-    # Node 1: Optional easter egg
-    async def node_conditional(
-        self, state: ChatState, send_ws: Optional[Callable[[str], Awaitable[None]]]
-    ):
-        if not state.get("messages"):
-            return
-
-        last = state["messages"][-1]
-        text = last.get("content", "")
-        if not text:
-            return
-
-        if send_ws and any(
-            k in text for k in ("LangChain", "langchain", "LangGraph", "langgraph")
-        ):
-            await send_ws(json.dumps({"on_easter_egg": True}))
-
-    # Node 2: Call OpenAI with tool support
-    # Node 2: Call OpenAI with tool support — guard clauses only, no nested ifs, no else/elif/continue/break
-    async def node_model(
-        self,
-        state: ChatState,
-        *,
-        send_ws: Optional[Callable[[str], Awaitable[None]]],
-        stream: bool,
-    ) -> Dict[str, Any]:
-        client = self._client_or_create()
-
-        msgs = to_openai_messages(state["messages"])
-        msgs = ensure_system_prompt(msgs, SYSTEM_PROMPT)
-
-        new_messages: List[Dict[str, Any]] = []
-        max_iterations = 5
-
-        # ---------- helpers (guard clauses only) ----------
-
-        def _accumulate_tool_call(tool_calls: List[Dict[str, Any]], tc_delta) -> None:
-            idx = getattr(tc_delta, "index", None)
-            if idx is None:
-                return
-
-            while len(tool_calls) <= idx:
-                tool_calls.append(
-                    {
-                        "id": None,
-                        "type": "function",
-                        "function": {"name": "", "arguments": ""},
-                    }
-                )
-
-            if tc_delta.id:
-                tool_calls[idx]["id"] = tc_delta.id
-            if getattr(tc_delta, "function", None) and getattr(
-                tc_delta.function, "name", None
-            ):
-                tool_calls[idx]["function"]["name"] = tc_delta.function.name
-            if getattr(tc_delta, "function", None) and getattr(
-                tc_delta.function, "arguments", None
-            ):
-                tool_calls[idx]["function"]["arguments"] += tc_delta.function.arguments
-
-        async def _stream_once(
-            messages: List[Dict[str, Any]],
-        ) -> tuple[Dict[str, Any], Optional[str]]:
-            resp_stream = await client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=messages,
-                temperature=TEMPERATURE,
-                max_tokens=MAX_TOKENS,
-                tools=TOOLS,
-                stream=True,
-            )
-
-            pieces: List[str] = []
-            tool_calls: List[Dict[str, Any]] = []
-            last_chunk = None
-
-            async for chunk in resp_stream:
-                last_chunk = chunk
-                delta = chunk.choices[0].delta
-
-                text = getattr(delta, "content", None) or ""
-                if text:
-                    pieces.append(text)
-                    await _send_ws_chunk(text)
-
-                calls = getattr(delta, "tool_calls", None) or []
-                for tc_delta in calls:
-                    _accumulate_tool_call(tool_calls, tc_delta)
-
-            finish_reason = _finish_reason(last_chunk)
-
-            assistant_msg: Dict[str, Any] = {"role": "assistant", "content": ""}
-            if pieces:
-                assistant_msg["content"] = "".join(pieces)
-                await _send_ws_end()
-
-            formatted = _format_tool_calls(tool_calls)
-            if formatted:
-                assistant_msg["tool_calls"] = formatted
-
-            return assistant_msg, finish_reason
-
-        # --- helpers used above ---
-        async def _send_ws_chunk(text: str) -> None:
-            if not send_ws:
-                return
-            await send_ws(json.dumps({"on_chat_model_stream": text}))
-
-        async def _send_ws_end() -> None:
-            if not send_ws:
-                return
-            await send_ws(json.dumps({"on_chat_model_end": True}))
-
-        def _finish_reason(last_chunk) -> Optional[str]:
-            if not last_chunk:
-                return None
-            if not getattr(last_chunk, "choices", None):
-                return None
-            return last_chunk.choices[0].finish_reason
-
-        async def _nonstream_once(
-            messages: List[Dict[str, Any]],
-        ) -> tuple[Dict[str, Any], Optional[str]]:
-            resp = await client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=messages,
-                temperature=TEMPERATURE,
-                max_tokens=MAX_TOKENS,
-                tools=TOOLS,
-                stream=False,
-            )
-            assistant_msg = resp.choices[0].message.model_dump()
-            finish_reason = resp.choices[0].finish_reason
-            return assistant_msg, finish_reason
-
-        def _format_tool_calls(tool_calls: List[Dict[str, Any]]):
-            if not tool_calls:
-                return []
-            # filter out tool calls without an id
-            candidates = [tc for tc in tool_calls if tc.get("id")]
-            if not candidates:
-                return []
-
-            return [
-                ChatCompletionMessageToolCall(
-                    id=tc["id"],
-                    type="function",
-                    function=Function(
-                        name=tc["function"]["name"],
-                        arguments=tc["function"]["arguments"],
-                    ),
-                )
-                for tc in candidates
-            ]
-
-        def _should_stop(
-            finish_reason: Optional[str], assistant_msg: Dict[str, Any]
-        ) -> bool:
-            if finish_reason != "tool_calls":
-                return True
-            if "tool_calls" not in assistant_msg:
-                return True
-            return False
-
-        def _extract_tool_fields(tool_call: Any):
-            fn = getattr(tool_call, "function", None)
-            if fn is None and isinstance(tool_call, dict):
-                fn = tool_call.get("function")
-
-            name = getattr(fn, "name", None)
-            if name is None and isinstance(fn, dict):
-                name = fn.get("name")
-
-            args = getattr(fn, "arguments", None)
-            if args is None and isinstance(fn, dict):
-                args = fn.get("arguments")
-
-            tid = getattr(tool_call, "id", None)
-            if tid is None and isinstance(tool_call, dict):
-                tid = tool_call.get("id")
-            return name, args, tid
-
-        def _exec_tool(
-            tool_name: Optional[str],
-            arguments_str: Optional[str],
-            tool_id: Optional[str],
-        ) -> Dict[str, Any]:
-            if not tool_name:
-                return {
-                    "role": "tool",
-                    "content": json.dumps({"error": "Missing tool name"}),
-                    "tool_call_id": tool_id,
-                }
-            if arguments_str is None:
-                return {
-                    "role": "tool",
-                    "content": json.dumps({"error": "Missing tool arguments"}),
-                    "tool_call_id": tool_id,
-                }
-
-            logger.info(f"Executing tool: {tool_name}")
-            try:
-                arguments = json.loads(arguments_str)
-            except Exception as e:
-                return {
-                    "role": "tool",
-                    "content": json.dumps({"error": f"Bad arguments JSON: {e}"}),
-                    "tool_call_id": tool_id,
-                }
-
-            tool_func = TOOL_MAP.get(tool_name)
-            if not tool_func:
-                return {
-                    "role": "tool",
-                    "content": json.dumps({"error": f"Unknown tool: {tool_name}"}),
-                    "tool_call_id": tool_id,
-                }
-
-            try:
-                result = tool_func(**arguments)
-                return {
-                    "role": "tool",
-                    "content": json.dumps(result),
-                    "tool_call_id": tool_id,
-                }
-            except Exception as e:
-                return {
-                    "role": "tool",
-                    "content": json.dumps({"error": str(e)}),
-                    "tool_call_id": tool_id,
-                }
-
-        async def _call_once(
-            messages: List[Dict[str, Any]],
-        ) -> tuple[Dict[str, Any], Optional[str]]:
-            if stream and send_ws:
-                return await _stream_once(messages)
-            return await _nonstream_once(messages)
-
-        # ---------- main loop (guarded) ----------
+    async def send(self, payload_str: str):
+        """Receive from Sidekick and translate to frontend format."""
         try:
-            for _ in range(max_iterations):
-                assistant_msg, finish_reason = await _call_once(msgs)
+            payload = json.loads(payload_str)
+        except json.JSONDecodeError:
+            logger.warning(f"Could not parse payload: {payload_str}")
+            return
 
-                msgs.append(assistant_msg)
-                new_messages.append(assistant_msg)
+        msg_type = payload.get("type")
 
-                if _should_stop(finish_reason, assistant_msg):
-                    return {"messages": new_messages}
+        # Guard: Start message - ignore
+        if msg_type == "start":
+            logger.info("Stream starting...")
+            return
 
-                tool_responses: List[Dict[str, Any]] = []
-                for tool_call in assistant_msg.get("tool_calls", []):
-                    name, args, tid = _extract_tool_fields(tool_call)
-                    tool_responses.append(_exec_tool(name, args, tid))
+        # Guard: End message - send end signal
+        if msg_type == "end":
+            logger.info("Stream ending...")
+            await self.websocket.send_text(json.dumps({"on_chat_model_end": True}))
+            return
 
-                if tool_responses:
-                    msgs.extend(tool_responses)
-                    new_messages.extend(tool_responses)
+        # Guard: Content message - stream the delta
+        if msg_type == "content":
+            content = payload.get("content", "")
 
-            return {"messages": new_messages}
+            # Calculate what's new since last send
+            if len(content) > self.last_sent_length:
+                delta = content[self.last_sent_length :]
+                self.last_sent_length = len(content)
 
-        except Exception as e:
-            logger.exception(f"OpenAI call failed: {e}")
-            error_msg = {
-                "role": "assistant",
-                "content": "Sorry—there was an error generating the response.",
-            }
-            new_messages.append(error_msg)
-            if stream and send_ws:
-                await send_ws(json.dumps({"on_chat_model_end": True}))
-            return {"messages": new_messages}
+                # Send in frontend format
+                await self.websocket.send_text(
+                    json.dumps({"on_chat_model_stream": delta})
+                )
+                logger.info(f"Streamed {len(delta)} chars")
 
-    # Build the graph
-    def build(
-        self, *, send_ws: Optional[Callable[[str], Awaitable[None]]], stream: bool
-    ):
-        """Build and compile: START -> conditional -> model -> END"""
-        g = StateGraph(ChatState)
+            return
 
-        async def _conditional(s: ChatState):
-            return await self.node_conditional(s, send_ws)
-
-        async def _model(s: ChatState):
-            return await self.node_model(s, send_ws=send_ws, stream=stream)
-
-        g.add_node("conditional", _conditional)
-        g.add_node("model", _model)
-
-        g.add_edge(START, "conditional")
-        g.add_edge("conditional", "model")
-        g.add_edge("model", END)
-
-        return g.compile(checkpointer=self._memory)
+        # Unknown message type
+        logger.warning(f"Unknown message type: {msg_type}")
 
 
 # =============================================================================
-# DEFAULT EXPORT for loaders (non-streaming, NO memory)
+# DEFAULT EXPORT (Graph factory for LangGraph compatibility)
 # =============================================================================
+
+
 def build_default_graph():
-    """Non-streaming graph for auto-import"""
-    return SimpleChatGraph(use_memory=False).build(send_ws=None, stream=False)
+    """
+    Build a simple graph for LangGraph API compatibility.
+    This returns a minimal graph structure that LangGraph can load.
+    The actual work is done by Sidekick in invoke_our_graph.
+    """
+    from langgraph.graph import StateGraph, START, END
+    from typing import TypedDict, List, Dict, Any
+
+    class SimpleState(TypedDict):
+        messages: List[Dict[str, Any]]
+
+    def passthrough(state: SimpleState) -> Dict[str, Any]:
+        """Simple passthrough node"""
+        return {}
+
+    graph_builder = StateGraph(SimpleState)
+    graph_builder.add_node("passthrough", passthrough)
+    graph_builder.add_edge(START, "passthrough")
+    graph_builder.add_edge("passthrough", END)
+
+    logger.info("Built placeholder graph for LangGraph API")
+    return graph_builder.compile()
 
 
+# Graph instance - this is what LangGraph loads
 graph = build_default_graph()
+
 
 # =============================================================================
 # WEBSOCKET ENTRYPOINT
 # =============================================================================
-from fastapi import WebSocket
-from langfuse import observe
 
 
 def build_streaming_graph(send_ws: Callable[[str], Awaitable[None]]):
-    """Build streaming graph with MemorySaver"""
-    return SimpleChatGraph(use_memory=True).build(send_ws=send_ws, stream=True)
+    """
+    Build streaming graph - actually just returns the send_ws function.
+    The real work is done by Sidekick in invoke_our_graph.
+    """
+    logger.info("build_streaming_graph called (returns send_ws wrapper)")
+    return send_ws
 
 
 @observe()
@@ -661,27 +216,50 @@ async def invoke_our_graph(
     data: Union[str, Dict[str, Any], List[Dict[str, str]]],
     user_uuid: str,
 ):
-    """WebSocket entrypoint - handles control envelopes silently, runs chat graph otherwise."""
+    """
+    Main entrypoint for invoking the graph via WebSocket.
+
+    This function:
+    1. Handles control messages (init, user_context)
+    2. Gets the Sidekick instance
+    3. Sets up WebSocket streaming adapter
+    4. Invokes Sidekick with the user's message
+
+    Args:
+        websocket: FastAPI WebSocket connection
+        data: Message data (string or dict or list)
+        user_uuid: Unique user identifier for this conversation
+    """
     logger.info(
-        f"invoke_our_graph recv: type={type(data).__name__} keys={list(data.keys()) if isinstance(data, dict) else 'n/a'}"
+        f"invoke_our_graph recv: type={type(data).__name__} "
+        f"keys={list(data.keys()) if isinstance(data, dict) else 'n/a'}"
     )
 
-    # ---------- 0) Normalize the incoming frame ----------
+    # =========================================================================
+    # NORMALIZE INPUT
+    # =========================================================================
+
     payload: Optional[Dict[str, Any]] = None
 
+    # Parse string to dict
     if isinstance(data, str):
         try:
             payload = json.loads(data)
         except Exception:
             payload = None
+    elif isinstance(data, dict):
+        payload = data
 
-    if isinstance(data, dict):
-        payload = data  # server already parsed JSON
+    # =========================================================================
+    # HANDLE CONTROL MESSAGES
+    # =========================================================================
 
-    # ---------- 1) Control envelopes (silent) ----------
+    # Guard: Init/handshake message
     if isinstance(payload, dict) and payload.get("init") is True:
-        return  # handshake; ignore
+        logger.info("Init message received")
+        return
 
+    # Guard: User context message
     if isinstance(payload, dict) and payload.get("type") in (
         "user_context",
         "user_context_update",
@@ -689,9 +267,9 @@ async def invoke_our_graph(
         ctx = payload.get("ctx") or {}
 
         # Attach server-known info
-        hdrs = {k.decode().lower(): v.decode() for k, v in websocket.headers.raw}
+        headers = {k.decode().lower(): v.decode() for k, v in websocket.headers.raw}
         client_ip = extract_client_ip(
-            hdrs, websocket.client.host if websocket.client else ""
+            headers, websocket.client.host if websocket.client else ""
         )
 
         ctx.setdefault("server", {})
@@ -699,32 +277,62 @@ async def invoke_our_graph(
             {
                 "ip": client_ip,
                 "user_uuid": user_uuid,
-                "ua": hdrs.get("user-agent"),
-                "origin": hdrs.get("origin"),
+                "ua": headers.get("user-agent"),
+                "origin": headers.get("origin"),
             }
         )
 
         record_user_context(ctx)
-        return  # ✅ do not run the chat graph or echo anything
-
-    # ---------- 2) Build graph only for chat turns ----------
-    async def _send_ws(payload_text: str):
-        await websocket.send_text(payload_text)
-
-    graph_runnable = build_streaming_graph(_send_ws)
-    config = {"configurable": {"thread_id": user_uuid}}
-
-    # Batch path: list of {role, content}
-    if isinstance(data, list):
-        state: ChatState = {"messages": data}
-        await graph_runnable.ainvoke(state, config)
         return
 
-    # Single-turn chat path: prefer payload["message"] if present
-    if isinstance(payload, dict) and "message" in payload:
-        content = str(payload["message"])
-    else:
-        content = str(data)
+    # =========================================================================
+    # EXTRACT MESSAGE AND INVOKE SIDEKICK
+    # =========================================================================
 
-    state: ChatState = {"messages": [{"role": "user", "content": content}]}
-    await graph_runnable.ainvoke(state, config)
+    # Extract message content
+    if isinstance(payload, dict) and "message" in payload:
+        message = str(payload["message"])
+    else:
+        message = str(data)
+
+    logger.info(f"Processing message: {message}")
+    logger.info(f"Thread ID: {user_uuid}")
+
+    # Get Sidekick instance
+    try:
+        sidekick = await get_sidekick()
+    except Exception as e:
+        logger.error(f"Failed to get Sidekick: {e}", exc_info=True)
+        await websocket.send_text(
+            json.dumps(
+                {
+                    "on_chat_model_stream": "Sorry, there was an error initializing the assistant."
+                }
+            )
+        )
+        await websocket.send_text(json.dumps({"on_chat_model_end": True}))
+        return
+
+    # Set up streaming adapter
+    adapter = WebSocketStreamAdapter(websocket)
+    sidekick.set_websocket_sender(adapter.send)
+
+    # Invoke Sidekick
+    try:
+        logger.info("Invoking Sidekick...")
+        result = await sidekick.run_streaming(
+            message=message,
+            thread_id=user_uuid,
+            success_criteria="Provide a clear, accurate, and helpful response to the user's question",
+        )
+        logger.info(f"Sidekick completed successfully")
+    except Exception as e:
+        logger.error(f"Error invoking Sidekick: {e}", exc_info=True)
+        await websocket.send_text(
+            json.dumps(
+                {
+                    "on_chat_model_stream": "Sorry, there was an error generating the response."
+                }
+            )
+        )
+        await websocket.send_text(json.dumps({"on_chat_model_end": True}))

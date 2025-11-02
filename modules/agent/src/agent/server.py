@@ -4,6 +4,9 @@
 #   - async-iterate frames
 #   - handle each frame via a helper
 #   - errors logged; socket closed on exit
+
+__all__ = ["app"]
+
 import json
 import logging
 from datetime import datetime
@@ -151,7 +154,7 @@ async def websocket_endpoint(websocket: WebSocket):
             return new_uid
 
         # We have a message: invoke the graph (it streams back over this WS)
-        await invoke_our_graph(websocket, message, new_uid)
+        await invoke_our_graph(websocket, payload, new_uid)
         return new_uid
 
     try:
