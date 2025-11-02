@@ -193,6 +193,17 @@
   white-space: pre-wrap;
 }
 
+/* clickable links inside bot/user bubbles */
+.bubbleText a,
+.link {
+  text-decoration: underline;
+  color: #60a5fa; /* tailwind sky-400-ish; adjust to your theme */
+}
+
+.bubbleText {
+  overflow-wrap: anywhere; /* long URLs won’t overflow on mobile */
+}
+
 /* INPUT FORM */
 .inputForm {
   display: grid;

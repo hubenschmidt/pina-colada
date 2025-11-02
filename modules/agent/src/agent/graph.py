@@ -323,7 +323,8 @@ async def invoke_our_graph(
         result = await sidekick.run_streaming(
             message=message,
             thread_id=user_uuid,
-            success_criteria="Provide a clear, accurate, and helpful response to the user's question",
+            success_criteria="Provide a clear, accurate, and helpful response to the user's question. If the user asks to conduct a job search, review for accuracy \
+                including links to the company homepage, and non-expired links.",
         )
         logger.info(f"Sidekick completed successfully")
     except Exception as e:

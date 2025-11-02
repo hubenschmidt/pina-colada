@@ -182,6 +182,53 @@ async function withOptionalBattery(ctx: UserContextV1): Promise<UserContextV1> {
   return ctx;
 }
 
+// Turn bare URLs and [text](url) into clickable links; preserve newlines.
+function renderWithLinks(text: string): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  let last = 0;
+  let key = 0;
+
+  // Matches either [label](https://url) or bare https://url
+  const LINK_RE = /(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))|(https?:\/\/[^\s]+)/g;
+
+  const pushText = (chunk: string) => {
+    if (!chunk) return;
+    const lines = chunk.split("\n");
+    lines.forEach((line, i) => {
+      if (line) out.push(line);
+      if (i < lines.length - 1) out.push(<br key={`br-${key++}`} />);
+    });
+  };
+
+  text.replace(LINK_RE, (match, _mdFull, mdLabel, mdUrl, bareUrl, offset) => {
+    // preceding text
+    pushText(text.slice(last, offset));
+
+    const url = (mdUrl as string) || (bareUrl as string);
+    const label = (mdLabel as string) || (bareUrl as string);
+
+    out.push(
+      <a
+        key={`a-${key++}`}
+        href={url}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={styles.link}
+      >
+        {label}
+      </a>
+    );
+
+    last = offset + match.length;
+    return match;
+  });
+
+  // trailing text
+  pushText(text.slice(last));
+
+  return out;
+}
+
 // ---------- Runtime configuration ----------
 
 const getWsUrl = () => {
@@ -302,7 +349,9 @@ const Chat = () => {
                     >
                       <strong>{m.user}</strong>
                     </div>
-                    <div className={styles.bubbleText}>{m.msg.trim()}</div>
+                    <div className={styles.bubbleText}>
+                      {renderWithLinks(m.msg.trim())}
+                    </div>
                   </div>
                 </div>
               );
