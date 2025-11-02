@@ -293,10 +293,6 @@ async def invoke_our_graph(
         data: Message data (string or dict or list)
         user_uuid: Unique user identifier for this conversation
     """
-    logger.info(
-        f"invoke_our_graph recv: type={type(data).__name__} "
-        f"keys={list(data.keys()) if isinstance(data, dict) else 'n/a'}"
-    )
 
     # =========================================================================
     # NORMALIZE INPUT
@@ -317,35 +313,43 @@ async def invoke_our_graph(
     # HANDLE CONTROL MESSAGES
     # =========================================================================
 
-    # Guard: Init/handshake message
+    # Init/handshake message
     if isinstance(payload, dict) and payload.get("init") is True:
         return
 
-    # Guard: User context message
-    if isinstance(payload, dict) and payload.get("type") in (
-        "user_context",
-        "user_context_update",
-    ):
-        ctx = payload.get("ctx") or {}
-
-        # Attach server-known info
-        headers = {k.decode().lower(): v.decode() for k, v in websocket.headers.raw}
-        client_ip = extract_client_ip(
-            headers, websocket.client.host if websocket.client else ""
-        )
-
-        ctx.setdefault("server", {})
-        ctx["server"].update(
-            {
-                "ip": client_ip,
-                "user_uuid": user_uuid,
-                "ua": headers.get("user-agent"),
-                "origin": headers.get("origin"),
-            }
-        )
-
-        record_user_context(ctx)
+    # User context message
+    if not isinstance(payload, dict):
         return
+
+    msg_type = payload.get("type")
+    if msg_type not in ("user_context", "user_context_update"):
+        return
+
+    ctx = payload.get("ctx") or {}
+    if not isinstance(ctx, dict):
+        return  # nothing useful to record
+
+    # Attach server-known info
+    headers = {k.decode().lower(): v.decode() for k, v in websocket.headers.raw}
+
+    # no ternary, no else — safely get client.host if present
+    client_host = getattr(getattr(websocket, "client", None), "host", "")
+
+    client_ip = extract_client_ip(headers, client_host)
+
+    server_block = ctx.get("server") or {}
+    server_block.update(
+        {
+            "ip": client_ip,
+            "user_uuid": user_uuid,
+            "ua": headers.get("user-agent"),
+            "origin": headers.get("origin"),
+        }
+    )
+    ctx["server"] = server_block
+
+    record_user_context(ctx)
+    return
 
     # =========================================================================
     # EXTRACT MESSAGE AND INVOKE SIDEKICK
