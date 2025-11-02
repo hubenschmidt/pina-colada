@@ -49,7 +49,7 @@ export const useWs = (url: string): UseWebSocketReturn => {
   const [messages, setMessages] = useState<ChatMsg[]>([
     {
       user: "PinaColada",
-      msg: "Welcome! Ask me anything about our services, I would be glad to help.",
+      msg: "🍍Welcome! Ask me anything about our services, I would be glad to help.",
     },
   ]);
   const wsRef = useRef<WebSocket | null>(null);

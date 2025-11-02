@@ -48,7 +48,7 @@ const Hero = () => {
               dispatchNav({ type: "SET_AGENT_OPEN", payload: true })
             }
           >
-            Meet our new agent!
+            Meet our new assistant 🍍
           </Link>
         </div>
       </div>
