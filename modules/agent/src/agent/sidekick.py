@@ -39,7 +39,9 @@ class EvaluatorOutput(BaseModel):
 
 
 class Sidekick:
-    def __init__(self, resume_text: str = "", summary: str = "", cover_letters: list = None):
+    def __init__(
+        self, resume_text: str = "", summary: str = "", cover_letters: list = None
+    ):
         self.worker_llm_with_tools = None
         self.evaluator_llm_with_output = None
         self.tools = None
@@ -47,29 +49,31 @@ class Sidekick:
         self.sidekick_id = str(uuid.uuid4())
         self.memory = MemorySaver()
         self.send_ws: Optional[Callable[[str], Awaitable[None]]] = None
-        
+
         # Store document context
         self.resume_text = resume_text
         self.summary = summary
         self.cover_letters = cover_letters or []
-        
+
         # Build resume context string
         self.resume_context = self._build_resume_context()
-        
+
     def _build_resume_context(self) -> str:
         """Build the resume context string from loaded documents"""
         context_parts = []
-        
+
         if self.summary:
             context_parts.append(f"SUMMARY\n{self.summary}")
-        
+
         if self.resume_text:
             context_parts.append(f"RESUME\n{self.resume_text}")
-        
+
         if self.cover_letters:
             cover_letters_text = "\n\n".join(self.cover_letters)
-            context_parts.append(f"COVER_LETTERS (for reference on writing style)\n{cover_letters_text}")
-        
+            context_parts.append(
+                f"COVER_LETTERS (for reference on writing style)\n{cover_letters_text}"
+            )
+
         return "\n\n".join(context_parts)
 
     async def setup(self):
@@ -77,7 +81,7 @@ class Sidekick:
         self.tools = await all_tools()
         worker_llm = ChatOpenAI(model="gpt-5-chat-latest", temperature=0)
         self.worker_llm_with_tools = worker_llm.bind_tools(self.tools)
-        
+
         evaluator_llm = ChatOpenAI(model="gpt-5-chat-latest", temperature=0)
         self.evaluator_llm_with_output = evaluator_llm.with_structured_output(
             EvaluatorOutput
@@ -92,11 +96,7 @@ class Sidekick:
     async def _stream_if_available(self, content: str, is_final: bool = False):
         """Stream content to WebSocket if available"""
         if self.send_ws:
-            payload = {
-                "type": "content",
-                "content": content,
-                "is_final": is_final
-            }
+            payload = {"type": "content", "content": content, "is_final": is_final}
             await self.send_ws(json.dumps(payload))
 
     def worker(self, state: State) -> Dict[str, Any]:
@@ -120,6 +120,20 @@ INSTRUCTIONS
 - If you need to search for current information (like job postings), use the search tool
 - If the user provides contact information, use the record_user_details tool
 - If you cannot answer a question with the available information, use record_unknown_question tool
+
+CONTACT CAPTURE (ASK ONCE, RECORD ONCE) 
+- After your third substantive answer, briefly ask once for the user’s name and email for follow-up. 
+- If an email is provided (with or without a name), immediately call record_user_details with provided fields. 
+- If a name is provided but no email, ask once for the email. If declined, acknowledge and continue. Do not ask again once asked or once recorded. 
+
+UNKNOWN ANSWERS 
+- If you do not know an answer, call record_unknown_question with the question, then (only if not already collected) ask once for name/email as above. 
+
+SCOPE CONTROL 
+- If a request is not about {state['resume_name']}'s career, background, skills, or experience, briefly steer back to those topics. 
+
+COVER LETTER WORKFLOW 
+- If asked to write a cover letter, ask for a job-posting URL, read it, then write the letter directly using COVER_LETTERS for style. Do not ask for confirmation.
 
 The current date and time is {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 """
@@ -149,7 +163,7 @@ With this feedback, please continue to try to answer the question, ensuring that
 
         # Invoke the LLM with tools
         response = self.worker_llm_with_tools.invoke(messages)
-        
+
         return {"messages": [response]}
 
     def worker_router(self, state: State) -> str:
@@ -208,7 +222,7 @@ The Assistant has access to tools to record user details and unknown questions. 
         ]
 
         eval_result = self.evaluator_llm_with_output.invoke(evaluator_messages)
-        
+
         return {
             "feedback_on_work": eval_result.feedback,
             "success_criteria_met": eval_result.success_criteria_met,
@@ -232,9 +246,7 @@ The Assistant has access to tools to record user details and unknown questions. 
 
         # Add edges
         graph_builder.add_conditional_edges(
-            "worker", 
-            self.worker_router, 
-            {"tools": "tools", "evaluator": "evaluator"}
+            "worker", self.worker_router, {"tools": "tools", "evaluator": "evaluator"}
         )
         graph_builder.add_edge("tools", "worker")
         graph_builder.add_conditional_edges(
@@ -249,43 +261,64 @@ The Assistant has access to tools to record user details and unknown questions. 
         logger.info("Graph compiled successfully")
 
     async def run_streaming(
-        self, 
-        message: str, 
-        thread_id: str,
-        success_criteria: str = None
+        self, message: str, thread_id: str, success_criteria: str = None
     ) -> Dict[str, Any]:
         """Run the graph with streaming support for WebSocket"""
         config = {"configurable": {"thread_id": thread_id}}
 
         state = {
             "messages": [HumanMessage(content=message)],
-            "success_criteria": success_criteria or "Provide a clear and accurate response to the user's question",
+            "success_criteria": success_criteria
+            or "Provide a clear and accurate response to the user's question",
             "feedback_on_work": None,
             "success_criteria_met": False,
             "user_input_needed": False,
             "resume_name": "William Hubenschmidt",
             "resume_context": self.resume_context,
         }
-        
+
         # Stream events if WebSocket is available
         if self.send_ws:
             await self.send_ws(json.dumps({"type": "start"}))
-            
-            async for event in self.graph.astream(state, config=config, stream_mode="values"):
+
+            last_content = ""
+
+            async for event in self.graph.astream(
+                state, config=config, stream_mode="values"
+            ):
                 # Get the last message
                 if "messages" in event and event["messages"]:
                     last_msg = event["messages"][-1]
-                    
+
                     # Stream AI responses
                     if isinstance(last_msg, AIMessage) and last_msg.content:
-                        await self._stream_if_available(last_msg.content)
-            
+                        current_content = last_msg.content
+
+                        # Only send if content changed
+                        if current_content != last_content:
+                            last_content = current_content
+                            await self.send_ws(
+                                json.dumps(
+                                    {
+                                        "type": "content",
+                                        "content": current_content,
+                                        "is_final": False,
+                                    }
+                                )
+                            )
+
+            # Send final message
+            await self.send_ws(
+                json.dumps(
+                    {"type": "content", "content": last_content, "is_final": True}
+                )
+            )
             await self.send_ws(json.dumps({"type": "end"}))
         else:
             # No streaming, just invoke
             result = await self.graph.ainvoke(state, config=config)
             return result
-        
+
         return state
 
     def free_resources(self):

@@ -5,7 +5,7 @@
 #   - handle each frame via a helper
 #   - errors logged; socket closed on exit
 
-__all__ = ['app']
+__all__ = ["app"]
 
 import json
 import logging
