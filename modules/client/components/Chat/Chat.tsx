@@ -202,6 +202,7 @@ const Chat = () => {
   const { isOpen, messages, sendMessage, sendControl, reset } = useWs(WS_URL);
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
+  const [waitForWs, setWaitForWs] = useState(false);
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -224,6 +225,13 @@ const Chat = () => {
     el.scrollTop = el.scrollHeight;
   }, [messages]);
 
+  // hide loader when the next assistant message arrives
+  useEffect(() => {
+    if (!messages.length) return;
+    const last = messages[messages.length - 1];
+    if (last.user !== "User") setWaitForWs(false);
+  }, [messages]);
+
   // autofocus textarea on mount
   useEffect(() => {
     inputRef.current?.focus({ preventScroll: true });
@@ -235,6 +243,7 @@ const Chat = () => {
     if (!text) return;
     sendMessage(text);
     setInput("");
+    setWaitForWs(true); // NEW: show typing indicator until next bot msg
   };
 
   const onKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
@@ -298,6 +307,18 @@ const Chat = () => {
                 </div>
               );
             })}
+            {/* Typing indicator (shows while waiting for next WS assistant message) */}
+            {waitForWs && (
+              <div className={styles.typingRow}>
+                <div className={styles.typingBubble}>
+                  <span className={styles.typingDots}>
+                    <span className={styles.dot} />
+                    <span className={styles.dot} />
+                    <span className={styles.dot} />
+                  </span>
+                </div>
+              </div>
+            )}
           </section>
 
           {/* input */}
