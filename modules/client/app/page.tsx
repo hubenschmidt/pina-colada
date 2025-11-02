@@ -221,6 +221,13 @@ const Home = () => {
               description: "iPaaS adopted by enterprise manufacturers.",
             },
             {
+              k: "langgraph-react",
+              href: "https://github.com/hubenschmidt/langgraph-react",
+              title: "langgraph-react",
+              description:
+                "open-source LangGraph + React starter rolled with Langfuse self-hosted LLM observability tracing",
+            },
+            {
               k: "tunecrook",
               href: "https://www.tunecrook.com/",
               title: "TuneCrook — DJ Music Discovery",
