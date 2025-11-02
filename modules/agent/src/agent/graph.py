@@ -16,7 +16,6 @@ __all__ = ["graph", "invoke_our_graph", "build_default_graph", "build_streaming_
 
 import json
 import logging
-import uuid
 from typing import Dict, Any, Optional, Callable, Awaitable, Union, List
 from fastapi import WebSocket
 from langfuse import observe
@@ -210,7 +209,7 @@ def build_streaming_graph(send_ws: Callable[[str], Awaitable[None]]):
     return send_ws
 
 
-@observe()
+@observe(name="invoke_our_graph")
 async def invoke_our_graph(
     websocket: WebSocket,
     data: Union[str, Dict[str, Any], List[Dict[str, str]]],

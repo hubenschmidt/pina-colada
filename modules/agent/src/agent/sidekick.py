@@ -13,6 +13,8 @@ from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 from datetime import datetime
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_anthropic import ChatAnthropic
+from langfuse.langchain import CallbackHandler
 
 logger = logging.getLogger(__name__)
 load_dotenv(override=True)
@@ -78,16 +80,35 @@ class Sidekick:
 
     async def setup(self):
         """Initialize the LLMs and build the graph"""
-        self.tools = await all_tools()
-        worker_llm = ChatOpenAI(model="gpt-5-chat-latest", temperature=0)
-        self.worker_llm_with_tools = worker_llm.bind_tools(self.tools)
+        logger.info("=== SIDEKICK SETUP ===")
 
-        evaluator_llm = ChatOpenAI(model="gpt-5-chat-latest", temperature=0)
+        self.tools = await all_tools()
+        langfuse_handler = CallbackHandler()
+
+        # Worker LLM setup
+        logger.info("Setting up Worker LLM: OpenAI GPT-5 (temperature=0.7)")
+        worker_llm = ChatOpenAI(
+            model="gpt-5-chat-latest", temperature=0.7, callbacks=[langfuse_handler]
+        )
+        self.worker_llm_with_tools = worker_llm.bind_tools(self.tools)
+        logger.info(f"✓ Worker LLM configured with {len(self.tools)} tools")
+
+        # Evaluator LLM setup
+        logger.info("Setting up Evaluator LLM: Claude Haiku 4.5 (temperature=0)")
+        evaluator_llm = ChatAnthropic(
+            model="claude-haiku-4-5-20251001",
+            temperature=0,
+            max_tokens=1000,
+            callbacks=[langfuse_handler],
+        )
         self.evaluator_llm_with_output = evaluator_llm.with_structured_output(
             EvaluatorOutput
         )
+        logger.info("✓ Evaluator LLM configured")
+
         await self.build_graph()
-        logger.info(f"Sidekick initialized with {len(self.tools)} tools")
+        logger.info(f"✓ Sidekick initialized with {len(self.tools)} tools")
+        logger.info("===================")
 
     def set_websocket_sender(self, send_ws: Callable[[str], Awaitable[None]]):
         """Set the WebSocket sender for streaming responses"""
@@ -101,6 +122,8 @@ class Sidekick:
 
     def worker(self, state: State) -> Dict[str, Any]:
         """The worker node that interacts with the LLM and tools"""
+        logger.info("🤖 WORKER NODE: Generating response with GPT-5...")
+
         system_message = f"""
 ROLE
 You are {state['resume_name']} on his personal website. Answer questions about his career, background, skills, and experience. Speak as {state['resume_name']}, professionally and succinctly.
@@ -118,7 +141,7 @@ STYLE (MUST FOLLOW)
 - Do not use asterisks, underscores, backticks, tildes, hashes, brackets, angle brackets, emojis, or decorative characters.
 - Do not bold, italicize, add headings, lists, tables, code fences, links, or inline formatting.
 - Keep responses concise; short paragraphs separated by newlines only.
-- Do not re-greet mid-conversation. Do not say “Hi there!” again after the first turn.
+- Do not re-greet mid-conversation. Do not say "Hi there!" again after the first turn.
 
 INSTRUCTIONS
 - Use the resume data above to answer questions
@@ -129,14 +152,17 @@ INSTRUCTIONS
 
 JOB SEARCH
 - When prompted to job search, search for roles matching your resume and experience. Focus on full-stack engineering roles or AI roles.
-- If you need to search for current information (like job postings), use the search tool to return direct URL links to specific job postings (no job board queries).
+- CRITICAL: Always return DIRECT LINKS to specific job postings, not general career pages. Each URL must go directly to the individual job listing page where the user can apply.
+- Use the search tool to find current job postings and extract the exact posting URL (e.g., "https://company.com/jobs/12345-senior-engineer" not "https://company.com/careers")
+- If you cannot find the direct posting URL, use the search tool again with more specific queries like "[company name] [job title] apply link"
+- Format as: "Company - Job Title: [FULL_URL]" where FULL_URL is the complete, clickable link to that specific posting
 - Prioritize recent job postings (within the last 7 days)
 - Search for roles in New York City.
 - Prompt the user if you wish to expand the search to different criteria, but always remain within New York City.
 - If the user asks you to conduct a job search, do not prompt them for their email or contact information.
 
 CONTACT CAPTURE (ASK ONCE, RECORD ONCE) 
-- After your third substantive answer, briefly ask once for the user’s name and email for follow-up. 
+- After your third substantive answer, briefly ask once for the user's name and email for follow-up. 
 - If an email is provided (with or without a name), immediately call record_user_details with provided fields. 
 - If a name is provided but no email, ask once for the email. If declined, acknowledge and continue. Do not ask again once asked or once recorded. 
 
@@ -153,6 +179,8 @@ The current date and time is {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 """
 
         if state.get("feedback_on_work"):
+            logger.info(f"⚠️  Worker received feedback from evaluator, retrying...")
+            logger.info(f"   Feedback: {state['feedback_on_work'][:100]}...")
             system_message += f"""
 
 FEEDBACK
@@ -176,7 +204,28 @@ With this feedback, please continue to try to answer the question, ensuring that
             messages = [SystemMessage(content=system_message)] + messages
 
         # Invoke the LLM with tools
+        logger.info(f"   Calling GPT-5 with {len(messages)} messages...")
         response = self.worker_llm_with_tools.invoke(messages)
+
+        # Log what worker produced
+        if hasattr(response, "tool_calls") and response.tool_calls:
+            # Handle both dict and object formats
+            tool_names = []
+            for tc in response.tool_calls:
+                if isinstance(tc, dict):
+                    tool_names.append(
+                        tc.get("name", tc.get("function", {}).get("name", "unknown"))
+                    )
+                else:
+                    tool_names.append(
+                        getattr(tc, "name", getattr(tc.function, "name", "unknown"))
+                    )
+            logger.info(
+                f"✓ Worker called {len(response.tool_calls)} tool(s): {tool_names}"
+            )
+        else:
+            response_preview = response.content[:100] if response.content else "[empty]"
+            logger.info(f"✓ Worker generated response: {response_preview}...")
 
         return {"messages": [response]}
 
@@ -185,7 +234,10 @@ With this feedback, please continue to try to answer the question, ensuring that
         last_message = state["messages"][-1]
 
         if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+            logger.info("→ Routing to TOOLS node")
             return "tools"
+
+        logger.info("→ Routing to EVALUATOR node")
         return "evaluator"
 
     def format_conversation(self, messages: List[Any]) -> str:
@@ -203,7 +255,13 @@ With this feedback, please continue to try to answer the question, ensuring that
 
     def evaluator(self, state: State) -> Dict[str, Any]:
         """Evaluate if the task is complete"""
+        logger.info(
+            "🎯 EVALUATOR NODE: Checking response quality with Claude Haiku 4.5..."
+        )
+
         last_response = state["messages"][-1].content
+        response_preview = last_response[:100] if last_response else "[empty]"
+        logger.info(f"   Evaluating: {response_preview}...")
 
         system_message = """You are an evaluator that determines if a task has been completed successfully by an Assistant.
 Assess the Assistant's last response based on the given criteria. Respond with your feedback, and with your decision on whether the success criteria has been met,
@@ -235,7 +293,17 @@ The Assistant has access to tools to record user details and unknown questions. 
             HumanMessage(content=user_message),
         ]
 
+        logger.info("   Calling Claude Haiku 4.5 for evaluation...")
         eval_result = self.evaluator_llm_with_output.invoke(evaluator_messages)
+
+        # Log evaluation results
+        logger.info(f"✓ Evaluator decision:")
+        logger.info(f"   - Success criteria met: {eval_result.success_criteria_met}")
+        logger.info(f"   - User input needed: {eval_result.user_input_needed}")
+        logger.info(f"   - Feedback: {eval_result.feedback[:100]}...")
+
+        if not eval_result.success_criteria_met and not eval_result.user_input_needed:
+            logger.warning("⚠️  Evaluator rejected response - worker will retry!")
 
         return {
             "feedback_on_work": eval_result.feedback,
@@ -246,38 +314,81 @@ The Assistant has access to tools to record user details and unknown questions. 
     def route_based_on_evaluation(self, state: State) -> str:
         """Route based on evaluation results"""
         if state["success_criteria_met"] or state["user_input_needed"]:
+            logger.info("→ Routing to END (response approved)")
             return "END"
+
+        logger.info("→ Routing back to WORKER (needs improvement)")
         return "worker"
 
     async def build_graph(self):
         """Build the LangGraph workflow"""
-        graph_builder = StateGraph(State)
+        logger.info("Building LangGraph workflow...")
 
-        # Add nodes
-        graph_builder.add_node("worker", self.worker)
-        graph_builder.add_node("tools", ToolNode(tools=self.tools))
-        graph_builder.add_node("evaluator", self.evaluator)
+        try:
 
-        # Add edges
-        graph_builder.add_conditional_edges(
-            "worker", self.worker_router, {"tools": "tools", "evaluator": "evaluator"}
-        )
-        graph_builder.add_edge("tools", "worker")
-        graph_builder.add_conditional_edges(
-            "evaluator",
-            self.route_based_on_evaluation,
-            {"worker": "worker", "END": END},
-        )
-        graph_builder.add_edge(START, "worker")
+            def worker_traced(state: State) -> Dict[str, Any]:
+                return self.worker(state)
 
-        # Compile the graph
-        self.graph = graph_builder.compile(checkpointer=self.memory)
-        logger.info("Graph compiled successfully")
+            def evaluator_traced(state: State) -> Dict[str, Any]:
+                return self.evaluator(state)
+
+            logger.info("✓ Langfuse tracing enabled for worker and evaluator")
+            use_tracing = True
+        except Exception as e:
+            logger.warning(f"Could not enable Langfuse tracing: {e}")
+            # Fallback to non-traced versions
+            worker_traced = self.worker
+            evaluator_traced = self.evaluator
+            use_tracing = False
+
+        try:
+            graph_builder = StateGraph(State)
+
+            # Add nodes
+            logger.info("Adding nodes to graph...")
+            graph_builder.add_node("worker", worker_traced)
+            graph_builder.add_node("tools", ToolNode(tools=self.tools))
+            graph_builder.add_node("evaluator", evaluator_traced)
+            logger.info("✓ Nodes added")
+
+            # Add edges
+            logger.info("Adding edges to graph...")
+            graph_builder.add_conditional_edges(
+                "worker",
+                self.worker_router,
+                {"tools": "tools", "evaluator": "evaluator"},
+            )
+            graph_builder.add_edge("tools", "worker")
+            graph_builder.add_conditional_edges(
+                "evaluator",
+                self.route_based_on_evaluation,
+                {"worker": "worker", "END": END},
+            )
+            graph_builder.add_edge(START, "worker")
+            logger.info("✓ Edges added")
+
+            # Compile the graph
+            logger.info("Compiling graph...")
+            self.graph = graph_builder.compile(checkpointer=self.memory)
+
+            if self.graph is None:
+                raise RuntimeError("Graph compilation returned None")
+
+            logger.info(
+                f"✓ Graph compiled successfully (tracing={'enabled' if use_tracing else 'disabled'})"
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to build graph: {e}", exc_info=True)
+            raise
 
     async def run_streaming(
         self, message: str, thread_id: str, success_criteria: str = None
     ) -> Dict[str, Any]:
         """Run the graph with streaming support for WebSocket"""
+        logger.info(f"▶️  Starting graph execution for thread: {thread_id}")
+        logger.info(f"   User message: {message[:100]}...")
+
         config = {"configurable": {"thread_id": thread_id}}
 
         state = {
@@ -296,10 +407,14 @@ The Assistant has access to tools to record user details and unknown questions. 
             await self.send_ws(json.dumps({"type": "start"}))
 
             last_content = ""
+            iteration = 0
 
             async for event in self.graph.astream(
                 state, config=config, stream_mode="values"
             ):
+                iteration += 1
+                logger.info(f"   Graph iteration {iteration}")
+
                 # Get the last message
                 if "messages" in event and event["messages"]:
                     last_msg = event["messages"][-1]
@@ -328,9 +443,12 @@ The Assistant has access to tools to record user details and unknown questions. 
                 )
             )
             await self.send_ws(json.dumps({"type": "end"}))
+
+            logger.info(f"✅ Graph execution completed in {iteration} iterations")
         else:
             # No streaming, just invoke
             result = await self.graph.ainvoke(state, config=config)
+            logger.info(f"✅ Graph execution completed")
             return result
 
         return state
