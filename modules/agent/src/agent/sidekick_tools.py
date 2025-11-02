@@ -15,12 +15,22 @@ pushover_token = os.getenv("PUSHOVER_TOKEN")
 pushover_user = os.getenv("PUSHOVER_USER")
 pushover_url = "https://api.pushover.net/1/messages.json"
 
-# Initialize serper for web search
-try:
-    serper = GoogleSerperAPIWrapper()
-except Exception as e:
-    logger.warning(f"Could not initialize GoogleSerperAPIWrapper: {e}")
-    serper = None
+SERPER_API_KEY = os.getenv("SERPER_API_KEY")
+
+serper = None
+
+# Try init only if key is present
+if SERPER_API_KEY:
+    try:
+        serper = GoogleSerperAPIWrapper()  # reads SERPER_API_KEY from env
+        logger.info("GoogleSerperAPIWrapper initialized.")
+    except Exception as e:
+        logger.warning(f"Could not initialize GoogleSerperAPIWrapper: {e}")
+        serper = None
+
+# Warn if key missing
+if not SERPER_API_KEY:
+    logger.warning("SERPER_API_KEY is not set; web search tool will be disabled.")
 
 
 def push(text: str):
@@ -58,6 +68,16 @@ def record_unknown_question(question: str):
     push(message)
     logger.info(message)
     return {"recorded": "ok", "question": question}
+
+
+def _serper_search(query: str) -> str:
+    if not serper:
+        return "Web search is not configured on the server."
+    try:
+        return serper.run(query)
+    except Exception as e:
+        logger.error(f"Serper search failed: {e}")
+        return f"Web search failed: {e}"
 
 
 def get_file_tools():
@@ -105,13 +125,12 @@ async def all_tools():
     tools.extend(file_tools)
 
     # Web search tool
-    if serper:
-        tool_search = Tool(
-            name="search",
-            func=serper.run,
-            description="Use this tool when you want to get the results of an online web search. Useful for current information or job postings.",
-        )
-        tools.append(tool_search)
+    web_search_tool = Tool(
+        name="web_search",
+        func=_serper_search,
+        description="Search the web for current information (news, job postings, documentation). Input: a search query.",
+    )
+    tools.append(web_search_tool)
 
     # Wikipedia tool
     try:
