@@ -74,10 +74,6 @@ async def get_sidekick() -> Sidekick:
 # USER CONTEXT RECORDING (for analytics)
 # =============================================================================
 
-# -----------------------------------------------------------------------------
-# Tool-Free server-side recorder for client metadata
-# -----------------------------------------------------------------------------
-
 # keep the hardcoded string, or allow env override:
 IP_BLACKLIST_STR = os.getenv("IP_BLACKLIST", "127.0.0.1, 10.0.0.0/8, 172.18.0.2")
 
@@ -118,8 +114,7 @@ def _is_ip_blacklisted(ip_str: str | None) -> bool:
     return False
 
 
-# --- Pretty push with blacklist check (guard clauses only) ---
-@observe(name="record_user_context")
+# --- Pretty push with blacklist check ---
 def record_user_context(ctx: Dict[str, Any]):
     """Persist raw user context (testing: push as a notification)"""
     import json
@@ -130,7 +125,7 @@ def record_user_context(ctx: Dict[str, Any]):
         # Always log full JSON for debugging
         pretty_full = json.dumps(ctx, indent=2, ensure_ascii=False, sort_keys=True)
 
-        # Guard: skip push for blacklisted IPs
+        # skip push for blacklisted IPs
         if _is_ip_blacklisted(ip):
             logger.info("user_context suppressed (blacklisted ip=%s)", ip)
             return {"ok": True, "pushed": False, "reason": "ip_blacklisted"}
@@ -196,16 +191,16 @@ class WebSocketStreamAdapter:
 
         msg_type = payload.get("type")
 
-        # Guard: Start message - ignore
+        # Start message - ignore
         if msg_type == "start":
             return
 
-        # Guard: End message - send end signal
+        # End message - send end signal
         if msg_type == "end":
             await self.websocket.send_text(json.dumps({"on_chat_model_end": True}))
             return
 
-        # Guard: Content message - stream the delta
+        # Content message - stream the delta
         if msg_type == "content":
             content = payload.get("content", "")
 
@@ -281,57 +276,53 @@ async def invoke_our_graph(
 ):
     """
     Main entrypoint for invoking the graph via WebSocket.
-
-    This function:
-    1. Handles control messages (init, user_context)
-    2. Gets the Sidekick instance
-    3. Sets up WebSocket streaming adapter
-    4. Invokes Sidekick with the user's message
-
-    Args:
-        websocket: FastAPI WebSocket connection
-        data: Message data (string or dict or list)
-        user_uuid: Unique user identifier for this conversation
     """
 
     # =========================================================================
     # NORMALIZE INPUT
     # =========================================================================
-
     payload: Optional[Dict[str, Any]] = None
 
-    # Parse string to dict
+    if isinstance(data, dict):
+        payload = data
+
+    parsed = None
     if isinstance(data, str):
         try:
-            payload = json.loads(data)
+            parsed = json.loads(data)
         except Exception:
-            payload = None
-    elif isinstance(data, dict):
-        payload = data
+            parsed = None
+    if isinstance(parsed, dict):
+        payload = parsed
 
     # =========================================================================
     # HANDLE CONTROL MESSAGES
     # =========================================================================
 
-    # Guard: Init/handshake message
+    # init/handshake
     if isinstance(payload, dict) and payload.get("init") is True:
         return
 
-    # Guard: User context message
+    # invalid ctx when it *is* a user_context control
+    if (
+        isinstance(payload, dict)
+        and payload.get("type") in ("user_context", "user_context_update")
+        and not isinstance((payload.get("ctx") or {}), dict)
+    ):
+        return
+
+    # user_context control — process and return
     if isinstance(payload, dict) and payload.get("type") in (
         "user_context",
         "user_context_update",
     ):
         ctx = payload.get("ctx") or {}
-
-        # Attach server-known info
         headers = {k.decode().lower(): v.decode() for k, v in websocket.headers.raw}
-        client_ip = extract_client_ip(
-            headers, websocket.client.host if websocket.client else ""
-        )
+        client_host = getattr(getattr(websocket, "client", None), "host", "")
+        client_ip = extract_client_ip(headers, client_host)
 
-        ctx.setdefault("server", {})
-        ctx["server"].update(
+        server_block = ctx.get("server") or {}
+        server_block.update(
             {
                 "ip": client_ip,
                 "user_uuid": user_uuid,
@@ -339,6 +330,7 @@ async def invoke_our_graph(
                 "origin": headers.get("origin"),
             }
         )
+        ctx["server"] = server_block
 
         record_user_context(ctx)
         return
@@ -347,13 +339,10 @@ async def invoke_our_graph(
     # EXTRACT MESSAGE AND INVOKE SIDEKICK
     # =========================================================================
 
-    # Extract message content
+    message = str(data)
     if isinstance(payload, dict) and "message" in payload:
         message = str(payload["message"])
-    else:
-        message = str(data)
 
-    # Get Sidekick instance
     try:
         sidekick = await get_sidekick()
     except Exception as e:
@@ -368,11 +357,9 @@ async def invoke_our_graph(
         await websocket.send_text(json.dumps({"on_chat_model_end": True}))
         return
 
-    # Set up streaming adapter
     adapter = WebSocketStreamAdapter(websocket)
     sidekick.set_websocket_sender(adapter.send)
 
-    # Invoke Sidekick
     try:
         logger.info("Invoking Sidekick...")
         await sidekick.run_streaming(
@@ -380,7 +367,7 @@ async def invoke_our_graph(
             thread_id=user_uuid,
             success_criteria="Provide a clear, accurate, and helpful response to the user's question",
         )
-        logger.info(f"Sidekick completed successfully")
+        logger.info("Sidekick completed successfully")
     except Exception as e:
         logger.error(f"Error invoking Sidekick: {e}", exc_info=True)
         await websocket.send_text(
@@ -391,3 +378,4 @@ async def invoke_our_graph(
             )
         )
         await websocket.send_text(json.dumps({"on_chat_model_end": True}))
+        return
