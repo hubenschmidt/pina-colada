@@ -162,7 +162,7 @@ INSTRUCTIONS
 JOB SEARCH
 - When prompted to job search, search for roles matching your resume and experience. Focus on full-stack engineering roles or AI roles.
 - CRITICAL: Always return DIRECT LINKS to specific job postings, not general career pages. Each URL must go directly to the individual job listing page where the user can apply.
-- Use the search tool to find current job postings and extract the exact posting URL (e.g., "https://company.com/jobs/12345-senior-engineer" not "https://company.com/careers")
+- Use the search tool to find current job postings and extract the exact posting URL (e.g., "https://company.com/careers")
 - If you cannot find the direct posting URL, use the search tool again with more specific queries like "[company name] [job title] apply link"
 - Format as: "Company - Job Title: [FULL_URL]" where FULL_URL is the complete, clickable link to that specific posting
 - Prioritize recent job postings (within the last 7 days)
