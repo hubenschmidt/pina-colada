@@ -225,7 +225,7 @@ const Home = () => {
               href: "https://github.com/hubenschmidt/langgraph-react",
               title: "langgraph-react",
               description:
-                "open-source LangGraph + React starter rolled with Langfuse self-hosted LLM observability tracing",
+                "enterprise-ready LangGraph + React starter rolled with Langfuse self-hosted LLM observability tracing",
             },
             {
               k: "tunecrook",
