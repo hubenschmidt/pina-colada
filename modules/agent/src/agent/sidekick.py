@@ -42,7 +42,11 @@ class EvaluatorOutput(BaseModel):
 
 class Sidekick:
     def __init__(
-        self, resume_text: str = "", summary: str = "", cover_letters: list = None
+        self,
+        resume_text: str = "",
+        summary: str = "",
+        sample_answers: str = "",
+        cover_letters: list = None,
     ):
         self.worker_llm_with_tools = None
         self.evaluator_llm_with_output = None
@@ -55,6 +59,7 @@ class Sidekick:
         # Store document context
         self.resume_text = resume_text
         self.summary = summary
+        self.sample_answers = sample_answers
         self.cover_letters = cover_letters or []
 
         # Build resume context string
@@ -69,6 +74,9 @@ class Sidekick:
 
         if self.resume_text:
             context_parts.append(f"RESUME\n{self.resume_text}")
+
+        if self.sample_answers:
+            context_parts.append(f"SAMPLE_ANSWERS\n{self.sample_answers}")
 
         if self.cover_letters:
             cover_letters_text = "\n\n".join(self.cover_letters)
@@ -173,7 +181,8 @@ SCOPE CONTROL
 - If a request is not about {state['resume_name']}'s career, background, skills, or experience, briefly steer back to those topics. 
 
 COVER LETTER WORKFLOW 
-- If asked to write a cover letter, ask for a job-posting URL, read it, then write the letter directly using COVER_LETTERS for style. Do not ask for confirmation.
+- If asked to write a cover letter, ask for a job-posting URL, read it, then write the letter directly using COVER_LETTERS and SAMPLE_ANSWERS for style and content. 
+- Do not ask for confirmation.
 
 The current date and time is {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 """

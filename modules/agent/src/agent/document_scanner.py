@@ -58,6 +58,19 @@ def load_documents(root: str) -> tuple:
         summary = s
         logger.info("Summary loaded")
 
+    sample_answers = "[Sample answers not available]"
+    try:
+        sa = (root / "sample_answers.txt").read_text(encoding="utf-8").strip()
+    except FileNotFoundError:
+        logger.warning(f"Sample answers not found: {root / 'sample_answers.txt'}")
+        sa = ""
+    except Exception as e:
+        logger.error(f"Could not load sample answers: {e}")
+        sa = ""
+    if sa:
+        sample_answers = sa
+        logger.info("Sample answers loaded")
+
     cover_letters: list[str] = []
     for i in (1, 2):
         t = _read_pdf_text(root / f"coverletter{i}.pdf")
@@ -67,4 +80,4 @@ def load_documents(root: str) -> tuple:
         if not t:
             logger.warning(f"Cover letter {i} missing or empty")
 
-    return resume_text, summary, cover_letters
+    return resume_text, summary, sample_answers, cover_letters

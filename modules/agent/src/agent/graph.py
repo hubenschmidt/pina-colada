@@ -43,9 +43,9 @@ load_dotenv(override=True)
 # Load resume documents
 RESUME_NAME = "William Hubenschmidt"
 logger.info("Loading documents from me/ directory...")
-resume_text, summary, cover_letters = load_documents("me")
+resume_text, summary, cover_letters, sample_answers = load_documents("me")
 logger.info(
-    f"Documents loaded - Resume: {len(resume_text)} chars, Summary: {len(summary)} chars, Cover letters: {len(cover_letters)}"
+    f"Documents loaded - Resume: {len(resume_text)} chars, Summary: {len(summary)} chars, Sample answers: {len(sample_answers)} chars, Cover letters: {len(cover_letters)}"
 )
 
 # =============================================================================
@@ -62,7 +62,10 @@ async def get_sidekick() -> Sidekick:
     if _sidekick_instance is None:
         logger.info("Initializing Sidekick...")
         _sidekick_instance = Sidekick(
-            resume_text=resume_text, summary=summary, cover_letters=cover_letters
+            resume_text=resume_text,
+            summary=summary,
+            sample_answers=sample_answers,
+            cover_letters=cover_letters,
         )
         await _sidekick_instance.setup()
         logger.info("Sidekick initialized successfully")
