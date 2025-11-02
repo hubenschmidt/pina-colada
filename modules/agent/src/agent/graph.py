@@ -355,7 +355,6 @@ class SimpleChatGraph:
             await send_ws(json.dumps({"on_easter_egg": True}))
 
     # Node 2: Call OpenAI with tool support
-    # Node 2: Call OpenAI with tool support — guard clauses only, no nested ifs, no else/elif/continue/break
     async def node_model(
         self,
         state: ChatState,
