@@ -79,7 +79,7 @@ async def get_sidekick() -> Sidekick:
 # -----------------------------------------------------------------------------
 
 # keep the hardcoded string, or allow env override:
-IP_BLACKLIST_STR = os.getenv("IP_BLACKLIST", "127.0.0.1, 10.0.0.0/8, 172.18.0.1")
+IP_BLACKLIST_STR = os.getenv("IP_BLACKLIST", "127.0.0.1, 10.0.0.0/8, 172.18.0.2")
 
 
 def _parse_ip_blacklist(raw: str):
@@ -118,28 +118,28 @@ def _is_ip_blacklisted(ip_str: str | None) -> bool:
     return False
 
 
-# --- Pretty push with blacklist check ---
+# --- Pretty push with blacklist check (guard clauses only) ---
 @observe(name="record_user_context")
 def record_user_context(ctx: Dict[str, Any]):
     """Persist raw user context (testing: push as a notification)"""
+    import json
+
     try:
         ip = ((ctx.get("server") or {}).get("ip")) or None
 
         # Always log full JSON for debugging
         pretty_full = json.dumps(ctx, indent=2, ensure_ascii=False, sort_keys=True)
 
-        # Skip push for blacklisted IPs
+        # Guard: skip push for blacklisted IPs
         if _is_ip_blacklisted(ip):
             logger.info("user_context suppressed (blacklisted ip=%s)", ip)
             return {"ok": True, "pushed": False, "reason": "ip_blacklisted"}
 
-        # Pushover practical limit ~1024 chars
+        # Compose body within practical push size (e.g., Pushover ~1024 chars)
         max_len = 1024
-        body = (
-            pretty_full
-            if len(pretty_full) <= max_len
-            else (pretty_full[: max_len - 1] + "…")
-        )
+        body = pretty_full[:max_len]
+        # Add ellipsis if we actually truncated
+        body += "…" * (len(pretty_full) > max_len)
 
         push(body)
         return {"ok": True, "pushed": True}
