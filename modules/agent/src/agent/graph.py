@@ -16,13 +16,22 @@ __all__ = ["graph", "invoke_our_graph", "build_default_graph", "build_streaming_
 
 import json
 import logging
+import os
 from typing import Dict, Any, Optional, Callable, Awaitable, Union, List
 from fastapi import WebSocket
 from langfuse import observe
+from ipaddress import (
+    ip_address,
+    ip_network,
+    IPv4Address,
+    IPv6Address,
+    IPv4Network,
+    IPv6Network,
+)
 from dotenv import load_dotenv
-
 from agent.sidekick import Sidekick
 from agent.document_scanner import load_documents
+from agent.sidekick_tools import push
 
 # =============================================================================
 # CONFIGURATION
@@ -65,17 +74,75 @@ async def get_sidekick() -> Sidekick:
 # USER CONTEXT RECORDING (for analytics)
 # =============================================================================
 
+# -----------------------------------------------------------------------------
+# Tool-Free server-side recorder for client metadata
+# -----------------------------------------------------------------------------
 
-def record_user_context(ctx: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Record user context (browser info, device info, etc) for analytics.
-    This is a simplified version - you can expand it as needed.
-    """
+# keep the hardcoded string, or allow env override:
+IP_BLACKLIST_STR = os.getenv("IP_BLACKLIST", "127.0.0.1, 10.0.0.0/8, 172.18.0.1")
+
+
+def _parse_ip_blacklist(raw: str):
+    items = []
+    for token in (t.strip() for t in raw.split(",") if t.strip()):
+        # try CIDR first, then single IP
+        try:
+            items.append(ip_network(token, strict=False))
+            continue
+        except Exception:
+            pass
+        try:
+            items.append(ip_address(token))
+        except Exception:
+            pass
+    return tuple(items)
+
+
+IP_BLACKLIST = _parse_ip_blacklist(IP_BLACKLIST_STR)
+
+
+def _is_ip_blacklisted(ip_str: str | None) -> bool:
+    if not ip_str:
+        return False
+    try:
+        ip = ip_address(ip_str)
+    except Exception:
+        return False
+    for item in IP_BLACKLIST:
+        if isinstance(item, (IPv4Address, IPv6Address)):
+            if ip == item:
+                return True
+        elif isinstance(item, (IPv4Network, IPv6Network)):
+            if ip in item:
+                return True
+    return False
+
+
+# --- Pretty push with blacklist check ---
+@observe(name="record_user_context")
+def record_user_context(ctx: Dict[str, Any]):
+    """Persist raw user context (testing: push as a notification)"""
     try:
         ip = ((ctx.get("server") or {}).get("ip")) or None
-        logger.info(f"User context received from IP: {ip}")
-        # You can add pushover notifications here if needed
-        return {"ok": True}
+
+        # Always log full JSON for debugging
+        pretty_full = json.dumps(ctx, indent=2, ensure_ascii=False, sort_keys=True)
+
+        # Skip push for blacklisted IPs
+        if _is_ip_blacklisted(ip):
+            logger.info("user_context suppressed (blacklisted ip=%s)", ip)
+            return {"ok": True, "pushed": False, "reason": "ip_blacklisted"}
+
+        # Pushover practical limit ~1024 chars
+        max_len = 1024
+        body = (
+            pretty_full
+            if len(pretty_full) <= max_len
+            else (pretty_full[: max_len - 1] + "…")
+        )
+
+        push(body)
+        return {"ok": True, "pushed": True}
     except Exception as e:
         logger.error(f"record_user_context failed: {e}")
         return {"ok": False, "error": str(e)}
@@ -131,12 +198,10 @@ class WebSocketStreamAdapter:
 
         # Guard: Start message - ignore
         if msg_type == "start":
-            logger.info("Stream starting...")
             return
 
         # Guard: End message - send end signal
         if msg_type == "end":
-            logger.info("Stream ending...")
             await self.websocket.send_text(json.dumps({"on_chat_model_end": True}))
             return
 
@@ -153,7 +218,6 @@ class WebSocketStreamAdapter:
                 await self.websocket.send_text(
                     json.dumps({"on_chat_model_stream": delta})
                 )
-                logger.info(f"Streamed {len(delta)} chars")
 
             return
 
@@ -209,7 +273,7 @@ def build_streaming_graph(send_ws: Callable[[str], Awaitable[None]]):
     return send_ws
 
 
-@observe(name="invoke_our_graph")
+@observe()
 async def invoke_our_graph(
     websocket: WebSocket,
     data: Union[str, Dict[str, Any], List[Dict[str, str]]],
@@ -255,7 +319,6 @@ async def invoke_our_graph(
 
     # Guard: Init/handshake message
     if isinstance(payload, dict) and payload.get("init") is True:
-        logger.info("Init message received")
         return
 
     # Guard: User context message
@@ -294,9 +357,6 @@ async def invoke_our_graph(
     else:
         message = str(data)
 
-    logger.info(f"Processing message: {message}")
-    logger.info(f"Thread ID: {user_uuid}")
-
     # Get Sidekick instance
     try:
         sidekick = await get_sidekick()
@@ -319,11 +379,10 @@ async def invoke_our_graph(
     # Invoke Sidekick
     try:
         logger.info("Invoking Sidekick...")
-        result = await sidekick.run_streaming(
+        await sidekick.run_streaming(
             message=message,
             thread_id=user_uuid,
-            success_criteria="Provide a clear, accurate, and helpful response to the user's question. If the user asks to conduct a job search, review for accuracy \
-                including links to the company homepage, and non-expired links.",
+            success_criteria="Provide a clear, accurate, and helpful response to the user's question",
         )
         logger.info(f"Sidekick completed successfully")
     except Exception as e:

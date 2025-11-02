@@ -14,6 +14,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from agent.graph import invoke_our_graph
 from agent.logging_config import configure_logging
+from uuid import uuid4
 
 # -----------------------------------------------------------------------------
 # App + logging
@@ -128,7 +129,7 @@ async def websocket_endpoint(websocket: WebSocket):
         )
 
         # Track conversation id if provided
-        new_uid = payload.get("uuid") or uid
+        new_uid = payload.get("uuid") or uid or str(uuid4())
 
         # Init ping? Just log and return
         if payload.get("init"):
