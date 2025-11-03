@@ -12,7 +12,13 @@ from dotenv import load_dotenv
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
 from datetime import datetime
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
+from langchain_core.messages import (
+    AIMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+    trim_messages,
+)
 from langchain_anthropic import ChatAnthropic
 from langfuse.langchain import CallbackHandler
 
@@ -65,8 +71,11 @@ class Sidekick:
         # Build resume context string
         self.resume_context = self._build_resume_context()
 
+        # NEW: Create a concise version for most requests
+        self.resume_context_concise = self._build_resume_context_concise()
+
     def _build_resume_context(self) -> str:
-        """Build the resume context string from loaded documents"""
+        """Build the FULL resume context string from loaded documents"""
         context_parts = []
 
         if self.summary:
@@ -86,6 +95,41 @@ class Sidekick:
 
         return "\n\n".join(context_parts)
 
+    def _build_resume_context_concise(self) -> str:
+        """Build a CONCISE version with just summary and key facts"""
+        context_parts = []
+
+        if self.summary:
+            context_parts.append(f"SUMMARY\n{self.summary}")
+
+        # Add just the first 500 chars of resume for context
+        if self.resume_text:
+            preview = (
+                self.resume_text[:500] + "..."
+                if len(self.resume_text) > 500
+                else self.resume_text
+            )
+            context_parts.append(f"RESUME (excerpt)\n{preview}")
+            context_parts.append("\n[Full resume available via file tools if needed]")
+
+        return "\n\n".join(context_parts)
+
+    def _should_use_full_context(self, message: str) -> bool:
+        """Determine if we need the full context or if concise is sufficient"""
+        # Keywords that indicate we need detailed info
+        detailed_keywords = [
+            "cover letter",
+            "write a letter",
+            "detailed",
+            "comprehensive",
+            "all experience",
+            "job search",
+            "apply",
+        ]
+
+        message_lower = message.lower()
+        return any(keyword in message_lower for keyword in detailed_keywords)
+
     async def setup(self):
         """Initialize the LLMs and build the graph"""
         logger.info("=== SIDEKICK SETUP ===")
@@ -96,7 +140,11 @@ class Sidekick:
         # Worker LLM setup
         logger.info("Setting up Worker LLM: OpenAI GPT-5 (temperature=0.7)")
         worker_llm = ChatOpenAI(
-            model="gpt-5-chat-latest", temperature=0.7, callbacks=[langfuse_handler]
+            model="gpt-5-chat-latest",
+            temperature=0.7,
+            max_completion_tokens=512,
+            max_retries=3,
+            callbacks=[langfuse_handler],
         )
         self.worker_llm_with_tools = worker_llm.bind_tools(self.tools)
         logger.info(f"✓ Worker LLM configured with {len(self.tools)} tools")
@@ -128,186 +176,165 @@ class Sidekick:
             payload = {"type": "content", "content": content, "is_final": is_final}
             await self.send_ws(json.dumps(payload))
 
+    def _get_system_prompt(self, state: State, use_full_context: bool = False) -> str:
+        """Generate system prompt - concise by default, full only when needed"""
+
+        # Choose context based on need
+        context = (
+            state["resume_context"] if use_full_context else self.resume_context_concise
+        )
+
+        # SIMPLIFIED system prompt
+        return f"""ROLE: You are {state['resume_name']} on his website. Answer questions professionally and concisely.
+
+DATA ACCESS:
+{context}
+
+TASK: {state['success_criteria']}
+
+STYLE:
+- Plain text only (no markdown/formatting)
+- Concise responses
+- No repeated greetings
+
+INSTRUCTIONS:
+- Answer using resume data above
+- Use record_user_details for contact info
+- Use record_unknown_question if you can't answer
+- For job searches, search for matches using the resume on file, search in NYC for jobs posted in the last 7 days, and always return direct posting URLs
+- Ask for email after 3rd answer (once only)
+
+Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+"""
+
+    def _trim_messages(self, messages: List[Any], max_tokens: int = 8000) -> List[Any]:
+        """Trim message history to stay under token limit"""
+        # Always keep system message and last few exchanges
+        try:
+            trimmed = trim_messages(
+                messages,
+                max_tokens=max_tokens,
+                strategy="last",  # Keep most recent
+                token_counter=len,  # Simple approximation
+                include_system=True,
+                allow_partial=False,
+            )
+
+            if len(trimmed) < len(messages):
+                logger.info(f"Trimmed messages from {len(messages)} to {len(trimmed)}")
+
+            return trimmed
+        except Exception as e:
+            logger.warning(f"Message trimming failed: {e}, using last 10 messages")
+            # Fallback: just keep last 10 messages
+            return messages[-10:]
+
     def worker(self, state: State) -> Dict[str, Any]:
         """The worker node that interacts with the LLM and tools"""
         logger.info("🤖 WORKER NODE: Generating response with GPT-5...")
 
-        system_message = f"""
-ROLE
-You are {state['resume_name']} on his personal website. Answer questions about his career, background, skills, and experience. Speak as {state['resume_name']}, professionally and succinctly.
+        # Determine if we need full context
+        last_user_message = ""
+        for msg in reversed(state["messages"]):
+            if isinstance(msg, HumanMessage):
+                last_user_message = msg.content
+                break
 
-You have access to detailed information about {state['resume_name']}'s background below. Use this information to answer questions accurately.
+        use_full = self._should_use_full_context(last_user_message)
+        logger.info(f"Using {'FULL' if use_full else 'CONCISE'} context")
 
-DATA ACCESS
-{state['resume_context']}
-
-CURRENT TASK
-{state['success_criteria']}
-
-STYLE (MUST FOLLOW)
-- Output must be plain text only (no Markdown or other formatting).
-- Do not use asterisks, underscores, backticks, tildes, hashes, brackets, angle brackets, emojis, or decorative characters.
-- Do not bold, italicize, add headings, lists, tables, code fences, links, or inline formatting.
-- Keep responses concise; short paragraphs separated by newlines only.
-- Do not re-greet mid-conversation. Do not say "Hi there!" again after the first turn.
-- Do not use em dashes (--) when responding or writing cover letters.
-
-INSTRUCTIONS
-- Use the resume data above to answer questions
-- Be conversational but professional
-- Keep responses focused and concise
-- If the user provides contact information, use the record_user_details tool
-- If you cannot answer a question with the available information, use record_unknown_question tool
-
-JOB SEARCH
-- When prompted to job search, search for roles matching your resume and experience. Focus on full-stack engineering roles or AI roles.
-- CRITICAL: Always return DIRECT LINKS to specific job postings, not general career pages. Each URL must go directly to the individual job listing page where the user can apply.
-- Use the search tool to find current job postings and extract the exact posting URL (e.g., "https://company.com/careers")
-- If you cannot find the direct posting URL, use the search tool again with more specific queries like "[company name] [job title] apply link"
-- Format as: "Company - Job Title: [FULL_URL]" where FULL_URL is the complete, clickable link to that specific posting
-- Prioritize recent job postings (within the last 7 days)
-- Search for roles in New York City.
-- Prompt the user if you wish to expand the search to different criteria, but always remain within New York City.
-- If the user asks you to conduct a job search, do not prompt them for their email or contact information.
-
-CONTACT CAPTURE (ASK ONCE, RECORD ONCE) 
-- After your third substantive answer, briefly ask once for the user's name and email for follow-up. 
-- If an email is provided (with or without a name), immediately call record_user_details with provided fields. 
-- If a name is provided but no email, ask once for the email. If declined, acknowledge and continue. Do not ask again once asked or once recorded. 
-
-UNKNOWN ANSWERS 
-- If you do not know an answer, call record_unknown_question with the question, then (only if not already collected) ask once for name/email as above. 
-
-SCOPE CONTROL 
-- If a request is not about {state['resume_name']}'s career, background, skills, or experience, briefly steer back to those topics. 
-
-COVER LETTER WORKFLOW 
-- If asked to write a cover letter, ask for a job-posting URL, read it, then write the letter directly using COVER_LETTERS and SAMPLE_ANSWERS for style and content. 
-- Do not ask for confirmation.
-- Do not use em dashes.
-
-The current date and time is {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-"""
+        system_prompt = self._get_system_prompt(state, use_full_context=use_full)
 
         if state.get("feedback_on_work"):
             logger.info(f"⚠️  Worker received feedback from evaluator, retrying...")
-            logger.info(f"   Feedback: {state['feedback_on_work'][:100]}...")
-            system_message += f"""
+            system_prompt += f"\n\nEVALUATOR FEEDBACK:\n{state['feedback_on_work']}\n\nPlease improve your response based on this feedback."
 
-FEEDBACK
-Previously you thought you answered the question, but your reply was rejected because the success criteria was not met.
-Here is the feedback on why this was rejected:
-{state['feedback_on_work']}
+        # CRITICAL: Trim message history before sending
+        trimmed_messages = self._trim_messages(state["messages"], max_tokens=6000)
 
-With this feedback, please continue to try to answer the question, ensuring that you meet the success criteria or have a question for the user.
-"""
+        messages = [SystemMessage(content=system_prompt)] + trimmed_messages
 
-        # Update or add system message
-        messages = state["messages"].copy()
-
-        sys_idx = next(
-            (i for i, m in enumerate(messages) if isinstance(m, SystemMessage)), None
+        logger.info(
+            f"   Message count: {len(messages)} (trimmed from {len(state['messages'])})"
         )
-        if sys_idx is not None:
-            messages[sys_idx] = SystemMessage(content=system_message)
+        logger.info(f"   System prompt length: ~{len(system_prompt)} chars")
 
-        if sys_idx is None:
-            messages = [SystemMessage(content=system_message)] + messages
-
-        # Invoke the LLM with tools
-        logger.info(f"   Calling GPT-5 with {len(messages)} messages...")
         response = self.worker_llm_with_tools.invoke(messages)
 
-        def tool_name(tc):
-            # 1) attribute: name
-            name_attr = getattr(tc, "name", None)
-            if name_attr:
-                return name_attr
+        logger.info(f"✓ Worker response generated")
+        logger.info(f"   Response length: {len(response.content)} chars")
+        logger.info(f"   Has tool calls: {bool(response.tool_calls)}")
 
-            # 2) attribute: function.name (safe getattr chain; no ternary)
-            fn_name_attr = getattr(getattr(tc, "function", None), "name", None)
-            if fn_name_attr:
-                return fn_name_attr
-
-            # 3) dict: name
-            if not isinstance(tc, dict):
-                return "unknown"
-            name_dict = tc.get("name")
-            if name_dict:
-                return name_dict
-
-            # 4) dict: function.name
-            fn_dict = tc.get("function")
-            if not isinstance(fn_dict, dict):
-                return "unknown"
-            fn_name_dict = fn_dict.get("name")
-            if fn_name_dict:
-                return fn_name_dict
-
-            return "unknown"
-
-        tool_names = [tool_name(tc) for tc in response.tool_calls]
-        logger.info(f"✓ Worker called {len(response.tool_calls)} tool(s): {tool_names}")
         return {"messages": [response]}
 
-    def worker_router(self, state: State) -> str:
-        """Route based on whether tools need to be called"""
+    def worker_router(self, state: State):
+        """Route from worker to either tools or evaluator"""
         last_message = state["messages"][-1]
 
         if hasattr(last_message, "tool_calls") and last_message.tool_calls:
-            logger.info("→ Routing to TOOLS node")
+            logger.info("→ Routing to TOOLS")
             return "tools"
 
-        logger.info("→ Routing to EVALUATOR node")
+        logger.info("→ Routing to EVALUATOR")
         return "evaluator"
 
     def format_conversation(self, messages: List[Any]) -> str:
-        """Format conversation history for the evaluator"""
-        conversation = "Conversation history:\n\n"
-        for message in messages:
-            if isinstance(message, HumanMessage):
-                conversation += f"User: {message.content}\n"
-            elif isinstance(message, AIMessage):
-                text = message.content or "[Tool use]"
-                conversation += f"Assistant: {text}\n"
-            elif isinstance(message, ToolMessage):
-                conversation += f"[Tool result: {message.content[:100]}...]\n"
-        return conversation
+        """Format conversation for evaluator - KEEP CONCISE"""
+        formatted = []
+
+        # Only show last 5 exchanges to evaluator
+        recent_messages = messages[-10:]  # Last 10 messages = ~5 exchanges
+
+        for msg in recent_messages:
+            if isinstance(msg, HumanMessage):
+                formatted.append(f"USER: {msg.content}")
+            elif isinstance(msg, AIMessage):
+                if msg.content:
+                    formatted.append(f"ASSISTANT: {msg.content}")
+            elif isinstance(msg, ToolMessage):
+                # Don't show full tool output, just that it was called
+                formatted.append(f"[Tool executed: {msg.name}]")
+
+        return "\n".join(formatted)
 
     def evaluator(self, state: State) -> Dict[str, Any]:
-        """Evaluate if the task is complete"""
-        logger.info(
-            "🎯 EVALUATOR NODE: Checking response quality with Claude Haiku 4.5..."
-        )
+        """The evaluator node that checks if the response meets criteria"""
+        logger.info("🔍 EVALUATOR NODE: Reviewing response with Claude Haiku...")
 
-        last_response = state["messages"][-1].content
-        response_preview = last_response[:100] if last_response else "[empty]"
-        logger.info(f"   Evaluating: {response_preview}...")
+        last_message = state["messages"][-1]
 
-        system_message = """You are an evaluator that determines if a task has been completed successfully by an Assistant.
-Assess the Assistant's last response based on the given criteria. Respond with your feedback, and with your decision on whether the success criteria has been met,
-and whether more input is needed from the user."""
+        if not isinstance(last_message, AIMessage):
+            logger.warning("⚠️  Last message is not an AI message, skipping evaluation")
+            return {
+                "success_criteria_met": True,
+                "user_input_needed": False,
+            }
 
-        user_message = f"""You are evaluating a conversation between the User and Assistant. You decide what action to take based on the last response from the Assistant.
+        last_response = last_message.content
 
-The entire conversation with the assistant, with the user's original request and all replies, is:
+        # CONCISE system message for evaluator
+        system_message = """You evaluate if the Assistant's response meets the success criteria.
+        
+Respond with:
+- feedback: Brief assessment
+- success_criteria_met: true/false
+- user_input_needed: true if user must respond
+
+Be lenient - approve responses unless clearly inadequate."""
+
+        # CONCISE user message - only recent context
+        user_message = f"""Recent conversation:
 {self.format_conversation(state['messages'])}
 
-The success criteria for this assignment is:
-{state['success_criteria']}
+Success criteria: {state['success_criteria']}
 
-And the final response from the Assistant that you are evaluating is:
+Final response to evaluate:
 {last_response}
 
-Respond with your feedback, and decide if the success criteria is met by this response.
-Also, decide if more user input is required, either because the assistant has a question, needs clarification, or seems to be stuck and unable to answer without help.
-
-The Assistant has access to tools to record user details and unknown questions. Give the Assistant the benefit of the doubt if they say they've done something.
-"""
+Does this meet the criteria?"""
 
         if state.get("feedback_on_work"):
-            user_message += f"\nNote: In a prior attempt, you provided this feedback: {state['feedback_on_work']}\n"
-            user_message += "If you're seeing the Assistant repeating the same mistakes, consider responding that user input is required."
+            user_message += f"\n\nPrior feedback: {state['feedback_on_work'][:200]}"
 
         evaluator_messages = [
             SystemMessage(content=system_message),
