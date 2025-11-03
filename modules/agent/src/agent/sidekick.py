@@ -101,6 +101,7 @@ class Sidekick:
 
         if self.summary:
             context_parts.append(f"SUMMARY\n{self.summary}")
+        logger.info((len(self.resume_text)))
 
         # Add just the first 500 chars of resume for context
         if self.resume_text:
