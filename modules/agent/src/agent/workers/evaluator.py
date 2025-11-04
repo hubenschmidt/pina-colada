@@ -4,7 +4,6 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Tool
 from langchain_anthropic import ChatAnthropic
 from pydantic import BaseModel, Field
 from langfuse.langchain import CallbackHandler
-from agent.util.logging_config import log_wrapped
 import shutil, textwrap
 
 logger = logging.getLogger(__name__)
@@ -115,7 +114,7 @@ class EvaluatorNode:
         wrapped = textwrap.fill(
             eval_result.feedback,
             width=width,
-            subsequent_indent=" " * 4,  # lines up under your "   - Feedback: "
+            subsequent_indent=" " * 4,
         )
 
         logger.info("   - Feedback: %s", wrapped)
