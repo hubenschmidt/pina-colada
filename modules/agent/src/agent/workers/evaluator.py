@@ -4,6 +4,8 @@ from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, Tool
 from langchain_anthropic import ChatAnthropic
 from pydantic import BaseModel, Field
 from langfuse.langchain import CallbackHandler
+from agent.util.logging_config import log_wrapped
+import shutil, textwrap
 
 logger = logging.getLogger(__name__)
 
@@ -38,11 +40,22 @@ class EvaluatorNode:
         self.llm_with_output = evaluator_llm.with_structured_output(EvaluatorOutput)
         logger.info("✓ Evaluator LLM configured")
 
+    def _get_system_prompt(self, resume_context: str) -> str:
+        """Generate system prompt for the evaluator"""
+        return (
+            "You evaluate whether the Assistant's response meets the success criteria.\n\n"
+            "RESUME_CONTEXT\n"
+            f"{resume_context}\n\n"
+            "Respond with a strict JSON object matching the schema (handled by the tool):\n"
+            "- feedback: Brief assessment\n"
+            "- success_criteria_met: true/false\n"
+            "- user_input_needed: true if user must respond\n\n"
+            "Be slightly lenient—approve unless clearly inadequate."
+        )
+
     def _format_conversation(self, messages) -> str:
         """Format conversation for evaluator - KEEP CONCISE"""
         formatted = []
-
-        # Only show last few messages to keep context manageable
         relevant_messages = messages[-6:] if len(messages) > 6 else messages
 
         for msg in relevant_messages:
@@ -52,7 +65,6 @@ class EvaluatorNode:
                 if msg.content:
                     formatted.append(f"ASSISTANT: {msg.content}")
             elif isinstance(msg, ToolMessage):
-                # Don't show full tool output, just that it was called
                 formatted.append(f"[Tool executed: {msg.name}]")
 
         return "\n".join(formatted)
@@ -62,39 +74,28 @@ class EvaluatorNode:
         logger.info("🔍 EVALUATOR NODE: Reviewing response with Claude Haiku...")
 
         last_message = state["messages"][-1]
-
         if not isinstance(last_message, AIMessage):
             logger.warning("⚠️  Last message is not an AI message, skipping evaluation")
             return {
+                "feedback_on_work": "No AI response to evaluate.",
                 "success_criteria_met": True,
                 "user_input_needed": False,
             }
 
-        last_response = last_message.content
+        # Build prompts
+        system_message = self._get_system_prompt(state.get("resume_context", ""))
 
-        # CONCISE system message for evaluator
-        system_message = """You evaluate if the Assistant's response meets the success criteria.
-        
-Respond with:
-- feedback: Brief assessment
-- success_criteria_met: true/false
-- user_input_needed: true if user must respond
-
-Be lenient - approve responses unless clearly inadequate."""
-
-        # CONCISE user message - only recent context
-        user_message = f"""Recent conversation:
-{self._format_conversation(state['messages'])}
-
-Success criteria: {state['success_criteria']}
-
-Final response to evaluate:
-{last_response}
-
-Does this meet the criteria?"""
+        user_message = (
+            "Recent conversation (condensed):\n"
+            f"{self._format_conversation(state['messages'])}\n\n"
+            f"Success criteria: {state.get('success_criteria','')}\n\n"
+            "Final response to evaluate (from Assistant):\n"
+            f"{last_message.content}\n\n"
+            "Does this meet the criteria?"
+        )
 
         if state.get("feedback_on_work"):
-            user_message += f"\n\nPrior feedback: {state['feedback_on_work'][:200]}"
+            user_message += f"\n\nPrior feedback:\n{state['feedback_on_work'][:200]}"
 
         evaluator_messages = [
             SystemMessage(content=system_message),
@@ -105,10 +106,19 @@ Does this meet the criteria?"""
         eval_result = self.llm_with_output.invoke(evaluator_messages)
 
         # Log evaluation results
-        logger.info(f"✓ Evaluator decision:")
+        logger.info("✓ Evaluator decision:")
         logger.info(f"   - Success criteria met: {eval_result.success_criteria_met}")
         logger.info(f"   - User input needed: {eval_result.user_input_needed}")
-        logger.info(f"   - Feedback: {eval_result.feedback[:100]}...")
+        width = shutil.get_terminal_size(
+            fallback=(100, 24)
+        ).columns  # docker often needs a fallback
+        wrapped = textwrap.fill(
+            eval_result.feedback,
+            width=width,
+            subsequent_indent=" " * 4,  # lines up under your "   - Feedback: "
+        )
+
+        logger.info("   - Feedback: %s", wrapped)
 
         if not eval_result.success_criteria_met and not eval_result.user_input_needed:
             logger.warning("⚠️  Evaluator rejected response - agent will retry!")

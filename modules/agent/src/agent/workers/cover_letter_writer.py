@@ -36,13 +36,13 @@ AVAILABLE CONTEXT:
 {resume_context}
 
 YOUR TASK:
-Write compelling, professional cover letters in Russian that:
+Write compelling, professional cover letters that:
 1. Are properly formatted (greeting, 2-4 body paragraphs, closing)
-2. Reference specific job details from the conversation
+2. Reference specific job details from the job descrption. Do not forget to ask for a job description.
 3. Use actual experience and skills from the resume context above
 4. Match the professional tone from sample cover letters
-5. Are 700 words in length
-6. Use plain text formatting (no markdown)
+5. Are 200-300 words in length
+6. Use plain text formatting (no markdown, or illegal characters, or bolded text)
 7. Are tailored to the specific job and company
 8. Only output the contents of the cover letter
 
