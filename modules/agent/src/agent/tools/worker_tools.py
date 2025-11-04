@@ -48,8 +48,8 @@ def serper_search(query: str) -> str:
         return f"Web search failed: {e}"
 
 
-async def sidekick_tools():
-    """Return all available tools for the Sidekick"""
+async def get_worker_tools():
+    """Return all available tools for the Worker"""
     tools = []
 
     # Push notification tool

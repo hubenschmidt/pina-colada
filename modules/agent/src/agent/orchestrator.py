@@ -4,7 +4,7 @@ import json
 import logging
 from typing import List, Any, Optional, Dict, Annotated, Callable, Awaitable
 from typing_extensions import TypedDict
-from agent.tools.sidekick_tools import sidekick_tools
+from agent.tools.worker_tools import get_worker_tools
 from agent.workers.worker import WorkerNode
 from agent.workers.evaluator import EvaluatorNode
 from agent.workers.cover_letter_writer import CoverLetterWriterNode
@@ -103,12 +103,12 @@ class Orchestrator:
     async def setup(self):
         """Initialize the nodes and build the graph"""
         logger.info("=== AGENT SETUP ===")
-
-        self.tools = await sidekick_tools()
+        self.tools = await get_worker_tools()
 
         # Initialize all nodes
         self.worker_node = WorkerNode(self.tools)
         await self.worker_node.setup(self.resume_context_concise)
+        logger.info(f"✓ Worker initialized with {len(self.worker_node.tools)} tools")
 
         self.evaluator_node = EvaluatorNode()
         await self.evaluator_node.setup()
@@ -117,7 +117,7 @@ class Orchestrator:
         await self.cover_letter_writer_node.setup()
 
         await self.build_graph()
-        logger.info(f"✓ Agent initialized with {len(self.tools)} tools")
+
         logger.info("===================")
 
     def set_websocket_sender(self, send_ws: Callable[[str], Awaitable[None]]):

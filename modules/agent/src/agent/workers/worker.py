@@ -28,6 +28,7 @@ class WorkerNode:
             max_retries=3,
             callbacks=[langfuse_handler],
         )
+
         self.llm_with_tools = worker_llm.bind_tools(self.tools)
         self.resume_context_concise = resume_context_concise
         logger.info(f"✓ Worker LLM configured with {len(self.tools)} tools")
