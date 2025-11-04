@@ -102,7 +102,6 @@ services:
 
   langfuse:
     image: langfuse/langfuse:latest
-    # image: docker.io/langfuse/langfuse:3
     restart: always
     depends_on:
       postgres:
