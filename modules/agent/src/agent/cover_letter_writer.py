@@ -36,7 +36,7 @@ AVAILABLE CONTEXT:
 {resume_context}
 
 YOUR TASK:
-Write compelling, professional cover letters that:
+Write compelling, professional cover letters in Russian that:
 1. Are properly formatted (greeting, 2-4 body paragraphs, closing)
 2. Reference specific job details from the conversation
 3. Use actual experience and skills from the resume context above
