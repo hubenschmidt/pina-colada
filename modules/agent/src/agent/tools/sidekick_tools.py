@@ -1,83 +1,12 @@
-from dotenv import load_dotenv
-import os
-import requests
 import logging
 from langchain_core.tools import Tool
 from langchain_community.agent_toolkits import FileManagementToolkit
 from langchain_community.tools.wikipedia.tool import WikipediaQueryRun
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from langchain_community.utilities.wikipedia import WikipediaAPIWrapper
+from agent.tools.static_tools import push
 
 logger = logging.getLogger(__name__)
-
-load_dotenv(override=True)
-pushover_token = os.getenv("PUSHOVER_TOKEN")
-pushover_user = os.getenv("PUSHOVER_USER")
-pushover_url = "https://api.pushover.net/1/messages.json"
-
-SERPER_API_KEY = os.getenv("SERPER_API_KEY")
-
-serper = None
-
-# Try init only if key is present
-if SERPER_API_KEY:
-    try:
-        serper = GoogleSerperAPIWrapper()  # reads SERPER_API_KEY from env
-        logger.info("GoogleSerperAPIWrapper initialized.")
-    except Exception as e:
-        logger.warning(f"Could not initialize GoogleSerperAPIWrapper: {e}")
-        serper = None
-
-# Warn if key missing
-if not SERPER_API_KEY:
-    logger.warning("SERPER_API_KEY is not set; web search tool will be disabled.")
-
-
-def push(text: str):
-    """Send a push notification to the user"""
-    if not pushover_token or not pushover_user:
-        logger.warning("Pushover credentials not configured")
-        return "Pushover not configured"
-
-    try:
-        response = requests.post(
-            pushover_url,
-            data={"token": pushover_token, "user": pushover_user, "message": text},
-            timeout=5,
-        )
-        logger.info(f"Push notification sent: {response.status_code}")
-        return "success"
-    except Exception as e:
-        logger.error(f"Failed to send push notification: {e}")
-        return f"failed: {e}"
-
-
-def record_user_details(
-    email: str, name: str = "Name not provided", notes: str = "not provided"
-):
-    """Record user contact details"""
-    message = f"Recording interest from {name} with email {email} and notes {notes}"
-    push(message)
-    logger.info(message)
-    return {"recorded": "ok", "email": email, "name": name}
-
-
-def record_unknown_question(question: str):
-    """Record questions that couldn't be answered"""
-    message = f"Recording question that couldn't be answered: {question}"
-    push(message)
-    logger.info(message)
-    return {"recorded": "ok", "question": question}
-
-
-def _serper_search(query: str) -> str:
-    if not serper:
-        return "Web search is not configured on the server."
-    try:
-        return serper.run(query)
-    except Exception as e:
-        logger.error(f"Serper search failed: {e}")
-        return f"Web search failed: {e}"
 
 
 def get_file_tools():
@@ -92,7 +21,34 @@ def get_file_tools():
         return []
 
 
-async def all_tools():
+def record_unknown_question(question: str):
+    """Record questions that couldn't be answered"""
+    message = f"Recording question that couldn't be answered: {question}"
+    push(message)
+    logger.info(message)
+    return {"recorded": "ok", "question": question}
+
+
+def record_user_details(
+    email: str, name: str = "Name not provided", notes: str = "not provided"
+):
+    """Record user contact details"""
+    message = f"Recording interest from {name} with email {email} and notes {notes}"
+    push(message)
+    logger.info(message)
+    return {"recorded": "ok", "email": email, "name": name}
+
+
+def serper_search(query: str) -> str:
+    try:
+        serper = GoogleSerperAPIWrapper()
+        return serper.run(query)
+    except Exception as e:
+        logger.error(f"Serper search failed: {e}")
+        return f"Web search failed: {e}"
+
+
+async def sidekick_tools():
     """Return all available tools for the Sidekick"""
     tools = []
 
@@ -122,12 +78,12 @@ async def all_tools():
 
     # File management tools
     file_tools = get_file_tools()
-    tools.extend(file_tools)
+    tools.extend(file_tools)  # extend since get_file_tools contains CRUD ops
 
     # Web search tool
     web_search_tool = Tool(
         name="web_search",
-        func=_serper_search,
+        func=serper_search,
         description="Search the web for current information (news, job postings, documentation). Input: a search query.",
     )
     tools.append(web_search_tool)

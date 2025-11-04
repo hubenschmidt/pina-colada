@@ -23,8 +23,8 @@ from langfuse import observe
 from dotenv import load_dotenv
 from agent.sidekick import Sidekick
 from agent.util.document_scanner import load_documents
-from agent.tools.sidekick_tools import push
 from agent.util.get_success_criteria import get_success_criteria
+from agent.tools.static_tools import record_user_context
 
 # =============================================================================
 # CONFIGURATION
@@ -64,32 +64,6 @@ async def get_sidekick() -> Sidekick:
         logger.info("Sidekick initialized successfully")
 
     return _sidekick_instance
-
-
-# =============================================================================
-# USER CONTEXT RECORDING (for analytics)
-# =============================================================================
-
-
-# --- Pretty push with blacklist check ---
-def record_user_context(ctx: Dict[str, Any]):
-    """Persist raw user context (testing: push as a notification)"""
-
-    try:
-        # Always log full JSON for debugging
-        pretty_full = json.dumps(ctx, indent=2, ensure_ascii=False, sort_keys=True)
-
-        # Compose body within practical push size (e.g., Pushover ~1024 chars)
-        max_len = 1024
-        body = pretty_full[:max_len]
-        # Add ellipsis if we actually truncated
-        body += "…" * (len(pretty_full) > max_len)
-
-        push(body)
-        return {"ok": True, "pushed": True}
-    except Exception as e:
-        logger.error(f"record_user_context failed: {e}")
-        return {"ok": False, "error": str(e)}
 
 
 class WebSocketStreamAdapter:

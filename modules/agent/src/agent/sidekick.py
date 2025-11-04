@@ -4,7 +4,7 @@ import json
 import logging
 from typing import List, Any, Optional, Dict, Annotated, Callable, Awaitable
 from typing_extensions import TypedDict
-from agent.tools.sidekick_tools import all_tools
+from agent.tools.sidekick_tools import sidekick_tools
 from agent.workers.worker import WorkerNode
 from agent.workers.evaluator import EvaluatorNode
 from agent.workers.cover_letter_writer import CoverLetterWriterNode
@@ -104,7 +104,7 @@ class Sidekick:
         """Initialize the nodes and build the graph"""
         logger.info("=== AGENT SETUP ===")
 
-        self.tools = await all_tools()
+        self.tools = await sidekick_tools()
 
         # Initialize all nodes
         self.worker_node = WorkerNode(self.tools)
