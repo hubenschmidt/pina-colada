@@ -12,12 +12,12 @@ Key Components:
     - WebSocket streaming support
 """
 
-__all__ = ["graph", "invoke_our_graph", "build_default_graph", "build_streaming_graph"]
+__all__ = ["graph", "invoke_our_graph", "build_default_graph"]
 
 import json
 import logging
 import os
-from typing import Dict, Any, Optional, Callable, Awaitable, Union, List
+from typing import Dict, Any, Optional, Union, List
 from fastapi import WebSocket
 from langfuse import observe
 from dotenv import load_dotenv
@@ -380,20 +380,6 @@ def build_default_graph():
 
 # Graph instance - this is what LangGraph loads
 graph = build_default_graph()
-
-
-# =============================================================================
-# WEBSOCKET ENTRYPOINT
-# =============================================================================
-
-
-def build_streaming_graph(send_ws: Callable[[str], Awaitable[None]]):
-    """
-    Build streaming graph - actually just returns the send_ws function.
-    The real work is done by Sidekick in invoke_our_graph.
-    """
-    logger.info("build_streaming_graph called (returns send_ws wrapper)")
-    return send_ws
 
 
 @observe()
