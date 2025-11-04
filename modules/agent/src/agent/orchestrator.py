@@ -34,7 +34,7 @@ class State(TypedDict):
     route_to_agent: Optional[str]
 
 
-class Sidekick:
+class Orchestrator:
     def __init__(
         self,
         resume_text: str = "",

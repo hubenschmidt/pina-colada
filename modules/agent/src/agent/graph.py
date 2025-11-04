@@ -1,13 +1,13 @@
 """
-LangGraph Chat Application with Sidekick Agent
+LangGraph Chat Application with Orchestrator Agent
 ===============================================
-This module creates an intelligent chatbot using the Sidekick worker/evaluator pattern.
+This module creates an intelligent chatbot using the Orchestrator worker/evaluator pattern.
 
-Graph Flow (via Sidekick):
+Graph Flow (via Orchestrator):
     START → worker → [tools] → evaluator → [worker or END]
 
 Key Components:
-    - Sidekick: Worker/evaluator agent pattern
+    - Orchestrator: Worker/evaluator agent pattern
     - Document loading from me/ directory
     - WebSocket streaming support
 """
@@ -21,7 +21,7 @@ from typing import Dict, Any, Optional, Union, List
 from fastapi import WebSocket
 from langfuse import observe
 from dotenv import load_dotenv
-from agent.sidekick import Sidekick
+from agent.orchestrator import Orchestrator
 from agent.util.document_scanner import load_documents
 from agent.util.get_success_criteria import get_success_criteria
 from agent.tools.static_tools import record_user_context
@@ -42,39 +42,39 @@ logger.info(
 )
 
 # =============================================================================
-# SIDEKICK INSTANCE (Singleton)
+# ORCHESTRATOR INSTANCE (Singleton)
 # =============================================================================
 
-_sidekick_instance: Optional[Sidekick] = None
+_orchestrator_instance: Optional[Orchestrator] = None
 
 
-async def get_sidekick() -> Sidekick:
-    """Get or create the Sidekick instance."""
-    global _sidekick_instance
+async def get_orchestrator() -> Orchestrator:
+    """Get or create the Orchestrator instance."""
+    global _orchestrator_instance
 
-    if _sidekick_instance is None:
-        logger.info("Initializing Sidekick...")
-        _sidekick_instance = Sidekick(
+    if _orchestrator_instance is None:
+        logger.info("Initializing Orchestrator...")
+        _orchestrator_instance = Orchestrator(
             resume_text=resume_text,
             summary=summary,
             sample_answers=sample_answers,
             cover_letters=cover_letters,
         )
-        await _sidekick_instance.setup()
-        logger.info("Sidekick initialized successfully")
+        await _orchestrator_instance.setup()
+        logger.info("Orchestrator initialized successfully")
 
-    return _sidekick_instance
+    return _orchestrator_instance
 
 
 class WebSocketStreamAdapter:
     """
-    Adapts Sidekick's streaming format to match the frontend's expectations.
+    Adapts Orchestrator's streaming format to match the frontend's expectations.
 
     Frontend expects:
         - {"on_chat_model_stream": "content"} for each chunk
         - {"on_chat_model_end": true} when done
 
-    Sidekick sends:
+    Orchestrator sends:
         - {"type": "start"} at beginning
         - {"type": "content", "content": "...", "is_final": false} for chunks
         - {"type": "end"} at end
@@ -86,7 +86,7 @@ class WebSocketStreamAdapter:
         self.last_sent_length = 0
 
     async def send(self, payload_str: str):
-        """Receive from Sidekick and translate to frontend format."""
+        """Receive from Orchestrator and translate to frontend format."""
         try:
             payload = json.loads(payload_str)
         except json.JSONDecodeError:
@@ -130,7 +130,7 @@ def build_default_graph():
     """
     Build a simple graph for LangGraph API compatibility.
     This returns a minimal graph structure that LangGraph can load.
-    The actual work is done by Sidekick in invoke_our_graph.
+    The actual work is done by Orchestrator in invoke_our_graph.
     """
     from langgraph.graph import StateGraph, START, END
     from typing import TypedDict, List, Dict, Any
@@ -222,7 +222,7 @@ async def invoke_our_graph(
         return
 
     # =========================================================================
-    # EXTRACT MESSAGE AND INVOKE SIDEKICK
+    # EXTRACT MESSAGE AND INVOKE ORCHESTRATOR
     # =========================================================================
 
     message = str(data)
@@ -230,9 +230,9 @@ async def invoke_our_graph(
         message = str(payload["message"])
 
     try:
-        sidekick = await get_sidekick()
+        orchestrator = await get_orchestrator()
     except Exception as e:
-        logger.error(f"Failed to get Sidekick: {e}", exc_info=True)
+        logger.error(f"Failed to get Orchestrator: {e}", exc_info=True)
         await websocket.send_text(
             json.dumps(
                 {
@@ -244,7 +244,7 @@ async def invoke_our_graph(
         return
 
     adapter = WebSocketStreamAdapter(websocket)
-    sidekick.set_websocket_sender(adapter.send)
+    orchestrator.set_websocket_sender(adapter.send)
 
     # Generate context-aware success criteria based on the user's message
     success_criteria = get_success_criteria(message)
@@ -253,15 +253,15 @@ async def invoke_our_graph(
     )
 
     try:
-        logger.info("Invoking Sidekick...")
-        await sidekick.run_streaming(
+        logger.info("Invoking Orchestrator...")
+        await orchestrator.run_streaming(
             message=message,
             thread_id=user_uuid,
             success_criteria=success_criteria,
         )
-        logger.info("Sidekick completed successfully")
+        logger.info("Orchestrator completed successfully")
     except Exception as e:
-        logger.error(f"Error invoking Sidekick: {e}", exc_info=True)
+        logger.error(f"Error invoking Orchestrator: {e}", exc_info=True)
         await websocket.send_text(
             json.dumps(
                 {
