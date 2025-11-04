@@ -1,7 +1,6 @@
 """
-LangGraph Chat Application - Functional Implementation
+PinaColada.co | LangGraph
 =====================================================
-Pure functional approach using factory functions and closures.
 
 Graph Flow:
     START → router → [worker → tools] → evaluator → [retry or END]
@@ -78,7 +77,7 @@ def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]
         nonlocal last_sent_length
         content = payload.get("content", "")
         delta = content[last_sent_length:]
-        if not delta:  # guard
+        if not delta:
             return
         last_sent_length = len(content)
         await websocket.send_text(json.dumps({"on_chat_model_stream": delta}))
@@ -90,17 +89,16 @@ def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]
     }
 
     async def send(payload_str: str):
-        # parse
         try:
             payload = json.loads(payload_str)
         except json.JSONDecodeError:
             logger.warning("Could not parse payload: %s", payload_str)
-            return  # guard
+            return
 
         msg_type = payload.get("type", "")
         handler = handlers.get(msg_type)
 
-        if not handler:  # guard
+        if not handler:
             logger.warning("Unknown message type: %s", msg_type)
             return
 
