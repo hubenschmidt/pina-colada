@@ -22,7 +22,7 @@ from fastapi import WebSocket
 from langfuse import observe
 from dotenv import load_dotenv
 from agent.nodes.sidekick import Sidekick
-from agent.document_scanner import load_documents
+from agent.util.document_scanner import load_documents
 from agent.tools.sidekick_tools import push
 
 # =============================================================================
