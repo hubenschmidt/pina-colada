@@ -1,5 +1,6 @@
 import logging, sys
 
+
 def configure_logging(level=logging.INFO) -> None:
     # Make this idempotent
     root = logging.getLogger()

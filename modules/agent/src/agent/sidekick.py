@@ -34,6 +34,7 @@ class State(TypedDict):
     user_input_needed: bool
     resume_name: str
     resume_context: str  # Added to hold resume, summary, and cover letters
+    route_to_agent: Optional[str]  # "worker" or "cover_letter_writer"
 
 
 class EvaluatorOutput(BaseModel):
@@ -56,6 +57,7 @@ class Sidekick:
     ):
         self.worker_llm_with_tools = None
         self.evaluator_llm_with_output = None
+        self.cover_letter_writer_llm = None
         self.tools = None
         self.graph = None
         self.sidekick_id = str(uuid.uuid4())
@@ -162,6 +164,19 @@ class Sidekick:
             EvaluatorOutput
         )
         logger.info("✓ Evaluator LLM configured")
+
+        # Cover Letter Writer LLM setup
+        logger.info(
+            "Setting up Cover Letter Writer LLM: OpenAI GPT-5 (temperature=0.7)"
+        )
+        self.cover_letter_writer_llm = ChatOpenAI(
+            model="gpt-5-chat-latest",
+            temperature=0.7,
+            max_completion_tokens=1500,
+            max_retries=3,
+            callbacks=[langfuse_handler],
+        )
+        logger.info("✓ Cover Letter Writer LLM configured")
 
         await self.build_graph()
         logger.info(f"✓ Sidekick initialized with {len(self.tools)} tools")
@@ -279,6 +294,113 @@ Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
         logger.info("→ Routing to EVALUATOR")
         return "evaluator"
 
+    def router(self, state: State) -> Dict[str, Any]:
+        """Initial router that decides which agent should handle the request"""
+        logger.info("🔀 ROUTER NODE: Deciding which agent to use...")
+
+        # Get the last user message (the most recent one)
+        last_user_message = ""
+        for msg in reversed(state["messages"]):
+            if isinstance(msg, HumanMessage):
+                last_user_message = msg.content
+                break
+
+        logger.info(f"   Last user message: {last_user_message[:100]}...")
+
+        # Check if ANY recent user message mentions cover letter (not just the last one)
+        # This handles cases where user asks for cover letter, then provides job details
+        recent_user_messages = []
+        for msg in reversed(state["messages"]):
+            if isinstance(msg, HumanMessage):
+                recent_user_messages.append(msg.content)
+            if len(recent_user_messages) >= 3:  # Check last 3 user messages
+                break
+
+        # Also check if assistant already responded about cover letters
+        recent_assistant_messages = []
+        for msg in reversed(state["messages"]):
+            if isinstance(msg, AIMessage):
+                recent_assistant_messages.append(msg.content)
+            if len(recent_assistant_messages) >= 2:
+                break
+
+        # Combine recent context
+        recent_context = " ".join(
+            recent_user_messages + recent_assistant_messages
+        ).lower()
+
+        cover_letter_phrases = [
+            "cover letter",
+            "write a letter",
+            "write me a letter",
+            "draft a letter",
+            "draft me a letter",
+            "create a cover letter",
+            "application letter",
+        ]
+
+        is_cover_letter_request = any(
+            phrase in recent_context for phrase in cover_letter_phrases
+        )
+
+        if is_cover_letter_request:
+            logger.info("✅ Detected cover letter request in conversation context!")
+            logger.info("→ Routing to COVER_LETTER_WRITER")
+            return {"route_to_agent": "cover_letter_writer"}
+        else:
+            logger.info("→ Routing to WORKER")
+            return {"route_to_agent": "worker"}
+
+    def cover_letter_writer(self, state: State) -> Dict[str, Any]:
+        """The cover letter writer node for specialized cover letter generation"""
+        logger.info("📝 COVER LETTER WRITER NODE: Generating cover letter...")
+
+        # Build system prompt for cover letter writing
+        system_prompt = f"""You are a professional cover letter writer for {state['resume_name']}.
+
+AVAILABLE CONTEXT:
+{state['resume_context']}
+
+YOUR TASK:
+Write compelling, professional cover letters in Russian that:
+1. Are properly formatted (greeting, 2-4 body paragraphs, closing)
+2. Reference specific job details from the conversation
+3. Use actual experience and skills from the resume context above
+4. Match the professional tone from sample cover letters
+5. Are 250-400 words in length
+6. Use plain text formatting (no markdown)
+7. Are tailored to the specific job and company
+8. Only output the contents of the cover letter
+9. IMPORTANT! Respond in Russian
+
+STYLE GUIDELINES:
+- Professional but personable tone
+- Specific examples over generic claims
+- Show enthusiasm for the role
+- Connect resume experience to job requirements
+- Strong opening and closing
+
+Date: {datetime.now().strftime("%Y-%m-%d")}
+"""
+
+        if state.get("feedback_on_work"):
+            logger.info(f"⚠️  Cover Letter Writer received feedback, retrying...")
+            system_prompt += f"\n\nEVALUATOR FEEDBACK:\n{state['feedback_on_work']}\n\nPlease improve the cover letter based on this feedback."
+
+        # Get recent conversation for context
+        trimmed_messages = self._trim_messages(state["messages"], max_tokens=6000)
+        messages = [SystemMessage(content=system_prompt)] + trimmed_messages
+
+        logger.info(f"   Message count: {len(messages)}")
+        logger.info(f"   System prompt length: ~{len(system_prompt)} chars")
+
+        response = self.cover_letter_writer_llm.invoke(messages)
+
+        logger.info(f"✓ Cover letter generated")
+        logger.info(f"   Response length: {len(response.content)} chars")
+
+        return {"messages": [response]}
+
     def format_conversation(self, messages: List[Any]) -> str:
         """Format conversation for evaluator - KEEP CONCISE"""
         formatted = []
@@ -361,13 +483,15 @@ Does this meet the criteria?"""
         }
 
     def route_based_on_evaluation(self, state: State) -> str:
-        """Route based on evaluation results"""
+        """Route based on evaluation results - back to the agent that needs improvement"""
         if state["success_criteria_met"] or state["user_input_needed"]:
             logger.info("→ Routing to END (response approved)")
             return "END"
 
-        logger.info("→ Routing back to WORKER (needs improvement)")
-        return "worker"
+        # Route back to whichever agent was working on this
+        route_to = state.get("route_to_agent", "worker")
+        logger.info(f"→ Routing back to {route_to.upper()} (needs improvement)")
+        return route_to
 
     async def build_graph(self):
         """Build the LangGraph workflow"""
@@ -381,13 +505,21 @@ Does this meet the criteria?"""
             def evaluator_traced(state: State) -> Dict[str, Any]:
                 return self.evaluator(state)
 
-            logger.info("✓ Langfuse tracing enabled for worker and evaluator")
+            def cover_letter_writer_traced(state: State) -> Dict[str, Any]:
+                return self.cover_letter_writer(state)
+
+            def router_traced(state: State) -> str:
+                return self.router(state)
+
+            logger.info("✓ Langfuse tracing enabled for all nodes")
             use_tracing = True
         except Exception as e:
             logger.warning(f"Could not enable Langfuse tracing: {e}")
             # Fallback to non-traced versions
             worker_traced = self.worker
             evaluator_traced = self.evaluator
+            cover_letter_writer_traced = self.cover_letter_writer
+            router_traced = self.router
             use_tracing = False
 
         try:
@@ -395,25 +527,56 @@ Does this meet the criteria?"""
 
             # Add nodes
             logger.info("Adding nodes to graph...")
+            graph_builder.add_node("router", router_traced)
             graph_builder.add_node("worker", worker_traced)
+            graph_builder.add_node("cover_letter_writer", cover_letter_writer_traced)
             graph_builder.add_node("tools", ToolNode(tools=self.tools))
             graph_builder.add_node("evaluator", evaluator_traced)
             logger.info("✓ Nodes added")
 
             # Add edges
             logger.info("Adding edges to graph...")
+
+            # Start with router
+            graph_builder.add_edge(START, "router")
+
+            # Router decides which agent to use - read the route_to_agent set by router node
+            def route_from_router(state: State) -> str:
+                """Read which agent the router decided to use"""
+                route = state.get("route_to_agent", "worker")
+                logger.info(f"🔀 Router decided: {route}")
+                return route
+
+            graph_builder.add_conditional_edges(
+                "router",
+                route_from_router,
+                {"worker": "worker", "cover_letter_writer": "cover_letter_writer"},
+            )
+
+            # Worker can go to tools or evaluator
             graph_builder.add_conditional_edges(
                 "worker",
                 self.worker_router,
                 {"tools": "tools", "evaluator": "evaluator"},
             )
+
+            # Tools go back to worker
             graph_builder.add_edge("tools", "worker")
+
+            # Cover letter writer goes to evaluator
+            graph_builder.add_edge("cover_letter_writer", "evaluator")
+
+            # Evaluator can route back to worker, cover_letter_writer, or END
             graph_builder.add_conditional_edges(
                 "evaluator",
                 self.route_based_on_evaluation,
-                {"worker": "worker", "END": END},
+                {
+                    "worker": "worker",
+                    "cover_letter_writer": "cover_letter_writer",
+                    "END": END,
+                },
             )
-            graph_builder.add_edge(START, "worker")
+
             logger.info("✓ Edges added")
 
             # Compile the graph
@@ -452,6 +615,7 @@ Does this meet the criteria?"""
             "user_input_needed": False,
             "resume_name": "William Hubenschmidt",
             "resume_context": self.resume_context,
+            "route_to_agent": None,  # Will be set by router
         }
 
         # Guard: no websocket sender available → non-streaming path
