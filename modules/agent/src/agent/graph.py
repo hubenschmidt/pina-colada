@@ -90,17 +90,16 @@ def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]
     }
 
     async def send(payload_str: str):
-        # parse
         try:
             payload = json.loads(payload_str)
         except json.JSONDecodeError:
             logger.warning("Could not parse payload: %s", payload_str)
-            return  # guard
+            return
 
         msg_type = payload.get("type", "")
         handler = handlers.get(msg_type)
 
-        if not handler:  # guard
+        if not handler:
             logger.warning("Unknown message type: %s", msg_type)
             return
 
