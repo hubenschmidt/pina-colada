@@ -12,7 +12,7 @@ import logging
 from datetime import datetime
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
-from agent.graph import invoke_our_graph
+from agent.graph import invoke_graph
 from agent.util.logging_config import configure_logging
 from uuid import uuid4
 
@@ -24,7 +24,7 @@ logger = logging.getLogger("app.server")
 app = FastAPI()
 
 # -----------------------------------------------------------------------------
-# CORS middleware - allow connections from your frontend
+# CORS middleware
 # -----------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
@@ -146,7 +146,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
         # Control/telemetry envelopes -> forward to graph (it will silently store & return)
         if payload.get("type") in ("user_context", "user_context_update"):
-            await invoke_our_graph(websocket, payload, new_uid)
+            await invoke_graph(websocket, payload, new_uid)
             return new_uid
 
         # No message? Nothing to do
@@ -155,7 +155,7 @@ async def websocket_endpoint(websocket: WebSocket):
             return new_uid
 
         # We have a message: invoke the graph (it streams back over this WS)
-        await invoke_our_graph(websocket, payload, new_uid)
+        await invoke_graph(websocket, payload, new_uid)
         return new_uid
 
     try:

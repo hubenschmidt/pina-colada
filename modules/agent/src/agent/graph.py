@@ -1,18 +1,13 @@
 """
-LangGraph Chat Application with Orchestrator Agent
-===============================================
-This module creates an intelligent chatbot using the Orchestrator worker/evaluator pattern.
+LangGraph Chat Application - Functional Implementation
+=====================================================
+Pure functional approach using factory functions and closures.
 
-Graph Flow (via Orchestrator):
-    START → worker → [tools] → evaluator → [worker or END]
-
-Key Components:
-    - Orchestrator: Worker/evaluator agent pattern
-    - Document loading from me/ directory
-    - WebSocket streaming support
+Graph Flow:
+    START → router → [worker → tools] → evaluator → [retry or END]
 """
 
-__all__ = ["graph", "invoke_our_graph", "build_default_graph"]
+__all__ = ["graph", "invoke_graph", "build_default_graph"]
 
 import json
 import logging
@@ -21,14 +16,10 @@ from typing import Dict, Any, Optional, Union, List
 from fastapi import WebSocket
 from langfuse import observe
 from dotenv import load_dotenv
-from agent.orchestrator import Orchestrator
+from agent.orchestrator import create_orchestrator
 from agent.util.document_scanner import load_documents
 from agent.util.get_success_criteria import get_success_criteria
 from agent.tools.static_tools import record_user_context
-
-# =============================================================================
-# CONFIGURATION
-# =============================================================================
 
 logger = logging.getLogger("app.graph")
 load_dotenv(override=True)
@@ -38,99 +29,90 @@ RESUME_NAME = "William Hubenschmidt"
 logger.info("Loading documents from me/ directory...")
 resume_text, summary, cover_letters, sample_answers = load_documents("me")
 logger.info(
-    f"Documents loaded - Resume: {len(resume_text)} chars, Summary: {len(summary)} chars, Sample answers: {len(sample_answers)} chars, Cover letters: {len(cover_letters)}"
+    f"Documents loaded - Resume: {len(resume_text)} chars, "
+    f"Summary: {len(summary)} chars, "
+    f"Sample answers: {len(sample_answers)} chars, "
+    f"Cover letters: {len(cover_letters)}"
 )
 
-# =============================================================================
-# ORCHESTRATOR INSTANCE (Singleton)
-# =============================================================================
-
-_orchestrator_instance: Optional[Orchestrator] = None
+# Orchestrator instance (will be lazily initialized)
+_orchestrator_ref = {"instance": None}
 
 
-async def get_orchestrator() -> Orchestrator:
-    """Get or create the Orchestrator instance."""
-    global _orchestrator_instance
-
-    if _orchestrator_instance is None:
+async def get_orchestrator():
+    """Get or create the orchestrator instance"""
+    if _orchestrator_ref["instance"] is None:
         logger.info("Initializing Orchestrator...")
-        _orchestrator_instance = Orchestrator(
+        _orchestrator_ref["instance"] = await create_orchestrator(
             resume_text=resume_text,
             summary=summary,
             sample_answers=sample_answers,
             cover_letters=cover_letters,
         )
-        await _orchestrator_instance.setup()
         logger.info("Orchestrator initialized successfully")
 
-    return _orchestrator_instance
+    return _orchestrator_ref["instance"]
 
 
-class WebSocketStreamAdapter:
+import json
+import logging
+from typing import Callable, Awaitable
+
+logger = logging.getLogger(__name__)
+
+
+def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]:
     """
-    Adapts Orchestrator's streaming format to match the frontend's expectations.
-
-    Frontend expects:
-        - {"on_chat_model_stream": "content"} for each chunk
-        - {"on_chat_model_end": true} when done
-
-    Orchestrator sends:
-        - {"type": "start"} at beginning
-        - {"type": "content", "content": "...", "is_final": false} for chunks
-        - {"type": "end"} at end
+    Returns an async function `send(payload_str: str)` that adapts orchestrator
+    messages to the frontend format, maintaining internal streaming state.
     """
+    last_sent_length = 0  # captured by the closure
 
-    def __init__(self, websocket: WebSocket):
-        self.websocket = websocket
-        self.current_content = ""
-        self.last_sent_length = 0
+    async def handle_start(_):
+        return  # ignore
 
-    async def send(self, payload_str: str):
-        """Receive from Orchestrator and translate to frontend format."""
+    async def handle_end(_):
+        await websocket.send_text(json.dumps({"on_chat_model_end": True}))
+
+    async def handle_content(payload):
+        nonlocal last_sent_length
+        content = payload.get("content", "")
+        delta = content[last_sent_length:]
+        if not delta:  # guard
+            return
+        last_sent_length = len(content)
+        await websocket.send_text(json.dumps({"on_chat_model_stream": delta}))
+
+    handlers = {
+        "start": handle_start,
+        "end": handle_end,
+        "content": handle_content,
+    }
+
+    async def send(payload_str: str):
+        # parse
         try:
             payload = json.loads(payload_str)
         except json.JSONDecodeError:
             logger.warning("Could not parse payload: %s", payload_str)
-            return
+            return  # guard
 
         msg_type = payload.get("type", "")
+        handler = handlers.get(msg_type)
 
-        async def handle_start(_: dict):
-            return  # intentionally ignore
-
-        async def handle_end(_: dict):
-            await self.websocket.send_text(json.dumps({"on_chat_model_end": True}))
-
-        async def handle_content(p: dict):
-            content = p.get("content", "")
-            delta = content[self.last_sent_length :]
-            if not delta:
-                return
-            self.last_sent_length = len(content)
-            await self.websocket.send_text(json.dumps({"on_chat_model_stream": delta}))
-
-        async def handle_unknown(_: dict):
+        if not handler:  # guard
             logger.warning("Unknown message type: %s", msg_type)
+            return
 
-        handlers = {
-            "start": handle_start,
-            "end": handle_end,
-            "content": handle_content,
-        }
+        await handler(payload)
 
-        await handlers.get(msg_type, handle_unknown)(payload)
-
-
-# =============================================================================
-# DEFAULT EXPORT (Graph factory for LangGraph compatibility)
-# =============================================================================
+    return send
 
 
 def build_default_graph():
     """
-    Build a simple graph for LangGraph API compatibility.
-    This returns a minimal graph structure that LangGraph can load.
-    The actual work is done by Orchestrator in invoke_our_graph.
+    Build a placeholder graph for LangGraph API compatibility.
+    The actual work is done by the orchestrator.
     """
     from langgraph.graph import StateGraph, START, END
     from typing import TypedDict, List, Dict, Any
@@ -139,7 +121,6 @@ def build_default_graph():
         messages: List[Dict[str, Any]]
 
     def passthrough(state: SimpleState) -> Dict[str, Any]:
-        """Simple passthrough node"""
         return {}
 
     graph_builder = StateGraph(SimpleState)
@@ -151,58 +132,42 @@ def build_default_graph():
     return graph_builder.compile()
 
 
-# Graph instance - this is what LangGraph loads
+# Graph instance for LangGraph compatibility
 graph = build_default_graph()
 
 
 @observe()
-async def invoke_our_graph(
+async def invoke_graph(
     websocket: WebSocket,
     data: Union[str, Dict[str, Any], List[Dict[str, str]]],
     user_uuid: str,
 ):
-    """
-    Main entrypoint for invoking the graph via WebSocket.
-    """
+    """Main entrypoint for invoking the graph via WebSocket"""
 
-    # =========================================================================
-    # NORMALIZE INPUT
-    # =========================================================================
+    # Normalize input
     payload: Optional[Dict[str, Any]] = None
 
     if isinstance(data, dict):
         payload = data
-
-    parsed = None
-    if isinstance(data, str):
+    elif isinstance(data, str):
         try:
             parsed = json.loads(data)
+            if isinstance(parsed, dict):
+                payload = parsed
         except Exception:
-            parsed = None
-    if isinstance(parsed, dict):
-        payload = parsed
+            pass
 
-    # =========================================================================
-    # HANDLE CONTROL MESSAGES
-    # =========================================================================
-
-    # init/handshake
+    # Handle control messages
     if isinstance(payload, dict) and payload.get("init") is True:
         return
 
-    # invalid ctx when it *is* a user_context control
-    if (
-        isinstance(payload, dict)
-        and payload.get("type") in ("user_context", "user_context_update")
-        and not isinstance((payload.get("ctx") or {}), dict)
-    ):
-        return
-
-    # user_context control — process and return
     if isinstance(payload, dict) and payload.get("type") in (
         "user_context",
         "user_context_update",
     ):
+        if not isinstance((payload.get("ctx") or {}), dict):
+            return
+
         ctx = payload.get("ctx") or {}
         headers = {k.decode().lower(): v.decode() for k, v in websocket.headers.raw}
 
@@ -221,18 +186,16 @@ async def invoke_our_graph(
             record_user_context(ctx)
         return
 
-    # =========================================================================
-    # EXTRACT MESSAGE AND INVOKE ORCHESTRATOR
-    # =========================================================================
-
+    # Extract message
     message = str(data)
     if isinstance(payload, dict) and "message" in payload:
         message = str(payload["message"])
 
+    # Get orchestrator
     try:
         orchestrator = await get_orchestrator()
     except Exception as e:
-        logger.error(f"Failed to get Orchestrator: {e}", exc_info=True)
+        logger.error(f"Failed to get orchestrator: {e}", exc_info=True)
         await websocket.send_text(
             json.dumps(
                 {
@@ -243,25 +206,25 @@ async def invoke_our_graph(
         await websocket.send_text(json.dumps({"on_chat_model_end": True}))
         return
 
-    adapter = WebSocketStreamAdapter(websocket)
-    orchestrator.set_websocket_sender(adapter.send)
+    # Set up WebSocket adapter
+    send = make_websocket_stream_adapter(websocket)
+    orchestrator["set_websocket_sender"](send)
 
-    # Generate context-aware success criteria based on the user's message
+    # Generate success criteria
     success_criteria = get_success_criteria(message)
-    logger.info(
-        f"Generated success criteria for message type: {success_criteria[:60]}..."
-    )
+    logger.info(f"Generated success criteria: {success_criteria[:60]}...")
 
+    # Run orchestrator
     try:
-        logger.info("Invoking Orchestrator...")
-        await orchestrator.run_streaming(
+        logger.info("Invoking orchestrator...")
+        await orchestrator["run_streaming"](
             message=message,
             thread_id=user_uuid,
             success_criteria=success_criteria,
         )
         logger.info("Orchestrator completed successfully")
     except Exception as e:
-        logger.error(f"Error invoking Orchestrator: {e}", exc_info=True)
+        logger.error(f"Error invoking orchestrator: {e}", exc_info=True)
         await websocket.send_text(
             json.dumps(
                 {
@@ -270,4 +233,3 @@ async def invoke_our_graph(
             )
         )
         await websocket.send_text(json.dumps({"on_chat_model_end": True}))
-        return

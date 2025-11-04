@@ -1,28 +1,25 @@
-from langgraph.checkpoint.memory import MemorySaver
+"""
+Orchestrator - functional implementation
+Uses factory function pattern to create a graph with closed-over state
+"""
+
 import uuid
 import json
 import logging
-from typing import List, Any, Optional, Dict, Annotated, Callable, Awaitable
+from typing import List, Any, Optional, Dict, Annotated
 from typing_extensions import TypedDict
-from agent.tools.worker_tools import get_worker_tools
-from agent.workers.worker import WorkerNode
-from agent.workers.evaluator import EvaluatorNode
-from agent.workers.cover_letter_writer import CoverLetterWriterNode
-from agent.routers.agent_router import route_to_agent, route_from_router_edge
+from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, START, END
-from dotenv import load_dotenv
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
-from langchain_core.messages import (
-    AIMessage,
-    HumanMessage,
-    trim_messages,
-)
+from langchain_core.messages import AIMessage, HumanMessage, trim_messages
+from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 load_dotenv(override=True)
 
 
+# State type def
 class State(TypedDict):
     messages: Annotated[List[Any], add_messages]
     success_criteria: str
@@ -34,221 +31,174 @@ class State(TypedDict):
     route_to_agent: Optional[str]
 
 
-class Orchestrator:
-    def __init__(
-        self,
-        resume_text: str = "",
-        summary: str = "",
-        sample_answers: str = "",
-        cover_letters: list = None,
-    ):
-        self.worker_node = None
-        self.evaluator_node = None
-        self.cover_letter_writer_node = None
-        self.tools = None
-        self.graph = None
-        self.agent_id = str(uuid.uuid4())
-        self.memory = MemorySaver()
-        self.send_ws: Optional[Callable[[str], Awaitable[None]]] = None
+def _build_resume_context(
+    summary: str, resume_text: str, sample_answers: str, cover_letters: list
+) -> str:
+    """Pure function to build full resume context"""
+    context_parts = []
 
-        # Store document context
-        self.resume_text = resume_text
-        self.summary = summary
-        self.sample_answers = sample_answers
-        self.cover_letters = cover_letters or []
+    if summary:
+        context_parts.append(f"SUMMARY\n{summary}")
+    if resume_text:
+        context_parts.append(f"RESUME\n{resume_text}")
+    if sample_answers:
+        context_parts.append(f"SAMPLE_ANSWERS\n{sample_answers}")
+    if cover_letters:
+        cover_letters_text = "\n\n".join(cover_letters)
+        context_parts.append(
+            f"COVER_LETTERS (for reference on writing style)\n{cover_letters_text}"
+        )
 
-        # Build resume context string
-        self.resume_context = self._build_resume_context()
-        self.resume_context_concise = self._build_resume_context_concise()
+    return "\n\n".join(context_parts)
 
-    def _build_resume_context(self) -> str:
-        """Build the FULL resume context string from loaded documents"""
-        context_parts = []
 
-        if self.summary:
-            context_parts.append(f"SUMMARY\n{self.summary}")
+def _build_resume_context_concise(resume_text: str, summary: str) -> str:
+    """Pure function to build concise resume context"""
+    context_parts = []
 
-        if self.resume_text:
-            context_parts.append(f"RESUME\n{self.resume_text}")
+    if summary:
+        context_parts.append(f"SUMMARY\n{summary}")
+    if resume_text:
+        preview = resume_text[:500] + "..." if len(resume_text) > 500 else resume_text
+        context_parts.append(f"RESUME (excerpt)\n{preview}")
+        context_parts.append("\n[Full resume available via file tools if needed]")
 
-        if self.sample_answers:
-            context_parts.append(f"SAMPLE_ANSWERS\n{self.sample_answers}")
+    return "\n\n".join(context_parts)
 
-        if self.cover_letters:
-            cover_letters_text = "\n\n".join(self.cover_letters)
-            context_parts.append(
-                f"COVER_LETTERS (for reference on writing style)\n{cover_letters_text}"
-            )
 
-        return "\n\n".join(context_parts)
+def _trim_messages(messages: List[Any], max_tokens: int = 8000) -> List[Any]:
+    """Pure function to trim message history"""
+    try:
+        trimmed = trim_messages(
+            messages,
+            max_tokens=max_tokens,
+            strategy="last",
+            token_counter=len,
+            include_system=True,
+            allow_partial=False,
+        )
 
-    def _build_resume_context_concise(self) -> str:
-        """Build a CONCISE version with just summary and key facts"""
-        context_parts = []
+        if len(trimmed) < len(messages):
+            logger.info(f"Trimmed messages from {len(messages)} to {len(trimmed)}")
 
-        if self.summary:
-            context_parts.append(f"SUMMARY\n{self.summary}")
+        return trimmed
+    except Exception as e:
+        logger.warning(f"Message trimming failed: {e}, using last 10 messages")
+        return messages[-10:]
 
-        if self.resume_text:
-            preview = (
-                self.resume_text[:500] + "..."
-                if len(self.resume_text) > 500
-                else self.resume_text
-            )
-            context_parts.append(f"RESUME (excerpt)\n{preview}")
-            context_parts.append("\n[Full resume available via file tools if needed]")
 
-        return "\n\n".join(context_parts)
+async def create_orchestrator(
+    resume_text: str = "",
+    summary: str = "",
+    sample_answers: str = "",
+    cover_letters: list = None,
+):
+    """
+    Factory function that creates an orchestrator with closed-over state.
 
-    async def setup(self):
-        """Initialize the nodes and build the graph"""
-        logger.info("=== AGENT SETUP ===")
-        self.tools = await get_worker_tools()
+    Returns:
+        - run_streaming: async function to execute the graph
+        - set_websocket_sender: function to set WS sender
+    """
+    from agent.tools.worker_tools import get_worker_tools
+    from agent.workers.worker import create_worker_node, route_from_worker
+    from agent.workers.evaluator import create_evaluator_node, route_from_evaluator
+    from agent.workers.cover_letter_writer import create_cover_letter_writer_node
+    from agent.routers.agent_router import route_to_agent, route_from_router_edge
 
-        # Initialize all nodes
-        self.worker_node = WorkerNode(self.tools)
-        await self.worker_node.setup(self.resume_context_concise)
-        logger.info(f"✓ Worker initialized with {len(self.worker_node.tools)} tools")
+    logger.info("=== AGENT SETUP ===")
 
-        self.evaluator_node = EvaluatorNode()
-        await self.evaluator_node.setup()
+    # Build context
+    cover_letters = cover_letters or []
+    resume_context = _build_resume_context(
+        summary, resume_text, sample_answers, cover_letters
+    )
+    resume_context_concise = _build_resume_context_concise(resume_text, summary)
 
-        self.cover_letter_writer_node = CoverLetterWriterNode()
-        await self.cover_letter_writer_node.setup()
+    # Load tools
+    tools = await get_worker_tools()
+    logger.info(f"✓ Loaded {len(tools)} tools")
 
-        await self.build_graph()
+    # Create nodes (each returns a pure function with closed-over LLMs)
+    worker = await create_worker_node(tools, resume_context_concise, _trim_messages)
+    evaluator = await create_evaluator_node()
+    cover_letter_writer = await create_cover_letter_writer_node(_trim_messages)
 
-        logger.info("===================")
+    # Build graph
+    logger.info("Building LangGraph workflow...")
+    graph_builder = StateGraph(State)
 
-    def set_websocket_sender(self, send_ws: Callable[[str], Awaitable[None]]):
-        """Set the WebSocket sender for streaming responses"""
-        self.send_ws = send_ws
+    # Add nodes - now they're all pure functions
+    logger.info("Adding nodes to graph...")
+    graph_builder.add_node("router", route_to_agent)
+    graph_builder.add_node("worker", worker)
+    graph_builder.add_node("cover_letter_writer", cover_letter_writer)
+    graph_builder.add_node("tools", ToolNode(tools=tools))
+    graph_builder.add_node("evaluator", evaluator)
+    logger.info("✓ Nodes added")
 
-    async def _stream_if_available(self, content: str, is_final: bool = False):
-        """Stream content to WebSocket if available"""
-        if self.send_ws:
-            payload = {"type": "content", "content": content, "is_final": is_final}
-            await self.send_ws(json.dumps(payload))
+    # Add edges
+    logger.info("Adding edges to graph...")
+    graph_builder.add_edge(START, "router")
 
-    def _trim_messages(self, messages: List[Any], max_tokens: int = 8000) -> List[Any]:
-        """Trim message history to stay under token limit"""
-        try:
-            trimmed = trim_messages(
-                messages,
-                max_tokens=max_tokens,
-                strategy="last",
-                token_counter=len,
-                include_system=True,
-                allow_partial=False,
-            )
+    graph_builder.add_conditional_edges(
+        "router",
+        route_from_router_edge,
+        {"worker": "worker", "cover_letter_writer": "cover_letter_writer"},
+    )
 
-            if len(trimmed) < len(messages):
-                logger.info(f"Trimmed messages from {len(messages)} to {len(trimmed)}")
+    graph_builder.add_conditional_edges(
+        "worker",
+        route_from_worker,
+        {"tools": "tools", "evaluator": "evaluator"},
+    )
 
-            return trimmed
-        except Exception as e:
-            logger.warning(f"Message trimming failed: {e}, using last 10 messages")
-            return messages[-10:]
+    graph_builder.add_edge("tools", "worker")
+    graph_builder.add_edge("cover_letter_writer", "evaluator")
 
-    # Wrapper methods for nodes
-    def router(self, state: State) -> Dict[str, Any]:
-        return route_to_agent(state)
+    graph_builder.add_conditional_edges(
+        "evaluator",
+        route_from_evaluator,
+        {
+            "worker": "worker",
+            "cover_letter_writer": "cover_letter_writer",
+            "END": END,
+        },
+    )
 
-    def worker(self, state: State) -> Dict[str, Any]:
-        return self.worker_node.execute(state, self._trim_messages)
+    logger.info("✓ Edges added")
 
-    def worker_router(self, state: State):
-        return self.worker_node.route_from_worker(state)
+    # Compile graph
+    logger.info("Compiling graph...")
+    memory = MemorySaver()
+    compiled_graph = graph_builder.compile(checkpointer=memory)
 
-    def cover_letter_writer(self, state: State) -> Dict[str, Any]:
-        return self.cover_letter_writer_node.execute(state, self._trim_messages)
+    if compiled_graph is None:
+        raise RuntimeError("Graph compilation returned None")
 
-    def evaluator(self, state: State) -> Dict[str, Any]:
-        return self.evaluator_node.execute(state)
+    logger.info("✓ Graph compiled successfully")
+    logger.info("===================")
 
-    def route_based_on_evaluation(self, state: State) -> str:
-        return self.evaluator_node.route_from_evaluator(state)
+    # Closed-over mutable state for WebSocket sender (only stateful thing we need)
+    ws_sender_ref = {"send_ws": None}
 
-    async def build_graph(self):
-        """Build the LangGraph workflow"""
-        logger.info("Building LangGraph workflow...")
-
-        try:
-            graph_builder = StateGraph(State)
-
-            # Add nodes
-            logger.info("Adding nodes to graph...")
-            graph_builder.add_node("router", self.router)
-            graph_builder.add_node("worker", self.worker)
-            graph_builder.add_node("cover_letter_writer", self.cover_letter_writer)
-            graph_builder.add_node("tools", ToolNode(tools=self.tools))
-            graph_builder.add_node("evaluator", self.evaluator)
-            logger.info("✓ Nodes added")
-
-            # Add edges
-            logger.info("Adding edges to graph...")
-
-            # Start with router
-            graph_builder.add_edge(START, "router")
-
-            # Router decides which agent to use
-            graph_builder.add_conditional_edges(
-                "router",
-                route_from_router_edge,
-                {"worker": "worker", "cover_letter_writer": "cover_letter_writer"},
-            )
-
-            # Worker can go to tools or evaluator
-            graph_builder.add_conditional_edges(
-                "worker",
-                self.worker_router,
-                {"tools": "tools", "evaluator": "evaluator"},
-            )
-
-            # Tools go back to worker
-            graph_builder.add_edge("tools", "worker")
-
-            # Cover letter writer goes to evaluator
-            graph_builder.add_edge("cover_letter_writer", "evaluator")
-
-            # Evaluator can route back to worker, cover_letter_writer, or END
-            graph_builder.add_conditional_edges(
-                "evaluator",
-                self.route_based_on_evaluation,
-                {
-                    "worker": "worker",
-                    "cover_letter_writer": "cover_letter_writer",
-                    "END": END,
-                },
-            )
-
-            logger.info("✓ Edges added")
-
-            # Compile the graph
-            logger.info("Compiling graph...")
-            self.graph = graph_builder.compile(checkpointer=self.memory)
-
-            if self.graph is None:
-                raise RuntimeError("Graph compilation returned None")
-
-            logger.info("✓ Graph compiled successfully")
-
-        except Exception as e:
-            logger.error(f"Failed to build graph: {e}", exc_info=True)
-            raise
+    def set_websocket_sender(send_ws):
+        """Set the WebSocket sender function"""
+        ws_sender_ref["send_ws"] = send_ws
 
     async def run_streaming(
-        self, message: str, thread_id: str, success_criteria: str = None
+        message: str, thread_id: str, success_criteria: str = None
     ) -> Dict[str, Any]:
-        """Run the graph with streaming support for WebSocket"""
+        """Run the graph with streaming support"""
         logger.info(f"▶️  Starting graph execution for thread: {thread_id}")
         logger.info(f"   User message: {message[:100]}...")
 
         config = {"configurable": {"thread_id": thread_id}}
 
-        sc = success_criteria
-        if not sc:
-            sc = "Provide a clear and accurate response to the user's question"
+        sc = (
+            success_criteria
+            or "Provide a clear and accurate response to the user's question"
+        )
 
         state = {
             "messages": [HumanMessage(content=message)],
@@ -257,23 +207,25 @@ class Orchestrator:
             "success_criteria_met": False,
             "user_input_needed": False,
             "resume_name": "William Hubenschmidt",
-            "resume_context": self.resume_context,
+            "resume_context": resume_context,
             "route_to_agent": None,
         }
 
-        # Guard: no websocket sender available → non-streaming path
-        if not self.send_ws:
-            result = await self.graph.ainvoke(state, config=config)
+        send_ws = ws_sender_ref["send_ws"]
+
+        # Non-streaming path
+        if not send_ws:
+            result = await compiled_graph.ainvoke(state, config=config)
             logger.info("✅ Graph execution completed")
             return result
 
         # Streaming path
-        await self.send_ws(json.dumps({"type": "start"}))
+        await send_ws(json.dumps({"type": "start"}))
 
         last_content = ""
         iteration = 0
 
-        async for event in self.graph.astream(
+        async for event in compiled_graph.astream(
             state, config=config, stream_mode="values"
         ):
             iteration += 1
@@ -297,7 +249,7 @@ class Orchestrator:
 
             if should_emit:
                 last_content = current_content
-                await self.send_ws(
+                await send_ws(
                     json.dumps(
                         {
                             "type": "content",
@@ -307,15 +259,16 @@ class Orchestrator:
                     )
                 )
 
-        await self.send_ws(
+        await send_ws(
             json.dumps({"type": "content", "content": last_content, "is_final": True})
         )
-        await self.send_ws(json.dumps({"type": "end"}))
+        await send_ws(json.dumps({"type": "end"}))
         logger.info(f"✅ Graph execution completed in {iteration} iterations")
 
         return state
 
-    def free_resources(self):
-        """Clean up resources"""
-        logger.info("Freeing Agent resources")
-        self.send_ws = None
+    # Return functions that use the closed-over state
+    return {
+        "run_streaming": run_streaming,
+        "set_websocket_sender": set_websocket_sender,
+    }
