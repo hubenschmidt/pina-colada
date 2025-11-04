@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useWs, ChatMsg } from "../../hooks/useWs";
 import styles from "./Chat.module.css";
+import { Copy, Check } from "lucide-react";
 
 // ---------- User context (testing-only; no consent prompts) ----------
 
@@ -250,6 +251,7 @@ const Chat = () => {
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
   const [waitForWs, setWaitForWs] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -301,6 +303,16 @@ const Chat = () => {
     }
   };
 
+  const handleCopy = async (text: string, index: number) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy:", err);
+    }
+  };
+
   return (
     <div
       className={`${styles.chatRoot} w-full max-w-5xl mx-auto min-h-[80svh] flex items-center px-4 py-6`}
@@ -336,21 +348,53 @@ const Chat = () => {
                   }`}
                 >
                   <div
-                    className={`${styles.bubble} ${
-                      isUser ? styles.bubbleUser : styles.bubbleBot
+                    className={`${styles.msgContainer} ${
+                      isUser ? styles.msgContainerUser : styles.msgContainerBot
                     }`}
                   >
                     <div
-                      className={`${styles.bubbleAuthor} ${
-                        isUser
-                          ? styles.bubbleAuthorRight
-                          : styles.bubbleAuthorLeft
+                      className={`${styles.bubble} ${
+                        isUser ? styles.bubbleUser : styles.bubbleBot
                       }`}
                     >
-                      <strong>{m.user}</strong>
+                      <div
+                        className={`${styles.bubbleAuthor} ${
+                          isUser
+                            ? styles.bubbleAuthorRight
+                            : styles.bubbleAuthorLeft
+                        }`}
+                      >
+                        <strong>{m.user}</strong>
+                      </div>
+                      <div className={styles.bubbleText}>
+                        {renderWithLinks(m.msg.trim())}
+                      </div>
                     </div>
-                    <div className={styles.bubbleText}>
-                      {renderWithLinks(m.msg.trim())}
+                    <div
+                      className={`${styles.copyButtonWrapper} ${
+                        isUser
+                          ? styles.copyButtonWrapperUser
+                          : styles.copyButtonWrapperBot
+                      }`}
+                    >
+                      <button
+                        className={`${styles.copyButton} ${
+                          copiedIndex === i ? styles.copied : ""
+                        }`}
+                        onClick={() => handleCopy(m.msg.trim(), i)}
+                        title="Copy to clipboard"
+                      >
+                        {copiedIndex === i ? (
+                          <>
+                            <Check size={14} />
+                            <span>Copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Copy size={14} />
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
