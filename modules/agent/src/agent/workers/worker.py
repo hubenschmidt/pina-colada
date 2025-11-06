@@ -66,7 +66,7 @@ def _get_last_user_message(messages) -> str:
 
 async def create_worker_node(
     tools: list,
-    resume_context_concise: str,
+    resume_context_concise: str,  # takes a shorter context as a param instead of using the full resume_context in state
     trim_messages_fn: Callable,
 ):
     """
