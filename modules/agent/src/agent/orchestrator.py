@@ -34,36 +34,42 @@ class State(TypedDict):
 def _build_resume_context(
     summary: str, resume_text: str, sample_answers: str, cover_letters: list
 ) -> str:
-    """Pure function to build full resume context"""
+    """
+    Pure function to build full resume context.
+    Uses single space separator to avoid newline rendering issues in LangSmith.
+    """
     context_parts = []
 
     if summary:
-        context_parts.append(f"SUMMARY\n{summary}")
+        context_parts.append(f"SUMMARY: {summary}")
     if resume_text:
-        context_parts.append(f"RESUME\n{resume_text}")
+        context_parts.append(f"RESUME: {resume_text}")
     if sample_answers:
-        context_parts.append(f"SAMPLE_ANSWERS\n{sample_answers}")
+        context_parts.append(f"SAMPLE_ANSWERS: {sample_answers}")
     if cover_letters:
-        cover_letters_text = "\n\n".join(cover_letters)
-        context_parts.append(
-            f"COVER_LETTERS (for reference on writing style)\n{cover_letters_text}"
-        )
+        # Join cover letters with space, not newlines
+        cover_letters_text = " ".join(cover_letters)
+        context_parts.append(f"COVER_LETTERS: {cover_letters_text}")
 
-    return "\n\n".join(context_parts)
+    # Join with space instead of newlines for cleaner rendering
+    return " | ".join(context_parts)
 
 
 def _build_resume_context_concise(resume_text: str, summary: str) -> str:
-    """Pure function to build concise resume context"""
+    """
+    Pure function to build concise resume context.
+    Uses single space separator for clean rendering.
+    """
     context_parts = []
 
     if summary:
-        context_parts.append(f"SUMMARY\n{summary}")
+        context_parts.append(f"SUMMARY: {summary}")
     if resume_text:
         preview = resume_text[:500] + "..." if len(resume_text) > 500 else resume_text
-        context_parts.append(f"RESUME (excerpt)\n{preview}")
-        context_parts.append("\n[Full resume available via file tools if needed]")
+        context_parts.append(f"RESUME: {preview}")
 
-    return "\n\n".join(context_parts)
+    # Join with space for cleaner rendering
+    return " | ".join(context_parts)
 
 
 def _trim_messages(messages: List[Any], max_tokens: int = 8000) -> List[Any]:
