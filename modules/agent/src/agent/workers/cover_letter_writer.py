@@ -34,7 +34,7 @@ Write compelling, professional cover letters that:
 3. Use actual experience and skills from the resume context above
 4. Match the professional tone from sample cover letters
 5. Are 200-300 words in length
-6. Use plain text formatting (no markdown, or illegal characters, or bolded text)
+6. ALWAYS Use plain text formatting in every response. No markdown, or illegal characters, or bolded text.
 7. Are tailored to the specific job and company
 8. Only output the contents of the cover letter
 

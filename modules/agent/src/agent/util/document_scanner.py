@@ -1,3 +1,7 @@
+"""
+Document scanner with aggressive text compression for better readability and token efficiency
+"""
+
 from pathlib import Path
 import logging
 import re
@@ -6,15 +10,39 @@ from pypdf import PdfReader
 logger = logging.getLogger(__name__)
 
 
-def _clean_text(text: str) -> str:
+def _compress_text(text: str) -> str:
+    """
+    Aggressively compress text for better readability and token efficiency.
+
+    Changes:
+    - Multiple newlines -> single newline
+    - Multiple spaces -> single space
+    - Remove excessive whitespace
+    - Normalize line breaks
+    """
     if not text:
         return ""
-    text = re.sub(r"\n\s*\n", "\n\n", text)
+
+    # Replace multiple newlines with single newline
+    text = re.sub(r"\n\s*\n+", "\n", text)
+
+    # Replace multiple spaces/tabs with single space
     text = re.sub(r"[ \t]+", " ", text)
+
+    # Remove leading/trailing whitespace from each line
+    lines = [line.strip() for line in text.split("\n")]
+
+    # Filter out empty lines
+    lines = [line for line in lines if line]
+
+    # Join with single newline
+    text = "\n".join(lines)
+
     return text.strip()
 
 
 def _read_pdf_text(pdf_path: Path) -> str:
+    """Read and compress PDF text"""
     try:
         reader = PdfReader(str(pdf_path))
     except FileNotFoundError:
@@ -33,51 +61,70 @@ def _read_pdf_text(pdf_path: Path) -> str:
             t = ""
         if t:
             parts.append(t)
-    return _clean_text("\n".join(parts))
+
+    # Join pages with space instead of newline for even more compression
+    return _compress_text(" ".join(parts))
+
+
+def _read_text_file(file_path: Path) -> str:
+    """Read and compress text file"""
+    try:
+        text = file_path.read_text(encoding="utf-8").strip()
+        return _compress_text(text)
+    except FileNotFoundError:
+        logger.warning(f"File not found: {file_path}")
+        return ""
+    except Exception as e:
+        logger.error(f"Could not load {file_path}: {e}")
+        return ""
 
 
 def load_documents(root: str) -> tuple:
+    """
+    Load and compress all documents from the specified directory.
+
+    Returns:
+        tuple: (resume_text, summary, sample_answers, cover_letters)
+
+    All text is aggressively compressed for:
+    - Better readability in LangSmith
+    - More efficient token usage
+    - Cleaner context windows
+    """
     root = Path(root)
 
-    resume_text = "[Resume not available]"
-    rtxt = _read_pdf_text(root / "resume.pdf")
-    if rtxt:
-        resume_text = rtxt
-        logger.info("Resume loaded")
+    # Load resume
+    resume_text = _read_pdf_text(root / "resume.pdf")
+    if resume_text:
+        logger.info(f"Resume loaded ({len(resume_text)} chars)")
+    else:
+        resume_text = "[Resume not available]"
+        logger.warning("Resume not loaded")
 
-    summary = "[Summary not available]"
-    try:
-        s = (root / "summary.txt").read_text(encoding="utf-8").strip()
-    except FileNotFoundError:
-        logger.warning(f"Summary not found: {root / 'summary.txt'}")
-        s = ""
-    except Exception as e:
-        logger.error(f"Could not load summary: {e}")
-        s = ""
-    if s:
-        summary = s
-        logger.info("Summary loaded")
+    # Load summary
+    summary = _read_text_file(root / "summary.txt")
+    if summary:
+        logger.info(f"Summary loaded ({len(summary)} chars)")
+    else:
+        summary = "[Summary not available]"
+        logger.warning("Summary not loaded")
 
-    sample_answers = "[Sample answers not available]"
-    try:
-        sa = (root / "sample_answers.txt").read_text(encoding="utf-8").strip()
-    except FileNotFoundError:
-        logger.warning(f"Sample answers not found: {root / 'sample_answers.txt'}")
-        sa = ""
-    except Exception as e:
-        logger.error(f"Could not load sample answers: {e}")
-        sa = ""
-    if sa:
-        sample_answers = sa
-        logger.info("Sample answers loaded")
+    # Load sample answers
+    sample_answers = _read_text_file(root / "sample_answers.txt")
+    if sample_answers:
+        logger.info(f"Sample answers loaded ({len(sample_answers)} chars)")
+    else:
+        sample_answers = "[Sample answers not available]"
+        logger.warning("Sample answers not loaded")
 
+    # Load cover letters
     cover_letters: list[str] = []
     for i in (1, 2):
-        t = _read_pdf_text(root / f"coverletter{i}.pdf")
-        if t:
-            cover_letters.append(t)
-            logger.info(f"Cover letter {i} loaded")
-        if not t:
-            logger.warning(f"Cover letter {i} missing or empty")
+        cover_letter = _read_pdf_text(root / f"coverletter{i}.pdf")
+        if cover_letter:
+            cover_letters.append(cover_letter)
+            logger.info(f"Cover letter {i} loaded ({len(cover_letter)} chars)")
+        else:
+            logger.warning(f"Cover letter {i} not loaded")
 
     return resume_text, summary, sample_answers, cover_letters
