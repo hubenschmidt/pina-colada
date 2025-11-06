@@ -3,7 +3,6 @@ Orchestrator - functional implementation
 Uses factory function pattern to create a graph with closed-over state
 """
 
-import uuid
 import json
 import logging
 from typing import List, Any, Optional, Dict, Annotated
@@ -47,9 +46,7 @@ def _build_resume_context(
     if sample_answers:
         context_parts.append(f"SAMPLE_ANSWERS: {sample_answers}")
     if cover_letters:
-        # Join cover letters with space, not newlines
-        cover_letters_text = " ".join(cover_letters)
-        context_parts.append(f"COVER_LETTERS: {cover_letters_text}")
+        context_parts.append(f"COVER_LETTERS: {cover_letters}")
 
     # Join with space instead of newlines for cleaner rendering
     return " | ".join(context_parts)

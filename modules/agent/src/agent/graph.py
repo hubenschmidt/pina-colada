@@ -10,8 +10,7 @@ __all__ = ["graph", "invoke_graph", "build_default_graph"]
 
 import json
 import logging
-import os
-from typing import Dict, Any, Optional, Union, List
+from typing import Dict, Any, Optional, Callable, Awaitable
 from fastapi import WebSocket
 from langfuse import observe
 from dotenv import load_dotenv
@@ -20,13 +19,13 @@ from agent.util.document_scanner import load_documents
 from agent.util.get_success_criteria import get_success_criteria
 from agent.tools.static_tools import record_user_context
 
-logger = logging.getLogger("app.graph")
+logger = logging.getLogger(__name__)
 load_dotenv(override=True)
 
 # Load resume documents
 RESUME_NAME = "William Hubenschmidt"
 logger.info("Loading documents from me/ directory...")
-resume_text, summary, cover_letters, sample_answers = load_documents("me")
+resume_text, summary, sample_answers, cover_letters = load_documents("me")
 logger.info(
     f"Documents loaded - Resume: {len(resume_text)} chars, "
     f"Summary: {len(summary)} chars, "
@@ -51,13 +50,6 @@ async def get_orchestrator():
         logger.info("Orchestrator initialized successfully")
 
     return _orchestrator_ref["instance"]
-
-
-import json
-import logging
-from typing import Callable, Awaitable
-
-logger = logging.getLogger(__name__)
 
 
 def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]:
@@ -207,7 +199,7 @@ async def invoke_graph(
     set_sender = orchestrator.get("set_websocket_sender")
     set_sender(send)
 
-    # Run (flat)
+    # run
     success_criteria = get_success_criteria(message)
     logger.info(f"Generated success criteria: {success_criteria[:60]}...")
     try:
