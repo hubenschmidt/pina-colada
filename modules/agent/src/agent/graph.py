@@ -230,6 +230,11 @@ async def invoke_graph(
     # message
     message = str(payload.get("message", data))
 
+    # Test triggers (disabled by default - uncomment to enable)
+    # from agent.util.test_triggers import handle_test_error_trigger
+    # if await handle_test_error_trigger(websocket, message):
+    #     return
+
     # orchestrator
     orchestrator = await get_orchestrator()
 
