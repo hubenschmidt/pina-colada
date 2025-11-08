@@ -184,23 +184,52 @@ async function withOptionalBattery(ctx: UserContextV1): Promise<UserContextV1> {
 }
 
 // Turn bare URLs and [text](url) into clickable links; preserve newlines.
-function renderWithLinks(text: string): React.ReactNode[] {
+export function renderWithLinks(text: string): React.ReactNode[] {
   const out: React.ReactNode[] = [];
   let last = 0;
   let key = 0;
 
   // Matches either [label](https://url) or bare https://url
   const LINK_RE = /(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))|(https?:\/\/[^\s]+)/g;
+  
+  // Error message pattern
+  const ERROR_MSG = "Sorry, there was an error generating the response.";
 
-  const pushText = (chunk: string) => {
+  const pushLineBreak = (index: number, totalLines: number) => {
+    if (index >= totalLines - 1) return;
+    out.push(<br key={`br-${key++}`} />);
+  };
+
+  const pushLine = (line: string, isError: boolean) => {
+    if (isError) {
+      out.push(
+        <span key={`error-${key++}`} className={styles.errorText}>
+          {line}
+        </span>
+      );
+      return;
+    }
+    out.push(line);
+  };
+
+  const pushText = (chunk: string, isError: boolean = false) => {
     if (!chunk) return;
     const lines = chunk.split("\n");
     lines.forEach((line, i) => {
-      if (line) out.push(line);
-      if (i < lines.length - 1) out.push(<br key={`br-${key++}`} />);
+      if (!line) {
+        pushLineBreak(i, lines.length);
+        return;
+      }
+
+      pushLine(line, isError);
+      pushLineBreak(i, lines.length);
     });
   };
 
+  // Check if text contains error message
+  const errorIndex = text.indexOf(ERROR_MSG);
+  
+  // Process links normally (error message will be handled in trailing text)
   text.replace(LINK_RE, (match, _mdFull, mdLabel, mdUrl, bareUrl, offset) => {
     // preceding text
     pushText(text.slice(last, offset));
@@ -224,8 +253,20 @@ function renderWithLinks(text: string): React.ReactNode[] {
     return match;
   });
 
-  // trailing text
-  pushText(text.slice(last));
+  // trailing text (may include error message)
+  const trailingText = text.slice(last);
+  if (errorIndex === -1 || errorIndex < last) {
+    pushText(trailingText);
+    return out;
+  }
+
+  // Error message is in trailing text - split and style it
+  const beforeError = trailingText.slice(0, errorIndex - last);
+  const afterError = trailingText.slice(errorIndex - last + ERROR_MSG.length);
+  
+  if (beforeError) pushText(beforeError);
+  pushText(ERROR_MSG, true);
+  if (afterError) pushText(afterError);
 
   return out;
 }

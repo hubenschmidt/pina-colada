@@ -58,12 +58,36 @@ def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]
     messages to the frontend format, maintaining internal streaming state.
     """
     last_sent_length = 0  # captured by the closure
+    disconnected = False  # track websocket connection state
+
+    async def _safe_send_text(text: str) -> bool:
+        """Safely send text to websocket, return False if disconnected"""
+        nonlocal disconnected
+        if disconnected:
+            return False
+        
+        try:
+            await websocket.send_text(text)
+            return True
+        except Exception as e:
+            error_name = type(e).__name__
+            error_msg = str(e).lower()
+            if (
+                "disconnect" in error_name.lower() 
+                or "close" in error_name.lower()
+                or "disconnect" in error_msg
+                or "close" in error_msg
+            ):
+                disconnected = True
+                logger.debug(f"WebSocket disconnected, stopping further sends: {error_name}")
+                return False
+            raise
 
     async def handle_start(_):
         return  # ignore
 
     async def handle_end(_):
-        await websocket.send_text(json.dumps({"on_chat_model_end": True}))
+        await _safe_send_text(json.dumps({"on_chat_model_end": True}))
 
     async def handle_content(payload):
         nonlocal last_sent_length
@@ -72,7 +96,7 @@ def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]
         if not delta:
             return
         last_sent_length = len(content)
-        await websocket.send_text(json.dumps({"on_chat_model_stream": delta}))
+        await _safe_send_text(json.dumps({"on_chat_model_stream": delta}))
 
     handlers = {
         "start": handle_start,
@@ -81,6 +105,9 @@ def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]
     }
 
     async def send(payload_str: str):
+        if disconnected:
+            return
+
         try:
             payload = json.loads(payload_str)
         except json.JSONDecodeError:
@@ -94,7 +121,18 @@ def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]
             logger.warning("Unknown message type: %s", msg_type)
             return
 
-        await handler(payload)
+        try:
+            await handler(payload)
+        except Exception as e:
+            error_name = type(e).__name__
+            error_msg = str(e).lower()
+            if (
+                "disconnect" in error_name.lower() 
+                or "close" in error_name.lower()
+                or "disconnect" in error_msg
+                or "close" in error_msg
+            ):
+                logger.debug(f"WebSocket disconnected during handler: {error_name}")
 
     return send
 
@@ -207,12 +245,38 @@ async def invoke_graph(
             message=message, thread_id=user_uuid, success_criteria=success_criteria
         )
     except Exception as e:
-        logger.error(f"Error invoking orchestrator: {e}", exc_info=True)
-        await websocket.send_text(
-            json.dumps(
-                {
-                    "on_chat_model_stream": "Sorry, there was an error generating the response."
-                }
-            )
+        error_name = type(e).__name__
+        error_msg = str(e).lower()
+        is_disconnect = (
+            "disconnect" in error_name.lower() 
+            or "close" in error_name.lower()
+            or "disconnect" in error_msg
+            or "close" in error_msg
         )
-        await websocket.send_text(json.dumps({"on_chat_model_end": True}))
+        
+        if is_disconnect:
+            logger.info(f"Client disconnected during processing: {error_name}")
+            return
+        
+        logger.error(f"Error invoking orchestrator: {e}", exc_info=True)
+        try:
+            await websocket.send_text(
+                json.dumps(
+                    {
+                        "on_chat_model_stream": "\n\nSorry, there was an error generating the response."
+                    }
+                )
+            )
+            await websocket.send_text(json.dumps({"on_chat_model_end": True}))
+        except Exception as send_err:
+            send_error_name = type(send_err).__name__
+            send_error_msg = str(send_err).lower()
+            if (
+                "disconnect" in send_error_name.lower() 
+                or "close" in send_error_name.lower()
+                or "disconnect" in send_error_msg
+                or "close" in send_error_msg
+            ):
+                logger.debug("Could not send error message, client already disconnected")
+            else:
+                logger.debug(f"Could not send error message: {send_error_name}")

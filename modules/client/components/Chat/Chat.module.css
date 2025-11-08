@@ -263,6 +263,12 @@
   white-space: pre-wrap;
 }
 
+/* ERROR TEXT STYLING */
+.bubbleText .errorText {
+  color: #dc2626; /* red-600 */
+  font-weight: 500;
+}
+
 /* clickable links inside bot/user bubbles */
 .bubbleText a,
 .link {
