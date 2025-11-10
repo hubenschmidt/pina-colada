@@ -325,22 +325,23 @@ def job_search_with_filter(query: str) -> str:
     4. Returns the filtered results
     """
     try:
+        # Get applied jobs tracker first and refresh
+        tracker = get_applied_jobs_tracker()
+        applied_jobs = tracker.fetch_applied_jobs(refresh=True)
+        jobs_details = tracker.get_jobs_details(refresh=True)
+        
+        logger.info(f"Loaded {len(applied_jobs)} applied jobs for filtering")
+
         # Perform the search
         serper = GoogleSerperAPIWrapper()
         raw_results = serper.run(query)
-
-        # Get applied jobs tracker
-        tracker = get_applied_jobs_tracker()
-
-        # Refresh the applied jobs list
-        applied_jobs = tracker.fetch_applied_jobs()
 
         if not applied_jobs:
             logger.warning("No applied jobs loaded - returning unfiltered results")
             return raw_results
 
         # Parse and filter results
-        filtered_results = _filter_job_results(raw_results, tracker)
+        filtered_results = _filter_job_results(raw_results, tracker, jobs_details)
 
         if not filtered_results.strip():
             return "All job postings found have already been applied to. Try refining your search criteria or location."
@@ -349,52 +350,135 @@ def job_search_with_filter(query: str) -> str:
 
     except Exception as e:
         logger.error(f"Job search with filter failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         return f"Job search failed: {e}"
 
 
-def _filter_job_results(raw_results: str, tracker) -> str:
+def _normalize_for_matching(text: str) -> str:
+    """Normalize text for fuzzy matching."""
+    if not text:
+        return ""
+    return text.lower().strip()
+
+
+def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
+    """Check if a job matches any applied job using fuzzy matching."""
+    if not company and not title:
+        return False
+    
+    company_norm = _normalize_for_matching(company)
+    title_norm = _normalize_for_matching(title)
+    
+    for applied_job in jobs_details:
+        applied_company = _normalize_for_matching(applied_job.get("company", ""))
+        applied_title = _normalize_for_matching(applied_job.get("title", ""))
+        
+        # Check if company matches (fuzzy)
+        company_matches = False
+        if company_norm and applied_company:
+            # Exact match or substring match
+            if company_norm == applied_company or company_norm in applied_company or applied_company in company_norm:
+                company_matches = True
+        
+        # Check if title matches (fuzzy)
+        title_matches = False
+        if title_norm and applied_title:
+            # Check if all words in search title appear in applied title
+            search_words = [w for w in title_norm.split() if len(w) > 2]
+            if search_words:
+                title_matches = all(any(word in applied_title for word in search_words) or any(applied_word in title_norm for applied_word in applied_title.split()))
+            else:
+                title_matches = title_norm in applied_title or applied_title in title_norm
+        
+        # If we have both company and title, both must match
+        # If we only have one, that one must match
+        if company_norm and title_norm:
+            if company_matches and title_matches:
+                logger.info(f"Filtering out applied job: {company} - {title} (matches {applied_company} - {applied_title})")
+                return True
+        elif company_norm and company_matches:
+            logger.info(f"Filtering out applied job: {company} (matches {applied_company})")
+            return True
+        elif title_norm and title_matches:
+            logger.info(f"Filtering out applied job: {title} (matches {applied_title})")
+            return True
+    
+    return False
+
+
+def _filter_job_results(raw_results: str, tracker, jobs_details: list) -> str:
     """
     Filter job search results to remove already-applied positions.
 
     Args:
         raw_results: Raw search results from Serper
         tracker: AppliedJobsTracker instance
+        jobs_details: List of applied job details for matching
 
     Returns:
         Filtered results text
     """
+    if not jobs_details:
+        logger.warning("No applied jobs details available for filtering")
+        return raw_results
+    
     # Split results into lines
     lines = raw_results.split('\n')
     filtered_lines = []
-    current_job = {}
+    current_job_company = ""
+    current_job_title = ""
     skip_current = False
 
     for line in lines:
         stripped = line.strip()
+        if not stripped:
+            if not skip_current:
+                filtered_lines.append(line)
+            continue
 
-        # Detect company name patterns (common in Serper results)
-        # Example: "Company: Google" or "Google - Software Engineer"
-        company_match = re.search(r'(?:Company:\s*)?([A-Z][A-Za-z\s&.,]+?)(?:\s*[-–]\s*|\s*\n)', line)
+        # Detect company name patterns (more flexible)
+        # Examples: "Company: Google", "Google - Software Engineer", "at Google", "Google Inc"
+        company_patterns = [
+            r'(?:Company|At|@):\s*([A-Z][A-Za-z0-9\s&.,-]+?)(?:\s*[-–]|\s*$|\s*\n)',
+            r'^([A-Z][A-Za-z0-9\s&.,-]+?)\s*[-–]\s*[A-Z]',  # "Company - Title"
+            r'\b([A-Z][A-Za-z0-9\s&.,-]{2,})\s+(?:is|hiring|seeking)',  # "Company is hiring"
+        ]
+        
+        # Detect job title patterns (more flexible)
+        title_patterns = [
+            r'(?:Title|Position|Role):\s*([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))',
+            r'[-–]\s*([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))',
+            r'(?:looking for|seeking|hiring)\s+([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))',
+        ]
 
-        # Detect job title patterns
-        # Example: "Title: Software Engineer" or after a dash
-        title_match = re.search(r'(?:Title:\s*)?(?:[-–]\s*)?([A-Z][A-Za-z\s/]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior))', line)
+        # Try to extract company
+        for pattern in company_patterns:
+            match = re.search(pattern, line, re.IGNORECASE)
+            if match:
+                potential_company = match.group(1).strip()
+                # Filter out common false positives
+                if potential_company.lower() not in ['the', 'a', 'an', 'for', 'with', 'and', 'or']:
+                    current_job_company = potential_company
+                    break
 
-        if company_match or title_match:
-            # Check if we should skip this job
-            company = company_match.group(1).strip() if company_match else current_job.get('company', '')
-            title = title_match.group(1).strip() if title_match else current_job.get('title', '')
+        # Try to extract title
+        for pattern in title_patterns:
+            match = re.search(pattern, line, re.IGNORECASE)
+            if match:
+                current_job_title = match.group(1).strip()
+                break
 
-            if company or title:
-                current_job = {'company': company, 'title': title}
-
-                # Check if already applied
-                if tracker.is_job_applied(company, title):
-                    logger.info(f"Filtering out: {company} - {title}")
-                    skip_current = True
-                    continue
-                else:
-                    skip_current = False
+        # Check if we have enough info to match
+        if current_job_company or current_job_title:
+            if _matches_applied_job(current_job_company, current_job_title, jobs_details):
+                skip_current = True
+                # Reset for next job
+                current_job_company = ""
+                current_job_title = ""
+                continue
+            else:
+                skip_current = False
 
         # Add line if we're not skipping current job
         if not skip_current:
