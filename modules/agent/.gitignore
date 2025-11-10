@@ -130,6 +130,11 @@ ENV/
 env.bak/
 venv.bak/
 
+# Google Cloud credentials (if using file-based auth)
+credentials/
+*credentials*.json
+!.env.example
+
 # Spyder project settings
 .spyderproject
 .spyproject

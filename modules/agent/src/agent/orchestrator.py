@@ -105,6 +105,7 @@ async def create_orchestrator(
     """
     from agent.tools.worker_tools import get_worker_tools
     from agent.workers.worker import create_worker_node, route_from_worker
+    from agent.workers.job_hunter import create_job_hunter_node, route_from_job_hunter
     from agent.workers.evaluator import create_evaluator_node, route_from_evaluator
     from agent.workers.cover_letter_writer import create_cover_letter_writer_node
     from agent.routers.agent_router import route_to_agent, route_from_router_edge
@@ -124,6 +125,7 @@ async def create_orchestrator(
 
     # Create nodes (each returns a pure function with closed-over LLMs)
     worker = await create_worker_node(tools, resume_context_concise, _trim_messages)
+    job_hunter = await create_job_hunter_node(tools, resume_context_concise, _trim_messages)
     evaluator = await create_evaluator_node()
     cover_letter_writer = await create_cover_letter_writer_node(_trim_messages)
 
@@ -135,6 +137,7 @@ async def create_orchestrator(
     logger.info("Adding nodes to graph...")
     graph_builder.add_node("router", route_to_agent)
     graph_builder.add_node("worker", worker)
+    graph_builder.add_node("job_hunter", job_hunter)
     graph_builder.add_node("cover_letter_writer", cover_letter_writer)
     graph_builder.add_node("tools", ToolNode(tools=tools))
     graph_builder.add_node("evaluator", evaluator)
@@ -147,7 +150,11 @@ async def create_orchestrator(
     graph_builder.add_conditional_edges(
         "router",
         route_from_router_edge,
-        {"worker": "worker", "cover_letter_writer": "cover_letter_writer"},
+        {
+            "worker": "worker",
+            "job_hunter": "job_hunter",
+            "cover_letter_writer": "cover_letter_writer",
+        },
     )
 
     graph_builder.add_conditional_edges(
@@ -156,7 +163,27 @@ async def create_orchestrator(
         {"tools": "tools", "evaluator": "evaluator"},
     )
 
-    graph_builder.add_edge("tools", "worker")
+    graph_builder.add_conditional_edges(
+        "job_hunter",
+        route_from_job_hunter,
+        {"tools": "tools", "evaluator": "evaluator"},
+    )
+
+    def route_from_tools(state: Dict[str, Any]) -> str:
+        """Route back to the node that called tools."""
+        route_to = state.get("route_to_agent", "worker")
+        logger.info(f"→ Routing from tools back to {route_to}")
+        return route_to
+
+    graph_builder.add_conditional_edges(
+        "tools",
+        route_from_tools,
+        {
+            "worker": "worker",
+            "job_hunter": "job_hunter",
+            "cover_letter_writer": "cover_letter_writer",
+        },
+    )
     graph_builder.add_edge("cover_letter_writer", "evaluator")
 
     graph_builder.add_conditional_edges(
@@ -164,6 +191,7 @@ async def create_orchestrator(
         route_from_evaluator,
         {
             "worker": "worker",
+            "job_hunter": "job_hunter",
             "cover_letter_writer": "cover_letter_writer",
             "END": END,
         },

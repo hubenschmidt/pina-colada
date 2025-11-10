@@ -49,14 +49,36 @@ def route_to_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         "application letter",
     ]
 
+    job_search_phrases = [
+        "job search",
+        "find jobs",
+        "job leads",
+        "job opportunities",
+        "search for jobs",
+        "jobs in",
+        "job postings",
+        "job openings",
+        "hiring",
+        "positions available",
+    ]
+
     is_cover_letter_request = any(
         phrase in recent_context for phrase in cover_letter_phrases
+    )
+
+    is_job_search_request = any(
+        phrase in recent_context for phrase in job_search_phrases
     )
 
     if is_cover_letter_request:
         logger.info("✅ Detected cover letter request in conversation context!")
         logger.info("→ Routing to COVER_LETTER_WRITER")
         return {"route_to_agent": "cover_letter_writer"}
+
+    if is_job_search_request:
+        logger.info("✅ Detected job search request in conversation context!")
+        logger.info("→ Routing to JOB_HUNTER")
+        return {"route_to_agent": "job_hunter"}
 
     logger.info("→ Routing to WORKER")
     return {"route_to_agent": "worker"}
@@ -66,4 +88,10 @@ def route_from_router_edge(state: Dict[str, Any]) -> str:
     """Read which agent the router decided to use"""
     route = state.get("route_to_agent", "worker")
     logger.info(f"🔀 Router decided: {route}")
+    
+    valid_routes = {"worker", "cover_letter_writer", "job_hunter"}
+    if route not in valid_routes:
+        logger.warning(f"Invalid route '{route}', defaulting to 'worker'")
+        return "worker"
+    
     return route
