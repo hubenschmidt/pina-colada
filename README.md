@@ -2,7 +2,7 @@
 
 ## Description
 
-This is a production-grade LangGraph-based conversational AI agent that acts as a personal assistant for a resume website (pinacolada.co). It uses an orchestrator pattern with multiple specialized worker nodes to handle various tasks like answering questions, writing cover letters, and searching for jobs.
+This is a production-grade LangGraph-based conversational AI agent that acts as a personal assistant. It uses an orchestrator pattern with multiple specialized worker nodes to handle various tasks like answering questions, writing cover letters, and searching for jobs.
 
 ## System Overview
 
