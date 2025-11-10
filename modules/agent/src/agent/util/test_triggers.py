@@ -50,15 +50,18 @@ async def handle_test_error_trigger(
     except Exception as send_err:
         send_error_name = type(send_err).__name__
         send_error_msg = str(send_err).lower()
-        if (
+        is_disconnect_error = (
             "disconnect" in send_error_name.lower() 
             or "close" in send_error_name.lower()
             or "disconnect" in send_error_msg
             or "close" in send_error_msg
-        ):
+        )
+        
+        if is_disconnect_error:
             logger.debug("Could not send test error message, client already disconnected")
-        else:
-            logger.debug(f"Could not send test error message: {send_error_name}")
+            return True
+        
+        logger.debug(f"Could not send test error message: {send_error_name}")
     
     return True
 
