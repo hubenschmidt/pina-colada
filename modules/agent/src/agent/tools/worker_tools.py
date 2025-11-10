@@ -1,13 +1,21 @@
 import logging
 import re
-from langchain_core.tools import Tool
+import os
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from typing import List, Dict
+from langchain_core.tools import Tool, StructuredTool
 from langchain_community.agent_toolkits import FileManagementToolkit
 from langchain_community.tools.wikipedia.tool import WikipediaQueryRun
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from langchain_community.utilities.wikipedia import WikipediaAPIWrapper
 from agent.tools.static_tools import push
 from agent.services.google_sheets import get_applied_jobs_tracker
+from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 
+load_dotenv(override=True)
 logger = logging.getLogger(__name__)
 
 
@@ -29,6 +37,100 @@ def record_unknown_question(question: str):
     push(message)
     logger.info(message)
     return {"recorded": "ok", "question": question}
+
+
+def _get_smtp_config():
+    """Get SMTP configuration from environment variables."""
+    return {
+        "host": os.getenv("SMTP_HOST", "smtp.gmail.com"),
+        "port": int(os.getenv("SMTP_PORT", "587")),
+        "username": os.getenv("SMTP_USERNAME"),
+        "password": os.getenv("SMTP_PASSWORD"),
+        "from_email": os.getenv("SMTP_FROM_EMAIL", os.getenv("SMTP_USERNAME")),
+    }
+
+
+def _format_line_with_url(line: str) -> str:
+    """Format a single line that contains a URL."""
+    url_match = re.search(r'https?://[^\s]+', line)
+    if not url_match:
+        return f"{line.strip()}\n"
+    
+    url = url_match.group(0)
+    parts = line.split(url)[0].strip()
+    if not parts:
+        return f"{url}\n"
+    
+    return f"{parts}\n{url}\n"
+
+
+def _format_job_listing_email(job_listings: str) -> str:
+    """Format job listings for email."""
+    if not job_listings:
+        return "No job listings to send."
+    
+    lines = [line.strip() for line in job_listings.split('\n') if line.strip()]
+    formatted_lines = [_format_line_with_url(line) for line in lines]
+    
+    return "".join(formatted_lines)
+
+
+def _build_email_body(body: str, job_listings: str) -> str:
+    """Build complete email body with optional job listings."""
+    if not job_listings:
+        return body
+    
+    formatted_listings = _format_job_listing_email(job_listings)
+    return f"{body}\n\n{formatted_listings}"
+
+
+def _create_email_message(to_email: str, subject: str, body: str, from_email: str) -> MIMEMultipart:
+    """Create email message object."""
+    msg = MIMEMultipart()
+    msg["From"] = from_email
+    msg["To"] = to_email
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body, "plain"))
+    return msg
+
+
+def _send_via_smtp(config: dict, msg: MIMEMultipart) -> None:
+    """Send email via SMTP."""
+    with smtplib.SMTP(config["host"], config["port"]) as server:
+        server.starttls()
+        server.login(config["username"], config["password"])
+        server.send_message(msg)
+
+
+def send_email(
+    to_email: str,
+    subject: str,
+    body: str,
+    job_listings: str = ""
+) -> str:
+    """Send an email to the specified address."""
+    config = _get_smtp_config()
+    
+    if not config["username"] or not config["password"]:
+        logger.warning("SMTP credentials not configured")
+        return "Email not configured. SMTP_USERNAME and SMTP_PASSWORD environment variables are required."
+    
+    if not to_email:
+        return "Recipient email address is required."
+    
+    try:
+        email_body = _build_email_body(body, job_listings)
+        msg = _create_email_message(to_email, subject, email_body, config["from_email"])
+        _send_via_smtp(config, msg)
+        
+        logger.info(f"Email sent successfully to {to_email}")
+        return f"Email sent successfully to {to_email}"
+    
+    except Exception as e:
+        logger.error(f"Failed to send email: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return f"Failed to send email: {e}"
 
 
 def record_user_details(
@@ -362,126 +464,170 @@ def _normalize_for_matching(text: str) -> str:
     return text.lower().strip()
 
 
-def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
-    """Check if a job matches any applied job using fuzzy matching."""
-    if not company and not title:
+def _company_matches(search_company: str, applied_company: str) -> bool:
+    """Check if company names match (strict)."""
+    if not search_company or not applied_company:
         return False
     
-    company_norm = _normalize_for_matching(company)
-    title_norm = _normalize_for_matching(title)
+    search_norm = _normalize_for_matching(search_company)
+    applied_norm = _normalize_for_matching(applied_company)
     
-    for applied_job in jobs_details:
-        applied_company = _normalize_for_matching(applied_job.get("company", ""))
-        applied_title = _normalize_for_matching(applied_job.get("title", ""))
-        
-        # Check if company matches (fuzzy)
-        company_matches = False
-        if company_norm and applied_company:
-            # Exact match or substring match
-            if company_norm == applied_company or company_norm in applied_company or applied_company in company_norm:
-                company_matches = True
-        
-        # Check if title matches (fuzzy)
-        title_matches = False
-        if title_norm and applied_title:
-            # Check if all words in search title appear in applied title
-            search_words = [w for w in title_norm.split() if len(w) > 2]
-            if search_words:
-                title_matches = all(any(word in applied_title for word in search_words) or any(applied_word in title_norm for applied_word in applied_title.split()))
-            else:
-                title_matches = title_norm in applied_title or applied_title in title_norm
-        
-        # If we have both company and title, both must match
-        # If we only have one, that one must match
-        if company_norm and title_norm:
-            if company_matches and title_matches:
-                logger.info(f"Filtering out applied job: {company} - {title} (matches {applied_company} - {applied_title})")
-                return True
-        elif company_norm and company_matches:
-            logger.info(f"Filtering out applied job: {company} (matches {applied_company})")
-            return True
-        elif title_norm and title_matches:
-            logger.info(f"Filtering out applied job: {title} (matches {applied_title})")
+    # Exact match
+    if search_norm == applied_norm:
+        return True
+    
+    # Remove common suffixes/prefixes for comparison
+    search_clean = search_norm.replace(" inc", "").replace(" llc", "").replace(" corp", "").replace(" ltd", "").strip()
+    applied_clean = applied_norm.replace(" inc", "").replace(" llc", "").replace(" corp", "").replace(" ltd", "").strip()
+    
+    if search_clean == applied_clean:
+        return True
+    
+    # One is substring of the other (but require at least 4 chars to avoid false matches)
+    if len(search_clean) >= 4 and len(applied_clean) >= 4:
+        if search_clean in applied_clean or applied_clean in search_clean:
             return True
     
     return False
 
 
+def _title_matches(search_title: str, applied_title: str) -> bool:
+    """Check if job titles match (strict - requires exact or very close match)."""
+    if not search_title or not applied_title:
+        return False
+    
+    search_norm = _normalize_for_matching(search_title)
+    applied_norm = _normalize_for_matching(applied_title)
+    
+    # Exact match
+    if search_norm == applied_norm:
+        return True
+    
+    # One contains the other (for variations like "Senior Software Engineer" vs "Software Engineer")
+    if search_norm in applied_norm or applied_norm in search_norm:
+        return True
+    
+    # Check if core title words match (ignore modifiers like "Senior", "Lead", etc.)
+    search_words = [w for w in search_norm.split() if w not in ["senior", "lead", "staff", "principal", "junior", "mid", "level"]]
+    applied_words = [w for w in applied_norm.split() if w not in ["senior", "lead", "staff", "principal", "junior", "mid", "level"]]
+    
+    # Require at least 2 core words to match
+    if len(search_words) >= 2 and len(applied_words) >= 2:
+        matching_words = [w for w in search_words if w in applied_words]
+        if len(matching_words) >= 2:
+            return True
+    
+    return False
+
+
+def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
+    """Check if a job matches any applied job (strict matching)."""
+    if not company and not title:
+        return False
+    
+    # Require both company AND title to match (strict)
+    if not company or not title:
+        logger.debug(f"Skipping match check - missing company or title: company={bool(company)}, title={bool(title)}")
+        return False
+    
+    for applied_job in jobs_details:
+        applied_company = applied_job.get("company", "")
+        applied_title = applied_job.get("title", "")
+        
+        if not applied_company or not applied_title:
+            continue
+        
+        company_match = _company_matches(company, applied_company)
+        title_match = _title_matches(title, applied_title)
+        
+        if company_match and title_match:
+            logger.info(f"Filtering out applied job: {company} - {title} (matches {applied_company} - {applied_title})")
+            return True
+    
+    return False
+
+
+def _extract_company_from_line(line: str) -> str:
+    """Extract company name from a line of text."""
+    company_patterns = [
+        r'(?:Company|At|@):\s*([A-Z][A-Za-z0-9\s&.,-]+?)(?:\s*[-–]|\s*$|\s*\n)',
+        r'^([A-Z][A-Za-z0-9\s&.,-]+?)\s*[-–]\s*[A-Z]',
+        r'\b([A-Z][A-Za-z0-9\s&.,-]{2,})\s+(?:is|hiring|seeking)',
+    ]
+    
+    for pattern in company_patterns:
+        match = re.search(pattern, line, re.IGNORECASE)
+        if match:
+            potential_company = match.group(1).strip()
+            if potential_company.lower() not in ['the', 'a', 'an', 'for', 'with', 'and', 'or']:
+                return potential_company
+    
+    return ""
+
+
+def _extract_title_from_line(line: str) -> str:
+    """Extract job title from a line of text."""
+    title_patterns = [
+        r'(?:Title|Position|Role):\s*([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))',
+        r'[-–]\s*([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))',
+        r'(?:looking for|seeking|hiring)\s+([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))',
+    ]
+    
+    for pattern in title_patterns:
+        match = re.search(pattern, line, re.IGNORECASE)
+        if match:
+            return match.group(1).strip()
+    
+    return ""
+
+
+def _should_skip_line(line: str, current_company: str, current_title: str, jobs_details: list) -> tuple[bool, str, str]:
+    """Determine if line should be skipped and update current job info."""
+    stripped = line.strip()
+    if not stripped:
+        return False, current_company, current_title
+    
+    company = _extract_company_from_line(line)
+    title = _extract_title_from_line(line)
+    
+    new_company = company if company else current_company
+    new_title = title if title else current_title
+    
+    if new_company and new_title:
+        if _matches_applied_job(new_company, new_title, jobs_details):
+            return True, "", ""
+    
+    return False, new_company, new_title
+
+
+def _process_line_for_filtering(line: str, current_company: str, current_title: str, jobs_details: list) -> tuple[bool, str, str]:
+    """Process a line and determine if it should be included."""
+    skip, new_company, new_title = _should_skip_line(line, current_company, current_title, jobs_details)
+    
+    if skip:
+        return False, "", ""
+    
+    return True, new_company, new_title
+
+
 def _filter_job_results(raw_results: str, tracker, jobs_details: list) -> str:
-    """
-    Filter job search results to remove already-applied positions.
-
-    Args:
-        raw_results: Raw search results from Serper
-        tracker: AppliedJobsTracker instance
-        jobs_details: List of applied job details for matching
-
-    Returns:
-        Filtered results text
-    """
+    """Filter job search results to remove already-applied positions."""
     if not jobs_details:
         logger.warning("No applied jobs details available for filtering")
         return raw_results
     
-    # Split results into lines
     lines = raw_results.split('\n')
     filtered_lines = []
-    current_job_company = ""
-    current_job_title = ""
-    skip_current = False
+    current_company = ""
+    current_title = ""
 
     for line in lines:
-        stripped = line.strip()
-        if not stripped:
-            if not skip_current:
-                filtered_lines.append(line)
-            continue
-
-        # Detect company name patterns (more flexible)
-        # Examples: "Company: Google", "Google - Software Engineer", "at Google", "Google Inc"
-        company_patterns = [
-            r'(?:Company|At|@):\s*([A-Z][A-Za-z0-9\s&.,-]+?)(?:\s*[-–]|\s*$|\s*\n)',
-            r'^([A-Z][A-Za-z0-9\s&.,-]+?)\s*[-–]\s*[A-Z]',  # "Company - Title"
-            r'\b([A-Z][A-Za-z0-9\s&.,-]{2,})\s+(?:is|hiring|seeking)',  # "Company is hiring"
-        ]
+        include, new_company, new_title = _process_line_for_filtering(line, current_company, current_title, jobs_details)
         
-        # Detect job title patterns (more flexible)
-        title_patterns = [
-            r'(?:Title|Position|Role):\s*([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))',
-            r'[-–]\s*([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))',
-            r'(?:looking for|seeking|hiring)\s+([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))',
-        ]
-
-        # Try to extract company
-        for pattern in company_patterns:
-            match = re.search(pattern, line, re.IGNORECASE)
-            if match:
-                potential_company = match.group(1).strip()
-                # Filter out common false positives
-                if potential_company.lower() not in ['the', 'a', 'an', 'for', 'with', 'and', 'or']:
-                    current_job_company = potential_company
-                    break
-
-        # Try to extract title
-        for pattern in title_patterns:
-            match = re.search(pattern, line, re.IGNORECASE)
-            if match:
-                current_job_title = match.group(1).strip()
-                break
-
-        # Check if we have enough info to match
-        if current_job_company or current_job_title:
-            if _matches_applied_job(current_job_company, current_job_title, jobs_details):
-                skip_current = True
-                # Reset for next job
-                current_job_company = ""
-                current_job_title = ""
-                continue
-            else:
-                skip_current = False
-
-        # Add line if we're not skipping current job
-        if not skip_current:
+        current_company = new_company
+        current_title = new_title
+        
+        if include:
             filtered_lines.append(line)
 
     return '\n'.join(filtered_lines)
@@ -506,6 +652,21 @@ async def get_worker_tools():
         description="Record user contact information. Requires email, optional name and notes. Use after collecting contact info from the conversation.",
     )
     tools.append(record_details_tool)
+    
+    # Email sending tool (using StructuredTool for multiple parameters)
+    class SendEmailInput(BaseModel):
+        to_email: str = Field(description="Recipient email address")
+        subject: str = Field(description="Email subject line")
+        body: str = Field(description="Email body text")
+        job_listings: str = Field(default="", description="Optional job listings to include in email")
+    
+    send_email_tool = StructuredTool.from_function(
+        func=send_email,
+        name="send_email",
+        description="Send an email to a user. Use when user requests to receive job listings or other information via email. Always include the job listings in the job_listings parameter if sending job search results.",
+        args_schema=SendEmailInput,
+    )
+    tools.append(send_email_tool)
 
     # Unknown question recording tool
     record_question_tool = Tool(
