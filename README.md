@@ -43,7 +43,7 @@
    │ • Job search    │         │   word letters            │
    │ • Tool calling  │         │ • Uses resume data        │
    └────────┬────────┘         │ • Professional tone       │
-            │                  └─────────┬────────────────_┘
+            │                  └─────────┬─────────────────┘
             ▼                            │
    ┌─────────────────┐                   │
    │  TOOL NODE      │                   │
