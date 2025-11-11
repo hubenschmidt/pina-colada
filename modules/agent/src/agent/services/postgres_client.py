@@ -5,7 +5,7 @@ import os
 from typing import Dict, List, Optional, Set
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
-from agent.models.job import AppliedJob, Base
+from agent.models.Job import Job, Base
 
 logger = logging.getLogger(__name__)
 
@@ -61,15 +61,14 @@ def _normalize_job_identifier(company: str, title: str) -> str:
     return f"{company.lower().strip()}|{title.lower().strip()}"
 
 
-def _map_db_record_to_job(record: AppliedJob) -> Dict[str, str]:
+def _map_db_record_to_job(record: Job) -> Dict[str, str]:
     """Map database record to job dictionary."""
     return {
         "company": record.company or "Unknown Company",
         "title": record.job_title or "",
-        "date_applied": str(record.application_date) if record.application_date else "Not specified",
+        "date_applied": str(record.date) if record.date else "Not specified",
         "link": record.job_url or "",
         "status": record.status or "applied",
-        "location": record.location or "",
         "salary_range": record.salary_range or "",
         "notes": record.notes or "",
         "source": record.source or "manual",
@@ -98,10 +97,10 @@ def fetch_applied_jobs(refresh: bool = False) -> Set[str]:
     
     try:
         # Filter by status='applied' only
-        stmt = select(AppliedJob).where(AppliedJob.status == "applied")
+        stmt = select(Job).where(Job.status == "applied")
         records = session.execute(stmt).scalars().all()
         
-        logger.info(f"✓ Found {len(records)} rows in applied_jobs table with status='applied'")
+        logger.info(f"✓ Found {len(records)} rows in Job table with status='applied'")
         
         applied_jobs = set()
         jobs_details = []
@@ -180,7 +179,7 @@ def add_applied_job(
     company: str,
     job_title: str,
     job_url: str = "",
-    location: str = "",
+    location: str = "",  # Deprecated, kept for API compatibility but ignored
     salary_range: str = "",
     notes: str = "",
     status: str = "applied",
@@ -193,11 +192,10 @@ def add_applied_job(
         return None
     
     try:
-        job = AppliedJob(
+        job = Job(
             company=company,
             job_title=job_title,
             job_url=job_url,
-            location=location,
             salary_range=salary_range,
             notes=notes,
             status=status,

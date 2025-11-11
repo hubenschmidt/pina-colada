@@ -56,7 +56,7 @@ import { supabase, AppliedJob, AppliedJobInsert, AppliedJobUpdate } from './lib/
 
 // Type-safe queries
 const { data } = await supabase
-  .from('applied_jobs')
+  .from('Job')
   .select('*')
   // TypeScript will autocomplete and validate fields
 

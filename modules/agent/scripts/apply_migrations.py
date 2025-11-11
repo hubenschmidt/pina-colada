@@ -181,8 +181,70 @@ def _apply_migration_files(cursor, conn, migration_files: List[Path]):
         print(f"✓ Successfully applied {migration_file.name}")
 
 
+def apply_migrations_to_local_postgres(migrations_dir: Path) -> bool:
+    """Apply migrations to local Postgres database."""
+    psycopg2 = _import_psycopg2()
+    if not psycopg2:
+        return False
+
+    # Get local Postgres connection details
+    postgres_host = os.getenv("POSTGRES_HOST", "postgres")
+    postgres_port = int(os.getenv("POSTGRES_PORT", "5432"))
+    postgres_user = os.getenv("POSTGRES_USER", "postgres")
+    postgres_password = os.getenv("POSTGRES_PASSWORD", "postgres")
+    postgres_db = os.getenv("POSTGRES_DB", "pina_colada")
+
+    try:
+        print(f"\nConnecting to local Postgres: {postgres_host}:{postgres_port}/{postgres_db}")
+        conn = psycopg2.connect(
+            host=postgres_host,
+            port=postgres_port,
+            database=postgres_db,
+            user=postgres_user,
+            password=postgres_password,
+            connect_timeout=10
+        )
+    except psycopg2.OperationalError as e:
+        print(f"\n❌ Failed to connect to local Postgres: {e}")
+        return False
+
+    # Check if migrations are already applied (check for Job table)
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            SELECT EXISTS (
+                SELECT FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name = 'Job'
+            );
+        """)
+        table_exists = cursor.fetchone()[0]
+        if table_exists:
+            print("✓ Database schema up to date, no migrations needed")
+            cursor.close()
+            conn.close()
+            return True
+    except Exception as e:
+        print(f"⚠️  Could not check migration status: {e}")
+        # Continue to apply migrations anyway
+
+    migration_files = get_migration_files(migrations_dir)
+    if not migration_files:
+        cursor.close()
+        conn.close()
+        print("✓ No migration files found")
+        return True
+
+    _apply_migration_files(cursor, conn, migration_files)
+    cursor.close()
+    conn.close()
+
+    print("\n✓ All migrations applied successfully!")
+    return True
+
+
 def apply_migrations_with_psycopg2(migrations_dir: Path) -> bool:
-    """Apply migrations using psycopg2 (direct PostgreSQL connection)."""
+    """Apply migrations using psycopg2 (direct PostgreSQL connection) - Supabase only."""
     psycopg2 = _import_psycopg2()
     if not psycopg2:
         return False
@@ -226,14 +288,18 @@ def apply_migrations_with_psycopg2(migrations_dir: Path) -> bool:
 
 
 def main():
-    """Main entry point."""
+    """Main entry point for local development migrations.
+    
+    Note: Supabase migrations are handled in Azure Pipeline for production.
+    This script only applies migrations to local Postgres.
+    """
     print("="*60)
-    print("Supabase Migration Tool")
+    print("Local Postgres Migration Tool")
     print("="*60)
 
     # Get migrations directory
     # In Docker: /app/supabase_migrations
-    # Locally: relative to project root
+    # Locally: modules/agent/supabase_migrations/
     script_dir = Path(__file__).parent
 
     # Try Docker path first
@@ -241,10 +307,10 @@ def main():
     if docker_migrations_dir.exists():
         migrations_dir = docker_migrations_dir
         print(f"\n✓ Running in Docker container")
-    if not docker_migrations_dir.exists():
-        # Local development path
-        project_root = script_dir.parent.parent.parent
-        migrations_dir = project_root / "supabase_migrations"
+    else:
+        # Local development path - migrations are in modules/agent/supabase_migrations/
+        agent_dir = script_dir.parent
+        migrations_dir = agent_dir / "supabase_migrations"
         print(f"\n✓ Running in local development")
 
     print(f"Migrations directory: {migrations_dir}")
@@ -263,21 +329,16 @@ def main():
     # Check if psycopg2 is available for direct execution
     psycopg2 = _import_psycopg2()
     if psycopg2:
-        print("\n✅ psycopg2 is available - applying migrations automatically")
-        success = apply_migrations_with_psycopg2(migrations_dir)
+        print("\n✅ psycopg2 is available - applying migrations to local Postgres")
+        success = apply_migrations_to_local_postgres(migrations_dir)
         if not success:
             print("\n❌ Migration application failed")
             sys.exit(1)
         return
 
-    print("\n⚠️  psycopg2 not installed - showing manual instructions")
-    client = get_supabase_client()
-    print("✓ Supabase credentials validated")
-
-    for migration_file in migration_files:
-        if not apply_migration(client, migration_file):
-            print("\n❌ Migration application failed")
-            sys.exit(1)
+    print("\n❌ psycopg2 not installed - cannot apply migrations automatically")
+    print("   Please install psycopg2 or apply migrations manually via SQL")
+    sys.exit(1)
 
 
 if __name__ == "__main__":

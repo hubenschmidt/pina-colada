@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Check database migration status.
+"""Check database migration status for local Postgres.
 
-For local Postgres: Checks if tables exist.
-For Supabase: Checks supabase_migrations.schema_migrations table.
+Checks if tables exist to determine if migrations have been applied.
+Note: Supabase is only used in production via Azure Pipeline.
 """
 
 import os
@@ -17,38 +17,6 @@ try:
     load_dotenv(override=True)
 except ImportError:
     pass
-
-
-def check_supabase_migrations():
-    """Check migration status using Supabase migration tracking table."""
-    try:
-        from supabase import create_client, Client
-        
-        supabase_url = os.getenv("SUPABASE_URL")
-        supabase_key = os.getenv("SUPABASE_SERVICE_KEY")
-        
-        if not supabase_url or not supabase_key:
-            return None
-        
-        client = create_client(supabase_url, supabase_key)
-        
-        # Check if migrations have been applied by checking if the main table exists
-        # Supabase CLI tracks migrations in supabase_migrations.schema_migrations,
-        # but we can't easily query that via the Python client, so we check if
-        # the main application table exists as a proxy
-        try:
-            # Try to query the main table - if it exists, migrations have been applied
-            result = client.table("applied_jobs").select("id").limit(1).execute()
-            migration_files = get_migration_files()
-            return {"type": "supabase", "migrations_applied": True, "migration_files": migration_files}
-        except Exception:
-            # Table doesn't exist - migrations not applied yet
-            migration_files = get_migration_files()
-            return {"type": "supabase", "migrations_applied": False, "migration_files": migration_files}
-    except ImportError:
-        return None
-    except Exception:
-        return None
 
 
 def check_local_postgres():
@@ -74,12 +42,12 @@ def check_local_postgres():
             )
             cursor = conn.cursor()
             
-            # Check if applied_jobs table exists (main table from migrations)
+            # Check if Job table exists (main table from migrations)
             cursor.execute("""
                 SELECT EXISTS (
                     SELECT FROM information_schema.tables 
                     WHERE table_schema = 'public' 
-                    AND table_name = 'applied_jobs'
+                    AND table_name = 'Job'
                 );
             """)
             table_exists = cursor.fetchone()[0]
@@ -104,10 +72,10 @@ def get_migration_files():
     if docker_migrations_dir.exists():
         migrations_dir = docker_migrations_dir
     else:
-        # Local development path
+        # Local development path - migrations are in modules/agent/supabase_migrations/
         script_dir = Path(__file__).parent
-        project_root = script_dir.parent.parent.parent
-        migrations_dir = project_root / "supabase_migrations"
+        agent_dir = script_dir.parent
+        migrations_dir = agent_dir / "supabase_migrations"
     
     if not migrations_dir.exists():
         return []
@@ -118,25 +86,8 @@ def get_migration_files():
 
 def main():
     """Main entry point."""
-    # Check Supabase first (production)
-    supabase_status = check_supabase_migrations()
-    if supabase_status:
-        migrations_applied = supabase_status.get("migrations_applied", False)
-        migration_files = supabase_status.get("migration_files", [])
-        
-        if not migration_files:
-            print("✓ No migration files found")
-            return
-        
-        if migrations_applied:
-            print(f"✓ Database schema up to date, migrations already applied")
-            print(f"  Found {len(migration_files)} migration file(s) in repository")
-        else:
-            print(f"⚠️  {len(migration_files)} migration file(s) found but not yet applied")
-            print("   Run migrations via Supabase CLI or Azure Pipeline")
-        return
-    
-    # Check local Postgres (development)
+    # Check local Postgres (development only)
+    # Note: Supabase migrations are handled in Azure Pipeline for production
     postgres_status = check_local_postgres()
     if postgres_status:
         if postgres_status["migrations_applied"]:
@@ -145,7 +96,7 @@ def main():
             migration_files = get_migration_files()
             if migration_files:
                 print(f"⚠️  {len(migration_files)} migration file(s) found but not yet applied")
-                print("   Run migrations manually via Supabase CLI or SQL Editor")
+                print("   Migrations will be applied automatically on startup")
             else:
                 print("ℹ️  No migration files found")
         return

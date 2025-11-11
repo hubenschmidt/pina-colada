@@ -19,7 +19,7 @@ const JobTracker = () => {
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState(1)
   const [limit, setLimit] = useState(25)
-  const [sortBy, setSortBy] = useState<string>("application_date")
+  const [sortBy, setSortBy] = useState<string>("date")
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC")
   const [selectedJob, setSelectedJob] = useState<AppliedJob | null>(null)
   const [modalOpened, setModalOpened] = useState(false)
@@ -65,7 +65,7 @@ const JobTracker = () => {
     }
   }, [page, limit, sortBy, sortDirection, searchQuery])
 
-  const handleAddJob = async (jobData: Omit<AppliedJob, 'id' | 'created_at' | 'updated_at' | 'application_date'>) => {
+  const handleAddJob = async (jobData: Omit<AppliedJob, 'id' | 'created_at' | 'updated_at' | 'date'>) => {
     const insertData: AppliedJobInsert = jobData as AppliedJobInsert
     await createJob(insertData)
     await loadJobs(false)
@@ -115,11 +115,20 @@ const JobTracker = () => {
       accessor: 'job_title',
       sortable: true,
       sortKey: 'job_title',
-      width: '18%',
+      width: '15%',
+    },
+    {
+      header: 'Date',
+      accessor: 'date',
+      sortable: true,
+      sortKey: 'date',
+      width: '10%',
+      render: (job) => job.date ? new Date(job.date).toLocaleDateString() : <span className="text-zinc-400">—</span>,
     },
     {
       header: 'Notes',
       accessor: 'notes',
+      width: '20%',
       render: (job) => {
         if (!job.notes) return <span className="text-zinc-400">—</span>
         const truncated = job.notes.length > 50 
@@ -136,38 +145,17 @@ const JobTracker = () => {
       },
     },
     {
-      header: 'Status',
-      accessor: 'status',
+      header: 'Resume',
+      accessor: 'resume',
       sortable: true,
-      sortKey: 'status',
+      sortKey: 'resume',
       width: '10%',
-      render: (job) => {
-        const statusColors: Record<string, string> = {
-          applied: 'bg-blue-100 text-blue-800',
-          interviewing: 'bg-yellow-100 text-yellow-800',
-          rejected: 'bg-red-100 text-red-800',
-          offer: 'bg-green-100 text-green-800',
-          accepted: 'bg-purple-100 text-purple-800',
-        }
-        const colors = statusColors[job.status] || 'bg-purple-100 text-purple-800'
-        return (
-          <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors}`}>
-            {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-          </span>
-        )
-      },
-    },
-    {
-      header: 'Date',
-      accessor: 'application_date',
-      sortable: true,
-      sortKey: 'application_date',
-      width: '10%',
-      render: (job) => new Date(job.application_date).toLocaleDateString(),
+      render: (job) => job.resume ? new Date(job.resume).toLocaleDateString() : <span className="text-zinc-400">—</span>,
     },
     {
       header: 'URL',
-      width: '5%',
+      accessor: 'job_url',
+      width: '8%',
       render: (job) => (
         <div className="flex items-center gap-2">
           {job.job_url && (
@@ -181,6 +169,7 @@ const JobTracker = () => {
               <ExternalLink size={16} />
             </a>
           )}
+          {!job.job_url && <span className="text-zinc-400">—</span>}
         </div>
       ),
     },
@@ -231,7 +220,7 @@ const JobTracker = () => {
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400" size={20} />
           <input
             type="text"
-            placeholder="Search by company name or job title..."
+            placeholder="Search by company or job title..."
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
             className="w-full pl-10 pr-10 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent"

@@ -57,10 +57,9 @@ def _map_db_record_to_job(record: Dict[str, Any]) -> Dict[str, str]:
     return {
         "company": record.get("company", "Unknown Company"),
         "title": record.get("job_title", ""),
-        "date_applied": record.get("application_date", "Not specified"),
+        "date_applied": record.get("date", "Not specified"),
         "link": record.get("job_url", ""),
         "status": record.get("status", "applied"),
-        "location": record.get("location", ""),
         "salary_range": record.get("salary_range", ""),
         "notes": record.get("notes", ""),
         "source": record.get("source", "manual"),
@@ -89,10 +88,10 @@ def fetch_applied_jobs(refresh: bool = False) -> Set[str]:
 
     try:
         # Filter by status='applied' only
-        response = client.table("applied_jobs").select("*").eq("status", "applied").execute()
+        response = client.table("Job").select("*").eq("status", "applied").execute()
         records = response.data
 
-        logger.info(f"✓ Found {len(records)} rows in applied_jobs table with status='applied'")
+        logger.info(f"✓ Found {len(records)} rows in Job table with status='applied'")
 
         applied_jobs = set()
         jobs_details = []
@@ -170,7 +169,7 @@ def add_applied_job(
     company: str,
     job_title: str,
     job_url: str = "",
-    location: str = "",
+    location: str = "",  # Deprecated, kept for API compatibility but ignored
     salary_range: str = "",
     notes: str = "",
     status: str = "applied",
@@ -187,14 +186,13 @@ def add_applied_job(
             "company": company,
             "job_title": job_title,
             "job_url": job_url,
-            "location": location,
             "salary_range": salary_range,
             "notes": notes,
             "status": status,
             "source": source
         }
 
-        response = client.table("applied_jobs").insert(data).execute()
+        response = client.table("Job").insert(data).execute()
 
         if response.data:
             logger.info(f"✓ Added job application: {company} - {job_title}")

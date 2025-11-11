@@ -32,7 +32,6 @@ const JobRow = ({ job, onUpdate, onDelete }: JobRowProps) => {
     company: job.company,
     job_title: job.job_title,
     job_url: job.job_url || '',
-    location: job.location || '',
     salary_range: job.salary_range || '',
     notes: job.notes || '',
     status: job.status
@@ -49,7 +48,6 @@ const JobRow = ({ job, onUpdate, onDelete }: JobRowProps) => {
       company: job.company,
       job_title: job.job_title,
       job_url: job.job_url || '',
-      location: job.location || '',
       salary_range: job.salary_range || '',
       notes: job.notes || '',
       status: job.status
@@ -81,13 +79,6 @@ const JobRow = ({ job, onUpdate, onDelete }: JobRowProps) => {
             placeholder="Job Title"
             value={editData.job_title}
             onChange={(e) => setEditData({ ...editData, job_title: e.target.value })}
-            className="px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
-          />
-          <input
-            type="text"
-            placeholder="Location"
-            value={editData.location}
-            onChange={(e) => setEditData({ ...editData, location: e.target.value })}
             className="px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
           />
           <input
@@ -154,10 +145,6 @@ const JobRow = ({ job, onUpdate, onDelete }: JobRowProps) => {
             </div>
           </div>
 
-          {job.location && (
-            <p className="text-sm text-zinc-600 mb-1">📍 {job.location}</p>
-          )}
-
           {job.salary_range && (
             <p className="text-sm text-zinc-600 mb-1">💰 {job.salary_range}</p>
           )}
@@ -168,7 +155,7 @@ const JobRow = ({ job, onUpdate, onDelete }: JobRowProps) => {
 
           <div className="flex items-center gap-2 mt-2 text-xs text-zinc-500">
             <span>
-              Applied: {new Date(job.application_date).toLocaleDateString()}
+              Applied: {new Date(job.date).toLocaleDateString()}
             </span>
             <span>•</span>
             <span className={`px-2 py-1 rounded-full font-medium ${STATUS_COLORS[job.status]}`}>

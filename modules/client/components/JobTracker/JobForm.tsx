@@ -5,7 +5,7 @@ import { AppliedJob } from '../../lib/supabase'
 import { Plus, X } from 'lucide-react'
 
 type JobFormProps = {
-  onAdd: (job: Omit<AppliedJob, 'id' | 'created_at' | 'updated_at' | 'application_date'>) => Promise<void>
+  onAdd: (job: Omit<AppliedJob, 'id' | 'created_at' | 'updated_at' | 'date'>) => Promise<void>
 }
 
 const STATUS_OPTIONS: AppliedJob['status'][] = [
@@ -21,10 +21,11 @@ const JobForm = ({ onAdd }: JobFormProps) => {
   const [formData, setFormData] = useState({
     company: '',
     job_title: '',
+    date: new Date().toISOString().split('T')[0], // Default to today
     job_url: '',
-    location: '',
     salary_range: '',
     notes: '',
+    resume: '',
     status: 'applied' as AppliedJob['status'],
     source: 'manual' as const
   })
@@ -46,10 +47,11 @@ const JobForm = ({ onAdd }: JobFormProps) => {
       setFormData({
         company: '',
         job_title: '',
+        date: new Date().toISOString().split('T')[0],
         job_url: '',
-        location: '',
         salary_range: '',
         notes: '',
+        resume: '',
         status: 'applied',
         source: 'manual'
       })
@@ -118,14 +120,26 @@ const JobForm = ({ onAdd }: JobFormProps) => {
 
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">
-              Location
+              Date <span className="text-red-500">*</span>
             </label>
             <input
-              type="text"
-              value={formData.location}
-              onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+              type="date"
+              required
+              value={formData.date}
+              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
               className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
-              placeholder="e.g., New York, NY"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 mb-1">
+              Resume Date
+            </label>
+            <input
+              type="date"
+              value={formData.resume}
+              onChange={(e) => setFormData({ ...formData, resume: e.target.value })}
+              className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
             />
           </div>
 

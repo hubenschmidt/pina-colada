@@ -29,6 +29,6 @@ const getSupabaseClient = (): SupabaseClient<Database> | null => {
 export const supabase: SupabaseClient<Database> | null = getSupabaseClient()
 
 // Re-export types for convenience
-export type AppliedJob = Database['public']['Tables']['applied_jobs']['Row']
-export type AppliedJobInsert = Database['public']['Tables']['applied_jobs']['Insert']
-export type AppliedJobUpdate = Database['public']['Tables']['applied_jobs']['Update']
+export type AppliedJob = Database['public']['Tables']['Job']['Row']
+export type AppliedJobInsert = Database['public']['Tables']['Job']['Insert']
+export type AppliedJobUpdate = Database['public']['Tables']['Job']['Update']

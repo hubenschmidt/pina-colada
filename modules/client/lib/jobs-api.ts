@@ -14,7 +14,7 @@ const USE_API_ROUTES = process.env.NODE_ENV === "development"
 export const fetchJobs = async (
   page: number = 1,
   limit: number = 25,
-  orderBy: string = "application_date",
+  orderBy: string = "date",
   order: "ASC" | "DESC" = "DESC",
   search?: string
 ): Promise<PageData<AppliedJob>> => {
@@ -48,12 +48,14 @@ export const fetchJobs = async (
     if (orderBy === "job_title") return "job_title"
     if (orderBy === "company") return "company"
     if (orderBy === "status") return "status"
-    return "application_date"
+    if (orderBy === "date") return "date"
+    if (orderBy === "resume") return "resume"
+    return "date"
   }
   const orderColumn = getOrderColumn(orderBy)
   
-  let countQuery = supabase.from('applied_jobs').select('*', { count: 'exact', head: true });
-  let dataQuery = supabase.from('applied_jobs').select('*');
+  let countQuery = supabase.from('Job').select('*', { count: 'exact', head: true });
+  let dataQuery = supabase.from('Job').select('*');
   
   // Apply search filter
   if (search && search.trim()) {
@@ -102,7 +104,7 @@ export const createJob = async (job: AppliedJobInsert): Promise<AppliedJob> => {
     throw new Error('Supabase client not available');
   }
   const { data, error } = await supabase
-    .from('applied_jobs')
+    .from('Job')
     .insert(job)
     .select()
     .single();
@@ -129,7 +131,7 @@ export const updateJob = async (id: string, job: AppliedJobUpdate): Promise<Appl
     throw new Error('Supabase client not available');
   }
   const { data, error } = await supabase
-    .from('applied_jobs')
+    .from('Job')
     .update(job)
     .eq('id', id)
     .select()
@@ -155,7 +157,7 @@ export const deleteJob = async (id: string): Promise<void> => {
     throw new Error('Supabase client not available');
   }
   const { error } = await supabase
-    .from('applied_jobs')
+    .from('Job')
     .delete()
     .eq('id', id);
   

@@ -4,7 +4,7 @@ This directory contains SQL migration files for the Supabase database schema.
 
 ## Migration Files
 
-- `001_initial_schema.sql`: Creates the initial `applied_jobs` table with indexes, triggers, and RLS policies
+- `001_initial_schema.sql`: Creates the initial `Job` table with indexes, triggers, and RLS policies
 
 ## Running Migrations
 

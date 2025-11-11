@@ -5,7 +5,7 @@ import os
 from typing import List, Optional
 from sqlalchemy import create_engine, select, func as sql_func
 from sqlalchemy.orm import Session, sessionmaker
-from agent.models.job import AppliedJob, Base, JobCreateData, JobUpdateData, orm_to_dict, dict_to_orm, update_orm_from_dict
+from agent.models.Job import Job, Base, JobCreateData, JobUpdateData, orm_to_dict, dict_to_orm, update_orm_from_dict
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +46,11 @@ def _get_session() -> Session:
     return _session_factory()
 
 
-def find_all_jobs() -> List[AppliedJob]:
+def find_all_jobs() -> List[Job]:
     """Find all jobs."""
     session = _get_session()
     try:
-        stmt = select(AppliedJob)
+        stmt = select(Job)
         return list(session.execute(stmt).scalars().all())
     finally:
         session.close()
@@ -60,22 +60,22 @@ def count_jobs() -> int:
     """Count total jobs."""
     session = _get_session()
     try:
-        stmt = select(sql_func.count(AppliedJob.id))
+        stmt = select(sql_func.count(Job.id))
         return session.execute(stmt).scalar() or 0
     finally:
         session.close()
 
 
-def find_job_by_id(job_id: str) -> Optional[AppliedJob]:
+def find_job_by_id(job_id: str) -> Optional[Job]:
     """Find job by ID."""
     session = _get_session()
     try:
-        return session.get(AppliedJob, job_id)
+        return session.get(Job, job_id)
     finally:
         session.close()
 
 
-def create_job(data: JobCreateData) -> AppliedJob:
+def create_job(data: JobCreateData) -> Job:
     """Create a new job."""
     session = _get_session()
     try:
@@ -92,11 +92,11 @@ def create_job(data: JobCreateData) -> AppliedJob:
         session.close()
 
 
-def update_job(job_id: str, data: JobUpdateData) -> Optional[AppliedJob]:
+def update_job(job_id: str, data: JobUpdateData) -> Optional[Job]:
     """Update an existing job."""
     session = _get_session()
     try:
-        job = session.get(AppliedJob, job_id)
+        job = session.get(Job, job_id)
         if not job:
             return None
         
@@ -116,7 +116,7 @@ def delete_job(job_id: str) -> bool:
     """Delete a job by ID."""
     session = _get_session()
     try:
-        job = session.get(AppliedJob, job_id)
+        job = session.get(Job, job_id)
         if not job:
             return False
         session.delete(job)
@@ -130,13 +130,13 @@ def delete_job(job_id: str) -> bool:
         session.close()
 
 
-def find_job_by_company_and_title(company: str, title: str) -> Optional[AppliedJob]:
+def find_job_by_company_and_title(company: str, title: str) -> Optional[Job]:
     """Find job by company and title."""
     session = _get_session()
     try:
-        stmt = select(AppliedJob).where(
-            AppliedJob.company.ilike(company.strip()),
-            AppliedJob.job_title.ilike(title.strip())
+        stmt = select(Job).where(
+            Job.company.ilike(company.strip()),
+            Job.job_title.ilike(title.strip())
         )
         return session.execute(stmt).scalar_one_or_none()
     finally:
@@ -144,7 +144,7 @@ def find_job_by_company_and_title(company: str, title: str) -> Optional[AppliedJ
 
 
 # Helper function to create job from ORM model (for compatibility)
-def create_job_from_orm(job: AppliedJob) -> AppliedJob:
+def create_job_from_orm(job: Job) -> Job:
     """Create a job from an ORM model instance."""
     session = _get_session()
     try:
@@ -160,7 +160,7 @@ def create_job_from_orm(job: AppliedJob) -> AppliedJob:
         session.close()
 
 
-def update_job_orm(job: AppliedJob) -> AppliedJob:
+def update_job_orm(job: Job) -> Job:
     """Update a job ORM model instance."""
     session = _get_session()
     try:

@@ -9,13 +9,14 @@ _term() {
 }
 trap _term TERM INT
 
-# Check migration status
+# Check migration status and apply if needed (local development only)
+# Note: Supabase is only used in production via Azure Pipeline
 echo "ℹ️  Checking migration status..."
 uv run python scripts/check_migration_status.py || echo "⚠️  Could not check migration status"
 
-# Local development: Migrations run via Supabase CLI or manually
-# Production: Migrations run in Azure Pipeline via Supabase CLI
-# No Docker-based migrations needed (avoids IPv6 issues)
+# Auto-apply migrations for local Postgres
+echo "ℹ️  Checking if migrations need to be applied to local Postgres..."
+uv run python scripts/apply_migrations.py || echo "⚠️  Could not apply migrations automatically"
 
 # Start LangGraph dev API (2024) - already has hot-reload built-in
 uv run langgraph dev --host 0.0.0.0 --port 2024 &

@@ -48,6 +48,14 @@ export const PUT = async (
         updates.push(`company = $${paramIndex++}`);
         values.push(body.company);
       }
+      if (body.date !== undefined) {
+        updates.push(`date = $${paramIndex++}`);
+        values.push(body.date);
+      }
+      if (body.resume !== undefined) {
+        updates.push(`resume = $${paramIndex++}`);
+        values.push(body.resume);
+      }
       if (body.job_title !== undefined) {
         updates.push(`job_title = $${paramIndex++}`);
         values.push(body.job_title);
@@ -59,10 +67,6 @@ export const PUT = async (
       if (body.job_url !== undefined) {
         updates.push(`job_url = $${paramIndex++}`);
         values.push(body.job_url);
-      }
-      if (body.location !== undefined) {
-        updates.push(`location = $${paramIndex++}`);
-        values.push(body.location);
       }
       if (body.salary_range !== undefined) {
         updates.push(`salary_range = $${paramIndex++}`);
@@ -77,7 +81,7 @@ export const PUT = async (
       values.push(id);
 
       const result = await client.query(
-        `UPDATE applied_jobs SET ${updates.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
+        `UPDATE "Job" SET ${updates.join(", ")} WHERE id = $${paramIndex} RETURNING *`,
         values
       );
       await client.end();
@@ -101,7 +105,7 @@ export const PUT = async (
   try {
     const { supabase } = await import("../../../../lib/supabase");
     const { data, error } = await supabase
-      .from("applied_jobs")
+      .from("Job")
       .update(body)
       .eq("id", id)
       .select()
@@ -135,7 +139,7 @@ export const DELETE = async (
     }
 
     try {
-      await client.query("DELETE FROM applied_jobs WHERE id = $1", [id]);
+      await client.query('DELETE FROM "Job" WHERE id = $1', [id]);
       await client.end();
       return NextResponse.json({ success: true });
     } catch (error) {
@@ -152,7 +156,7 @@ export const DELETE = async (
   try {
     const { supabase } = await import("../../../../lib/supabase");
     const { error } = await supabase
-      .from("applied_jobs")
+      .from("Job")
       .delete()
       .eq("id", id);
 

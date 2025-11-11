@@ -232,7 +232,7 @@ def _get_sheet_info(tracker) -> str:
 
 def _handle_no_applications(tracker) -> str:
     """Handle case when no applications found."""
-    return "No job applications have been tracked yet in the Supabase database. The applied_jobs table may be empty."
+    return "No job applications have been tracked yet in the Supabase database. The Job table may be empty."
 
 
 def _handle_specific_job_check(tracker, company: str, job_title: str) -> str:
@@ -329,7 +329,7 @@ def _handle_list_all(tracker, applied_jobs: set, jobs_details: list) -> str:
 def get_data_source_info() -> str:
     """Get information about the connected data source."""
     try:
-        return "Using Supabase database for job application tracking. Connected to applied_jobs table."
+        return "Using Supabase database for job application tracking. Connected to Job table."
     except Exception as e:
         logger.error(f"Failed to get data source info: {e}")
         return f"Unable to get data source information: {e}"

@@ -30,8 +30,9 @@ const JobEditModal = ({ job, opened, onClose, onUpdate, onDelete }: JobEditModal
       setFormData({
         company: job.company,
         job_title: job.job_title,
+        date: job.date || '',
         job_url: job.job_url || '',
-        location: job.location || '',
+        resume: job.resume || '',
         salary_range: job.salary_range || '',
         notes: job.notes || '',
         status: job.status,
@@ -46,9 +47,22 @@ const JobEditModal = ({ job, opened, onClose, onUpdate, onDelete }: JobEditModal
       return
     }
 
+    // Clean up formData: convert empty strings to null for date fields
+    const cleanedData: Partial<AppliedJob> = { ...formData }
+    if (cleanedData.date === '' || cleanedData.date === null) {
+      cleanedData.date = null
+    }
+    if (cleanedData.resume === '' || cleanedData.resume === null) {
+      cleanedData.resume = null
+    }
+    // Remove empty string values for optional fields
+    if (cleanedData.job_url === '') cleanedData.job_url = null
+    if (cleanedData.salary_range === '') cleanedData.salary_range = null
+    if (cleanedData.notes === '') cleanedData.notes = null
+
     setIsSubmitting(true)
     try {
-      await onUpdate(job.id, formData)
+      await onUpdate(job.id, cleanedData)
       onClose()
     } catch (error) {
       console.error('Failed to update job:', error)
@@ -119,12 +133,25 @@ const JobEditModal = ({ job, opened, onClose, onUpdate, onDelete }: JobEditModal
 
               <div>
                 <label className="block text-sm font-medium text-zinc-700 mb-1">
-                  Location
+                  Applied Date <span className="text-red-500">*</span>
                 </label>
                 <input
-                  type="text"
-                  value={formData.location || ''}
-                  onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  type="date"
+                  required
+                  value={formData.date ? new Date(formData.date).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setFormData({ ...formData, date: e.target.value ? e.target.value : null })}
+                  className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-zinc-700 mb-1">
+                  Resume Date
+                </label>
+                <input
+                  type="date"
+                  value={formData.resume ? new Date(formData.resume).toISOString().split('T')[0] : ''}
+                  onChange={(e) => setFormData({ ...formData, resume: e.target.value ? e.target.value : null })}
                   className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
                 />
               </div>

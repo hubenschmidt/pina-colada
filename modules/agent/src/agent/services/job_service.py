@@ -2,7 +2,7 @@
 
 import logging
 from typing import Dict, List, Optional
-from agent.models.job import JobCreateData, orm_to_dict
+from agent.models.Job import JobCreateData, orm_to_dict
 from agent.repositories.job_repository import (
     find_all_jobs,
     create_job,
@@ -25,18 +25,33 @@ def _normalize_identifier(company: str, title: str) -> str:
 
 def _map_to_dict(job) -> Dict[str, str]:
     """Map database model to dictionary."""
-    return orm_to_dict(job) if hasattr(job, 'id') else {
-        "company": job.get("company") or "Unknown Company",
-        "title": job.get("job_title") or job.get("title") or "",
-        "date_applied": str(job.get("application_date")) if job.get("application_date") else "Not specified",
-        "link": job.get("job_url") or job.get("link") or "",
-        "status": job.get("status") or "applied",
-        "location": job.get("location") or "",
-        "salary_range": job.get("salary_range") or "",
-        "notes": job.get("notes") or "",
-        "source": job.get("source") or "manual",
-        "id": str(job.get("id")) if job.get("id") else "",
-    }
+    if hasattr(job, 'id'):
+        # It's an ORM object, use orm_to_dict
+        job_dict = orm_to_dict(job)
+        return {
+            "company": job_dict.get("company") or "Unknown Company",
+            "title": job_dict.get("job_title") or "",
+            "date_applied": str(job_dict.get("date")) if job_dict.get("date") else "Not specified",
+            "link": job_dict.get("job_url") or "",
+            "status": job_dict.get("status") or "applied",
+            "salary_range": job_dict.get("salary_range") or "",
+            "notes": job_dict.get("notes") or "",
+            "source": job_dict.get("source") or "manual",
+            "id": job_dict.get("id") or "",
+        }
+    else:
+        # It's already a dict
+        return {
+            "company": job.get("company") or "Unknown Company",
+            "title": job.get("job_title") or job.get("title") or "",
+            "date_applied": str(job.get("date")) if job.get("date") else (str(job.get("application_date")) if job.get("application_date") else "Not specified"),
+            "link": job.get("job_url") or job.get("link") or "",
+            "status": job.get("status") or "applied",
+            "salary_range": job.get("salary_range") or "",
+            "notes": job.get("notes") or "",
+            "source": job.get("source") or "manual",
+            "id": str(job.get("id")) if job.get("id") else "",
+        }
 
 
 def _clear_cache() -> None:
@@ -54,7 +69,8 @@ def get_all_jobs(refresh: bool = False) -> List[Dict[str, str]]:
         return _details_cache.copy()
     
     jobs = find_all_jobs()
-    details = [orm_to_dict(job) for job in jobs]
+    # Map to internal format with company/date_applied keys for consistency
+    details = [_map_to_dict(job) for job in jobs]
     
     _details_cache = details
     _cache = {_normalize_identifier(j["company"], j["title"]) for j in details if j.get("title")}
@@ -119,7 +135,7 @@ def add_job(
     company: str,
     job_title: str,
     job_url: str = "",
-    location: str = "",
+    location: str = "",  # Deprecated, kept for API compatibility but ignored
     salary_range: str = "",
     notes: str = "",
     status: str = "applied",
@@ -130,7 +146,6 @@ def add_job(
         "company": company,
         "job_title": job_title,
         "job_url": job_url or None,
-        "location": location or None,
         "salary_range": salary_range or None,
         "notes": notes or None,
         "status": status,
@@ -149,7 +164,7 @@ def add_applied_job(
     company: str,
     job_title: str,
     job_url: str = "",
-    location: str = "",
+    location: str = "",  # Deprecated, kept for API compatibility but ignored
     salary_range: str = "",
     notes: str = "",
     status: str = "applied",
@@ -160,7 +175,6 @@ def add_applied_job(
         company=company,
         job_title=job_title,
         job_url=job_url,
-        location=location,
         salary_range=salary_range,
         notes=notes,
         status=status,

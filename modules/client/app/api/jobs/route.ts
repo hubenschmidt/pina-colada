@@ -27,7 +27,7 @@ export const GET = async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const page = Math.max(parseInt(searchParams.get("page") || "1"), 1);
   const limit = Math.max(1, Math.min(parseInt(searchParams.get("limit") || "25"), 100));
-  const orderBy = searchParams.get("orderBy") || "application_date";
+  const orderBy = searchParams.get("orderBy") || "date";
   const order = searchParams.get("order")?.toUpperCase() === "ASC" ? "ASC" : "DESC";
   const search = searchParams.get("search")?.trim() || "";
   const offset = (page - 1) * limit;
@@ -46,16 +46,18 @@ export const GET = async (request: NextRequest) => {
         if (by === "job_title") return "job_title"
         if (by === "company") return "company"
         if (by === "status") return "status"
-        return "application_date"
+        if (by === "date") return "date"
+        if (by === "resume") return "resume"
+        return "date"
       }
       const orderByColumn = getOrderColumn(orderBy)
       const orderClause = `ORDER BY ${orderByColumn} ${order}`;
 
       if (!search) {
-        const countResult = await client.query("SELECT COUNT(*) FROM applied_jobs");
+        const countResult = await client.query('SELECT COUNT(*) FROM "Job"');
         const total = parseInt(countResult.rows[0].count);
         const result = await client.query(
-          `SELECT * FROM applied_jobs ${orderClause} LIMIT $1 OFFSET $2`,
+          `SELECT * FROM "Job" ${orderClause} LIMIT $1 OFFSET $2`,
           [limit, offset]
         );
         await client.end();
@@ -74,13 +76,13 @@ export const GET = async (request: NextRequest) => {
       const searchPattern = `%${search}%`;
       
       const countResult = await client.query(
-        `SELECT COUNT(*) FROM applied_jobs ${whereClause}`,
+        `SELECT COUNT(*) FROM "Job" ${whereClause}`,
         [searchPattern]
       );
       const total = parseInt(countResult.rows[0].count);
 
       const result = await client.query(
-        `SELECT * FROM applied_jobs ${whereClause} ${orderClause} LIMIT $2 OFFSET $3`,
+        `SELECT * FROM "Job" ${whereClause} ${orderClause} LIMIT $2 OFFSET $3`,
         [searchPattern, limit, offset]
       );
       await client.end();
@@ -111,13 +113,15 @@ export const GET = async (request: NextRequest) => {
       if (by === "job_title") return "job_title"
       if (by === "company") return "company"
       if (by === "status") return "status"
-      return "application_date"
+      if (by === "date") return "date"
+      if (by === "resume") return "resume"
+      return "date"
     }
     const ascending = order === "ASC";
     const orderColumn = getOrderColumn(orderBy)
     
-    let countQuery = supabase.from("applied_jobs").select("*", { count: "exact", head: true });
-    let dataQuery = supabase.from("applied_jobs").select("*");
+    let countQuery = supabase.from("Job").select("*", { count: "exact", head: true });
+    let dataQuery = supabase.from("Job").select("*");
     
     if (search) {
       const searchPattern = `%${search}%`;
@@ -167,16 +171,17 @@ export const POST = async (request: NextRequest) => {
 
     try {
       const result = await client.query(
-        `INSERT INTO applied_jobs (company, job_title, job_url, location, salary_range, notes, status, source)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+        `INSERT INTO "Job" (company, job_title, date, job_url, salary_range, notes, resume, status, source)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
         [
           body.company,
           body.job_title,
+          body.date || new Date().toISOString(),
           body.job_url || null,
-          body.location || null,
           body.salary_range || null,
           body.notes || null,
+          body.resume || null,
           body.status || "applied",
           body.source || "manual",
         ]
@@ -197,7 +202,7 @@ export const POST = async (request: NextRequest) => {
   try {
     const { supabase } = await import("../../../lib/supabase");
     const { data, error } = await supabase
-      .from("applied_jobs")
+      .from("Job")
       .insert(body)
       .select()
       .single();
