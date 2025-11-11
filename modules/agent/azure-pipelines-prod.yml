@@ -141,11 +141,13 @@ stages:
               # Link to Supabase project (following Supabase docs pattern)
               # Requires SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF environment variables
               echo "Linking to Supabase project..."
-              echo "$SUPABASE_ACCESS_TOKEN" | supabase login --token-stdin
-              supabase link --project-ref $(SUPABASE_PROJECT_REF)
+              supabase login --token "$SUPABASE_ACCESS_TOKEN"
+              supabase link --project-ref "$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD"
             displayName: "Link Supabase Project"
             env:
               SUPABASE_ACCESS_TOKEN: $(SUPABASE_ACCESS_TOKEN)
+              SUPABASE_PROJECT_REF: $(SUPABASE_PROJECT_REF)
+              SUPABASE_DB_PASSWORD: $(SUPABASE_DB_PASSWORD)
             workingDirectory: $(System.DefaultWorkingDirectory)
           
           - script: |
