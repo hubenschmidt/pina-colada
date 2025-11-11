@@ -86,7 +86,7 @@ stages:
 
   - stage: Deploy
     displayName: Deploy to DigitalOcean App Platform
-    # dependsOn: Push
+    dependsOn: Push
     # Only deploy on master (avoid PR validations)
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     jobs:
