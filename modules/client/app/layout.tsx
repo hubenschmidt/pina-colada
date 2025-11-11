@@ -4,6 +4,7 @@ import "./globals.css";
 import Header from "../components/Header";
 import { NavProvider } from "../context/navContext";
 import { MantineProvider } from "@mantine/core";
+import { PublicEnvScript } from "next-runtime-env";
 
 export const metadata: Metadata = {
   title: "PinaColada.co",
@@ -17,6 +18,9 @@ const RootLayout = ({
 }>) => {
   return (
     <html lang="en" className="scroll-smooth">
+      <head>
+        <PublicEnvScript />
+      </head>
       <body>
         <MantineProvider>
           <NavProvider>

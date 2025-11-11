@@ -1,5 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { Database } from './database.types'
+import { env } from 'next-runtime-env'
 
 let supabaseInstance: SupabaseClient<Database> | null = null
 
@@ -13,8 +14,9 @@ const getSupabaseClient = (): SupabaseClient<Database> | null => {
     return supabaseInstance
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+  // Use next-runtime-env to get runtime environment variables
+  const supabaseUrl = env('NEXT_PUBLIC_SUPABASE_URL') || ''
+  const supabaseAnonKey = env('NEXT_PUBLIC_SUPABASE_ANON_KEY') || ''
 
   // Debug logging
   console.log('Supabase config check:', {
