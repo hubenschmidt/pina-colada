@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
   const limit = Math.max(1, Math.min(parseInt(searchParams.get("limit") || "25"), 100));
   const orderBy = searchParams.get("orderBy") || "application_date";
   const order = searchParams.get("order")?.toUpperCase() === "ASC" ? "ASC" : "DESC";
+  const search = searchParams.get("search")?.trim() || "";
   const offset = (page - 1) * limit;
 
   if (USE_LOCAL_DB) {
@@ -41,8 +42,25 @@ export async function GET(request: NextRequest) {
     }
 
     try {
+      // Build WHERE clause for search
+      let whereClause = "";
+      let countParams: any[] = [];
+      let queryParams: any[] = [];
+      
+      if (search) {
+        whereClause = "WHERE company ILIKE $1 OR job_title ILIKE $1";
+        const searchPattern = `%${search}%`;
+        countParams = [searchPattern];
+        queryParams = [searchPattern, limit, offset];
+      } else {
+        queryParams = [limit, offset];
+      }
+
       // Get total count
-      const countResult = await client.query("SELECT COUNT(*) FROM applied_jobs");
+      const countQuery = search
+        ? `SELECT COUNT(*) FROM applied_jobs ${whereClause}`
+        : "SELECT COUNT(*) FROM applied_jobs";
+      const countResult = await client.query(countQuery, countParams);
       const total = parseInt(countResult.rows[0].count);
 
       // Build ORDER BY clause
@@ -53,10 +71,10 @@ export async function GET(request: NextRequest) {
       const orderClause = `ORDER BY ${orderByColumn} ${order}`;
 
       // Get paginated results
-      const result = await client.query(
-        `SELECT * FROM applied_jobs ${orderClause} LIMIT $1 OFFSET $2`,
-        [limit, offset]
-      );
+      const query = search
+        ? `SELECT * FROM applied_jobs ${whereClause} ${orderClause} LIMIT $2 OFFSET $3`
+        : `SELECT * FROM applied_jobs ${orderClause} LIMIT $1 OFFSET $2`;
+      const result = await client.query(query, queryParams);
       await client.end();
 
       const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -81,21 +99,26 @@ export async function GET(request: NextRequest) {
   try {
     const { supabase } = await import("../../../lib/supabase");
     
-    // Get total count
-    const { count } = await supabase
-      .from("applied_jobs")
-      .select("*", { count: "exact", head: true });
-    
-    // Get paginated data
+    // Apply search filter
     const ascending = order === "ASC";
     const orderColumn = orderBy === "job_title" ? "job_title" :
                        orderBy === "company" ? "company" :
                        orderBy === "status" ? "status" :
                        "application_date";
     
-    const { data, error } = await supabase
-      .from("applied_jobs")
-      .select("*")
+    let countQuery = supabase.from("applied_jobs").select("*", { count: "exact", head: true });
+    let dataQuery = supabase.from("applied_jobs").select("*");
+    
+    if (search) {
+      const searchPattern = `%${search}%`;
+      countQuery = countQuery.or(`company.ilike."${searchPattern}",job_title.ilike."${searchPattern}"`);
+      dataQuery = dataQuery.or(`company.ilike."${searchPattern}",job_title.ilike."${searchPattern}"`);
+    }
+    
+    // Get total count
+    const { count } = await countQuery;
+    
+    const { data, error } = await dataQuery
       .order(orderColumn, { ascending })
       .range(offset, offset + limit - 1);
 

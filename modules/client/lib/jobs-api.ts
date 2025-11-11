@@ -15,7 +15,8 @@ export async function fetchJobs(
   page: number = 1,
   limit: number = 25,
   orderBy: string = "application_date",
-  order: "ASC" | "DESC" = "DESC"
+  order: "ASC" | "DESC" = "DESC",
+  search?: string
 ): Promise<PageData<AppliedJob>> {
   if (USE_API_ROUTES) {
     const params = new URLSearchParams({
@@ -24,6 +25,9 @@ export async function fetchJobs(
       orderBy,
       order,
     });
+    if (search && search.trim()) {
+      params.append('search', search.trim());
+    }
     const response = await fetch(`/api/jobs?${params}`);
     if (!response.ok) {
       throw new Error('Failed to fetch jobs');
@@ -44,15 +48,21 @@ export async function fetchJobs(
                      orderBy === "status" ? "status" :
                      "application_date";
   
+  let countQuery = supabase.from('applied_jobs').select('*', { count: 'exact', head: true });
+  let dataQuery = supabase.from('applied_jobs').select('*');
+  
+  // Apply search filter
+  if (search && search.trim()) {
+    const searchPattern = `%${search.trim()}%`;
+    countQuery = countQuery.or(`company.ilike."${searchPattern}",job_title.ilike."${searchPattern}"`);
+    dataQuery = dataQuery.or(`company.ilike."${searchPattern}",job_title.ilike."${searchPattern}"`);
+  }
+  
   // Get total count
-  const { count } = await supabase
-    .from('applied_jobs')
-    .select('*', { count: 'exact', head: true });
+  const { count } = await countQuery;
   
   // Get paginated data
-  const { data, error } = await supabase
-    .from('applied_jobs')
-    .select('*')
+  const { data, error } = await dataQuery
     .order(orderColumn, { ascending })
     .range(offset, offset + limit - 1);
   

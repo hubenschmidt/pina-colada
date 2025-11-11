@@ -239,6 +239,8 @@ export const DataTable = <T,>({
                                 onRowSelect?.(key, row);
                             };
 
+                            const hasClickHandler = !!onRowClick;
+                            
                             return (
                                 <Table.Tr
                                     key={key}
@@ -247,11 +249,14 @@ export const DataTable = <T,>({
                                     className={
                                         selected
                                             ? selectedRowClassName
+                                            : hasClickHandler
+                                            ? 'cursor-pointer hover:bg-zinc-50 transition-colors'
                                             : undefined
                                     }
-                                    style={
-                                        selected ? selectedRowStyle : undefined
-                                    }
+                                    style={{
+                                        ...(selected ? selectedRowStyle : {}),
+                                        cursor: hasClickHandler ? 'pointer' : undefined,
+                                    }}
                                 >
                                     {columns.map((col, ci) => (
                                         <Table.Td
