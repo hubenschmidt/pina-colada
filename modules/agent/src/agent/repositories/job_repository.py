@@ -1,0 +1,127 @@
+"""Repository layer for job data access."""
+
+import logging
+import os
+from typing import List, Optional
+from sqlalchemy import create_engine, select
+from sqlalchemy.orm import Session, sessionmaker
+from agent.models.job import AppliedJob, Base
+
+logger = logging.getLogger(__name__)
+
+_engine = None
+_session_factory = None
+
+
+def _get_connection_string() -> str:
+    """Get Postgres connection string from environment."""
+    db_host = os.getenv("POSTGRES_HOST", "postgres")
+    db_port = os.getenv("POSTGRES_PORT", "5432")
+    db_user = os.getenv("POSTGRES_USER", "postgres")
+    db_password = os.getenv("POSTGRES_PASSWORD", "postgres")
+    db_name = os.getenv("POSTGRES_DB", "pina_colada")
+    
+    return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+
+
+def _get_engine():
+    """Get or create SQLAlchemy engine."""
+    global _engine
+    if _engine is not None:
+        return _engine
+    
+    conn_string = _get_connection_string()
+    _engine = create_engine(conn_string, pool_pre_ping=True)
+    Base.metadata.create_all(_engine)
+    return _engine
+
+
+def _get_session() -> Session:
+    """Get database session."""
+    global _session_factory
+    if _session_factory is None:
+        engine = _get_engine()
+        _session_factory = sessionmaker(bind=engine)
+    
+    return _session_factory()
+
+
+class JobRepository:
+    """Repository for job data access operations."""
+    
+    def find_all(self) -> List[AppliedJob]:
+        """Find all jobs."""
+        session = _get_session()
+        try:
+            stmt = select(AppliedJob)
+            return list(session.execute(stmt).scalars().all())
+        finally:
+            session.close()
+    
+    def find_by_id(self, job_id: str) -> Optional[AppliedJob]:
+        """Find job by ID."""
+        session = _get_session()
+        try:
+            return session.get(AppliedJob, job_id)
+        finally:
+            session.close()
+    
+    def create(self, job: AppliedJob) -> AppliedJob:
+        """Create a new job."""
+        session = _get_session()
+        try:
+            session.add(job)
+            session.commit()
+            session.refresh(job)
+            return job
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to create job: {e}")
+            raise
+        finally:
+            session.close()
+    
+    def update(self, job: AppliedJob) -> AppliedJob:
+        """Update an existing job."""
+        session = _get_session()
+        try:
+            session.merge(job)
+            session.commit()
+            session.refresh(job)
+            return job
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to update job: {e}")
+            raise
+        finally:
+            session.close()
+    
+    def delete(self, job_id: str) -> bool:
+        """Delete a job by ID."""
+        session = _get_session()
+        try:
+            job = session.get(AppliedJob, job_id)
+            if not job:
+                return False
+            session.delete(job)
+            session.commit()
+            return True
+        except Exception as e:
+            session.rollback()
+            logger.error(f"Failed to delete job: {e}")
+            raise
+        finally:
+            session.close()
+    
+    def find_by_company_and_title(self, company: str, title: str) -> Optional[AppliedJob]:
+        """Find job by company and title."""
+        session = _get_session()
+        try:
+            stmt = select(AppliedJob).where(
+                AppliedJob.company.ilike(company.strip()),
+                AppliedJob.job_title.ilike(title.strip())
+            )
+            return session.execute(stmt).scalar_one_or_none()
+        finally:
+            session.close()
+

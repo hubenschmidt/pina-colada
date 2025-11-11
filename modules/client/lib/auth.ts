@@ -9,11 +9,16 @@ export async function login(password: string): Promise<boolean> {
 
   // Development: Use client-side check for convenience
   if (isDev) {
+    if (!devPassword) {
+      console.error("NEXT_PUBLIC_JOBS_PASSWORD not set in .env.local");
+      return false;
+    }
     if (password === devPassword) {
       const token = `dev_${Date.now()}_${Math.random().toString(36).substring(7)}`;
       localStorage.setItem(AUTH_TOKEN_KEY, token);
       return true;
     }
+    console.log("Password mismatch. Expected:", devPassword ? "***" : "NOT SET", "Got:", password);
     return false;
   }
 

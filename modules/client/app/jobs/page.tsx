@@ -1,9 +1,9 @@
 "use client"
 
 import { useState, useEffect } from 'react'
-import JobTracker from '@/components/JobTracker/JobTracker'
-import LoginForm from '@/components/JobTracker/LoginForm'
-import { isAuthenticated, logout } from '@/lib/auth'
+import JobTracker from '../../components/JobTracker/JobTracker'
+import LoginForm from '../../components/JobTracker/LoginForm'
+import { isAuthenticated, logout } from '../../lib/auth'
 import { LogOut } from 'lucide-react'
 
 export default function JobsPage() {

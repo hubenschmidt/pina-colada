@@ -89,59 +89,140 @@ def apply_migration(client: Client, migration_file: Path) -> bool:
         return False
 
 
-def apply_migrations_with_psycopg2(migrations_dir: Path):
-    """Apply migrations using psycopg2 (direct PostgreSQL connection)."""
+def _import_psycopg2():
+    """Import psycopg2, return None if not available."""
     try:
         import psycopg2
+        return psycopg2
     except ImportError:
         print("\nNote: For automatic migration application, install psycopg2:")
         print("  pip install psycopg2-binary")
-        return
+        return None
 
-    # Parse Supabase connection string
-    supabase_url = os.getenv("SUPABASE_URL", "")
+
+def _parse_pooler_url(pooler_url: str, project_ref: str):
+    """Parse Supabase pooler URL into connection params, return None if invalid."""
+    import urllib.parse
+    try:
+        parsed = urllib.parse.urlparse(pooler_url)
+        if not parsed.hostname:
+            return None
+        return {
+            "method": "pooler",
+            "host": parsed.hostname,
+            "port": parsed.port or 6543,
+            "user": parsed.username or f"postgres.{project_ref}",
+        }
+    except Exception:
+        return None
+
+
+def _build_connection_methods(project_ref: str):
+    """Build list of connection methods to try."""
+    methods = [{
+        "method": "hostname",
+        "host": f"db.{project_ref}.supabase.co",
+        "port": 5432,
+        "user": "postgres",
+    }]
+    
+    pooler_url = os.getenv("SUPABASE_POOLER_URL", "")
+    if not pooler_url:
+        return methods
+    
+    pooler_config = _parse_pooler_url(pooler_url, project_ref)
+    if pooler_config:
+        return [pooler_config] + methods
+    
+    return methods
+
+
+def _try_connect(psycopg2, method_config: dict, db_password: str):
+    """Attempt connection, return connection or None."""
+    print(f"\nTrying {method_config['method']} connection to {method_config['host']}:{method_config['port']}...")
+    try:
+        conn = psycopg2.connect(
+            host=method_config["host"],
+            port=method_config["port"],
+            database="postgres",
+            user=method_config["user"],
+            password=db_password,
+            connect_timeout=10
+        )
+        print(f"✅ Connected via {method_config['method']}!")
+        return conn
+    except psycopg2.OperationalError as e:
+        print(f"❌ {method_config['method']} connection failed: {e}")
+        return None
+    except Exception as e:
+        print(f"❌ Unexpected error with {method_config['method']}: {e}")
+        return None
+
+
+def _connect_to_database(psycopg2, project_ref: str, db_password: str):
+    """Connect to database using available methods."""
+    methods = _build_connection_methods(project_ref)
+    
+    for method_config in methods:
+        conn = _try_connect(psycopg2, method_config, db_password)
+        if conn:
+            return conn
+    
+    return None
+
+
+def _apply_migration_files(cursor, conn, migration_files: List[Path]):
+    """Apply all migration files to database."""
+    for migration_file in migration_files:
+        print(f"\nApplying: {migration_file.name}")
+        sql_content = migration_file.read_text()
+        cursor.execute(sql_content)
+        conn.commit()
+        print(f"✓ Successfully applied {migration_file.name}")
+
+
+def apply_migrations_with_psycopg2(migrations_dir: Path) -> bool:
+    """Apply migrations using psycopg2 (direct PostgreSQL connection)."""
+    psycopg2 = _import_psycopg2()
+    if not psycopg2:
+        return False
+
     db_password = os.getenv("SUPABASE_DB_PASSWORD")
-
     if not db_password:
         print("\nNote: Set SUPABASE_DB_PASSWORD for automatic migration application")
-        return
+        return False
 
-    # Extract project ref from URL
-    # Format: https://<project-ref>.supabase.co
+    supabase_url = os.getenv("SUPABASE_URL", "")
     if "supabase.co" not in supabase_url:
         print("Invalid Supabase URL format")
-        return
+        return False
 
     project_ref = supabase_url.split("//")[1].split(".")[0]
+    print(f"\nAttempting connection to db.{project_ref}.supabase.co...")
 
-    # Build connection string
-    conn_string = f"postgresql://postgres:{db_password}@db.{project_ref}.supabase.co:5432/postgres"
+    conn = _connect_to_database(psycopg2, project_ref, db_password)
+    if not conn:
+        print("\n❌ All connection methods failed")
+        print("\n💡 Solutions:")
+        print("   1. Use Supabase Dashboard SQL Editor to run migrations manually")
+        print("   2. Set SUPABASE_POOLER_URL env var with connection pooling URL")
+        print("   3. Enable IPv6 in Docker (requires Docker daemon configuration)")
+        print("   4. Run migrations from host machine instead of Docker")
+        return False
 
-    print(f"\nConnecting to Supabase database...")
-
-    try:
-        conn = psycopg2.connect(conn_string)
-        cursor = conn.cursor()
-
-        migration_files = get_migration_files(migrations_dir)
-
-        for migration_file in migration_files:
-            print(f"\nApplying: {migration_file.name}")
-            sql_content = migration_file.read_text()
-
-            cursor.execute(sql_content)
-            conn.commit()
-            print(f"✓ Successfully applied {migration_file.name}")
-
-        cursor.close()
+    migration_files = get_migration_files(migrations_dir)
+    if not migration_files:
         conn.close()
+        print("No migration files found")
+        return True
 
-        print("\n✓ All migrations applied successfully!")
+    cursor = conn.cursor()
+    _apply_migration_files(cursor, conn, migration_files)
+    cursor.close()
+    conn.close()
 
-    except Exception as e:
-        print(f"\nError applying migrations: {e}")
-        if 'conn' in locals():
-            conn.rollback()
+    print("\n✓ All migrations applied successfully!")
+    return True
 
 
 def main():
@@ -180,19 +261,23 @@ def main():
         print(f"  - {mf.name}")
 
     # Check if psycopg2 is available for direct execution
-    try:
-        import psycopg2
+    psycopg2 = _import_psycopg2()
+    if psycopg2:
         print("\n✅ psycopg2 is available - applying migrations automatically")
-        apply_migrations_with_psycopg2(migrations_dir)
-    except ImportError:
-        print("\n⚠️  psycopg2 not installed - showing manual instructions")
-        # Get client just to validate credentials
-        client = get_supabase_client()
-        print("✓ Supabase credentials validated")
+        success = apply_migrations_with_psycopg2(migrations_dir)
+        if not success:
+            print("\n❌ Migration application failed")
+            sys.exit(1)
+        return
 
-        # Show migration content for manual application
-        for migration_file in migration_files:
-            apply_migration(client, migration_file)
+    print("\n⚠️  psycopg2 not installed - showing manual instructions")
+    client = get_supabase_client()
+    print("✓ Supabase credentials validated")
+
+    for migration_file in migration_files:
+        if not apply_migration(client, migration_file):
+            print("\n❌ Migration application failed")
+            sys.exit(1)
 
 
 if __name__ == "__main__":

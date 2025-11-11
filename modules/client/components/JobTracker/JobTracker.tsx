@@ -1,10 +1,15 @@
 "use client"
 
 import { useEffect, useState } from 'react'
-import { supabase, AppliedJob } from '@/lib/supabase'
+import { AppliedJob, AppliedJobInsert, AppliedJobUpdate } from '../../lib/supabase'
+import { fetchJobs, createJob, updateJob, deleteJob } from '../../lib/jobs-api'
 import JobRow from './JobRow'
 import JobForm from './JobForm'
 import { Filter, RefreshCw } from 'lucide-react'
+
+// In development, use local Postgres via API routes
+// In production, use Supabase directly
+const USE_API_ROUTES = process.env.NODE_ENV === "development"
 
 export default function JobTracker() {
   const [jobs, setJobs] = useState<AppliedJob[]>([])
@@ -14,62 +19,26 @@ export default function JobTracker() {
   const [filterStatus, setFilterStatus] = useState<string>('all')
   const [searchTerm, setSearchTerm] = useState('')
 
-  const fetchJobs = async () => {
+  const loadJobs = async () => {
     try {
       setLoading(true)
       setError(null)
-
-      const { data, error: fetchError } = await supabase
-        .from('applied_jobs')
-        .select('*')
-        .order('application_date', { ascending: false })
-
-      if (fetchError) throw fetchError
-
-      setJobs(data || [])
-      setFilteredJobs(data || [])
+      const data = await fetchJobs()
+      setJobs(data)
+      setFilteredJobs(data)
     } catch (err) {
       console.error('Error fetching jobs:', err)
-      setError('Failed to load job applications. Please check your Supabase connection.')
+      const errorMsg = USE_API_ROUTES 
+        ? 'Failed to load job applications. Please check your local Postgres connection.'
+        : 'Failed to load job applications. Please check your Supabase connection.'
+      setError(errorMsg)
     } finally {
       setLoading(false)
     }
   }
 
   useEffect(() => {
-    fetchJobs()
-
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('applied_jobs_changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'applied_jobs'
-        },
-        (payload) => {
-          console.log('Real-time update:', payload)
-
-          if (payload.eventType === 'INSERT') {
-            setJobs((prev) => [payload.new as AppliedJob, ...prev])
-          } else if (payload.eventType === 'UPDATE') {
-            setJobs((prev) =>
-              prev.map((job) =>
-                job.id === payload.new.id ? (payload.new as AppliedJob) : job
-              )
-            )
-          } else if (payload.eventType === 'DELETE') {
-            setJobs((prev) => prev.filter((job) => job.id !== payload.old.id))
-          }
-        }
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
-    }
+    loadJobs()
   }, [])
 
   useEffect(() => {
@@ -96,44 +65,24 @@ export default function JobTracker() {
   }, [jobs, filterStatus, searchTerm])
 
   const handleAddJob = async (jobData: Omit<AppliedJob, 'id' | 'created_at' | 'updated_at' | 'application_date'>) => {
-    const { error: insertError } = await supabase
-      .from('applied_jobs')
-      .insert([jobData])
-
-    if (insertError) {
-      console.error('Error adding job:', insertError)
-      throw insertError
-    }
-
-    // Real-time subscription will handle updating the UI
+    // Convert to AppliedJobInsert (company and job_title are required, others optional)
+    const insertData: AppliedJobInsert = jobData as AppliedJobInsert
+    const newJob = await createJob(insertData)
+    setJobs((prev) => [newJob, ...prev])
   }
 
   const handleUpdateJob = async (id: string, updates: Partial<AppliedJob>) => {
-    const { error: updateError } = await supabase
-      .from('applied_jobs')
-      .update(updates)
-      .eq('id', id)
-
-    if (updateError) {
-      console.error('Error updating job:', updateError)
-      throw updateError
-    }
-
-    // Real-time subscription will handle updating the UI
+    // Convert to AppliedJobUpdate (all fields optional)
+    const updateData: AppliedJobUpdate = updates as AppliedJobUpdate
+    const updatedJob = await updateJob(id, updateData)
+    setJobs((prev) =>
+      prev.map((job) => (job.id === id ? updatedJob : job))
+    )
   }
 
   const handleDeleteJob = async (id: string) => {
-    const { error: deleteError } = await supabase
-      .from('applied_jobs')
-      .delete()
-      .eq('id', id)
-
-    if (deleteError) {
-      console.error('Error deleting job:', deleteError)
-      throw deleteError
-    }
-
-    // Real-time subscription will handle updating the UI
+    await deleteJob(id)
+    setJobs((prev) => prev.filter((job) => job.id !== id))
   }
 
   if (loading) {
@@ -152,12 +101,12 @@ export default function JobTracker() {
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
         <p className="text-red-800 font-semibold mb-2">Error</p>
         <p className="text-red-600">{error}</p>
-        <button
-          onClick={fetchJobs}
-          className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Retry
-        </button>
+          <button
+            onClick={loadJobs}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Retry
+          </button>
       </div>
     )
   }
@@ -212,7 +161,7 @@ export default function JobTracker() {
 
           <div className="flex items-end">
             <button
-              onClick={fetchJobs}
+              onClick={loadJobs}
               className="flex items-center gap-2 px-4 py-2 bg-zinc-200 text-zinc-700 rounded hover:bg-zinc-300"
               title="Refresh"
             >

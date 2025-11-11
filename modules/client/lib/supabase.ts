@@ -1,25 +1,34 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { Database } from './database.types'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+let supabaseInstance: SupabaseClient<Database> | null = null
 
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.warn('Supabase environment variables not configured')
+function getSupabaseClient(): SupabaseClient<Database> | null {
+  // Don't create Supabase client in development (use local Postgres via API routes)
+  if (process.env.NODE_ENV === "development") {
+    return null
+  }
+
+  if (supabaseInstance) {
+    return supabaseInstance
+  }
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('Supabase environment variables not configured')
+    return null
+  }
+
+  supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey)
+  return supabaseInstance
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+// Only create Supabase client in production
+export const supabase: SupabaseClient<Database> | null = getSupabaseClient()
 
-export type AppliedJob = {
-  id: string
-  company: string
-  job_title: string
-  application_date: string
-  status: 'applied' | 'interviewing' | 'rejected' | 'offer' | 'accepted'
-  job_url?: string
-  location?: string
-  salary_range?: string
-  notes?: string
-  source: 'manual' | 'agent'
-  created_at: string
-  updated_at: string
-}
+// Re-export types for convenience
+export type AppliedJob = Database['public']['Tables']['applied_jobs']['Row']
+export type AppliedJobInsert = Database['public']['Tables']['applied_jobs']['Insert']
+export type AppliedJobUpdate = Database['public']['Tables']['applied_jobs']['Update']

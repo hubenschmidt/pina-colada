@@ -9,17 +9,12 @@ _term() {
 }
 trap _term TERM INT
 
-# Run Supabase migrations if configured
-if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_KEY:-}" ]; then
-  echo "🔄 Running Supabase migrations..."
-  if uv run python scripts/apply_migrations.py; then
-    echo "✅ Migrations completed successfully"
-  else
-    echo "⚠️  Migrations failed, continuing anyway..."
-  fi
-else
-  echo "⏭️  Skipping migrations (SUPABASE_URL or SUPABASE_SERVICE_KEY not set)"
-fi
+# Local development: Migrations run via Supabase CLI or manually
+# Production: Migrations run in Azure Pipeline via Supabase CLI
+# No Docker-based migrations needed (avoids IPv6 issues)
+echo "ℹ️  Migrations:"
+echo "   - Local: Run manually via Supabase CLI or SQL Editor"
+echo "   - Production: Run automatically in Azure Pipeline"
 
 # Start LangGraph dev API (2024) - already has hot-reload built-in
 uv run langgraph dev --host 0.0.0.0 --port 2024 &

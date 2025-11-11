@@ -52,6 +52,13 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
           <p className="text-center text-zinc-600 mb-6">
             Enter password to access your job applications
           </p>
+          {process.env.NODE_ENV === 'development' && (
+            <div className="mb-4 p-2 bg-yellow-50 border border-yellow-200 rounded text-xs">
+              <p>Debug (dev only):</p>
+              <p>NEXT_PUBLIC_JOBS_PASSWORD: {process.env.NEXT_PUBLIC_JOBS_PASSWORD || 'NOT SET'}</p>
+              <p>JOBS_PASSWORD: {process.env.JOBS_PASSWORD ? 'SET (server-only)' : 'NOT SET'}</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             <div className="mb-4">

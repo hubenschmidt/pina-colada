@@ -84,9 +84,57 @@ stages:
                 $(tagLatest)
                 $(tagBuildId)
 
+  - stage: Migrate
+    displayName: Run Database Migrations
+    dependsOn: Push
+    # Only run migrations on master (avoid PR validations)
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    jobs:
+      - job: Migrate
+        displayName: Apply Supabase Migrations
+        pool:
+          name: Default
+          demands:
+            - Agent.OS -equals Linux
+        steps:
+          - task: NodeTool@0
+            displayName: "Install Node.js"
+            inputs:
+              versionSpec: "18.x"
+          
+          - script: |
+              echo "Installing Supabase CLI..."
+              npm install -g supabase
+              supabase --version
+            displayName: "Install Supabase CLI"
+          
+          - script: |
+              echo "Initializing Supabase project structure..."
+              # Initialize Supabase project (creates supabase/ directory)
+              supabase init || true
+              
+              # Copy migrations to Supabase's expected location
+              mkdir -p supabase/migrations
+              cp -r ../../supabase_migrations/*.sql supabase/migrations/ 2>/dev/null || echo "No migrations found"
+              
+              echo "Linking to Supabase project..."
+              echo "$SUPABASE_ACCESS_TOKEN" | supabase login --token-stdin
+              supabase link --project-ref $(SUPABASE_PROJECT_REF)
+            displayName: "Link Supabase Project"
+            env:
+              SUPABASE_ACCESS_TOKEN: $(SUPABASE_ACCESS_TOKEN)
+            workingDirectory: $(System.DefaultWorkingDirectory)
+          
+          - script: |
+              echo "Applying database migrations..."
+              supabase db push
+            displayName: "Push Migrations to Supabase"
+            continueOnError: false
+            workingDirectory: $(System.DefaultWorkingDirectory)
+
   - stage: Deploy
     displayName: Deploy to DigitalOcean App Platform
-    dependsOn: Push
+    dependsOn: Migrate
     # Only deploy on master (avoid PR validations)
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     jobs:

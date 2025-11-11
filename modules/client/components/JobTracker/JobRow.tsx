@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { AppliedJob } from '@/lib/supabase'
+import { AppliedJob } from '../../lib/supabase'
 import { Edit2, Trash2, ExternalLink, Save, X } from 'lucide-react'
 
 type JobRowProps = {

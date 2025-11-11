@@ -13,10 +13,19 @@ from langchain_community.utilities.wikipedia import WikipediaAPIWrapper
 from agent.tools.static_tools import push
 from dotenv import load_dotenv
 
-# Feature flag for choosing between Google Sheets and Supabase
+# Feature flag for choosing data source
 USE_SUPABASE = os.getenv("USE_SUPABASE", "true").lower() == "true"
+USE_LOCAL_POSTGRES = os.getenv("USE_LOCAL_POSTGRES", "false").lower() == "true"
 
-if USE_SUPABASE:
+if USE_LOCAL_POSTGRES:
+    from agent.services.job_service import JobService
+    from agent.repositories.job_repository import JobRepository
+    
+    def get_applied_jobs_tracker():
+        """Get job service instance for local Postgres."""
+        repository = JobRepository()
+        return JobService(repository)
+elif USE_SUPABASE:
     from agent.services.supabase_client import get_applied_jobs_tracker
 else:
     from agent.services.google_sheets import get_applied_jobs_tracker

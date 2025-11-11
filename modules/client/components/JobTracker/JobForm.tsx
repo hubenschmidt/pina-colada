@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from 'react'
-import { AppliedJob } from '@/lib/supabase'
+import { AppliedJob } from '../../lib/supabase'
 import { Plus, X } from 'lucide-react'
 
 type JobFormProps = {
