@@ -4,7 +4,7 @@ trigger:
       - master
   paths:
     include:
-      - "**/agent/**"
+      - "**/client/**"
 
 pr:
   autoCancel: true
@@ -13,64 +13,65 @@ pr:
       - master
   paths:
     include:
-      - "**/agent/**"
+      - "**/client/**"
 
 resources:
   - repo: self
 
-# ---------------- Variables ----------------
 variables:
   dockerRegistryServiceConnection: "ghcr-conn"
   owner: "hubenschmidt"
-  imageName: "pina-colada-agent"
+  imageName: "pina-colada-client"
   imageRepository: "$(owner)/$(imageName)"
-  dockerfilePath: "modules/agent/Dockerfile.prod"
-  buildContext: "modules/agent"
+  dockerfilePath: "modules/client/Dockerfile"
+  buildContext: "modules/client"
   tagLatest: "latest"
   tagBuildId: "$(Build.SourceBranchName)-$(Build.BuildId)"
 
 stages:
   - stage: Build
-    displayName: Build agent
+    displayName: Build app
     jobs:
       - job: Build
-        displayName: Docker build
+        displayName: Node build
         pool:
           name: Default # self-hosted Linux agent pool
           demands:
             - Agent.OS -equals Linux
         steps:
-          - task: Docker@2
-            displayName: "Build Docker image"
+          - task: NodeTool@0
             inputs:
-              command: "build"
-              containerRegistry: "$(dockerRegistryServiceConnection)"
-              repository: "$(imageRepository)"
-              dockerfile: "$(dockerfilePath)"
-              buildContext: "$(buildContext)"
-              tags: |
-                $(tagLatest)
-                $(tagBuildId)
+              versionSpec: "24"
+            displayName: "Install Node.js"
+          - task: Npm@1
+            displayName: "npm install (modules/client)"
+            inputs:
+              command: "install"
+              workingDir: "$(Build.SourcesDirectory)/modules/client"
 
   - stage: Push
     displayName: Push Docker Image to GHCR
     dependsOn: Build
     # Only deploy on master (avoid PR validations)
+    # DO_API_TOKEN and DO_APP_ID are set in Azure DevOps Project Settings → Pipelines → Library → Variable groups (or Pipeline Variables).
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     jobs:
       - job: Push
-        displayName: Push image
+        displayName: Build & push image
         pool:
           name: Default # self-hosted Linux agent pool
           demands:
             - Agent.OS -equals Linux
         steps:
           - task: Docker@2
-            displayName: "Push to GHCR"
+            displayName: "Build and push to GHCR"
             inputs:
-              command: "push"
+              command: "buildAndPush"
               containerRegistry: "$(dockerRegistryServiceConnection)"
-              repository: "$(imageRepository)"
+              repository: "$(imageRepository)" # owner/name ONLY
+              dockerfile: "$(dockerfilePath)"
+              buildContext: "$(buildContext)"
+              addPipelineData: false
               tags: |
                 $(tagLatest)
                 $(tagBuildId)
@@ -79,7 +80,6 @@ stages:
     displayName: Deploy to DigitalOcean App Platform
     dependsOn: Push
     # Only deploy on master (avoid PR validations)
-    # DO_API_TOKEN and DO_APP_ID are set in Azure DevOps Project Settings → Pipelines → Library → Variable groups (or Pipeline Variables).
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     jobs:
       - job: Deploy
@@ -91,11 +91,15 @@ stages:
         steps:
           - script: |
               echo "Triggering deployment on DigitalOcean App Platform..."
+              echo "DEBUG: DO_APP_ID is set: $([ -z "$DO_APP_ID" ] && echo 'NO' || echo 'YES')"
+              echo "DEBUG: DO_API_TOKEN is set: $([ -z "$DO_API_TOKEN" ] && echo 'NO' || echo 'YES')"
+              echo "DEBUG: DO_APP_ID value length: $(echo -n "$DO_APP_ID" | wc -c)"
+              echo "DEBUG: DO_API_TOKEN value length: $(echo -n "$DO_API_TOKEN" | wc -c)"
               http_code=$(curl -sS -o /tmp/do_deploy.json -w "%{http_code}" \
                 -X POST \
-                -H "Authorization: Bearer $(DO_API_TOKEN)" \
+                -H "Authorization: Bearer $DO_API_TOKEN" \
                 -H "Content-Type: application/json" \
-                "https://api.digitalocean.com/v2/apps/$(DO_APP_ID)/deployments")
+                "https://api.digitalocean.com/v2/apps/$DO_APP_ID/deployments")
               echo "POST /deployments => $http_code"
               cat /tmp/do_deploy.json
               case "$http_code" in
@@ -103,3 +107,6 @@ stages:
                 *) echo "Deployment API failed"; exit 1 ;;
               esac
             displayName: "Call DigitalOcean API to redeploy"
+            env:
+              DO_API_TOKEN: $(DO_API_TOKEN)
+              DO_APP_ID: $(DO_APP_ID)
