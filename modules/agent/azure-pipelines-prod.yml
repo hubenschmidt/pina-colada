@@ -73,14 +73,25 @@ stages:
           demands:
             - Agent.OS -equals Linux
         steps:
-          - task: NodeTool@0
-            displayName: "Install Node.js"
-            inputs:
-              versionSpec: "18.x"
-          
           - script: |
               echo "Installing Supabase CLI..."
-              npm install -g supabase
+              # Download and install Supabase CLI binary
+              # Get latest version from GitHub releases
+              SUPABASE_VERSION=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+              echo "Installing Supabase CLI version: $SUPABASE_VERSION"
+              
+              # Download binary for Linux x64
+              curl -L "https://github.com/supabase/cli/releases/download/${SUPABASE_VERSION}/supabase_${SUPABASE_VERSION#v}_linux_amd64.tar.gz" -o /tmp/supabase.tar.gz
+              
+              # Extract and install to user-writable location
+              mkdir -p $(Agent.ToolsDirectory)/supabase
+              tar -xzf /tmp/supabase.tar.gz -C $(Agent.ToolsDirectory)/supabase
+              chmod +x $(Agent.ToolsDirectory)/supabase/supabase
+              
+              # Add to PATH for this job
+              echo "##vso[task.prependpath]$(Agent.ToolsDirectory)/supabase"
+              
+              # Verify installation
               supabase --version
             displayName: "Install Supabase CLI"
           
