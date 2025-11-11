@@ -114,8 +114,14 @@ stages:
               supabase init || true
               
               # Copy migrations to Supabase's expected location
+              # Working directory is repo root, so supabase_migrations is at root level
               mkdir -p supabase/migrations
-              cp -r ../../supabase_migrations/*.sql supabase/migrations/ 2>/dev/null || echo "No migrations found"
+              if [ -d "supabase_migrations" ]; then
+                cp -r supabase_migrations/*.sql supabase/migrations/ 2>/dev/null || echo "No migrations found"
+                echo "✓ Copied migrations from supabase_migrations/"
+              else
+                echo "⚠️  supabase_migrations directory not found"
+              fi
               
               echo "Linking to Supabase project..."
               echo "$SUPABASE_ACCESS_TOKEN" | supabase login --token-stdin

@@ -12,6 +12,10 @@ trap _term TERM INT
 # Use PORT env var from DigitalOcean, default to 8080
 HTTP_PORT=${PORT:-8080}
 
+# Check migration status (production uses Supabase)
+echo "ℹ️  Checking migration status..."
+python scripts/check_migration_status.py || echo "⚠️  Could not check migration status"
+
 echo "Starting LangGraph server on port 2024..."
 echo "Starting FastAPI server on port $HTTP_PORT..."
 
