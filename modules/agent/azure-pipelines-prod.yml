@@ -75,25 +75,20 @@ stages:
         steps:
           - script: |
               echo "Installing Supabase CLI..."
-              # Download and install Supabase CLI binary directly from GitHub releases
+              # Use official Supabase CLI installation method
+              # This matches the approach used in supabase/setup-cli@v1 GitHub Action
               mkdir -p $(Agent.ToolsDirectory)/supabase
               
-              # Get the latest release download URL using GitHub API
-              DOWNLOAD_URL=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | grep "browser_download_url.*linux.*amd64" | grep -v ".tar.gz" | head -1 | cut -d '"' -f 4)
+              # Download using the official method (same as GitHub Action)
+              # Get version from latest release
+              VERSION=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+              echo "Installing Supabase CLI version: $VERSION"
               
-              if [ -z "$DOWNLOAD_URL" ]; then
-                echo "Error: Could not find download URL"
-                exit 1
-              fi
+              # Download the binary (GitHub releases use this format)
+              curl -L "https://github.com/supabase/cli/releases/download/v${VERSION}/supabase_${VERSION}_linux_amd64.tar.gz" -o /tmp/supabase.tar.gz
               
-              echo "Downloading from: $DOWNLOAD_URL"
-              curl -L "$DOWNLOAD_URL" -o $(Agent.ToolsDirectory)/supabase/supabase
-              
-              # Verify download succeeded
-              if [ ! -f $(Agent.ToolsDirectory)/supabase/supabase ]; then
-                echo "Error: Download failed"
-                exit 1
-              fi
+              # Extract
+              tar -xzf /tmp/supabase.tar.gz -C $(Agent.ToolsDirectory)/supabase
               
               # Make executable
               chmod +x $(Agent.ToolsDirectory)/supabase/supabase
@@ -108,18 +103,22 @@ stages:
           - script: |
               echo "Initializing Supabase project structure..."
               # Initialize Supabase project (creates supabase/ directory)
+              # This matches the Supabase docs pattern: https://supabase.com/docs/guides/deployment/managing-environments
               supabase init || true
               
-              # Copy migrations to Supabase's expected location
+              # Copy migrations to Supabase's expected location (supabase/migrations/)
               # Working directory is repo root, so supabase_migrations is at root level
               mkdir -p supabase/migrations
               if [ -d "supabase_migrations" ]; then
                 cp -r supabase_migrations/*.sql supabase/migrations/ 2>/dev/null || echo "No migrations found"
-                echo "✓ Copied migrations from supabase_migrations/"
+                echo "✓ Copied migrations from supabase_migrations/ to supabase/migrations/"
               else
                 echo "⚠️  supabase_migrations directory not found"
+                exit 1
               fi
               
+              # Link to Supabase project (following Supabase docs pattern)
+              # Requires SUPABASE_ACCESS_TOKEN and SUPABASE_PROJECT_REF environment variables
               echo "Linking to Supabase project..."
               echo "$SUPABASE_ACCESS_TOKEN" | supabase login --token-stdin
               supabase link --project-ref $(SUPABASE_PROJECT_REF)
@@ -130,10 +129,15 @@ stages:
           
           - script: |
               echo "Applying database migrations..."
+              # Use supabase db push to apply migrations (as per Supabase docs)
+              # This command applies all new migrations from supabase/migrations/ directory
+              # Supabase CLI tracks applied migrations automatically, so this is idempotent
               supabase db push
             displayName: "Push Migrations to Supabase"
             continueOnError: false
             workingDirectory: $(System.DefaultWorkingDirectory)
+            env:
+              SUPABASE_DB_PASSWORD: $(SUPABASE_DB_PASSWORD)
 
   - stage: Push
     displayName: Push Docker Image to GHCR
