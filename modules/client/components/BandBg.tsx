@@ -1,4 +1,4 @@
-export default function BandBg({ className = "" }: { className?: string }) {
+const BandBg = ({ className = "" }: { className?: string }) => {
   return (
     <div
       aria-hidden
@@ -12,4 +12,6 @@ export default function BandBg({ className = "" }: { className?: string }) {
       <div className="absolute -top-24 right-0 h-64 w-64 rounded-full bg-lime-300/30 blur-3xl" />
     </div>
   );
-}
+};
+
+export default BandBg

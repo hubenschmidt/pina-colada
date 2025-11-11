@@ -13,6 +13,8 @@ RUN curl -LsSf https://astral.sh/uv/install.sh | sh && ln -s /root/.local/bin/uv
 # App files
 COPY pyproject.toml README.md ./
 COPY src ./src
+COPY scripts ./scripts
+COPY supabase_migrations ./supabase_migrations
 
 # Dev image
 FROM base AS dev

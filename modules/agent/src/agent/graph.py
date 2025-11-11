@@ -250,17 +250,18 @@ async def invoke_graph(
             message=message, thread_id=user_uuid, success_criteria=success_criteria
         )
     except Exception as e:
-        error_name = type(e).__name__
-        error_msg = str(e).lower()
-        is_disconnect = (
-            "disconnect" in error_name.lower() 
-            or "close" in error_name.lower()
-            or "disconnect" in error_msg
-            or "close" in error_msg
-        )
+        def _is_disconnect_error(err: Exception) -> bool:
+            error_name = type(err).__name__.lower()
+            error_msg = str(err).lower()
+            return (
+                "disconnect" in error_name 
+                or "close" in error_name
+                or "disconnect" in error_msg
+                or "close" in error_msg
+            )
         
-        if is_disconnect:
-            logger.info(f"Client disconnected during processing: {error_name}")
+        if _is_disconnect_error(e):
+            logger.info(f"Client disconnected during processing: {type(e).__name__}")
             return
         
         logger.error(f"Error invoking orchestrator: {e}", exc_info=True)
@@ -274,17 +275,8 @@ async def invoke_graph(
             )
             await websocket.send_text(json.dumps({"on_chat_model_end": True}))
         except Exception as send_err:
-            send_error_name = type(send_err).__name__
-            send_error_msg = str(send_err).lower()
-            is_disconnect_error = (
-                "disconnect" in send_error_name.lower() 
-                or "close" in send_error_name.lower()
-                or "disconnect" in send_error_msg
-                or "close" in send_error_msg
-            )
-            
-            if is_disconnect_error:
+            if _is_disconnect_error(send_err):
                 logger.debug("Could not send error message, client already disconnected")
                 return
             
-            logger.debug(f"Could not send error message: {send_error_name}")
+            logger.debug(f"Could not send error message: {type(send_err).__name__}")

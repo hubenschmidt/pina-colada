@@ -8,6 +8,18 @@ services:
     volumes:
       - ./modules/client:/app
       - /app/node_modules
+    env_file:
+      - ./modules/client/.env.local
+    environment:
+      # Postgres connection for local dev (when USE_LOCAL_POSTGRES=true)
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: pina_colada
+    depends_on:
+      postgres:
+        condition: service_healthy
     command: ["npm", "run", "dev"] # overrides Dockerfile start command in dev env
     restart: always
 
@@ -23,9 +35,14 @@ services:
       - NODE_ENV=development
       - HOST=0.0.0.0
       - LANGFUSE_HOST=http://langfuse:3000 # app talks to Langfuse over the compose network
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     volumes:
       # Mount source code with consistency mode for better performance
       - ./modules/agent:/app:delegated
+      # Mount migrations directory
+      - ./modules/agent/supabase_migrations:/app/supabase_migrations:ro
       # Exclude these from the mount to avoid conflicts
       - /app/__pycache__
       - /app/.pytest_cache
@@ -188,13 +205,18 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres} # CHANGEME
-      POSTGRES_DB: ${COMPOSE_PROJECT_NAME:-postgres}
+      POSTGRES_DB: ${COMPOSE_PROJECT_NAME:-postgres}  # Default DB for Langfuse
       TZ: UTC
       PGTZ: UTC
     ports:
       - 127.0.0.1:5432:5432
     volumes:
       - langfuse_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
+    # This Postgres instance hosts multiple databases:
+    # - ${COMPOSE_PROJECT_NAME:-postgres} - Used by Langfuse (created via POSTGRES_DB)
+    # - pina_colada - Used by agent/client (created via init script)
+    # No collision: Each database is isolated, same Postgres instance
 
 volumes:
   langfuse_postgres_data:
@@ -209,3 +231,4 @@ volumes:
   langfuse_minio_data:
     name: ${COMPOSE_PROJECT_NAME}_langfuse_minio_data
     driver: local
+

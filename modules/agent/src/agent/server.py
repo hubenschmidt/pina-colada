@@ -14,6 +14,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from agent.graph import invoke_graph
 from agent.util.logging_config import configure_logging
+from agent.controllers import jobs_router
 from uuid import uuid4
 
 # -----------------------------------------------------------------------------
@@ -22,6 +23,9 @@ from uuid import uuid4
 configure_logging()  # plain logging to stdout (Docker captures it)
 logger = logging.getLogger("app.server")
 app = FastAPI()
+
+# Include routers
+app.include_router(jobs_router)
 
 # -----------------------------------------------------------------------------
 # CORS middleware

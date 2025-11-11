@@ -67,7 +67,7 @@ const supports = {
   },
 };
 
-function getPositionOnce(): Promise<GeolocationPosition | null> {
+const getPositionOnce = (): Promise<GeolocationPosition | null> => {
   return new Promise((resolve) => {
     if (!("geolocation" in navigator)) return resolve(null);
     navigator.geolocation.getCurrentPosition(
@@ -78,7 +78,7 @@ function getPositionOnce(): Promise<GeolocationPosition | null> {
   });
 }
 
-async function buildInitialContext(): Promise<UserContextV1> {
+const buildInitialContext = async (): Promise<UserContextV1> => {
   const ctx = await withOptionalBattery(baseContext());
 
   // Only enrich with geo if permission is ALREADY granted.
@@ -110,7 +110,7 @@ async function buildInitialContext(): Promise<UserContextV1> {
   return ctx;
 }
 
-function baseContext(): UserContextV1 {
+const baseContext = (): UserContextV1 => {
   const nav = navigator as any;
   const url = new URL(window.location.href);
 
@@ -169,7 +169,7 @@ function baseContext(): UserContextV1 {
   };
 }
 
-async function withOptionalBattery(ctx: UserContextV1): Promise<UserContextV1> {
+const withOptionalBattery = async (ctx: UserContextV1): Promise<UserContextV1> => {
   try {
     if ("getBattery" in navigator) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -184,7 +184,7 @@ async function withOptionalBattery(ctx: UserContextV1): Promise<UserContextV1> {
 }
 
 // Turn bare URLs and [text](url) into clickable links; preserve newlines.
-export function renderWithLinks(text: string): React.ReactNode[] {
+export const renderWithLinks = (text: string): React.ReactNode[] => {
   const out: React.ReactNode[] = [];
   let last = 0;
   let key = 0;

@@ -3,7 +3,7 @@ import BandBg from "../../components/BandBg";
 
 export const metadata = { title: "About — PinaColada.co" };
 
-export default function AboutPage() {
+const AboutPage = () => {
   return (
     <section className="relative overflow-hidden">
       <main className="mx-auto max-w-6xl px-4 py-16">
@@ -59,4 +59,6 @@ export default function AboutPage() {
       </main>
     </section>
   );
-}
+};
+
+export default AboutPage
