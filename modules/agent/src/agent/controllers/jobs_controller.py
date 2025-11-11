@@ -1,10 +1,18 @@
 """Controller for jobs API endpoints."""
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Type
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel
-from agent.repositories.job_repository import JobRepository
+from pydantic import BaseModel, create_model
+from agent.repositories.job_repository import (
+    find_all_jobs,
+    count_jobs,
+    find_job_by_id,
+    create_job as create_job_repo,
+    update_job as update_job_repo,
+    delete_job as delete_job_repo
+)
+from agent.models.job import JobCreateData, JobUpdateData, orm_to_dict
 
 logger = logging.getLogger(__name__)
 
@@ -39,44 +47,59 @@ def _to_paged_response(count: int, page: int, limit: int, items: List) -> dict:
     }
 
 
-class JobCreate(BaseModel):
-    """Job creation request model."""
-    company: str
-    job_title: str
-    job_url: Optional[str] = None
-    location: Optional[str] = None
-    salary_range: Optional[str] = None
-    notes: Optional[str] = None
-    status: str = "applied"
-    source: str = "manual"
+def _make_job_create_model() -> Type[BaseModel]:
+    """Create JobCreate model functionally."""
+    return create_model(
+        "JobCreate",
+        company=(str, ...),
+        job_title=(str, ...),
+        job_url=(Optional[str], None),
+        location=(Optional[str], None),
+        salary_range=(Optional[str], None),
+        notes=(Optional[str], None),
+        status=(str, "applied"),
+        source=(str, "manual"),
+    )
 
 
-class JobUpdate(BaseModel):
-    """Job update request model."""
-    company: Optional[str] = None
-    job_title: Optional[str] = None
-    job_url: Optional[str] = None
-    location: Optional[str] = None
-    salary_range: Optional[str] = None
-    notes: Optional[str] = None
-    status: Optional[str] = None
-    source: Optional[str] = None
+def _make_job_update_model() -> Type[BaseModel]:
+    """Create JobUpdate model functionally."""
+    return create_model(
+        "JobUpdate",
+        company=(Optional[str], None),
+        job_title=(Optional[str], None),
+        job_url=(Optional[str], None),
+        location=(Optional[str], None),
+        salary_range=(Optional[str], None),
+        notes=(Optional[str], None),
+        status=(Optional[str], None),
+        source=(Optional[str], None),
+    )
 
 
-class JobResponse(BaseModel):
-    """Job response model."""
-    id: str
-    company: str
-    job_title: str
-    application_date: str
-    status: str
-    job_url: Optional[str]
-    location: Optional[str]
-    salary_range: Optional[str]
-    notes: Optional[str]
-    source: str
-    created_at: str
-    updated_at: str
+def _make_job_response_model() -> Type[BaseModel]:
+    """Create JobResponse model functionally."""
+    return create_model(
+        "JobResponse",
+        id=(str, ...),
+        company=(str, ...),
+        job_title=(str, ...),
+        application_date=(str, ...),
+        status=(str, ...),
+        job_url=(Optional[str], None),
+        location=(Optional[str], None),
+        salary_range=(Optional[str], None),
+        notes=(Optional[str], None),
+        source=(str, ...),
+        created_at=(str, ...),
+        updated_at=(str, ...),
+    )
+
+
+# Create models functionally (required by FastAPI for validation/serialization)
+JobCreate = _make_job_create_model()
+JobUpdate = _make_job_update_model()
+JobResponse = _make_job_response_model()
 
 
 @router.get("/")
@@ -88,12 +111,11 @@ async def get_jobs(
 ):
     """Get all jobs with pagination."""
     paging = _parse_paging(page, limit, order_by, order)
-    repository = JobRepository()
     
-    total_count = repository.count()
+    total_count = count_jobs()
     
     # Get paginated jobs with sorting
-    all_jobs = repository.find_all()
+    all_jobs = find_all_jobs()
     
     # Simple sorting (in-memory for now - can be optimized with DB queries later)
     reverse = paging["order"] == "DESC"
@@ -135,21 +157,18 @@ async def get_jobs(
 @router.post("/", response_model=JobResponse)
 async def create_job(job_data: JobCreate):
     """Create a new job."""
-    from agent.models.job import AppliedJob
+    data: JobCreateData = {
+        "company": job_data.company,
+        "job_title": job_data.job_title,
+        "job_url": job_data.job_url,
+        "location": job_data.location,
+        "salary_range": job_data.salary_range,
+        "notes": job_data.notes,
+        "status": job_data.status,
+        "source": job_data.source
+    }
     
-    job = AppliedJob(
-        company=job_data.company,
-        job_title=job_data.job_title,
-        job_url=job_data.job_url,
-        location=job_data.location,
-        salary_range=job_data.salary_range,
-        notes=job_data.notes,
-        status=job_data.status,
-        source=job_data.source
-    )
-    
-    repository = JobRepository()
-    created = repository.create(job)
+    created = create_job_repo(data)
     
     return JobResponse(
         id=str(created.id),
@@ -170,8 +189,7 @@ async def create_job(job_data: JobCreate):
 @router.get("/{job_id}", response_model=JobResponse)
 async def get_job(job_id: str):
     """Get a job by ID."""
-    repository = JobRepository()
-    job = repository.find_by_id(job_id)
+    job = find_job_by_id(job_id)
     
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -195,30 +213,21 @@ async def get_job(job_id: str):
 @router.put("/{job_id}", response_model=JobResponse)
 async def update_job(job_id: str, job_data: JobUpdate):
     """Update a job."""
-    repository = JobRepository()
-    job = repository.find_by_id(job_id)
+    data: JobUpdateData = {
+        "company": job_data.company,
+        "job_title": job_data.job_title,
+        "job_url": job_data.job_url,
+        "location": job_data.location,
+        "salary_range": job_data.salary_range,
+        "notes": job_data.notes,
+        "status": job_data.status,
+        "source": job_data.source
+    }
     
-    if not job:
+    updated = update_job_repo(job_id, data)
+    
+    if not updated:
         raise HTTPException(status_code=404, detail="Job not found")
-    
-    if job_data.company is not None:
-        job.company = job_data.company
-    if job_data.job_title is not None:
-        job.job_title = job_data.job_title
-    if job_data.job_url is not None:
-        job.job_url = job_data.job_url
-    if job_data.location is not None:
-        job.location = job_data.location
-    if job_data.salary_range is not None:
-        job.salary_range = job_data.salary_range
-    if job_data.notes is not None:
-        job.notes = job_data.notes
-    if job_data.status is not None:
-        job.status = job_data.status
-    if job_data.source is not None:
-        job.source = job_data.source
-    
-    updated = repository.update(job)
     
     return JobResponse(
         id=str(updated.id),
@@ -239,8 +248,7 @@ async def update_job(job_id: str, job_data: JobUpdate):
 @router.delete("/{job_id}")
 async def delete_job(job_id: str):
     """Delete a job."""
-    repository = JobRepository()
-    deleted = repository.delete(job_id)
+    deleted = delete_job_repo(job_id)
     
     if not deleted:
         raise HTTPException(status_code=404, detail="Job not found")

@@ -2,10 +2,20 @@
 
 import logging
 from typing import Dict, List, Optional
-from agent.models.job import AppliedJob
-from agent.repositories.job_repository import JobRepository
+from agent.models.job import JobCreateData, orm_to_dict
+from agent.repositories.job_repository import (
+    find_all_jobs,
+    create_job,
+    find_job_by_id,
+    update_job,
+    delete_job
+)
 
 logger = logging.getLogger(__name__)
+
+# Module-level cache
+_cache: Optional[set[str]] = None
+_details_cache: Optional[List[Dict[str, str]]] = None
 
 
 def _normalize_identifier(company: str, title: str) -> str:
@@ -13,137 +23,146 @@ def _normalize_identifier(company: str, title: str) -> str:
     return f"{company.lower().strip()}|{title.lower().strip()}"
 
 
-def _map_to_dict(job: AppliedJob) -> Dict[str, str]:
+def _map_to_dict(job) -> Dict[str, str]:
     """Map database model to dictionary."""
-    return {
-        "company": job.company or "Unknown Company",
-        "title": job.job_title or "",
-        "date_applied": str(job.application_date) if job.application_date else "Not specified",
-        "link": job.job_url or "",
-        "status": job.status or "applied",
-        "location": job.location or "",
-        "salary_range": job.salary_range or "",
-        "notes": job.notes or "",
-        "source": job.source or "manual",
-        "id": str(job.id) if job.id else "",
+    return orm_to_dict(job) if hasattr(job, 'id') else {
+        "company": job.get("company") or "Unknown Company",
+        "title": job.get("job_title") or job.get("title") or "",
+        "date_applied": str(job.get("application_date")) if job.get("application_date") else "Not specified",
+        "link": job.get("job_url") or job.get("link") or "",
+        "status": job.get("status") or "applied",
+        "location": job.get("location") or "",
+        "salary_range": job.get("salary_range") or "",
+        "notes": job.get("notes") or "",
+        "source": job.get("source") or "manual",
+        "id": str(job.get("id")) if job.get("id") else "",
     }
 
 
-class JobService:
-    """Service for job business logic."""
-    
-    def __init__(self, repository: JobRepository):
-        """Initialize service with repository."""
-        self._repository = repository
-        self._cache: Optional[set[str]] = None
-        self._details_cache: Optional[List[Dict[str, str]]] = None
-    
-    def get_all_jobs(self, refresh: bool = False) -> List[Dict[str, str]]:
-        """Get all jobs as dictionaries."""
-        if self._details_cache and not refresh:
-            return self._details_cache.copy()
-        
-        jobs = self._repository.find_all()
-        details = [_map_to_dict(job) for job in jobs]
-        
-        self._details_cache = details
-        self._cache = {_normalize_identifier(j["company"], j["title"]) for j in details if j["title"]}
-        
-        logger.info(f"Loaded {len(details)} jobs from repository")
-        return details
-    
-    def fetch_applied_jobs(self, refresh: bool = False) -> set[str]:
-        """Fetch set of normalized job identifiers (for compatibility)."""
-        return self.get_applied_identifiers(refresh=refresh)
-    
-    def get_applied_identifiers(self, refresh: bool = False) -> set[str]:
-        """Get set of normalized job identifiers."""
-        if self._cache and not refresh:
-            return self._cache.copy()
-        
-        self.get_all_jobs(refresh=refresh)
-        return self._cache.copy() if self._cache else set()
-    
-    def get_jobs_details(self, refresh: bool = False) -> List[Dict[str, str]]:
-        """Get detailed list of applied jobs (for compatibility)."""
-        return self.get_all_jobs(refresh=refresh)
-    
-    def is_job_applied(self, company: str, title: str) -> bool:
-        """Check if a job has been applied to."""
-        identifiers = self.get_applied_identifiers()
-        identifier = _normalize_identifier(company, title)
-        return identifier in identifiers
-    
-    def filter_jobs(self, jobs: List[Dict[str, str]]) -> List[Dict[str, str]]:
-        """Filter out jobs that have already been applied to."""
-        identifiers = self.get_applied_identifiers()
-        
-        if not identifiers:
-            logger.warning("No applied jobs loaded - returning all jobs")
-            return jobs
-        
-        filtered = [
-            job for job in jobs
-            if not self.is_job_applied(job.get("company", ""), job.get("title", ""))
-        ]
-        
-        filtered_count = len(jobs) - len(filtered)
-        if filtered_count > 0:
-            logger.info(f"Filtered {filtered_count} jobs, {len(filtered)} remaining")
-        
-        return filtered
-    
-    def add_applied_job(
-        self,
-        company: str,
-        job_title: str,
-        job_url: str = "",
-        location: str = "",
-        salary_range: str = "",
-        notes: str = "",
-        status: str = "applied",
-        source: str = "agent"
-    ) -> Optional[Dict[str, str]]:
-        """Add a new job application (for compatibility)."""
-        return self.add_job(
-            company=company,
-            job_title=job_title,
-            job_url=job_url,
-            location=location,
-            salary_range=salary_range,
-            notes=notes,
-            status=status,
-            source=source
-        )
-    
-    def add_job(
-        self,
-        company: str,
-        job_title: str,
-        job_url: str = "",
-        location: str = "",
-        salary_range: str = "",
-        notes: str = "",
-        status: str = "applied",
-        source: str = "agent"
-    ) -> Optional[Dict[str, str]]:
-        """Add a new job application."""
-        job = AppliedJob(
-            company=company,
-            job_title=job_title,
-            job_url=job_url,
-            location=location,
-            salary_range=salary_range,
-            notes=notes,
-            status=status,
-            source=source
-        )
-        
-        created = self._repository.create(job)
-        logger.info(f"Added job application: {company} - {job_title}")
-        
-        self._cache = None
-        self._details_cache = None
-        
-        return _map_to_dict(created)
+def _clear_cache() -> None:
+    """Clear module-level cache."""
+    global _cache, _details_cache
+    _cache = None
+    _details_cache = None
 
+
+def get_all_jobs(refresh: bool = False) -> List[Dict[str, str]]:
+    """Get all jobs as dictionaries."""
+    global _details_cache, _cache
+    
+    if _details_cache and not refresh:
+        return _details_cache.copy()
+    
+    jobs = find_all_jobs()
+    details = [orm_to_dict(job) for job in jobs]
+    
+    _details_cache = details
+    _cache = {_normalize_identifier(j["company"], j["title"]) for j in details if j.get("title")}
+    
+    logger.info(f"Loaded {len(details)} jobs from repository")
+    return details
+
+
+def get_applied_jobs_only(refresh: bool = False) -> List[Dict[str, str]]:
+    """Get only jobs with status 'applied'."""
+    all_jobs = get_all_jobs(refresh=refresh)
+    applied_jobs = [job for job in all_jobs if job.get("status", "").lower() == "applied"]
+    logger.info(f"Filtered to {len(applied_jobs)} jobs with status 'applied' (from {len(all_jobs)} total)")
+    return applied_jobs
+
+
+def get_applied_identifiers(refresh: bool = False) -> set[str]:
+    """Get set of normalized job identifiers (only status='applied')."""
+    applied_jobs = get_applied_jobs_only(refresh=refresh)
+    return {_normalize_identifier(j["company"], j["title"]) for j in applied_jobs if j.get("title")}
+
+
+def fetch_applied_jobs(refresh: bool = False) -> set[str]:
+    """Fetch set of normalized job identifiers (for compatibility)."""
+    return get_applied_identifiers(refresh=refresh)
+
+
+def get_jobs_details(refresh: bool = False) -> List[Dict[str, str]]:
+    """Get detailed list of applied jobs (status='applied' only, for compatibility)."""
+    return get_applied_jobs_only(refresh=refresh)
+
+
+def is_job_applied(company: str, title: str) -> bool:
+    """Check if a job has been applied to (status='applied' only)."""
+    applied_jobs = get_applied_jobs_only()
+    identifier = _normalize_identifier(company, title)
+    applied_identifiers = {_normalize_identifier(j["company"], j["title"]) for j in applied_jobs if j.get("title")}
+    return identifier in applied_identifiers
+
+
+def filter_jobs(jobs: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    """Filter out jobs that have already been applied to (status='applied' only)."""
+    identifiers = get_applied_identifiers()
+    
+    if not identifiers:
+        logger.warning("No applied jobs (status='applied') found - returning all jobs")
+        return jobs
+    
+    filtered = [
+        job for job in jobs
+        if not is_job_applied(job.get("company", ""), job.get("title", ""))
+    ]
+    
+    filtered_count = len(jobs) - len(filtered)
+    if filtered_count > 0:
+        logger.info(f"Filtered {filtered_count} jobs with status 'applied', {len(filtered)} remaining")
+    
+    return filtered
+
+
+def add_job(
+    company: str,
+    job_title: str,
+    job_url: str = "",
+    location: str = "",
+    salary_range: str = "",
+    notes: str = "",
+    status: str = "applied",
+    source: str = "agent"
+) -> Optional[Dict[str, str]]:
+    """Add a new job application."""
+    data: JobCreateData = {
+        "company": company,
+        "job_title": job_title,
+        "job_url": job_url or None,
+        "location": location or None,
+        "salary_range": salary_range or None,
+        "notes": notes or None,
+        "status": status,
+        "source": source
+    }
+    
+    created = create_job(data)
+    logger.info(f"Added job application: {company} - {job_title}")
+    
+    _clear_cache()
+    
+    return orm_to_dict(created)
+
+
+def add_applied_job(
+    company: str,
+    job_title: str,
+    job_url: str = "",
+    location: str = "",
+    salary_range: str = "",
+    notes: str = "",
+    status: str = "applied",
+    source: str = "agent"
+) -> Optional[Dict[str, str]]:
+    """Add a new job application (for compatibility)."""
+    return add_job(
+        company=company,
+        job_title=job_title,
+        job_url=job_url,
+        location=location,
+        salary_range=salary_range,
+        notes=notes,
+        status=status,
+        source=source
+    )

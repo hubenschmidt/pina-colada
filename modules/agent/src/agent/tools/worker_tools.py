@@ -18,13 +18,23 @@ USE_SUPABASE = os.getenv("USE_SUPABASE", "true").lower() == "true"
 USE_LOCAL_POSTGRES = os.getenv("USE_LOCAL_POSTGRES", "false").lower() == "true"
 
 if USE_LOCAL_POSTGRES:
-    from agent.services.job_service import JobService
-    from agent.repositories.job_repository import JobRepository
+    from agent.services.job_service import (
+        get_jobs_details,
+        fetch_applied_jobs,
+        is_job_applied,
+        filter_jobs,
+        add_job
+    )
     
     def get_applied_jobs_tracker():
-        """Get job service instance for local Postgres."""
-        repository = JobRepository()
-        return JobService(repository)
+        """Get job service tracker (functional dict interface)."""
+        return {
+            "get_jobs_details": lambda refresh=False: get_jobs_details(refresh=refresh),
+            "fetch_applied_jobs": lambda refresh=False: fetch_applied_jobs(refresh=refresh),
+            "is_job_applied": lambda company, title: is_job_applied(company, title),
+            "filter_jobs": lambda jobs: filter_jobs(jobs),
+            "add_applied_job": lambda **kwargs: add_job(**kwargs),
+        }
 else:
     from agent.services.supabase_client import get_applied_jobs_tracker
 from pydantic import BaseModel, Field
@@ -227,7 +237,7 @@ def _handle_no_applications(tracker) -> str:
 
 def _handle_specific_job_check(tracker, company: str, job_title: str) -> str:
     """Handle check for specific company and job title."""
-    if tracker.is_job_applied(company, job_title):
+    if tracker["is_job_applied"](company, job_title):
         return f"Yes, you have already applied to {company} for the {job_title} position."
     return f"No record found for {company} - {job_title}. You have not applied to this position yet."
 
@@ -394,8 +404,8 @@ def check_applied_jobs(query: str = "") -> str:
         logger.info(f"check_applied_jobs called with query='{query}', parsed as company='{company}', job_title='{job_title}'")
         
         tracker = get_applied_jobs_tracker()
-        applied_jobs = tracker.fetch_applied_jobs(refresh=True)
-        jobs_details = tracker.get_jobs_details(refresh=True)
+        applied_jobs = tracker["fetch_applied_jobs"](refresh=True)
+        jobs_details = tracker["get_jobs_details"](refresh=True)
         
         logger.info(f"Total applied_jobs count: {len(applied_jobs)}, Total jobs_details count: {len(jobs_details)}")
 
@@ -422,35 +432,37 @@ def check_applied_jobs(query: str = "") -> str:
 
 def job_search_with_filter(query: str) -> str:
     """
-    Search for jobs and filter out ones already applied to.
+    Search for jobs and filter out ones already applied to (status='applied' only).
 
     This function:
     1. Performs a web search for jobs
-    2. Fetches the list of already-applied jobs from Supabase
-    3. Filters out duplicates
+    2. Fetches the list of jobs with status='applied' from the database
+    3. Filters out duplicates by company and title
     4. Returns the filtered results
     """
     try:
-        # Get applied jobs tracker first and refresh
+        # Get job service to check applied jobs
         tracker = get_applied_jobs_tracker()
-        applied_jobs = tracker.fetch_applied_jobs(refresh=True)
-        jobs_details = tracker.get_jobs_details(refresh=True)
         
-        logger.info(f"Loaded {len(applied_jobs)} applied jobs for filtering")
+        # Get only jobs with status 'applied'
+        jobs_details = tracker["get_jobs_details"](refresh=True)
+        applied_jobs = tracker["fetch_applied_jobs"](refresh=True)
+        
+        logger.info(f"Loaded {len(applied_jobs)} applied jobs (status='applied') for filtering")
 
         # Perform the search
         serper = GoogleSerperAPIWrapper()
         raw_results = serper.run(query)
 
         if not applied_jobs:
-            logger.warning("No applied jobs loaded - returning unfiltered results")
+            logger.info("No applied jobs (status='applied') found - returning unfiltered results")
             return raw_results
 
-        # Parse and filter results
+        # Parse and filter results (only filter jobs with status='applied')
         filtered_results = _filter_job_results(raw_results, tracker, jobs_details)
 
         if not filtered_results.strip():
-            return "All job postings found have already been applied to. Try refining your search criteria or location."
+            return "All job postings found have already been applied to (status='applied'). Try refining your search criteria or location."
 
         return filtered_results
 
@@ -525,7 +537,7 @@ def _title_matches(search_title: str, applied_title: str) -> bool:
 
 
 def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
-    """Check if a job matches any applied job (strict matching)."""
+    """Check if a job matches any applied job with status='applied' (strict matching)."""
     if not company and not title:
         return False
     
@@ -535,6 +547,11 @@ def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
         return False
     
     def _check_job_match(applied_job: Dict[str, str]) -> bool:
+        # Only check jobs with status 'applied'
+        job_status = applied_job.get("status", "").lower()
+        if job_status != "applied":
+            return False
+        
         applied_company = applied_job.get("company", "")
         applied_title = applied_job.get("title", "")
         
@@ -545,7 +562,7 @@ def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
         title_match = _title_matches(title, applied_title)
         
         if company_match and title_match:
-            logger.info(f"Filtering out applied job: {company} - {title} (matches {applied_company} - {applied_title})")
+            logger.info(f"Filtering out applied job: {company} - {title} (matches {applied_company} - {applied_title}, status=applied)")
             return True
         
         return False
@@ -664,11 +681,18 @@ async def get_worker_tools():
     tools.append(record_details_tool)
     
     # Email sending tool (using StructuredTool for multiple parameters)
-    class SendEmailInput(BaseModel):
-        to_email: str = Field(description="Recipient email address")
-        subject: str = Field(description="Email subject line")
-        body: str = Field(description="Email body text")
-        job_listings: str = Field(default="", description="Optional job listings to include in email")
+    def _make_send_email_input_model():
+        """Create SendEmailInput model functionally."""
+        from pydantic import create_model, Field
+        return create_model(
+            "SendEmailInput",
+            to_email=(str, Field(description="Recipient email address")),
+            subject=(str, Field(description="Email subject line")),
+            body=(str, Field(description="Email body text")),
+            job_listings=(str, Field(default="", description="Optional job listings to include in email")),
+        )
+    
+    SendEmailInput = _make_send_email_input_model()
     
     send_email_tool = StructuredTool.from_function(
         func=send_email,

@@ -4,13 +4,16 @@ import logging
 import os
 from typing import Dict, List, Optional, Set
 from sqlalchemy import create_engine, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, sessionmaker
 from agent.models.job import AppliedJob, Base
 
 logger = logging.getLogger(__name__)
 
+# Module-level state
 _engine = None
 _session_factory = None
+_applied_jobs_cache: Set[str] = set()
+_jobs_details_cache: List[Dict[str, str]] = []
 
 
 def _get_connection_string() -> Optional[str]:
@@ -48,7 +51,6 @@ def _get_session() -> Optional[Session]:
     
     global _session_factory
     if _session_factory is None:
-        from sqlalchemy.orm import sessionmaker
         _session_factory = sessionmaker(bind=engine)
     
     return _session_factory()
@@ -75,147 +77,155 @@ def _map_db_record_to_job(record: AppliedJob) -> Dict[str, str]:
     }
 
 
-class PostgresJobsTracker:
-    """Track jobs using local Postgres database (pina_colada)."""
-    
-    def __init__(self):
-        """Initialize the tracker."""
-        self._applied_jobs_cache: Set[str] = set()
-        self._jobs_details_cache: List[Dict[str, str]] = []
-    
-    def fetch_applied_jobs(self, refresh: bool = False) -> Set[str]:
-        """Fetch list of companies/job titles from applied jobs table."""
-        if self._applied_jobs_cache and not refresh:
-            return self._applied_jobs_cache
-        
-        session = _get_session()
-        if not session:
-            logger.warning("Postgres session unavailable - returning empty set")
-            return set()
-        
-        try:
-            stmt = select(AppliedJob)
-            records = session.execute(stmt).scalars().all()
-            
-            logger.info(f"✓ Found {len(records)} rows in applied_jobs table")
-            
-            applied_jobs = set()
-            jobs_details = []
-            
-            def _process_record(record) -> Optional[Dict[str, str]]:
-                job_data = _map_db_record_to_job(record)
-                if not job_data["title"]:
-                    return None
-                return job_data
-            
-            def _add_job(job_data: Dict[str, str]) -> None:
-                identifier = _normalize_job_identifier(job_data["company"], job_data["title"])
-                applied_jobs.add(identifier)
-                jobs_details.append(job_data)
-            
-            for record in records:
-                job_data = _process_record(record)
-                if job_data:
-                    _add_job(job_data)
-            
-            logger.info(f"✓ Loaded {len(applied_jobs)} applied jobs from Postgres")
-            self._applied_jobs_cache = applied_jobs
-            self._jobs_details_cache = jobs_details
-            return applied_jobs
-        
-        except Exception as e:
-            logger.error(f"Failed to fetch applied jobs from Postgres: {e}")
-            return self._applied_jobs_cache
-        finally:
-            session.close()
-    
-    def get_jobs_details(self, refresh: bool = False) -> List[Dict[str, str]]:
-        """Get detailed list of applied jobs."""
-        if not self._jobs_details_cache or refresh:
-            self.fetch_applied_jobs(refresh=refresh)
-        return self._jobs_details_cache.copy()
-    
-    def is_job_applied(self, company: str, title: str) -> bool:
-        """Check if a job has already been applied to."""
-        if not self._applied_jobs_cache:
-            self.fetch_applied_jobs()
-        
-        identifier = _normalize_job_identifier(company, title)
-        return identifier in self._applied_jobs_cache
-    
-    def filter_jobs(self, jobs: List[Dict[str, str]]) -> List[Dict[str, str]]:
-        """Filter out jobs that have already been applied to."""
-        if not self._applied_jobs_cache:
-            self.fetch_applied_jobs()
-        
-        if not self._applied_jobs_cache:
-            logger.warning("No applied jobs loaded - returning all jobs")
-            return jobs
-        
-        filtered = [
-            job for job in jobs
-            if not self.is_job_applied(job.get("company", ""), job.get("title", ""))
-        ]
-        
-        filtered_count = len(jobs) - len(filtered)
-        if filtered_count > 0:
-            logger.info(f"Filtered {filtered_count} jobs, {len(filtered)} remaining")
-        
-        return filtered
-    
-    def add_applied_job(
-        self,
-        company: str,
-        job_title: str,
-        job_url: str = "",
-        location: str = "",
-        salary_range: str = "",
-        notes: str = "",
-        status: str = "applied",
-        source: str = "agent"
-    ) -> Optional[Dict]:
-        """Add a new job application to the database."""
-        session = _get_session()
-        if not session:
-            logger.error("Cannot add job - Postgres session unavailable")
-            return None
-        
-        try:
-            job = AppliedJob(
-                company=company,
-                job_title=job_title,
-                job_url=job_url,
-                location=location,
-                salary_range=salary_range,
-                notes=notes,
-                status=status,
-                source=source
-            )
-            
-            session.add(job)
-            session.commit()
-            
-            logger.info(f"✓ Added job application: {company} - {job_title}")
-            self._applied_jobs_cache = set()
-            self._jobs_details_cache = []
-            
-            return _map_db_record_to_job(job)
-        
-        except Exception as e:
-            logger.error(f"Failed to add job application: {e}")
-            session.rollback()
-            return None
-        finally:
-            session.close()
+def _clear_cache() -> None:
+    """Clear module-level cache."""
+    global _applied_jobs_cache, _jobs_details_cache
+    _applied_jobs_cache = set()
+    _jobs_details_cache = []
 
 
-_tracker_instance: Optional[PostgresJobsTracker] = None
+def fetch_applied_jobs(refresh: bool = False) -> Set[str]:
+    """Fetch list of companies/job titles from applied jobs table."""
+    global _applied_jobs_cache, _jobs_details_cache
+    
+    if _applied_jobs_cache and not refresh:
+        return _applied_jobs_cache
+    
+    session = _get_session()
+    if not session:
+        logger.warning("Postgres session unavailable - returning empty set")
+        return set()
+    
+    try:
+        # Filter by status='applied' only
+        stmt = select(AppliedJob).where(AppliedJob.status == "applied")
+        records = session.execute(stmt).scalars().all()
+        
+        logger.info(f"✓ Found {len(records)} rows in applied_jobs table with status='applied'")
+        
+        applied_jobs = set()
+        jobs_details = []
+        
+        def _process_record(record) -> Optional[Dict[str, str]]:
+            job_data = _map_db_record_to_job(record)
+            if not job_data["title"]:
+                return None
+            # Double-check status (should already be filtered by query, but be safe)
+            if job_data.get("status", "").lower() != "applied":
+                return None
+            return job_data
+        
+        def _add_job(job_data: Dict[str, str]) -> None:
+            identifier = _normalize_job_identifier(job_data["company"], job_data["title"])
+            applied_jobs.add(identifier)
+            jobs_details.append(job_data)
+        
+        for record in records:
+            job_data = _process_record(record)
+            if job_data:
+                _add_job(job_data)
+        
+        logger.info(f"✓ Loaded {len(applied_jobs)} applied jobs (status='applied') from Postgres")
+        _applied_jobs_cache = applied_jobs
+        _jobs_details_cache = jobs_details
+        return applied_jobs
+    
+    except Exception as e:
+        logger.error(f"Failed to fetch applied jobs from Postgres: {e}")
+        return _applied_jobs_cache
+    finally:
+        session.close()
 
 
-def get_postgres_jobs_tracker() -> PostgresJobsTracker:
-    """Get or create the global Postgres jobs tracker instance."""
-    global _tracker_instance
-    if _tracker_instance is None:
-        _tracker_instance = PostgresJobsTracker()
-    return _tracker_instance
+def get_jobs_details(refresh: bool = False) -> List[Dict[str, str]]:
+    """Get detailed list of applied jobs."""
+    global _jobs_details_cache
+    
+    if not _jobs_details_cache or refresh:
+        fetch_applied_jobs(refresh=refresh)
+    return _jobs_details_cache.copy()
 
+
+def is_job_applied(company: str, title: str) -> bool:
+    """Check if a job has already been applied to."""
+    if not _applied_jobs_cache:
+        fetch_applied_jobs()
+    
+    identifier = _normalize_job_identifier(company, title)
+    return identifier in _applied_jobs_cache
+
+
+def filter_jobs(jobs: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    """Filter out jobs that have already been applied to."""
+    if not _applied_jobs_cache:
+        fetch_applied_jobs()
+    
+    if not _applied_jobs_cache:
+        logger.warning("No applied jobs loaded - returning all jobs")
+        return jobs
+    
+    filtered = [
+        job for job in jobs
+        if not is_job_applied(job.get("company", ""), job.get("title", ""))
+    ]
+    
+    filtered_count = len(jobs) - len(filtered)
+    if filtered_count > 0:
+        logger.info(f"Filtered {filtered_count} jobs, {len(filtered)} remaining")
+    
+    return filtered
+
+
+def add_applied_job(
+    company: str,
+    job_title: str,
+    job_url: str = "",
+    location: str = "",
+    salary_range: str = "",
+    notes: str = "",
+    status: str = "applied",
+    source: str = "agent"
+) -> Optional[Dict]:
+    """Add a new job application to the database."""
+    session = _get_session()
+    if not session:
+        logger.error("Cannot add job - Postgres session unavailable")
+        return None
+    
+    try:
+        job = AppliedJob(
+            company=company,
+            job_title=job_title,
+            job_url=job_url,
+            location=location,
+            salary_range=salary_range,
+            notes=notes,
+            status=status,
+            source=source
+        )
+        
+        session.add(job)
+        session.commit()
+        
+        logger.info(f"✓ Added job application: {company} - {job_title}")
+        _clear_cache()
+        
+        return _map_db_record_to_job(job)
+    
+    except Exception as e:
+        logger.error(f"Failed to add job application: {e}")
+        session.rollback()
+        return None
+    finally:
+        session.close()
+
+
+def get_postgres_jobs_tracker():
+    """Get Postgres jobs tracker (functional dict interface)."""
+    return {
+        "get_jobs_details": lambda refresh=False: get_jobs_details(refresh=refresh),
+        "fetch_applied_jobs": lambda refresh=False: fetch_applied_jobs(refresh=refresh),
+        "is_job_applied": lambda company, title: is_job_applied(company, title),
+        "filter_jobs": lambda jobs: filter_jobs(jobs),
+        "add_applied_job": lambda **kwargs: add_applied_job(**kwargs),
+    }

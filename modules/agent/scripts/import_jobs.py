@@ -9,7 +9,7 @@ from pathlib import Path
 # Add src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from agent.repositories.job_repository import JobRepository
+from agent.repositories.job_repository import create_job_from_orm
 from agent.models.job import AppliedJob
 
 
@@ -88,7 +88,6 @@ def should_skip_row(row: dict) -> bool:
 
 def import_csv(file_path: str, dry_run: bool = False) -> None:
     """Import jobs from CSV file."""
-    repository = JobRepository()
     
     if not os.path.exists(file_path):
         print(f"Error: File not found: {file_path}")
@@ -146,7 +145,7 @@ def import_csv(file_path: str, dry_run: bool = False) -> None:
                     skipped += 1
                 if job:
                     if not dry_run:
-                        repository.create(job)
+                        create_job_from_orm(job)
                     
                     imported += 1
                     print(f"✓ Row {row_num}: {job.company} - {job.job_title}")
