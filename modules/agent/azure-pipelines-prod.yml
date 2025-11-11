@@ -77,7 +77,23 @@ stages:
               echo "Installing Supabase CLI..."
               # Download and install Supabase CLI binary directly from GitHub releases
               mkdir -p $(Agent.ToolsDirectory)/supabase
-              curl -L "https://github.com/supabase/cli/releases/latest/download/supabase-linux-amd64" -o $(Agent.ToolsDirectory)/supabase/supabase
+              
+              # Get the latest release download URL using GitHub API
+              DOWNLOAD_URL=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | grep "browser_download_url.*linux.*amd64" | grep -v ".tar.gz" | head -1 | cut -d '"' -f 4)
+              
+              if [ -z "$DOWNLOAD_URL" ]; then
+                echo "Error: Could not find download URL"
+                exit 1
+              fi
+              
+              echo "Downloading from: $DOWNLOAD_URL"
+              curl -L "$DOWNLOAD_URL" -o $(Agent.ToolsDirectory)/supabase/supabase
+              
+              # Verify download succeeded
+              if [ ! -f $(Agent.ToolsDirectory)/supabase/supabase ]; then
+                echo "Error: Download failed"
+                exit 1
+              fi
               
               # Make executable
               chmod +x $(Agent.ToolsDirectory)/supabase/supabase
