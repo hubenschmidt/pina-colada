@@ -242,7 +242,7 @@ def import_csv(file_path: str, dry_run: bool = False, skip_duplicates: bool = Tr
                     resume_date = parsed_resume
                 else:
                     # If resume is not a date, add it to notes
-                    if notes:
+            if notes:
                         notes = f"{notes} | Resume: {resume_str}"
                     else:
                         notes = f"Resume: {resume_str}"
@@ -279,13 +279,13 @@ def import_csv(file_path: str, dry_run: bool = False, skip_duplicates: bool = Tr
                     print(f"⊘ Row {row_num}: {job.company} - {job.job_title} (duplicate, skipping)")
                     continue
                 
-                if not dry_run:
-                    create_job_from_orm(job)
+                    if not dry_run:
+                        create_job_from_orm(job)
                     # Add to existing jobs list to prevent duplicates within the same import
                     existing_jobs.append(job)
-                
-                imported += 1
-                print(f"✓ Row {row_num}: {job.company} - {job.job_title}")
+                    
+                    imported += 1
+                    print(f"✓ Row {row_num}: {job.company} - {job.job_title}")
             
             except Exception as e:
                 skipped += 1

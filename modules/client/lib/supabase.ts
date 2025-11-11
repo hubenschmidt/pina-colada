@@ -16,12 +16,27 @@ const getSupabaseClient = (): SupabaseClient<Database> | null => {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
+  // Debug logging
+  console.log('Supabase config check:', {
+    hasUrl: !!supabaseUrl,
+    urlLength: supabaseUrl.length,
+    hasKey: !!supabaseAnonKey,
+    keyLength: supabaseAnonKey.length,
+    nodeEnv: process.env.NODE_ENV
+  })
+
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Supabase environment variables not configured')
+    console.warn('Supabase environment variables not configured', {
+      url: supabaseUrl ? 'SET' : 'MISSING',
+      key: supabaseAnonKey ? 'SET' : 'MISSING'
+    })
     return null
   }
 
-  supabaseInstance = createClient<Database>(supabaseUrl, supabaseAnonKey)
+  // Clean up URL if it has duplicate .supabase.co
+  const cleanedUrl = supabaseUrl.replace(/\.supabase\.co\.supabase\.co$/, '.supabase.co')
+
+  supabaseInstance = createClient<Database>(cleanedUrl, supabaseAnonKey)
   return supabaseInstance
 }
 

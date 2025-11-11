@@ -42,16 +42,16 @@ def _map_to_dict(job) -> Dict[str, str]:
     else:
         # It's already a dict
         return {
-            "company": job.get("company") or "Unknown Company",
-            "title": job.get("job_title") or job.get("title") or "",
+        "company": job.get("company") or "Unknown Company",
+        "title": job.get("job_title") or job.get("title") or "",
             "date_applied": str(job.get("date")) if job.get("date") else (str(job.get("application_date")) if job.get("application_date") else "Not specified"),
-            "link": job.get("job_url") or job.get("link") or "",
-            "status": job.get("status") or "applied",
-            "salary_range": job.get("salary_range") or "",
-            "notes": job.get("notes") or "",
-            "source": job.get("source") or "manual",
-            "id": str(job.get("id")) if job.get("id") else "",
-        }
+        "link": job.get("job_url") or job.get("link") or "",
+        "status": job.get("status") or "applied",
+        "salary_range": job.get("salary_range") or "",
+        "notes": job.get("notes") or "",
+        "source": job.get("source") or "manual",
+        "id": str(job.get("id")) if job.get("id") else "",
+    }
 
 
 def _clear_cache() -> None:

@@ -24,155 +24,213 @@ docker compose exec agent python scripts/import_jobs.py imports/jobs.csv
 
 **Important**: This script should NOT be run as part of the CI/CD pipeline to avoid accidental duplicate runs.
 
-### Option 1: Manual Execution via SSH (Recommended)
+### Option 1: DigitalOcean App Platform (Recommended)
 
-#### Step 1: Get Your DigitalOcean Server Details
+DigitalOcean App Platform provides a console/SSH feature to access your running containers.
+
+#### Step 1: Access App Platform Console
+
+**Method A: Via DigitalOcean Dashboard (Easiest)**
 
 1. Log into [DigitalOcean Dashboard](https://cloud.digitalocean.com/)
-2. Go to **Droplets** → Select your server
-3. Note your server's **IP address** (e.g., `123.45.67.89`)
-4. Check your **SSH key** setup (usually in Settings → Security)
+2. Go to **Apps** → Select your `pina-colada-agent` app
+3. Click on the **Runtime Logs** tab
+4. Look for the **"Console"** button or **"Open Console"** link (usually in the top right)
+5. This opens a web-based terminal into your running container
 
-#### Step 2: SSH Into Your Server
+**Method B: Via `doctl` CLI Tool**
 
-**If you have SSH key set up:**
-```bash
-ssh root@YOUR_SERVER_IP
-# or if you have a non-root user:
-ssh your-username@YOUR_SERVER_IP
+1. Install `doctl` if you haven't already:
+   ```bash
+   # macOS
+   brew install doctl
+   
+   # Linux
+   wget https://github.com/digitalocean/doctl/releases/download/v1.104.0/doctl-1.104.0-linux-amd64.tar.gz
+   tar xf doctl-1.104.0-linux-amd64.tar.gz
+   sudo mv doctl /usr/local/bin
+   ```
+
+2. Authenticate:
+   ```bash
+   doctl auth init
+   # Enter your DigitalOcean API token when prompted
+   ```
+
+3. List your apps to find the app ID:
+   ```bash
+   doctl apps list
+   ```
+
+4. Get a console session:
+   ```bash
+   # Get the component ID (usually the service name like "agent")
+   doctl apps get YOUR_APP_ID
+   
+   # Open console (this will give you instructions)
+   doctl apps logs YOUR_APP_ID --component=agent --type=run
+   ```
+
+#### Step 2: Upload CSV File to App Platform
+
+**Method A: Via App Platform Console**
+
+1. Once in the console, navigate to the app directory:
+   ```bash
+   cd /app
+   ls -la  # Verify you're in the right place
+   ```
+
+2. Create the imports directory:
+   ```bash
+   mkdir -p imports
+   ```
+
+3. Use `cat` to create the file (paste CSV content):
+   ```bash
+   cat > imports/jobs.csv << 'EOF'
+   # Paste your CSV content here
+   # Press Ctrl+D when done
+   EOF
+   ```
+
+**Method B: Via App Spec (if you have file storage configured)**
+
+If your app has persistent storage, you can mount it and copy files there.
+
+**Method C: Base64 Encode/Decode (for binary-safe transfer)**
+
+1. On your local machine, encode the CSV:
+   ```bash
+   base64 modules/agent/imports/jobs.csv > jobs.csv.b64
+   ```
+
+2. Copy the base64 content and paste it in the console:
+   ```bash
+   # In App Platform console
+   cat > imports/jobs.csv.b64 << 'EOF'
+   # Paste base64 content here
+   EOF
+   
+   # Decode it
+   base64 -d imports/jobs.csv.b64 > imports/jobs.csv
+   rm imports/jobs.csv.b64
+   ```
+
+#### Step 3: Verify Environment Variables
+
+The import script requires these PostgreSQL environment variables to connect to Supabase:
+
+**Required Environment Variables:**
+- `POSTGRES_HOST` - Your Supabase database host (e.g., `db.xxxxx.supabase.co` or `xxxxx.supabase.co`)
+- `POSTGRES_PORT` - Database port (usually `5432` or `6543` for connection pooling)
+- `POSTGRES_USER` - Database user (usually `postgres`)
+- `POSTGRES_PASSWORD` - Your Supabase database password
+- `POSTGRES_DB` - Database name (usually `postgres`)
+
+**In App Platform Console:**
+
+1. Check if environment variables are set:
+   ```bash
+   env | grep POSTGRES
+   ```
+
+2. If they're missing, you need to add them in App Platform:
+   - Go to your App Platform app settings
+   - Navigate to **Settings** → **App-Level Environment Variables**
+   - Add each variable listed above
+   - **Important**: You'll need to restart/redeploy the app for changes to take effect
+
+3. To find your Supabase connection details:
+   - Go to [Supabase Dashboard](https://app.supabase.com/)
+   - Select your project
+   - Go to **Settings** → **Database**
+   - Find the **Connection string** section
+   - Extract the host, port, user, password, and database name from the connection string
+
+**Example connection string format:**
+```
+postgresql://postgres:[YOUR-PASSWORD]@db.xxxxx.supabase.co:5432/postgres
 ```
 
-**If you need to use password:**
+**Quick Test:**
 ```bash
-ssh root@YOUR_SERVER_IP
-# Enter password when prompted
+# In App Platform console, test the connection
+python -c "
+import os
+from agent.repositories.job_repository import _get_connection_string
+print('Connection string:', _get_connection_string())
+"
 ```
 
-**If you have a custom SSH key:**
-```bash
-ssh -i /path/to/your/private/key root@YOUR_SERVER_IP
-```
-
-#### Step 3: Find Your Application Directory
-
-Once connected, locate where your application is deployed:
+#### Step 4: Run the Import Script
 
 ```bash
-# Common locations:
-cd /var/www/pina-colada-co
-# or
-cd /home/your-user/pina-colada-co
-# or
-cd /opt/pina-colada-co
-# or if using Docker:
-docker ps  # Find your agent container name
-```
-
-**If using Docker:**
-```bash
-# List running containers
-docker ps
-
-# Find the agent container (might be named something like "agent" or "pina-colada-agent")
-# You'll need to exec into it later
-```
-
-#### Step 4: Copy CSV File to Server
-
-**From your local machine** (in a new terminal, while SSH'd in another):
-
-```bash
-# Replace with your actual server IP and path
-scp modules/agent/imports/jobs.csv root@YOUR_SERVER_IP:/path/to/app/modules/agent/imports/jobs.csv
-```
-
-**Or if you're already SSH'd in, you can create the file directly:**
-```bash
-# On the server, create the imports directory if needed
-mkdir -p modules/agent/imports
-
-# Then use nano/vim to create the file, or use scp from another terminal
-```
-
-#### Step 5: Set Up Environment Variables
-
-**If NOT using Docker** (application runs directly on server):
-```bash
-# Check if .env file exists
-cat modules/agent/.env
-
-# Or set environment variables manually
-export POSTGRES_HOST=your-supabase-host.db.supabase.co
-export POSTGRES_PORT=5432
-export POSTGRES_USER=postgres
-export POSTGRES_PASSWORD=your-password
-export POSTGRES_DB=postgres
-```
-
-**If using Docker** (most common):
-```bash
-# Check environment variables in container
-docker exec your-agent-container env | grep POSTGRES
-
-# Or check docker-compose.yml or .env file
-cat docker-compose.yml | grep POSTGRES
-```
-
-#### Step 6: Run the Import Script
-
-**If NOT using Docker:**
-```bash
-cd modules/agent
-
-# Dry run first (always recommended!)
-python scripts/import_jobs.py imports/jobs.csv --dry-run
-
-# If everything looks good, run for real
-python scripts/import_jobs.py imports/jobs.csv
-```
-
-**If using Docker:**
-```bash
-# Option A: Exec into the container and run script
-docker exec -it your-agent-container bash
+# Navigate to app directory (if not already there)
 cd /app
+
+# Dry run first (ALWAYS recommended!)
 python scripts/import_jobs.py imports/jobs.csv --dry-run
+
+# If everything looks good, run the actual import
 python scripts/import_jobs.py imports/jobs.csv
-exit
-
-# Option B: Run command directly without entering container
-docker exec -it your-agent-container python scripts/import_jobs.py imports/jobs.csv --dry-run
-docker exec -it your-agent-container python scripts/import_jobs.py imports/jobs.csv
-
-# Option C: If using docker-compose
-docker compose exec agent python scripts/import_jobs.py imports/jobs.csv --dry-run
-docker compose exec agent python scripts/import_jobs.py imports/jobs.csv
 ```
 
-#### Step 7: Verify Import
+#### Step 5: Verify Import
 
-Check that jobs were imported:
+The script will output how many jobs were imported. You can also verify via your application's API or database.
+
+### Option 2: Traditional VPS/Droplet (If Not Using App Platform)
+
+If you're using a traditional Droplet instead of App Platform:
+
+#### Step 1: SSH Into Your Server
+
 ```bash
-# If you have a way to query the database or check via API
-# Or check the script output - it will show how many were imported
+# Using SSH key (recommended)
+ssh root@YOUR_DROPLET_IP
+
+# Or with custom key
+ssh -i /path/to/your/key root@YOUR_DROPLET_IP
 ```
 
-### Quick Reference: Common DigitalOcean Commands
+#### Step 2: Find Your Application
 
 ```bash
-# 1. Connect to server
-ssh root@YOUR_SERVER_IP
-
-# 2. Find your app (if using Docker)
-docker ps
+# If using Docker Compose
 docker compose ps
+cd /path/to/your/app
 
-# 3. Copy file from local to server (from your local machine)
-scp modules/agent/imports/jobs.csv root@YOUR_SERVER_IP:/root/pina-colada-co/modules/agent/imports/
+# If using plain Docker
+docker ps
+```
 
-# 4. Run import in Docker container
+#### Step 3: Copy CSV File
+
+From your local machine:
+```bash
+scp modules/agent/imports/jobs.csv root@YOUR_DROPLET_IP:/tmp/jobs.csv
+```
+
+Then on the server:
+```bash
+# If using Docker Compose
+docker compose cp /tmp/jobs.csv agent:/app/imports/jobs.csv
+
+# Or copy into container
+docker cp /tmp/jobs.csv CONTAINER_NAME:/app/imports/jobs.csv
+```
+
+#### Step 4: Run Import
+
+```bash
+# If using Docker Compose
 docker compose exec agent python scripts/import_jobs.py imports/jobs.csv --dry-run
 docker compose exec agent python scripts/import_jobs.py imports/jobs.csv
+
+# If using plain Docker
+docker exec -it CONTAINER_NAME python scripts/import_jobs.py imports/jobs.csv --dry-run
+docker exec -it CONTAINER_NAME python scripts/import_jobs.py imports/jobs.csv
 ```
 
 ### Option 2: One-Time Azure Pipeline Job (Alternative)
