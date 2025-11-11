@@ -77,7 +77,9 @@ stages:
               echo "Installing Supabase CLI..."
               # Use official Supabase CLI installation method
               # This matches the approach used in supabase/setup-cli@v1 GitHub Action
-              mkdir -p $(Agent.ToolsDirectory)/supabase
+              # For self-hosted agents, use a user-writable location
+              SUPABASE_DIR=$(Agent.ToolsDirectory)/supabase
+              mkdir -p $SUPABASE_DIR
               
               # Get version from latest release
               VERSION=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
@@ -93,27 +95,34 @@ stages:
               fi
               
               # Extract
-              tar -xzf /tmp/supabase.tar.gz -C $(Agent.ToolsDirectory)/supabase
+              tar -xzf /tmp/supabase.tar.gz -C $SUPABASE_DIR
               
               # Verify extraction succeeded
-              if [ ! -f $(Agent.ToolsDirectory)/supabase/supabase ]; then
+              if [ ! -f $SUPABASE_DIR/supabase ]; then
                 echo "Error: Binary not found after extraction"
-                ls -la $(Agent.ToolsDirectory)/supabase/
+                ls -la $SUPABASE_DIR/
                 exit 1
               fi
               
               # Make executable
-              chmod +x $(Agent.ToolsDirectory)/supabase/supabase
+              chmod +x $SUPABASE_DIR/supabase
               
-              # Add to PATH for this job (takes effect in next step)
-              echo "##vso[task.prependpath]$(Agent.ToolsDirectory)/supabase"
+              # Add to PATH for this job (works for both Microsoft-hosted and self-hosted agents)
+              echo "##vso[task.prependpath]$SUPABASE_DIR"
               
-              # Verify installation using full path (PATH update happens in next step)
-              $(Agent.ToolsDirectory)/supabase/supabase --version
+              # Also export PATH in current shell for immediate use (self-hosted agent workaround)
+              export PATH="$SUPABASE_DIR:$PATH"
+              
+              # Verify installation
+              echo "Verifying installation..."
+              $SUPABASE_DIR/supabase --version || supabase --version
             displayName: "Install Supabase CLI"
           
           - script: |
               echo "Initializing Supabase project structure..."
+              # Ensure Supabase CLI is in PATH (for self-hosted agents)
+              export PATH="$(Agent.ToolsDirectory)/supabase:$PATH"
+              
               # Initialize Supabase project (creates supabase/ directory)
               # This matches the Supabase docs pattern: https://supabase.com/docs/guides/deployment/managing-environments
               supabase init || true
@@ -141,6 +150,9 @@ stages:
           
           - script: |
               echo "Applying database migrations..."
+              # Ensure Supabase CLI is in PATH (for self-hosted agents)
+              export PATH="$(Agent.ToolsDirectory)/supabase:$PATH"
+              
               # Use supabase db push to apply migrations (as per Supabase docs)
               # This command applies all new migrations from supabase/migrations/ directory
               # Supabase CLI tracks applied migrations automatically, so this is idempotent
