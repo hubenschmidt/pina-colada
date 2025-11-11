@@ -26,8 +26,6 @@ dependencies = [
   "google-search-results>=2.4.2",
   "wikipedia>=1.4.0",
   "supabase>=2.0.0",
-  "gspread>=6.1.0",
-  "google-auth>=2.34.0",
   "psycopg2-binary>=2.9.11",
   "sqlalchemy>=2.0.0",
 ]

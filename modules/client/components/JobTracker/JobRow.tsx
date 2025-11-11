@@ -26,7 +26,7 @@ const STATUS_COLORS = {
   accepted: 'bg-purple-100 text-purple-800'
 }
 
-export default function JobRow({ job, onUpdate, onDelete }: JobRowProps) {
+const JobRow = ({ job, onUpdate, onDelete }: JobRowProps) => {
   const [isEditing, setIsEditing] = useState(false)
   const [editData, setEditData] = useState<Partial<AppliedJob>>({
     company: job.company,
@@ -218,3 +218,5 @@ export default function JobRow({ job, onUpdate, onDelete }: JobRowProps) {
     </div>
   )
 }
+
+export default JobRow

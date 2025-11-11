@@ -5,7 +5,7 @@ import cx from "../util/concat-classes";
 
 type CardProps = PropsWithChildren<HTMLAttributes<HTMLDivElement>>;
 
-export function Card({ className, children, ...rest }: CardProps) {
+export const Card = ({ className, children, ...rest }: CardProps) => {
   return (
     <div
       {...rest}
@@ -23,12 +23,12 @@ export function Card({ className, children, ...rest }: CardProps) {
   );
 }
 
-export function CardLink({
+export const CardLink = ({
   href,
   children,
   className,
   newTab = true,
-}: PropsWithChildren<{ href: string; className?: string; newTab?: boolean }>) {
+}: PropsWithChildren<{ href: string; className?: string; newTab?: boolean }>) => {
   return (
     <Link
       href={href}
@@ -49,7 +49,7 @@ export function CardLink({
   );
 }
 
-export function SectionTitle({
+export const SectionTitle = ({
   kicker,
   right,
   className,
@@ -58,7 +58,7 @@ export function SectionTitle({
   kicker?: string;
   right?: React.ReactNode;
   className?: string;
-}) {
+}) => {
   return (
     <div
       {...rest}

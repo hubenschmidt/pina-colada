@@ -12,7 +12,7 @@ import { RefreshCw, ExternalLink, Search, X } from 'lucide-react'
 // In production, use Supabase directly
 const USE_API_ROUTES = process.env.NODE_ENV === "development"
 
-export default function JobTracker() {
+const JobTracker = () => {
   const [data, setData] = useState<PageData<AppliedJob> | null>(null)
   const [loading, setLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -294,3 +294,5 @@ export default function JobTracker() {
     </div>
   )
 }
+
+export default JobTracker

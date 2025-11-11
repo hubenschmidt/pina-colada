@@ -241,7 +241,7 @@ def main():
     if docker_migrations_dir.exists():
         migrations_dir = docker_migrations_dir
         print(f"\n✓ Running in Docker container")
-    else:
+    if not docker_migrations_dir.exists():
         # Local development path
         project_root = script_dir.parent.parent.parent
         migrations_dir = project_root / "supabase_migrations"

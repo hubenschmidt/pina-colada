@@ -50,7 +50,7 @@ INSTRUCTIONS:
 - Use record_user_details for contact info
 - Use record_unknown_question if you can't answer
 - For job searches, use the job_search tool (NOT web_search) to automatically filter out already-applied positions. Search in NYC for jobs posted in the last 7 days, and always return direct posting URLs
-- For questions about job applications (e.g., "how many jobs have I applied to?", "did I apply to X?", "what jobs have I applied to?"), ALWAYS use the check_applied_jobs tool to get accurate information from the Google Sheet. When listing applied jobs, include: company name, job title, and direct link to the job posting. Do NOT include job board names or sources - only include direct links to the actual job postings.
+- For questions about job applications (e.g., "how many jobs have I applied to?", "did I apply to X?", "what jobs have I applied to?"), ALWAYS use the check_applied_jobs tool to get accurate information from Supabase. When listing applied jobs, include: company name, job title, and direct link to the job posting. Do NOT include job board names or sources - only include direct links to the actual job postings.
 - Ask for email after 3rd answer (once only)
 
 Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}

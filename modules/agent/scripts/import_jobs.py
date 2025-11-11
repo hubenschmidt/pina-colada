@@ -31,7 +31,7 @@ def parse_date(date_str: str) -> datetime | None:
         "%m/%d/%y",  # 11/1/24
     ]
     
-    for fmt in formats:
+    def _try_parse_format(fmt: str) -> datetime | None:
         try:
             parsed = datetime.strptime(date_str, fmt)
             # If no year in format, assume current year
@@ -39,7 +39,12 @@ def parse_date(date_str: str) -> datetime | None:
                 parsed = parsed.replace(year=datetime.now().year)
             return parsed
         except ValueError:
-            continue
+            return None
+    
+    for fmt in formats:
+        parsed = _try_parse_format(fmt)
+        if parsed:
+            return parsed
     
     return None
 
@@ -96,49 +101,55 @@ def import_csv(file_path: str, dry_run: bool = False) -> None:
     with open(file_path, "r", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         
+        def _process_row(row_num: int, row: dict[str, str]) -> AppliedJob | None:
+            if should_skip_row(row):
+                return None
+            
+            company = row.get("Description", "").strip()
+            job_title = row.get("Job title", "").strip()
+            date_applied_str = row.get("date applied", "").strip()
+            job_url = row.get("link", "").strip() or None
+            notes = row.get("note", "").strip() or None
+            source = row.get("job board", "").strip() or "manual"
+            
+            # Combine notes with other relevant info
+            note_parts = []
+            if notes:
+                note_parts.append(notes)
+            if row.get("Resume", "").strip():
+                note_parts.append(f"Resume: {row.get('Resume', '').strip()}")
+            combined_notes = " | ".join(note_parts) if note_parts else None
+            
+            job = AppliedJob(
+                company=company,
+                job_title=job_title,
+                job_url=job_url,
+                location=None,
+                salary_range=None,
+                notes=combined_notes,
+                status="applied",
+                source=source if source else "manual",
+            )
+            
+            # Parse application date
+            if date_applied_str:
+                parsed_date = parse_date(date_applied_str)
+                if parsed_date:
+                    job.application_date = parsed_date
+            
+            return job
+        
         for row_num, row in enumerate(reader, start=2):
             try:
-                if should_skip_row(row):
+                job = _process_row(row_num, row)
+                if not job:
                     skipped += 1
-                    continue
-                
-                company = row.get("Description", "").strip()
-                job_title = row.get("Job title", "").strip()
-                date_applied_str = row.get("date applied", "").strip()
-                job_url = row.get("link", "").strip() or None
-                notes = row.get("note", "").strip() or None
-                source = row.get("job board", "").strip() or "manual"
-                
-                # Combine notes with other relevant info
-                note_parts = []
-                if notes:
-                    note_parts.append(notes)
-                if row.get("Resume", "").strip():
-                    note_parts.append(f"Resume: {row.get('Resume', '').strip()}")
-                combined_notes = " | ".join(note_parts) if note_parts else None
-                
-                job = AppliedJob(
-                    company=company,
-                    job_title=job_title,
-                    job_url=job_url,
-                    location=None,
-                    salary_range=None,
-                    notes=combined_notes,
-                    status="applied",
-                    source=source if source else "manual",
-                )
-                
-                # Parse application date
-                if date_applied_str:
-                    parsed_date = parse_date(date_applied_str)
-                    if parsed_date:
-                        job.application_date = parsed_date
-                
-                if not dry_run:
-                    repository.create(job)
-                
-                imported += 1
-                print(f"✓ Row {row_num}: {company} - {job_title}")
+                if job:
+                    if not dry_run:
+                        repository.create(job)
+                    
+                    imported += 1
+                    print(f"✓ Row {row_num}: {job.company} - {job.job_title}")
             
             except Exception as e:
                 skipped += 1

@@ -8,7 +8,7 @@ type LoginFormProps = {
   onLoginSuccess: () => void;
 };
 
-export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
+const LoginForm = ({ onLoginSuccess }: LoginFormProps) => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -87,4 +87,6 @@ export default function LoginForm({ onLoginSuccess }: LoginFormProps) {
       </div>
     </div>
   );
-}
+};
+
+export default LoginForm

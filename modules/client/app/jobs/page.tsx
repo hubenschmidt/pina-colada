@@ -6,7 +6,7 @@ import LoginForm from '../../components/JobTracker/LoginForm'
 import { isAuthenticated, logout } from '../../lib/auth'
 import { LogOut } from 'lucide-react'
 
-export default function JobsPage() {
+const JobsPage = () => {
   const [authenticated, setAuthenticated] = useState(false)
   const [loading, setLoading] = useState(true)
 
@@ -53,3 +53,5 @@ export default function JobsPage() {
     </main>
   )
 }
+
+export default JobsPage

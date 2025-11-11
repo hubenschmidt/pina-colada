@@ -1,6 +1,6 @@
 """Supabase service for tracking applied jobs.
 
-Replaces Google Sheets integration with Supabase database for better
+Uses Supabase database for job application tracking with better
 data structure, querying capabilities, and real-time updates.
 """
 
@@ -92,15 +92,21 @@ class AppliedJobsTracker:
             applied_jobs = set()
             jobs_details = []
 
-            for record in records:
+            def _process_record(record: Dict[str, Any]) -> Optional[Dict[str, str]]:
                 job_data = _map_db_record_to_job(record)
-
                 if not job_data["title"]:
-                    continue
+                    return None
+                return job_data
 
+            def _add_job(job_data: Dict[str, str]) -> None:
                 identifier = _normalize_job_identifier(job_data["company"], job_data["title"])
                 applied_jobs.add(identifier)
                 jobs_details.append(job_data)
+
+            for record in records:
+                job_data = _process_record(record)
+                if job_data:
+                    _add_job(job_data)
 
             logger.info(f"✓ Loaded {len(applied_jobs)} applied jobs from Supabase")
             logger.info(f"✓ Total job details: {len(jobs_details)}")

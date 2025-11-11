@@ -11,13 +11,13 @@ import { PageData } from '../components/DataTable'
 // In production, use Supabase directly
 const USE_API_ROUTES = process.env.NODE_ENV === "development"
 
-export async function fetchJobs(
+export const fetchJobs = async (
   page: number = 1,
   limit: number = 25,
   orderBy: string = "application_date",
   order: "ASC" | "DESC" = "DESC",
   search?: string
-): Promise<PageData<AppliedJob>> {
+): Promise<PageData<AppliedJob>> => {
   if (USE_API_ROUTES) {
     const params = new URLSearchParams({
       page: page.toString(),
@@ -84,7 +84,7 @@ export async function fetchJobs(
   };
 }
 
-export async function createJob(job: AppliedJobInsert): Promise<AppliedJob> {
+export const createJob = async (job: AppliedJobInsert): Promise<AppliedJob> => {
   if (USE_API_ROUTES) {
     const response = await fetch('/api/jobs', {
       method: 'POST',
@@ -111,7 +111,7 @@ export async function createJob(job: AppliedJobInsert): Promise<AppliedJob> {
   return data;
 }
 
-export async function updateJob(id: string, job: AppliedJobUpdate): Promise<AppliedJob> {
+export const updateJob = async (id: string, job: AppliedJobUpdate): Promise<AppliedJob> => {
   if (USE_API_ROUTES) {
     const response = await fetch(`/api/jobs/${id}`, {
       method: 'PUT',
@@ -139,7 +139,7 @@ export async function updateJob(id: string, job: AppliedJobUpdate): Promise<Appl
   return data;
 }
 
-export async function deleteJob(id: string): Promise<void> {
+export const deleteJob = async (id: string): Promise<void> => {
   if (USE_API_ROUTES) {
     const response = await fetch(`/api/jobs/${id}`, {
       method: 'DELETE',

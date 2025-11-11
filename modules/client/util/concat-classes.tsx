@@ -1,4 +1,6 @@
 // Tiny local helper to concat classes safely
-export default function cx(...parts: Array<string | false | null | undefined>) {
+const cx = (...parts: Array<string | false | null | undefined>) => {
   return parts.filter(Boolean).join(" ");
-}
+};
+
+export default cx

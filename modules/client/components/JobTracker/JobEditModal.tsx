@@ -20,7 +20,7 @@ const STATUS_OPTIONS: AppliedJob['status'][] = [
   'accepted'
 ]
 
-export default function JobEditModal({ job, opened, onClose, onUpdate, onDelete }: JobEditModalProps) {
+const JobEditModal = ({ job, opened, onClose, onUpdate, onDelete }: JobEditModalProps) => {
   const [formData, setFormData] = useState<Partial<AppliedJob>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
@@ -217,3 +217,4 @@ export default function JobEditModal({ job, opened, onClose, onUpdate, onDelete 
   )
 }
 
+export default JobEditModal

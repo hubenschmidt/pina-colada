@@ -16,7 +16,7 @@ const STATUS_OPTIONS: AppliedJob['status'][] = [
   'accepted'
 ]
 
-export default function JobForm({ onAdd }: JobFormProps) {
+const JobForm = ({ onAdd }: JobFormProps) => {
   const [isOpen, setIsOpen] = useState(false)
   const [formData, setFormData] = useState({
     company: '',
@@ -207,3 +207,5 @@ export default function JobForm({ onAdd }: JobFormProps) {
     </div>
   )
 }
+
+export default JobForm

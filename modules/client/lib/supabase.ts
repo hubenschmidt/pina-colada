@@ -3,7 +3,7 @@ import { Database } from './database.types'
 
 let supabaseInstance: SupabaseClient<Database> | null = null
 
-function getSupabaseClient(): SupabaseClient<Database> | null {
+const getSupabaseClient = (): SupabaseClient<Database> | null => {
   // Don't create Supabase client in development (use local Postgres via API routes)
   if (process.env.NODE_ENV === "development") {
     return null

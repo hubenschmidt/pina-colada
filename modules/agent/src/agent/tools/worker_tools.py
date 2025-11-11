@@ -25,10 +25,8 @@ if USE_LOCAL_POSTGRES:
         """Get job service instance for local Postgres."""
         repository = JobRepository()
         return JobService(repository)
-elif USE_SUPABASE:
-    from agent.services.supabase_client import get_applied_jobs_tracker
 else:
-    from agent.services.google_sheets import get_applied_jobs_tracker
+    from agent.services.supabase_client import get_applied_jobs_tracker
 from pydantic import BaseModel, Field
 
 load_dotenv(override=True)
@@ -219,24 +217,12 @@ def _format_job_simple(job: dict) -> str:
 
 def _get_sheet_info(tracker) -> str:
     """Get data source info string."""
-    if USE_SUPABASE:
-        return " (from Supabase)"
-
-    sheet_name = tracker.get_sheet_name()
-    if not sheet_name:
-        return ""
-    return f" (from Google Sheet: {sheet_name})"
+    return " (from Supabase)"
 
 
 def _handle_no_applications(tracker) -> str:
     """Handle case when no applications found."""
-    if USE_SUPABASE:
-        return "No job applications have been tracked yet in the Supabase database. The applied_jobs table may be empty."
-
-    sheet_name = tracker.get_sheet_name()
-    if sheet_name:
-        return f"No job applications have been tracked yet in the Google Sheet '{sheet_name}'. The sheet may be empty or the data hasn't been loaded."
-    return "No job applications have been tracked yet. The Google Sheets integration may not be configured correctly."
+    return "No job applications have been tracked yet in the Supabase database. The applied_jobs table may be empty."
 
 
 def _handle_specific_job_check(tracker, company: str, job_title: str) -> str:
@@ -331,16 +317,9 @@ def _handle_list_all(tracker, applied_jobs: set, jobs_details: list) -> str:
 
 
 def get_data_source_info() -> str:
-    """Get information about the connected data source (Supabase or Google Sheets)."""
+    """Get information about the connected data source."""
     try:
-        if USE_SUPABASE:
-            return "Using Supabase database for job application tracking. Connected to applied_jobs table."
-
-        tracker = get_applied_jobs_tracker()
-        sheet_name = tracker.get_sheet_name()
-        if not sheet_name:
-            return "Google Sheet name is not available. The integration may not be configured correctly."
-        return f"The connected Google Sheet is named: '{sheet_name}'"
+        return "Using Supabase database for job application tracking. Connected to applied_jobs table."
     except Exception as e:
         logger.error(f"Failed to get data source info: {e}")
         return f"Unable to get data source information: {e}"
@@ -408,7 +387,7 @@ def check_applied_jobs(query: str = "") -> str:
         elif isinstance(query, str):
             if not query:
                 company, job_title = "", ""
-            else:
+            if query:
                 # Try to parse the string
                 company, job_title = _parse_tool_input(query)
         
@@ -438,8 +417,7 @@ def check_applied_jobs(query: str = "") -> str:
         logger.error(f"Failed to check applied jobs: {e}")
         import traceback
         logger.error(traceback.format_exc())
-        data_source = "Supabase" if USE_SUPABASE else "Google Sheets"
-        return f"Unable to check applied jobs: {e}. Please check that the {data_source} integration is configured correctly."
+        return f"Unable to check applied jobs: {e}. Please check that the Supabase integration is configured correctly."
 
 
 def job_search_with_filter(query: str) -> str:
@@ -448,7 +426,7 @@ def job_search_with_filter(query: str) -> str:
 
     This function:
     1. Performs a web search for jobs
-    2. Fetches the list of already-applied jobs from Google Sheets
+    2. Fetches the list of already-applied jobs from Supabase
     3. Filters out duplicates
     4. Returns the filtered results
     """
@@ -556,18 +534,24 @@ def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
         logger.debug(f"Skipping match check - missing company or title: company={bool(company)}, title={bool(title)}")
         return False
     
-    for applied_job in jobs_details:
+    def _check_job_match(applied_job: Dict[str, str]) -> bool:
         applied_company = applied_job.get("company", "")
         applied_title = applied_job.get("title", "")
         
         if not applied_company or not applied_title:
-            continue
+            return False
         
         company_match = _company_matches(company, applied_company)
         title_match = _title_matches(title, applied_title)
         
         if company_match and title_match:
             logger.info(f"Filtering out applied job: {company} - {title} (matches {applied_company} - {applied_title})")
+            return True
+        
+        return False
+    
+    for applied_job in jobs_details:
+        if _check_job_match(applied_job):
             return True
     
     return False
@@ -715,20 +699,18 @@ async def get_worker_tools():
     tools.append(web_search_tool)
 
     # Job search tool with filtering
-    data_source = "Supabase" if USE_SUPABASE else "Google Sheets"
     job_search_tool = Tool(
         name="job_search",
         func=job_search_with_filter,
-        description=f"Search for job postings and automatically filter out positions already applied to (tracked in {data_source}). Use this instead of web_search for job-related queries. Input: a job search query (e.g., 'software engineer jobs in NYC').",
+        description="Search for job postings and automatically filter out positions already applied to (tracked in Supabase). Use this instead of web_search for job-related queries. Input: a job search query (e.g., 'software engineer jobs in NYC').",
     )
     tools.append(job_search_tool)
 
     # Check applied jobs tool
-    data_source = "Supabase database" if USE_SUPABASE else "Google Sheets"
     check_applied_tool = Tool(
         name="check_applied_jobs",
         func=check_applied_jobs,
-        description=f"Check job applications tracked in {data_source}. ALWAYS use this tool when user asks about job applications. Input: a query string. Examples: '' (empty string) for all jobs, 'Software Engineer' to find jobs with that title, 'Google' to find jobs at that company, 'Google Software Engineer' for specific company+title. The tool performs fuzzy matching on job titles, so 'Software Engineer' will match 'Senior Software Engineer', 'Full Stack Software Engineer', etc.",
+        description="Check job applications tracked in Supabase database. ALWAYS use this tool when user asks about job applications. Input: a query string. Examples: '' (empty string) for all jobs, 'Software Engineer' to find jobs with that title, 'Google' to find jobs at that company, 'Google Software Engineer' for specific company+title. The tool performs fuzzy matching on job titles, so 'Software Engineer' will match 'Senior Software Engineer', 'Full Stack Software Engineer', etc.",
     )
     tools.append(check_applied_tool)
     
@@ -736,7 +718,7 @@ async def get_worker_tools():
     data_source_info_tool = Tool(
         name="get_data_source_info",
         func=get_data_source_info,
-        description="Get information about the connected data source (Supabase or Google Sheets). Use when user asks about the data source being used for job tracking.",
+        description="Get information about the connected data source (Supabase). Use when user asks about the data source being used for job tracking.",
     )
     tools.append(data_source_info_tool)
 

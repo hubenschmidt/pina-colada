@@ -38,10 +38,6 @@ class JobService:
         self._cache: Optional[set[str]] = None
         self._details_cache: Optional[List[Dict[str, str]]] = None
     
-    def get_sheet_name(self) -> str:
-        """Get sheet name for compatibility with Google Sheets interface."""
-        return "applied_jobs"
-    
     def get_all_jobs(self, refresh: bool = False) -> List[Dict[str, str]]:
         """Get all jobs as dictionaries."""
         if self._details_cache and not refresh:

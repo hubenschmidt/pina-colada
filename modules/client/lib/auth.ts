@@ -2,7 +2,7 @@ import { getAuthConfig } from './get-auth-config'
 
 const AUTH_TOKEN_KEY = "job_tracker_auth_token";
 
-export async function login(password: string): Promise<boolean> {
+export const login = async (password: string): Promise<boolean> => {
   if (typeof window === "undefined") return false;
 
   const { isDev, password: devPassword } = getAuthConfig();
@@ -46,19 +46,19 @@ export async function login(password: string): Promise<boolean> {
   }
 }
 
-export function logout(): void {
+export const logout = (): void => {
   if (typeof window !== "undefined") {
     localStorage.removeItem(AUTH_TOKEN_KEY);
   }
 }
 
-export function isAuthenticated(): boolean {
+export const isAuthenticated = (): boolean => {
   if (typeof window === "undefined") return false;
   const token = localStorage.getItem(AUTH_TOKEN_KEY);
   return !!token;
 }
 
-export function getAuthToken(): string | null {
+export const getAuthToken = (): string | null => {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(AUTH_TOKEN_KEY);
 }
