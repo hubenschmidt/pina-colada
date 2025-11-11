@@ -79,13 +79,18 @@ stages:
               # This matches the approach used in supabase/setup-cli@v1 GitHub Action
               mkdir -p $(Agent.ToolsDirectory)/supabase
               
-              # Download using the official method (same as GitHub Action)
               # Get version from latest release
               VERSION=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
               echo "Installing Supabase CLI version: $VERSION"
               
-              # Download the binary (GitHub releases use this format)
-              curl -L "https://github.com/supabase/cli/releases/download/v${VERSION}/supabase_${VERSION}_linux_amd64.tar.gz" -o /tmp/supabase.tar.gz
+              # Download the binary - asset name is supabase_linux_amd64.tar.gz (not versioned in filename)
+              curl -L "https://github.com/supabase/cli/releases/download/v${VERSION}/supabase_linux_amd64.tar.gz" -o /tmp/supabase.tar.gz
+              
+              # Verify download succeeded
+              if [ ! -s /tmp/supabase.tar.gz ]; then
+                echo "Error: Download failed or file is empty"
+                exit 1
+              fi
               
               # Extract
               tar -xzf /tmp/supabase.tar.gz -C $(Agent.ToolsDirectory)/supabase
