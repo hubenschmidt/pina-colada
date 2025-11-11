@@ -90,6 +90,18 @@ stages:
             - Agent.OS -equals Linux
         steps:
           - script: |
+              echo "=== Debugging Variables ==="
+              echo "DO_API_TOKEN exists: $([[ -n '$(DO_API_TOKEN)' ]] && echo 'YES' || echo 'NO')"
+              echo "DO_API_TOKEN length: ${#DO_API_TOKEN}"
+              echo "DO_API_TOKEN (first 10 chars): $(echo '$(DO_API_TOKEN)' | cut -c1-10)..."
+              echo ""
+              echo "DO_APP_ID exists: $([[ -n '$(DO_APP_ID)' ]] && echo 'YES' || echo 'NO')"
+              echo "DO_APP_ID value: $(DO_APP_ID)"
+              echo ""
+              echo "All available variables starting with DO_:"
+              env | grep ^DO_ || echo "No DO_* variables found"
+            displayName: "Debug - Check Variables"
+          - script: |
               echo "Triggering deployment on DigitalOcean App Platform..."
               http_code=$(curl -sS -o /tmp/do_deploy.json -w "%{http_code}" \
                 -X POST \
