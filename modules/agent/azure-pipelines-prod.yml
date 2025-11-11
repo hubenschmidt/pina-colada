@@ -95,14 +95,21 @@ stages:
               # Extract
               tar -xzf /tmp/supabase.tar.gz -C $(Agent.ToolsDirectory)/supabase
               
+              # Verify extraction succeeded
+              if [ ! -f $(Agent.ToolsDirectory)/supabase/supabase ]; then
+                echo "Error: Binary not found after extraction"
+                ls -la $(Agent.ToolsDirectory)/supabase/
+                exit 1
+              fi
+              
               # Make executable
               chmod +x $(Agent.ToolsDirectory)/supabase/supabase
               
-              # Add to PATH for this job
+              # Add to PATH for this job (takes effect in next step)
               echo "##vso[task.prependpath]$(Agent.ToolsDirectory)/supabase"
               
-              # Verify installation
-              supabase --version
+              # Verify installation using full path (PATH update happens in next step)
+              $(Agent.ToolsDirectory)/supabase/supabase --version
             displayName: "Install Supabase CLI"
           
           - script: |
