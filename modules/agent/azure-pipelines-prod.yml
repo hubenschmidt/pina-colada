@@ -29,8 +29,6 @@ variables:
   buildContext: "modules/agent"
   tagLatest: "latest"
   tagBuildId: "$(Build.SourceBranchName)-$(Build.BuildId)"
-  doApiToken: $(DO_API_TOKEN)
-  doAppId: $(DO_APP_ID)
 
 stages:
   # - stage: Build
@@ -78,7 +76,7 @@ stages:
   #               $(tagLatest)
   #               $(tagBuildId)
 
-  - stage: Deploy
+   - stage: Deploy
     displayName: Deploy to DigitalOcean App Platform
     # dependsOn: Push
     # Only deploy on master (avoid PR validations)
@@ -93,21 +91,34 @@ stages:
         steps:
           - script: |
               echo "=== Debugging Variables ==="
-              echo "DO_API_TOKEN exists: $([[ -n '$(doApiToken)' ]] && echo 'YES' || echo 'NO')"
-              echo "DO_APP_ID exists: $([[ -n '$(doAppId)' ]] && echo 'YES' || echo 'NO')"
+              echo "DO_API_TOKEN exists: $([[ -n '$DO_API_TOKEN' ]] && echo 'YES' || echo 'NO')"
+              echo "DO_API_TOKEN value: $DO_API_TOKEN"
+              echo "DO_API_TOKEN length: ${#DO_API_TOKEN}"
+              echo ""
+              echo "DO_APP_ID exists: $([[ -n '$DO_APP_ID' ]] && echo 'YES' || echo 'NO')"
+              echo "DO_APP_ID value: $DO_APP_ID"
+              echo ""
               env | grep ^DO_ || echo "No DO_* variables found"
             displayName: "Debug - Check Variables"
+            env:
+              DO_API_TOKEN: $(DO_API_TOKEN)
+              DO_APP_ID: $(DO_APP_ID)
+              
           - script: |
               echo "Triggering deployment on DigitalOcean App Platform..."
+              echo "Using App ID: $DO_APP_ID"
               http_code=$(curl -sS -o /tmp/do_deploy.json -w "%{http_code}" \
                 -X POST \
-                -H "Authorization: Bearer $(DO_API_TOKEN)" \
+                -H "Authorization: Bearer $DO_API_TOKEN" \
                 -H "Content-Type: application/json" \
-                "https://api.digitalocean.com/v2/apps/$(DO_APP_ID)/deployments")
+                "https://api.digitalocean.com/v2/apps/$DO_APP_ID/deployments")
               echo "POST /deployments => $http_code"
               cat /tmp/do_deploy.json
               case "$http_code" in
-                200|201|202) echo "Deployment triggered." ;;
+                200|201|202) echo "Deployment triggered." ;; 
                 *) echo "Deployment API failed"; exit 1 ;;
               esac
             displayName: "Call DigitalOcean API to redeploy"
+            env:
+              DO_API_TOKEN: $(DO_API_TOKEN)
+              DO_APP_ID: $(DO_APP_ID)
