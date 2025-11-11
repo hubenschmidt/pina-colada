@@ -20,6 +20,7 @@ resources:
 
 # ---------------- Variables ----------------
 variables:
+  group: "pina-colada-digital-ocean"
   dockerRegistryServiceConnection: "ghcr-conn"
   owner: "hubenschmidt"
   imageName: "pina-colada-agent"
@@ -30,54 +31,54 @@ variables:
   tagBuildId: "$(Build.SourceBranchName)-$(Build.BuildId)"
 
 stages:
-  - stage: Build
-    displayName: Build agent
-    jobs:
-      - job: Build
-        displayName: Docker build
-        pool:
-          name: Default # self-hosted Linux agent pool
-          demands:
-            - Agent.OS -equals Linux
-        steps:
-          - task: Docker@2
-            displayName: "Build Docker image"
-            inputs:
-              command: "build"
-              containerRegistry: "$(dockerRegistryServiceConnection)"
-              repository: "$(imageRepository)"
-              dockerfile: "$(dockerfilePath)"
-              buildContext: "$(buildContext)"
-              tags: |
-                $(tagLatest)
-                $(tagBuildId)
+  # - stage: Build
+  #   displayName: Build agent
+  #   jobs:
+  #     - job: Build
+  #       displayName: Docker build
+  #       pool:
+  #         name: Default # self-hosted Linux agent pool
+  #         demands:
+  #           - Agent.OS -equals Linux
+  #       steps:
+  #         - task: Docker@2
+  #           displayName: "Build Docker image"
+  #           inputs:
+  #             command: "build"
+  #             containerRegistry: "$(dockerRegistryServiceConnection)"
+  #             repository: "$(imageRepository)"
+  #             dockerfile: "$(dockerfilePath)"
+  #             buildContext: "$(buildContext)"
+  #             tags: |
+  #               $(tagLatest)
+  #               $(tagBuildId)
 
-  - stage: Push
-    displayName: Push Docker Image to GHCR
-    dependsOn: Build
-    # Only deploy on master (avoid PR validations)
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-    jobs:
-      - job: Push
-        displayName: Push image
-        pool:
-          name: Default # self-hosted Linux agent pool
-          demands:
-            - Agent.OS -equals Linux
-        steps:
-          - task: Docker@2
-            displayName: "Push to GHCR"
-            inputs:
-              command: "push"
-              containerRegistry: "$(dockerRegistryServiceConnection)"
-              repository: "$(imageRepository)"
-              tags: |
-                $(tagLatest)
-                $(tagBuildId)
+  # - stage: Push
+  #   displayName: Push Docker Image to GHCR
+  #   dependsOn: Build
+  #   # Only deploy on master (avoid PR validations)
+  #   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  #   jobs:
+  #     - job: Push
+  #       displayName: Push image
+  #       pool:
+  #         name: Default # self-hosted Linux agent pool
+  #         demands:
+  #           - Agent.OS -equals Linux
+  #       steps:
+  #         - task: Docker@2
+  #           displayName: "Push to GHCR"
+  #           inputs:
+  #             command: "push"
+  #             containerRegistry: "$(dockerRegistryServiceConnection)"
+  #             repository: "$(imageRepository)"
+  #             tags: |
+  #               $(tagLatest)
+  #               $(tagBuildId)
 
   - stage: Deploy
     displayName: Deploy to DigitalOcean App Platform
-    dependsOn: Push
+    # dependsOn: Push
     # Only deploy on master (avoid PR validations)
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     jobs:
