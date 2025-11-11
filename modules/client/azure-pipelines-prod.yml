@@ -21,7 +21,7 @@ resources:
 # ---------------- Variables ----------------
 variables:
   - group: "pina-colada-digital-ocean"
-  - group: "pina-colada-supabase-prod"
+  - group: "pina-colada-supabase-prod" # added NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY to Azure Pipeline Library vars
   - name: dockerRegistryServiceConnection
     value: "ghcr-conn"
   - name: owner
