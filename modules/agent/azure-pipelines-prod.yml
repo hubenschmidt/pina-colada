@@ -29,8 +29,6 @@ variables:
   buildContext: "modules/agent"
   tagLatest: "latest"
   tagBuildId: "$(Build.SourceBranchName)-$(Build.BuildId)"
-  doApiToken: $(DO_API_TOKEN)
-  doAppId: $(DO_APP_ID)
 
 stages:
   # - stage: Build
