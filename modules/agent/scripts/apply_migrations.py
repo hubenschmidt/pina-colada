@@ -338,7 +338,7 @@ def main():
 
     print("\n❌ psycopg2 not installed - cannot apply migrations automatically")
     print("   Please install psycopg2 or apply migrations manually via SQL")
-            sys.exit(1)
+    sys.exit(1)
 
 
 if __name__ == "__main__":

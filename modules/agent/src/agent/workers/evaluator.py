@@ -3,7 +3,6 @@ Evaluator node - functional implementation with closure
 """
 
 import logging
-import os
 from typing import Dict, Any, Type, Annotated
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 from langchain_anthropic import ChatAnthropic
@@ -13,33 +12,7 @@ import textwrap
 
 logger = logging.getLogger(__name__)
 
-# Check if Langfuse should be enabled (only in development)
-def _is_langfuse_enabled() -> bool:
-    """Check if Langfuse should be enabled - only in development"""
-    node_env = os.getenv("NODE_ENV", "").lower()
-    environment = os.getenv("ENVIRONMENT", "").lower()
-    langfuse_host = os.getenv("LANGFUSE_HOST", "")
-    
-    # Disable in production
-    if node_env == "production" or environment == "production":
-        return False
-    
-    # Only enable if LANGFUSE_HOST is set and points to local development
-    if langfuse_host and ("langfuse:" in langfuse_host or "localhost" in langfuse_host or "127.0.0.1" in langfuse_host):
-        return True
-    
-    return False
-
-# Conditionally import and use Langfuse
-if _is_langfuse_enabled():
-    try:
-        from langfuse.langchain import CallbackHandler
-        _get_langfuse_handler = lambda: CallbackHandler()
-    except ImportError:
-        logger.warning("Langfuse import failed, disabling")
-        _get_langfuse_handler = lambda: None
-else:
-    _get_langfuse_handler = lambda: None
+from langfuse.langchain import CallbackHandler
 
 
 def make_evaluator_output_model() -> Type[BaseModel]:
@@ -101,15 +74,13 @@ async def create_evaluator_node():
     Returns a pure function that takes state and returns evaluation results
     """
     logger.info("Setting up Evaluator LLM: Claude Haiku 4.5 (temperature=0)")
-    langfuse_handler = _get_langfuse_handler()
-    
-    callbacks = [langfuse_handler] if langfuse_handler else []
+    langfuse_handler = CallbackHandler()
 
     evaluator_llm = ChatAnthropic(
         model="claude-haiku-4-5-20251001",
         temperature=0,
         max_tokens=1000,
-        callbacks=callbacks,
+        callbacks=[langfuse_handler],
     )
     EvaluatorOutput = make_evaluator_output_model()
     llm_with_output = evaluator_llm.with_structured_output(EvaluatorOutput)
