@@ -58,6 +58,16 @@ class JobRepository:
         finally:
             session.close()
     
+    def count(self) -> int:
+        """Count total jobs."""
+        session = _get_session()
+        try:
+            from sqlalchemy import func
+            stmt = select(func.count(AppliedJob.id))
+            return session.execute(stmt).scalar() or 0
+        finally:
+            session.close()
+    
     def find_by_id(self, job_id: str) -> Optional[AppliedJob]:
         """Find job by ID."""
         session = _get_session()

@@ -1,31 +1,31 @@
 "use client"
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { AppliedJob, AppliedJobInsert, AppliedJobUpdate } from '../../lib/supabase'
 import { fetchJobs, createJob, updateJob, deleteJob } from '../../lib/jobs-api'
-import JobRow from './JobRow'
+import { DataTable, type Column, type PageData } from '../DataTable'
 import JobForm from './JobForm'
-import { Filter, RefreshCw } from 'lucide-react'
+import { Filter, RefreshCw, ExternalLink } from 'lucide-react'
 
 // In development, use local Postgres via API routes
 // In production, use Supabase directly
 const USE_API_ROUTES = process.env.NODE_ENV === "development"
 
 export default function JobTracker() {
-  const [jobs, setJobs] = useState<AppliedJob[]>([])
-  const [filteredJobs, setFilteredJobs] = useState<AppliedJob[]>([])
+  const [data, setData] = useState<PageData<AppliedJob> | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [filterStatus, setFilterStatus] = useState<string>('all')
-  const [searchTerm, setSearchTerm] = useState('')
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(25)
+  const [sortBy, setSortBy] = useState<string>("application_date")
+  const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC")
 
   const loadJobs = async () => {
     try {
       setLoading(true)
       setError(null)
-      const data = await fetchJobs()
-      setJobs(data)
-      setFilteredJobs(data)
+      const pageData = await fetchJobs(page, limit, sortBy, sortDirection)
+      setData(pageData)
     } catch (err) {
       console.error('Error fetching jobs:', err)
       const errorMsg = USE_API_ROUTES 
@@ -39,51 +39,85 @@ export default function JobTracker() {
 
   useEffect(() => {
     loadJobs()
-  }, [])
-
-  useEffect(() => {
-    let filtered = jobs
-
-    // Filter by status
-    if (filterStatus !== 'all') {
-      filtered = filtered.filter((job) => job.status === filterStatus)
-    }
-
-    // Filter by search term
-    if (searchTerm) {
-      const search = searchTerm.toLowerCase()
-      filtered = filtered.filter(
-        (job) =>
-          job.company.toLowerCase().includes(search) ||
-          job.job_title.toLowerCase().includes(search) ||
-          job.location?.toLowerCase().includes(search) ||
-          job.notes?.toLowerCase().includes(search)
-      )
-    }
-
-    setFilteredJobs(filtered)
-  }, [jobs, filterStatus, searchTerm])
+  }, [page, limit, sortBy, sortDirection])
 
   const handleAddJob = async (jobData: Omit<AppliedJob, 'id' | 'created_at' | 'updated_at' | 'application_date'>) => {
-    // Convert to AppliedJobInsert (company and job_title are required, others optional)
     const insertData: AppliedJobInsert = jobData as AppliedJobInsert
-    const newJob = await createJob(insertData)
-    setJobs((prev) => [newJob, ...prev])
+    await createJob(insertData)
+    await loadJobs()
   }
 
   const handleUpdateJob = async (id: string, updates: Partial<AppliedJob>) => {
-    // Convert to AppliedJobUpdate (all fields optional)
     const updateData: AppliedJobUpdate = updates as AppliedJobUpdate
-    const updatedJob = await updateJob(id, updateData)
-    setJobs((prev) =>
-      prev.map((job) => (job.id === id ? updatedJob : job))
-    )
+    await updateJob(id, updateData)
+    await loadJobs()
   }
 
   const handleDeleteJob = async (id: string) => {
     await deleteJob(id)
-    setJobs((prev) => prev.filter((job) => job.id !== id))
+    await loadJobs()
   }
+
+  const columns: Column<AppliedJob>[] = useMemo(() => [
+    {
+      header: 'Company',
+      accessor: 'company',
+      sortable: true,
+      sortKey: 'company',
+    },
+    {
+      header: 'Job Title',
+      accessor: 'job_title',
+      sortable: true,
+      sortKey: 'job_title',
+    },
+    {
+      header: 'Location',
+      accessor: 'location',
+    },
+    {
+      header: 'Status',
+      accessor: 'status',
+      sortable: true,
+      sortKey: 'status',
+      render: (job) => (
+        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+          job.status === 'applied' ? 'bg-blue-100 text-blue-800' :
+          job.status === 'interviewing' ? 'bg-yellow-100 text-yellow-800' :
+          job.status === 'rejected' ? 'bg-red-100 text-red-800' :
+          job.status === 'offer' ? 'bg-green-100 text-green-800' :
+          'bg-purple-100 text-purple-800'
+        }`}>
+          {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+        </span>
+      ),
+    },
+    {
+      header: 'Applied Date',
+      accessor: 'application_date',
+      sortable: true,
+      sortKey: 'application_date',
+      render: (job) => new Date(job.application_date).toLocaleDateString(),
+    },
+    {
+      header: 'Actions',
+      render: (job) => (
+        <div className="flex items-center gap-2">
+          {job.job_url && (
+            <a
+              href={job.job_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+              title="View job posting"
+            >
+              <ExternalLink size={16} />
+            </a>
+          )}
+        </div>
+      ),
+    },
+  ], [])
 
   if (loading) {
     return (
@@ -101,12 +135,12 @@ export default function JobTracker() {
       <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
         <p className="text-red-800 font-semibold mb-2">Error</p>
         <p className="text-red-600">{error}</p>
-          <button
-            onClick={loadJobs}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
-            Retry
-          </button>
+        <button
+          onClick={loadJobs}
+          className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          Retry
+        </button>
       </div>
     )
   }
@@ -117,82 +151,34 @@ export default function JobTracker() {
       <div className="bg-gradient-to-r from-lime-500 to-yellow-400 rounded-lg p-6 text-blue-900">
         <h1 className="text-3xl font-bold mb-2">Job Applications Tracker</h1>
         <p className="text-blue-800">
-          Tracking {jobs.length} application{jobs.length !== 1 ? 's' : ''}
+          Tracking {data?.total || 0} application{(data?.total || 0) !== 1 ? 's' : ''}
         </p>
       </div>
 
       {/* Add job form */}
       <JobForm onAdd={handleAddJob} />
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg border border-zinc-200 p-4">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
-            <label className="block text-sm font-medium text-zinc-700 mb-2">
-              Search
-            </label>
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by company, title, location..."
-              className="w-full px-4 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-2 flex items-center gap-2">
-              <Filter size={16} />
-              Filter by Status
-            </label>
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
-            >
-              <option value="all">All Statuses</option>
-              <option value="applied">Applied</option>
-              <option value="interviewing">Interviewing</option>
-              <option value="rejected">Rejected</option>
-              <option value="offer">Offer</option>
-              <option value="accepted">Accepted</option>
-            </select>
-          </div>
-
-          <div className="flex items-end">
-            <button
-              onClick={loadJobs}
-              className="flex items-center gap-2 px-4 py-2 bg-zinc-200 text-zinc-700 rounded hover:bg-zinc-300"
-              title="Refresh"
-            >
-              <RefreshCw size={18} />
-              Refresh
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Job list */}
-      {filteredJobs.length === 0 ? (
-        <div className="bg-zinc-50 border border-zinc-200 rounded-lg p-12 text-center">
-          <p className="text-zinc-600 text-lg">
-            {searchTerm || filterStatus !== 'all'
-              ? 'No jobs match your filters'
-              : 'No job applications yet. Add your first one above!'}
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {filteredJobs.map((job) => (
-            <JobRow
-              key={job.id}
-              job={job}
-              onUpdate={handleUpdateJob}
-              onDelete={handleDeleteJob}
-            />
-          ))}
-        </div>
-      )}
+      {/* DataTable */}
+      <DataTable<AppliedJob>
+        data={data}
+        columns={columns}
+        onPageChange={setPage}
+        pageValue={page}
+        onPageSizeChange={(size) => {
+          setLimit(size)
+          setPage(1)
+        }}
+        pageSizeValue={limit}
+        sortBy={sortBy}
+        sortDirection={sortDirection}
+        onSortChange={({ sortBy: newSortBy, direction }) => {
+          setSortBy(newSortBy)
+          setSortDirection(direction)
+          setPage(1)
+        }}
+        rowKey={(job) => job.id}
+        emptyText="No job applications yet. Add your first one above!"
+      />
     </div>
   )
 }

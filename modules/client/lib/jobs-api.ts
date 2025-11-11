@@ -5,14 +5,26 @@
  */
 
 import { AppliedJob, AppliedJobInsert, AppliedJobUpdate } from './supabase'
+import { PageData } from '../components/DataTable'
 
 // In development, use local Postgres via API routes
 // In production, use Supabase directly
 const USE_API_ROUTES = process.env.NODE_ENV === "development"
 
-export async function fetchJobs(): Promise<AppliedJob[]> {
+export async function fetchJobs(
+  page: number = 1,
+  limit: number = 25,
+  orderBy: string = "application_date",
+  order: "ASC" | "DESC" = "DESC"
+): Promise<PageData<AppliedJob>> {
   if (USE_API_ROUTES) {
-    const response = await fetch('/api/jobs');
+    const params = new URLSearchParams({
+      page: page.toString(),
+      limit: limit.toString(),
+      orderBy,
+      order,
+    });
+    const response = await fetch(`/api/jobs?${params}`);
     if (!response.ok) {
       throw new Error('Failed to fetch jobs');
     }
@@ -24,13 +36,38 @@ export async function fetchJobs(): Promise<AppliedJob[]> {
   if (!supabase) {
     throw new Error('Supabase client not available');
   }
+  
+  const offset = (page - 1) * limit;
+  const ascending = order === "ASC";
+  const orderColumn = orderBy === "job_title" ? "job_title" :
+                     orderBy === "company" ? "company" :
+                     orderBy === "status" ? "status" :
+                     "application_date";
+  
+  // Get total count
+  const { count } = await supabase
+    .from('applied_jobs')
+    .select('*', { count: 'exact', head: true });
+  
+  // Get paginated data
   const { data, error } = await supabase
     .from('applied_jobs')
     .select('*')
-    .order('application_date', { ascending: false });
+    .order(orderColumn, { ascending })
+    .range(offset, offset + limit - 1);
   
   if (error) throw error;
-  return data || [];
+  
+  const total = count || 0;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  
+  return {
+    items: data || [],
+    currentPage: page,
+    totalPages,
+    total,
+    pageSize: limit,
+  };
 }
 
 export async function createJob(job: AppliedJobInsert): Promise<AppliedJob> {

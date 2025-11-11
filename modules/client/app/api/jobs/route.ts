@@ -24,6 +24,13 @@ async function getLocalPostgresClient() {
 }
 
 export async function GET(request: NextRequest) {
+  const { searchParams } = new URL(request.url);
+  const page = Math.max(parseInt(searchParams.get("page") || "1"), 1);
+  const limit = Math.max(1, Math.min(parseInt(searchParams.get("limit") || "25"), 100));
+  const orderBy = searchParams.get("orderBy") || "application_date";
+  const order = searchParams.get("order")?.toUpperCase() === "ASC" ? "ASC" : "DESC";
+  const offset = (page - 1) * limit;
+
   if (USE_LOCAL_DB) {
     const client = await getLocalPostgresClient();
     if (!client) {
@@ -34,11 +41,32 @@ export async function GET(request: NextRequest) {
     }
 
     try {
+      // Get total count
+      const countResult = await client.query("SELECT COUNT(*) FROM applied_jobs");
+      const total = parseInt(countResult.rows[0].count);
+
+      // Build ORDER BY clause
+      const orderByColumn = orderBy === "job_title" ? "job_title" :
+                           orderBy === "company" ? "company" :
+                           orderBy === "status" ? "status" :
+                           "application_date";
+      const orderClause = `ORDER BY ${orderByColumn} ${order}`;
+
+      // Get paginated results
       const result = await client.query(
-        "SELECT * FROM applied_jobs ORDER BY application_date DESC"
+        `SELECT * FROM applied_jobs ${orderClause} LIMIT $1 OFFSET $2`,
+        [limit, offset]
       );
       await client.end();
-      return NextResponse.json(result.rows);
+
+      const totalPages = Math.max(1, Math.ceil(total / limit));
+      return NextResponse.json({
+        items: result.rows,
+        currentPage: page,
+        totalPages,
+        total,
+        pageSize: limit,
+      });
     } catch (error) {
       await client.end();
       console.error("Error fetching jobs from Postgres:", error);
@@ -52,14 +80,37 @@ export async function GET(request: NextRequest) {
   // Production: Use Supabase
   try {
     const { supabase } = await import("../../../lib/supabase");
+    
+    // Get total count
+    const { count } = await supabase
+      .from("applied_jobs")
+      .select("*", { count: "exact", head: true });
+    
+    // Get paginated data
+    const ascending = order === "ASC";
+    const orderColumn = orderBy === "job_title" ? "job_title" :
+                       orderBy === "company" ? "company" :
+                       orderBy === "status" ? "status" :
+                       "application_date";
+    
     const { data, error } = await supabase
       .from("applied_jobs")
       .select("*")
-      .order("application_date", { ascending: false });
+      .order(orderColumn, { ascending })
+      .range(offset, offset + limit - 1);
 
     if (error) throw error;
 
-    return NextResponse.json(data || []);
+    const total = count || 0;
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    
+    return NextResponse.json({
+      items: data || [],
+      currentPage: page,
+      totalPages,
+      total,
+      pageSize: limit,
+    });
   } catch (error) {
     console.error("Error fetching jobs:", error);
     return NextResponse.json(

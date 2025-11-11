@@ -2,13 +2,41 @@
 
 import logging
 from typing import List, Optional
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel
 from agent.repositories.job_repository import JobRepository
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
+
+
+def _parse_paging(
+    page: int = Query(1, ge=1),
+    limit: int = Query(25, ge=1, le=100),
+    order_by: str = Query("application_date", alias="orderBy"),
+    order: str = Query("DESC", regex="^(ASC|DESC)$"),
+) -> dict:
+    """Parse pagination parameters."""
+    offset = (page - 1) * limit
+    return {
+        "page": page,
+        "limit": limit,
+        "offset": offset,
+        "order_by": order_by,
+        "order": order.upper(),
+    }
+
+
+def _to_paged_response(count: int, page: int, limit: int, items: List) -> dict:
+    """Convert to paged response format."""
+    return {
+        "items": items,
+        "currentPage": page,
+        "totalPages": max(1, (count + limit - 1) // limit),
+        "total": count,
+        "pageSize": limit,
+    }
 
 
 class JobCreate(BaseModel):
@@ -51,13 +79,39 @@ class JobResponse(BaseModel):
     updated_at: str
 
 
-@router.get("/", response_model=List[JobResponse])
-async def get_jobs():
-    """Get all jobs."""
+@router.get("/")
+async def get_jobs(
+    page: int = Query(1, ge=1),
+    limit: int = Query(25, ge=1, le=100),
+    order_by: str = Query("application_date", alias="orderBy"),
+    order: str = Query("DESC", regex="^(ASC|DESC)$"),
+):
+    """Get all jobs with pagination."""
+    paging = _parse_paging(page, limit, order_by, order)
     repository = JobRepository()
-    jobs = repository.find_all()
     
-    return [
+    total_count = repository.count()
+    
+    # Get paginated jobs with sorting
+    all_jobs = repository.find_all()
+    
+    # Simple sorting (in-memory for now - can be optimized with DB queries later)
+    reverse = paging["order"] == "DESC"
+    if paging["order_by"] == "application_date":
+        all_jobs.sort(key=lambda j: j.application_date or "", reverse=reverse)
+    elif paging["order_by"] == "company":
+        all_jobs.sort(key=lambda j: (j.company or "").lower(), reverse=reverse)
+    elif paging["order_by"] == "status":
+        all_jobs.sort(key=lambda j: j.status or "", reverse=reverse)
+    elif paging["order_by"] == "job_title":
+        all_jobs.sort(key=lambda j: (j.job_title or "").lower(), reverse=reverse)
+    
+    # Paginate
+    start = paging["offset"]
+    end = start + paging["limit"]
+    paginated_jobs = all_jobs[start:end]
+    
+    items = [
         JobResponse(
             id=str(job.id),
             company=job.company,
@@ -72,8 +126,10 @@ async def get_jobs():
             created_at=job.created_at.isoformat() if job.created_at else "",
             updated_at=job.updated_at.isoformat() if job.updated_at else ""
         )
-        for job in jobs
+        for job in paginated_jobs
     ]
+    
+    return _to_paged_response(total_count, page, limit, items)
 
 
 @router.post("/", response_model=JobResponse)
