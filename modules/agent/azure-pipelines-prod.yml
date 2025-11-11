@@ -99,13 +99,16 @@ stages:
               echo "DO_APP_ID value: $DO_APP_ID"
               env | grep ^DO_ || echo "No DO_* variables found"
             displayName: "Debug - Check Variables"
+            env:
+              DO_API_TOKEN: $(DO_API_TOKEN)
+              DO_APP_ID: $(DO_APP_ID)
           - script: |
               echo "Triggering deployment on DigitalOcean App Platform..."
               http_code=$(curl -sS -o /tmp/do_deploy.json -w "%{http_code}" \
                 -X POST \
                 -H "Authorization: Bearer $DO_API_TOKEN" \
                 -H "Content-Type: application/json" \
-                "https://api.digitalocean.com/v2/apps/$(DO_APP_ID)/deployments")
+                "https://api.digitalocean.com/v2/apps/$DO_APP_ID/deployments")
               echo "POST /deployments => $http_code"
               cat /tmp/do_deploy.json
               case "$http_code" in
