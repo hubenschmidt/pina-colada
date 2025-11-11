@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 load_dotenv(override=True)
 
 
-# State type def
 class State(TypedDict):
     messages: Annotated[List[Any], add_messages]
     success_criteria: str
