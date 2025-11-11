@@ -41,6 +41,15 @@ const Header = () => {
             About
           </Link>
           <Link
+            href="/jobs"
+            className="text-blue-700 hover:text-blue-500"
+            onClick={() =>
+              dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
+            }
+          >
+            Jobs
+          </Link>
+          <Link
             href="/#services"
             className="text-blue-700 hover:text-blue-500"
             onClick={() =>

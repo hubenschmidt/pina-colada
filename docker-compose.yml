@@ -8,6 +8,8 @@ services:
     volumes:
       - ./modules/client:/app
       - /app/node_modules
+    env_file:
+      - ./modules/client/.env.local
     command: ["npm", "run", "dev"] # overrides Dockerfile start command in dev env
     restart: always
 
@@ -26,6 +28,8 @@ services:
     volumes:
       # Mount source code with consistency mode for better performance
       - ./modules/agent:/app:delegated
+      # Mount migrations directory
+      - ./supabase_migrations:/app/supabase_migrations:ro
       # Exclude these from the mount to avoid conflicts
       - /app/__pycache__
       - /app/.pytest_cache

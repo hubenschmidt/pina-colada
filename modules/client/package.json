@@ -10,6 +10,7 @@
     "test:ci": "jest --ci --reporters=jest-junit --coverage --passWithNoTests"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.39.0",
     "lucide-react": "^0.546.0",
     "next": "15.5.5",
     "react": "19.1.0",

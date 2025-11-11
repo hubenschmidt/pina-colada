@@ -11,8 +11,15 @@ from langchain_community.tools.wikipedia.tool import WikipediaQueryRun
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from langchain_community.utilities.wikipedia import WikipediaAPIWrapper
 from agent.tools.static_tools import push
-from agent.services.google_sheets import get_applied_jobs_tracker
 from dotenv import load_dotenv
+
+# Feature flag for choosing between Google Sheets and Supabase
+USE_SUPABASE = os.getenv("USE_SUPABASE", "true").lower() == "true"
+
+if USE_SUPABASE:
+    from agent.services.supabase_client import get_applied_jobs_tracker
+else:
+    from agent.services.google_sheets import get_applied_jobs_tracker
 from pydantic import BaseModel, Field
 
 load_dotenv(override=True)
@@ -202,7 +209,10 @@ def _format_job_simple(job: dict) -> str:
 
 
 def _get_sheet_info(tracker) -> str:
-    """Get sheet name info string."""
+    """Get data source info string."""
+    if USE_SUPABASE:
+        return " (from Supabase)"
+
     sheet_name = tracker.get_sheet_name()
     if not sheet_name:
         return ""
@@ -211,6 +221,9 @@ def _get_sheet_info(tracker) -> str:
 
 def _handle_no_applications(tracker) -> str:
     """Handle case when no applications found."""
+    if USE_SUPABASE:
+        return "No job applications have been tracked yet in the Supabase database. The applied_jobs table may be empty."
+
     sheet_name = tracker.get_sheet_name()
     if sheet_name:
         return f"No job applications have been tracked yet in the Google Sheet '{sheet_name}'. The sheet may be empty or the data hasn't been loaded."
@@ -308,17 +321,20 @@ def _handle_list_all(tracker, applied_jobs: set, jobs_details: list) -> str:
     return f"You have applied to {len(applied_jobs)} jobs total{sheet_info}. Here are the first 20:\n{job_list}\n\nAsk me about a specific company or job title to see more."
 
 
-def get_google_sheet_info() -> str:
-    """Get information about the connected Google Sheet."""
+def get_data_source_info() -> str:
+    """Get information about the connected data source (Supabase or Google Sheets)."""
     try:
+        if USE_SUPABASE:
+            return "Using Supabase database for job application tracking. Connected to applied_jobs table."
+
         tracker = get_applied_jobs_tracker()
         sheet_name = tracker.get_sheet_name()
         if not sheet_name:
             return "Google Sheet name is not available. The integration may not be configured correctly."
         return f"The connected Google Sheet is named: '{sheet_name}'"
     except Exception as e:
-        logger.error(f"Failed to get sheet info: {e}")
-        return f"Unable to get Google Sheet information: {e}"
+        logger.error(f"Failed to get data source info: {e}")
+        return f"Unable to get data source information: {e}"
 
 
 def _parse_tool_input(query: str) -> tuple:
@@ -413,7 +429,8 @@ def check_applied_jobs(query: str = "") -> str:
         logger.error(f"Failed to check applied jobs: {e}")
         import traceback
         logger.error(traceback.format_exc())
-        return f"Unable to check applied jobs: {e}. Please check that the Google Sheets integration is configured correctly."
+        data_source = "Supabase" if USE_SUPABASE else "Google Sheets"
+        return f"Unable to check applied jobs: {e}. Please check that the {data_source} integration is configured correctly."
 
 
 def job_search_with_filter(query: str) -> str:
@@ -689,28 +706,30 @@ async def get_worker_tools():
     tools.append(web_search_tool)
 
     # Job search tool with filtering
+    data_source = "Supabase" if USE_SUPABASE else "Google Sheets"
     job_search_tool = Tool(
         name="job_search",
         func=job_search_with_filter,
-        description="Search for job postings and automatically filter out positions already applied to (tracked in Google Sheets). Use this instead of web_search for job-related queries. Input: a job search query (e.g., 'software engineer jobs in NYC').",
+        description=f"Search for job postings and automatically filter out positions already applied to (tracked in {data_source}). Use this instead of web_search for job-related queries. Input: a job search query (e.g., 'software engineer jobs in NYC').",
     )
     tools.append(job_search_tool)
 
     # Check applied jobs tool
+    data_source = "Supabase database" if USE_SUPABASE else "Google Sheets"
     check_applied_tool = Tool(
         name="check_applied_jobs",
         func=check_applied_jobs,
-        description="Check job applications tracked in Google Sheets. ALWAYS use this tool when user asks about job applications. Input: a query string. Examples: '' (empty string) for all jobs, 'Software Engineer' to find jobs with that title, 'Google' to find jobs at that company, 'Google Software Engineer' for specific company+title. The tool performs fuzzy matching on job titles, so 'Software Engineer' will match 'Senior Software Engineer', 'Full Stack Software Engineer', etc. This tool reads directly from the connected Google Sheet.",
+        description=f"Check job applications tracked in {data_source}. ALWAYS use this tool when user asks about job applications. Input: a query string. Examples: '' (empty string) for all jobs, 'Software Engineer' to find jobs with that title, 'Google' to find jobs at that company, 'Google Software Engineer' for specific company+title. The tool performs fuzzy matching on job titles, so 'Software Engineer' will match 'Senior Software Engineer', 'Full Stack Software Engineer', etc.",
     )
     tools.append(check_applied_tool)
     
-    # Get Google Sheet info tool
-    sheet_info_tool = Tool(
-        name="get_google_sheet_info",
-        func=get_google_sheet_info,
-        description="Get the name of the connected Google Sheet. Use when user asks 'what is the name of the google sheet?' or 'what google sheet are you using?'. Returns the sheet name.",
+    # Get data source info tool
+    data_source_info_tool = Tool(
+        name="get_data_source_info",
+        func=get_data_source_info,
+        description="Get information about the connected data source (Supabase or Google Sheets). Use when user asks about the data source being used for job tracking.",
     )
-    tools.append(sheet_info_tool)
+    tools.append(data_source_info_tool)
 
     # Wikipedia tool
     try:

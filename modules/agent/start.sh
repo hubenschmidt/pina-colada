@@ -9,6 +9,18 @@ _term() {
 }
 trap _term TERM INT
 
+# Run Supabase migrations if configured
+if [ -n "${SUPABASE_URL:-}" ] && [ -n "${SUPABASE_SERVICE_KEY:-}" ]; then
+  echo "🔄 Running Supabase migrations..."
+  if uv run python scripts/apply_migrations.py; then
+    echo "✅ Migrations completed successfully"
+  else
+    echo "⚠️  Migrations failed, continuing anyway..."
+  fi
+else
+  echo "⏭️  Skipping migrations (SUPABASE_URL or SUPABASE_SERVICE_KEY not set)"
+fi
+
 # Start LangGraph dev API (2024) - already has hot-reload built-in
 uv run langgraph dev --host 0.0.0.0 --port 2024 &
 LG_PID=$!
