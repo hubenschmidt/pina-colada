@@ -20,16 +20,23 @@ resources:
 
 # ---------------- Variables ----------------
 variables:
-  dockerRegistryServiceConnection: "ghcr-conn"
-  owner: "hubenschmidt"
-  imageName: "pina-colada-agent"
-  imageRepository: "$(owner)/$(imageName)"
-  dockerfilePath: "modules/agent/Dockerfile.prod"
-  buildContext: "modules/agent"
-  tagLatest: "latest"
-  tagBuildId: "$(Build.SourceBranchName)-$(Build.BuildId)"
-  DO_API_TOKEN: dop_v1_712eaf28237d9d0220284024e059789d134d1919cf79af5625600036051bc962
-  DO_APP_ID: 78d80fa1-9b73-4c13-a20c-8553c8cf92d4
+  - group: "pina-colada-digital-ocean"
+  - name: dockerRegistryServiceConnection
+    value: "ghcr-conn"
+  - name: owner
+    value: "hubenschmidt"
+  - name: imageName
+    value: "pina-colada-agent"
+  - name: imageRepository
+    value: "$(owner)/$(imageName)"
+  - name: dockerfilePath
+    value: "modules/agent/Dockerfile.prod"
+  - name: buildContext
+    value: "modules/agent"
+  - name: tagLatest
+    value: "latest"
+  - name: tagBuildId
+    value: "$(Build.SourceBranchName)-$(Build.BuildId)"
 
 stages:
   - stage: Build
@@ -94,9 +101,9 @@ stages:
               echo "Triggering deployment on DigitalOcean App Platform..."
               http_code=$(curl -sS -o /tmp/do_deploy.json -w "%{http_code}" \
                 -X POST \
-                -H "Authorization: Bearer $(DO_API_TOKEN)" \
+                -H "Authorization: Bearer $DO_API_TOKEN" \
                 -H "Content-Type: application/json" \
-                "https://api.digitalocean.com/v2/apps/$(DO_APP_ID)/deployments")
+                "https://api.digitalocean.com/v2/apps/$DO_APP_ID/deployments")
               echo "POST /deployments => $http_code"
               cat /tmp/do_deploy.json
               case "$http_code" in
