@@ -10,9 +10,9 @@ __all__ = ["graph", "invoke_graph", "build_default_graph"]
 
 import json
 import logging
+import os
 from typing import Dict, Any, Optional, Callable, Awaitable
 from fastapi import WebSocket
-from langfuse import observe
 from dotenv import load_dotenv
 from agent.orchestrator import create_orchestrator
 from agent.util.document_scanner import load_documents
@@ -21,6 +21,43 @@ from agent.tools.static_tools import record_user_context
 
 logger = logging.getLogger(__name__)
 load_dotenv(override=True)
+
+# Check if Langfuse should be enabled (only in development)
+def _is_langfuse_enabled() -> bool:
+    """Check if Langfuse should be enabled - only in development"""
+    node_env = os.getenv("NODE_ENV", "").lower()
+    environment = os.getenv("ENVIRONMENT", "").lower()
+    langfuse_host = os.getenv("LANGFUSE_HOST", "")
+    
+    # Disable in production
+    if node_env == "production" or environment == "production":
+        return False
+    
+    # Only enable if LANGFUSE_HOST is set and points to local development
+    if langfuse_host and ("langfuse:" in langfuse_host or "localhost" in langfuse_host or "127.0.0.1" in langfuse_host):
+        return True
+    
+    return False
+
+# Conditionally import and use Langfuse, but keep @observe() syntax
+if _is_langfuse_enabled():
+    try:
+        from langfuse import observe
+        logger.info("Langfuse enabled for development")
+    except ImportError:
+        logger.warning("Langfuse import failed, disabling")
+        # No-op decorator that matches Langfuse's observe signature
+        def observe(func=None, **kwargs):
+            if func is None:
+                return lambda f: f
+            return func
+else:
+    # No-op decorator that matches Langfuse's observe signature
+    def observe(func=None, **kwargs):
+        if func is None:
+            return lambda f: f
+        return func
+    logger.info("Langfuse disabled (production mode)")
 
 # Load resume documents
 RESUME_NAME = "William Hubenschmidt"

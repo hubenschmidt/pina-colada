@@ -3,13 +3,41 @@ Cover letter writer node - functional implementation with closure
 """
 
 import logging
+import os
 from typing import Dict, Any, Callable
 from datetime import datetime
 from langchain_core.messages import SystemMessage
 from langchain_openai import ChatOpenAI
-from langfuse.langchain import CallbackHandler
 
 logger = logging.getLogger(__name__)
+
+# Check if Langfuse should be enabled (only in development)
+def _is_langfuse_enabled() -> bool:
+    """Check if Langfuse should be enabled - only in development"""
+    node_env = os.getenv("NODE_ENV", "").lower()
+    environment = os.getenv("ENVIRONMENT", "").lower()
+    langfuse_host = os.getenv("LANGFUSE_HOST", "")
+    
+    # Disable in production
+    if node_env == "production" or environment == "production":
+        return False
+    
+    # Only enable if LANGFUSE_HOST is set and points to local development
+    if langfuse_host and ("langfuse:" in langfuse_host or "localhost" in langfuse_host or "127.0.0.1" in langfuse_host):
+        return True
+    
+    return False
+
+# Conditionally import and use Langfuse
+if _is_langfuse_enabled():
+    try:
+        from langfuse.langchain import CallbackHandler
+        _get_langfuse_handler = lambda: CallbackHandler()
+    except ImportError:
+        logger.warning("Langfuse import failed, disabling")
+        _get_langfuse_handler = lambda: None
+else:
+    _get_langfuse_handler = lambda: None
 
 
 def _build_system_prompt(resume_name: str, resume_context: str) -> str:
@@ -69,14 +97,16 @@ async def create_cover_letter_writer_node(trim_messages_fn: Callable):
     Returns a pure function that takes state and returns cover letter
     """
     logger.info("Setting up Cover Letter Writer LLM...")
-    langfuse_handler = CallbackHandler()
+    langfuse_handler = _get_langfuse_handler()
+    
+    callbacks = [langfuse_handler] if langfuse_handler else []
 
     llm = ChatOpenAI(
         model="gpt-5-chat-latest",
         temperature=0.7,
         max_completion_tokens=1500,
         max_retries=3,
-        callbacks=[langfuse_handler],
+        callbacks=callbacks,
     )
     logger.info("✓ Cover Letter Writer LLM configured")
 

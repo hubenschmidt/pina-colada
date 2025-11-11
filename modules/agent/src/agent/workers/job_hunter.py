@@ -3,13 +3,41 @@ Job Hunter node - specialized worker for job search tasks.
 """
 
 import logging
+import os
 from typing import Dict, Any, Callable
 from datetime import datetime
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_openai import ChatOpenAI
-from langfuse.langchain import CallbackHandler
 
 logger = logging.getLogger(__name__)
+
+# Check if Langfuse should be enabled (only in development)
+def _is_langfuse_enabled() -> bool:
+    """Check if Langfuse should be enabled - only in development"""
+    node_env = os.getenv("NODE_ENV", "").lower()
+    environment = os.getenv("ENVIRONMENT", "").lower()
+    langfuse_host = os.getenv("LANGFUSE_HOST", "")
+    
+    # Disable in production
+    if node_env == "production" or environment == "production":
+        return False
+    
+    # Only enable if LANGFUSE_HOST is set and points to local development
+    if langfuse_host and ("langfuse:" in langfuse_host or "localhost" in langfuse_host or "127.0.0.1" in langfuse_host):
+        return True
+    
+    return False
+
+# Conditionally import and use Langfuse
+if _is_langfuse_enabled():
+    try:
+        from langfuse.langchain import CallbackHandler
+        _get_langfuse_handler = lambda: CallbackHandler()
+    except ImportError:
+        logger.warning("Langfuse import failed, disabling")
+        _get_langfuse_handler = lambda: None
+else:
+    _get_langfuse_handler = lambda: None
 
 
 def _build_job_hunter_prompt(
@@ -64,14 +92,16 @@ async def create_job_hunter_node(
     Returns a pure function that takes state and returns updated state.
     """
     logger.info("Setting up Job Hunter LLM: OpenAI GPT-5 (temperature=0.7)")
-    langfuse_handler = CallbackHandler()
+    langfuse_handler = _get_langfuse_handler()
+    
+    callbacks = [langfuse_handler] if langfuse_handler else []
 
     job_hunter_llm = ChatOpenAI(
         model="gpt-5-chat-latest",
         temperature=0.7,
         max_completion_tokens=1024,
         max_retries=3,
-        callbacks=[langfuse_handler],
+        callbacks=callbacks,
     )
 
     llm_with_tools = job_hunter_llm.bind_tools(tools)
