@@ -91,11 +91,15 @@ stages:
         steps:
           - script: |
               echo "Triggering deployment on DigitalOcean App Platform..."
+              echo "DEBUG: DO_APP_ID is set: $([ -z "$DO_APP_ID" ] && echo 'NO' || echo 'YES')"
+              echo "DEBUG: DO_API_TOKEN is set: $([ -z "$DO_API_TOKEN" ] && echo 'NO' || echo 'YES')"
+              echo "DEBUG: DO_APP_ID value length: $(echo -n "$DO_APP_ID" | wc -c)"
+              echo "DEBUG: DO_API_TOKEN value length: $(echo -n "$DO_API_TOKEN" | wc -c)"
               http_code=$(curl -sS -o /tmp/do_deploy.json -w "%{http_code}" \
                 -X POST \
-                -H "Authorization: Bearer $(DO_API_TOKEN)" \
+                -H "Authorization: Bearer $DO_API_TOKEN" \
                 -H "Content-Type: application/json" \
-                "https://api.digitalocean.com/v2/apps/$(DO_APP_ID)/deployments")
+                "https://api.digitalocean.com/v2/apps/$DO_APP_ID/deployments")
               echo "POST /deployments => $http_code"
               cat /tmp/do_deploy.json
               case "$http_code" in
@@ -103,3 +107,6 @@ stages:
                 *) echo "Deployment API failed"; exit 1 ;;
               esac
             displayName: "Call DigitalOcean API to redeploy"
+            env:
+              DO_API_TOKEN: $(DO_API_TOKEN)
+              DO_APP_ID: $(DO_APP_ID)
