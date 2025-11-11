@@ -242,7 +242,7 @@ def import_csv(file_path: str, dry_run: bool = False, skip_duplicates: bool = Tr
                     resume_date = parsed_resume
                 else:
                     # If resume is not a date, add it to notes
-            if notes:
+                    if notes:
                         notes = f"{notes} | Resume: {resume_str}"
                     else:
                         notes = f"Resume: {resume_str}"
