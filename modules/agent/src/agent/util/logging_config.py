@@ -23,3 +23,5 @@ def configure_logging(level=logging.INFO) -> None:
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("uvicorn").setLevel(logging.INFO)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
+    # Quiet LangGraph runtime queue stats (very verbose)
+    logging.getLogger("langgraph_runtime_inmem.queue").setLevel(logging.WARNING)

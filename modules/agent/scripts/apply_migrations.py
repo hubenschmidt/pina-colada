@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Apply Supabase migrations from supabase_migrations directory.
+"""Apply Supabase migrations from migrations directory.
 
 This script reads SQL migration files and applies them to Supabase database.
 Migrations are applied in alphabetical order (use numbered prefixes).
@@ -181,6 +181,43 @@ def _apply_migration_files(cursor, conn, migration_files: List[Path]):
         print(f"✓ Successfully applied {migration_file.name}")
 
 
+def _ensure_migrations_table(cursor):
+    """Create migrations tracking table if it doesn't exist."""
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            migration_name TEXT PRIMARY KEY,
+            applied_at TIMESTAMP DEFAULT NOW()
+        );
+    """)
+
+
+def _ensure_seeders_table(cursor):
+    """Create seeders tracking table if it doesn't exist."""
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS schema_seeders (
+            seeder_name TEXT PRIMARY KEY,
+            applied_at TIMESTAMP DEFAULT NOW()
+        );
+    """)
+
+
+def _get_applied_migrations(cursor) -> set:
+    """Get set of already-applied migration names."""
+    _ensure_migrations_table(cursor)
+    cursor.execute("SELECT migration_name FROM schema_migrations;")
+    return {row[0] for row in cursor.fetchall()}
+
+
+def _record_migration(cursor, conn, migration_name: str):
+    """Record that a migration has been applied."""
+    _ensure_migrations_table(cursor)
+    cursor.execute(
+        "INSERT INTO schema_migrations (migration_name) VALUES (%s) ON CONFLICT DO NOTHING;",
+        (migration_name,)
+    )
+    conn.commit()
+
+
 def apply_migrations_to_local_postgres(migrations_dir: Path) -> bool:
     """Apply migrations to local Postgres database."""
     psycopg2 = _import_psycopg2()
@@ -192,7 +229,7 @@ def apply_migrations_to_local_postgres(migrations_dir: Path) -> bool:
     postgres_port = int(os.getenv("POSTGRES_PORT", "5432"))
     postgres_user = os.getenv("POSTGRES_USER", "postgres")
     postgres_password = os.getenv("POSTGRES_PASSWORD", "postgres")
-    postgres_db = os.getenv("POSTGRES_DB", "pina_colada")
+    postgres_db = os.getenv("POSTGRES_DB", "development")
 
     try:
         print(f"\nConnecting to local Postgres: {postgres_host}:{postgres_port}/{postgres_db}")
@@ -208,39 +245,59 @@ def apply_migrations_to_local_postgres(migrations_dir: Path) -> bool:
         print(f"\n❌ Failed to connect to local Postgres: {e}")
         return False
 
-    # Check if migrations are already applied (check for Job table)
     cursor = conn.cursor()
     try:
-        cursor.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_schema = 'public' 
-                AND table_name = 'Job'
-            );
-        """)
-        table_exists = cursor.fetchone()[0]
-        if table_exists:
+        # Ensure tracking tables exist (migrations and seeders)
+        _ensure_migrations_table(cursor)
+        _ensure_seeders_table(cursor)
+        conn.commit()
+        
+        # Get list of already-applied migrations
+        applied_migrations = _get_applied_migrations(cursor)
+        
+        # Get all migration files
+        migration_files = get_migration_files(migrations_dir)
+        if not migration_files:
+            cursor.close()
+            conn.close()
+            print("✓ No migration files found")
+            return True
+
+        # Filter to only unapplied migrations
+        unapplied_migrations = [
+            mf for mf in migration_files
+            if mf.name not in applied_migrations
+        ]
+
+        if not unapplied_migrations:
             print("✓ Database schema up to date, no migrations needed")
             cursor.close()
             conn.close()
             return True
-    except Exception as e:
-        print(f"⚠️  Could not check migration status: {e}")
-        # Continue to apply migrations anyway
 
-    migration_files = get_migration_files(migrations_dir)
-    if not migration_files:
+        print(f"\n📋 Found {len(unapplied_migrations)} migration(s) to apply:")
+        for mf in unapplied_migrations:
+            print(f"  - {mf.name}")
+
+        # Apply each unapplied migration
+        for migration_file in unapplied_migrations:
+            print(f"\nApplying: {migration_file.name}")
+            sql_content = migration_file.read_text()
+            cursor.execute(sql_content)
+            _record_migration(cursor, conn, migration_file.name)
+            print(f"✓ Successfully applied {migration_file.name}")
+
         cursor.close()
         conn.close()
-        print("✓ No migration files found")
+
+        print("\n✓ All migrations applied successfully!")
         return True
-
-    _apply_migration_files(cursor, conn, migration_files)
-    cursor.close()
-    conn.close()
-
-    print("\n✓ All migrations applied successfully!")
-    return True
+    except Exception as e:
+        print(f"\n❌ Error applying migrations: {e}")
+        conn.rollback()
+        cursor.close()
+        conn.close()
+        return False
 
 
 def apply_migrations_with_psycopg2(migrations_dir: Path) -> bool:
@@ -298,19 +355,19 @@ def main():
     print("="*60)
 
     # Get migrations directory
-    # In Docker: /app/supabase_migrations
-    # Locally: modules/agent/supabase_migrations/
+    # In Docker: /app/migrations
+    # Locally: modules/agent/migrations/
     script_dir = Path(__file__).parent
 
     # Try Docker path first
-    docker_migrations_dir = Path("/app/supabase_migrations")
+    docker_migrations_dir = Path("/app/migrations")
     if docker_migrations_dir.exists():
         migrations_dir = docker_migrations_dir
         print(f"\n✓ Running in Docker container")
     else:
-        # Local development path - migrations are in modules/agent/supabase_migrations/
+        # Local development path - migrations are in modules/agent/migrations/
         agent_dir = script_dir.parent
-        migrations_dir = agent_dir / "supabase_migrations"
+        migrations_dir = agent_dir / "migrations"
         print(f"\n✓ Running in local development")
 
     print(f"Migrations directory: {migrations_dir}")

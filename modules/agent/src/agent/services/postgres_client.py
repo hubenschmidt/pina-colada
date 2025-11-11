@@ -5,7 +5,9 @@ import os
 from typing import Dict, List, Optional, Set
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
-from agent.models.Job import Job, Base
+from agent.models import Base
+from agent.models.Job import Job
+from agent.models.LeadStatus import LeadStatus  # Import to register with Base.metadata
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +24,7 @@ def _get_connection_string() -> Optional[str]:
     db_port = os.getenv("POSTGRES_PORT", "5432")
     db_user = os.getenv("POSTGRES_USER", "postgres")
     db_password = os.getenv("POSTGRES_PASSWORD", "postgres")
-    db_name = os.getenv("POSTGRES_DB", "pina_colada")
+    db_name = os.getenv("POSTGRES_DB", "development")
     
     return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 

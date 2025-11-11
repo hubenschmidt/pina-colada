@@ -19,7 +19,7 @@ def _get_connection_string() -> str:
     db_port = os.getenv("POSTGRES_PORT", "5432")
     db_user = os.getenv("POSTGRES_USER", "postgres")
     db_password = os.getenv("POSTGRES_PASSWORD", "postgres")
-    db_name = os.getenv("POSTGRES_DB", "pina_colada")
+    db_name = os.getenv("POSTGRES_DB", "development")
     
     return f"postgresql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
 

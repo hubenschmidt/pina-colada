@@ -40,7 +40,7 @@ python scripts/apply_migrations.py
 ```
 
 This script will:
-- Read all SQL files from the `supabase_migrations` directory
+- Read all SQL files from the `migrations` directory
 - Execute them in order against your Supabase database
 - Track which migrations have been applied
 

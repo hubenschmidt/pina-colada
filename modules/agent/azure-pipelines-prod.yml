@@ -129,13 +129,13 @@ stages:
               supabase init || true
               
               # Copy migrations to Supabase's expected location (supabase/migrations/)
-              # Migrations are located in modules/agent/supabase_migrations/
+              # Migrations are located in modules/agent/migrations/
               mkdir -p supabase/migrations
-              if [ -d "modules/agent/supabase_migrations" ]; then
-                cp -r modules/agent/supabase_migrations/*.sql supabase/migrations/ 2>/dev/null || echo "No migrations found"
-                echo "✓ Copied migrations from modules/agent/supabase_migrations/ to supabase/migrations/"
+              if [ -d "modules/agent/migrations" ]; then
+                cp -r modules/agent/migrations/*.sql supabase/migrations/ 2>/dev/null || echo "No migrations found"
+                echo "✓ Copied migrations from modules/agent/migrations/ to supabase/migrations/"
               else
-                echo "⚠️  modules/agent/supabase_migrations directory not found"
+                echo "⚠️  modules/agent/migrations directory not found"
                 exit 1
               fi
               

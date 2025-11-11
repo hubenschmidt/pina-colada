@@ -1,32 +1,27 @@
--- Import jobs from CSV data into Supabase
--- Run this script in Supabase SQL Editor
-
--- Helper function to parse MM/DD/YYYY date format
-CREATE OR REPLACE FUNCTION parse_mmddyyyy(date_str TEXT)
-RETURNS TIMESTAMP AS $$
-BEGIN
-    IF date_str IS NULL OR date_str = '' THEN
-        RETURN NULL;
-    END IF;
-    BEGIN
-        RETURN TO_TIMESTAMP(date_str, 'MM/DD/YYYY');
-    EXCEPTION WHEN OTHERS THEN
-        RETURN NULL;
-    END;
-END;
-$$ LANGUAGE plpgsql;
+-- Seeder: Initial job applications
+-- This seeder adds initial job data with lead_status_id set to 'Cold'
+-- Only runs if records don't already exist (safe for production)
 
 -- Insert jobs, skipping duplicates based on company + job_title + date
-INSERT INTO "Job" (company, job_title, date, status, notes, resume, job_url, source)
+-- Note: Date parsing is inlined to avoid SQL client statement splitting issues
+INSERT INTO "Job" (company, job_title, date, status, notes, resume, job_url, source, lead_status_id)
 SELECT
     TRIM(company) as company,
     TRIM(job_title) as job_title,
-    parse_mmddyyyy(date_str) as date,
+    CASE 
+        WHEN date_str IS NULL OR date_str = '' THEN NULL
+        ELSE (TO_TIMESTAMP(date_str, 'MM/DD/YYYY')::TIMESTAMP)
+    END as date,
     LOWER(COALESCE(NULLIF(TRIM(status), ''), 'applied')) as status,
     NULLIF(TRIM(notes), '') as notes,
-    CASE WHEN resume_str IS NOT NULL AND resume_str != '' THEN parse_mmddyyyy(resume_str) ELSE NULL END as resume,
+    CASE 
+        WHEN resume_str IS NOT NULL AND resume_str != '' 
+        THEN (TO_TIMESTAMP(resume_str, 'MM/DD/YYYY')::TIMESTAMP)
+        ELSE NULL 
+    END as resume,
     NULLIF(TRIM(job_url), '') as job_url,
-    'manual' as source
+    'manual' as source,
+    (SELECT id FROM "LeadStatus" WHERE name = 'Cold' LIMIT 1) as lead_status_id
 FROM (VALUES
     ('Poly AI', 'Senior Full Stack Engineer', '11/01/2025', 'Applied', NULL, NULL, 'https://job-boards.eu.greenhouse.io/polyai/jobs/4669020101'),
     ('Evolution IQ', 'Solutions Engineer', '11/01/2025', 'Applied', 'N', NULL, 'https://job-boards.greenhouse.io/evolutioniq/jobs/5685993004'),
@@ -203,8 +198,9 @@ WHERE TRIM(company) IS NOT NULL
       SELECT 1 FROM "Job" j
       WHERE LOWER(TRIM(j.company)) = LOWER(TRIM(t.company))
         AND LOWER(TRIM(j.job_title)) = LOWER(TRIM(t.job_title))
-        AND j.date = parse_mmddyyyy(t.date_str)
+        AND j.date = CASE 
+            WHEN t.date_str IS NULL OR t.date_str = '' THEN NULL
+            ELSE (TO_TIMESTAMP(t.date_str, 'MM/DD/YYYY')::TIMESTAMP)
+        END
   );
 
--- Show summary
-SELECT COUNT(*) as total_jobs FROM "Job";
