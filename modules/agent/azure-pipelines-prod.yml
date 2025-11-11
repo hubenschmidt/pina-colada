@@ -61,34 +61,10 @@ stages:
                 $(tagLatest)
                 $(tagBuildId)
 
-  - stage: Push
-    displayName: Push Docker Image to GHCR
-    dependsOn: Build
-    # Only deploy on master (avoid PR validations)
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-    jobs:
-      - job: Push
-        displayName: Push image
-        pool:
-          name: Default # self-hosted Linux agent pool
-          demands:
-            - Agent.OS -equals Linux
-        steps:
-          - task: Docker@2
-            displayName: "Push to GHCR"
-            inputs:
-              command: "push"
-              containerRegistry: "$(dockerRegistryServiceConnection)"
-              repository: "$(imageRepository)"
-              tags: |
-                $(tagLatest)
-                $(tagBuildId)
-
   - stage: Migrate
     displayName: Run Database Migrations
-    dependsOn: Push
-    # Only run migrations on master (avoid PR validations)
-    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    dependsOn: Build
+    # Run migrations on all builds (including PRs) to validate schema changes
     jobs:
       - job: Migrate
         displayName: Apply Supabase Migrations
@@ -138,9 +114,32 @@ stages:
             continueOnError: false
             workingDirectory: $(System.DefaultWorkingDirectory)
 
+  - stage: Push
+    displayName: Push Docker Image to GHCR
+    dependsOn: Migrate
+    # Only push on master (avoid PR validations)
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+    jobs:
+      - job: Push
+        displayName: Push image
+        pool:
+          name: Default # self-hosted Linux agent pool
+          demands:
+            - Agent.OS -equals Linux
+        steps:
+          - task: Docker@2
+            displayName: "Push to GHCR"
+            inputs:
+              command: "push"
+              containerRegistry: "$(dockerRegistryServiceConnection)"
+              repository: "$(imageRepository)"
+              tags: |
+                $(tagLatest)
+                $(tagBuildId)
+
   - stage: Deploy
     displayName: Deploy to DigitalOcean App Platform
-    dependsOn: Migrate
+    dependsOn: Push
     # Only deploy on master (avoid PR validations)
     condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     jobs:
