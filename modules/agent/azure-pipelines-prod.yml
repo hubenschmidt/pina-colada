@@ -20,15 +20,23 @@ resources:
 
 # ---------------- Variables ----------------
 variables:
-  group: "pina-colada-digital-ocean"
-  dockerRegistryServiceConnection: "ghcr-conn"
-  owner: "hubenschmidt"
-  imageName: "pina-colada-agent"
-  imageRepository: "$(owner)/$(imageName)"
-  dockerfilePath: "modules/agent/Dockerfile.prod"
-  buildContext: "modules/agent"
-  tagLatest: "latest"
-  tagBuildId: "$(Build.SourceBranchName)-$(Build.BuildId)"
+  - group: "pina-colada-digital-ocean"
+  - name: dockerRegistryServiceConnection
+    value: "ghcr-conn"
+  - name: owner
+    value: "hubenschmidt"
+  - name: imageName
+    value: "pina-colada-agent"
+  - name: imageRepository
+    value: "$(owner)/$(imageName)"
+  - name: dockerfilePath
+    value: "modules/agent/Dockerfile.prod"
+  - name: buildContext
+    value: "modules/agent"
+  - name: tagLatest
+    value: "latest"
+  - name: tagBuildId
+    value: "$(Build.SourceBranchName)-$(Build.BuildId)"
 
 stages:
   # - stage: Build
