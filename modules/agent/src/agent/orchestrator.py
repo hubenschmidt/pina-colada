@@ -17,7 +17,7 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 load_dotenv(override=True)
 
-
+# State type definition
 class State(TypedDict):
     messages: Annotated[List[Any], add_messages]
     success_criteria: str
