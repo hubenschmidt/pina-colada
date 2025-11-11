@@ -116,7 +116,7 @@ export default function JobRow({ job, onUpdate, onDelete }: JobRowProps) {
             ))}
           </select>
           <textarea
-            placeholder="Notes"
+            placeholder="Note"
             value={editData.notes}
             onChange={(e) => setEditData({ ...editData, notes: e.target.value })}
             className="px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 md:col-span-2"

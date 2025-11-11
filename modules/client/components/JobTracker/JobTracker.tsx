@@ -27,14 +27,16 @@ export default function JobTracker() {
   const [searchQuery, setSearchQuery] = useState("")
 
   const loadJobs = async (showFullLoading = false, showBar = false) => {
+    if (showFullLoading) {
+      setLoading(true)
+    }
+    if (showBar) {
+      setIsRefreshing(true)
+      setShowLoadingBar(true)
+    }
+    setError(null)
+
     try {
-      if (showFullLoading) {
-        setLoading(true)
-      } else if (showBar) {
-        setIsRefreshing(true)
-        setShowLoadingBar(true)
-      }
-      setError(null)
       const pageData = await fetchJobs(page, limit, sortBy, sortDirection, searchQuery || undefined)
       setData(pageData)
     } catch (err) {
@@ -106,12 +108,14 @@ export default function JobTracker() {
       accessor: 'company',
       sortable: true,
       sortKey: 'company',
+      width: '12%',
     },
     {
       header: 'Job Title',
       accessor: 'job_title',
       sortable: true,
       sortKey: 'job_title',
+      width: '18%',
     },
     {
       header: 'Notes',
@@ -136,27 +140,34 @@ export default function JobTracker() {
       accessor: 'status',
       sortable: true,
       sortKey: 'status',
-      render: (job) => (
-        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-          job.status === 'applied' ? 'bg-blue-100 text-blue-800' :
-          job.status === 'interviewing' ? 'bg-yellow-100 text-yellow-800' :
-          job.status === 'rejected' ? 'bg-red-100 text-red-800' :
-          job.status === 'offer' ? 'bg-green-100 text-green-800' :
-          'bg-purple-100 text-purple-800'
-        }`}>
-          {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
-        </span>
-      ),
+      width: '10%',
+      render: (job) => {
+        const statusColors: Record<string, string> = {
+          applied: 'bg-blue-100 text-blue-800',
+          interviewing: 'bg-yellow-100 text-yellow-800',
+          rejected: 'bg-red-100 text-red-800',
+          offer: 'bg-green-100 text-green-800',
+          accepted: 'bg-purple-100 text-purple-800',
+        }
+        const colors = statusColors[job.status] || 'bg-purple-100 text-purple-800'
+        return (
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors}`}>
+            {job.status.charAt(0).toUpperCase() + job.status.slice(1)}
+          </span>
+        )
+      },
     },
     {
-      header: 'Applied Date',
+      header: 'Date',
       accessor: 'application_date',
       sortable: true,
       sortKey: 'application_date',
+      width: '10%',
       render: (job) => new Date(job.application_date).toLocaleDateString(),
     },
     {
       header: 'URL',
+      width: '5%',
       render: (job) => (
         <div className="flex items-center gap-2">
           {job.job_url && (

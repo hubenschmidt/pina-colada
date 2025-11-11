@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 // In development, always use local Postgres
 const USE_LOCAL_DB = process.env.NODE_ENV === "development";
 
-async function getLocalPostgresClient() {
+const getLocalPostgresClient = async () => {
   if (!USE_LOCAL_DB) return null;
   
   try {
@@ -23,10 +23,10 @@ async function getLocalPostgresClient() {
   }
 }
 
-export async function PUT(
+export const PUT = async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   const body = await request.json();
 
@@ -119,10 +119,10 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
+export const DELETE = async (
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
-) {
+) => {
   const { id } = await params;
   
   if (USE_LOCAL_DB) {

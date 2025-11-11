@@ -43,10 +43,14 @@ export async function fetchJobs(
   
   const offset = (page - 1) * limit;
   const ascending = order === "ASC";
-  const orderColumn = orderBy === "job_title" ? "job_title" :
-                     orderBy === "company" ? "company" :
-                     orderBy === "status" ? "status" :
-                     "application_date";
+  
+  const getOrderColumn = (orderBy: string): string => {
+    if (orderBy === "job_title") return "job_title"
+    if (orderBy === "company") return "company"
+    if (orderBy === "status") return "status"
+    return "application_date"
+  }
+  const orderColumn = getOrderColumn(orderBy)
   
   let countQuery = supabase.from('applied_jobs').select('*', { count: 'exact', head: true });
   let dataQuery = supabase.from('applied_jobs').select('*');

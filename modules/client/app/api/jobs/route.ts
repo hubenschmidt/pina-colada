@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 // In development, always use local Postgres
 const USE_LOCAL_DB = process.env.NODE_ENV === "development";
 
-async function getLocalPostgresClient() {
+const getLocalPostgresClient = async () => {
   if (!USE_LOCAL_DB) return null;
   
   try {
@@ -23,7 +23,7 @@ async function getLocalPostgresClient() {
   }
 }
 
-export async function GET(request: NextRequest) {
+export const GET = async (request: NextRequest) => {
   const { searchParams } = new URL(request.url);
   const page = Math.max(parseInt(searchParams.get("page") || "1"), 1);
   const limit = Math.max(1, Math.min(parseInt(searchParams.get("limit") || "25"), 100));
@@ -42,39 +42,47 @@ export async function GET(request: NextRequest) {
     }
 
     try {
-      // Build WHERE clause for search
-      let whereClause = "";
-      let countParams: any[] = [];
-      let queryParams: any[] = [];
-      
-      if (search) {
-        whereClause = "WHERE company ILIKE $1 OR job_title ILIKE $1";
-        const searchPattern = `%${search}%`;
-        countParams = [searchPattern];
-        queryParams = [searchPattern, limit, offset];
-      } else {
-        queryParams = [limit, offset];
+      const getOrderColumn = (by: string): string => {
+        if (by === "job_title") return "job_title"
+        if (by === "company") return "company"
+        if (by === "status") return "status"
+        return "application_date"
       }
-
-      // Get total count
-      const countQuery = search
-        ? `SELECT COUNT(*) FROM applied_jobs ${whereClause}`
-        : "SELECT COUNT(*) FROM applied_jobs";
-      const countResult = await client.query(countQuery, countParams);
-      const total = parseInt(countResult.rows[0].count);
-
-      // Build ORDER BY clause
-      const orderByColumn = orderBy === "job_title" ? "job_title" :
-                           orderBy === "company" ? "company" :
-                           orderBy === "status" ? "status" :
-                           "application_date";
+      const orderByColumn = getOrderColumn(orderBy)
       const orderClause = `ORDER BY ${orderByColumn} ${order}`;
 
-      // Get paginated results
-      const query = search
-        ? `SELECT * FROM applied_jobs ${whereClause} ${orderClause} LIMIT $2 OFFSET $3`
-        : `SELECT * FROM applied_jobs ${orderClause} LIMIT $1 OFFSET $2`;
-      const result = await client.query(query, queryParams);
+      if (!search) {
+        const countResult = await client.query("SELECT COUNT(*) FROM applied_jobs");
+        const total = parseInt(countResult.rows[0].count);
+        const result = await client.query(
+          `SELECT * FROM applied_jobs ${orderClause} LIMIT $1 OFFSET $2`,
+          [limit, offset]
+        );
+        await client.end();
+
+        const totalPages = Math.max(1, Math.ceil(total / limit));
+        return NextResponse.json({
+          items: result.rows,
+          currentPage: page,
+          totalPages,
+          total,
+          pageSize: limit,
+        });
+      }
+
+      const whereClause = "WHERE company ILIKE $1 OR job_title ILIKE $1";
+      const searchPattern = `%${search}%`;
+      
+      const countResult = await client.query(
+        `SELECT COUNT(*) FROM applied_jobs ${whereClause}`,
+        [searchPattern]
+      );
+      const total = parseInt(countResult.rows[0].count);
+
+      const result = await client.query(
+        `SELECT * FROM applied_jobs ${whereClause} ${orderClause} LIMIT $2 OFFSET $3`,
+        [searchPattern, limit, offset]
+      );
       await client.end();
 
       const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -99,12 +107,14 @@ export async function GET(request: NextRequest) {
   try {
     const { supabase } = await import("../../../lib/supabase");
     
-    // Apply search filter
+    const getOrderColumn = (by: string): string => {
+      if (by === "job_title") return "job_title"
+      if (by === "company") return "company"
+      if (by === "status") return "status"
+      return "application_date"
+    }
     const ascending = order === "ASC";
-    const orderColumn = orderBy === "job_title" ? "job_title" :
-                       orderBy === "company" ? "company" :
-                       orderBy === "status" ? "status" :
-                       "application_date";
+    const orderColumn = getOrderColumn(orderBy)
     
     let countQuery = supabase.from("applied_jobs").select("*", { count: "exact", head: true });
     let dataQuery = supabase.from("applied_jobs").select("*");
@@ -143,7 +153,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-export async function POST(request: NextRequest) {
+export const POST = async (request: NextRequest) => {
   const body = await request.json();
 
   if (USE_LOCAL_DB) {

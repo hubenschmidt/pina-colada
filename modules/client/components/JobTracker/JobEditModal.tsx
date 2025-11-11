@@ -72,9 +72,10 @@ export default function JobEditModal({ job, opened, onClose, onUpdate, onDelete 
     } catch (error) {
       console.error('Failed to delete job:', error)
       alert('Failed to delete job. Please try again.')
-    } finally {
       setIsDeleting(false)
+      return
     }
+    setIsDeleting(false)
   }
 
   if (!job) return null
@@ -186,11 +187,9 @@ export default function JobEditModal({ job, opened, onClose, onUpdate, onDelete 
               <button
                 type="button"
                 onClick={handleDelete}
-                className={`px-6 py-3 rounded-lg font-semibold ${
-                  isDeleting
-                    ? 'bg-red-600 text-white hover:bg-red-700'
-                    : 'bg-red-100 text-red-700 hover:bg-red-200'
-                }`}
+                className={isDeleting
+                  ? 'px-6 py-3 rounded-lg font-semibold bg-red-600 text-white hover:bg-red-700'
+                  : 'px-6 py-3 rounded-lg font-semibold bg-red-100 text-red-700 hover:bg-red-200'}
               >
                 {isDeleting ? 'Click again to confirm delete' : 'Delete'}
               </button>
