@@ -1,0 +1,892 @@
+-- ==============================
+-- DealTracker Migration 001
+-- ==============================
+-- Complete DealTracker schema with initial seed data
+--
+-- This migration creates:
+-- 1. All DealTracker tables (Status, Deal, Lead, Job, Organization, etc.)
+-- 2. Status configuration tables for workflows
+-- 3. Junction tables for relationships
+-- 4. Initial status seed data
+-- 5. Development seed data (191 job applications)
+--
+-- BACKUP YOUR DATABASE BEFORE RUNNING THIS MIGRATION!
+-- ==============================
+
+-- Enable UUID extension if not already enabled
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ==============================
+-- STEP 1: Create Core Tables
+-- ==============================
+
+-- Status table (central status/stage definitions)
+CREATE TABLE IF NOT EXISTS "Status" (
+  id              BIGSERIAL PRIMARY KEY,
+  name            TEXT NOT NULL UNIQUE,
+  description     TEXT,
+  category        TEXT,  -- 'job', 'lead', 'deal', 'task_status', 'task_priority'
+  is_terminal     BOOLEAN DEFAULT FALSE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Project table
+CREATE TABLE IF NOT EXISTS "Project" (
+  id              BIGSERIAL PRIMARY KEY,
+  name            TEXT NOT NULL,
+  description     TEXT,
+  owner_user_id   BIGINT,
+  status          TEXT,  -- Simple TEXT field, not using Status table
+  start_date      DATE,
+  end_date        DATE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Deal table
+CREATE TABLE IF NOT EXISTS "Deal" (
+  id              BIGSERIAL PRIMARY KEY,
+  name            TEXT NOT NULL,
+  description     TEXT,
+  owner_user_id   BIGINT,
+  current_status_id BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
+  value_amount    NUMERIC(18,2),
+  value_currency  TEXT DEFAULT 'USD',
+  probability     NUMERIC(5,2),
+  close_date      DATE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Organization table (for companies)
+CREATE TABLE IF NOT EXISTS "Organization" (
+  id              BIGSERIAL PRIMARY KEY,
+  name            TEXT NOT NULL,
+  website         TEXT,
+  phone           TEXT,
+  notes           TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_org_name UNIQUE (LOWER(name))
+);
+
+-- Individual table (for people)
+CREATE TABLE IF NOT EXISTS "Individual" (
+  id              BIGSERIAL PRIMARY KEY,
+  given_name      TEXT NOT NULL,
+  family_name     TEXT NOT NULL,
+  email           TEXT,
+  phone           TEXT,
+  notes           TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Contact table
+CREATE TABLE IF NOT EXISTS "Contact" (
+  id                BIGSERIAL PRIMARY KEY,
+  individual_id     BIGINT NOT NULL REFERENCES "Individual"(id) ON DELETE CASCADE,
+  organization_id   BIGINT REFERENCES "Organization"(id) ON DELETE SET NULL,
+  title             TEXT,
+  department        TEXT,
+  email             TEXT,
+  phone             TEXT,
+  is_primary        BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Lead table (base table for Joined Table Inheritance)
+CREATE TABLE IF NOT EXISTS "Lead" (
+  id              BIGSERIAL PRIMARY KEY,
+  deal_id         BIGINT NOT NULL REFERENCES "Deal"(id) ON DELETE CASCADE,
+  type            TEXT NOT NULL,  -- Discriminator: 'Job', 'Opportunity', 'Partnership', etc.
+  title           TEXT NOT NULL,
+  description     TEXT,
+  source          TEXT,  -- inbound/referral/event/campaign/agent/manual/etc.
+  current_status_id BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
+  owner_user_id   BIGINT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Job table (extends Lead via Joined Table Inheritance)
+CREATE TABLE IF NOT EXISTS "Job" (
+  id              BIGINT PRIMARY KEY REFERENCES "Lead"(id) ON DELETE CASCADE,
+  organization_id BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
+  job_title       TEXT NOT NULL,
+  job_url         TEXT,
+  notes           TEXT,
+  resume_date     TIMESTAMPTZ,
+  salary_range    TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Task table (polymorphic association)
+CREATE TABLE IF NOT EXISTS "Task" (
+  id                  BIGSERIAL PRIMARY KEY,
+  taskable_type       TEXT,  -- 'Deal', 'Lead', 'Job', 'Project', 'Organization', 'Individual', 'Contact'
+  taskable_id         BIGINT,
+  title               TEXT NOT NULL,
+  description         TEXT,
+  current_status_id   BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
+  current_priority_id BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
+  due_date            DATE,
+  completed_at        TIMESTAMPTZ,
+  assigned_to_user_id BIGINT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ==============================
+-- STEP 2: Status Configuration Tables
+-- ==============================
+
+CREATE TABLE IF NOT EXISTS "Job_Status" (
+  id              BIGSERIAL PRIMARY KEY,
+  status_id       BIGINT NOT NULL REFERENCES "Status"(id) ON DELETE CASCADE,
+  display_order   INTEGER NOT NULL,
+  is_default      BOOLEAN DEFAULT FALSE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (status_id),
+  UNIQUE (display_order)
+);
+
+CREATE TABLE IF NOT EXISTS "Lead_Status" (
+  id              BIGSERIAL PRIMARY KEY,
+  status_id       BIGINT NOT NULL REFERENCES "Status"(id) ON DELETE CASCADE,
+  display_order   INTEGER NOT NULL,
+  is_default      BOOLEAN DEFAULT FALSE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (status_id),
+  UNIQUE (display_order)
+);
+
+CREATE TABLE IF NOT EXISTS "Deal_Status" (
+  id              BIGSERIAL PRIMARY KEY,
+  status_id       BIGINT NOT NULL REFERENCES "Status"(id) ON DELETE CASCADE,
+  display_order   INTEGER NOT NULL,
+  is_default      BOOLEAN DEFAULT FALSE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (status_id),
+  UNIQUE (display_order)
+);
+
+CREATE TABLE IF NOT EXISTS "Task_Status" (
+  id              BIGSERIAL PRIMARY KEY,
+  status_id       BIGINT NOT NULL REFERENCES "Status"(id) ON DELETE CASCADE,
+  display_order   INTEGER NOT NULL,
+  is_default      BOOLEAN DEFAULT FALSE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (status_id),
+  UNIQUE (display_order)
+);
+
+CREATE TABLE IF NOT EXISTS "Task_Priority" (
+  id              BIGSERIAL PRIMARY KEY,
+  status_id       BIGINT NOT NULL REFERENCES "Status"(id) ON DELETE CASCADE,
+  display_order   INTEGER NOT NULL,
+  is_default      BOOLEAN DEFAULT FALSE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (status_id),
+  UNIQUE (display_order)
+);
+
+-- ==============================
+-- STEP 3: Junction Tables
+-- ==============================
+
+CREATE TABLE IF NOT EXISTS "Lead_Contact" (
+  lead_id       BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
+  contact_id    BIGINT NOT NULL REFERENCES "Contact"(id) ON DELETE CASCADE,
+  role_on_lead  TEXT,
+  is_primary    BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (lead_id, contact_id)
+);
+
+CREATE TABLE IF NOT EXISTS "Lead_Organization" (
+  lead_id         BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
+  organization_id BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
+  relationship    TEXT,
+  is_primary      BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (lead_id, organization_id)
+);
+
+CREATE TABLE IF NOT EXISTS "Lead_Individual" (
+  lead_id       BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
+  individual_id BIGINT NOT NULL REFERENCES "Individual"(id) ON DELETE CASCADE,
+  relationship  TEXT,
+  is_primary    BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (lead_id, individual_id)
+);
+
+CREATE TABLE IF NOT EXISTS "Project_Deal" (
+  project_id    BIGINT NOT NULL REFERENCES "Project"(id) ON DELETE CASCADE,
+  deal_id       BIGINT NOT NULL REFERENCES "Deal"(id) ON DELETE CASCADE,
+  relationship  TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (project_id, deal_id)
+);
+
+CREATE TABLE IF NOT EXISTS "Project_Lead" (
+  project_id    BIGINT NOT NULL REFERENCES "Project"(id) ON DELETE CASCADE,
+  lead_id       BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
+  relationship  TEXT,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (project_id, lead_id)
+);
+
+CREATE TABLE IF NOT EXISTS "Project_Contact" (
+  project_id    BIGINT NOT NULL REFERENCES "Project"(id) ON DELETE CASCADE,
+  contact_id    BIGINT NOT NULL REFERENCES "Contact"(id) ON DELETE CASCADE,
+  role          TEXT,
+  is_primary    BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (project_id, contact_id)
+);
+
+CREATE TABLE IF NOT EXISTS "Project_Organization" (
+  project_id      BIGINT NOT NULL REFERENCES "Project"(id) ON DELETE CASCADE,
+  organization_id BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
+  relationship    TEXT,
+  is_primary      BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (project_id, organization_id)
+);
+
+CREATE TABLE IF NOT EXISTS "Project_Individual" (
+  project_id    BIGINT NOT NULL REFERENCES "Project"(id) ON DELETE CASCADE,
+  individual_id BIGINT NOT NULL REFERENCES "Individual"(id) ON DELETE CASCADE,
+  role          TEXT,
+  is_primary    BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (project_id, individual_id)
+);
+
+-- ==============================
+-- STEP 4: Create Triggers
+-- ==============================
+
+-- Create function for auto-updating updated_at timestamp
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Apply triggers to all tables with updated_at
+DROP TRIGGER IF EXISTS update_status_updated_at ON "Status";
+CREATE TRIGGER update_status_updated_at
+    BEFORE UPDATE ON "Status"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_project_updated_at ON "Project";
+CREATE TRIGGER update_project_updated_at
+    BEFORE UPDATE ON "Project"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_deal_updated_at ON "Deal";
+CREATE TRIGGER update_deal_updated_at
+    BEFORE UPDATE ON "Deal"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_organization_updated_at ON "Organization";
+CREATE TRIGGER update_organization_updated_at
+    BEFORE UPDATE ON "Organization"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_individual_updated_at ON "Individual";
+CREATE TRIGGER update_individual_updated_at
+    BEFORE UPDATE ON "Individual"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_contact_updated_at ON "Contact";
+CREATE TRIGGER update_contact_updated_at
+    BEFORE UPDATE ON "Contact"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_lead_updated_at ON "Lead";
+CREATE TRIGGER update_lead_updated_at
+    BEFORE UPDATE ON "Lead"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_job_updated_at ON "Job";
+CREATE TRIGGER update_job_updated_at
+    BEFORE UPDATE ON "Job"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_task_updated_at ON "Task";
+CREATE TRIGGER update_task_updated_at
+    BEFORE UPDATE ON "Task"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+-- ==============================
+-- STEP 5: Create Indexes
+-- ==============================
+
+-- Job table indexes
+CREATE INDEX IF NOT EXISTS idx_job_organization ON "Job"(organization_id);
+CREATE INDEX IF NOT EXISTS idx_job_title ON "Job"(job_title);
+CREATE INDEX IF NOT EXISTS idx_job_created ON "Job"(created_at DESC);
+
+-- Lead table indexes
+CREATE INDEX IF NOT EXISTS idx_lead_deal ON "Lead"(deal_id);
+CREATE INDEX IF NOT EXISTS idx_lead_status ON "Lead"(current_status_id);
+CREATE INDEX IF NOT EXISTS idx_lead_type ON "Lead"(type);
+CREATE INDEX IF NOT EXISTS idx_lead_created ON "Lead"(created_at DESC);
+
+-- Deal table indexes
+CREATE INDEX IF NOT EXISTS idx_deal_status ON "Deal"(current_status_id);
+CREATE INDEX IF NOT EXISTS idx_deal_created ON "Deal"(created_at DESC);
+
+-- Task table indexes
+CREATE INDEX IF NOT EXISTS idx_task_taskable ON "Task"(taskable_type, taskable_id);
+CREATE INDEX IF NOT EXISTS idx_task_status ON "Task"(current_status_id);
+CREATE INDEX IF NOT EXISTS idx_task_priority ON "Task"(current_priority_id);
+CREATE INDEX IF NOT EXISTS idx_task_due_date ON "Task"(due_date);
+
+-- Organization table indexes
+CREATE INDEX IF NOT EXISTS idx_organization_name ON "Organization"(LOWER(name));
+
+-- ==============================
+-- STEP 6: Seed Status Data
+-- ==============================
+
+-- Job Statuses
+INSERT INTO "Status" (name, category, is_terminal, description) VALUES
+('Applied', 'job', false, 'Job application submitted'),
+('Interviewing', 'job', false, 'In interview process'),
+('Offer', 'job', false, 'Offer received'),
+('Accepted', 'job', true, 'Job offer accepted'),
+('Rejected', 'job', true, 'Application or candidacy rejected')
+ON CONFLICT (name) DO NOTHING;
+
+-- Lead Stages
+INSERT INTO "Status" (name, category, is_terminal, description) VALUES
+('New', 'lead', false, 'New lead created'),
+('Qualified', 'lead', false, 'Lead has been qualified'),
+('Discovery', 'lead', false, 'Discovery phase'),
+('Proposal', 'lead', false, 'Proposal submitted'),
+('Negotiation', 'lead', false, 'In negotiation'),
+('Won', 'lead', true, 'Lead won'),
+('Lost', 'lead', true, 'Lead lost'),
+('On Hold', 'lead', false, 'Lead on hold')
+ON CONFLICT (name) DO NOTHING;
+
+-- Deal Stages
+INSERT INTO "Status" (name, category, is_terminal, description) VALUES
+('Prospecting', 'deal', false, 'Prospecting phase'),
+('Qualification', 'deal', false, 'Qualification phase'),
+('Closed Won', 'deal', true, 'Deal won'),
+('Closed Lost', 'deal', true, 'Deal lost')
+ON CONFLICT (name) DO NOTHING;
+
+-- Task Statuses
+INSERT INTO "Status" (name, category, is_terminal, description) VALUES
+('To Do', 'task_status', false, 'Task not started'),
+('In Progress', 'task_status', false, 'Task in progress'),
+('Completed', 'task_status', true, 'Task completed'),
+('Cancelled', 'task_status', true, 'Task cancelled')
+ON CONFLICT (name) DO NOTHING;
+
+-- Task Priorities
+INSERT INTO "Status" (name, category, is_terminal, description) VALUES
+('Low', 'task_priority', false, 'Low priority'),
+('Medium', 'task_priority', false, 'Medium priority'),
+('High', 'task_priority', false, 'High priority'),
+('Urgent', 'task_priority', false, 'Urgent priority')
+ON CONFLICT (name) DO NOTHING;
+
+-- ==============================
+-- STEP 7: Configure Status Workflows
+-- ==============================
+
+-- Configure Job workflow
+INSERT INTO "Job_Status" (status_id, display_order, is_default)
+SELECT id, 0, true FROM "Status" WHERE name = 'Applied' AND category = 'job'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Job_Status" (status_id, display_order, is_default)
+SELECT id, 1, false FROM "Status" WHERE name = 'Interviewing' AND category = 'job'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Job_Status" (status_id, display_order, is_default)
+SELECT id, 2, false FROM "Status" WHERE name = 'Offer' AND category = 'job'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Job_Status" (status_id, display_order, is_default)
+SELECT id, 3, false FROM "Status" WHERE name = 'Accepted' AND category = 'job'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Job_Status" (status_id, display_order, is_default)
+SELECT id, 4, false FROM "Status" WHERE name = 'Rejected' AND category = 'job'
+ON CONFLICT (status_id) DO NOTHING;
+
+-- Configure Lead workflow
+INSERT INTO "Lead_Status" (status_id, display_order, is_default)
+SELECT id, 0, true FROM "Status" WHERE name = 'New' AND category = 'lead'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Lead_Status" (status_id, display_order, is_default)
+SELECT id, 1, false FROM "Status" WHERE name = 'Qualified' AND category = 'lead'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Lead_Status" (status_id, display_order, is_default)
+SELECT id, 2, false FROM "Status" WHERE name = 'Discovery' AND category = 'lead'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Lead_Status" (status_id, display_order, is_default)
+SELECT id, 3, false FROM "Status" WHERE name = 'Proposal' AND category = 'lead'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Lead_Status" (status_id, display_order, is_default)
+SELECT id, 4, false FROM "Status" WHERE name = 'Negotiation' AND category = 'lead'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Lead_Status" (status_id, display_order, is_default)
+SELECT id, 5, false FROM "Status" WHERE name = 'Won' AND category = 'lead'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Lead_Status" (status_id, display_order, is_default)
+SELECT id, 6, false FROM "Status" WHERE name = 'Lost' AND category = 'lead'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Lead_Status" (status_id, display_order, is_default)
+SELECT id, 7, false FROM "Status" WHERE name = 'On Hold' AND category = 'lead'
+ON CONFLICT (status_id) DO NOTHING;
+
+-- Configure Deal workflow (reusing some Lead statuses)
+INSERT INTO "Deal_Status" (status_id, display_order, is_default)
+SELECT id, 0, true FROM "Status" WHERE name = 'Prospecting' AND category = 'deal'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Deal_Status" (status_id, display_order, is_default)
+SELECT id, 1, false FROM "Status" WHERE name = 'Qualification' AND category = 'deal'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Deal_Status" (status_id, display_order, is_default)
+SELECT id, 2, false FROM "Status" WHERE name = 'Proposal' AND category = 'lead'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Deal_Status" (status_id, display_order, is_default)
+SELECT id, 3, false FROM "Status" WHERE name = 'Negotiation' AND category = 'lead'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Deal_Status" (status_id, display_order, is_default)
+SELECT id, 4, false FROM "Status" WHERE name = 'Closed Won' AND category = 'deal'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Deal_Status" (status_id, display_order, is_default)
+SELECT id, 5, false FROM "Status" WHERE name = 'Closed Lost' AND category = 'deal'
+ON CONFLICT (status_id) DO NOTHING;
+
+-- Configure Task statuses
+INSERT INTO "Task_Status" (status_id, display_order, is_default)
+SELECT id, 0, true FROM "Status" WHERE name = 'To Do' AND category = 'task_status'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Task_Status" (status_id, display_order, is_default)
+SELECT id, 1, false FROM "Status" WHERE name = 'In Progress' AND category = 'task_status'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Task_Status" (status_id, display_order, is_default)
+SELECT id, 2, false FROM "Status" WHERE name = 'Completed' AND category = 'task_status'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Task_Status" (status_id, display_order, is_default)
+SELECT id, 3, false FROM "Status" WHERE name = 'Cancelled' AND category = 'task_status'
+ON CONFLICT (status_id) DO NOTHING;
+
+-- Configure Task priorities
+INSERT INTO "Task_Priority" (status_id, display_order, is_default)
+SELECT id, 0, false FROM "Status" WHERE name = 'Low' AND category = 'task_priority'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Task_Priority" (status_id, display_order, is_default)
+SELECT id, 1, true FROM "Status" WHERE name = 'Medium' AND category = 'task_priority'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Task_Priority" (status_id, display_order, is_default)
+SELECT id, 2, false FROM "Status" WHERE name = 'High' AND category = 'task_priority'
+ON CONFLICT (status_id) DO NOTHING;
+
+INSERT INTO "Task_Priority" (status_id, display_order, is_default)
+SELECT id, 3, false FROM "Status" WHERE name = 'Urgent' AND category = 'task_priority'
+ON CONFLICT (status_id) DO NOTHING;
+
+-- ==============================
+-- STEP 8: Development Seed Data
+-- ==============================
+-- Seeds 191 job applications for development
+
+-- Create default Deal for job search
+DO $$
+DECLARE
+  default_deal_id BIGINT;
+BEGIN
+  SELECT id INTO default_deal_id FROM "Deal" WHERE name = 'Job Search - Development' LIMIT 1;
+
+  IF default_deal_id IS NULL THEN
+    INSERT INTO "Deal" (name, description, current_status_id, created_at, updated_at)
+    VALUES (
+      'Job Search - Development',
+      'Development seed data for job applications',
+      (SELECT id FROM "Status" WHERE name = 'Prospecting' AND category = 'deal' LIMIT 1),
+      NOW(),
+      NOW()
+    )
+    RETURNING id INTO default_deal_id;
+
+    RAISE NOTICE 'Created default deal with id: %', default_deal_id;
+  END IF;
+END $$;
+
+-- Create temporary table with seed data
+CREATE TEMP TABLE IF NOT EXISTS temp_job_seed (
+  company TEXT,
+  job_title TEXT,
+  date_str TEXT,
+  status TEXT,
+  notes TEXT,
+  resume_str TEXT,
+  job_url TEXT
+);
+
+-- Insert 191 job applications
+INSERT INTO temp_job_seed (company, job_title, date_str, status, notes, resume_str, job_url)
+VALUES
+    ('Poly AI', 'Senior Full Stack Engineer', '11/01/2025', 'Applied', NULL, NULL, 'https://job-boards.eu.greenhouse.io/polyai/jobs/4669020101'),
+    ('Evolution IQ', 'Solutions Engineer', '11/01/2025', 'Applied', 'N', NULL, 'https://job-boards.greenhouse.io/evolutioniq/jobs/5685993004'),
+    ('Crustdata', 'Founding Solutions Engineer', '11/01/2025', 'Applied', NULL, NULL, 'https://www.ycombinator.com/companies/crustdata/jobs/Bdu5Rez-founding-solutions-engineer'),
+    ('city of new york', 'IT Automation and Monitoring Engineer', '11/01/2025', 'Applied', NULL, NULL, NULL),
+    ('zeta global', 'solutions engineer', '11/01/2025', 'Applied', NULL, NULL, NULL),
+    ('linda werner', 'technical solutions consultant', '11/01/2025', 'Applied', NULL, NULL, NULL),
+    ('sonar hiring', 'senior software engineer fullstack', '11/01/2025', 'Applied', 'interview', NULL, NULL),
+    ('kofas northamerica insurance co.', 'tech solutions engineer', '11/01/2025', 'Applied', NULL, NULL, NULL),
+    ('Peloton', 'Software Engineer II', '11/01/2025', 'Applied', NULL, NULL, 'https://careers.onepeloton.com/en/all-jobs/7360532/software-engineer-ii/?gh_jid=7360532&utm_source=startup.jobs&utm_medium=organic#apply-now'),
+    ('Peloton', 'Software Engineer', '11/01/2025', 'Applied', NULL, NULL, 'https://careers.onepeloton.com/en/all-jobs/7360403/software-engineer/?gh_jid=7360403&utm_source=startup.jobs&utm_medium=organic#apply-now'),
+    ('Consumer Edge', 'Senior Software Engineer', '11/01/2025', 'Applied', NULL, NULL, 'https://job-boards.greenhouse.io/consumeredge/jobs/5688362004'),
+    ('ZocDoc', 'Senior Software Engineer, Online Booking', '11/01/2025', 'Applied', NULL, NULL, 'https://startup.jobs/senior-software-engineer-online-booking-zocdoc-7414445'),
+    ('Quizlet', 'Senior Software Engineer, Consumer Experience', '11/01/2025', 'Applied', NULL, NULL, 'https://startup.jobs/sr-software-engineer-consumer-experience-quizlet-7414960'),
+    ('BitGo', 'Senior Software Engineer, Wallet Core', '11/01/2025', 'Applied', NULL, NULL, 'https://job-boards.greenhouse.io/bitgo/jobs/8231309002?utm_source=startup.jobs&utm_medium=organic#application_form'),
+    ('Capitalize', 'Senior Software Engineer', '11/01/2025', 'Applied', NULL, NULL, 'https://www.hicapitalize.com/careers/opportunity/?gh_jid=5690067004&utm_source=startup.jobs&utm_medium=organic#application_form'),
+    ('Vestwell', 'Senior Software Engineer', '11/01/2025', 'Applied', NULL, NULL, 'https://startup.jobs/senior-software-engineer-vestwell-2-7419853'),
+    ('Vesto', 'founding engineer', '06/02/2025', 'Applied', NULL, NULL, 'https://getvesto.notion.site/Founding-Full-stack-Engineer-Vesto-4d579a18be674538878556b4c6c417af'),
+    ('Western & Southern Financial', 'web engineer', '06/02/2025', 'Applied', NULL, NULL, 'https://www.indeed.com/viewjob?jk=9433960d325f0eb9&from=shareddesktop_copy'),
+    ('Bronx Defenders', 'Solutions Architect', '06/02/2025', 'Applied', NULL, NULL, 'https://www.idealist.org/en/nonprofit-job/973347ef524747a6a3a449ae7703c850-solutions-architect-the-bronx-defenders-bronx#apply'),
+    ('Hudson Valley Credit Union', 'Solution Architect', '06/02/2025', 'Applied', NULL, NULL, 'https://careers.hvcu.org/jobs/5104?lang=en-us'),
+    ('Hudson Valley Credit Union', 'Sr Cloud Engineer', '06/02/2025', 'Applied', NULL, NULL, 'https://careers-hvcu.icims.com/jobs/5076/sr-cloud-engineer/job?mode=submit_apply'),
+    ('IBM', 'Software Engineer', '06/02/2025', 'Applied', NULL, NULL, 'https://ibmglobal.avature.net/en_US/careers/JobDetailApplied?jobId=33412&qtvc=059fae09d7a632343173d9226a89954915999ac31c625c4e9212583bb337a762'),
+    ('Pryon', 'Software Engineer, Fullstack', '11/02/2025', 'Applied', NULL, NULL, 'https://jobs.lever.co/pryon/15412b82-8bf6-4b25-820d-9f129828d796?lever-source=Otta'),
+    ('Nourish', 'Senior or Staff Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Adonis.io', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Harmonic', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Asana', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Cooperidge Consulting', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Coast', 'Full Stack Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('April', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Crosby', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Better', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Headspace', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Harvey', 'Staff Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Traversal', 'Full Stack Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Brex', 'Software Enginer II', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Together AI', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Neem', 'Founding Senior Full-Stack Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('ShelfCycle', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, 'https://shelfcycle.com/careers/senior-software-engineer'),
+    ('On Me', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Cassidy', 'Full Stack Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('keru.ai', 'Full Stack Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Norm.AI', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Vestwell', 'Senior Software Engineer (AI)', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Harold', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Farther', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Parabola', 'Senior Software Engineer, Full Stack', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Brisk Teaching', 'Senior Software Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Stepful', 'Senior Full Stack Engineer', '11/02/2025', 'Applied', NULL, NULL, NULL),
+    ('Miro', 'Full Stack Engineer', '06/03/2025', 'Applied', NULL, NULL, 'https://miro.com/careers/vacancy/8013376002/'),
+    ('Affirma Group', 'Mid Level App Developer', '06/03/2025', 'Applied', NULL, NULL, NULL),
+    ('Airgoods', 'Software Engineer - Full Stack', '06/03/2025', 'Applied', NULL, NULL, 'https://jobs.ashbyhq.com/airgoods/036e4ed9-9c41-4aaa-9219-3851fb02f8e3'),
+    ('Method Financial', 'Technical Integration Engineer', '11/03/2025', 'Applied', NULL, '11/03/2025', 'https://jobs.ashbyhq.com/method/5dde1ef0-4df6-4209-a60c-f966d446320b'),
+    ('Clarion', 'Senior Fullstack Engineer', '11/03/2025', 'Applied', NULL, '11/03/2025', 'https://jobs.ashbyhq.com/clarion/acc28862-14e1-43bd-bfc8-449af1fa283a'),
+    ('Peregrine', 'Senior Fullstack Engineer', '11/03/2025', 'Applied', NULL, '11/03/2025', 'https://job-boards.greenhouse.io/peregrinetechnologies/jobs/4580135005?gh_src=gwf63pot5us'),
+    ('Substack', 'Software Engineer (Payments)', '11/03/2025', 'Applied', 'N', '11/03/2025', 'https://jobs.ashbyhq.com/substack/3033346a-5126-47d4-8f66-d89c996efc61'),
+    ('Jacobsen Consulting Applications', 'Product Engineer', '06/04/2025', 'Applied', NULL, NULL, 'https://www.idealist.org/en/consultant-job/e3d9c6b05c5c427c82f419397db8fa9f-product-engineer-jacobson-consulting-applications-new-york'),
+    ('DataKind', 'Sr Director, Engineering', '06/04/2025', 'Applied', NULL, NULL, 'https://job-boards.greenhouse.io/datakindinc/jobs/6586200003?utm_medium=referral&utm_source=idealist'),
+    ('Friends From The City', 'Technical Lead, Full Stack Engineer', '06/04/2025', 'Applied', NULL, NULL, 'https://apply.workable.com/friends-from-the-city/j/B442D71A20/'),
+    ('ContentSquare', 'Backend Software Engineer', '06/04/2025', 'Applied', NULL, NULL, 'https://jobs.lever.co/contentsquare/048f9fc4-0b8f-4da2-9388-51751c9721d7'),
+    ('B&H', 'Senior Web Project Manager', '06/04/2025', 'Applied', NULL, NULL, NULL),
+    ('Braze', 'Senior Software Engineer - Fullstack', '11/04/2025', 'Applied', NULL, '11/03/2025', 'https://job-boards.greenhouse.io/braze/jobs/7365359?gh_jid=7365359'),
+    ('Semgrep', 'Staff Full Stack Engineer, Software Composition Analysis', '11/04/2025', 'Applied', NULL, '11/03/2025', 'https://job-boards.greenhouse.io/semgrep/jobs/4961381007'),
+    ('Replica', 'Software Engineer (Execution Focused)', '11/04/2025', 'Applied', NULL, '11/03/2025', 'https://replicainc.applytojob.com/apply/confirm/7njkiRsLA2'),
+    ('Bumble', 'Lead Software Engineer (BFF)', '11/05/2025', 'Applied', NULL, '11/03/2025', 'https://hiring.cafe/viewjob/86wick766qbckbdc'),
+    ('DeepL', 'Senior Software Engineer API', '11/05/2025', 'Applied', NULL, '11/03/2025', 'https://jobs.ashbyhq.com/deepl/f4cdb92c-524a-425a-b04b-720d21c6ba86'),
+    ('Replit', 'Premium Support Engineer', '11/05/2025', 'Applied', NULL, '11/03/2025', 'https://jobs.ashbyhq.com/replit/7dae8c96-d8ff-42be-a099-8f370c1db3db'),
+    ('Navan', 'Staff Software Engineer, Security, Risk & Fraud', '11/05/2025', 'Applied', NULL, '11/05/2025', 'https://navan.com/careers/openings/7379198?gh_jid=7379198'),
+    ('Okta', 'Senior Software Engineer Sessions (Auth0)', '11/05/2025', 'Applied', NULL, '11/05/2025', 'https://www.okta.com/company/careers/engineering/senior-software-engineer-sessions-auth0-7302752/'),
+    ('Melio', 'Full Stack Engineer', '11/05/2025', 'Applied', NULL, '11/05/2025', 'https://job-boards.greenhouse.io/melio/jobs/7174896003'),
+    ('Xogene, LLC', 'AI Software Developer', '11/05/2025', 'Applied', NULL, '11/05/2025', 'https://www.xogene.com/careers#job-2263505'),
+    ('Hearth', 'Senior Software Engineer, Backend', '11/05/2025', 'Applied', NULL, '11/05/2025', 'https://ats.rippling.com/hearth-careers/jobs/83471fcd-a0ec-4d7e-a994-2e1cffbc9f15'),
+    ('Patreon', 'Senior Backend Engineer', '11/06/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/patreon/392fa521-141c-4b1d-b5e6-01b1d60be3e2'),
+    ('New York Post', 'Software Engineer', '11/06/2025', 'Applied', NULL, '11/05/2025', 'https://dowjones.wd1.myworkdayjobs.com/New_York_Post_Careers/job/NYC---1211-Ave-of-the-Americas/Software-Engineer_Job_Req_50029'),
+    ('Inkeep', 'Member of the Technical Staff, TypeScript Engineer (Principal)', '11/06/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/inkeep/7bf64445-f811-4e05-8ad1-06549299597f'),
+    ('Amplify Education Inc.', 'Software Engineer', '11/06/2025', 'Applied', NULL, '11/05/2025', 'https://amplify.wd1.myworkdayjobs.com/en-US/Amplify_Careers/details/Software-Engineer_Req_12320'),
+    ('Siro', 'Full Stack Software Engineer', '11/06/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/siro/3eb43837-5422-4c93-88ae-efb3fbb6f37c'),
+    ('Arc', 'Software Engineer, Fullstack', '11/06/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/joinarc/7a975960-40f5-4ae4-b96b-6d9046dc2d1d'),
+    ('DataDog', 'Senior Software Engineer', '11/06/2025', 'Applied', NULL, '11/05/2025', 'https://careers.datadoghq.com/detail/3851935/?gh_jid=3851935'),
+    ('Courier Health', 'Senior Software Engineer, Backend', '11/06/2025', 'Applied', NULL, '11/05/2025', 'https://job-boards.greenhouse.io/courierhealth/jobs/4737873007'),
+    ('Tarte', 'eCommerce Integration Specialist', '08/07/2025', 'Applied', NULL, NULL, NULL),
+    ('Regrello', 'Software Engineer', '11/07/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.lever.co/regrello/3ec9f439-0700-453a-b33b-568c9ef15571'),
+    ('Rokt', 'Software Engineer', '11/07/2025', 'Applied', NULL, '11/05/2025', 'https://apply.workable.com/rokt/j/59FE73F3A9/'),
+    ('Christine Valmy School', 'CRM Developer/Consultant', '07/08/2025', 'Applied', NULL, NULL, NULL),
+    ('Baseten', 'Senior Software Engineer, Core Product', '11/08/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/baseten/ebbcec9f-e147-4bef-a181-0b89045c1ec1'),
+    ('Scale GP', 'Senior Software Engineer, Full-Stack - Enterprise Gen AI', '11/08/2025', 'Applied', NULL, NULL, 'https://job-boards.greenhouse.io/scaleai/jobs/4529529005#app'),
+    ('Viam', 'Backend Software Engineer, Netcore', '11/08/2025', 'Applied', NULL, '11/05/2025', 'https://job-boards.greenhouse.io/viamrobotics/jobs/5587594004'),
+    ('LogRocket', 'Senior Software Engineer', '11/08/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.lever.co/logrocket/0aa8b60f-1a74-4e53-b23a-8d5dc7c497a8'),
+    ('Tennr', 'Backend Software Engineer', '11/08/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/tennr/9aae43bf-3303-468e-aae0-038b7fb395f3'),
+    ('Peloton', 'Senior Software Engineer', '08/09/2025', 'Applied', NULL, NULL, 'https://portfoliojobs.tcv.com/companies/peloton-3/jobs/55997056-senior-software-engineer'),
+    ('Paramount', 'Lead Software Engineer', '08/09/2025', 'Applied', NULL, NULL, 'https://careers.paramount.com/job/New-York-Lead-Software-Engineer-NY-10036/1306410600/'),
+    ('Modern Life', 'Software Engineer - Full Stack', '08/09/2025', 'Applied', NULL, NULL, 'https://jobs.lever.co/modernlife/48ab78f8-a264-4960-9fb1-b2e8f8a52b3a'),
+    ('Kale', 'Senior Software Engineer', '08/09/2025', 'Applied', NULL, NULL, NULL),
+    ('Crosby', 'Software Engineer', '08/09/2025', 'Applied', NULL, NULL, NULL),
+    ('Applied Labs', 'Founding Engineer', '08/09/2025', 'Applied', NULL, NULL, NULL),
+    ('Miter', 'Software Engineer, INtegrations', '08/09/2025', 'Applied', NULL, NULL, NULL),
+    ('Etsy', 'Software Engineer', '08/09/2025', 'Applied', NULL, NULL, NULL),
+    ('Adonis', 'Fullstack Engineer', '11/09/2025', 'Applied', NULL, '11/05/2025', 'https://www.adonis.io/job?gh_jid=4247324007'),
+    ('GlossGenius', 'Software Engineer - All levels', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://job-boards.greenhouse.io/glossgenius/jobs/6681936003'),
+    ('Graphite', 'Senior Software Engineer', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/graphite/81900333-3f22-442c-9b0d-b8c52a928ff3'),
+    ('Graphite', 'Software Engineer', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/graphite/5379d006-abe5-4fbf-a459-4928245da6bb'),
+    ('Tavus', 'Solutions Engineer', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/tavus/6aefde62-2113-40c2-ac36-14da660bd6a3'),
+    ('ShiftSmart', 'Senior Software Engineer', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://shiftsmart.com/apply?ashby_jid=d7e843aa-0f1d-4c8f-a430-ffb0320aa02b#jobs'),
+    ('Persona ', 'Senior Software Engineer (Product) remote', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/persona/f0e18df0-8259-48a3-a0c9-baa61069efac'),
+    ('Persona ', 'Senior Software Engineer, Product', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/persona/3859c7d2-071f-42a0-b585-258ab3854242?locationId=8963f399-144b-4d2a-b755-9b7279944cb4'),
+    ('Versana', 'Full-Stack Software Engineer', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://versana.io/career-opportunities/'),
+    ('Torch', 'Lead Software Engineer, Product', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.lever.co/torchdental/0d558379-9450-4c54-b282-4b3cc91f7fe4'),
+    ('Capitalize', 'Integrations Engineer', '11/10/2025', 'Applied', NULL, '10/30/25', 'https://www.hicapitalize.com/careers/opportunity/?gh_jid=5669079004'),
+    ('Superblocks', 'Solutions Engineer', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.gem.com/superblocks/4024365005'),
+    ('Meridian', 'Founding Backend Engineer', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/meridian/5bc5c0de-080f-4796-b3a9-6f5139abd671'),
+    ('Axion Ray', 'Senior Software Engineer, CoreApp', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/axionray/9b7060af-0dcd-4b67-bbd1-05b4ffe94917'),
+    ('Axion Ray', 'Software Engineer, Fullstack, CoreApp', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.ashbyhq.com/axionray/0f5a3255-339b-4532-9fef-a33809477553'),
+    ('Sigma Computing', 'Senior Software Engineer - Backend', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://job-boards.greenhouse.io/sigmacomputing/jobs/7523613003'),
+    ('Hudson River Trading', 'Experienced Software Engineer, Systems', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://www.hudsonrivertrading.com/hrt-job/experienced-software-engineer-systems-5/?gh_src=ca07bf8d1us'),
+    ('American Equity Investment Life Insurance Co.', 'Senior Application Developer, Optimizely Expert', '11/10/2025', 'Applied', NULL, '11/05/2025', 'https://www.american-equity.com/about/careers/openings?gh_jid=4800008007&gh_src=4pb0emxe7us'),
+    ('Radical AI', 'Software Engineer', '11/11/2025', 'Applied', NULL, '11/05/2025', 'https://jobs.lever.co/RadicalAI/2885cd8e-f208-4bbc-86c2-d7b4d890fba0'),
+    ('SquareSpace', 'Senior Software Engineer', '11/11/2025', 'Applied', NULL, '11/05/2025', 'https://www.squarespace.com/careers/jobs/7243239'),
+    ('Particle Health', 'API/Backend Software Engineer', '11/11/2025', 'Applied', NULL, '11/11/2025', 'https://www.particlehealth.com/careers-jobs?gh_jid=5596514004'),
+    ('Lithos', 'Senior Software Engineer', '11/11/2025', 'Applied', NULL, '11/11/2025', 'https://apply.workable.com/lithos/j/5E5DAFE1E5/'),
+    ('Mirage', 'Software Engineer', '11/11/2025', 'Applied', NULL, '11/11/2025', 'https://jobs.ashbyhq.com/mirage/203b7270-d65c-4cbe-b790-bdcbcdce385b'),
+    ('NYU Langone Health', 'Software Architect - Education IT & Analytics', '10/30/2025', 'Applied', NULL, NULL, 'https://jobs.silkroad.com/NYULangone/NYULHCareers/jobs/114034/?source=Indeed.com'),
+    ('Monday.com', 'Solution Engineer', '10/30/2025', 'Applied', NULL, NULL, 'https://monday.com/careers/23.637'),
+    ('Rockstar Games', 'Associate Lead Software Engineer', '10/30/2025', 'Applied', 'N', NULL, 'https://job-boards.greenhouse.io/rockstargames/jobs/7491702003'),
+    ('MTA', 'Application Developer Analyst 1-5', '10/30/2025', 'Applied', 'N', NULL, 'https://careers.mta.org/jobs/16890214-application-developer-analyst-1-5-java-tcu'),
+    ('Quantiphi', 'Software Developer', '10/30/2025', 'Applied', NULL, NULL, 'https://hiring.cafe/viewjob/9zzkju7jdrhbaf6h'),
+    ('Mastercard', 'Lead Software Engineer', '10/30/2025', 'Applied', NULL, NULL, 'https://careers.mastercard.com/us/en/job/MASRUSR262392EXTERNALENUS/Lead-Software-Engineer?utm_source=Appcast_IndeedOrganic&utm_medium=phenom-feeds&_ccid=1759263775191oiz3fsss4&utm_source=Indeed&utm_medium=organic&utm_campaign=Indeed&ittk=CTGGR1ZQYT'),
+    ('Kargo', 'Senior Javascript Software Engineer', '10/30/2025', 'Applied', NULL, NULL, 'https://www.kargo.com/careers?gh_jid=4621786007'),
+    ('Polimorphic', 'Full Stack Engineer', '10/30/2025', 'Applied', NULL, NULL, 'https://app.trinethire.com/companies/381666-polimorphic/jobs/105062-full-stack-engineer'),
+    ('Workmate', 'Software Engineer', '10/31/2025', 'Applied', NULL, NULL, 'https://jobs.ashbyhq.com/workmatelabs/51a523a0-a2d1-425d-8367-e7e07255ba25'),
+    ('Pave', 'Senior Software Engineer, Backend', '10/31/2025', 'Applied', NULL, NULL, 'https://job-boards.greenhouse.io/paveakatroveinformationtechnologies/jobs/4625023005'),
+    ('MLabs', 'Senior Backend Engineer', '10/31/2025', 'Applied', NULL, NULL, 'https://apply.workable.com/mlabs/j/CDBDA34508/'),
+    ('Parker', 'Senior Software Engineer - Backend', '10/31/2025', 'Applied', NULL, NULL, 'https://jobs.ashbyhq.com/parker/bebf55d0-79a0-4a01-8d4d-0d264fd0caed'),
+    ('Unify', 'Software Engineer - AI', '10/31/2025', 'Applied', NULL, NULL, 'https://jobs.ashbyhq.com/unify/704a93f1-74a6-482f-acd7-f0d226d83055'),
+    ('Findigs', 'Senior Software Engineer', '10/31/2025', 'Applied', NULL, NULL, 'https://jobs.lever.co/findigs/3b39616d-223f-4326-a500-f804c3e18dcf'),
+    ('Didero', 'Lead Software Engineer', '10/31/2025', 'Applied', NULL, NULL, 'https://www.didero.ai/careers?ashby_jid=7b892898-c809-440e-901b-27cafb060f00'),
+    ('OnMed', 'Full Stack Engineer', '10/31/2025', 'Applied', NULL, NULL, 'https://apply.workable.com/onmed/j/EA5E475685/'),
+    ('Spotify', 'Staff Backend Enginer', '10/31/2025', 'Applied', NULL, NULL, 'https://www.lifeatspotify.com/jobs/staff-backend-engineer-home-foundations-personalization'),
+    ('Materialize', 'Staff Full Stack Engineer, Console', '10/31/2025', 'Applied', NULL, NULL, 'https://job-boards.greenhouse.io/materialize/jobs/5693572004'),
+    ('Cassidy', 'Support Engineer', '10/31/2025', 'Applied', NULL, NULL, 'https://jobs.ashbyhq.com/cassidy/83dd49cc-f346-48de-b5e9-902631182a11'),
+    ('ZocDoc', 'Senior Software Engineer, Appointment Management', '10/31/2025', 'Applied', NULL, NULL, 'https://hiring.cafe/viewjob/8jxsvy5b2fq717sq'),
+    ('Elite', 'Senior Software Engineer', '10/31/2025', 'Applied', NULL, NULL, 'https://job-boards.greenhouse.io/elitetechnology/jobs/4971130008'),
+    ('Capgemini', 'Azure Data Engineer', '10/31/2025', 'Applied', NULL, NULL, 'https://hiring.cafe/viewjob/8a9h7yehvu5zv7lz'),
+    ('West Monroe Partners', 'Cloud Engineer, Cloud & Infrastructure', '10/31/2025', 'Applied', NULL, NULL, 'https://www.westmonroe.com/careers/job-details-experienced-professionals?gh_jid=5692754004'),
+    ('The Weather Company', 'Technical Program Manager, Consumer Data', '10/31/2025', 'Applied', NULL, NULL, 'https://job-boards.greenhouse.io/theweathercompany/jobs/4962180007'),
+    ('Permit Flow', 'Fullstack Software Engineer', '10/31/2025', 'Applied', NULL, NULL, 'https://jobs.ashbyhq.com/permitflow/b3505afd-5cf1-4a2e-b875-1775ce346919?departmentId=d33195eb-8978-4439-abc6-5a8a072de808'),
+    ('Privy', 'Staff Fullstack Engineer', '10/31/2025', 'Applied', NULL, NULL, 'https://stripe.com/jobs/listing/staff-fullstack-engineer-privy/7091959?utm_source=Tech%3ANYC+job+board&utm_medium=getro.com&gh_src=Tech%3ANYC+job+board'),
+    ('MongoDB', 'Senior Software Engineer, Deployments', '10/31/2025', 'Applied', NULL, NULL, 'https://www.mongodb.com/careers/jobs/7364854'),
+    ('Ramp', 'Backend Engineer Procure to Pay', '10/31/2025', 'Applied', NULL, NULL, 'https://jobs.ashbyhq.com/ramp/2a4968ae-220c-471b-b890-a011de570bbb?utm_source=Tech%3ANYC+job+board&utm_medium=getro.com&gh_src=Tech%3ANYC+job+board'),
+    ('Adobe', 'Senior Full Stack Software Engineer', '10/31/2025', 'Applied', NULL, NULL, 'https://adobe.wd5.myworkdayjobs.com/external_experienced/job/San-Jose/Senior-Full-Stack-Software-Engineer---Web-Applications_R162000'),
+    ('Reddit', 'Backend Engineer, Reddit Pro for Publishers', '10/31/2025', 'Applied', NULL, NULL, 'https://job-boards.greenhouse.io/reddit/jobs/7371086'),
+    ('Lyft', 'Senior Software Engineer, AI ', '10/31/2025', 'Applied', NULL, NULL, 'https://app.careerpuck.com/job-board/lyft/job/8221138002?gh_jid=8221138002'),
+    ('Northwell Health', 'Lead Software Engineer', '10/31/2025', 'Applied', NULL, NULL, 'https://eppr.fa.us2.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_2/my-profile/preview/168930'),
+    ('Octane', 'Staff Software Engineer, AI', '10/31/2025', 'Applied', NULL, NULL, 'https://octane.co/o/who-we-are/careers/jobs-open/?gh_jid=7416486003'),
+    ('Rokt', 'Solutions Consultant', '06/13/2025', 'Applied', NULL, NULL, 'https://apply.workable.com/rokt/j/59744FEFFA/'),
+    ('KYD Labs', 'Founding Engineer', '06/21/2025', 'Applied', NULL, NULL, NULL),
+    ('Strativ Group', 'Staff Software Engineer', '07/21/2025', 'Applied', NULL, NULL, NULL),
+    ('Glanceable', 'Senior Full Stack Egnineer`', '07/31/2025', 'Applied', NULL, NULL, NULL),
+    ('probono net', 'Data Engineer', '08/13/2025', 'Applied', NULL, NULL, 'https://www.idealist.org/en/nonprofit-job/16ad2d35b130426b94a5f09a56340f41-data-engineer-pro-bono-net-new-york#apply'),
+    ('Stash', 'Web Engineer', '08/13/2025', 'Applied', NULL, NULL, NULL),
+    ('Mias Bakery', 'Project Based Computer Programmer', '08/13/2025', 'Applied', NULL, NULL, NULL),
+    ('Veritext', 'Product Development Specialist', '08/13/2025', 'Applied', NULL, NULL, NULL),
+    ('Neotecra, Inc', 'Solutions Architect', '08/13/2025', 'Applied', NULL, NULL, NULL),
+    ('Kintegral Asset Management', 'Python Engineer', '09/16/2025', 'Applied', NULL, NULL, NULL),
+    ('Simons Foundation', 'Senior Software Engineer', '09/18/2025', 'Applied', NULL, NULL, NULL),
+    ('Uphold', 'Senior Backend Engineer (Digital Payments)', '11/01/2025', 'Applied', NULL, NULL, 'https://uphold.bamboohr.com/careers/748'),
+    ('Braze', 'Senior Software Engineer', '11/10/2025', 'Applied', NULL, NULL, 'https://job-boards.greenhouse.io/braze/jobs/7365359');
+
+-- Create Organizations from unique companies
+INSERT INTO "Organization" (name, created_at, updated_at)
+SELECT DISTINCT
+  TRIM(company) as name,
+  NOW() as created_at,
+  NOW() as updated_at
+FROM temp_job_seed
+WHERE TRIM(company) IS NOT NULL AND TRIM(company) != ''
+ON CONFLICT (LOWER(name)) DO NOTHING;
+
+-- Insert Leads and Jobs
+DO $$
+DECLARE
+  default_deal_id BIGINT;
+  seed_record RECORD;
+  org_id BIGINT;
+  mapped_status_id BIGINT;
+  new_lead_id BIGINT;
+  application_date TIMESTAMPTZ;
+  resume_submitted_date TIMESTAMPTZ;
+BEGIN
+  -- Get the default deal
+  SELECT id INTO default_deal_id FROM "Deal" WHERE name = 'Job Search - Development' LIMIT 1;
+
+  IF default_deal_id IS NULL THEN
+    RAISE EXCEPTION 'Default deal not found. Cannot proceed with seeding.';
+  END IF;
+
+  -- Loop through temp seed data
+  FOR seed_record IN SELECT * FROM temp_job_seed ORDER BY date_str LOOP
+
+    -- Skip if company or job_title is empty
+    IF TRIM(seed_record.company) IS NULL OR TRIM(seed_record.company) = '' OR
+       TRIM(seed_record.job_title) IS NULL OR TRIM(seed_record.job_title) = '' THEN
+      CONTINUE;
+    END IF;
+
+    -- Get organization ID
+    SELECT id INTO org_id
+    FROM "Organization"
+    WHERE LOWER(name) = LOWER(TRIM(seed_record.company))
+    LIMIT 1;
+
+    IF org_id IS NULL THEN
+      RAISE NOTICE 'Organization not found for: %', seed_record.company;
+      CONTINUE;
+    END IF;
+
+    -- Parse dates
+    application_date := CASE
+      WHEN seed_record.date_str IS NULL OR seed_record.date_str = '' THEN NULL
+      ELSE TO_TIMESTAMP(seed_record.date_str, 'MM/DD/YYYY')
+    END;
+
+    resume_submitted_date := CASE
+      WHEN seed_record.resume_str IS NOT NULL AND seed_record.resume_str != ''
+      THEN TO_TIMESTAMP(seed_record.resume_str, 'MM/DD/YYYY')
+      ELSE NULL
+    END;
+
+    -- Map old status to new Status table
+    mapped_status_id := CASE LOWER(COALESCE(NULLIF(TRIM(seed_record.status), ''), 'applied'))
+      WHEN 'applied' THEN (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job' LIMIT 1)
+      WHEN 'interviewing' THEN (SELECT id FROM "Status" WHERE name = 'Interviewing' AND category = 'job' LIMIT 1)
+      WHEN 'offer' THEN (SELECT id FROM "Status" WHERE name = 'Offer' AND category = 'job' LIMIT 1)
+      WHEN 'accepted' THEN (SELECT id FROM "Status" WHERE name = 'Accepted' AND category = 'job' LIMIT 1)
+      WHEN 'rejected' THEN (SELECT id FROM "Status" WHERE name = 'Rejected' AND category = 'job' LIMIT 1)
+      ELSE (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job' LIMIT 1)
+    END;
+
+    -- Check if this Lead already exists (duplicate check)
+    IF EXISTS (
+      SELECT 1
+      FROM "Lead" l
+      JOIN "Job" j ON j.id = l.id
+      WHERE l.type = 'Job'
+        AND LOWER(l.title) = LOWER(TRIM(seed_record.company) || ' - ' || TRIM(seed_record.job_title))
+        AND j.organization_id = org_id
+    ) THEN
+      CONTINUE; -- Skip duplicate
+    END IF;
+
+    -- Create Lead record
+    INSERT INTO "Lead" (
+      deal_id,
+      type,
+      title,
+      description,
+      source,
+      current_status_id,
+      created_at,
+      updated_at
+    ) VALUES (
+      default_deal_id,
+      'Job',
+      TRIM(seed_record.company) || ' - ' || TRIM(seed_record.job_title),
+      NULLIF(TRIM(seed_record.notes), ''),
+      'manual',
+      mapped_status_id,
+      COALESCE(application_date, NOW()),
+      COALESCE(application_date, NOW())
+    ) RETURNING id INTO new_lead_id;
+
+    -- Create Job record (extends Lead)
+    INSERT INTO "Job" (
+      id,
+      organization_id,
+      job_title,
+      job_url,
+      notes,
+      resume_date,
+      salary_range,
+      created_at,
+      updated_at
+    ) VALUES (
+      new_lead_id,
+      org_id,
+      TRIM(seed_record.job_title),
+      NULLIF(TRIM(seed_record.job_url), ''),
+      NULLIF(TRIM(seed_record.notes), ''),
+      resume_submitted_date,
+      NULL,
+      COALESCE(application_date, NOW()),
+      COALESCE(application_date, NOW())
+    );
+
+  END LOOP;
+
+  RAISE NOTICE 'Seed data: inserted % jobs', (SELECT COUNT(*) FROM "Job");
+
+END $$;
+
+-- Cleanup
+DROP TABLE IF EXISTS temp_job_seed;
+
+-- ==============================
+-- Migration Complete!
+-- ==============================
+
+-- Verification Queries (uncomment to verify):
+-- SELECT COUNT(*) as total_jobs FROM "Job";
+-- SELECT COUNT(*) as total_leads FROM "Lead" WHERE type = 'Job';
+-- SELECT COUNT(*) as total_organizations FROM "Organization";
+-- SELECT category, COUNT(*) FROM "Status" GROUP BY category ORDER BY category;
+--
+-- Sample Job with related data:
+-- SELECT j.job_title, o.name as company, s.name as status, l.title, l.source
+-- FROM "Job" j
+-- JOIN "Lead" l ON j.id = l.id
+-- JOIN "Organization" o ON j.organization_id = o.id
+-- JOIN "Status" s ON l.current_status_id = s.id
+-- LIMIT 10;

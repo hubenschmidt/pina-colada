@@ -14,12 +14,12 @@ import uuid
 from models import Base
 
 
-# SQLAlchemy model (required for ORM - unavoidable OOP)
+# SQLAlchemy model (OOP required for ORM)
 class Job(Base):
     """Job SQLAlchemy model for database persistence."""
-    
+
     __tablename__ = "Job"  # Capitalized table name (quoted in SQL)
-    
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     company = Column(String, nullable=False)
     job_title = Column(String, nullable=False)
@@ -30,14 +30,19 @@ class Job(Base):
     resume = Column(DateTime, nullable=True)  # New column
     salary_range = Column(Text, nullable=True)
     source = Column(String, default="manual")
-    lead_status_id = Column(UUID(as_uuid=True), ForeignKey("LeadStatus.id"), nullable=True)
-    
+    lead_status_id = Column(
+        UUID(as_uuid=True), ForeignKey("LeadStatus.id"), nullable=True
+    )
+
     # Relationship: many Jobs can have one LeadStatus
     lead_status = relationship("LeadStatus", back_populates="jobs")
-    
+
     __table_args__ = (
-        CheckConstraint("status IN ('lead', 'applied', 'interviewing', 'rejected', 'offer', 'accepted', 'do_not_apply')", name='job_status_check'),
-        CheckConstraint("source IN ('manual', 'agent')", name='check_source'),
+        CheckConstraint(
+            "status IN ('lead', 'applied', 'interviewing', 'rejected', 'offer', 'accepted', 'do_not_apply')",
+            name="job_status_check",
+        ),
+        CheckConstraint("source IN ('manual', 'agent')", name="check_source"),
     )
     created_at = Column(DateTime, server_default=func.now())
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
@@ -46,6 +51,7 @@ class Job(Base):
 # Functional data models (TypedDict)
 class JobData(TypedDict, total=False):
     """Functional job data model for business logic."""
+
     id: str
     company: str
     job_title: str
@@ -64,6 +70,7 @@ class JobData(TypedDict, total=False):
 
 class JobCreateData(TypedDict, total=False):
     """Functional job creation data model."""
+
     company: str
     job_title: str
     date: Optional[datetime]  # Renamed from application_date
@@ -78,6 +85,7 @@ class JobCreateData(TypedDict, total=False):
 
 class JobUpdateData(TypedDict, total=False):
     """Functional job update data model."""
+
     company: Optional[str]
     job_title: Optional[str]
     date: Optional[datetime]  # Renamed from application_date
@@ -94,7 +102,7 @@ class JobUpdateData(TypedDict, total=False):
 def orm_to_dict(job: Job) -> JobData:
     """Convert SQLAlchemy model to functional dict."""
     from models.LeadStatus import orm_to_dict as lead_status_to_dict
-    
+
     result = JobData(
         id=str(job.id) if job.id else "",
         company=job.company or "",
@@ -108,19 +116,20 @@ def orm_to_dict(job: Job) -> JobData:
         source=job.source or "manual",
         lead_status_id=str(job.lead_status_id) if job.lead_status_id else None,
         created_at=job.created_at,
-        updated_at=job.updated_at
+        updated_at=job.updated_at,
     )
-    
+
     # Include lead_status if relationship is loaded
     if job.lead_status:
         result["lead_status"] = lead_status_to_dict(job.lead_status)
-    
+
     return result
 
 
 def dict_to_orm(data: JobCreateData) -> Job:
     """Convert functional dict to SQLAlchemy model."""
     import uuid
+
     lead_status_id = data.get("lead_status_id")
     return Job(
         company=data.get("company", ""),
@@ -132,13 +141,14 @@ def dict_to_orm(data: JobCreateData) -> Job:
         salary_range=data.get("salary_range"),
         status=data.get("status", "applied"),
         source=data.get("source", "manual"),
-        lead_status_id=uuid.UUID(lead_status_id) if lead_status_id else None
+        lead_status_id=uuid.UUID(lead_status_id) if lead_status_id else None,
     )
 
 
 def update_orm_from_dict(job: Job, data: JobUpdateData) -> Job:
     """Update SQLAlchemy model from functional dict."""
     import uuid
+
     if "company" in data and data["company"] is not None:
         job.company = data["company"]
     if "job_title" in data and data["job_title"] is not None:
@@ -158,6 +168,7 @@ def update_orm_from_dict(job: Job, data: JobUpdateData) -> Job:
     if "source" in data and data["source"] is not None:
         job.source = data["source"]
     if "lead_status_id" in data:
-        job.lead_status_id = uuid.UUID(data["lead_status_id"]) if data["lead_status_id"] else None
+        job.lead_status_id = (
+            uuid.UUID(data["lead_status_id"]) if data["lead_status_id"] else None
+        )
     return job
-
