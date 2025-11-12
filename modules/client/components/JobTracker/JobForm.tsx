@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { AppliedJob } from '../../lib/supabase'
+import { getMostRecentResumeDate } from '../../lib/jobs-api'
 import { Plus, X } from 'lucide-react'
 
 type JobFormProps = {
@@ -30,6 +31,39 @@ const JobForm = ({ onAdd }: JobFormProps) => {
     source: 'manual' as const
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [useLatestResume, setUseLatestResume] = useState(true)
+
+  // Fetch most recent resume date when form opens
+  useEffect(() => {
+    if (isOpen) {
+      setUseLatestResume(true) // Reset checkbox when form opens
+      getMostRecentResumeDate().then((resumeDate) => {
+        if (resumeDate) {
+          setFormData(prev => ({ ...prev, resume: resumeDate }))
+        }
+      }).catch((error) => {
+        console.error('Failed to fetch recent resume date:', error)
+        // Silently fail - user can still enter resume date manually
+      })
+    }
+  }, [isOpen])
+
+  const handleUseLatestResumeChange = (checked: boolean) => {
+    setUseLatestResume(checked)
+    if (!checked) {
+      // Clear resume date when unchecked
+      setFormData(prev => ({ ...prev, resume: '' }))
+    } else {
+      // Re-fetch and populate when checked
+      getMostRecentResumeDate().then((resumeDate) => {
+        if (resumeDate) {
+          setFormData(prev => ({ ...prev, resume: resumeDate }))
+        }
+      }).catch((error) => {
+        console.error('Failed to fetch recent resume date:', error)
+      })
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -55,10 +89,12 @@ const JobForm = ({ onAdd }: JobFormProps) => {
         status: 'applied',
         source: 'manual'
       })
+      setUseLatestResume(true)
       setIsOpen(false)
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to add job:', error)
-      alert('Failed to add job. Please try again.')
+      const errorMessage = error?.message || error?.error || 'Failed to add job. Please try again.'
+      alert(errorMessage)
     } finally {
       setIsSubmitting(false)
     }
@@ -141,6 +177,15 @@ const JobForm = ({ onAdd }: JobFormProps) => {
               onChange={(e) => setFormData({ ...formData, resume: e.target.value })}
               className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
             />
+            <label className="flex items-center gap-2 mt-2 text-sm text-zinc-600">
+              <input
+                type="checkbox"
+                checked={useLatestResume}
+                onChange={(e) => handleUseLatestResumeChange(e.target.checked)}
+                className="w-4 h-4 text-lime-500 border-zinc-300 rounded focus:ring-lime-500"
+              />
+              <span>Use latest resume on file?</span>
+            </label>
           </div>
 
           <div>
