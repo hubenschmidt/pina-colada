@@ -1,6 +1,6 @@
 """Controller layer for business logic."""
 
-from agent.controllers.jobs_controller import (
+from api.controllers.jobs_controller import (
     get_jobs,
     create_job,
     get_job,

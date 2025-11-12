@@ -1,0 +1,281 @@
+{
+	"info": {
+		"_postman_id": "pina-colada-api-collection",
+		"name": "PinaColada Agent API",
+		"description": "REST API collection for PinaColada agent backend",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Health",
+			"item": [
+				{
+					"name": "Health Check",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/",
+							"host": ["{{base_url}}"],
+							"path": [""]
+						},
+						"description": "Basic health check endpoint"
+					},
+					"response": []
+				},
+				{
+					"name": "Health Status",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/health",
+							"host": ["{{base_url}}"],
+							"path": ["health"]
+						},
+						"description": "Health status endpoint"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Jobs",
+			"item": [
+				{
+					"name": "Get All Jobs",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/jobs?page=1&limit=25&orderBy=date&order=DESC&search=",
+							"host": ["{{base_url}}"],
+							"path": ["api", "jobs"],
+							"query": [
+								{
+									"key": "page",
+									"value": "1",
+									"description": "Page number (min: 1)"
+								},
+								{
+									"key": "limit",
+									"value": "25",
+									"description": "Items per page (min: 1, max: 100)"
+								},
+								{
+									"key": "orderBy",
+									"value": "date",
+									"description": "Field to order by (date, job_title, company, status, resume)"
+								},
+								{
+									"key": "order",
+									"value": "DESC",
+									"description": "Sort order (ASC or DESC)"
+								},
+								{
+									"key": "search",
+									"value": "",
+									"description": "Optional search term (searches company and job_title)",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get all jobs with pagination and optional search"
+					},
+					"response": []
+				},
+				{
+					"name": "Create Job",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"company\": \"Example Company\",\n  \"job_title\": \"Software Engineer\",\n  \"date\": \"2024-01-15T00:00:00Z\",\n  \"job_url\": \"https://example.com/job\",\n  \"salary_range\": \"$100k-$150k\",\n  \"notes\": \"Great opportunity\",\n  \"resume\": \"resume_v1.pdf\",\n  \"status\": \"applied\",\n  \"source\": \"manual\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/jobs",
+							"host": ["{{base_url}}"],
+							"path": ["api", "jobs"]
+						},
+						"description": "Create a new job. Required: company, job_title. Optional: date, job_url, salary_range, notes, resume, status (default: 'applied'), source (default: 'manual')"
+					},
+					"response": []
+				},
+				{
+					"name": "Get Job by ID",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/jobs/:job_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "jobs", ":job_id"],
+							"variable": [
+								{
+									"key": "job_id",
+									"value": "",
+									"description": "Job UUID"
+								}
+							]
+						},
+						"description": "Get a single job by its ID"
+					},
+					"response": []
+				},
+				{
+					"name": "Update Job",
+					"request": {
+						"method": "PUT",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"company\": \"Updated Company\",\n  \"job_title\": \"Senior Software Engineer\",\n  \"status\": \"interviewing\",\n  \"lead_status_id\": null\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/jobs/:job_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "jobs", ":job_id"],
+							"variable": [
+								{
+									"key": "job_id",
+									"value": "",
+									"description": "Job UUID"
+								}
+							]
+						},
+						"description": "Update a job. All fields are optional. Only provided fields will be updated."
+					},
+					"response": []
+				},
+				{
+					"name": "Delete Job",
+					"request": {
+						"method": "DELETE",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/jobs/:job_id",
+							"host": ["{{base_url}}"],
+							"path": ["api", "jobs", ":job_id"],
+							"variable": [
+								{
+									"key": "job_id",
+									"value": "",
+									"description": "Job UUID"
+								}
+							]
+						},
+						"description": "Delete a job by ID"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Lead Statuses",
+			"item": [
+				{
+					"name": "Get All Lead Statuses",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/lead-statuses",
+							"host": ["{{base_url}}"],
+							"path": ["api", "lead-statuses"]
+						},
+						"description": "Get all available lead statuses (Qualifying, Cold, Warm, Hot)"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Leads",
+			"item": [
+				{
+					"name": "Get All Leads",
+					"request": {
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/leads?statuses=",
+							"host": ["{{base_url}}"],
+							"path": ["api", "leads"],
+							"query": [
+								{
+									"key": "statuses",
+									"value": "",
+									"description": "Optional comma-separated list of status names to filter by (e.g., 'Qualifying,Cold,Warm,Hot')",
+									"disabled": true
+								}
+							]
+						},
+						"description": "Get all job leads (jobs with non-null lead_status_id). Optionally filter by status names."
+					},
+					"response": []
+				},
+				{
+					"name": "Mark Lead as Applied",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/leads/:job_id/apply",
+							"host": ["{{base_url}}"],
+							"path": ["api", "leads", ":job_id", "apply"],
+							"variable": [
+								{
+									"key": "job_id",
+									"value": "",
+									"description": "Job UUID"
+								}
+							]
+						},
+						"description": "Mark a lead as applied. Sets status to 'applied', clears lead_status_id, and sets date to now if not set."
+					},
+					"response": []
+				},
+				{
+					"name": "Mark Lead as Do Not Apply",
+					"request": {
+						"method": "POST",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/leads/:job_id/do-not-apply",
+							"host": ["{{base_url}}"],
+							"path": ["api", "leads", ":job_id", "do-not-apply"],
+							"variable": [
+								{
+									"key": "job_id",
+									"value": "",
+									"description": "Job UUID"
+								}
+							]
+						},
+						"description": "Mark a lead as 'do not apply'. Sets status to 'do_not_apply' and clears lead_status_id."
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://localhost:8000",
+			"type": "string"
+		}
+	]
+}
+

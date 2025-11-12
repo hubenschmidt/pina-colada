@@ -1,0 +1,86 @@
+"""Routes for jobs API endpoints."""
+
+from typing import Optional, Type
+from fastapi import APIRouter, Query, HTTPException
+from pydantic import BaseModel, create_model
+from api.controllers.jobs_controller import (
+    get_jobs,
+    create_job,
+    get_job,
+    update_job,
+    delete_job
+)
+
+router = APIRouter(prefix="/api/jobs", tags=["jobs"])
+
+
+def _make_job_create_model() -> Type[BaseModel]:
+    """Create JobCreate model functionally."""
+    return create_model(
+        "JobCreate",
+        company=(str, ...),
+        job_title=(str, ...),
+        date=(Optional[str], None),
+        job_url=(Optional[str], None),
+        salary_range=(Optional[str], None),
+        notes=(Optional[str], None),
+        resume=(Optional[str], None),
+        status=(str, "applied"),
+        source=(str, "manual"),
+    )
+
+
+def _make_job_update_model() -> Type[BaseModel]:
+    """Create JobUpdate model functionally."""
+    return create_model(
+        "JobUpdate",
+        company=(Optional[str], None),
+        job_title=(Optional[str], None),
+        date=(Optional[str], None),
+        job_url=(Optional[str], None),
+        salary_range=(Optional[str], None),
+        notes=(Optional[str], None),
+        resume=(Optional[str], None),
+        status=(Optional[str], None),
+        source=(Optional[str], None),
+        lead_status_id=(Optional[str], None),
+    )
+
+
+JobCreate = _make_job_create_model()
+JobUpdate = _make_job_update_model()
+
+
+@router.get("/")
+async def get_jobs_route(
+    page: int = Query(1, ge=1),
+    limit: int = Query(25, ge=1, le=100),
+    order_by: str = Query("date", alias="orderBy"),
+    order: str = Query("DESC", regex="^(ASC|DESC)$"),
+):
+    """Get all jobs with pagination."""
+    return get_jobs(page, limit, order_by, order)
+
+
+@router.post("/")
+async def create_job_route(job_data: JobCreate):
+    """Create a new job."""
+    return create_job(job_data.dict())
+
+
+@router.get("/{job_id}")
+async def get_job_route(job_id: str):
+    """Get a job by ID."""
+    return get_job(job_id)
+
+
+@router.put("/{job_id}")
+async def update_job_route(job_id: str, job_data: JobUpdate):
+    """Update a job."""
+    return update_job(job_id, job_data.dict(exclude_unset=True))
+
+
+@router.delete("/{job_id}")
+async def delete_job_route(job_id: str):
+    """Delete a job."""
+    return delete_job(job_id)

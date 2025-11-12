@@ -432,37 +432,37 @@ def check_applied_jobs(query: str = "") -> str:
 
 def job_search_with_filter(query: str) -> str:
     """
-    Search for jobs and filter out ones already applied to (status='applied' only).
+    Search for jobs and filter out ones already applied to or marked as 'do not apply'.
 
     This function:
     1. Performs a web search for jobs
-    2. Fetches the list of jobs with status='applied' from the database
-    3. Filters out duplicates by company and title
+    2. Fetches all jobs from the database
+    3. Filters out duplicates by company and title (for jobs with status='applied' or 'do_not_apply')
     4. Returns the filtered results
     """
     try:
         # Get job service to check applied jobs
         tracker = get_applied_jobs_tracker()
-        
-        # Get only jobs with status 'applied'
-        jobs_details = tracker["get_jobs_details"](refresh=True)
-        applied_jobs = tracker["fetch_applied_jobs"](refresh=True)
-        
-        logger.info(f"Loaded {len(applied_jobs)} applied jobs (status='applied') for filtering")
+
+        # Get all jobs (not just status='applied') to include 'do_not_apply' in filtering
+        from agent.services.job_service import get_all_jobs
+        all_jobs = get_all_jobs(refresh=True)
+
+        logger.info(f"Loaded {len(all_jobs)} total jobs for filtering (will filter out 'applied' and 'do_not_apply')")
 
         # Perform the search
         serper = GoogleSerperAPIWrapper()
         raw_results = serper.run(query)
 
-        if not applied_jobs:
-            logger.info("No applied jobs (status='applied') found - returning unfiltered results")
+        if not all_jobs:
+            logger.info("No jobs found in database - returning unfiltered results")
             return raw_results
 
-        # Parse and filter results (only filter jobs with status='applied')
-        filtered_results = _filter_job_results(raw_results, tracker, jobs_details)
+        # Parse and filter results (filter jobs with status='applied' or 'do_not_apply')
+        filtered_results = _filter_job_results(raw_results, tracker, all_jobs)
 
         if not filtered_results.strip():
-            return "All job postings found have already been applied to (status='applied'). Try refining your search criteria or location."
+            return "All job postings found have already been applied to or marked as 'do not apply'. Try refining your search criteria or location."
 
         return filtered_results
 
@@ -537,40 +537,40 @@ def _title_matches(search_title: str, applied_title: str) -> bool:
 
 
 def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
-    """Check if a job matches any applied job with status='applied' (strict matching)."""
+    """Check if a job matches any applied or do_not_apply job (strict matching)."""
     if not company and not title:
         return False
-    
+
     # Require both company AND title to match (strict)
     if not company or not title:
         logger.debug(f"Skipping match check - missing company or title: company={bool(company)}, title={bool(title)}")
         return False
-    
+
     def _check_job_match(applied_job: Dict[str, str]) -> bool:
-        # Only check jobs with status 'applied'
+        # Check jobs with status 'applied' or 'do_not_apply'
         job_status = applied_job.get("status", "").lower()
-        if job_status != "applied":
+        if job_status not in ["applied", "do_not_apply"]:
             return False
-        
+
         applied_company = applied_job.get("company", "")
         applied_title = applied_job.get("title", "")
-        
+
         if not applied_company or not applied_title:
             return False
-        
+
         company_match = _company_matches(company, applied_company)
         title_match = _title_matches(title, applied_title)
-        
+
         if company_match and title_match:
-            logger.info(f"Filtering out applied job: {company} - {title} (matches {applied_company} - {applied_title}, status=applied)")
+            logger.info(f"Filtering out job: {company} - {title} (matches {applied_company} - {applied_title}, status={job_status})")
             return True
-        
+
         return False
-    
+
     for applied_job in jobs_details:
         if _check_job_match(applied_job):
             return True
-    
+
     return False
 
 
@@ -660,6 +660,72 @@ def _filter_job_results(raw_results: str, tracker, jobs_details: list) -> str:
     return '\n'.join(filtered_lines)
 
 
+def update_job_status(
+    company: str,
+    job_title: str,
+    status: str,
+    job_url: str = "",
+    notes: str = ""
+) -> str:
+    """
+    Update the status of a job application. Use this when the user says they applied
+    to a company, or wants to mark a job as 'do not apply'.
+
+    Args:
+        company: The company name (fuzzy matching supported)
+        job_title: The job title
+        status: The status to set (applied, interviewing, rejected, offer, accepted, do_not_apply)
+        job_url: Optional URL for the job posting
+        notes: Optional notes about the application
+
+    Returns:
+        Confirmation message
+    """
+    from agent.services.job_service import update_job_by_company, add_job
+
+    # Validate status
+    valid_statuses = ['applied', 'interviewing', 'rejected', 'offer', 'accepted', 'do_not_apply']
+    if status.lower() not in valid_statuses:
+        return f"Invalid status '{status}'. Valid statuses are: {', '.join(valid_statuses)}"
+
+    try:
+        # Try to find and update existing job (including leads)
+        updated_job = update_job_by_company(
+            company=company,
+            job_title=job_title,
+            status=status.lower(),
+            lead_status_id=None,  # Clear lead_status when status changes
+            job_url=job_url if job_url else None,
+            notes=notes if notes else None
+        )
+
+        if updated_job:
+            logger.info(f"Updated existing job: {company} - {job_title} to status {status}")
+            return f"Successfully marked {company} - {job_title} as {status}"
+
+        # If not found, create new entry
+        logger.info(f"No existing job found, creating new: {company} - {job_title} with status {status}")
+        new_job = add_job(
+            company=company,
+            job_title=job_title,
+            status=status.lower(),
+            job_url=job_url if job_url else "",
+            notes=notes if notes else "",
+            source="agent"
+        )
+
+        if new_job:
+            return f"Successfully marked {company} - {job_title} as {status}"
+        else:
+            return f"Failed to create job entry for {company} - {job_title}"
+
+    except Exception as e:
+        logger.error(f"Failed to update job status: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        return f"Failed to update job status: {e}"
+
+
 async def get_worker_tools():
     """Return all available tools for the Worker"""
     tools = []
@@ -745,6 +811,29 @@ async def get_worker_tools():
         description="Get information about the connected data source (Supabase). Use when user asks about the data source being used for job tracking.",
     )
     tools.append(data_source_info_tool)
+
+    # Update job status tool
+    def _make_update_job_status_input_model():
+        """Create UpdateJobStatusInput model functionally."""
+        from pydantic import create_model, Field
+        return create_model(
+            "UpdateJobStatusInput",
+            company=(str, Field(description="Company name (fuzzy matching supported)")),
+            job_title=(str, Field(description="Job title")),
+            status=(str, Field(description="Status to set (applied, interviewing, rejected, offer, accepted, do_not_apply)")),
+            job_url=(str, Field(default="", description="Optional URL for the job posting")),
+            notes=(str, Field(default="", description="Optional notes about the application")),
+        )
+
+    UpdateJobStatusInput = _make_update_job_status_input_model()
+
+    update_job_status_tool = StructuredTool.from_function(
+        func=update_job_status,
+        name="update_job_status",
+        description="Update the status of a job application. Use this when the user says they applied to a company, wants to mark a job as 'do not apply', or update any job status. Supports fuzzy matching on company names. Example: 'I applied to Alto Neuroscience' or 'Mark Ramp as do not apply'.",
+        args_schema=UpdateJobStatusInput,
+    )
+    tools.append(update_job_status_tool)
 
     # Wikipedia tool
     try:

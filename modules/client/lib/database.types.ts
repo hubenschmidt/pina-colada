@@ -15,12 +15,13 @@ export type Database = {
           company: string
           job_title: string
           date: string
-          status: 'applied' | 'interviewing' | 'rejected' | 'offer' | 'accepted'
+          status: 'lead' | 'applied' | 'interviewing' | 'rejected' | 'offer' | 'accepted' | 'do_not_apply'
           job_url: string | null
           notes: string | null
           resume: string | null  // New column (DateTime)
           salary_range: string | null
           source: 'manual' | 'agent'
+          lead_status_id: string | null
           created_at: string
           updated_at: string
         }
@@ -29,12 +30,13 @@ export type Database = {
           company: string
           job_title: string
           date?: string
-          status?: 'applied' | 'interviewing' | 'rejected' | 'offer' | 'accepted'
+          status?: 'lead' | 'applied' | 'interviewing' | 'rejected' | 'offer' | 'accepted' | 'do_not_apply'
           job_url?: string | null
           notes?: string | null
           resume?: string | null  // New column (DateTime)
           salary_range?: string | null
           source?: 'manual' | 'agent'
+          lead_status_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -43,14 +45,44 @@ export type Database = {
           company?: string
           job_title?: string
           date?: string
-          status?: 'applied' | 'interviewing' | 'rejected' | 'offer' | 'accepted'
+          status?: 'lead' | 'applied' | 'interviewing' | 'rejected' | 'offer' | 'accepted' | 'do_not_apply'
           job_url?: string | null
           notes?: string | null
           resume?: string | null  // New column (DateTime)
           salary_range?: string | null
           source?: 'manual' | 'agent'
+          lead_status_id?: string | null
           created_at?: string
           updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "Job_lead_status_id_fkey"
+            columns: ["lead_status_id"]
+            isOneToOne: false
+            referencedRelation: "LeadStatus"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      LeadStatus: {
+        Row: {
+          id: string
+          name: string
+          description: string | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          name: string
+          description?: string | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          name?: string
+          description?: string | null
+          created_at?: string
         }
         Relationships: []
       }

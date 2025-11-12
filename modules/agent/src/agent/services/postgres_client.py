@@ -5,9 +5,9 @@ import os
 from typing import Dict, List, Optional, Set
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
-from agent.models import Base
-from agent.models.Job import Job
-from agent.models.LeadStatus import LeadStatus  # Import to register with Base.metadata
+from models import Base
+from models.Job import Job
+from models.LeadStatus import LeadStatus  # Import to register with Base.metadata
 
 logger = logging.getLogger(__name__)
 

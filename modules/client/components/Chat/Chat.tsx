@@ -1,7 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useWs, ChatMsg } from "../../hooks/useWs";
 import styles from "./Chat.module.css";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Download, Briefcase } from "lucide-react";
+import JobLeadsPanel from "../JobLeadsPanel";
+import { extractAndSaveJobLeads } from "../../lib/job-lead-extractor";
 
 // ---------- User context (testing-only; no consent prompts) ----------
 
@@ -293,6 +295,8 @@ const Chat = () => {
   const [composing, setComposing] = useState(false);
   const [waitForWs, setWaitForWs] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [leadsPanelOpen, setLeadsPanelOpen] = useState(false);
+  const [leadsCount, setLeadsCount] = useState(0);
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -315,11 +319,25 @@ const Chat = () => {
     el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  // hide loader when the next assistant message arrives
+  // hide loader when the next assistant message arrives and check for job leads
   useEffect(() => {
     if (!messages.length) return;
     const last = messages[messages.length - 1];
-    if (last.user !== "User") setWaitForWs(false);
+    if (last.user !== "User") {
+      setWaitForWs(false);
+
+      // Check for job leads in assistant messages
+      if (last.user === "PinaColada") {
+        (async () => {
+          const savedCount = await extractAndSaveJobLeads(last.msg);
+          if (savedCount > 0) {
+            console.log(`Saved ${savedCount} job leads`);
+            setLeadsCount(prev => prev + savedCount);
+            setLeadsPanelOpen(true);
+          }
+        })();
+      }
+    }
   }, [messages]);
 
   // autofocus textarea on mount
@@ -354,6 +372,26 @@ const Chat = () => {
     }
   };
 
+  const exportChat = () => {
+    if (!messages.length) return;
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const content = messages
+      .map((msg) => {
+        const msgTimestamp = new Date().toISOString();
+        return `[${msgTimestamp}] ${msg.user}: ${msg.msg}`;
+      })
+      .join("\n\n");
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pinacolada-chat-${timestamp}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div
       className={`${styles.chatRoot} w-full max-w-5xl mx-auto min-h-[80svh] flex items-center px-4 py-6`}
@@ -361,13 +399,39 @@ const Chat = () => {
       <section className={`${styles.shellCard} w-full`}>
         {/* header */}
         <header className={styles.header}>
-          <div
-            className={`${styles.status} ${
-              isOpen ? styles.statusOnline : styles.statusOffline
-            }`}
-            title={isOpen ? "Connected" : "Disconnected"}
-          />
-          <b className={styles.title}>Chat</b>
+          <div className={styles.headerLeft}>
+            <div
+              className={`${styles.status} ${
+                isOpen ? styles.statusOnline : styles.statusOffline
+              }`}
+              title={isOpen ? "Connected" : "Disconnected"}
+            />
+            <b className={styles.title}>Chat</b>
+          </div>
+          <div className={styles.headerRight}>
+            <button
+              type="button"
+              className={styles.leadsButton}
+              onClick={() => setLeadsPanelOpen(true)}
+              title="View job leads"
+            >
+              <Briefcase size={16} />
+              <span>Leads</span>
+              {leadsCount > 0 && (
+                <span className={styles.leadsBadge}>{leadsCount}</span>
+              )}
+            </button>
+            <button
+              type="button"
+              className={styles.exportButton}
+              onClick={exportChat}
+              disabled={!messages.length}
+              title="Export chat to .txt file"
+            >
+              <Download size={16} />
+              <span>Export Chat</span>
+            </button>
+          </div>
         </header>
 
         {/* dark "terminal" panel */}
@@ -488,6 +552,16 @@ const Chat = () => {
           </form>
         </main>
       </section>
+
+      {/* Job Leads Panel */}
+      <JobLeadsPanel
+        isOpen={leadsPanelOpen}
+        onClose={() => setLeadsPanelOpen(false)}
+        onLeadsChange={() => {
+          // Reset leads count when panel changes
+          setLeadsCount(0);
+        }}
+      />
     </div>
   );
 };

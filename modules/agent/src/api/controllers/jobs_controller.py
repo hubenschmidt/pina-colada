@@ -4,7 +4,7 @@ import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from fastapi import HTTPException
-from agent.repositories.job_repository import (
+from api.repositories.job_repository import (
     find_all_jobs,
     count_jobs,
     find_job_by_id,
@@ -14,8 +14,8 @@ from agent.repositories.job_repository import (
     find_all_lead_statuses,
     find_jobs_with_lead_status
 )
-from agent.models.Job import JobCreateData, JobUpdateData, orm_to_dict
-from agent.models.LeadStatus import orm_to_dict as lead_status_to_dict
+from models.Job import JobCreateData, JobUpdateData, orm_to_dict
+from models.LeadStatus import orm_to_dict as lead_status_to_dict
 
 logger = logging.getLogger(__name__)
 
