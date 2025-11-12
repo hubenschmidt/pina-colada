@@ -38,28 +38,57 @@ export const fetchJobs = async (
   return response.json();
 }
 
+// Helper to sanitize date fields: convert empty strings to null
+const sanitizeJobInsert = (job: AppliedJobInsert): AppliedJobInsert => {
+  const sanitized = { ...job };
+  // Convert empty strings to null for date/timestamp fields
+  if (sanitized.date === '') {
+    sanitized.date = null as any;
+  }
+  if (sanitized.resume === '') {
+    sanitized.resume = null as any;
+  }
+  return sanitized;
+};
+
+const sanitizeJobUpdate = (job: AppliedJobUpdate): AppliedJobUpdate => {
+  const sanitized = { ...job };
+  // Convert empty strings to null for date/timestamp fields
+  if ('date' in sanitized && sanitized.date === '') {
+    sanitized.date = null as any;
+  }
+  if ('resume' in sanitized && sanitized.resume === '') {
+    sanitized.resume = null as any;
+  }
+  return sanitized;
+};
+
 export const createJob = async (job: AppliedJobInsert): Promise<AppliedJob> => {
+  const sanitized = sanitizeJobInsert(job);
   const baseUrl = getAgentApiUrl();
   const response = await fetch(`${baseUrl}/api/jobs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(job),
+    body: JSON.stringify(sanitized),
   });
   if (!response.ok) {
-    throw new Error('Failed to create job');
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || errorData.error || 'Failed to create job');
   }
   return response.json();
 }
 
 export const updateJob = async (id: string, job: AppliedJobUpdate): Promise<AppliedJob> => {
+  const sanitized = sanitizeJobUpdate(job);
   const baseUrl = getAgentApiUrl();
   const response = await fetch(`${baseUrl}/api/jobs/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(job),
+    body: JSON.stringify(sanitized),
   });
   if (!response.ok) {
-    throw new Error('Failed to update job');
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || errorData.error || 'Failed to update job');
   }
   return response.json();
 }
@@ -70,8 +99,19 @@ export const deleteJob = async (id: string): Promise<void> => {
     method: 'DELETE',
   });
   if (!response.ok) {
-    throw new Error('Failed to delete job');
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || errorData.error || 'Failed to delete job');
   }
+}
+
+export const getMostRecentResumeDate = async (): Promise<string | null> => {
+  const baseUrl = getAgentApiUrl();
+  const response = await fetch(`${baseUrl}/api/jobs/recent-resume-date`);
+  if (!response.ok) {
+    return null;
+  }
+  const data = await response.json();
+  return data.resume_date || null;
 }
 
 // Lead Status Types

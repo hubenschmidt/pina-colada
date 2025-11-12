@@ -8,7 +8,8 @@ from controllers.jobs_controller import (
     create_job,
     get_job,
     update_job,
-    delete_job
+    delete_job,
+    get_recent_resume_date
 )
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])
@@ -57,9 +58,10 @@ async def get_jobs_route(
     limit: int = Query(25, ge=1, le=100),
     order_by: str = Query("date", alias="orderBy"),
     order: str = Query("DESC", regex="^(ASC|DESC)$"),
+    search: Optional[str] = Query(None),
 ):
     """Get all jobs with pagination."""
-    return get_jobs(page, limit, order_by, order)
+    return get_jobs(page, limit, order_by, order, search)
 
 
 @router.post("/")
@@ -84,3 +86,9 @@ async def update_job_route(job_id: str, job_data: JobUpdate):
 async def delete_job_route(job_id: str):
     """Delete a job."""
     return delete_job(job_id)
+
+
+@router.get("/recent-resume-date")
+async def get_recent_resume_date_route():
+    """Get the most recent resume date."""
+    return get_recent_resume_date()

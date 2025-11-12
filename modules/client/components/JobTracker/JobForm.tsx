@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { AppliedJob } from '../../lib/supabase'
-import { getMostRecentResumeDate } from '../../lib/jobs-api'
+import { getMostRecentResumeDate } from '../../api/jobs'
 import { Plus, X } from 'lucide-react'
 
 type JobFormProps = {
@@ -28,7 +28,8 @@ const JobForm = ({ onAdd }: JobFormProps) => {
     notes: '',
     resume: '',
     status: 'applied' as AppliedJob['status'],
-    source: 'manual' as const
+    source: 'manual' as const,
+    lead_status_id: null as string | null
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [useLatestResume, setUseLatestResume] = useState(true)
@@ -87,7 +88,8 @@ const JobForm = ({ onAdd }: JobFormProps) => {
         notes: '',
         resume: '',
         status: 'applied',
-        source: 'manual'
+        source: 'manual',
+        lead_status_id: null
       })
       setUseLatestResume(true)
       setIsOpen(false)

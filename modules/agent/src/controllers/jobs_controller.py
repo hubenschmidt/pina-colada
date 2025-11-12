@@ -80,15 +80,25 @@ def get_jobs(
     page: int,
     limit: int,
     order_by: str,
-    order: str
+    order: str,
+    search: Optional[str] = None
 ) -> dict:
     """Get all jobs with pagination."""
     paging = _parse_paging(page, limit, order_by, order)
     
-    total_count = count_jobs()
-    
-    # Get paginated jobs with sorting
+    # Get all jobs
     all_jobs = find_all_jobs()
+    
+    # Apply search filter if provided
+    if search and search.strip():
+        search_lower = search.strip().lower()
+        all_jobs = [
+            job for job in all_jobs
+            if (job.company and search_lower in job.company.lower()) or
+               (job.job_title and search_lower in job.job_title.lower())
+        ]
+    
+    total_count = len(all_jobs)
     
     # Simple sorting (in-memory for now - can be optimized with DB queries later)
     reverse = paging["order"] == "DESC"
@@ -251,3 +261,27 @@ def mark_lead_as_do_not_apply(job_id: str) -> Dict[str, Any]:
         raise HTTPException(status_code=404, detail="Job not found")
     
     return _job_to_response_dict(updated)
+
+
+def get_recent_resume_date() -> Dict[str, Optional[str]]:
+    """Get the most recent resume date."""
+    from repositories.job_repository import find_all_jobs
+    
+    all_jobs = find_all_jobs()
+    
+    # Filter jobs with resume dates and sort by date DESC
+    jobs_with_resume = [job for job in all_jobs if job.resume]
+    if not jobs_with_resume:
+        return {"resume_date": None}
+    
+    # Sort by date DESC to get most recent application date
+    jobs_with_resume.sort(key=lambda j: j.date or datetime.min, reverse=True)
+    
+    # Get the resume date from the most recently applied job
+    most_recent_job = jobs_with_resume[0]
+    if most_recent_job.resume:
+        # Convert to YYYY-MM-DD format
+        resume_date_str = most_recent_job.resume.isoformat().split('T')[0]
+        return {"resume_date": resume_date_str}
+    
+    return {"resume_date": None}

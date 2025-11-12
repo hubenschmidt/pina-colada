@@ -16,7 +16,7 @@ export const extractJobLeads = (messageText: string): Array<{
   job_url: string
 }> => {
   const leads: Array<{ company: string; job_title: string; job_url: string }> = []
-  const matches = messageText.matchAll(JOB_LEAD_PATTERN)
+  const matches = Array.from(messageText.matchAll(JOB_LEAD_PATTERN))
 
   for (const match of matches) {
     leads.push({
