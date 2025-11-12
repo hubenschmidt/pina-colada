@@ -3,13 +3,13 @@
 from typing import Optional, Type
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, create_model
-from controllers.jobs_controller import (
+from controllers.job_controller import (
     get_jobs,
     create_job,
     get_job,
     update_job,
     delete_job,
-    get_recent_resume_date
+    get_recent_resume_date,
 )
 
 router = APIRouter(prefix="/api/jobs", tags=["jobs"])

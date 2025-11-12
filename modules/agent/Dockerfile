@@ -32,6 +32,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Copy remaining application files (changes frequently)
 COPY scripts ./scripts
 COPY migrations ./migrations
+COPY seeders ./seeders
 COPY start.sh /usr/src/app/start.sh
 
 # Give execution permissions to the start.sh script

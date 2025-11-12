@@ -1,4 +1,4 @@
-"""Data models for applied jobs.
+"""Data models for jobs (extends Lead via Joined Table Inheritance).
 
 SQLAlchemy model for database persistence (unavoidable OOP requirement).
 Functional TypedDict models for business logic.
@@ -6,169 +6,163 @@ Functional TypedDict models for business logic.
 
 from datetime import datetime
 from typing import TypedDict, Optional
-from sqlalchemy import Column, String, DateTime, Text, CheckConstraint, func, ForeignKey
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, func
 from sqlalchemy.orm import relationship
-import uuid
 
 from models import Base
 
 
 # SQLAlchemy model (OOP required for ORM)
 class Job(Base):
-    """Job SQLAlchemy model for database persistence."""
+    """Job SQLAlchemy model (extends Lead via Joined Table Inheritance)."""
 
-    __tablename__ = "Job"  # Capitalized table name (quoted in SQL)
+    __tablename__ = "Job"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    company = Column(String, nullable=False)
-    job_title = Column(String, nullable=False)
-    date = Column(DateTime, server_default=func.now())  # Renamed from application_date
-    status = Column(String, default="applied")
+    id = Column(BigInteger, ForeignKey("Lead.id", ondelete="CASCADE"), primary_key=True)
+    organization_id = Column(BigInteger, ForeignKey("Organization.id", ondelete="CASCADE"), nullable=False)
+    job_title = Column(Text, nullable=False)
     job_url = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
-    resume = Column(DateTime, nullable=True)  # New column
+    resume_date = Column(DateTime(timezone=True), nullable=True)
     salary_range = Column(Text, nullable=True)
-    source = Column(String, default="manual")
-    lead_status_id = Column(
-        UUID(as_uuid=True), ForeignKey("LeadStatus.id"), nullable=True
-    )
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
-    # Relationship: many Jobs can have one LeadStatus
-    lead_status = relationship("LeadStatus", back_populates="jobs")
-
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('lead', 'applied', 'interviewing', 'rejected', 'offer', 'accepted', 'do_not_apply')",
-            name="job_status_check",
-        ),
-        CheckConstraint("source IN ('manual', 'agent')", name="check_source"),
-    )
-    created_at = Column(DateTime, server_default=func.now())
-    updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    # Relationships
+    lead = relationship("Lead", back_populates="job")
+    organization = relationship("Organization", back_populates="jobs")
 
 
 # Functional data models (TypedDict)
 class JobData(TypedDict, total=False):
     """Functional job data model for business logic."""
-
-    id: str
-    company: str
+    id: int
+    organization_id: int
+    organization: Optional[dict]  # Nested OrganizationData when loaded
     job_title: str
-    date: Optional[datetime]  # Renamed from application_date
-    status: str
     job_url: Optional[str]
     notes: Optional[str]
-    resume: Optional[datetime]  # New column
+    resume_date: Optional[datetime]
     salary_range: Optional[str]
-    source: str
-    lead_status_id: Optional[str]
-    lead_status: Optional[dict]  # Nested LeadStatusData when loaded
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
+    # Lead fields (when joined)
+    lead: Optional[dict]  # Nested LeadData when loaded
+    deal_id: Optional[int]
+    title: Optional[str]
+    description: Optional[str]
+    source: Optional[str]
+    current_status_id: Optional[int]
+    current_status: Optional[dict]
+    owner_user_id: Optional[int]
 
 
 class JobCreateData(TypedDict, total=False):
-    """Functional job creation data model."""
+    """Functional job creation data model.
 
-    company: str
+    Note: When creating a Job, you must also create the corresponding Lead record first,
+    or provide lead data to create both atomically.
+    """
+    # Job-specific fields
+    organization_id: int
     job_title: str
-    date: Optional[datetime]  # Renamed from application_date
     job_url: Optional[str]
     notes: Optional[str]
-    resume: Optional[datetime]  # New column
+    resume_date: Optional[datetime]
     salary_range: Optional[str]
-    status: str
-    source: str
-    lead_status_id: Optional[str]
+    # Lead fields (for atomic creation)
+    deal_id: int
+    title: str
+    description: Optional[str]
+    source: Optional[str]
+    current_status_id: Optional[int]
+    owner_user_id: Optional[int]
 
 
 class JobUpdateData(TypedDict, total=False):
     """Functional job update data model."""
-
-    company: Optional[str]
+    organization_id: Optional[int]
     job_title: Optional[str]
-    date: Optional[datetime]  # Renamed from application_date
     job_url: Optional[str]
     notes: Optional[str]
-    resume: Optional[datetime]  # New column
+    resume_date: Optional[datetime]
     salary_range: Optional[str]
-    status: Optional[str]
+    # Lead fields (for updating the parent Lead)
+    title: Optional[str]
+    description: Optional[str]
     source: Optional[str]
-    lead_status_id: Optional[str]
+    current_status_id: Optional[int]
+    owner_user_id: Optional[int]
 
 
 # Conversion functions
-def orm_to_dict(job: Job) -> JobData:
+def orm_to_dict(job: Job, include_lead: bool = True) -> JobData:
     """Convert SQLAlchemy model to functional dict."""
-    from models.LeadStatus import orm_to_dict as lead_status_to_dict
+    from models.Organization import orm_to_dict as org_to_dict
+    from models.Lead import orm_to_dict as lead_to_dict
 
     result = JobData(
-        id=str(job.id) if job.id else "",
-        company=job.company or "",
+        id=job.id,
+        organization_id=job.organization_id,
         job_title=job.job_title or "",
-        date=job.date,  # Renamed from application_date
-        status=job.status or "applied",
         job_url=job.job_url,
         notes=job.notes,
-        resume=job.resume,  # New column
+        resume_date=job.resume_date,
         salary_range=job.salary_range,
-        source=job.source or "manual",
-        lead_status_id=str(job.lead_status_id) if job.lead_status_id else None,
         created_at=job.created_at,
-        updated_at=job.updated_at,
+        updated_at=job.updated_at
     )
 
-    # Include lead_status if relationship is loaded
-    if job.lead_status:
-        result["lead_status"] = lead_status_to_dict(job.lead_status)
+    # Include organization if relationship is loaded
+    if job.organization:
+        result["organization"] = org_to_dict(job.organization)
+
+    # Include lead if relationship is loaded and requested
+    if include_lead and job.lead:
+        result["lead"] = lead_to_dict(job.lead)
+        # Also flatten key lead fields to top level for convenience
+        result["deal_id"] = job.lead.deal_id
+        result["title"] = job.lead.title
+        result["description"] = job.lead.description
+        result["source"] = job.lead.source
+        result["current_status_id"] = job.lead.current_status_id
+        result["owner_user_id"] = job.lead.owner_user_id
+        if job.lead.current_status:
+            from models.Status import orm_to_dict as status_to_dict
+            result["current_status"] = status_to_dict(job.lead.current_status)
 
     return result
 
 
 def dict_to_orm(data: JobCreateData) -> Job:
-    """Convert functional dict to SQLAlchemy model."""
-    import uuid
+    """Convert functional dict to SQLAlchemy model.
 
-    lead_status_id = data.get("lead_status_id")
+    Note: This only creates the Job record. The corresponding Lead record
+    must be created separately or you should use a service function to
+    create both atomically.
+    """
     return Job(
-        company=data.get("company", ""),
+        organization_id=data.get("organization_id"),
         job_title=data.get("job_title", ""),
-        date=data.get("date"),  # Renamed from application_date
         job_url=data.get("job_url"),
         notes=data.get("notes"),
-        resume=data.get("resume"),  # New column
-        salary_range=data.get("salary_range"),
-        status=data.get("status", "applied"),
-        source=data.get("source", "manual"),
-        lead_status_id=uuid.UUID(lead_status_id) if lead_status_id else None,
+        resume_date=data.get("resume_date"),
+        salary_range=data.get("salary_range")
     )
 
 
 def update_orm_from_dict(job: Job, data: JobUpdateData) -> Job:
     """Update SQLAlchemy model from functional dict."""
-    import uuid
-
-    if "company" in data and data["company"] is not None:
-        job.company = data["company"]
+    if "organization_id" in data and data["organization_id"] is not None:
+        job.organization_id = data["organization_id"]
     if "job_title" in data and data["job_title"] is not None:
         job.job_title = data["job_title"]
-    if "date" in data:
-        job.date = data["date"]  # Renamed from application_date
     if "job_url" in data:
         job.job_url = data["job_url"]
     if "notes" in data:
         job.notes = data["notes"]
-    if "resume" in data:
-        job.resume = data["resume"]  # New column
+    if "resume_date" in data:
+        job.resume_date = data["resume_date"]
     if "salary_range" in data:
         job.salary_range = data["salary_range"]
-    if "status" in data and data["status"] is not None:
-        job.status = data["status"]
-    if "source" in data and data["source"] is not None:
-        job.source = data["source"]
-    if "lead_status_id" in data:
-        job.lead_status_id = (
-            uuid.UUID(data["lead_status_id"]) if data["lead_status_id"] else None
-        )
     return job

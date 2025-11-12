@@ -29,7 +29,7 @@ uv run langgraph dev --host 0.0.0.0 --port 2024 &
 LG_PID=$!
 
 # Start your FastAPI websocket server (8000) with hot-reload
-uv run python -m uvicorn agent.server:app \
+uv run python -m uvicorn server:app \
   --host 0.0.0.0 \
   --port 8000 \
   --reload \

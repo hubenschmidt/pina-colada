@@ -24,33 +24,30 @@ def _normalize_identifier(company: str, title: str) -> str:
 
 
 def _map_to_dict(job) -> Dict[str, str]:
-    """Map database model to dictionary."""
-    if hasattr(job, 'id'):
-        # It's an ORM object, use orm_to_dict
-        job_dict = orm_to_dict(job)
-        return {
-            "company": job_dict.get("company") or "Unknown Company",
-            "title": job_dict.get("job_title") or "",
-            "date_applied": str(job_dict.get("date")) if job_dict.get("date") else "Not specified",
-            "link": job_dict.get("job_url") or "",
-            "status": job_dict.get("status") or "applied",
-            "salary_range": job_dict.get("salary_range") or "",
-            "notes": job_dict.get("notes") or "",
-            "source": job_dict.get("source") or "manual",
-            "id": job_dict.get("id") or "",
-        }
-    else:
-        # It's already a dict
-        return {
-        "company": job.get("company") or "Unknown Company",
-        "title": job.get("job_title") or job.get("title") or "",
-            "date_applied": str(job.get("date")) if job.get("date") else (str(job.get("application_date")) if job.get("application_date") else "Not specified"),
-        "link": job.get("job_url") or job.get("link") or "",
-        "status": job.get("status") or "applied",
-        "salary_range": job.get("salary_range") or "",
-        "notes": job.get("notes") or "",
-        "source": job.get("source") or "manual",
-        "id": str(job.get("id")) if job.get("id") else "",
+    """Map database model to dictionary for API compatibility."""
+    # Use orm_to_dict which flattens Lead fields
+    job_dict = orm_to_dict(job, include_lead=True)
+
+    # Extract organization name for company field (backward compatibility)
+    company = "Unknown Company"
+    if job_dict.get("organization"):
+        company = job_dict["organization"].get("name", "Unknown Company")
+
+    # Extract status name from current_status (backward compatibility)
+    status = "applied"
+    if job_dict.get("current_status"):
+        status = job_dict["current_status"].get("name", "applied").lower()
+
+    return {
+        "company": company,
+        "title": job_dict.get("job_title", ""),
+        "date_applied": str(job_dict.get("created_at", ""))[:10] if job_dict.get("created_at") else "Not specified",
+        "link": job_dict.get("job_url") or "",
+        "status": status,
+        "salary_range": job_dict.get("salary_range") or "",
+        "notes": job_dict.get("notes") or "",
+        "source": job_dict.get("source", "manual"),
+        "id": str(job_dict.get("id", "")),
     }
 
 
@@ -64,17 +61,17 @@ def _clear_cache() -> None:
 def get_all_jobs(refresh: bool = False) -> List[Dict[str, str]]:
     """Get all jobs as dictionaries."""
     global _details_cache, _cache
-    
+
     if _details_cache and not refresh:
         return _details_cache.copy()
-    
+
     jobs = find_all_jobs()
     # Map to internal format with company/date_applied keys for consistency
     details = [_map_to_dict(job) for job in jobs]
-    
+
     _details_cache = details
     _cache = {_normalize_identifier(j["company"], j["title"]) for j in details if j.get("title")}
-    
+
     logger.info(f"Loaded {len(details)} jobs from repository")
     return details
 
@@ -114,65 +111,69 @@ def is_job_applied(company: str, title: str) -> bool:
 def filter_jobs(jobs: List[Dict[str, str]]) -> List[Dict[str, str]]:
     """Filter out jobs that have already been applied to (status='applied' only)."""
     identifiers = get_applied_identifiers()
-    
+
     if not identifiers:
         logger.warning("No applied jobs (status='applied') found - returning all jobs")
         return jobs
-    
+
     filtered = [
         job for job in jobs
         if not is_job_applied(job.get("company", ""), job.get("title", ""))
     ]
-    
+
     filtered_count = len(jobs) - len(filtered)
     if filtered_count > 0:
         logger.info(f"Filtered {filtered_count} jobs with status 'applied', {len(filtered)} remaining")
-    
+
     return filtered
 
 
 def add_job(
-    company: str,
+    organization_name: str,
     job_title: str,
     job_url: str = "",
-    location: str = "",  # Deprecated, kept for API compatibility but ignored
     salary_range: str = "",
     notes: str = "",
     status: str = "applied",
     source: str = "agent"
 ) -> Optional[Dict[str, str]]:
     """Add a new job application."""
+    from repositories.organization_repository import get_or_create_organization
+
+    # Get or create organization
+    org = get_or_create_organization(organization_name)
+
     data: JobCreateData = {
-        "company": company,
+        "organization_id": org.id,
         "job_title": job_title,
         "job_url": job_url or None,
         "salary_range": salary_range or None,
         "notes": notes or None,
-        "status": status,
+        "status": status,  # Will be converted to status_id in repository
         "source": source
     }
-    
+
     created = create_job(data)
-    logger.info(f"Added job application: {company} - {job_title}")
-    
+    logger.info(f"Added job application: {organization_name} - {job_title}")
+
     _clear_cache()
-    
-    return orm_to_dict(created)
+
+    return _map_to_dict(created)
 
 
 def add_applied_job(
     company: str,
     job_title: str,
     job_url: str = "",
-    location: str = "",  # Deprecated, kept for API compatibility but ignored
+    location: str = "",  # Deprecated, kept for backward compatibility but ignored
     salary_range: str = "",
     notes: str = "",
     status: str = "applied",
     source: str = "agent"
 ) -> Optional[Dict[str, str]]:
-    """Add a new job application (for compatibility)."""
+    """Add a new job application (backward compatibility wrapper)."""
     return add_job(
-        company=company,
+        organization_name=company,
         job_title=job_title,
         job_url=job_url,
         salary_range=salary_range,
@@ -213,7 +214,6 @@ def update_job_by_company(
     company: str,
     job_title: str,
     status: Optional[str] = None,
-    lead_status_id: Optional[str] = None,
     job_url: Optional[str] = None,
     notes: Optional[str] = None
 ) -> Optional[Dict[str, str]]:
@@ -229,8 +229,14 @@ def update_job_by_company(
 
     matching_job = None
     for job in all_jobs:
-        job_dict = orm_to_dict(job)
-        if _fuzzy_match_company(company, job_dict.get("company", "")):
+        job_dict = orm_to_dict(job, include_lead=True)
+
+        # Get company name from organization
+        job_company = ""
+        if job_dict.get("organization"):
+            job_company = job_dict["organization"].get("name", "")
+
+        if _fuzzy_match_company(company, job_company):
             # Also check if job title matches (case-insensitive)
             if job_title.lower().strip() in job_dict.get("job_title", "").lower() or \
                job_dict.get("job_title", "").lower() in job_title.lower().strip():
@@ -244,8 +250,6 @@ def update_job_by_company(
     update_data: JobUpdateData = {}
     if status is not None:
         update_data["status"] = status
-    if lead_status_id is not None:
-        update_data["lead_status_id"] = lead_status_id
     if job_url is not None:
         update_data["job_url"] = job_url
     if notes is not None:
@@ -255,5 +259,9 @@ def update_job_by_company(
     updated_job = update_job(matching_job.id, update_data)
     _clear_cache()
 
-    logger.info(f"Updated job via fuzzy match: {company} - {job_title} (matched to {matching_job.company})")
-    return orm_to_dict(updated_job) if updated_job else None
+    if updated_job:
+        job_dict = orm_to_dict(updated_job, include_lead=True)
+        updated_company = job_dict.get("organization", {}).get("name", "Unknown")
+        logger.info(f"Updated job via fuzzy match: {company} - {job_title} (matched to {updated_company})")
+
+    return _map_to_dict(updated_job) if updated_job else None

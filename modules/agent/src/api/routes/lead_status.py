@@ -1,7 +1,7 @@
 """Routes for lead status API endpoints."""
 
 from fastapi import APIRouter
-from controllers.jobs_controller import get_lead_statuses
+from modules.agent.src.controllers.job_controller import get_lead_statuses
 
 router = APIRouter(prefix="/api/lead-statuses", tags=["lead-statuses"])
 

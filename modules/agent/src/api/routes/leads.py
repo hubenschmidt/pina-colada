@@ -2,7 +2,7 @@
 
 from typing import Optional
 from fastapi import APIRouter, Query
-from controllers.jobs_controller import (
+from modules.agent.src.controllers.job_controller import (
     get_leads,
     mark_lead_as_applied,
     mark_lead_as_do_not_apply
