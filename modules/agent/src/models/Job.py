@@ -36,7 +36,7 @@ class Job(Base):
     lead_status = relationship("LeadStatus", back_populates="jobs")
     
     __table_args__ = (
-        CheckConstraint("status IN ('applied', 'interviewing', 'rejected', 'offer', 'accepted')", name='check_status'),
+        CheckConstraint("status IN ('lead', 'applied', 'interviewing', 'rejected', 'offer', 'accepted', 'do_not_apply')", name='job_status_check'),
         CheckConstraint("source IN ('manual', 'agent')", name='check_source'),
     )
     created_at = Column(DateTime, server_default=func.now())

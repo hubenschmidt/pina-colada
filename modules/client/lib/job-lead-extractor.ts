@@ -3,8 +3,9 @@ import { createJob, fetchLeadStatuses } from '../api/jobs'
 /**
  * Pattern to match job leads in agent responses:
  * Company - Job Title - https://url
+ * Also handles numbered lists: 1. Company - Job Title - https://url
  */
-const JOB_LEAD_PATTERN = /^(.+?)\s*-\s*(.+?)\s*-\s*(https?:\/\/.+)$/gm
+const JOB_LEAD_PATTERN = /(?:^\d+\.\s*)?(.+?)\s*-\s*(.+?)\s*-\s*(https?:\/\/[^\s]+)/gm
 
 /**
  * Extract job leads from message text

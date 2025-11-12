@@ -96,33 +96,83 @@
   background-color: #dc2626;
 }
 
-/* LEADS BUTTON */
-.leadsButton {
+/* TOOLS DROPDOWN */
+.toolsDropdown {
+  position: relative;
+}
+
+.toolsButton {
   appearance: none;
-  background-color: #dbeafe;
-  border: 1px solid #93c5fd;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
   border-radius: 0.5rem;
   padding: 0.375rem 0.75rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: #1e40af;
+  color: var(--foreground);
   cursor: pointer;
   transition: all 0.15s ease-in-out;
   box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   display: flex;
   align-items: center;
   gap: 0.375rem;
-  position: relative;
 }
 
-.leadsButton:hover {
-  background-color: #bfdbfe;
-  border-color: #60a5fa;
+.toolsButton:hover {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
 }
 
-.leadsButton:active {
-  background-color: #93c5fd;
+.toolsButton:active {
+  background-color: #f3f4f6;
   transform: scale(0.98);
+}
+
+.toolsButton svg {
+  transition: transform 0.15s ease-in-out;
+}
+
+.toolsButton .chevronOpen {
+  transform: rotate(180deg);
+}
+
+.toolsMenu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  right: 0;
+  background-color: #ffffff;
+  border: 1px solid #d1d5db;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+  min-width: 150px;
+  z-index: 100;
+  overflow: hidden;
+}
+
+.toolsMenuItem {
+  appearance: none;
+  background-color: transparent;
+  border: none;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+  text-align: left;
+}
+
+.toolsMenuItem:hover {
+  background-color: #f3f4f6;
+}
+
+.toolsMenuItem:active {
+  background-color: #e5e7eb;
 }
 
 .leadsBadge {
@@ -134,6 +184,7 @@
   border-radius: 9999px;
   min-width: 1.25rem;
   text-align: center;
+  margin-left: auto;
 }
 
 /* EXPORT BUTTON */

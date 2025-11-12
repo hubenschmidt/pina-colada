@@ -366,7 +366,6 @@ def find_all_lead_statuses() -> List[LeadStatus]:
     if client:
         try:
             response = client.table("LeadStatus").select("*").order("name").execute()
-            from models.LeadStatus import LeadStatus
             import uuid
             from datetime import datetime
             result = []

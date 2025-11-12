@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useWs, ChatMsg } from "../../hooks/useWs";
 import styles from "./Chat.module.css";
-import { Copy, Check, Download, Briefcase } from "lucide-react";
+import { Copy, Check, Download, Briefcase, ChevronDown } from "lucide-react";
 import JobLeadsPanel from "../JobLeadsPanel";
 import { extractAndSaveJobLeads } from "../../lib/job-lead-extractor";
 
@@ -297,10 +297,12 @@ const Chat = () => {
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [leadsPanelOpen, setLeadsPanelOpen] = useState(false);
   const [leadsCount, setLeadsCount] = useState(0);
+  const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const sentCtxRef = useRef(false);
+  const toolsDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // --- Send rich user context as soon as WS opens (testing-only) ---
   useEffect(() => {
@@ -329,16 +331,65 @@ const Chat = () => {
       // Check for job leads in assistant messages
       if (last.user === "PinaColada") {
         (async () => {
-          const savedCount = await extractAndSaveJobLeads(last.msg);
-          if (savedCount > 0) {
-            console.log(`Saved ${savedCount} job leads`);
-            setLeadsCount(prev => prev + savedCount);
-            setLeadsPanelOpen(true);
+          try {
+            const savedCount = await extractAndSaveJobLeads(last.msg);
+            if (savedCount > 0) {
+              console.log(`Saved ${savedCount} job leads`);
+              setLeadsCount(prev => prev + savedCount);
+              setLeadsPanelOpen(true);
+            }
+          } catch (error) {
+            console.error("Failed to extract and save job leads:", error);
           }
         })();
       }
+    } else {
+      // Check if user message contains a command to add leads
+      const userMsg = last.msg.toLowerCase();
+      const addLeadsCommands = [
+        "add all those to the leads list",
+        "add those to leads",
+        "save those as leads",
+        "add to leads",
+        "save as leads"
+      ];
+      
+      if (addLeadsCommands.some(cmd => userMsg.includes(cmd))) {
+        // Find the most recent assistant message with leads
+        for (let i = messages.length - 2; i >= 0; i--) {
+          if (messages[i].user === "PinaColada") {
+            (async () => {
+              try {
+                const savedCount = await extractAndSaveJobLeads(messages[i].msg);
+                if (savedCount > 0) {
+                  console.log(`Saved ${savedCount} job leads from command`);
+                  setLeadsCount(prev => prev + savedCount);
+                  setLeadsPanelOpen(true);
+                }
+              } catch (error) {
+                console.error("Failed to extract and save job leads from command:", error);
+              }
+            })();
+            break;
+          }
+        }
+      }
     }
   }, [messages]);
+
+  // Close tools dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (toolsDropdownRef.current && !toolsDropdownRef.current.contains(event.target as Node)) {
+        setToolsDropdownOpen(false);
+      }
+    };
+
+    if (toolsDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [toolsDropdownOpen]);
 
   // autofocus textarea on mount
   useEffect(() => {
@@ -409,18 +460,36 @@ const Chat = () => {
             <b className={styles.title}>Chat</b>
           </div>
           <div className={styles.headerRight}>
-            <button
-              type="button"
-              className={styles.leadsButton}
-              onClick={() => setLeadsPanelOpen(true)}
-              title="View job leads"
-            >
-              <Briefcase size={16} />
-              <span>Leads</span>
-              {leadsCount > 0 && (
-                <span className={styles.leadsBadge}>{leadsCount}</span>
+            <div className={styles.toolsDropdown} ref={toolsDropdownRef}>
+              <button
+                type="button"
+                className={styles.toolsButton}
+                onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}
+                title="Tools"
+              >
+                <span>Tools</span>
+                <ChevronDown size={16} className={toolsDropdownOpen ? styles.chevronOpen : ""} />
+              </button>
+              {toolsDropdownOpen && (
+                <div className={styles.toolsMenu}>
+                  <button
+                    type="button"
+                    className={styles.toolsMenuItem}
+                    onClick={() => {
+                      setLeadsPanelOpen(true);
+                      setToolsDropdownOpen(false);
+                    }}
+                    title="View job leads"
+                  >
+                    <Briefcase size={16} />
+                    <span>Leads</span>
+                    {leadsCount > 0 && (
+                      <span className={styles.leadsBadge}>{leadsCount}</span>
+                    )}
+                  </button>
+                </div>
               )}
-            </button>
+            </div>
             <button
               type="button"
               className={styles.exportButton}

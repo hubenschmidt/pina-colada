@@ -3,7 +3,9 @@
 -- Uses proper LeadStatus table with foreign key relationship (not CHECK constraint)
 
 -- Step 1: Drop and recreate the status CHECK constraint to include new values
+-- Drop both possible constraint names (migration uses job_status_check, SQLAlchemy uses check_status)
 ALTER TABLE "Job" DROP CONSTRAINT IF EXISTS job_status_check;
+ALTER TABLE "Job" DROP CONSTRAINT IF EXISTS check_status;
 ALTER TABLE "Job" ADD CONSTRAINT job_status_check
     CHECK (status IN ('lead', 'applied', 'interviewing', 'rejected', 'offer', 'accepted', 'do_not_apply'));
 
