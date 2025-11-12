@@ -1,551 +1,28 @@
--- ==============================
--- DealTracker Migration 001
--- ==============================
--- Complete DealTracker schema with initial seed data
+-- Seeder: Initial job applications for DealTracker
+-- This seeder adds initial job data using the new DealTracker schema structure
+-- Only runs in development (safe for production - uses duplicate checks)
 --
--- This migration creates:
--- 1. All DealTracker tables (Status, Deal, Lead, Job, Organization, etc.)
--- 2. Status configuration tables for workflows
--- 3. Junction tables for relationships
--- 4. Initial status seed data
--- 5. Development seed data (191 job applications)
---
--- BACKUP YOUR DATABASE BEFORE RUNNING THIS MIGRATION!
--- ==============================
-
--- Enable UUID extension if not already enabled
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- New Schema Structure (Joined Table Inheritance):
+-- 1. Creates Organizations from company names
+-- 2. Creates a default Deal for job search
+-- 3. Creates Lead records (base table)
+-- 4. Creates Job records (extends Lead)
 
 -- ==============================
--- STEP 1: Create Core Tables
+-- STEP 1: Create default Deal if it doesn't exist
 -- ==============================
-
--- Status table (central status/stage definitions)
-CREATE TABLE IF NOT EXISTS "Status" (
-  id              BIGSERIAL PRIMARY KEY,
-  name            TEXT NOT NULL UNIQUE,
-  description     TEXT,
-  category        TEXT,  -- 'job', 'lead', 'deal', 'task_status', 'task_priority'
-  is_terminal     BOOLEAN DEFAULT FALSE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Project table
-CREATE TABLE IF NOT EXISTS "Project" (
-  id              BIGSERIAL PRIMARY KEY,
-  name            TEXT NOT NULL,
-  description     TEXT,
-  owner_user_id   BIGINT,
-  status          TEXT,  -- Simple TEXT field, not using Status table
-  start_date      DATE,
-  end_date        DATE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Deal table
-CREATE TABLE IF NOT EXISTS "Deal" (
-  id              BIGSERIAL PRIMARY KEY,
-  name            TEXT NOT NULL,
-  description     TEXT,
-  owner_user_id   BIGINT,
-  current_status_id BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
-  value_amount    NUMERIC(18,2),
-  value_currency  TEXT DEFAULT 'USD',
-  probability     NUMERIC(5,2),
-  close_date      DATE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Organization table (for companies)
-CREATE TABLE IF NOT EXISTS "Organization" (
-  id              BIGSERIAL PRIMARY KEY,
-  name            TEXT NOT NULL,
-  website         TEXT,
-  phone           TEXT,
-  notes           TEXT,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  CONSTRAINT uq_org_name UNIQUE (LOWER(name))
-);
-
--- Individual table (for people)
-CREATE TABLE IF NOT EXISTS "Individual" (
-  id              BIGSERIAL PRIMARY KEY,
-  given_name      TEXT NOT NULL,
-  family_name     TEXT NOT NULL,
-  email           TEXT,
-  phone           TEXT,
-  notes           TEXT,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Contact table
-CREATE TABLE IF NOT EXISTS "Contact" (
-  id                BIGSERIAL PRIMARY KEY,
-  individual_id     BIGINT NOT NULL REFERENCES "Individual"(id) ON DELETE CASCADE,
-  organization_id   BIGINT REFERENCES "Organization"(id) ON DELETE SET NULL,
-  title             TEXT,
-  department        TEXT,
-  email             TEXT,
-  phone             TEXT,
-  is_primary        BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Lead table (base table for Joined Table Inheritance)
-CREATE TABLE IF NOT EXISTS "Lead" (
-  id              BIGSERIAL PRIMARY KEY,
-  deal_id         BIGINT NOT NULL REFERENCES "Deal"(id) ON DELETE CASCADE,
-  type            TEXT NOT NULL,  -- Discriminator: 'Job', 'Opportunity', 'Partnership', etc.
-  title           TEXT NOT NULL,
-  description     TEXT,
-  source          TEXT,  -- inbound/referral/event/campaign/agent/manual/etc.
-  current_status_id BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
-  owner_user_id   BIGINT,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Job table (extends Lead via Joined Table Inheritance)
-CREATE TABLE IF NOT EXISTS "Job" (
-  id              BIGINT PRIMARY KEY REFERENCES "Lead"(id) ON DELETE CASCADE,
-  organization_id BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
-  job_title       TEXT NOT NULL,
-  job_url         TEXT,
-  notes           TEXT,
-  resume_date     TIMESTAMPTZ,
-  salary_range    TEXT,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Task table (polymorphic association)
-CREATE TABLE IF NOT EXISTS "Task" (
-  id                  BIGSERIAL PRIMARY KEY,
-  taskable_type       TEXT,  -- 'Deal', 'Lead', 'Job', 'Project', 'Organization', 'Individual', 'Contact'
-  taskable_id         BIGINT,
-  title               TEXT NOT NULL,
-  description         TEXT,
-  current_status_id   BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
-  current_priority_id BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
-  due_date            DATE,
-  completed_at        TIMESTAMPTZ,
-  assigned_to_user_id BIGINT,
-  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- ==============================
--- STEP 2: Status Configuration Tables
--- ==============================
-
-CREATE TABLE IF NOT EXISTS "Job_Status" (
-  id              BIGSERIAL PRIMARY KEY,
-  status_id       BIGINT NOT NULL REFERENCES "Status"(id) ON DELETE CASCADE,
-  display_order   INTEGER NOT NULL,
-  is_default      BOOLEAN DEFAULT FALSE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (status_id),
-  UNIQUE (display_order)
-);
-
-CREATE TABLE IF NOT EXISTS "Lead_Status" (
-  id              BIGSERIAL PRIMARY KEY,
-  status_id       BIGINT NOT NULL REFERENCES "Status"(id) ON DELETE CASCADE,
-  display_order   INTEGER NOT NULL,
-  is_default      BOOLEAN DEFAULT FALSE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (status_id),
-  UNIQUE (display_order)
-);
-
-CREATE TABLE IF NOT EXISTS "Deal_Status" (
-  id              BIGSERIAL PRIMARY KEY,
-  status_id       BIGINT NOT NULL REFERENCES "Status"(id) ON DELETE CASCADE,
-  display_order   INTEGER NOT NULL,
-  is_default      BOOLEAN DEFAULT FALSE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (status_id),
-  UNIQUE (display_order)
-);
-
-CREATE TABLE IF NOT EXISTS "Task_Status" (
-  id              BIGSERIAL PRIMARY KEY,
-  status_id       BIGINT NOT NULL REFERENCES "Status"(id) ON DELETE CASCADE,
-  display_order   INTEGER NOT NULL,
-  is_default      BOOLEAN DEFAULT FALSE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (status_id),
-  UNIQUE (display_order)
-);
-
-CREATE TABLE IF NOT EXISTS "Task_Priority" (
-  id              BIGSERIAL PRIMARY KEY,
-  status_id       BIGINT NOT NULL REFERENCES "Status"(id) ON DELETE CASCADE,
-  display_order   INTEGER NOT NULL,
-  is_default      BOOLEAN DEFAULT FALSE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (status_id),
-  UNIQUE (display_order)
-);
-
--- ==============================
--- STEP 3: Junction Tables
--- ==============================
-
-CREATE TABLE IF NOT EXISTS "Lead_Contact" (
-  lead_id       BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
-  contact_id    BIGINT NOT NULL REFERENCES "Contact"(id) ON DELETE CASCADE,
-  role_on_lead  TEXT,
-  is_primary    BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (lead_id, contact_id)
-);
-
-CREATE TABLE IF NOT EXISTS "Lead_Organization" (
-  lead_id         BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
-  organization_id BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
-  relationship    TEXT,
-  is_primary      BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (lead_id, organization_id)
-);
-
-CREATE TABLE IF NOT EXISTS "Lead_Individual" (
-  lead_id       BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
-  individual_id BIGINT NOT NULL REFERENCES "Individual"(id) ON DELETE CASCADE,
-  relationship  TEXT,
-  is_primary    BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (lead_id, individual_id)
-);
-
-CREATE TABLE IF NOT EXISTS "Project_Deal" (
-  project_id    BIGINT NOT NULL REFERENCES "Project"(id) ON DELETE CASCADE,
-  deal_id       BIGINT NOT NULL REFERENCES "Deal"(id) ON DELETE CASCADE,
-  relationship  TEXT,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (project_id, deal_id)
-);
-
-CREATE TABLE IF NOT EXISTS "Project_Lead" (
-  project_id    BIGINT NOT NULL REFERENCES "Project"(id) ON DELETE CASCADE,
-  lead_id       BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
-  relationship  TEXT,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (project_id, lead_id)
-);
-
-CREATE TABLE IF NOT EXISTS "Project_Contact" (
-  project_id    BIGINT NOT NULL REFERENCES "Project"(id) ON DELETE CASCADE,
-  contact_id    BIGINT NOT NULL REFERENCES "Contact"(id) ON DELETE CASCADE,
-  role          TEXT,
-  is_primary    BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (project_id, contact_id)
-);
-
-CREATE TABLE IF NOT EXISTS "Project_Organization" (
-  project_id      BIGINT NOT NULL REFERENCES "Project"(id) ON DELETE CASCADE,
-  organization_id BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
-  relationship    TEXT,
-  is_primary      BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (project_id, organization_id)
-);
-
-CREATE TABLE IF NOT EXISTS "Project_Individual" (
-  project_id    BIGINT NOT NULL REFERENCES "Project"(id) ON DELETE CASCADE,
-  individual_id BIGINT NOT NULL REFERENCES "Individual"(id) ON DELETE CASCADE,
-  role          TEXT,
-  is_primary    BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (project_id, individual_id)
-);
-
--- ==============================
--- STEP 4: Create Triggers
--- ==============================
-
--- Create function for auto-updating updated_at timestamp
-CREATE OR REPLACE FUNCTION update_updated_at_column()
-RETURNS TRIGGER AS $$
-BEGIN
-    NEW.updated_at = NOW();
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
--- Apply triggers to all tables with updated_at
-DROP TRIGGER IF EXISTS update_status_updated_at ON "Status";
-CREATE TRIGGER update_status_updated_at
-    BEFORE UPDATE ON "Status"
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-DROP TRIGGER IF EXISTS update_project_updated_at ON "Project";
-CREATE TRIGGER update_project_updated_at
-    BEFORE UPDATE ON "Project"
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-DROP TRIGGER IF EXISTS update_deal_updated_at ON "Deal";
-CREATE TRIGGER update_deal_updated_at
-    BEFORE UPDATE ON "Deal"
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-DROP TRIGGER IF EXISTS update_organization_updated_at ON "Organization";
-CREATE TRIGGER update_organization_updated_at
-    BEFORE UPDATE ON "Organization"
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-DROP TRIGGER IF EXISTS update_individual_updated_at ON "Individual";
-CREATE TRIGGER update_individual_updated_at
-    BEFORE UPDATE ON "Individual"
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-DROP TRIGGER IF EXISTS update_contact_updated_at ON "Contact";
-CREATE TRIGGER update_contact_updated_at
-    BEFORE UPDATE ON "Contact"
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-DROP TRIGGER IF EXISTS update_lead_updated_at ON "Lead";
-CREATE TRIGGER update_lead_updated_at
-    BEFORE UPDATE ON "Lead"
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-DROP TRIGGER IF EXISTS update_job_updated_at ON "Job";
-CREATE TRIGGER update_job_updated_at
-    BEFORE UPDATE ON "Job"
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
-DROP TRIGGER IF EXISTS update_task_updated_at ON "Task";
-CREATE TRIGGER update_task_updated_at
-    BEFORE UPDATE ON "Task"
-    FOR EACH ROW
-    EXECUTE FUNCTION update_updated_at_column();
-
--- ==============================
--- STEP 5: Create Indexes
--- ==============================
-
--- Job table indexes
-CREATE INDEX IF NOT EXISTS idx_job_organization ON "Job"(organization_id);
-CREATE INDEX IF NOT EXISTS idx_job_title ON "Job"(job_title);
-CREATE INDEX IF NOT EXISTS idx_job_created ON "Job"(created_at DESC);
-
--- Lead table indexes
-CREATE INDEX IF NOT EXISTS idx_lead_deal ON "Lead"(deal_id);
-CREATE INDEX IF NOT EXISTS idx_lead_status ON "Lead"(current_status_id);
-CREATE INDEX IF NOT EXISTS idx_lead_type ON "Lead"(type);
-CREATE INDEX IF NOT EXISTS idx_lead_created ON "Lead"(created_at DESC);
-
--- Deal table indexes
-CREATE INDEX IF NOT EXISTS idx_deal_status ON "Deal"(current_status_id);
-CREATE INDEX IF NOT EXISTS idx_deal_created ON "Deal"(created_at DESC);
-
--- Task table indexes
-CREATE INDEX IF NOT EXISTS idx_task_taskable ON "Task"(taskable_type, taskable_id);
-CREATE INDEX IF NOT EXISTS idx_task_status ON "Task"(current_status_id);
-CREATE INDEX IF NOT EXISTS idx_task_priority ON "Task"(current_priority_id);
-CREATE INDEX IF NOT EXISTS idx_task_due_date ON "Task"(due_date);
-
--- Organization table indexes
-CREATE INDEX IF NOT EXISTS idx_organization_name ON "Organization"(LOWER(name));
-
--- ==============================
--- STEP 6: Seed Status Data
--- ==============================
-
--- Job Statuses
-INSERT INTO "Status" (name, category, is_terminal, description) VALUES
-('Applied', 'job', false, 'Job application submitted'),
-('Interviewing', 'job', false, 'In interview process'),
-('Offer', 'job', false, 'Offer received'),
-('Accepted', 'job', true, 'Job offer accepted'),
-('Rejected', 'job', true, 'Application or candidacy rejected')
-ON CONFLICT (name) DO NOTHING;
-
--- Lead Stages
-INSERT INTO "Status" (name, category, is_terminal, description) VALUES
-('New', 'lead', false, 'New lead created'),
-('Qualified', 'lead', false, 'Lead has been qualified'),
-('Discovery', 'lead', false, 'Discovery phase'),
-('Proposal', 'lead', false, 'Proposal submitted'),
-('Negotiation', 'lead', false, 'In negotiation'),
-('Won', 'lead', true, 'Lead won'),
-('Lost', 'lead', true, 'Lead lost'),
-('On Hold', 'lead', false, 'Lead on hold')
-ON CONFLICT (name) DO NOTHING;
-
--- Deal Stages
-INSERT INTO "Status" (name, category, is_terminal, description) VALUES
-('Prospecting', 'deal', false, 'Prospecting phase'),
-('Qualification', 'deal', false, 'Qualification phase'),
-('Closed Won', 'deal', true, 'Deal won'),
-('Closed Lost', 'deal', true, 'Deal lost')
-ON CONFLICT (name) DO NOTHING;
-
--- Task Statuses
-INSERT INTO "Status" (name, category, is_terminal, description) VALUES
-('To Do', 'task_status', false, 'Task not started'),
-('In Progress', 'task_status', false, 'Task in progress'),
-('Completed', 'task_status', true, 'Task completed'),
-('Cancelled', 'task_status', true, 'Task cancelled')
-ON CONFLICT (name) DO NOTHING;
-
--- Task Priorities
-INSERT INTO "Status" (name, category, is_terminal, description) VALUES
-('Low', 'task_priority', false, 'Low priority'),
-('Medium', 'task_priority', false, 'Medium priority'),
-('High', 'task_priority', false, 'High priority'),
-('Urgent', 'task_priority', false, 'Urgent priority')
-ON CONFLICT (name) DO NOTHING;
-
--- ==============================
--- STEP 7: Configure Status Workflows
--- ==============================
-
--- Configure Job workflow
-INSERT INTO "Job_Status" (status_id, display_order, is_default)
-SELECT id, 0, true FROM "Status" WHERE name = 'Applied' AND category = 'job'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Job_Status" (status_id, display_order, is_default)
-SELECT id, 1, false FROM "Status" WHERE name = 'Interviewing' AND category = 'job'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Job_Status" (status_id, display_order, is_default)
-SELECT id, 2, false FROM "Status" WHERE name = 'Offer' AND category = 'job'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Job_Status" (status_id, display_order, is_default)
-SELECT id, 3, false FROM "Status" WHERE name = 'Accepted' AND category = 'job'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Job_Status" (status_id, display_order, is_default)
-SELECT id, 4, false FROM "Status" WHERE name = 'Rejected' AND category = 'job'
-ON CONFLICT (status_id) DO NOTHING;
-
--- Configure Lead workflow
-INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 0, true FROM "Status" WHERE name = 'New' AND category = 'lead'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 1, false FROM "Status" WHERE name = 'Qualified' AND category = 'lead'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 2, false FROM "Status" WHERE name = 'Discovery' AND category = 'lead'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 3, false FROM "Status" WHERE name = 'Proposal' AND category = 'lead'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 4, false FROM "Status" WHERE name = 'Negotiation' AND category = 'lead'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 5, false FROM "Status" WHERE name = 'Won' AND category = 'lead'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 6, false FROM "Status" WHERE name = 'Lost' AND category = 'lead'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 7, false FROM "Status" WHERE name = 'On Hold' AND category = 'lead'
-ON CONFLICT (status_id) DO NOTHING;
-
--- Configure Deal workflow (reusing some Lead statuses)
-INSERT INTO "Deal_Status" (status_id, display_order, is_default)
-SELECT id, 0, true FROM "Status" WHERE name = 'Prospecting' AND category = 'deal'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Deal_Status" (status_id, display_order, is_default)
-SELECT id, 1, false FROM "Status" WHERE name = 'Qualification' AND category = 'deal'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Deal_Status" (status_id, display_order, is_default)
-SELECT id, 2, false FROM "Status" WHERE name = 'Proposal' AND category = 'lead'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Deal_Status" (status_id, display_order, is_default)
-SELECT id, 3, false FROM "Status" WHERE name = 'Negotiation' AND category = 'lead'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Deal_Status" (status_id, display_order, is_default)
-SELECT id, 4, false FROM "Status" WHERE name = 'Closed Won' AND category = 'deal'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Deal_Status" (status_id, display_order, is_default)
-SELECT id, 5, false FROM "Status" WHERE name = 'Closed Lost' AND category = 'deal'
-ON CONFLICT (status_id) DO NOTHING;
-
--- Configure Task statuses
-INSERT INTO "Task_Status" (status_id, display_order, is_default)
-SELECT id, 0, true FROM "Status" WHERE name = 'To Do' AND category = 'task_status'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Task_Status" (status_id, display_order, is_default)
-SELECT id, 1, false FROM "Status" WHERE name = 'In Progress' AND category = 'task_status'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Task_Status" (status_id, display_order, is_default)
-SELECT id, 2, false FROM "Status" WHERE name = 'Completed' AND category = 'task_status'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Task_Status" (status_id, display_order, is_default)
-SELECT id, 3, false FROM "Status" WHERE name = 'Cancelled' AND category = 'task_status'
-ON CONFLICT (status_id) DO NOTHING;
-
--- Configure Task priorities
-INSERT INTO "Task_Priority" (status_id, display_order, is_default)
-SELECT id, 0, false FROM "Status" WHERE name = 'Low' AND category = 'task_priority'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Task_Priority" (status_id, display_order, is_default)
-SELECT id, 1, true FROM "Status" WHERE name = 'Medium' AND category = 'task_priority'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Task_Priority" (status_id, display_order, is_default)
-SELECT id, 2, false FROM "Status" WHERE name = 'High' AND category = 'task_priority'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Task_Priority" (status_id, display_order, is_default)
-SELECT id, 3, false FROM "Status" WHERE name = 'Urgent' AND category = 'task_priority'
-ON CONFLICT (status_id) DO NOTHING;
-
--- ==============================
--- STEP 8: Development Seed Data
--- ==============================
--- Seeds 191 job applications for development
-
--- Create default Deal for job search
 DO $$
 DECLARE
   default_deal_id BIGINT;
 BEGIN
-  SELECT id INTO default_deal_id FROM "Deal" WHERE name = 'Job Search - Development' LIMIT 1;
+  -- Check if default deal exists
+  SELECT id INTO default_deal_id FROM "Deal" WHERE name = 'Job Search - Development Seed' LIMIT 1;
 
+  -- Create if it doesn't exist
   IF default_deal_id IS NULL THEN
     INSERT INTO "Deal" (name, description, current_status_id, created_at, updated_at)
     VALUES (
-      'Job Search - Development',
+      'Job Search - Development Seed',
       'Development seed data for job applications',
       (SELECT id FROM "Status" WHERE name = 'Prospecting' AND category = 'deal' LIMIT 1),
       NOW(),
@@ -554,11 +31,15 @@ BEGIN
     RETURNING id INTO default_deal_id;
 
     RAISE NOTICE 'Created default deal with id: %', default_deal_id;
+  ELSE
+    RAISE NOTICE 'Using existing default deal with id: %', default_deal_id;
   END IF;
 END $$;
 
--- Create temporary table with seed data
-CREATE TEMP TABLE IF NOT EXISTS temp_job_seed (
+-- ==============================
+-- STEP 2: Create temporary table with seed data
+-- ==============================
+CREATE TEMP TABLE temp_job_seed (
   company TEXT,
   job_title TEXT,
   date_str TEXT,
@@ -568,7 +49,6 @@ CREATE TEMP TABLE IF NOT EXISTS temp_job_seed (
   job_url TEXT
 );
 
--- Insert 191 job applications
 INSERT INTO temp_job_seed (company, job_title, date_str, status, notes, resume_str, job_url)
 VALUES
     ('Poly AI', 'Senior Full Stack Engineer', '11/01/2025', 'Applied', NULL, NULL, 'https://job-boards.eu.greenhouse.io/polyai/jobs/4669020101'),
@@ -738,7 +218,9 @@ VALUES
     ('Uphold', 'Senior Backend Engineer (Digital Payments)', '11/01/2025', 'Applied', NULL, NULL, 'https://uphold.bamboohr.com/careers/748'),
     ('Braze', 'Senior Software Engineer', '11/10/2025', 'Applied', NULL, NULL, 'https://job-boards.greenhouse.io/braze/jobs/7365359');
 
--- Create Organizations from unique companies
+-- ==============================
+-- STEP 3: Create Organizations from unique companies
+-- ==============================
 INSERT INTO "Organization" (name, created_at, updated_at)
 SELECT DISTINCT
   TRIM(company) as name,
@@ -748,7 +230,9 @@ FROM temp_job_seed
 WHERE TRIM(company) IS NOT NULL AND TRIM(company) != ''
 ON CONFLICT (LOWER(name)) DO NOTHING;
 
--- Insert Leads and Jobs
+-- ==============================
+-- STEP 4: Insert Leads and Jobs
+-- ==============================
 DO $$
 DECLARE
   default_deal_id BIGINT;
@@ -760,7 +244,7 @@ DECLARE
   resume_submitted_date TIMESTAMPTZ;
 BEGIN
   -- Get the default deal
-  SELECT id INTO default_deal_id FROM "Deal" WHERE name = 'Job Search - Development' LIMIT 1;
+  SELECT id INTO default_deal_id FROM "Deal" WHERE name = 'Job Search - Development Seed' LIMIT 1;
 
   IF default_deal_id IS NULL THEN
     RAISE EXCEPTION 'Default deal not found. Cannot proceed with seeding.';
@@ -835,7 +319,7 @@ BEGIN
       'Job',
       TRIM(seed_record.company) || ' - ' || TRIM(seed_record.job_title),
       NULLIF(TRIM(seed_record.notes), ''),
-      'manual',
+      'manual',  -- All seed data is manual entry
       mapped_status_id,
       COALESCE(application_date, NOW()),
       COALESCE(application_date, NOW())
@@ -859,32 +343,31 @@ BEGIN
       NULLIF(TRIM(seed_record.job_url), ''),
       NULLIF(TRIM(seed_record.notes), ''),
       resume_submitted_date,
-      NULL,
+      NULL,  -- No salary data in seed
       COALESCE(application_date, NOW()),
       COALESCE(application_date, NOW())
     );
 
   END LOOP;
 
-  RAISE NOTICE 'Seed data: inserted % jobs', (SELECT COUNT(*) FROM "Job");
+  RAISE NOTICE 'Seed data inserted successfully';
 
 END $$;
 
+-- ==============================
 -- Cleanup
+-- ==============================
 DROP TABLE IF EXISTS temp_job_seed;
 
 -- ==============================
--- Migration Complete!
+-- Verification
 -- ==============================
-
--- Verification Queries (uncomment to verify):
+-- Uncomment to verify:
 -- SELECT COUNT(*) as total_jobs FROM "Job";
 -- SELECT COUNT(*) as total_leads FROM "Lead" WHERE type = 'Job';
 -- SELECT COUNT(*) as total_organizations FROM "Organization";
--- SELECT category, COUNT(*) FROM "Status" GROUP BY category ORDER BY category;
 --
--- Sample Job with related data:
--- SELECT j.job_title, o.name as company, s.name as status, l.title, l.source
+-- SELECT j.job_title, o.name as company, s.name as status, l.title
 -- FROM "Job" j
 -- JOIN "Lead" l ON j.id = l.id
 -- JOIN "Organization" o ON j.organization_id = o.id
