@@ -10,7 +10,7 @@ from langchain_openai import ChatOpenAI
 
 logger = logging.getLogger(__name__)
 
-from langfuse.langchain import CallbackHandler
+from agent.util.langfuse_helper import get_langfuse_handler
 
 
 def _build_job_hunter_prompt(
@@ -65,14 +65,16 @@ async def create_job_hunter_node(
     Returns a pure function that takes state and returns updated state.
     """
     logger.info("Setting up Job Hunter LLM: OpenAI GPT-5 (temperature=0.7)")
-    langfuse_handler = CallbackHandler()
+    langfuse_handler = get_langfuse_handler()
+    
+    callbacks = [langfuse_handler] if langfuse_handler else []
 
     job_hunter_llm = ChatOpenAI(
         model="gpt-5-chat-latest",
         temperature=0.7,
         max_completion_tokens=1024,
         max_retries=3,
-        callbacks=[langfuse_handler],
+        callbacks=callbacks,
     )
 
     llm_with_tools = job_hunter_llm.bind_tools(tools)

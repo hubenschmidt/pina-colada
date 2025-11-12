@@ -12,7 +12,7 @@ import textwrap
 
 logger = logging.getLogger(__name__)
 
-from langfuse.langchain import CallbackHandler
+from agent.util.langfuse_helper import get_langfuse_handler
 
 
 def make_evaluator_output_model() -> Type[BaseModel]:
@@ -46,7 +46,18 @@ def _build_system_prompt(resume_context: str) -> str:
         "- feedback: Brief assessment\n"
         "- success_criteria_met: true/false\n"
         "- user_input_needed: true if user must respond\n\n"
-        "Be slightly lenient—approve unless clearly inadequate."
+        "CRITICAL DISTINCTION:\n"
+        "- JOB SEARCH RESULTS: When the user asks to find jobs, the assistant will list EXTERNAL job postings "
+        "from companies. These are NOT the user's own work history. Job titles like 'Senior AI Engineer at DataFabric' "
+        "are VALID if they are job postings the user could apply to, even if they don't appear in the resume.\n"
+        "- RESUME DATA: The user's own work history (e.g., 'Principal Engineer at PinaColada.co') must match the resume exactly.\n"
+        "- DO NOT confuse job search results (external postings) with the user's resume/work history.\n\n"
+        "SPECIAL CHECKS:\n"
+        "- For job search responses: Ensure all job links are direct posting URLs (not job board links)\n"
+        "- Links should be accessible and relevant to the job listings\n"
+        "- Job search results showing external postings are VALID even if those companies/titles aren't in the resume\n\n"
+        "Be slightly lenient—approve unless clearly inadequate. For job searches, approve if the response contains "
+        "relevant job postings with working links, even if the company names don't match the resume."
     )
 
 
@@ -74,13 +85,15 @@ async def create_evaluator_node():
     Returns a pure function that takes state and returns evaluation results
     """
     logger.info("Setting up Evaluator LLM: Claude Haiku 4.5 (temperature=0)")
-    langfuse_handler = CallbackHandler()
+    langfuse_handler = get_langfuse_handler()
+    
+    callbacks = [langfuse_handler] if langfuse_handler else []
 
     evaluator_llm = ChatAnthropic(
         model="claude-haiku-4-5-20251001",
         temperature=0,
         max_tokens=1000,
-        callbacks=[langfuse_handler],
+        callbacks=callbacks,
     )
     EvaluatorOutput = make_evaluator_output_model()
     llm_with_output = evaluator_llm.with_structured_output(EvaluatorOutput)
@@ -101,6 +114,20 @@ async def create_evaluator_node():
                 "user_input_needed": False,
             }
 
+        # Detect retry loops by counting AIMessages (each retry adds a new AIMessage)
+        # If we have feedback_on_work set, we're already retrying
+        messages = state.get("messages", [])
+        ai_message_count = sum(1 for msg in messages if isinstance(msg, AIMessage))
+        
+        # If we have feedback and multiple AI messages, we're in a retry loop
+        has_feedback = bool(state.get("feedback_on_work"))
+        is_retry_loop = has_feedback and ai_message_count >= 3
+        
+        if is_retry_loop:
+            retry_count = ai_message_count - 1  # Subtract 1 for the initial response
+        else:
+            retry_count = 0
+        
         # Build prompts
         system_message = _build_system_prompt(state.get("resume_context", ""))
 
@@ -110,8 +137,15 @@ async def create_evaluator_node():
             f"Success criteria: {state.get('success_criteria','')}\n\n"
             "Final response to evaluate (from Assistant):\n"
             f"{last_message.content}\n\n"
-            "Does this meet the criteria?"
         )
+        
+        if is_retry_loop:
+            user_message += (
+                "NOTE: This response has been retried multiple times. Be more lenient - "
+                "approve unless there are critical errors that make the response unusable.\n\n"
+            )
+        
+        user_message += "Does this meet the criteria?"
 
         if state.get("feedback_on_work"):
             user_message += f"\n\nPrior feedback:\n{state['feedback_on_work'][:200]}"
@@ -123,8 +157,19 @@ async def create_evaluator_node():
 
         # Get evaluation
         logger.info("   Calling Claude Haiku 4.5 for evaluation...")
+        if is_retry_loop:
+            logger.warning(f"   ⚠️  Retry loop detected ({retry_count} retries) - being more lenient")
+        
         try:
             eval_result = llm_with_output.invoke(evaluator_messages)
+            
+            # If we're in a retry loop and still rejecting, force approval to break the loop
+            if is_retry_loop and not eval_result.success_criteria_met and not eval_result.user_input_needed:
+                logger.warning("   ⚠️  Forcing approval to break retry loop")
+                eval_result.success_criteria_met = True
+                eval_result.feedback = (
+                    f"{eval_result.feedback} (Approved after {retry_count} retries to prevent infinite loop)"
+                )
         except Exception as e:
             logger.error(f"⚠️  Evaluation failed: {e}")
             logger.warning("   Falling back to default evaluation (approving response)")

@@ -223,7 +223,10 @@ async def create_orchestrator(
         logger.info(f"▶️  Starting graph execution for thread: {thread_id}")
         logger.info(f"   User message: {message[:100]}...")
 
-        config = {"configurable": {"thread_id": thread_id}}
+        config = {
+            "configurable": {"thread_id": thread_id},
+            "recursion_limit": 50,  # Increased from default 25 to prevent recursion errors
+        }
 
         sc = (
             success_criteria
