@@ -48,17 +48,17 @@ CREATE TABLE IF NOT EXISTS "Project" (
 
 -- Deal table
 CREATE TABLE IF NOT EXISTS "Deal" (
-  id              BIGSERIAL PRIMARY KEY,
-  name            TEXT NOT NULL,
-  description     TEXT,
-  owner_user_id   BIGINT,
-  current_status_id BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
-  value_amount    NUMERIC(18,2),
-  value_currency  TEXT DEFAULT 'USD',
-  probability     NUMERIC(5,2),
-  close_date      DATE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  id                  BIGSERIAL PRIMARY KEY,
+  name                TEXT NOT NULL,
+  description         TEXT,
+  owner_user_id       BIGINT,
+  current_status_id   BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
+  value_amount        NUMERIC(18,2),
+  value_currency      TEXT DEFAULT 'USD',
+  probability         NUMERIC(5,2),
+  expected_close_date DATE,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Organization table (for companies)
@@ -67,6 +67,9 @@ CREATE TABLE IF NOT EXISTS "Organization" (
   name            TEXT NOT NULL,
   website         TEXT,
   phone           TEXT,
+  industry        TEXT,
+  employee_count  INTEGER,
+  description     TEXT,
   notes           TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -76,13 +79,16 @@ CREATE TABLE IF NOT EXISTS "Organization" (
 -- Individual table (for people)
 CREATE TABLE IF NOT EXISTS "Individual" (
   id              BIGSERIAL PRIMARY KEY,
-  given_name      TEXT NOT NULL,
-  family_name     TEXT NOT NULL,
+  first_name      TEXT NOT NULL,
+  last_name       TEXT NOT NULL,
   email           TEXT,
   phone           TEXT,
+  linkedin_url    TEXT,
+  title           TEXT,
   notes           TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT uq_individual_email UNIQUE (LOWER(email))
 );
 
 -- Contact table
@@ -92,9 +98,11 @@ CREATE TABLE IF NOT EXISTS "Contact" (
   organization_id   BIGINT REFERENCES "Organization"(id) ON DELETE SET NULL,
   title             TEXT,
   department        TEXT,
+  role              TEXT,
   email             TEXT,
   phone             TEXT,
   is_primary        BOOLEAN NOT NULL DEFAULT FALSE,
+  notes             TEXT,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -121,7 +129,7 @@ CREATE TABLE IF NOT EXISTS "Task" (
   title               TEXT NOT NULL,
   description         TEXT,
   current_status_id   BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
-  current_priority_id BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
+  priority_id         BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
   due_date            DATE,
   completed_at        TIMESTAMPTZ,
   assigned_to_user_id BIGINT,
@@ -251,6 +259,69 @@ CREATE TABLE IF NOT EXISTS "Project_Individual" (
   PRIMARY KEY (project_id, individual_id)
 );
 
+-- Opportunity table (extends Lead via Joined Table Inheritance)
+CREATE TABLE IF NOT EXISTS "Opportunity" (
+  id                    BIGINT PRIMARY KEY REFERENCES "Lead"(id) ON DELETE CASCADE,
+  organization_id       BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
+  opportunity_name      TEXT NOT NULL,
+  estimated_value       NUMERIC(18,2),
+  probability           NUMERIC(5,2),
+  expected_close_date   DATE,
+  notes                 TEXT,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Partnership table (extends Lead via Joined Table Inheritance)
+CREATE TABLE IF NOT EXISTS "Partnership" (
+  id                BIGINT PRIMARY KEY REFERENCES "Lead"(id) ON DELETE CASCADE,
+  organization_id   BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
+  partnership_type  TEXT,
+  partnership_name  TEXT NOT NULL,
+  start_date        DATE,
+  end_date          DATE,
+  notes             TEXT,
+  created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Activity table (polymorphic association to track interactions)
+CREATE TABLE IF NOT EXISTS "Activity" (
+  id                  BIGSERIAL PRIMARY KEY,
+  activityable_type   TEXT,  -- 'Deal', 'Lead', 'Job', 'Opportunity', 'Partnership', etc.
+  activityable_id     BIGINT,
+  activity_type       TEXT NOT NULL,  -- 'Call', 'Email', 'Meeting', 'Note', etc.
+  subject             TEXT NOT NULL,
+  description         TEXT,
+  activity_date       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Organization_Relationship table (for tracking relationships between organizations)
+CREATE TABLE IF NOT EXISTS "Organization_Relationship" (
+  id                    BIGSERIAL PRIMARY KEY,
+  from_organization_id  BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
+  to_organization_id    BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
+  relationship_type     TEXT NOT NULL,  -- 'Investor', 'Customer', 'Vendor', 'Partner', etc.
+  notes                 TEXT,
+  created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT no_self_relationship CHECK (from_organization_id != to_organization_id)
+);
+
+-- Individual_Relationship table (for tracking relationships between individuals)
+CREATE TABLE IF NOT EXISTS "Individual_Relationship" (
+  id                  BIGSERIAL PRIMARY KEY,
+  from_individual_id  BIGINT NOT NULL REFERENCES "Individual"(id) ON DELETE CASCADE,
+  to_individual_id    BIGINT NOT NULL REFERENCES "Individual"(id) ON DELETE CASCADE,
+  relationship_type   TEXT NOT NULL,  -- 'Colleague', 'Reports To', 'Mentor', etc.
+  notes               TEXT,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT no_self_relationship_ind CHECK (from_individual_id != to_individual_id)
+);
+
 -- ==============================
 -- STEP 2: Create Triggers
 -- ==============================
@@ -306,6 +377,36 @@ CREATE TRIGGER update_task_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_opportunity_updated_at ON "Opportunity";
+CREATE TRIGGER update_opportunity_updated_at
+    BEFORE UPDATE ON "Opportunity"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_partnership_updated_at ON "Partnership";
+CREATE TRIGGER update_partnership_updated_at
+    BEFORE UPDATE ON "Partnership"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_activity_updated_at ON "Activity";
+CREATE TRIGGER update_activity_updated_at
+    BEFORE UPDATE ON "Activity"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_org_relationship_updated_at ON "Organization_Relationship";
+CREATE TRIGGER update_org_relationship_updated_at
+    BEFORE UPDATE ON "Organization_Relationship"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS update_ind_relationship_updated_at ON "Individual_Relationship";
+CREATE TRIGGER update_ind_relationship_updated_at
+    BEFORE UPDATE ON "Individual_Relationship"
+    FOR EACH ROW
+    EXECUTE FUNCTION update_updated_at_column();
+
 -- ==============================
 -- STEP 3: Seed Status Data
 -- ==============================
@@ -323,6 +424,7 @@ ON CONFLICT (name) DO NOTHING;
 INSERT INTO "Status" (name, category, is_terminal, description) VALUES
 ('New', 'lead', false, 'New lead created'),
 ('Qualified', 'lead', false, 'Lead has been qualified'),
+('Nurturing', 'lead', false, 'Nurturing the relationship'),
 ('Discovery', 'lead', false, 'Discovery phase'),
 ('Proposal', 'lead', false, 'Proposal submitted'),
 ('Negotiation', 'lead', false, 'In negotiation'),
@@ -335,6 +437,7 @@ ON CONFLICT (name) DO NOTHING;
 INSERT INTO "Status" (name, category, is_terminal, description) VALUES
 ('Prospecting', 'deal', false, 'Prospecting phase'),
 ('Qualification', 'deal', false, 'Qualification phase'),
+('Negotiating', 'deal', false, 'Negotiating terms'),
 ('Closed Won', 'deal', true, 'Deal won'),
 ('Closed Lost', 'deal', true, 'Deal lost')
 ON CONFLICT (name) DO NOTHING;
@@ -386,30 +489,34 @@ SELECT id, 1, false FROM "Status" WHERE name = 'Qualified' AND category = 'lead'
 ON CONFLICT (status_id) DO NOTHING;
 
 INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 2, false FROM "Status" WHERE name = 'Discovery' AND category = 'lead'
+SELECT id, 2, false FROM "Status" WHERE name = 'Nurturing' AND category = 'lead'
 ON CONFLICT (status_id) DO NOTHING;
 
 INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 3, false FROM "Status" WHERE name = 'Proposal' AND category = 'lead'
+SELECT id, 3, false FROM "Status" WHERE name = 'Discovery' AND category = 'lead'
 ON CONFLICT (status_id) DO NOTHING;
 
 INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 4, false FROM "Status" WHERE name = 'Negotiation' AND category = 'lead'
+SELECT id, 4, false FROM "Status" WHERE name = 'Proposal' AND category = 'lead'
 ON CONFLICT (status_id) DO NOTHING;
 
 INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 5, false FROM "Status" WHERE name = 'Won' AND category = 'lead'
+SELECT id, 5, false FROM "Status" WHERE name = 'Negotiation' AND category = 'lead'
 ON CONFLICT (status_id) DO NOTHING;
 
 INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 6, false FROM "Status" WHERE name = 'Lost' AND category = 'lead'
+SELECT id, 6, false FROM "Status" WHERE name = 'Won' AND category = 'lead'
 ON CONFLICT (status_id) DO NOTHING;
 
 INSERT INTO "Lead_Status" (status_id, display_order, is_default)
-SELECT id, 7, false FROM "Status" WHERE name = 'On Hold' AND category = 'lead'
+SELECT id, 7, false FROM "Status" WHERE name = 'Lost' AND category = 'lead'
 ON CONFLICT (status_id) DO NOTHING;
 
--- Configure Deal workflow (reusing some Lead statuses)
+INSERT INTO "Lead_Status" (status_id, display_order, is_default)
+SELECT id, 8, false FROM "Status" WHERE name = 'On Hold' AND category = 'lead'
+ON CONFLICT (status_id) DO NOTHING;
+
+-- Configure Deal workflow
 INSERT INTO "Deal_Status" (status_id, display_order, is_default)
 SELECT id, 0, true FROM "Status" WHERE name = 'Prospecting' AND category = 'deal'
 ON CONFLICT (status_id) DO NOTHING;
@@ -419,19 +526,15 @@ SELECT id, 1, false FROM "Status" WHERE name = 'Qualification' AND category = 'd
 ON CONFLICT (status_id) DO NOTHING;
 
 INSERT INTO "Deal_Status" (status_id, display_order, is_default)
-SELECT id, 2, false FROM "Status" WHERE name = 'Proposal' AND category = 'lead'
+SELECT id, 2, false FROM "Status" WHERE name = 'Negotiating' AND category = 'deal'
 ON CONFLICT (status_id) DO NOTHING;
 
 INSERT INTO "Deal_Status" (status_id, display_order, is_default)
-SELECT id, 3, false FROM "Status" WHERE name = 'Negotiation' AND category = 'lead'
+SELECT id, 3, false FROM "Status" WHERE name = 'Closed Won' AND category = 'deal'
 ON CONFLICT (status_id) DO NOTHING;
 
 INSERT INTO "Deal_Status" (status_id, display_order, is_default)
-SELECT id, 4, false FROM "Status" WHERE name = 'Closed Won' AND category = 'deal'
-ON CONFLICT (status_id) DO NOTHING;
-
-INSERT INTO "Deal_Status" (status_id, display_order, is_default)
-SELECT id, 5, false FROM "Status" WHERE name = 'Closed Lost' AND category = 'deal'
+SELECT id, 4, false FROM "Status" WHERE name = 'Closed Lost' AND category = 'deal'
 ON CONFLICT (status_id) DO NOTHING;
 
 -- Configure Task statuses
@@ -601,25 +704,7 @@ CREATE TRIGGER update_job_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- ==============================
--- STEP 6: Create Indexes
--- ==============================
-
-CREATE INDEX IF NOT EXISTS idx_job_organization ON "Job"(organization_id);
-CREATE INDEX IF NOT EXISTS idx_job_title ON "Job"(job_title);
-CREATE INDEX IF NOT EXISTS idx_job_created ON "Job"(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_lead_deal ON "Lead"(deal_id);
-CREATE INDEX IF NOT EXISTS idx_lead_status ON "Lead"(current_status_id);
-CREATE INDEX IF NOT EXISTS idx_lead_type ON "Lead"(type);
-CREATE INDEX IF NOT EXISTS idx_lead_created ON "Lead"(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_deal_status ON "Deal"(current_status_id);
-CREATE INDEX IF NOT EXISTS idx_task_taskable ON "Task"(taskable_type, taskable_id);
-CREATE INDEX IF NOT EXISTS idx_task_status ON "Task"(current_status_id);
-CREATE INDEX IF NOT EXISTS idx_task_priority ON "Task"(current_priority_id);
-CREATE INDEX IF NOT EXISTS idx_task_due_date ON "Task"(due_date);
-CREATE INDEX IF NOT EXISTS idx_organization_name ON "Organization"(LOWER(name));
-
--- ==============================
--- STEP 7: Cleanup (Optional)
+-- STEP 6: Cleanup (Optional)
 -- ==============================
 
 -- Keep Job_old table for safety
