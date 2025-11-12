@@ -30,6 +30,11 @@ export const PUT = async (
   const { id } = await params;
   const body = await request.json();
 
+  // Sanitize date fields: convert empty strings to null
+  const sanitizedBody = { ...body };
+  if ('date' in sanitizedBody && sanitizedBody.date === '') sanitizedBody.date = null;
+  if ('resume' in sanitizedBody && sanitizedBody.resume === '') sanitizedBody.resume = null;
+
   if (USE_LOCAL_DB) {
     const client = await getLocalPostgresClient();
     if (!client) {
@@ -44,37 +49,37 @@ export const PUT = async (
       const values: any[] = [];
       let paramIndex = 1;
 
-      if (body.company !== undefined) {
+      if (sanitizedBody.company !== undefined) {
         updates.push(`company = $${paramIndex++}`);
-        values.push(body.company);
+        values.push(sanitizedBody.company);
       }
-      if (body.date !== undefined) {
+      if (sanitizedBody.date !== undefined) {
         updates.push(`date = $${paramIndex++}`);
-        values.push(body.date);
+        values.push(sanitizedBody.date);
       }
-      if (body.resume !== undefined) {
+      if (sanitizedBody.resume !== undefined) {
         updates.push(`resume = $${paramIndex++}`);
-        values.push(body.resume);
+        values.push(sanitizedBody.resume);
       }
-      if (body.job_title !== undefined) {
+      if (sanitizedBody.job_title !== undefined) {
         updates.push(`job_title = $${paramIndex++}`);
-        values.push(body.job_title);
+        values.push(sanitizedBody.job_title);
       }
-      if (body.status !== undefined) {
+      if (sanitizedBody.status !== undefined) {
         updates.push(`status = $${paramIndex++}`);
-        values.push(body.status);
+        values.push(sanitizedBody.status);
       }
-      if (body.job_url !== undefined) {
+      if (sanitizedBody.job_url !== undefined) {
         updates.push(`job_url = $${paramIndex++}`);
-        values.push(body.job_url);
+        values.push(sanitizedBody.job_url);
       }
-      if (body.salary_range !== undefined) {
+      if (sanitizedBody.salary_range !== undefined) {
         updates.push(`salary_range = $${paramIndex++}`);
-        values.push(body.salary_range);
+        values.push(sanitizedBody.salary_range);
       }
-      if (body.notes !== undefined) {
+      if (sanitizedBody.notes !== undefined) {
         updates.push(`notes = $${paramIndex++}`);
-        values.push(body.notes);
+        values.push(sanitizedBody.notes);
       }
 
       updates.push(`updated_at = NOW()`);
@@ -91,11 +96,11 @@ export const PUT = async (
       }
 
       return NextResponse.json(result.rows[0]);
-    } catch (error) {
+    } catch (error: any) {
       await client.end();
       console.error("Error updating job in Postgres:", error);
       return NextResponse.json(
-        { error: "Failed to update job" },
+        { error: error.message || "Failed to update job" },
         { status: 500 }
       );
     }
@@ -106,7 +111,7 @@ export const PUT = async (
     const { supabase } = await import("../../../../lib/supabase");
     const { data, error } = await supabase
       .from("Job")
-      .update(body)
+      .update(sanitizedBody)
       .eq("id", id)
       .select()
       .single();
@@ -114,10 +119,10 @@ export const PUT = async (
     if (error) throw error;
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating job:", error);
     return NextResponse.json(
-      { error: "Failed to update job" },
+      { error: error.message || "Failed to update job" },
       { status: 500 }
     );
   }

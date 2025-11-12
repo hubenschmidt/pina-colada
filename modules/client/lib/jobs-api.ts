@@ -86,15 +86,43 @@ export const fetchJobs = async (
   };
 }
 
+// Helper to sanitize date fields: convert empty strings to null
+const sanitizeJobInsert = (job: AppliedJobInsert): AppliedJobInsert => {
+  const sanitized = { ...job };
+  // Convert empty strings to null for date/timestamp fields
+  if (sanitized.date === '') {
+    sanitized.date = null as any;
+  }
+  if (sanitized.resume === '') {
+    sanitized.resume = null as any;
+  }
+  return sanitized;
+};
+
+const sanitizeJobUpdate = (job: AppliedJobUpdate): AppliedJobUpdate => {
+  const sanitized = { ...job };
+  // Convert empty strings to null for date/timestamp fields
+  if ('date' in sanitized && sanitized.date === '') {
+    sanitized.date = null as any;
+  }
+  if ('resume' in sanitized && sanitized.resume === '') {
+    sanitized.resume = null as any;
+  }
+  return sanitized;
+};
+
 export const createJob = async (job: AppliedJobInsert): Promise<AppliedJob> => {
+  const sanitized = sanitizeJobInsert(job);
+  
   if (USE_API_ROUTES) {
     const response = await fetch('/api/jobs', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(job),
+      body: JSON.stringify(sanitized),
     });
     if (!response.ok) {
-      throw new Error('Failed to create job');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to create job');
     }
     return response.json();
   }
@@ -105,7 +133,7 @@ export const createJob = async (job: AppliedJobInsert): Promise<AppliedJob> => {
   }
   const { data, error } = await supabase
     .from('Job')
-    .insert(job)
+    .insert(sanitized)
     .select()
     .single();
   
@@ -114,14 +142,17 @@ export const createJob = async (job: AppliedJobInsert): Promise<AppliedJob> => {
 }
 
 export const updateJob = async (id: string, job: AppliedJobUpdate): Promise<AppliedJob> => {
+  const sanitized = sanitizeJobUpdate(job);
+  
   if (USE_API_ROUTES) {
     const response = await fetch(`/api/jobs/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(job),
+      body: JSON.stringify(sanitized),
     });
     if (!response.ok) {
-      throw new Error('Failed to update job');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to update job');
     }
     return response.json();
   }
@@ -132,7 +163,7 @@ export const updateJob = async (id: string, job: AppliedJobUpdate): Promise<Appl
   }
   const { data, error } = await supabase
     .from('Job')
-    .update(job)
+    .update(sanitized)
     .eq('id', id)
     .select()
     .single();
@@ -162,5 +193,38 @@ export const deleteJob = async (id: string): Promise<void> => {
     .eq('id', id);
   
   if (error) throw error;
+}
+
+export const getMostRecentResumeDate = async (): Promise<string | null> => {
+  if (USE_API_ROUTES) {
+    const response = await fetch('/api/jobs/recent-resume-date');
+    if (!response.ok) {
+      return null;
+    }
+    const data = await response.json();
+    return data.resume_date || null;
+  }
+  
+  const { supabase } = await import('./supabase');
+  if (!supabase) {
+    return null;
+  }
+  
+  // Get the most recent job with a resume date, ordered by date DESC
+  const { data, error } = await supabase
+    .from('Job')
+    .select('resume')
+    .not('resume', 'is', null)
+    .order('date', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  
+  if (error || !data || !data.resume) {
+    return null;
+  }
+  
+  // Convert timestamp to date string (YYYY-MM-DD format for date input)
+  const date = new Date(data.resume);
+  return date.toISOString().split('T')[0];
 }
 

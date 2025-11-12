@@ -160,6 +160,11 @@ export const GET = async (request: NextRequest) => {
 export const POST = async (request: NextRequest) => {
   const body = await request.json();
 
+  // Sanitize date fields: convert empty strings to null
+  const sanitizedBody = { ...body };
+  if (sanitizedBody.date === '') sanitizedBody.date = null;
+  if (sanitizedBody.resume === '') sanitizedBody.resume = null;
+
   if (USE_LOCAL_DB) {
     const client = await getLocalPostgresClient();
     if (!client) {
@@ -175,24 +180,24 @@ export const POST = async (request: NextRequest) => {
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
          RETURNING *`,
         [
-          body.company,
-          body.job_title,
-          body.date || new Date().toISOString(),
-          body.job_url || null,
-          body.salary_range || null,
-          body.notes || null,
-          body.resume || null,
-          body.status || "applied",
-          body.source || "manual",
+          sanitizedBody.company,
+          sanitizedBody.job_title,
+          sanitizedBody.date || new Date().toISOString(),
+          sanitizedBody.job_url || null,
+          sanitizedBody.salary_range || null,
+          sanitizedBody.notes || null,
+          sanitizedBody.resume || null,
+          sanitizedBody.status || "applied",
+          sanitizedBody.source || "manual",
         ]
       );
       await client.end();
       return NextResponse.json(result.rows[0]);
-    } catch (error) {
+    } catch (error: any) {
       await client.end();
       console.error("Error creating job in Postgres:", error);
       return NextResponse.json(
-        { error: "Failed to create job" },
+        { error: error.message || "Failed to create job" },
         { status: 500 }
       );
     }
@@ -203,17 +208,17 @@ export const POST = async (request: NextRequest) => {
     const { supabase } = await import("../../../lib/supabase");
     const { data, error } = await supabase
       .from("Job")
-      .insert(body)
+      .insert(sanitizedBody)
       .select()
       .single();
 
     if (error) throw error;
 
     return NextResponse.json(data);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error creating job:", error);
     return NextResponse.json(
-      { error: "Failed to create job" },
+      { error: error.message || "Failed to create job" },
       { status: 500 }
     );
   }
