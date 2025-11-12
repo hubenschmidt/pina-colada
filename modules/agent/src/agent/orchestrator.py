@@ -225,7 +225,7 @@ async def create_orchestrator(
 
         config = {
             "configurable": {"thread_id": thread_id},
-            "recursion_limit": 50,  # Increased from default 25 to prevent recursion errors
+            "recursion_limit": 25,  # prevent recursion errors
         }
 
         sc = (
