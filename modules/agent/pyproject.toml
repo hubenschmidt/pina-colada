@@ -39,12 +39,15 @@ requires = ["setuptools>=73.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
-packages = ["langgraph.templates.agent", "agent", "api", "models"]
+packages = ["langgraph.templates.agent", "agent", "api", "models", "controllers", "repositories", "services"]
 [tool.setuptools.package-dir]
 "langgraph.templates.agent" = "src/agent"
 "agent" = "src/agent"
 "api" = "src/api"
 "models" = "src/models"
+"controllers" = "src/controllers"
+"repositories" = "src/repositories"
+"services" = "src/services"
 
 
 [tool.setuptools.package-data]

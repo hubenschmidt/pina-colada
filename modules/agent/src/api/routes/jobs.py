@@ -3,7 +3,7 @@
 from typing import Optional, Type
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel, create_model
-from agent.controllers.jobs_controller import (
+from controllers.jobs_controller import (
     get_jobs,
     create_job,
     get_job,

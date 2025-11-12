@@ -1,6 +1,6 @@
 """Repository layer for data access."""
 
-from api.repositories.job_repository import (
+from repositories.job_repository import (
     find_all_jobs,
     count_jobs,
     find_job_by_id,

@@ -1,8 +1,8 @@
 """Routes layer for API endpoints."""
 
-from api.routes.jobs_routes import router as jobs_router
-from api.routes.lead_status_routes import router as lead_status_router
-from api.routes.leads_routes import router as leads_router
+from api.routes.jobs import router as jobs_routes
+from api.routes.lead_status import router as lead_status_routes
+from api.routes.leads import router as leads_routes
 
-__all__ = ["jobs_router", "lead_status_router", "leads_router"]
+__all__ = ["jobs_routes", "lead_status_routes", "leads_routes"]
 

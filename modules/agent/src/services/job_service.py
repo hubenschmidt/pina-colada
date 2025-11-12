@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, List, Optional
 from models.Job import JobCreateData, orm_to_dict
-from api.repositories.job_repository import (
+from repositories.job_repository import (
     find_all_jobs,
     create_job,
     find_job_by_id,
@@ -221,7 +221,7 @@ def update_job_by_company(
     Find and update a job by company name and job title (fuzzy matching).
     Returns updated job or None if not found.
     """
-    from api.repositories.job_repository import find_all_jobs, update_job
+    from repositories.job_repository import find_all_jobs, update_job
     from models.Job import JobUpdateData, orm_to_dict
 
     # Get all jobs and find matching one

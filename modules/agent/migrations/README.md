@@ -5,6 +5,8 @@ This directory contains SQL migration files for the Supabase database schema.
 ## Migration Files
 
 - `001_initial_schema.sql`: Creates the initial `Job` table with indexes, triggers, and RLS policies
+- `002_rename_job_model_to_lead.sql`: Renames `Job` table to `Lead` and updates all references
+- `003_implement_dealtracker_schema.sql`: Implements DealTracker CRM schema with Deal, Lead, Organization, Individual, Contact tables
 
 ## Running Migrations
 

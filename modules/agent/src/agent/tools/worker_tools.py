@@ -18,7 +18,7 @@ USE_SUPABASE = os.getenv("USE_SUPABASE", "true").lower() == "true"
 USE_LOCAL_POSTGRES = os.getenv("USE_LOCAL_POSTGRES", "false").lower() == "true"
 
 if USE_LOCAL_POSTGRES:
-    from agent.services.job_service import (
+    from services.job_service import (
         get_jobs_details,
         fetch_applied_jobs,
         is_job_applied,
@@ -36,7 +36,7 @@ if USE_LOCAL_POSTGRES:
             "add_applied_job": lambda **kwargs: add_job(**kwargs),
         }
 else:
-    from agent.services.supabase_client import get_applied_jobs_tracker
+    from services.supabase_client import get_applied_jobs_tracker
 from pydantic import BaseModel, Field
 
 load_dotenv(override=True)
@@ -445,7 +445,7 @@ def job_search_with_filter(query: str) -> str:
         tracker = get_applied_jobs_tracker()
 
         # Get all jobs (not just status='applied') to include 'do_not_apply' in filtering
-        from agent.services.job_service import get_all_jobs
+        from services.job_service import get_all_jobs
         all_jobs = get_all_jobs(refresh=True)
 
         logger.info(f"Loaded {len(all_jobs)} total jobs for filtering (will filter out 'applied' and 'do_not_apply')")
@@ -681,7 +681,7 @@ def update_job_status(
     Returns:
         Confirmation message
     """
-    from agent.services.job_service import update_job_by_company, add_job
+    from services.job_service import update_job_by_company, add_job
 
     # Validate status
     valid_statuses = ['applied', 'interviewing', 'rejected', 'offer', 'accepted', 'do_not_apply']
