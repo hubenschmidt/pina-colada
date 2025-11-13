@@ -8,6 +8,7 @@ from models.Job import Job, JobCreateData, JobUpdateData
 from models.Lead import Lead, LeadCreateData
 from models.Status import Status
 from models.Organization import Organization
+from models.Deal import Deal
 from lib.db import get_session
 from repositories.deal_repository import get_or_create_deal
 from repositories.status_repository import find_status_by_name
@@ -21,8 +22,9 @@ def find_all_jobs() -> List[Job]:
     try:
         stmt = select(Job).options(
             joinedload(Job.lead).joinedload(Lead.current_status),
-            joinedload(Job.lead).joinedload(Lead.deal),
-            joinedload(Job.organization)
+            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
+            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
+            joinedload(Job.organization).joinedload(Organization.tenant)
         ).join(Lead).order_by(Lead.created_at.desc())
         return list(session.execute(stmt).unique().scalars().all())
     finally:
@@ -45,8 +47,9 @@ def find_job_by_id(job_id: int) -> Optional[Job]:
     try:
         stmt = select(Job).options(
             joinedload(Job.lead).joinedload(Lead.current_status),
-            joinedload(Job.lead).joinedload(Lead.deal),
-            joinedload(Job.organization)
+            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
+            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
+            joinedload(Job.organization).joinedload(Organization.tenant)
         ).where(Job.id == job_id)
         return session.execute(stmt).unique().scalar_one_or_none()
     finally:
@@ -112,11 +115,17 @@ def create_job(data: JobCreateData) -> Job:
 
         session.add(job)
         session.commit()
-        session.refresh(job)
 
-        # Load relationships for return
-        session.refresh(job, ["lead", "organization"])
-        return job
+        # Eagerly load all relationships before closing session
+        stmt = select(Job).options(
+            joinedload(Job.lead).joinedload(Lead.current_status),
+            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
+            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
+            joinedload(Job.organization).joinedload(Organization.tenant)
+        ).where(Job.id == job.id)
+
+        loaded_job = session.execute(stmt).unique().scalar_one()
+        return loaded_job
     except Exception as e:
         session.rollback()
         logger.error(f"Failed to create job: {e}")
@@ -173,8 +182,17 @@ def update_job(job_id: int, data: JobUpdateData) -> Optional[Job]:
                 job.lead.title = f"{org.name if org else 'Unknown'} - {job.job_title}"
 
         session.commit()
-        session.refresh(job)
-        return job
+
+        # Eagerly load all relationships before closing session
+        stmt = select(Job).options(
+            joinedload(Job.lead).joinedload(Lead.current_status),
+            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
+            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
+            joinedload(Job.organization).joinedload(Organization.tenant)
+        ).where(Job.id == job.id)
+
+        loaded_job = session.execute(stmt).unique().scalar_one()
+        return loaded_job
     except Exception as e:
         session.rollback()
         logger.error(f"Failed to update job: {e}")
@@ -211,11 +229,16 @@ def find_job_by_company_and_title(company: str, title: str) -> Optional[Job]:
     """Find job by company name and title."""
     session = get_session()
     try:
-        stmt = select(Job).join(Organization).join(Lead).where(
+        stmt = select(Job).options(
+            joinedload(Job.lead).joinedload(Lead.current_status),
+            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
+            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
+            joinedload(Job.organization).joinedload(Organization.tenant)
+        ).join(Organization).join(Lead).where(
             sql_func.lower(Organization.name).contains(sql_func.lower(company.strip())),
             sql_func.lower(Job.job_title).contains(sql_func.lower(title.strip()))
         )
-        return session.execute(stmt).scalar_one_or_none()
+        return session.execute(stmt).unique().scalar_one_or_none()
     finally:
         session.close()
 
@@ -236,8 +259,9 @@ def find_jobs_with_status(status_names: Optional[List[str]] = None) -> List[Job]
     try:
         stmt = select(Job).options(
             joinedload(Job.lead).joinedload(Lead.current_status),
-            joinedload(Job.lead).joinedload(Lead.deal),
-            joinedload(Job.organization)
+            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
+            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
+            joinedload(Job.organization).joinedload(Organization.tenant)
         ).join(Lead).join(Status).where(Lead.current_status_id.isnot(None))
 
         if status_names:

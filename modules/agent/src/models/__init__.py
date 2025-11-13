@@ -20,6 +20,7 @@ from models.Lead import Lead, LeadData, LeadCreateData, LeadUpdateData
 from models.Job import Job, JobData, JobCreateData, JobUpdateData
 from models.Opportunity import Opportunity, OpportunityData, OpportunityCreateData, OpportunityUpdateData
 from models.Partnership import Partnership, PartnershipData, PartnershipCreateData, PartnershipUpdateData
+from models.Task import Task, TaskData, TaskCreateData, TaskUpdateData
 
 __all__ = [
     "Base",
@@ -92,4 +93,9 @@ __all__ = [
     "PartnershipData",
     "PartnershipCreateData",
     "PartnershipUpdateData",
+    # Task
+    "Task",
+    "TaskData",
+    "TaskCreateData",
+    "TaskUpdateData",
 ]

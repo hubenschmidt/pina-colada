@@ -64,7 +64,7 @@ const TenantSelector = ({ tenants, onSelectTenant, onCreateTenant }: TenantSelec
                 className="cursor-pointer hover:bg-gray-50"
                 onClick={() => onSelectTenant(tenant.id)}
               >
-                <Text weight={500}>{tenant.name}</Text>
+                <Text fw={500}>{tenant.name}</Text>
                 <Text size="sm" c="dimmed">Role: {tenant.role}</Text>
               </Card>
             ))}

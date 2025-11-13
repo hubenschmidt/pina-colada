@@ -15,7 +15,7 @@ VALUES
     ('DataFlow Analytics', 'https://dataflow.example.com', 'Data Analytics', 75, 'Real-time data analytics platform', NOW(), NOW()),
     ('SecureNet Solutions', 'https://securenet.example.com', 'Cybersecurity', 150, 'Enterprise security software', NOW(), NOW()),
     ('InnovateLab', 'https://innovatelab.example.com', 'Consulting', 30, 'Innovation consulting for startups', NOW(), NOW())
-ON CONFLICT (LOWER(name)) DO NOTHING;
+ON CONFLICT ((LOWER(name))) DO NOTHING;
 
 -- ==============================
 -- STEP 2: Create Sample Individuals
@@ -29,7 +29,7 @@ VALUES
     ('Jessica', 'Williams', 'jessica.w@innovatelab.example.com', '+1-510-555-0105', 'https://linkedin.com/in/jessicawilliams', 'Principal Consultant', 'Specializes in go-to-market strategy', NOW(), NOW()),
     ('Robert', 'Taylor', 'robert.t@techventures.example.com', '+1-415-555-0106', 'https://linkedin.com/in/roberttaylor', 'Associate', 'Focuses on early-stage deals', NOW(), NOW()),
     ('Amanda', 'Brown', 'amanda.b@cloudscale.example.com', '+1-415-555-0107', 'https://linkedin.com/in/amandabrown', 'Senior Software Engineer', 'Backend infrastructure specialist', NOW(), NOW())
-ON CONFLICT (LOWER(email)) DO NOTHING;
+ON CONFLICT ((LOWER(email))) DO NOTHING;
 
 -- ==============================
 -- STEP 3: Create Contact Relationships
@@ -69,44 +69,37 @@ BEGIN
     -- Create Contact relationships
     IF org_techventures_id IS NOT NULL AND ind_sarah_id IS NOT NULL THEN
         INSERT INTO "Contact" (organization_id, individual_id, role, is_primary, notes, created_at, updated_at)
-        VALUES (org_techventures_id, ind_sarah_id, 'Decision Maker', TRUE, 'Main contact for investment discussions', NOW(), NOW())
-        ON CONFLICT DO NOTHING;
+        VALUES (org_techventures_id, ind_sarah_id, 'Decision Maker', TRUE, 'Main contact for investment discussions', NOW(), NOW());
     END IF;
 
     IF org_techventures_id IS NOT NULL AND ind_robert_id IS NOT NULL THEN
         INSERT INTO "Contact" (organization_id, individual_id, role, is_primary, notes, created_at, updated_at)
-        VALUES (org_techventures_id, ind_robert_id, 'Influencer', FALSE, 'Can provide warm introductions', NOW(), NOW())
-        ON CONFLICT DO NOTHING;
+        VALUES (org_techventures_id, ind_robert_id, 'Influencer', FALSE, 'Can provide warm introductions', NOW(), NOW());
     END IF;
 
     IF org_cloudscale_id IS NOT NULL AND ind_michael_id IS NOT NULL THEN
         INSERT INTO "Contact" (organization_id, individual_id, role, is_primary, notes, created_at, updated_at)
-        VALUES (org_cloudscale_id, ind_michael_id, 'Decision Maker', TRUE, 'Hiring manager for engineering roles', NOW(), NOW())
-        ON CONFLICT DO NOTHING;
+        VALUES (org_cloudscale_id, ind_michael_id, 'Decision Maker', TRUE, 'Hiring manager for engineering roles', NOW(), NOW());
     END IF;
 
     IF org_cloudscale_id IS NOT NULL AND ind_amanda_id IS NOT NULL THEN
         INSERT INTO "Contact" (organization_id, individual_id, role, is_primary, notes, created_at, updated_at)
-        VALUES (org_cloudscale_id, ind_amanda_id, 'Technical Contact', FALSE, 'Can provide technical insight', NOW(), NOW())
-        ON CONFLICT DO NOTHING;
+        VALUES (org_cloudscale_id, ind_amanda_id, 'Technical Contact', FALSE, 'Can provide technical insight', NOW(), NOW());
     END IF;
 
     IF org_dataflow_id IS NOT NULL AND ind_emily_id IS NOT NULL THEN
         INSERT INTO "Contact" (organization_id, individual_id, role, is_primary, notes, created_at, updated_at)
-        VALUES (org_dataflow_id, ind_emily_id, 'Decision Maker', TRUE, 'Leads product hiring', NOW(), NOW())
-        ON CONFLICT DO NOTHING;
+        VALUES (org_dataflow_id, ind_emily_id, 'Decision Maker', TRUE, 'Leads product hiring', NOW(), NOW());
     END IF;
 
     IF org_securenet_id IS NOT NULL AND ind_david_id IS NOT NULL THEN
         INSERT INTO "Contact" (organization_id, individual_id, role, is_primary, notes, created_at, updated_at)
-        VALUES (org_securenet_id, ind_david_id, 'Decision Maker', TRUE, 'Technical leadership contact', NOW(), NOW())
-        ON CONFLICT DO NOTHING;
+        VALUES (org_securenet_id, ind_david_id, 'Decision Maker', TRUE, 'Technical leadership contact', NOW(), NOW());
     END IF;
 
     IF org_innovatelab_id IS NOT NULL AND ind_jessica_id IS NOT NULL THEN
         INSERT INTO "Contact" (organization_id, individual_id, role, is_primary, notes, created_at, updated_at)
-        VALUES (org_innovatelab_id, ind_jessica_id, 'Champion', TRUE, 'Strong advocate, met at conference', NOW(), NOW())
-        ON CONFLICT DO NOTHING;
+        VALUES (org_innovatelab_id, ind_jessica_id, 'Champion', TRUE, 'Strong advocate, met at conference', NOW(), NOW());
     END IF;
 
     RAISE NOTICE 'Contact relationships created successfully';
@@ -131,8 +124,7 @@ BEGIN
     VALUES
         ('Consulting Engagement - TechVentures', 'Product strategy consulting for portfolio companies', status_negotiating_id, NOW() + INTERVAL '30 days', NOW(), NOW()),
         ('Partnership - CloudScale', 'Technical partnership for cloud infrastructure', status_prospecting_id, NOW() + INTERVAL '60 days', NOW(), NOW()),
-        ('Business Development - SecureNet', 'Exploring collaboration opportunities', status_prospecting_id, NOW() + INTERVAL '90 days', NOW(), NOW())
-    ON CONFLICT DO NOTHING;
+        ('Business Development - SecureNet', 'Exploring collaboration opportunities', status_prospecting_id, NOW() + INTERVAL '90 days', NOW(), NOW());
 
     RAISE NOTICE 'Deals created successfully';
 END $$;
@@ -541,8 +533,7 @@ BEGIN
             'TechVentures led Series A round in 2024',
             NOW(),
             NOW()
-        )
-        ON CONFLICT DO NOTHING;
+        );
     END IF;
 
     -- CloudScale is a customer of DataFlow
@@ -555,8 +546,7 @@ BEGIN
             'CloudScale uses DataFlow for internal analytics',
             NOW(),
             NOW()
-        )
-        ON CONFLICT DO NOTHING;
+        );
     END IF;
 
     RAISE NOTICE 'Organization relationships created successfully';
