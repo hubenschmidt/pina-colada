@@ -1,15 +1,19 @@
 # JIRA TICKET: Job Search Chat Enhancements
 
 ## Ticket Type
+
 **Story / Enhancement**
 
 ## Summary
+
 Enhance job search chat with export functionality, dedicated job leads panel, and streamlined application tracking
 
 ## Priority
+
 Medium-High
 
 ## Components
+
 - Frontend (React/Next.js)
 - Backend Agent (Python/FastAPI)
 - Database (Supabase/Postgres)
@@ -35,6 +39,7 @@ Based on user feedback from real chat sessions, we need to enhance the job searc
 ### Problem Statement
 
 Currently:
+
 - Users cannot easily save their chat conversations for reference
 - Job leads are presented inline in chat, making them hard to track and compare
 - Users must manually navigate to JobTracker to record applications
@@ -46,6 +51,7 @@ Currently:
 ## Acceptance Criteria
 
 ### 1. Chat Export Feature
+
 - [ ] Single button in chat interface labeled "Export Chat"
 - [ ] Clicking exports entire conversation to `.txt` file
 - [ ] Filename format: `pinacolada-chat-{timestamp}.txt`
@@ -53,6 +59,7 @@ Currently:
 - [ ] Export preserves formatting (line breaks, links)
 
 ### 2. Job Leads Panel
+
 - [ ] When agent responds with job leads, jobs are automatically added to database with `lead_type = 'Qualifying'`
 - [ ] Job Leads Panel opens automatically showing database-backed leads
 - [ ] Panel queries jobs where `lead_type IS NOT NULL`
@@ -70,9 +77,11 @@ Currently:
 - [ ] User can manually change lead type for any job in the panel
 
 ### 3. Quick Action Buttons on Job Leads
+
 Each job in the leads panel has three action buttons:
 
 - [ ] **"Applied"** button
+
   - Updates job in database: `status = 'applied'`, `lead_type = NULL`
   - Sets `date = NOW()` (if not already set)
   - Removes job from leads panel (no longer shows in filtered view)
@@ -80,6 +89,7 @@ Each job in the leads panel has three action buttons:
   - Shows success toast notification
 
 - [ ] **"Remove"** button
+
   - Deletes job record from database entirely
   - Removes from leads panel immediately
   - No confirmation required
@@ -93,13 +103,16 @@ Each job in the leads panel has three action buttons:
   - Shows success toast notification
 
 ### 4. Agent Natural Language Database Actions
+
 Agent should respond to commands like:
+
 - [ ] "I applied to Alto Neuroscience" → Adds job with `status = 'applied'`
 - [ ] "Mark Ramp as applied" → Same as above
 - [ ] "I don't want to apply to CoreWeave" → Adds with `status = 'do_not_apply'`
 - [ ] "Remove Tome from my list" → Adds with `status = 'do_not_apply'`
 
 Implementation requirements:
+
 - [ ] Create new tool in `worker_tools.py`: `update_job_status(company, job_title, status, job_url, notes)`
 - [ ] Tool should handle fuzzy matching on company name
 - [ ] Tool should be available to Job Hunter agent and Worker agent
@@ -115,11 +128,13 @@ Implementation requirements:
 **Add two new fields to Job table:**
 
 1. **New status value: `'do_not_apply'`**
+
 ```sql
 ALTER TYPE job_status ADD VALUE IF NOT EXISTS 'do_not_apply';
 ```
 
 2. **New column: `lead_type`**
+
 ```sql
 -- Add lead_type column as ENUM
 CREATE TYPE lead_type AS ENUM ('Qualifying', 'Cold', 'Warm', 'Hot');
@@ -133,6 +148,7 @@ COMMENT ON COLUMN "Job".lead_type IS 'Type of job lead: Qualifying (initial), Co
 ```
 
 **New status value: `'lead'`** (optional, for clarity)
+
 ```sql
 -- Add 'lead' status to distinguish un-applied leads from applied jobs
 ALTER TYPE job_status ADD VALUE IF NOT EXISTS 'lead';
@@ -145,16 +161,17 @@ ALTER TYPE job_status ADD VALUE IF NOT EXISTS 'lead';
 #### 1. Chat Export (`modules/client/components/Chat/Chat.tsx`)
 
 Add export button to header:
+
 ```tsx
 const exportChat = () => {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const content = messages.map(msg =>
-    `[${msg.timestamp}] ${msg.role}: ${msg.content}\n`
-  ).join('\n');
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const content = messages
+    .map((msg) => `[${msg.timestamp}] ${msg.role}: ${msg.content}\n`)
+    .join("\n");
 
-  const blob = new Blob([content], { type: 'text/plain' });
+  const blob = new Blob([content], { type: "text/plain" });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
+  const a = document.createElement("a");
   a.href = url;
   a.download = `pinacolada-chat-${timestamp}.txt`;
   a.click();
@@ -164,25 +181,27 @@ const exportChat = () => {
 #### 2. Job Leads Panel (`modules/client/components/JobLeadsPanel/JobLeadsPanel.tsx` - NEW)
 
 New component structure:
+
 ```tsx
 interface JobLead {
   id: string; // UUID from database
   company: string;
   title: string;
   url: string;
-  lead_type: 'Qualifying' | 'Cold' | 'Warm' | 'Hot';
+  lead_type: "Qualifying" | "Cold" | "Warm" | "Hot";
   created_at: string;
 }
 
 interface JobLeadsPanelProps {
   isOpen: boolean;
   onClose: () => void;
-  selectedLeadTypes: ('Qualifying' | 'Cold' | 'Warm' | 'Hot')[];
+  selectedLeadTypes: ("Qualifying" | "Cold" | "Warm" | "Hot")[];
   onFilterChange: (types: string[]) => void;
 }
 ```
 
 Features:
+
 - Sliding panel or modal (suggest sliding panel from right side)
 - Sticky header with count, filter dropdown, and close button
 - Filter dropdown shows checkboxes for: Qualifying, Cold, Warm, Hot, All
@@ -195,6 +214,7 @@ Features:
 #### 3. Job Lead Detection and Auto-Save Logic
 
 Parse agent responses to detect job leads and save to database:
+
 - Pattern: Company name + "- " + Job title + "- " + URL
 - Example: `Ramp - Senior Software Engineer - https://ramp.com/careers/...`
 - Use regex to extract structured data
@@ -213,9 +233,9 @@ const extractAndSaveJobLeads = async (messageContent: string) => {
       company: match[1].trim(),
       job_title: match[2].trim(),
       job_url: match[3].trim(),
-      status: 'lead' as const,
-      lead_type: 'Qualifying' as const,
-      source: 'agent' as const
+      status: "lead" as const,
+      lead_type: "Qualifying" as const,
+      source: "agent" as const,
     };
 
     // Save to database via API
@@ -230,29 +250,27 @@ const extractAndSaveJobLeads = async (messageContent: string) => {
 #### 4. API Integration
 
 Extend existing jobs API to support lead_type:
+
 ```typescript
 // modules/client/lib/jobs-api.ts
 
 // Fetch all leads (jobs with lead_type not null)
 export async function fetchLeads(
-  leadTypes?: ('Qualifying' | 'Cold' | 'Warm' | 'Hot')[]
+  leadTypes?: ("Qualifying" | "Cold" | "Warm" | "Hot")[]
 ): Promise<AppliedJob[]> {
-  const query = supabase
-    .from('Job')
-    .select('*')
-    .not('lead_type', 'is', null);
+  const query = supabase.from("Job").select("*").not("lead_type", "is", null);
 
   if (leadTypes && leadTypes.length > 0) {
-    query.in('lead_type', leadTypes);
+    query.in("lead_type", leadTypes);
   }
 
-  return query.order('created_at', { ascending: false });
+  return query.order("created_at", { ascending: false });
 }
 
 // Update lead type
 export async function updateLeadType(
   jobId: string,
-  leadType: 'Qualifying' | 'Cold' | 'Warm' | 'Hot'
+  leadType: "Qualifying" | "Cold" | "Warm" | "Hot"
 ): Promise<void> {
   await updateJob(jobId, { lead_type: leadType });
 }
@@ -260,17 +278,17 @@ export async function updateLeadType(
 // Convert lead to application
 export async function markLeadAsApplied(jobId: string): Promise<void> {
   await updateJob(jobId, {
-    status: 'applied',
+    status: "applied",
     lead_type: null,
-    date: new Date().toISOString()
+    date: new Date().toISOString(),
   });
 }
 
 // Mark lead as do not apply
 export async function markLeadAsDoNotApply(jobId: string): Promise<void> {
   await updateJob(jobId, {
-    status: 'do_not_apply',
-    lead_type: null
+    status: "do_not_apply",
+    lead_type: null,
   });
 }
 ```
@@ -386,60 +404,17 @@ excluded_statuses = ['applied', 'interviewing', 'offer', 'accepted', 'do_not_app
 
 ---
 
-## Database Migration
-
-**File**: `modules/agent/supabase_migrations/002_add_lead_tracking.sql`
-
-```sql
--- Add 'lead' status to enum (for jobs that haven't been applied to yet)
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_type t
-        JOIN pg_enum e ON t.oid = e.enumtypid
-        WHERE t.typname = 'job_status' AND e.enumlabel = 'lead'
-    ) THEN
-        ALTER TYPE job_status ADD VALUE 'lead';
-    END IF;
-END $$;
-
--- Add 'do_not_apply' to the status enum
-DO $$
-BEGIN
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_type t
-        JOIN pg_enum e ON t.oid = e.enumtypid
-        WHERE t.typname = 'job_status' AND e.enumlabel = 'do_not_apply'
-    ) THEN
-        ALTER TYPE job_status ADD VALUE 'do_not_apply';
-    END IF;
-END $$;
-
--- Create lead_type enum
-CREATE TYPE lead_type AS ENUM ('Qualifying', 'Cold', 'Warm', 'Hot');
-
--- Add lead_type column to Job table
-ALTER TABLE "Job" ADD COLUMN lead_type lead_type;
-
--- Add index for filtering leads panel (only index non-null values)
-CREATE INDEX idx_lead_type ON "Job"(lead_type) WHERE lead_type IS NOT NULL;
-
--- Add comments for clarity
-COMMENT ON TYPE job_status IS 'Status of job application: lead (not yet applied), applied, interviewing, rejected, offer, accepted, do_not_apply';
-COMMENT ON COLUMN "Job".lead_type IS 'Type of job lead for qualification tracking: Qualifying (initial), Cold, Warm, Hot. NULL if not an active lead.';
-```
-
----
-
 ## UX Considerations
 
 1. **Job Leads Panel Position**:
+
    - Recommend side panel (right side) that slides in
    - Should not block chat interface
    - Should be dismissible but reopenable via button
    - Button in header: "Leads (5)" shows count
 
 2. **Lead Type Badges**:
+
    - Qualifying: Blue/gray (default)
    - Cold: Light blue
    - Warm: Orange/yellow
@@ -447,17 +422,20 @@ COMMENT ON COLUMN "Job".lead_type IS 'Type of job lead for qualification trackin
    - Each job card shows lead type badge with dropdown to change
 
 3. **Button Styling**:
+
    - "Applied": Green button (positive action)
    - "Remove": Gray button with icon only (neutral action)
    - "Do Not Apply": Red/orange button with X icon (negative action)
 
 4. **Feedback**:
+
    - Show toast notifications on success
    - Show error messages if database operation fails
    - Update panel immediately (optimistic UI)
    - When job transitions, briefly highlight the row before removing
 
 5. **Persistence**:
+
    - Panel reads from database, so naturally persists across refreshes
    - Panel open/closed state saved in localStorage
    - Filter selection saved in localStorage
@@ -473,6 +451,7 @@ COMMENT ON COLUMN "Job".lead_type IS 'Type of job lead for qualification trackin
 ## Testing Checklist
 
 ### Frontend Testing
+
 - [ ] Export button creates valid .txt file with all messages
 - [ ] Job leads panel opens automatically when agent sends jobs
 - [ ] Agent-sent jobs are saved to database with `status='lead'`, `lead_type='Qualifying'`
@@ -489,6 +468,7 @@ COMMENT ON COLUMN "Job".lead_type IS 'Type of job lead for qualification trackin
 - [ ] Mobile responsive design works
 
 ### Backend Testing
+
 - [ ] `update_job_status` tool updates jobs correctly
 - [ ] `update_job_status` clears `lead_type` when changing status
 - [ ] Fuzzy matching works for company names
@@ -502,6 +482,7 @@ COMMENT ON COLUMN "Job".lead_type IS 'Type of job lead for qualification trackin
 - [ ] Database migration runs successfully on both local Postgres and Supabase
 
 ### Integration Testing
+
 - [ ] End-to-end: User asks for jobs → agent returns jobs → jobs saved to DB with `status='lead'` → leads panel opens → user sees jobs
 - [ ] End-to-end: User filters to "Hot" leads only → panel shows only Hot leads
 - [ ] End-to-end: User changes lead from "Qualifying" to "Hot" → updates in database → still shows in panel
@@ -541,15 +522,19 @@ COMMENT ON COLUMN "Job".lead_type IS 'Type of job lead for qualification trackin
 ## Open Questions
 
 1. ~~Should "Do Not Apply" jobs be visible in JobTracker, or completely hidden?~~
+
    - **ANSWERED**: Yes, visible with distinct styling and filterable
 
 2. ~~Should job leads panel persist across page refreshes?~~
+
    - **ANSWERED**: Yes, by storing leads in database with `lead_type` column
 
 3. ~~Should we parse existing chat history to populate leads panel retroactively?~~
+
    - **ANSWERED**: No, only new messages after feature is deployed
 
 4. What if agent sends job leads in a different format?
+
    - **Recommendation**: Add format detection logic, fallback to current behavior
 
 5. When agent returns jobs that already exist as leads, should we:
@@ -573,6 +558,7 @@ COMMENT ON COLUMN "Job".lead_type IS 'Type of job lead for qualification trackin
 _To be added by designer_
 
 Suggested layout:
+
 ```
 +----------------------------------+     +---------------------------+
 |  Chat Interface                  |     |  Job Leads Panel          |
