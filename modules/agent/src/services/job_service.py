@@ -29,19 +29,18 @@ def _map_to_dict(job) -> Dict[str, str]:
     job_dict = orm_to_dict(job, include_lead=True)
 
     # Extract organization name for company field (backward compatibility)
-    company = "Unknown Company"
-    if job_dict.get("organization"):
-        company = job_dict["organization"].get("name", "Unknown Company")
+    company = job_dict.get("organization", {}).get("name", "Unknown Company")
 
     # Extract status name from current_status (backward compatibility)
-    status = "applied"
-    if job_dict.get("current_status"):
-        status = job_dict["current_status"].get("name", "applied").lower()
+    status = job_dict.get("current_status", {}).get("name", "applied").lower()
+
+    created_at = job_dict.get("created_at")
+    date_applied = str(created_at)[:10] if created_at else "Not specified"
 
     return {
         "company": company,
         "title": job_dict.get("job_title", ""),
-        "date_applied": str(job_dict.get("created_at", ""))[:10] if job_dict.get("created_at") else "Not specified",
+        "date_applied": date_applied,
         "link": job_dict.get("job_url") or "",
         "status": status,
         "salary_range": job_dict.get("salary_range") or "",
@@ -210,6 +209,19 @@ def _fuzzy_match_company(search_company: str, db_company: str) -> bool:
     return False
 
 
+def _matches_job(job, company: str, job_title: str) -> bool:
+    """Check if job matches company and title using fuzzy matching."""
+    job_dict = orm_to_dict(job, include_lead=True)
+    job_company = job_dict.get("organization", {}).get("name", "")
+    
+    if not _fuzzy_match_company(company, job_company):
+        return False
+    
+    job_title_lower = job_title.lower().strip()
+    db_title_lower = job_dict.get("job_title", "").lower()
+    return job_title_lower in db_title_lower or db_title_lower in job_title_lower
+
+
 def update_job_by_company(
     company: str,
     job_title: str,
@@ -226,22 +238,10 @@ def update_job_by_company(
 
     # Get all jobs and find matching one
     all_jobs = find_all_jobs()
-
-    matching_job = None
-    for job in all_jobs:
-        job_dict = orm_to_dict(job, include_lead=True)
-
-        # Get company name from organization
-        job_company = ""
-        if job_dict.get("organization"):
-            job_company = job_dict["organization"].get("name", "")
-
-        if _fuzzy_match_company(company, job_company):
-            # Also check if job title matches (case-insensitive)
-            if job_title.lower().strip() in job_dict.get("job_title", "").lower() or \
-               job_dict.get("job_title", "").lower() in job_title.lower().strip():
-                matching_job = job
-                break
+    matching_job = next(
+        (job for job in all_jobs if _matches_job(job, company, job_title)),
+        None
+    )
 
     if not matching_job:
         return None

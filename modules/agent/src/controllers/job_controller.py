@@ -53,18 +53,17 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
     job_dict = orm_to_dict(job, include_lead=True)
 
     # Extract company name from organization
-    company = ""
-    if job_dict.get("organization"):
-        company = job_dict["organization"].get("name", "")
+    company = job_dict.get("organization", {}).get("name", "")
 
     # Extract status name from current_status
-    status = "applied"
-    if job_dict.get("current_status"):
-        status = job_dict["current_status"].get("name", "applied").lower()
+    status = job_dict.get("current_status", {}).get("name", "applied").lower()
 
     # Use Lead created_at for date (application date)
     created_at = job_dict.get("created_at", "")
     date_str = created_at.isoformat() if isinstance(created_at, datetime) else str(created_at)
+
+    resume_date = job_dict.get("resume_date")
+    resume_str = resume_date.isoformat() if resume_date else None
 
     return {
         "id": str(job_dict.get("id", "")),
@@ -75,7 +74,7 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
         "job_url": job_dict.get("job_url"),
         "salary_range": job_dict.get("salary_range"),
         "notes": job_dict.get("notes"),
-        "resume": job_dict.get("resume_date").isoformat() if job_dict.get("resume_date") else None,
+        "resume": resume_str,
         "source": job_dict.get("source", "manual"),
         "created_at": date_str,
         "updated_at": job_dict.get("updated_at", "")
@@ -88,7 +87,7 @@ def _parse_date_string(date_str: Optional[str]) -> Optional[datetime]:
         return None
     try:
         return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
-    except:
+    except (ValueError, TypeError):
         return None
 
 
@@ -120,16 +119,18 @@ def get_jobs(
     reverse = paging["order"] == "DESC"
     order_by_field = paging["order_by"]
 
-    if order_by_field == "application_date" or order_by_field == "date":
-        all_jobs.sort(key=lambda j: j.lead.created_at if j.lead else "", reverse=reverse)
-    elif order_by_field == "company":
-        all_jobs.sort(key=lambda j: (j.organization.name if j.organization else "").lower(), reverse=reverse)
-    elif order_by_field == "status":
-        all_jobs.sort(key=lambda j: j.lead.current_status.name if (j.lead and j.lead.current_status) else "", reverse=reverse)
-    elif order_by_field == "job_title":
-        all_jobs.sort(key=lambda j: (j.job_title or "").lower(), reverse=reverse)
-    elif order_by_field == "resume":
-        all_jobs.sort(key=lambda j: j.resume_date or "", reverse=reverse)
+    sort_functions = {
+        "application_date": lambda j: j.lead.created_at if j.lead else "",
+        "date": lambda j: j.lead.created_at if j.lead else "",
+        "company": lambda j: (j.organization.name if j.organization else "").lower(),
+        "status": lambda j: j.lead.current_status.name if (j.lead and j.lead.current_status) else "",
+        "job_title": lambda j: (j.job_title or "").lower(),
+        "resume": lambda j: j.resume_date or "",
+    }
+    
+    sort_fn = sort_functions.get(order_by_field)
+    if sort_fn:
+        all_jobs.sort(key=sort_fn, reverse=reverse)
 
     # Paginate
     start = paging["offset"]
@@ -203,22 +204,13 @@ def update_job(job_id: str, job_data: Dict[str, Any]) -> Dict[str, Any]:
         org = get_or_create_organization(organization_name)
         data["organization_id"] = org.id
 
-    if "job_title" in job_data:
-        data["job_title"] = job_data["job_title"]
-    if "job_url" in job_data:
-        data["job_url"] = job_data["job_url"]
-    if "salary_range" in job_data:
-        data["salary_range"] = job_data["salary_range"]
-    if "notes" in job_data:
-        data["notes"] = job_data["notes"]
+    # Update simple fields
+    allowed_fields = ["job_title", "job_url", "salary_range", "notes", "status", "source", "current_status_id"]
+    data.update({k: job_data[k] for k in allowed_fields if k in job_data})
+    
+    # Handle resume_date separately (can be None or explicitly set)
     if resume_obj is not None or "resume" in job_data:
         data["resume_date"] = resume_obj
-    if "status" in job_data:
-        data["status"] = job_data["status"]
-    if "source" in job_data:
-        data["source"] = job_data["source"]
-    if "current_status_id" in job_data:
-        data["current_status_id"] = job_data["current_status_id"]
 
     updated = update_job_repo(job_id_int, data)
 

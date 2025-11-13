@@ -210,11 +210,12 @@ def delete_job(job_id: int) -> bool:
             return False
 
         # Delete the Lead (Job will be cascade-deleted)
-        if job.lead:
-            session.delete(job.lead)
-        else:
+        if not job.lead:
             session.delete(job)
-
+            session.commit()
+            return True
+        
+        session.delete(job.lead)
         session.commit()
         return True
     except Exception as e:

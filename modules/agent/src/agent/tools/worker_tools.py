@@ -714,10 +714,9 @@ def update_job_status(
             source="agent"
         )
 
-        if new_job:
-            return f"Successfully marked {company} - {job_title} as {status}"
-        else:
+        if not new_job:
             return f"Failed to create job entry for {company} - {job_title}"
+        return f"Successfully marked {company} - {job_title} as {status}"
 
     except Exception as e:
         logger.error(f"Failed to update job status: {e}")
