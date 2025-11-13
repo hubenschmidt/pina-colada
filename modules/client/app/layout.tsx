@@ -5,6 +5,7 @@ import Header from "../components/Header";
 import { NavProvider } from "../context/navContext";
 import { MantineProvider } from "@mantine/core";
 import { PublicEnvScript } from "next-runtime-env";
+import { UserProvider } from "@auth0/nextjs-auth0/client";
 
 export const metadata: Metadata = {
   title: "PinaColada.co",
@@ -22,12 +23,14 @@ const RootLayout = ({
         <PublicEnvScript />
       </head>
       <body>
-        <MantineProvider>
-          <NavProvider>
-            <Header />
-            {children}
-          </NavProvider>
-        </MantineProvider>
+        <UserProvider>
+          <MantineProvider>
+            <NavProvider>
+              <Header />
+              {children}
+            </NavProvider>
+          </MantineProvider>
+        </UserProvider>
       </body>
     </html>
   );

@@ -14,7 +14,7 @@ from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from agent.graph import invoke_graph
 from agent.util.logging_config import configure_logging
-from api.routes import jobs_routes, lead_status_routes, leads_routes
+from api.routes import jobs_routes, lead_status_routes, leads_routes, auth_routes
 from uuid import uuid4
 
 # -----------------------------------------------------------------------------
@@ -28,6 +28,7 @@ app = FastAPI()
 app.include_router(jobs_routes)
 app.include_router(lead_status_routes)
 app.include_router(leads_routes)
+app.include_router(auth_routes)
 
 # -----------------------------------------------------------------------------
 # CORS middleware

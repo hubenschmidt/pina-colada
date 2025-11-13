@@ -14,7 +14,8 @@ class User(Base):
     __tablename__ = "User"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    tenant_id = Column(BigInteger, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=False)
+    tenant_id = Column(BigInteger, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=True)
+    auth0_sub = Column(Text, unique=True, nullable=True)
     email = Column(Text, nullable=False)
     first_name = Column(Text, nullable=True)
     last_name = Column(Text, nullable=True)
@@ -32,6 +33,7 @@ class User(Base):
         UniqueConstraint('tenant_id', 'email', name='user_tenant_email_unique'),
         Index('idx_user_tenant_id', 'tenant_id'),
         Index('idx_user_email', 'email'),
+        Index('idx_user_auth0_sub', 'auth0_sub'),
         CheckConstraint("status IN ('active', 'inactive', 'invited')", name='user_status_check'),
     )
 
@@ -40,7 +42,8 @@ class User(Base):
 class UserData(TypedDict, total=False):
     """Functional user data model."""
     id: int
-    tenant_id: int
+    tenant_id: Optional[int]
+    auth0_sub: Optional[str]
     tenant: Optional[dict]  # Nested TenantData when loaded
     email: str
     first_name: Optional[str]
@@ -54,7 +57,8 @@ class UserData(TypedDict, total=False):
 
 class UserCreateData(TypedDict, total=False):
     """Functional user creation data model."""
-    tenant_id: int
+    tenant_id: Optional[int]
+    auth0_sub: Optional[str]
     email: str
     first_name: Optional[str]
     last_name: Optional[str]
@@ -80,6 +84,7 @@ def orm_to_dict(user: User) -> UserData:
     result = UserData(
         id=user.id,
         tenant_id=user.tenant_id,
+        auth0_sub=user.auth0_sub,
         email=user.email,
         first_name=user.first_name,
         last_name=user.last_name,
@@ -100,6 +105,7 @@ def dict_to_orm(data: UserCreateData) -> User:
     """Convert functional dict to SQLAlchemy model."""
     return User(
         tenant_id=data.get("tenant_id"),
+        auth0_sub=data.get("auth0_sub"),
         email=data.get("email", ""),
         first_name=data.get("first_name"),
         last_name=data.get("last_name"),
