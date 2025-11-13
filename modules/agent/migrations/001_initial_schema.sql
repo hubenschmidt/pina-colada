@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS "Deal" (
   value_currency      TEXT DEFAULT 'USD',
   probability         NUMERIC(5,2),
   expected_close_date DATE,
+  close_date          DATE,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );

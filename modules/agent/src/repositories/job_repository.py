@@ -1,11 +1,12 @@
 """Repository layer for job data access."""
+from typing import Dict, Any, Optional
 
 import logging
 from typing import List, Optional
 from sqlalchemy import select, func as sql_func
 from sqlalchemy.orm import joinedload
-from models.Job import Job, JobCreateData, JobUpdateData
-from models.Lead import Lead, LeadCreateData
+from models.Job import Job
+from models.Lead import Lead
 from models.Status import Status
 from models.Organization import Organization
 from models.Deal import Deal
@@ -56,7 +57,7 @@ def find_job_by_id(job_id: int) -> Optional[Job]:
         session.close()
 
 
-def create_job(data: JobCreateData) -> Job:
+def create_job(data: Dict[str, Any]) -> Job:
     """Create a new job (with Lead parent).
 
     Note: This handles the joined table inheritance by creating both Lead and Job records.
@@ -89,7 +90,7 @@ def create_job(data: JobCreateData) -> Job:
         title = f"{org.name if org else 'Unknown'} - {data.get('job_title', 'Job')}"
 
         # Create Lead first
-        lead_data: LeadCreateData = {
+        lead_data: Dict[str, Any] = {
             "deal_id": deal_id,
             "type": "Job",
             "title": title,
@@ -134,7 +135,7 @@ def create_job(data: JobCreateData) -> Job:
         session.close()
 
 
-def update_job(job_id: int, data: JobUpdateData) -> Optional[Job]:
+def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
     """Update an existing job.
 
     Note: Updates both Job and Lead records as needed.

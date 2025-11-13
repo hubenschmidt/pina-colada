@@ -1,9 +1,9 @@
 """Repository layer for status data access."""
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy import select
-from models.Status import Status, StatusCreateData, StatusUpdateData, orm_to_dict, dict_to_orm, update_orm_from_dict
+from models.Status import Status
 from lib.db import get_session
 
 logger = logging.getLogger(__name__)
@@ -50,11 +50,11 @@ def find_status_by_name(name: str, category: Optional[str] = None) -> Optional[S
         session.close()
 
 
-def create_status(data: StatusCreateData) -> Status:
+def create_status(data: Dict[str, Any]) -> Status:
     """Create a new status."""
     session = get_session()
     try:
-        status = dict_to_orm(data)
+        status = Status(**data)
         session.add(status)
         session.commit()
         session.refresh(status)
@@ -67,7 +67,7 @@ def create_status(data: StatusCreateData) -> Status:
         session.close()
 
 
-def update_status(status_id: int, data: StatusUpdateData) -> Optional[Status]:
+def update_status(status_id: int, data: Dict[str, Any]) -> Optional[Status]:
     """Update an existing status."""
     session = get_session()
     try:
@@ -75,7 +75,9 @@ def update_status(status_id: int, data: StatusUpdateData) -> Optional[Status]:
         if not status:
             return None
 
-        update_orm_from_dict(status, data)
+        for key, value in data.items():
+            if hasattr(status, key):
+                setattr(status, key, value)
         session.commit()
         session.refresh(status)
         return status

@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 from lib.auth import require_auth
 from services.auth_service import get_user_tenants, create_tenant_for_user, add_user_to_tenant
-from models.User import orm_to_dict
+from lib.serialization import model_to_dict
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -28,7 +28,7 @@ async def get_current_user(request: Request):
     tenants = get_user_tenants(user.id)
 
     return {
-        "user": orm_to_dict(user),
+        "user": model_to_dict(user, include_relationships=False),
         "tenants": tenants,
         "current_tenant_id": request.state.tenant_id
     }

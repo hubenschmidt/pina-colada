@@ -1,10 +1,10 @@
 """Repository layer for lead data access."""
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
-from models.Lead import Lead, LeadCreateData, LeadUpdateData, orm_to_dict, dict_to_orm, update_orm_from_dict
+from models.Lead import Lead
 from lib.db import get_session
 
 logger = logging.getLogger(__name__)
@@ -42,11 +42,11 @@ def find_lead_by_id(lead_id: int) -> Optional[Lead]:
         session.close()
 
 
-def create_lead(data: LeadCreateData) -> Lead:
+def create_lead(data: Dict[str, Any]) -> Lead:
     """Create a new lead."""
     session = get_session()
     try:
-        lead = dict_to_orm(data)
+        lead = Lead(**data)
         session.add(lead)
         session.commit()
         session.refresh(lead)
@@ -59,7 +59,7 @@ def create_lead(data: LeadCreateData) -> Lead:
         session.close()
 
 
-def update_lead(lead_id: int, data: LeadUpdateData) -> Optional[Lead]:
+def update_lead(lead_id: int, data: Dict[str, Any]) -> Optional[Lead]:
     """Update an existing lead."""
     session = get_session()
     try:
@@ -67,7 +67,9 @@ def update_lead(lead_id: int, data: LeadUpdateData) -> Optional[Lead]:
         if not lead:
             return None
 
-        update_orm_from_dict(lead, data)
+        for key, value in data.items():
+            if hasattr(lead, key):
+                setattr(lead, key, value)
         session.commit()
         session.refresh(lead)
         return lead

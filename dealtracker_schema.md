@@ -1,7 +1,9 @@
 # DealTracker Data Model & Seeds
-_Last updated: 2025-11-12_
+_Last updated: 2025-01-13_
 
 This document describes a CRM-style **DealTracker** schema using capitalized table names (`Deal`, `Lead`, `Job_Status`, etc.) and includes helpful seed data for stages and roles.
+
+**Multi-Tenancy:** This schema includes tenant isolation with users and roles. See `auth_spec.md` for complete authentication and authorization implementation details.
 
 **Key Design Pattern - Joined Table Inheritance:**
 - **Lead** is the base table containing common attributes for all lead types (title, description, source, etc.)
@@ -124,9 +126,53 @@ This document describes a CRM-style **DealTracker** schema using capitalized tab
 -- 2) Core DealTracker Tables
 -- ==============================
 
+-- Tenant table (the app customer/company - see auth_spec.md)
+CREATE TABLE "Tenant" (
+  id              BIGSERIAL PRIMARY KEY,
+  name            TEXT NOT NULL,
+  slug            TEXT NOT NULL UNIQUE,    -- URL-safe identifier
+  status          TEXT DEFAULT 'active',   -- active, suspended, trial, cancelled
+  plan            TEXT DEFAULT 'free',     -- free, starter, professional, enterprise
+  settings        JSONB DEFAULT '{}'::jsonb,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- User table (belongs to one Tenant - see auth_spec.md)
+CREATE TABLE "User" (
+  id              BIGSERIAL PRIMARY KEY,
+  tenant_id       BIGINT NOT NULL REFERENCES "Tenant"(id) ON DELETE CASCADE,
+  email           TEXT NOT NULL,
+  first_name      TEXT,
+  last_name       TEXT,
+  avatar_url      TEXT,
+  status          TEXT DEFAULT 'active',   -- active, inactive, invited
+  last_login_at   TIMESTAMPTZ,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(tenant_id, email)
+);
+
+-- Role table (system-defined roles - see auth_spec.md)
+CREATE TABLE "Role" (
+  id              BIGSERIAL PRIMARY KEY,
+  name            TEXT NOT NULL UNIQUE,    -- owner, admin, member, viewer
+  description     TEXT,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- UserRole junction table
+CREATE TABLE "UserRole" (
+  user_id         BIGINT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
+  role_id         BIGINT NOT NULL REFERENCES "Role"(id) ON DELETE CASCADE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (user_id, role_id)
+);
+
 -- Project table
 CREATE TABLE "Project" (
   id              BIGSERIAL PRIMARY KEY,
+  tenant_id       BIGINT REFERENCES "Tenant"(id) ON DELETE CASCADE,
   name            TEXT NOT NULL,
   description     TEXT,
   owner_user_id   BIGINT,
@@ -150,17 +196,19 @@ CREATE TABLE "Status" (
 
 -- Deal table
 CREATE TABLE "Deal" (
-  id              BIGSERIAL PRIMARY KEY,
-  name            TEXT NOT NULL,
-  description     TEXT,
-  owner_user_id   BIGINT,
-  current_status_id BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
-  value_amount    NUMERIC(18,2),
-  value_currency  TEXT DEFAULT 'USD',
-  probability     NUMERIC(5,2),            -- 0..100 (pct)
-  close_date      DATE,
-  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+  id                  BIGSERIAL PRIMARY KEY,
+  tenant_id           BIGINT REFERENCES "Tenant"(id) ON DELETE CASCADE,
+  name                TEXT NOT NULL,
+  description         TEXT,
+  owner_user_id       BIGINT,
+  current_status_id   BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
+  value_amount        NUMERIC(18,2),
+  value_currency      TEXT DEFAULT 'USD',
+  probability         NUMERIC(5,2),            -- 0..100 (pct)
+  expected_close_date DATE,
+  close_date          DATE,                    -- Actual close date
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 -- Lead table (base table for Joined Table Inheritance)
@@ -247,21 +295,29 @@ CREATE TABLE "Task_Priority" (
 
 CREATE TABLE "Organization" (
   id              BIGSERIAL PRIMARY KEY,
+  tenant_id       BIGINT REFERENCES "Tenant"(id) ON DELETE CASCADE,
   name            TEXT NOT NULL,
   website         TEXT,
   phone           TEXT,
+  industry        TEXT,
+  employee_count  INTEGER,
+  description     TEXT,
   notes           TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (LOWER(name))
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Note: Uniqueness enforced by migration index: idx_organization_name_lower_tenant ON (tenant_id, LOWER(name))
 
 CREATE TABLE "Individual" (
   id              BIGSERIAL PRIMARY KEY,
-  given_name      TEXT NOT NULL,
-  family_name     TEXT NOT NULL,
+  tenant_id       BIGINT REFERENCES "Tenant"(id) ON DELETE CASCADE,
+  first_name      TEXT NOT NULL,
+  last_name       TEXT NOT NULL,
   email           TEXT,
   phone           TEXT,
+  linkedin_url    TEXT,
+  title           TEXT,
   notes           TEXT,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -274,9 +330,11 @@ CREATE TABLE "Contact" (
   organization_id   BIGINT REFERENCES "Organization"(id) ON DELETE SET NULL,
   title             TEXT,
   department        TEXT,
+  role              TEXT,
   email             TEXT,
   phone             TEXT,
   is_primary        BOOLEAN NOT NULL DEFAULT FALSE,
+  notes             TEXT,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -289,7 +347,7 @@ CREATE TABLE "Task" (
   title               TEXT NOT NULL,
   description         TEXT,
   current_status_id   BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
-  current_priority_id BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
+  priority_id         BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
   due_date            DATE,
   completed_at        TIMESTAMPTZ,
   assigned_to_user_id BIGINT,
@@ -650,7 +708,7 @@ session.flush()  # Get the deal.id
 org = Organization(name='ACME Corp', website='https://acme.example')
 session.add(org)
 
-person = Individual(given_name='Avery', family_name='Nguyen', email='avery.nguyen@acme.example')
+person = Individual(first_name='Avery', last_name='Nguyen', email='avery.nguyen@acme.example')
 session.add(person)
 session.flush()  # Get org.id and person.id
 
@@ -803,7 +861,7 @@ deal_task = Task(
     title='Follow up with decision maker',
     description='Schedule call to discuss pricing',
     current_status_id=default_task_status.id,  # 'To Do'
-    current_priority_id=high_priority.id,       # 'High'
+    priority_id=high_priority.id,       # 'High'
     due_date=date.today() + timedelta(days=7),
     assigned_to_user_id=1
 )
@@ -816,7 +874,7 @@ job_task = Task(
     title='Prepare for technical interview',
     description='Review system design patterns',
     current_status_id=in_progress_status.id,    # 'In Progress'
-    current_priority_id=urgent_priority.id,      # 'Urgent'
+    priority_id=urgent_priority.id,      # 'Urgent'
     due_date=date.today() + timedelta(days=2)
 )
 session.add(job_task)
@@ -828,7 +886,7 @@ org_task = Task(
     title='Research company background',
     description='Gather info on recent product launches',
     current_status_id=default_task_status.id,   # 'To Do'
-    current_priority_id=default_task_priority.id # 'Medium'
+    priority_id=default_task_priority.id # 'Medium'
 )
 session.add(org_task)
 
@@ -839,7 +897,7 @@ project_task = Task(
     title='Project kickoff meeting',
     description='Align on scope and timeline with stakeholders',
     current_status_id=default_task_status.id,   # 'To Do'
-    current_priority_id=high_priority.id,        # 'High'
+    priority_id=high_priority.id,        # 'High'
     due_date=date.today() + timedelta(days=3)
 )
 session.add(project_task)
@@ -876,7 +934,7 @@ overdue_tasks = session.query(Task).filter(
 
 # Query tasks by priority
 high_priority = session.query(Status).filter_by(name='High', category='task_priority').first()
-high_priority_tasks = session.query(Task).filter(Task.current_priority_id == high_priority.id).all()
+high_priority_tasks = session.query(Task).filter(Task.priority_id == high_priority.id).all()
 
 # Get task status workflow
 task_statuses = session.query(Status).join(TaskStatus).order_by(TaskStatus.display_order).all()

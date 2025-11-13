@@ -1,8 +1,8 @@
 """Repository layer for user data access."""
 
-from typing import Optional
+from typing import Optional, Dict, Any
 from sqlalchemy import select
-from models.User import User, UserCreateData, UserUpdateData, dict_to_orm, update_orm_from_dict
+from models.User import User
 from lib.db import get_session
 
 
@@ -26,11 +26,11 @@ def find_user_by_id(user_id: int) -> Optional[User]:
         session.close()
 
 
-def create_user(data: UserCreateData) -> User:
+def create_user(data: Dict[str, Any]) -> User:
     """Create a new user."""
     session = get_session()
     try:
-        user = dict_to_orm(data)
+        user = User(**data)
         session.add(user)
         session.commit()
         session.refresh(user)
@@ -39,7 +39,7 @@ def create_user(data: UserCreateData) -> User:
         session.close()
 
 
-def update_user(user_id: int, data: UserUpdateData) -> Optional[User]:
+def update_user(user_id: int, data: Dict[str, Any]) -> Optional[User]:
     """Update user by ID."""
     session = get_session()
     try:
@@ -47,7 +47,10 @@ def update_user(user_id: int, data: UserUpdateData) -> Optional[User]:
         if not user:
             return None
 
-        user = update_orm_from_dict(user, data)
+        for key, value in data.items():
+            if hasattr(user, key):
+                setattr(user, key, value)
+
         session.commit()
         session.refresh(user)
         return user

@@ -1,9 +1,9 @@
 """Repository layer for organization data access."""
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy import select, func
-from models.Organization import Organization, OrganizationCreateData, OrganizationUpdateData, orm_to_dict, dict_to_orm, update_orm_from_dict
+from models.Organization import Organization
 from lib.db import get_session
 
 logger = logging.getLogger(__name__)
@@ -42,11 +42,11 @@ def find_organization_by_name(name: str, tenant_id: Optional[int] = None) -> Opt
         session.close()
 
 
-def create_organization(data: OrganizationCreateData) -> Organization:
+def create_organization(data: Dict[str, Any]) -> Organization:
     """Create a new organization."""
     session = get_session()
     try:
-        org = dict_to_orm(data)
+        org = Organization(**data)
         session.add(org)
         session.commit()
         session.refresh(org)
@@ -65,14 +65,10 @@ def get_or_create_organization(name: str, tenant_id: Optional[int] = None) -> Or
     if existing:
         return existing
 
-    data: OrganizationCreateData = {
-        "name": name,
-        "tenant_id": tenant_id
-    }
-    return create_organization(data)
+    return create_organization({"name": name, "tenant_id": tenant_id})
 
 
-def update_organization(org_id: int, data: OrganizationUpdateData) -> Optional[Organization]:
+def update_organization(org_id: int, data: Dict[str, Any]) -> Optional[Organization]:
     """Update an existing organization."""
     session = get_session()
     try:
@@ -80,7 +76,10 @@ def update_organization(org_id: int, data: OrganizationUpdateData) -> Optional[O
         if not org:
             return None
 
-        update_orm_from_dict(org, data)
+        for key, value in data.items():
+            if hasattr(org, key):
+                setattr(org, key, value)
+
         session.commit()
         session.refresh(org)
         return org

@@ -2,7 +2,7 @@
 
 from typing import Optional, List
 from datetime import datetime
-from models.User import User, UserCreateData
+from models.User import User
 from repositories.user_repository import find_user_by_auth0_sub, create_user, update_user
 
 
@@ -13,7 +13,7 @@ async def get_or_create_user(auth0_sub: str, email: str) -> User:
         return user
 
     # First login - create user without tenant
-    data: UserCreateData = {
+    data: Dict[str, Any] = {
         "auth0_sub": auth0_sub,
         "email": email,
         "status": "active"

@@ -1,8 +1,8 @@
 """Service layer for job business logic."""
 
 import logging
-from typing import Dict, List, Optional
-from models.Job import JobCreateData, orm_to_dict
+from typing import Dict, List, Optional, Any
+from lib.serialization import model_to_dict
 from repositories.job_repository import (
     find_all_jobs,
     create_job,
@@ -25,8 +25,8 @@ def _normalize_identifier(company: str, title: str) -> str:
 
 def _map_to_dict(job) -> Dict[str, str]:
     """Map database model to dictionary for API compatibility."""
-    # Use orm_to_dict which flattens Lead fields
-    job_dict = orm_to_dict(job, include_lead=True)
+    # Use model_to_dict which includes relationships
+    job_dict = model_to_dict(job, include_relationships=True)
 
     # Extract organization name for company field (backward compatibility)
     company = job_dict.get("organization", {}).get("name", "Unknown Company")
@@ -142,7 +142,7 @@ def add_job(
     # Get or create organization
     org = get_or_create_organization(organization_name)
 
-    data: JobCreateData = {
+    data: Dict[str, Any] = {
         "organization_id": org.id,
         "job_title": job_title,
         "job_url": job_url or None,
@@ -211,7 +211,7 @@ def _fuzzy_match_company(search_company: str, db_company: str) -> bool:
 
 def _matches_job(job, company: str, job_title: str) -> bool:
     """Check if job matches company and title using fuzzy matching."""
-    job_dict = orm_to_dict(job, include_lead=True)
+    job_dict = model_to_dict(job, include_relationships=True)
     job_company = job_dict.get("organization", {}).get("name", "")
     
     if not _fuzzy_match_company(company, job_company):
@@ -234,7 +234,6 @@ def update_job_by_company(
     Returns updated job or None if not found.
     """
     from repositories.job_repository import find_all_jobs, update_job
-    from models.Job import JobUpdateData, orm_to_dict
 
     # Get all jobs and find matching one
     all_jobs = find_all_jobs()
@@ -247,7 +246,7 @@ def update_job_by_company(
         return None
 
     # Build update data
-    update_data: JobUpdateData = {}
+    update_data: Dict[str, Any] = {}
     if status is not None:
         update_data["status"] = status
     if job_url is not None:
@@ -260,7 +259,7 @@ def update_job_by_company(
     _clear_cache()
 
     if updated_job:
-        job_dict = orm_to_dict(updated_job, include_lead=True)
+        job_dict = model_to_dict(updated_job, include_relationships=True)
         updated_company = job_dict.get("organization", {}).get("name", "Unknown")
         logger.info(f"Updated job via fuzzy match: {company} - {job_title} (matched to {updated_company})")
 

@@ -14,8 +14,7 @@ from repositories.job_repository import (
     find_all_statuses,
     find_jobs_with_status
 )
-from models.Job import JobCreateData, JobUpdateData, orm_to_dict
-from models.Status import orm_to_dict as status_to_dict
+from lib.serialization import model_to_dict
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +49,7 @@ def _to_paged_response(count: int, page: int, limit: int, items: List) -> dict:
 
 def _job_to_response_dict(job) -> Dict[str, Any]:
     """Convert job ORM to response dictionary."""
-    job_dict = orm_to_dict(job, include_lead=True)
+    job_dict = model_to_dict(job, include_relationships=True)
 
     # Extract company name from organization
     company = job_dict.get("organization", {}).get("name", "")
@@ -155,7 +154,7 @@ def create_job(job_data: Dict[str, Any]) -> Dict[str, Any]:
 
     org = get_or_create_organization(organization_name)
 
-    data: JobCreateData = {
+    data: Dict[str, Any] = {
         "organization_id": org.id,
         "job_title": job_data.get("job_title", ""),
         "job_url": job_data.get("job_url"),
@@ -196,7 +195,7 @@ def update_job(job_id: str, job_data: Dict[str, Any]) -> Dict[str, Any]:
 
     resume_obj = _parse_date_string(job_data.get("resume"))
 
-    data: JobUpdateData = {}
+    data: Dict[str, Any] = {}
 
     # Handle organization update
     organization_name = job_data.get("company") or job_data.get("organization_name")
@@ -238,7 +237,7 @@ def delete_job(job_id: str) -> dict:
 def get_statuses() -> List[Dict[str, Any]]:
     """Get all job statuses."""
     statuses = find_all_statuses()
-    return [status_to_dict(s) for s in statuses]
+    return [model_to_dict(s, include_relationships=False) for s in statuses]
 
 
 def get_leads(statuses: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -253,7 +252,7 @@ def get_leads(statuses: Optional[str] = None) -> List[Dict[str, Any]]:
     for job in jobs:
         job_dict = _job_to_response_dict(job)
         if job.lead and job.lead.current_status:
-            job_dict["lead_status"] = status_to_dict(job.lead.current_status)
+            job_dict["lead_status"] = model_to_dict(job.lead.current_status, include_relationships=False)
         items.append(job_dict)
 
     return items
@@ -270,7 +269,7 @@ def mark_lead_as_applied(job_id: str) -> Dict[str, Any]:
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    update_data: JobUpdateData = {
+    update_data: Dict[str, Any] = {
         "status": "applied",
     }
 
@@ -288,7 +287,7 @@ def mark_lead_as_do_not_apply(job_id: str) -> Dict[str, Any]:
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
 
-    update_data: JobUpdateData = {
+    update_data: Dict[str, Any] = {
         "status": "do_not_apply",
     }
 

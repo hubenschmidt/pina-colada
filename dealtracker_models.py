@@ -55,11 +55,88 @@ class Status(Base):
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
 
+class Tenant(Base):
+    """
+    Tenant model - represents the app customer/company (multi-tenant isolation)
+    See auth_spec.md for full multi-tenancy implementation details
+    """
+    __tablename__ = "Tenant"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str]
+    slug: Mapped[str] = mapped_column(unique=True)  # URL-safe identifier
+    status: Mapped[str] = mapped_column(default="active")  # active, suspended, trial, cancelled
+    plan: Mapped[str] = mapped_column(default="free")  # free, starter, professional, enterprise
+    settings: Mapped[Optional[dict]]  # JSONB tenant-specific settings
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    # Relationships
+    users: Mapped[List["User"]] = relationship(back_populates="tenant", cascade="all, delete-orphan")
+
+
+class User(Base):
+    """
+    User model - belongs to one Tenant
+    See auth_spec.md for authentication and authorization details
+    """
+    __tablename__ = "User"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[int] = mapped_column(ForeignKey("Tenant.id", ondelete="CASCADE"))
+    email: Mapped[str]
+    first_name: Mapped[Optional[str]]
+    last_name: Mapped[Optional[str]]
+    avatar_url: Mapped[Optional[str]]
+    status: Mapped[str] = mapped_column(default="active")  # active, inactive, invited
+    last_login_at: Mapped[Optional[datetime]]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "email", name="uq_user_tenant_email"),
+    )
+
+    # Relationships
+    tenant: Mapped["Tenant"] = relationship(back_populates="users")
+    user_roles: Mapped[List["UserRole"]] = relationship(back_populates="user", cascade="all, delete-orphan")
+
+
+class Role(Base):
+    """
+    Role model - system-defined roles
+    See auth_spec.md for role-based access control details
+    """
+    __tablename__ = "Role"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(unique=True)  # owner, admin, member, viewer
+    description: Mapped[Optional[str]]
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    # Relationships
+    user_roles: Mapped[List["UserRole"]] = relationship(back_populates="role", cascade="all, delete-orphan")
+
+
+class UserRole(Base):
+    """UserRole junction table - users can have multiple roles"""
+    __tablename__ = "UserRole"
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("User.id", ondelete="CASCADE"), primary_key=True)
+    role_id: Mapped[int] = mapped_column(ForeignKey("Role.id", ondelete="CASCADE"), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    # Relationships
+    user: Mapped["User"] = relationship(back_populates="user_roles")
+    role: Mapped["Role"] = relationship(back_populates="user_roles")
+
+
 class Project(Base):
     """Project model - top-level organizational unit"""
     __tablename__ = "Project"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[Optional[int]] = mapped_column(ForeignKey("Tenant.id", ondelete="CASCADE"))
     name: Mapped[str]
     description: Mapped[Optional[str]]
     owner_user_id: Mapped[Optional[int]]
@@ -82,6 +159,7 @@ class Deal(Base):
     __tablename__ = "Deal"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[Optional[int]] = mapped_column(ForeignKey("Tenant.id", ondelete="CASCADE"))
     name: Mapped[str]
     description: Mapped[Optional[str]]
     owner_user_id: Mapped[Optional[int]]
@@ -89,6 +167,7 @@ class Deal(Base):
     value_amount: Mapped[Optional[float]] = mapped_column(Numeric(18, 2))
     value_currency: Mapped[str] = mapped_column(default="USD")
     probability: Mapped[Optional[float]] = mapped_column(Numeric(5, 2))
+    expected_close_date: Mapped[Optional[date]] = mapped_column(Date)
     close_date: Mapped[Optional[date]] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
@@ -236,16 +315,18 @@ class Organization(Base):
     __tablename__ = "Organization"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    tenant_id: Mapped[Optional[int]] = mapped_column(ForeignKey("Tenant.id", ondelete="CASCADE"))
     name: Mapped[str]
     website: Mapped[Optional[str]]
     phone: Mapped[Optional[str]]
+    industry: Mapped[Optional[str]]
+    employee_count: Mapped[Optional[int]]
+    description: Mapped[Optional[str]]
     notes: Mapped[Optional[str]]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
-    __table_args__ = (
-        UniqueConstraint("name", name="uq_org_name"),
-    )
+    # Note: Uniqueness enforced by migration index: idx_organization_name_lower_tenant ON (tenant_id, LOWER(name))
 
     # Relationships
     contacts: Mapped[List["Contact"]] = relationship(back_populates="organization", foreign_keys="Contact.organization_id")
@@ -258,10 +339,13 @@ class Individual(Base):
     __tablename__ = "Individual"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    given_name: Mapped[str]
-    family_name: Mapped[str]
+    tenant_id: Mapped[Optional[int]] = mapped_column(ForeignKey("Tenant.id", ondelete="CASCADE"))
+    first_name: Mapped[str]
+    last_name: Mapped[str]
     email: Mapped[Optional[str]]
     phone: Mapped[Optional[str]]
+    linkedin_url: Mapped[Optional[str]]
+    title: Mapped[Optional[str]]
     notes: Mapped[Optional[str]]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
@@ -281,9 +365,11 @@ class Contact(Base):
     organization_id: Mapped[Optional[int]] = mapped_column(ForeignKey("Organization.id", ondelete="SET NULL"))
     title: Mapped[Optional[str]]
     department: Mapped[Optional[str]]
+    role: Mapped[Optional[str]]
     email: Mapped[Optional[str]]
     phone: Mapped[Optional[str]]
     is_primary: Mapped[bool] = mapped_column(default=False)
+    notes: Mapped[Optional[str]]
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
@@ -304,7 +390,7 @@ class Task(Base):
     title: Mapped[str]
     description: Mapped[Optional[str]]
     current_status_id: Mapped[Optional[int]] = mapped_column(ForeignKey("Status.id", ondelete="SET NULL"))
-    current_priority_id: Mapped[Optional[int]] = mapped_column(ForeignKey("Status.id", ondelete="SET NULL"))
+    priority_id: Mapped[Optional[int]] = mapped_column(ForeignKey("Status.id", ondelete="SET NULL"))
     due_date: Mapped[Optional[date]] = mapped_column(Date)
     completed_at: Mapped[Optional[datetime]]
     assigned_to_user_id: Mapped[Optional[int]]
@@ -313,7 +399,7 @@ class Task(Base):
 
     # Relationships
     current_status: Mapped[Optional["Status"]] = relationship(foreign_keys=[current_status_id])
-    current_priority: Mapped[Optional["Status"]] = relationship(foreign_keys=[current_priority_id])
+    priority: Mapped[Optional["Status"]] = relationship(foreign_keys=[priority_id])
 
 
 # ==============================

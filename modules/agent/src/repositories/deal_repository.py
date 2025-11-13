@@ -1,10 +1,10 @@
 """Repository layer for deal data access."""
 
 import logging
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
-from models.Deal import Deal, DealCreateData, DealUpdateData, orm_to_dict, dict_to_orm, update_orm_from_dict
+from models.Deal import Deal
 from lib.db import get_session
 
 logger = logging.getLogger(__name__)
@@ -44,11 +44,11 @@ def find_deal_by_name(name: str, tenant_id: Optional[int] = None) -> Optional[De
         session.close()
 
 
-def create_deal(data: DealCreateData) -> Deal:
+def create_deal(data: Dict[str, Any]) -> Deal:
     """Create a new deal."""
     session = get_session()
     try:
-        deal = dict_to_orm(data)
+        deal = Deal(**data)
         session.add(deal)
         session.commit()
         session.refresh(deal)
@@ -67,14 +67,14 @@ def get_or_create_deal(name: str, tenant_id: Optional[int] = None) -> Deal:
     if existing:
         return existing
 
-    data: DealCreateData = {
+    data: Dict[str, Any] = {
         "name": name,
         "tenant_id": tenant_id
     }
     return create_deal(data)
 
 
-def update_deal(deal_id: int, data: DealUpdateData) -> Optional[Deal]:
+def update_deal(deal_id: int, data: Dict[str, Any]) -> Optional[Deal]:
     """Update an existing deal."""
     session = get_session()
     try:
@@ -82,7 +82,9 @@ def update_deal(deal_id: int, data: DealUpdateData) -> Optional[Deal]:
         if not deal:
             return None
 
-        update_orm_from_dict(deal, data)
+        for key, value in data.items():
+            if hasattr(deal, key):
+                setattr(deal, key, value)
         session.commit()
         session.refresh(deal)
         return deal
