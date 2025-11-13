@@ -39,6 +39,8 @@ yarn-error.log*
 # But DO track template env files
 !.env.example
 !**/.env.example
+!.env*.example
+!**/.env*.example
 # vercel
 .vercel
 

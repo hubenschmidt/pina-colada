@@ -1,5 +1,6 @@
 # Agent
 .cursor/
+.claude/
 
 # docker-compose local settings
 docker-compose.override.yml
