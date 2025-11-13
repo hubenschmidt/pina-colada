@@ -8,28 +8,28 @@
 -- ==============================
 -- STEP 1: Create Sample Organizations
 -- ==============================
-INSERT INTO "Organization" (name, website, industry, employee_count, description, created_at, updated_at)
+INSERT INTO "Organization" (tenant_id, name, website, industry, employee_count, description, created_at, updated_at)
 VALUES
-    ('TechVentures Inc', 'https://techventures.example.com', 'Venture Capital', 50, 'Early-stage technology investor', NOW(), NOW()),
-    ('CloudScale Systems', 'https://cloudscale.example.com', 'Cloud Infrastructure', 200, 'Enterprise cloud solutions provider', NOW(), NOW()),
-    ('DataFlow Analytics', 'https://dataflow.example.com', 'Data Analytics', 75, 'Real-time data analytics platform', NOW(), NOW()),
-    ('SecureNet Solutions', 'https://securenet.example.com', 'Cybersecurity', 150, 'Enterprise security software', NOW(), NOW()),
-    ('InnovateLab', 'https://innovatelab.example.com', 'Consulting', 30, 'Innovation consulting for startups', NOW(), NOW())
-ON CONFLICT ((LOWER(name))) DO NOTHING;
+    (NULL, 'TechVentures Inc', 'https://techventures.example.com', 'Venture Capital', 50, 'Early-stage technology investor', NOW(), NOW()),
+    (NULL, 'CloudScale Systems', 'https://cloudscale.example.com', 'Cloud Infrastructure', 200, 'Enterprise cloud solutions provider', NOW(), NOW()),
+    (NULL, 'DataFlow Analytics', 'https://dataflow.example.com', 'Data Analytics', 75, 'Real-time data analytics platform', NOW(), NOW()),
+    (NULL, 'SecureNet Solutions', 'https://securenet.example.com', 'Cybersecurity', 150, 'Enterprise security software', NOW(), NOW()),
+    (NULL, 'InnovateLab', 'https://innovatelab.example.com', 'Consulting', 30, 'Innovation consulting for startups', NOW(), NOW())
+ON CONFLICT (tenant_id, (LOWER(name))) DO NOTHING;
 
 -- ==============================
 -- STEP 2: Create Sample Individuals
 -- ==============================
-INSERT INTO "Individual" (first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
+INSERT INTO "Individual" (tenant_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
 VALUES
-    ('Sarah', 'Chen', 'sarah.chen@techventures.example.com', '+1-415-555-0101', 'https://linkedin.com/in/sarachen', 'Partner', 'Focus on SaaS and AI investments', NOW(), NOW()),
-    ('Michael', 'Rodriguez', 'michael.r@cloudscale.example.com', '+1-415-555-0102', 'https://linkedin.com/in/michaelrodriguez', 'VP of Engineering', 'Leads cloud infrastructure team', NOW(), NOW()),
-    ('Emily', 'Johnson', 'emily.j@dataflow.example.com', '+1-650-555-0103', 'https://linkedin.com/in/emilyjohnson', 'Head of Product', 'Former Google PM', NOW(), NOW()),
-    ('David', 'Kim', 'david.kim@securenet.example.com', '+1-408-555-0104', 'https://linkedin.com/in/davidkim', 'CTO', 'Security expert with 15+ years experience', NOW(), NOW()),
-    ('Jessica', 'Williams', 'jessica.w@innovatelab.example.com', '+1-510-555-0105', 'https://linkedin.com/in/jessicawilliams', 'Principal Consultant', 'Specializes in go-to-market strategy', NOW(), NOW()),
-    ('Robert', 'Taylor', 'robert.t@techventures.example.com', '+1-415-555-0106', 'https://linkedin.com/in/roberttaylor', 'Associate', 'Focuses on early-stage deals', NOW(), NOW()),
-    ('Amanda', 'Brown', 'amanda.b@cloudscale.example.com', '+1-415-555-0107', 'https://linkedin.com/in/amandabrown', 'Senior Software Engineer', 'Backend infrastructure specialist', NOW(), NOW())
-ON CONFLICT ((LOWER(email))) DO NOTHING;
+    (NULL, 'Sarah', 'Chen', 'sarah.chen@techventures.example.com', '+1-415-555-0101', 'https://linkedin.com/in/sarachen', 'Partner', 'Focus on SaaS and AI investments', NOW(), NOW()),
+    (NULL, 'Michael', 'Rodriguez', 'michael.r@cloudscale.example.com', '+1-415-555-0102', 'https://linkedin.com/in/michaelrodriguez', 'VP of Engineering', 'Leads cloud infrastructure team', NOW(), NOW()),
+    (NULL, 'Emily', 'Johnson', 'emily.j@dataflow.example.com', '+1-650-555-0103', 'https://linkedin.com/in/emilyjohnson', 'Head of Product', 'Former Google PM', NOW(), NOW()),
+    (NULL, 'David', 'Kim', 'david.kim@securenet.example.com', '+1-408-555-0104', 'https://linkedin.com/in/davidkim', 'CTO', 'Security expert with 15+ years experience', NOW(), NOW()),
+    (NULL, 'Jessica', 'Williams', 'jessica.w@innovatelab.example.com', '+1-510-555-0105', 'https://linkedin.com/in/jessicawilliams', 'Principal Consultant', 'Specializes in go-to-market strategy', NOW(), NOW()),
+    (NULL, 'Robert', 'Taylor', 'robert.t@techventures.example.com', '+1-415-555-0106', 'https://linkedin.com/in/roberttaylor', 'Associate', 'Focuses on early-stage deals', NOW(), NOW()),
+    (NULL, 'Amanda', 'Brown', 'amanda.b@cloudscale.example.com', '+1-415-555-0107', 'https://linkedin.com/in/amandabrown', 'Senior Software Engineer', 'Backend infrastructure specialist', NOW(), NOW())
+ON CONFLICT (tenant_id, (LOWER(email))) DO NOTHING;
 
 -- ==============================
 -- STEP 3: Create Contact Relationships

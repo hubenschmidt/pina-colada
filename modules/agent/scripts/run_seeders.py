@@ -68,11 +68,11 @@ def _get_postgres_config():
     Prioritizes local Postgres when POSTGRES_HOST is set to local values.
     Falls back to Supabase if explicitly configured and not running locally.
     """
-    postgres_host = os.getenv("POSTGRES_HOST", "postgres")
-    postgres_port = int(os.getenv("POSTGRES_PORT", "5432"))
-    postgres_user = os.getenv("POSTGRES_USER", "postgres")
-    postgres_password = os.getenv("POSTGRES_PASSWORD", "postgres")
-    postgres_db = os.getenv("POSTGRES_DB", "development")
+    postgres_host = os.getenv("POSTGRES_HOST")
+    postgres_port = int(os.getenv("POSTGRES_PORT"))
+    postgres_user = os.getenv("POSTGRES_USER")
+    postgres_password = os.getenv("POSTGRES_PASSWORD")
+    postgres_db = os.getenv("POSTGRES_DB")
     
     # If POSTGRES_HOST is set to local values, use local Postgres (don't check Supabase)
     local_hosts = ["postgres", "localhost", "127.0.0.1"]

@@ -225,11 +225,11 @@ def apply_migrations_to_local_postgres(migrations_dir: Path) -> bool:
         return False
 
     # Get local Postgres connection details
-    postgres_host = os.getenv("POSTGRES_HOST", "postgres")
-    postgres_port = int(os.getenv("POSTGRES_PORT", "5432"))
-    postgres_user = os.getenv("POSTGRES_USER", "postgres")
-    postgres_password = os.getenv("POSTGRES_PASSWORD", "postgres")
-    postgres_db = os.getenv("POSTGRES_DB", "development")
+    postgres_host = os.getenv("POSTGRES_HOST")
+    postgres_port = int(os.getenv("POSTGRES_PORT"))
+    postgres_user = os.getenv("POSTGRES_USER")
+    postgres_password = os.getenv("POSTGRES_PASSWORD")
+    postgres_db = os.getenv("POSTGRES_DB")
 
     try:
         print(f"\nConnecting to local Postgres: {postgres_host}:{postgres_port}/{postgres_db}")

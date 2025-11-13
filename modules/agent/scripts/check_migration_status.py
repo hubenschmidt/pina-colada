@@ -27,11 +27,11 @@ def check_local_postgres():
     except ImportError:
         return None
     
-    postgres_host = os.getenv("POSTGRES_HOST", "postgres")
-    postgres_port = int(os.getenv("POSTGRES_PORT", "5432"))
-    postgres_user = os.getenv("POSTGRES_USER", "postgres")
-    postgres_password = os.getenv("POSTGRES_PASSWORD", "postgres")
-    postgres_db = os.getenv("POSTGRES_DB", "development")
+    postgres_host = os.getenv("POSTGRES_HOST")
+    postgres_port = int(os.getenv("POSTGRES_PORT"))
+    postgres_user = os.getenv("POSTGRES_USER")
+    postgres_password = os.getenv("POSTGRES_PASSWORD")
+    postgres_db = os.getenv("POSTGRES_DB")
     
     # Retry connection up to 3 times with 2 second delays
     max_retries = 3
