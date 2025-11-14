@@ -1,6 +1,10 @@
 export const SET_AGENT_OPEN = "SET_AGENT_OPEN";
 
-export default (initialState) => {
+export interface NavState {
+  agentOpen: boolean;
+}
+
+export default (initialState: NavState) => {
   return (state, action) => {
     switch (action.type) {
       case SET_AGENT_OPEN:

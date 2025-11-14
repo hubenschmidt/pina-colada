@@ -6,14 +6,18 @@ import { useUser } from '@auth0/nextjs-auth0/client';
 import { Container, Title, Loader } from '@mantine/core';
 import TenantSelector from '../../../components/auth/TenantSelector';
 import { fetchBearerToken } from '../../../lib/fetch-bearer-token';
+import { useUserContext } from '../../../context/userContext';
+import { SET_USER, SET_BEARER_TOKEN, SET_TENANT_NAME } from '../../../reducers/userReducer';
 import axios from 'axios';
 import { env } from 'next-runtime-env';
 
 const TenantSelectPage = () => {
   const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
+  const { userState, dispatchUser } = useUserContext();
   const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [creatingTenant, setCreatingTenant] = useState(false);
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -23,30 +27,92 @@ const TenantSelectPage = () => {
 
     if (!user) return;
 
-    const loadTenants = async () => {
+    const initializeAuth = async () => {
       try {
-        const authHeaders = await fetchBearerToken();
-        const response = await axios.get(
-          `${env('NEXT_PUBLIC_API_URL')}/api/auth/me`,
-          authHeaders
-        );
+        // Store Auth0 user and fetch bearer token
+        if (!userState.user) {
+          dispatchUser({
+            type: SET_USER,
+            payload: user,
+          });
+        }
 
-        const userTenants = response.data.tenants || [];
-        setTenants(userTenants);
+        if (!userState.bearerToken) {
+          const bearerTokenData = await fetchBearerToken();
+          dispatchUser({
+            type: SET_BEARER_TOKEN,
+            payload: bearerTokenData.headers.Authorization.replace('Bearer ', ''),
+          });
+        }
 
-        // Auto-select if only one tenant
-        if (userTenants.length === 1) {
-          handleSelectTenant(userTenants[0].id);
+        // Check if we have a tenant name to create (from signup flow)
+        if (userState.tenantName && !creatingTenant && loading) {
+          setCreatingTenant(true);
+          await handleCreateTenantFromSignup(userState.tenantName);
+          return;
+        }
+
+        // Load existing tenants (only if not creating tenant)
+        if (!creatingTenant) {
+          await loadTenants();
         }
       } catch (error) {
-        console.error('Error loading tenants:', error);
-      } finally {
+        console.error('Error initializing auth:', error);
         setLoading(false);
       }
     };
 
-    loadTenants();
-  }, [user, userLoading, router]);
+    initializeAuth();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, userLoading]);
+
+  const loadTenants = async () => {
+    try {
+      const authHeaders = await fetchBearerToken();
+      const response = await axios.get(
+        `${env('NEXT_PUBLIC_API_URL')}/api/auth/me`,
+        authHeaders
+      );
+
+      const userTenants = response.data.tenants || [];
+      setTenants(userTenants);
+
+      // Auto-select if only one tenant
+      if (userTenants.length === 1) {
+        handleSelectTenant(userTenants[0].id);
+      }
+    } catch (error) {
+      console.error('Error loading tenants:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateTenantFromSignup = async (name: string) => {
+    try {
+      const authHeaders = await fetchBearerToken();
+      const response = await axios.post(
+        `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/create`,
+        { name },
+        authHeaders
+      );
+
+      const newTenant = response.data.tenant;
+      
+      // Clear tenant name from context
+      dispatchUser({
+        type: SET_TENANT_NAME,
+        payload: null,
+      });
+
+      // Auto-select the newly created tenant
+      await handleSelectTenant(newTenant.id);
+    } catch (error) {
+      console.error('Error creating tenant from signup:', error);
+      setCreatingTenant(false);
+      setLoading(false);
+    }
+  };
 
   const handleSelectTenant = async (tenantId: number) => {
     try {

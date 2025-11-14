@@ -1,11 +1,11 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useNav } from "../context/navContext";
+import { useNavContext } from "../context/navContext";
 import { useUser } from "@auth0/nextjs-auth0";
 
 const Header = () => {
-  const { dispatchNav } = useNav();
+  const { dispatchNav } = useNavContext();
   const { user, isLoading } = useUser();
   console.log('user', user);
 

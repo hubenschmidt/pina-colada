@@ -1,10 +1,10 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useNav } from "../context/navContext";
+import { useNavContext } from "../context/navContext";
 
 const Hero = () => {
-  const { dispatchNav } = useNav();
+  const { dispatchNav } = useNavContext();
   return (
     <section className="relative overflow-hidden">
       <Image

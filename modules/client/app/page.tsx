@@ -7,10 +7,10 @@ import { Card, SectionTitle, CardLink } from "../components/ui";
 import Hero from "../components/Hero";
 import BandBg from "../components/BandBg";
 import Chat from "../components/Chat/Chat";
-import { useNav } from "../context/navContext";
+import { useNavContext } from "../context/navContext";
 
 const Home = () => {
-  const { navState } = useNav();
+  const { navState } = useNavContext();
   const { agentOpen } = navState;
   // Clear the hash when user scrolls back to (near) top
   useEffect(() => {

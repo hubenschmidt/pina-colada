@@ -3,6 +3,7 @@ import "@mantine/core/styles.css";
 import "./globals.css";
 import Header from "../components/Header";
 import { NavProvider } from "../context/navContext";
+import { UserProvider } from "../context/userContext";
 import { MantineProvider } from "@mantine/core";
 import { PublicEnvScript } from "next-runtime-env";
 import { Auth0Provider } from "@auth0/nextjs-auth0/client";
@@ -24,12 +25,14 @@ const RootLayout = ({
       </head>
       <body>
         <Auth0Provider>
-          <MantineProvider>
-            <NavProvider>
-              <Header />
-              {children}
-            </NavProvider>
-          </MantineProvider>
+          <UserProvider>
+            <MantineProvider>
+              <NavProvider>
+                <Header />
+                {children}
+              </NavProvider>
+            </MantineProvider>
+          </UserProvider>
         </Auth0Provider>
       </body>
     </html>
