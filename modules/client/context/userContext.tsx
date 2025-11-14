@@ -6,6 +6,7 @@ const initialState: UserState = {
   user: null,
   tenantName: null,
   bearerToken: null,
+  isAuthenticated: false
 };
 
 export const UserContext = createContext<{
