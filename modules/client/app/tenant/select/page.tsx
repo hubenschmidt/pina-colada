@@ -3,8 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useUser } from '@auth0/nextjs-auth0/client';
-import { Container, Title, Loader } from '@mantine/core';
-import TenantSelector from '../../../components/auth/TenantSelector';
+import { Container, Title, Loader, TextInput, Button, Paper, Text } from '@mantine/core';
 import { fetchBearerToken } from '../../../lib/fetch-bearer-token';
 import { useUserContext } from '../../../context/userContext';
 import { SET_USER, SET_BEARER_TOKEN, SET_TENANT_NAME } from '../../../reducers/userReducer';
@@ -15,9 +14,9 @@ const TenantSelectPage = () => {
   const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
   const { userState, dispatchUser } = useUserContext();
-  const [tenants, setTenants] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [creatingTenant, setCreatingTenant] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [tenantName, setTenantName] = useState('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -44,21 +43,8 @@ const TenantSelectPage = () => {
             payload: bearerTokenData.headers.Authorization.replace('Bearer ', ''),
           });
         }
-
-        // Check if we have a tenant name to create (from signup flow)
-        if (userState.tenantName && !creatingTenant && loading) {
-          setCreatingTenant(true);
-          await handleCreateTenantFromSignup(userState.tenantName);
-          return;
-        }
-
-        // Load existing tenants (only if not creating tenant)
-        if (!creatingTenant) {
-          await loadTenants();
-        }
       } catch (error) {
         console.error('Error initializing auth:', error);
-        setLoading(false);
       }
     };
 
@@ -66,90 +52,51 @@ const TenantSelectPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, userLoading]);
 
-  const loadTenants = async () => {
-    try {
-      const authHeaders = await fetchBearerToken();
-      const response = await axios.get(
-        `${env('NEXT_PUBLIC_API_URL')}/api/auth/me`,
-        authHeaders
-      );
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
 
-      const userTenants = response.data.tenants || [];
-      setTenants(userTenants);
-
-      // Auto-select if only one tenant
-      if (userTenants.length === 1) {
-        handleSelectTenant(userTenants[0].id);
-      }
-    } catch (error) {
-      console.error('Error loading tenants:', error);
-    } finally {
-      setLoading(false);
+    if (!tenantName.trim()) {
+      setError('Please enter an organization name');
+      return;
     }
-  };
 
-  const handleCreateTenantFromSignup = async (name: string) => {
+    setLoading(true);
     try {
       const authHeaders = await fetchBearerToken();
       const response = await axios.post(
         `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/create`,
-        { name },
+        { name: tenantName },
         authHeaders
       );
 
       const newTenant = response.data.tenant;
-      
-      // Clear tenant name from context
+
+      // Store tenant in context
       dispatchUser({
         type: SET_TENANT_NAME,
-        payload: null,
+        payload: newTenant.name,
       });
 
-      // Auto-select the newly created tenant
-      await handleSelectTenant(newTenant.id);
-    } catch (error) {
-      console.error('Error creating tenant from signup:', error);
-      setCreatingTenant(false);
+      // Switch to the new tenant
+      await axios.post(
+        `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/switch`,
+        { tenant_id: newTenant.id },
+        authHeaders
+      );
+
+      // Store tenant in cookie
+      document.cookie = `tenant_id=${newTenant.id}; path=/`;
+
+      router.push('/');
+    } catch (error: any) {
+      console.error('Error creating tenant:', error);
+      setError(error.response?.data?.message || 'Failed to create organization');
       setLoading(false);
     }
   };
 
-  const handleSelectTenant = async (tenantId: number) => {
-    try {
-      const authHeaders = await fetchBearerToken();
-      await axios.post(
-        `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/switch`,
-        { tenant_id: tenantId },
-        authHeaders
-      );
-
-      // Store tenant in cookie/localStorage
-      document.cookie = `tenant_id=${tenantId}; path=/`;
-
-      router.push('/');
-    } catch (error) {
-      console.error('Error switching tenant:', error);
-    }
-  };
-
-  const handleCreateTenant = async (name: string) => {
-    try {
-      const authHeaders = await fetchBearerToken();
-      const response = await axios.post(
-        `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/create`,
-        { name },
-        authHeaders
-      );
-
-      const newTenant = response.data.tenant;
-      setTenants([...tenants, newTenant]);
-      handleSelectTenant(newTenant.id);
-    } catch (error) {
-      console.error('Error creating tenant:', error);
-    }
-  };
-
-  if (userLoading || loading) {
+  if (userLoading) {
     return (
       <Container size="sm" className="flex items-center justify-center min-h-screen">
         <Loader size="lg" />
@@ -162,11 +109,34 @@ const TenantSelectPage = () => {
       <Title order={1} mb="xl" className="text-center">
         Welcome to PinaColada.co
       </Title>
-      <TenantSelector
-        tenants={tenants}
-        onSelectTenant={handleSelectTenant}
-        onCreateTenant={handleCreateTenant}
-      />
+      <Paper shadow="sm" p="xl" radius="md" withBorder>
+        <Title order={2} mb="md" size="h3">
+          Create Your Organization
+        </Title>
+        <Text size="sm" c="dimmed" mb="lg">
+          Please enter a name for your organization to get started.
+        </Text>
+        <form onSubmit={handleSubmit}>
+          <TextInput
+            label="Organization Name"
+            placeholder="Enter organization name"
+            value={tenantName}
+            onChange={(e) => setTenantName(e.currentTarget.value)}
+            error={error}
+            disabled={loading}
+            mb="md"
+            required
+          />
+          <Button
+            type="submit"
+            fullWidth
+            loading={loading}
+            disabled={!tenantName.trim()}
+          >
+            Create Organization
+          </Button>
+        </form>
+      </Paper>
     </Container>
   );
 };
