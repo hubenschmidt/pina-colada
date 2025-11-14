@@ -2,9 +2,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useNav } from "../context/navContext";
+import { useUser } from "@auth0/nextjs-auth0";
 
 const Header = () => {
   const { dispatchNav } = useNav();
+  const { user, isLoading } = useUser();
+  console.log(user);
+
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-blue-50">
       <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
@@ -96,13 +100,13 @@ const Header = () => {
             Start a project
           </Link>
           <Link
-            href="/login"
+            href={user ? "/api/auth/logout" : "/login"}
             className="text-blue-700 hover:text-blue-500"
             onClick={() =>
               dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
             }
           >
-            Login
+            {user ? "Logout" : "Login"}
           </Link>
         </nav>
       </div>
