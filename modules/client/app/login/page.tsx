@@ -63,7 +63,7 @@ const LoginPage = () => {
             {/* Login button */}
             <Button
               component="a"
-              href="/api/auth/login"
+              href="/auth/login"
               size="lg"
               className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white border-0"
               leftSection={<ChevronLeft size={18} />}
@@ -74,7 +74,7 @@ const LoginPage = () => {
             {/* Sign up button */}
             <Button
               component="a"
-              href="/api/auth/login?screen_hint=signup"
+              href="/auth/login?screen_hint=signup"
               size="lg"
               variant="light"
               className="text-blue-700 border-2 border-blue-200 hover:border-blue-300 hover:bg-blue-50"

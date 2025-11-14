@@ -7,7 +7,7 @@ import { useUser } from "@auth0/nextjs-auth0";
 const Header = () => {
   const { dispatchNav } = useNav();
   const { user, isLoading } = useUser();
-  console.log(user);
+  console.log('user', user);
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-blue-50">
@@ -99,15 +99,27 @@ const Header = () => {
           >
             Start a project
           </Link>
-          <Link
-            href={user ? "/api/auth/logout" : "/login"}
-            className="text-blue-700 hover:text-blue-500"
-            onClick={() =>
-              dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-            }
-          >
-            {user ? "Logout" : "Login"}
-          </Link>
+          {user ? (
+            <a
+              href="/auth/logout"
+              className="text-blue-700 hover:text-blue-500"
+              onClick={() =>
+                dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
+              }
+            >
+              Logout
+            </a>
+          ) : (
+            <Link
+              href="/login"
+              className="text-blue-700 hover:text-blue-500"
+              onClick={() =>
+                dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
+              }
+            >
+              Login
+            </Link>
+          )}
         </nav>
       </div>
     </header>

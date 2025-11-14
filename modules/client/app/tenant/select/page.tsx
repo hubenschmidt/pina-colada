@@ -17,7 +17,7 @@ const TenantSelectPage = () => {
 
   useEffect(() => {
     if (!userLoading && !user) {
-      router.push('/api/auth/login');
+      router.push('/auth/login');
       return;
     }
 

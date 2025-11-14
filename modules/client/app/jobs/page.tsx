@@ -30,7 +30,7 @@ const JobsPage = () => {
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-end mb-4">
           <a
-            href="/api/auth/logout"
+            href="/auth/logout"
             className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-300 rounded-lg text-zinc-700 hover:bg-zinc-50 transition-colors"
           >
             <LogOut size={18} />
