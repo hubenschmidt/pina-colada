@@ -11,6 +11,8 @@ const Header = () => {
   const pathname = usePathname();
   const isTenantSelectPage = pathname === '/tenant/select';
 
+  if (isLoading) return null;
+
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-blue-50">
       <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">

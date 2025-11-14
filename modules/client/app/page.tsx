@@ -1,6 +1,7 @@
 "use client";
 import { useEffect } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import SectionFrame from "../components/SectionFrame";
 import { CheckCircle2 } from "lucide-react";
 import { Card, SectionTitle, CardLink } from "../components/ui";
@@ -8,10 +9,27 @@ import Hero from "../components/Hero";
 import BandBg from "../components/BandBg";
 import Chat from "../components/Chat/Chat";
 import { useNavContext } from "../context/navContext";
+import { useUserContext } from "../context/userContext";
+import { useRouter } from "next/navigation";
+import { useUser } from "@auth0/nextjs-auth0";
 
 const Home = () => {
   const { navState } = useNavContext();
   const { agentOpen } = navState;
+  const { userState } = useUserContext();
+  const router = useRouter();
+  const { user, isLoading } = useUser();
+
+  useEffect(() => {
+    if (!user) return;
+
+    if (!userState.tenantName) {
+      router.push("/tenant/select");
+      return;
+    }
+    router.push("/view");
+  }, [user, userState.tenantName, router]);
+
   // Clear the hash when user scrolls back to (near) top
   useEffect(() => {
     let ticking = false;
@@ -41,6 +59,14 @@ const Home = () => {
   useEffect(() => {
     document.getElementById("agent")?.scrollIntoView({ behavior: "smooth" });
   }, [agentOpen]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Image src="/icon.png" alt="Loading" width={200} height={200} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen text-zinc-800 selection:bg-lime-300/40">

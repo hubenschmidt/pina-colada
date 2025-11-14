@@ -6,7 +6,7 @@ const initialState: UserState = {
   user: null,
   tenantName: null,
   bearerToken: null,
-  isAuthenticated: false
+  isAuthed: false,
 };
 
 export const UserContext = createContext<{
@@ -29,4 +29,3 @@ export const UserProvider = ({ children }: { children: ReactNode }) => {
     </UserContext.Provider>
   );
 };
-
