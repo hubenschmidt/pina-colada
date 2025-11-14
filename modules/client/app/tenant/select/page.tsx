@@ -7,6 +7,7 @@ import { Container, Title, Loader } from '@mantine/core';
 import TenantSelector from '../../../components/auth/TenantSelector';
 import { fetchBearerToken } from '../../../lib/fetch-bearer-token';
 import axios from 'axios';
+import { env } from 'next-runtime-env';
 
 const TenantSelectPage = () => {
   const { user, isLoading: userLoading } = useUser();
@@ -26,7 +27,7 @@ const TenantSelectPage = () => {
       try {
         const authHeaders = await fetchBearerToken();
         const response = await axios.get(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`,
+          `${env('NEXT_PUBLIC_API_URL')}/api/auth/me`,
           authHeaders
         );
 
@@ -51,7 +52,7 @@ const TenantSelectPage = () => {
     try {
       const authHeaders = await fetchBearerToken();
       await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/tenant/switch`,
+        `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/switch`,
         { tenant_id: tenantId },
         authHeaders
       );
@@ -69,7 +70,7 @@ const TenantSelectPage = () => {
     try {
       const authHeaders = await fetchBearerToken();
       const response = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/tenant/create`,
+        `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/create`,
         { name },
         authHeaders
       );

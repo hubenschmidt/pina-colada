@@ -4,6 +4,7 @@ import styles from "./Chat.module.css";
 import { Copy, Check, Download, Briefcase, ChevronDown } from "lucide-react";
 import JobLeadsPanel from "../JobLeadsPanel";
 import { extractAndSaveJobLeads } from "../../lib/job-lead-extractor";
+import { env } from "next-runtime-env";
 
 // ---------- User context (testing-only; no consent prompts) ----------
 
@@ -276,10 +277,8 @@ export const renderWithLinks = (text: string): React.ReactNode[] => {
 // ---------- Runtime configuration ----------
 
 const getWsUrl = () => {
-  if (typeof window === "undefined") return "ws://localhost:8000/ws";
-  if (window.location.hostname.includes("pinacolada.co"))
-    return "wss://api.pinacolada.co/ws";
-  return "ws://localhost:8000/ws";
+  const apiUrl = env('NEXT_PUBLIC_API_URL') || 'http://localhost:8000';
+  return apiUrl.replace(/^http/, 'ws') + '/ws';
 };
 
 const WS_URL = getWsUrl();

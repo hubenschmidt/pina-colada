@@ -96,7 +96,7 @@ const Header = () => {
             Start a project
           </Link>
           <Link
-            href="/jobs"
+            href="/login"
             className="text-blue-700 hover:text-blue-500"
             onClick={() =>
               dispatchNav({ type: "SET_AGENT_OPEN", payload: false })

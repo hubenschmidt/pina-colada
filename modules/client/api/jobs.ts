@@ -5,14 +5,7 @@
 
 import { AppliedJob, AppliedJobInsert, AppliedJobUpdate } from '../lib/supabase'
 import { PageData } from '../components/DataTable'
-
-const getAgentApiUrl = (): string => {
-  if (typeof window === "undefined") return "http://localhost:8000"
-  if (window.location.hostname === "pinacolada.co" || window.location.hostname === "www.pinacolada.co") {
-    return "https://api.pinacolada.co"
-  }
-  return "http://localhost:8000"
-}
+import { env } from 'next-runtime-env'
 
 export const fetchJobs = async (
   page: number = 1,
@@ -21,7 +14,7 @@ export const fetchJobs = async (
   order: "ASC" | "DESC" = "DESC",
   search?: string
 ): Promise<PageData<AppliedJob>> => {
-  const baseUrl = getAgentApiUrl();
+  const baseUrl = env('NEXT_PUBLIC_API_URL');
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
@@ -65,7 +58,7 @@ const sanitizeJobUpdate = (job: AppliedJobUpdate): AppliedJobUpdate => {
 
 export const createJob = async (job: AppliedJobInsert): Promise<AppliedJob> => {
   const sanitized = sanitizeJobInsert(job);
-  const baseUrl = getAgentApiUrl();
+  const baseUrl = env('NEXT_PUBLIC_API_URL');
   const response = await fetch(`${baseUrl}/api/jobs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -80,7 +73,7 @@ export const createJob = async (job: AppliedJobInsert): Promise<AppliedJob> => {
 
 export const updateJob = async (id: string, job: AppliedJobUpdate): Promise<AppliedJob> => {
   const sanitized = sanitizeJobUpdate(job);
-  const baseUrl = getAgentApiUrl();
+  const baseUrl = env('NEXT_PUBLIC_API_URL');
   const response = await fetch(`${baseUrl}/api/jobs/${id}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -94,7 +87,7 @@ export const updateJob = async (id: string, job: AppliedJobUpdate): Promise<Appl
 }
 
 export const deleteJob = async (id: string): Promise<void> => {
-  const baseUrl = getAgentApiUrl();
+  const baseUrl = env('NEXT_PUBLIC_API_URL');
   const response = await fetch(`${baseUrl}/api/jobs/${id}`, {
     method: 'DELETE',
   });
@@ -105,7 +98,7 @@ export const deleteJob = async (id: string): Promise<void> => {
 }
 
 export const getMostRecentResumeDate = async (): Promise<string | null> => {
-  const baseUrl = getAgentApiUrl();
+  const baseUrl = env('NEXT_PUBLIC_API_URL');
   const response = await fetch(`${baseUrl}/api/jobs/recent-resume-date`);
   if (!response.ok) {
     return null;
@@ -130,7 +123,7 @@ export type JobWithLeadStatus = AppliedJob & {
  * Fetch all lead statuses from the database
  */
 export const fetchLeadStatuses = async (): Promise<LeadStatus[]> => {
-  const baseUrl = getAgentApiUrl();
+  const baseUrl = env('NEXT_PUBLIC_API_URL');
   const response = await fetch(`${baseUrl}/api/lead-statuses`);
   if (!response.ok) {
     throw new Error('Failed to fetch lead statuses');
@@ -145,7 +138,7 @@ export const fetchLeadStatuses = async (): Promise<LeadStatus[]> => {
 export const fetchLeads = async (
   statusNames?: ('Qualifying' | 'Cold' | 'Warm' | 'Hot')[]
 ): Promise<JobWithLeadStatus[]> => {
-  const baseUrl = getAgentApiUrl();
+  const baseUrl = env('NEXT_PUBLIC_API_URL');
   const params = new URLSearchParams();
   if (statusNames && statusNames.length > 0) {
     params.append('statuses', statusNames.join(','));
@@ -164,7 +157,7 @@ export const updateJobLeadStatus = async (
   jobId: string,
   leadStatusId: string | null
 ): Promise<AppliedJob> => {
-  const baseUrl = getAgentApiUrl();
+  const baseUrl = env('NEXT_PUBLIC_API_URL');
   const response = await fetch(`${baseUrl}/api/jobs/${jobId}`, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
@@ -181,7 +174,7 @@ export const updateJobLeadStatus = async (
  * Sets status to 'applied', clears lead_status_id, and sets date to now if not set
  */
 export const markLeadAsApplied = async (jobId: string): Promise<AppliedJob> => {
-  const baseUrl = getAgentApiUrl();
+  const baseUrl = env('NEXT_PUBLIC_API_URL');
   const response = await fetch(`${baseUrl}/api/leads/${jobId}/apply`, {
     method: 'POST',
   });
@@ -196,7 +189,7 @@ export const markLeadAsApplied = async (jobId: string): Promise<AppliedJob> => {
  * Sets status to 'do_not_apply' and clears lead_status_id
  */
 export const markLeadAsDoNotApply = async (jobId: string): Promise<AppliedJob> => {
-  const baseUrl = getAgentApiUrl();
+  const baseUrl = env('NEXT_PUBLIC_API_URL');
   const response = await fetch(`${baseUrl}/api/leads/${jobId}/do-not-apply`, {
     method: 'POST',
   });
