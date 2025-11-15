@@ -45,14 +45,71 @@ def get_user_tenants(user_id: int) -> List[dict]:
 def create_tenant_for_user(
     user_id: int, tenant_name: str, slug: str = None, plan: str = "free"
 ) -> dict:
-    """Create new tenant and assign user as owner."""
+    """Find or create tenant and assign user as owner."""
     session = get_session()
     try:
         # Generate slug from name if not provided
         if not slug:
             slug = re.sub(r'[^a-z0-9]+', '-', tenant_name.lower()).strip('-')
 
-        # Create Tenant
+        # Try to find existing tenant
+        stmt = select(Tenant).where(Tenant.slug == slug)
+        tenant = session.execute(stmt).scalar_one_or_none()
+
+        if tenant:
+            # Tenant exists - check if user already has a role
+            stmt = (
+                select(Role, UserRole)
+                .join(UserRole, UserRole.role_id == Role.id)
+                .where(Role.tenant_id == tenant.id, UserRole.user_id == user_id)
+            )
+            result = session.execute(stmt).first()
+
+            if result:
+                # User already has role in this tenant
+                role, _ = result
+                return {
+                    "id": tenant.id,
+                    "name": tenant.name,
+                    "slug": tenant.slug,
+                    "plan": tenant.plan,
+                    "role": role.name,
+                }
+
+            # User doesn't have role - find owner role and assign
+            stmt = select(Role).where(Role.tenant_id == tenant.id, Role.name == "owner")
+            owner_role = session.execute(stmt).scalar_one_or_none()
+
+            if not owner_role:
+                # Create owner role if it doesn't exist
+                owner_role = Role(
+                    tenant_id=tenant.id,
+                    name="owner",
+                    description="Full access to all resources",
+                )
+                session.add(owner_role)
+                session.flush()
+
+            # Assign user as owner
+            user_role = UserRole(user_id=user_id, role_id=owner_role.id)
+            session.add(user_role)
+
+            # Update User.tenant_id if not set
+            user = session.get(User, user_id)
+            if user and not user.tenant_id:
+                user.tenant_id = tenant.id
+
+            session.commit()
+
+            return {
+                "id": tenant.id,
+                "name": tenant.name,
+                "slug": tenant.slug,
+                "plan": tenant.plan,
+                "role": "owner",
+            }
+
+        # Tenant doesn't exist - create new tenant
         tenant = Tenant(name=tenant_name, slug=slug, plan=plan)
         session.add(tenant)
         session.flush()
