@@ -1,10 +1,10 @@
 """Routes for authentication API endpoints."""
 
 from typing import Optional
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from lib.auth import require_auth
-from services.auth_service import get_user_tenants, create_tenant_for_user, add_user_to_tenant
+from services.auth_service import get_user_tenants, create_tenant_for_user
 from lib.serialization import model_to_dict
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -15,11 +15,6 @@ class TenantCreate(BaseModel):
     name: str
     slug: Optional[str] = None
     plan: str = "free"
-
-
-class TenantSwitch(BaseModel):
-    """Model for tenant switching."""
-    tenant_id: int
 
 
 @router.get("/me")
@@ -43,27 +38,3 @@ async def create_tenant(request: Request, tenant_data: TenantCreate):
     user_id = request.state.user_id
     tenant = create_tenant_for_user(user_id, tenant_data.name, tenant_data.slug, tenant_data.plan)
     return {"tenant": tenant}
-
-
-@router.post("/tenant/switch")
-@require_auth
-async def switch_tenant(request: Request, tenant_data: TenantSwitch):
-    """Switch active tenant for current user."""
-    user_id = request.state.user_id
-    tenant_id = tenant_data.tenant_id
-
-    # Verify user has access to tenant
-    tenants = get_user_tenants(user_id)
-    tenant_ids = [t["id"] for t in tenants]
-
-    if tenant_id not in tenant_ids:
-        raise HTTPException(
-            status_code=403,
-            detail="User does not have access to this tenant"
-        )
-
-    # Return success - frontend will update cookie
-    return {
-        "success": True,
-        "tenant_id": tenant_id
-    }

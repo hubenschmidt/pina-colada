@@ -1,13 +1,14 @@
 """JWT authentication and authorization for FastAPI."""
 
 import os
+import logging
 from functools import wraps
 from typing import Optional, Callable
 from fastapi import HTTPException, Request
 from jose import jwt, JWTError
 import requests
 
-
+logger = logging.getLogger(__name__)
 # Cache for JWKS
 _jwks_cache: Optional[dict] = None
 
@@ -29,6 +30,20 @@ def get_jwks() -> dict:
     return _jwks_cache
 
 
+def _find_rsa_key(jwks: dict, kid: str) -> Optional[dict]:
+    """Find RSA key by kid from JWKS."""
+    for key in jwks["keys"]:
+        if key["kid"] == kid:
+            return {
+                "kty": key["kty"],
+                "kid": key["kid"],
+                "use": key["use"],
+                "n": key["n"],
+                "e": key["e"]
+            }
+    return None
+
+
 def verify_token(token: str) -> dict:
     """Verify JWT token and return claims."""
     auth0_domain = os.getenv("AUTH0_DOMAIN")
@@ -43,18 +58,7 @@ def verify_token(token: str) -> dict:
     try:
         unverified_header = jwt.get_unverified_header(token)
         jwks = get_jwks()
-        rsa_key = {}
-
-        for key in jwks["keys"]:
-            if key["kid"] == unverified_header["kid"]:
-                rsa_key = {
-                    "kty": key["kty"],
-                    "kid": key["kid"],
-                    "use": key["use"],
-                    "n": key["n"],
-                    "e": key["e"]
-                }
-                break
+        rsa_key = _find_rsa_key(jwks, unverified_header["kid"])
 
         if not rsa_key:
             raise HTTPException(
@@ -82,7 +86,19 @@ def require_auth(func: Callable):
     """Decorator to protect routes with JWT authentication."""
     @wraps(func)
     async def wrapper(request: Request, *args, **kwargs):
+        # Log headers in a cleaner format
+        headers_dict = dict(request.headers)
+        logger.info("Request headers:")
+        for key, value in headers_dict.items():
+            if key.lower() == "authorization":
+                # Mask token for security
+                preview = value[:20] + "..." if len(value) > 20 else value
+                logger.info(f"  {key}: {preview}")
+            else:
+                logger.info(f"  {key}: {value}")
+        
         auth_header = request.headers.get("Authorization")
+        logger.info(f"Authorization header present: {auth_header is not None}")
         if not auth_header:
             raise HTTPException(
                 status_code=401,
@@ -103,25 +119,29 @@ def require_auth(func: Callable):
             )
         
         # Basic JWT format validation (should have 3 parts separated by dots)
-        if len(token.split(".")) != 3:
+        token_parts = token.split(".")
+        if len(token_parts) != 3:
             raise HTTPException(
                 status_code=401,
-                detail=f"Invalid token format. Expected JWT format (3 parts), got {len(token.split('.'))} parts"
+                detail=f"Invalid token format. Expected JWT format (3 parts), got {len(token_parts)} parts"
             )
         
         claims = verify_token(token)
 
+        # Log token claims for debugging
+        logger.info(f"Token claims: sub={claims.get('sub')}, email={claims.get('email')}, aud={claims.get('aud')}, scope={claims.get('scope')}")
+        
         # Attach user info to request state
         request.state.auth0_sub = claims.get("sub")
         
         # Get email from standard claim or namespaced custom claim (Auth0 action adds it)
         email = claims.get("email")
         if not email:
-            # Check namespaced custom claim (Auth0 action namespace)
             auth0_domain = os.getenv("AUTH0_DOMAIN")
             if auth0_domain:
                 email = claims.get(f"https://{auth0_domain}/email")
         
+        logger.info(f"Extracted email: {email}")
         request.state.email = email
 
         # Load user from database
@@ -133,18 +153,14 @@ def require_auth(func: Callable):
         # Get tenant from header or custom claim
         tenant_id = request.headers.get("X-Tenant-Id")
         if not tenant_id:
-            # Try custom claim
-            namespace = "https://pinacolada.co"
+            namespace = os.getenv("AUTH0_NAMESPACE", "https://pinacolada.co")
             tenant_id = claims.get(f"{namespace}/tenant_id")
 
         if tenant_id:
             request.state.tenant_id = int(tenant_id)
-        elif user.tenant_id:
-            # Default to user's primary tenant
-            request.state.tenant_id = user.tenant_id
-        else:
-            request.state.tenant_id = None
-
+            return await func(request, *args, **kwargs)
+        
+        request.state.tenant_id = user.tenant_id if user.tenant_id else None
         return await func(request, *args, **kwargs)
 
     return wrapper
