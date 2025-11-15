@@ -1,11 +1,13 @@
 /**
- * Jobs API client - always calls agent's REST API
+ * API client - always calls agent's REST API
  * The agent's repository layer handles Supabase vs local Postgres based on environment
  */
 
+import axios from 'axios'
 import { AppliedJob, AppliedJobInsert, AppliedJobUpdate } from '../lib/supabase'
 import { PageData } from '../components/DataTable'
 import { env } from 'next-runtime-env'
+import { fetchBearerToken } from '../lib/fetch-bearer-token'
 
 export const fetchJobs = async (
   page: number = 1,
@@ -197,5 +199,39 @@ export const markLeadAsDoNotApply = async (jobId: string): Promise<AppliedJob> =
     throw new Error('Failed to mark lead as do not apply');
   }
   return response.json();
+}
+
+// Tenant Types
+export type Tenant = {
+  id: number
+  name: string
+  slug: string
+  plan: string
+  role?: string
+}
+
+/**
+ * Create a new tenant/organization
+ */
+export const createTenant = async (name: string, plan: string = 'free'): Promise<Tenant> => {
+  const authHeaders = await fetchBearerToken();
+  const response = await axios.post(
+    `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/create`,
+    { name, plan },
+    authHeaders
+  );
+  return response.data.tenant;
+}
+
+/**
+ * Switch active tenant for current user
+ */
+export const switchTenant = async (tenantId: number): Promise<void> => {
+  const authHeaders = await fetchBearerToken();
+  await axios.post(
+    `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/switch`,
+    { tenant_id: tenantId },
+    authHeaders
+  );
 }
 

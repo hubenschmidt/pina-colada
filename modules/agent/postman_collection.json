@@ -5,6 +5,66 @@
 		"description": "REST API collection for PinaColada agent backend",
 		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
 	},
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					"const audience = pm.environment.get('auth0_audience');",
+					"const clientSecret = pm.environment.get('auth0_client_secret');",
+					"const clientId = pm.environment.get('auth0_client_id');",
+					"const domain = pm.environment.get('auth0_domain');",
+					"const username = pm.environment.get('auth0_username');",
+					"const password = pm.environment.get('auth0_password');",
+					"",
+					"if (!clientId || !clientSecret || !audience || !domain || !username || !password) {",
+					"  console.error('Missing required Auth0 environment variables');",
+					"  return;",
+					"}",
+					"",
+					"pm.sendRequest({",
+					"  url: `https://${domain}/oauth/token`,",
+					"  method: 'POST',",
+					"  header: {",
+					"    'Content-Type': 'application/json'",
+					"  },",
+					"  body: {",
+					"    mode: 'raw',",
+					"    raw: JSON.stringify({",
+					"      client_id: clientId,",
+					"      client_secret: clientSecret,",
+					"      audience: audience,",
+					"      grant_type: 'password',",
+					"      username: username,",
+					"      password: password,",
+					"      scope: 'openid profile email'",
+					"    })",
+					"  }",
+					"}, (err, res) => {",
+					"  if (err) {",
+					"    console.error('Error fetching token:', err);",
+					"    return;",
+					"  }",
+					"  ",
+					"  if (res.code !== 200) {",
+					"    console.error('Auth0 token request failed:', res.code, res.json());",
+					"    return;",
+					"  }",
+					"  ",
+					"  const json = res.json();",
+					"  if (!json.access_token) {",
+					"    console.error('No access_token in response:', json);",
+					"    return;",
+					"  }",
+					"  ",
+					"  pm.environment.set('bearer_token', json.access_token);",
+					"  console.log('Bearer token set successfully');",
+					"});"
+				]
+			}
+		}
+	],
 	"item": [
 		{
 			"name": "Health",
@@ -34,6 +94,68 @@
 							"path": ["health"]
 						},
 						"description": "Health status endpoint"
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Auth",
+			"item": [
+				{
+					"name": "Create Tenant",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{bearer_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"name\": \"My Organization\",\n  \"slug\": \"my-org\",\n  \"plan\": \"free\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/auth/tenant/create",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "tenant", "create"]
+						},
+						"description": "Create a new tenant/organization. Requires authentication. Creates tenant, assigns owner role to current user."
+					},
+					"response": []
+				},
+				{
+					"name": "Get Current User",
+					"request": {
+						"auth": {
+							"type": "bearer",
+							"bearer": [
+								{
+									"key": "token",
+									"value": "{{bearer_token}}",
+									"type": "string"
+								}
+							]
+						},
+						"method": "GET",
+						"header": [],
+						"url": {
+							"raw": "{{base_url}}/api/auth/me",
+							"host": ["{{base_url}}"],
+							"path": ["api", "auth", "me"]
+						},
+						"description": "Get current authenticated user with tenant associations"
 					},
 					"response": []
 				}
@@ -275,6 +397,12 @@
 			"key": "base_url",
 			"value": "http://localhost:8000",
 			"type": "string"
+		},
+		{
+			"key": "access_token",
+			"value": "",
+			"type": "string",
+			"description": "JWT access token from Auth0. Get from /api/auth/token or Auth0 test tab"
 		}
 	]
 }

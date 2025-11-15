@@ -13,6 +13,8 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 class TenantCreate(BaseModel):
     """Model for tenant creation."""
     name: str
+    slug: Optional[str] = None
+    plan: str = "free"
 
 
 class TenantSwitch(BaseModel):
@@ -39,7 +41,7 @@ async def get_current_user(request: Request):
 async def create_tenant(request: Request, tenant_data: TenantCreate):
     """Create new tenant and assign current user as owner."""
     user_id = request.state.user_id
-    tenant = create_tenant_for_user(user_id, tenant_data.name)
+    tenant = create_tenant_for_user(user_id, tenant_data.name, tenant_data.slug, tenant_data.plan)
     return {"tenant": tenant}
 
 

@@ -24,6 +24,7 @@ class Tenant(Base):
 
     # Relationships
     users = relationship("User", back_populates="tenant")
+    roles = relationship("Role", back_populates="tenant")
     deals = relationship("Deal", back_populates="tenant")
     organizations = relationship("Organization", back_populates="tenant")
     individuals = relationship("Individual", back_populates="tenant")

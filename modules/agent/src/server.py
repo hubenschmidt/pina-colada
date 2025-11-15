@@ -65,12 +65,24 @@ async def health():
 # Middleware to log all requests
 # -----------------------------------------------------------------------------
 from fastapi import Request
+import time
 
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
-    logger.info(f"Request: {request.method} {request.url.path}")
+    start_time = time.time()
+
+    # Log incoming request
+    auth_header = request.headers.get("authorization", "")[:50]  # Truncate for security
+    logger.info(f"→ {request.method} {request.url.path} | Auth: {auth_header}...")
+
+    # Process request
     response = await call_next(request)
+
+    # Log response
+    duration_ms = int((time.time() - start_time) * 1000)
+    logger.info(f"← {request.method} {request.url.path} | {response.status_code} | {duration_ms}ms")
+
     return response
 
 

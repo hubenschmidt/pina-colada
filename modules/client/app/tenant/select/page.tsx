@@ -1,26 +1,39 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useUser } from '@auth0/nextjs-auth0/client';
-import { Container, Title, Loader, TextInput, Button, Paper, Text } from '@mantine/core';
-import { fetchBearerToken } from '../../../lib/fetch-bearer-token';
-import { useUserContext } from '../../../context/userContext';
-import { SET_USER, SET_BEARER_TOKEN, SET_TENANT_NAME } from '../../../reducers/userReducer';
-import axios from 'axios';
-import { env } from 'next-runtime-env';
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useUser } from "@auth0/nextjs-auth0/client";
+import Image from "next/image";
+import {
+  Container,
+  Title,
+  TextInput,
+  Button,
+  Paper,
+  Text,
+  Select,
+} from "@mantine/core";
+import { fetchBearerToken } from "../../../lib/fetch-bearer-token";
+import { useUserContext } from "../../../context/userContext";
+import {
+  SET_USER,
+  SET_BEARER_TOKEN,
+  SET_TENANT_NAME,
+} from "../../../reducers/userReducer";
+import { createTenant, switchTenant } from "../../../api";
 
 const TenantSelectPage = () => {
   const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
   const { userState, dispatchUser } = useUserContext();
   const [loading, setLoading] = useState(false);
-  const [tenantName, setTenantName] = useState('');
-  const [error, setError] = useState('');
+  const [tenantName, setTenantName] = useState("");
+  const [plan, setPlan] = useState("free");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!userLoading && !user) {
-      router.push('/auth/login');
+      router.push("/auth/login");
       return;
     }
 
@@ -40,11 +53,14 @@ const TenantSelectPage = () => {
           const bearerTokenData = await fetchBearerToken();
           dispatchUser({
             type: SET_BEARER_TOKEN,
-            payload: bearerTokenData.headers.Authorization.replace('Bearer ', ''),
+            payload: bearerTokenData.headers.Authorization.replace(
+              "Bearer ",
+              ""
+            ),
           });
         }
       } catch (error) {
-        console.error('Error initializing auth:', error);
+        console.error("Error initializing auth:", error);
       }
     };
 
@@ -54,23 +70,16 @@ const TenantSelectPage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError("");
 
     if (!tenantName.trim()) {
-      setError('Please enter an organization name');
+      setError("Please enter an organization name");
       return;
     }
 
     setLoading(true);
     try {
-      const authHeaders = await fetchBearerToken();
-      const response = await axios.post(
-        `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/create`,
-        { name: tenantName },
-        authHeaders
-      );
-
-      const newTenant = response.data.tenant;
+      const newTenant = await createTenant(tenantName, plan);
 
       // Store tenant in context
       dispatchUser({
@@ -79,28 +88,26 @@ const TenantSelectPage = () => {
       });
 
       // Switch to the new tenant
-      await axios.post(
-        `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/switch`,
-        { tenant_id: newTenant.id },
-        authHeaders
-      );
+      await switchTenant(newTenant.id);
 
       // Store tenant in cookie
       document.cookie = `tenant_id=${newTenant.id}; path=/`;
 
-      router.push('/');
+      router.push("/");
     } catch (error: any) {
-      console.error('Error creating tenant:', error);
-      setError(error.response?.data?.message || 'Failed to create organization');
+      console.error("Error creating tenant:", error);
+      setError(
+        error.response?.data?.message || "Failed to create organization"
+      );
       setLoading(false);
     }
   };
 
   if (userLoading) {
     return (
-      <Container size="sm" className="flex items-center justify-center min-h-screen">
-        <Loader size="lg" />
-      </Container>
+      <div className="flex min-h-screen items-center justify-center">
+        <Image src="/icon.png" alt="Loading" width={200} height={200} />
+      </div>
     );
   }
 
@@ -122,11 +129,29 @@ const TenantSelectPage = () => {
             placeholder="Enter organization name"
             value={tenantName}
             onChange={(e) => setTenantName(e.currentTarget.value)}
-            error={error}
             disabled={loading}
             mb="md"
             required
           />
+          <Select
+            label="Plan"
+            value={plan}
+            onChange={(value) => setPlan(value || "free")}
+            data={[
+              { value: "free", label: "Free" },
+              // todo, implement these when we have a marktable product ~
+              // { value: 'starter', label: 'Starter (Coming Soon)', disabled: true },
+              // { value: 'professional', label: 'Professional (Coming Soon)', disabled: true },
+              // { value: 'enterprise', label: 'Enterprise (Coming Soon)', disabled: true },
+            ]}
+            disabled={loading}
+            mb="md"
+          />
+          {error && (
+            <Text c="red" size="sm" mb="md">
+              {error}
+            </Text>
+          )}
           <Button
             type="submit"
             fullWidth

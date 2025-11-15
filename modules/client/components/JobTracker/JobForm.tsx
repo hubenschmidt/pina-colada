@@ -1,106 +1,115 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from 'react'
-import { AppliedJob } from '../../lib/supabase'
-import { getMostRecentResumeDate } from '../../api/jobs'
-import { Plus, X } from 'lucide-react'
+import { useState, useEffect } from "react";
+import { AppliedJob } from "../../lib/supabase";
+import { getMostRecentResumeDate } from "../../api";
+import { Plus, X } from "lucide-react";
 
 type JobFormProps = {
-  onAdd: (job: Omit<AppliedJob, 'id' | 'created_at' | 'updated_at' | 'date'>) => Promise<void>
-}
+  onAdd: (
+    job: Omit<AppliedJob, "id" | "created_at" | "updated_at" | "date">
+  ) => Promise<void>;
+};
 
-const STATUS_OPTIONS: AppliedJob['status'][] = [
-  'applied',
-  'interviewing',
-  'rejected',
-  'offer',
-  'accepted'
-]
+const STATUS_OPTIONS: AppliedJob["status"][] = [
+  "applied",
+  "interviewing",
+  "rejected",
+  "offer",
+  "accepted",
+];
 
 const JobForm = ({ onAdd }: JobFormProps) => {
-  const [isOpen, setIsOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState({
-    company: '',
-    job_title: '',
-    date: new Date().toISOString().split('T')[0], // Default to today
-    job_url: '',
-    salary_range: '',
-    notes: '',
-    resume: '',
-    status: 'applied' as AppliedJob['status'],
-    source: 'manual' as const,
-    lead_status_id: null as string | null
-  })
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [useLatestResume, setUseLatestResume] = useState(true)
+    company: "",
+    job_title: "",
+    date: new Date().toISOString().split("T")[0], // Default to today
+    job_url: "",
+    salary_range: "",
+    notes: "",
+    resume: "",
+    status: "applied" as AppliedJob["status"],
+    source: "manual" as const,
+    lead_status_id: null as string | null,
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [useLatestResume, setUseLatestResume] = useState(true);
 
   // Fetch most recent resume date when form opens
   useEffect(() => {
     if (isOpen) {
-      setUseLatestResume(true) // Reset checkbox when form opens
-      getMostRecentResumeDate().then((resumeDate) => {
-        if (resumeDate) {
-          setFormData(prev => ({ ...prev, resume: resumeDate }))
-        }
-      }).catch((error) => {
-        console.error('Failed to fetch recent resume date:', error)
-        // Silently fail - user can still enter resume date manually
-      })
+      setUseLatestResume(true); // Reset checkbox when form opens
+      getMostRecentResumeDate()
+        .then((resumeDate) => {
+          if (resumeDate) {
+            setFormData((prev) => ({ ...prev, resume: resumeDate }));
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to fetch recent resume date:", error);
+          // Silently fail - user can still enter resume date manually
+        });
     }
-  }, [isOpen])
+  }, [isOpen]);
 
   const handleUseLatestResumeChange = (checked: boolean) => {
-    setUseLatestResume(checked)
+    setUseLatestResume(checked);
     if (!checked) {
       // Clear resume date when unchecked
-      setFormData(prev => ({ ...prev, resume: '' }))
+      setFormData((prev) => ({ ...prev, resume: "" }));
     } else {
       // Re-fetch and populate when checked
-      getMostRecentResumeDate().then((resumeDate) => {
-        if (resumeDate) {
-          setFormData(prev => ({ ...prev, resume: resumeDate }))
-        }
-      }).catch((error) => {
-        console.error('Failed to fetch recent resume date:', error)
-      })
+      getMostRecentResumeDate()
+        .then((resumeDate) => {
+          if (resumeDate) {
+            setFormData((prev) => ({ ...prev, resume: resumeDate }));
+          }
+        })
+        .catch((error) => {
+          console.error("Failed to fetch recent resume date:", error);
+        });
     }
-  }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
 
     if (!formData.company || !formData.job_title) {
-      alert('Company and Job Title are required')
-      return
+      alert("Company and Job Title are required");
+      return;
     }
 
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
-      await onAdd(formData)
+      await onAdd(formData);
 
       // Reset form
       setFormData({
-        company: '',
-        job_title: '',
-        date: new Date().toISOString().split('T')[0],
-        job_url: '',
-        salary_range: '',
-        notes: '',
-        resume: '',
-        status: 'applied',
-        source: 'manual',
-        lead_status_id: null
-      })
-      setUseLatestResume(true)
-      setIsOpen(false)
+        company: "",
+        job_title: "",
+        date: new Date().toISOString().split("T")[0],
+        job_url: "",
+        salary_range: "",
+        notes: "",
+        resume: "",
+        status: "applied",
+        source: "manual",
+        lead_status_id: null,
+      });
+      setUseLatestResume(true);
+      setIsOpen(false);
     } catch (error: any) {
-      console.error('Failed to add job:', error)
-      const errorMessage = error?.message || error?.error || 'Failed to add job. Please try again.'
-      alert(errorMessage)
+      console.error("Failed to add job:", error);
+      const errorMessage =
+        error?.message ||
+        error?.error ||
+        "Failed to add job. Please try again.";
+      alert(errorMessage);
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   if (!isOpen) {
     return (
@@ -111,13 +120,15 @@ const JobForm = ({ onAdd }: JobFormProps) => {
         <Plus size={20} />
         Add New Application
       </button>
-    )
+    );
   }
 
   return (
     <div className="border border-zinc-300 rounded-lg p-6 bg-blue-50 shadow-lg">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-semibold text-blue-900">Add New Job Application</h3>
+        <h3 className="text-xl font-semibold text-blue-900">
+          Add New Job Application
+        </h3>
         <button
           onClick={() => setIsOpen(false)}
           className="p-2 text-zinc-600 hover:bg-zinc-200 rounded"
@@ -136,7 +147,9 @@ const JobForm = ({ onAdd }: JobFormProps) => {
               type="text"
               required
               value={formData.company}
-              onChange={(e) => setFormData({ ...formData, company: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, company: e.target.value })
+              }
               className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
               placeholder="e.g., Google"
             />
@@ -150,7 +163,9 @@ const JobForm = ({ onAdd }: JobFormProps) => {
               type="text"
               required
               value={formData.job_title}
-              onChange={(e) => setFormData({ ...formData, job_title: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, job_title: e.target.value })
+              }
               className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
               placeholder="e.g., Software Engineer"
             />
@@ -164,7 +179,9 @@ const JobForm = ({ onAdd }: JobFormProps) => {
               type="date"
               required
               value={formData.date}
-              onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, date: e.target.value })
+              }
               className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
             />
           </div>
@@ -176,7 +193,9 @@ const JobForm = ({ onAdd }: JobFormProps) => {
             <input
               type="date"
               value={formData.resume}
-              onChange={(e) => setFormData({ ...formData, resume: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, resume: e.target.value })
+              }
               className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
             />
             <label className="flex items-center gap-2 mt-2 text-sm text-zinc-600">
@@ -197,7 +216,9 @@ const JobForm = ({ onAdd }: JobFormProps) => {
             <input
               type="text"
               value={formData.salary_range}
-              onChange={(e) => setFormData({ ...formData, salary_range: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, salary_range: e.target.value })
+              }
               className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
               placeholder="e.g., $120k - $150k"
             />
@@ -210,7 +231,9 @@ const JobForm = ({ onAdd }: JobFormProps) => {
             <input
               type="url"
               value={formData.job_url}
-              onChange={(e) => setFormData({ ...formData, job_url: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, job_url: e.target.value })
+              }
               className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
               placeholder="https://..."
             />
@@ -222,7 +245,12 @@ const JobForm = ({ onAdd }: JobFormProps) => {
             </label>
             <select
               value={formData.status}
-              onChange={(e) => setFormData({ ...formData, status: e.target.value as AppliedJob['status'] })}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  status: e.target.value as AppliedJob["status"],
+                })
+              }
               className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
             >
               {STATUS_OPTIONS.map((status) => (
@@ -239,7 +267,9 @@ const JobForm = ({ onAdd }: JobFormProps) => {
             </label>
             <textarea
               value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, notes: e.target.value })
+              }
               className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
               rows={3}
               placeholder="Additional notes about this application..."
@@ -254,7 +284,7 @@ const JobForm = ({ onAdd }: JobFormProps) => {
             className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-lime-500 to-yellow-400 text-blue-900 rounded-lg hover:brightness-95 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <Plus size={18} />
-            {isSubmitting ? 'Adding...' : 'Add Application'}
+            {isSubmitting ? "Adding..." : "Add Application"}
           </button>
           <button
             type="button"
@@ -266,7 +296,7 @@ const JobForm = ({ onAdd }: JobFormProps) => {
         </div>
       </form>
     </div>
-  )
-}
+  );
+};
 
-export default JobForm
+export default JobForm;

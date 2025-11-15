@@ -1,7 +1,14 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from 'react'
-import { X, ExternalLink, CheckCircle, Trash2, XCircle, Filter } from 'lucide-react'
+import { useEffect, useState } from "react";
+import {
+  X,
+  ExternalLink,
+  CheckCircle,
+  Trash2,
+  XCircle,
+  Filter,
+} from "lucide-react";
 import {
   fetchLeads,
   fetchLeadStatuses,
@@ -10,149 +17,162 @@ import {
   markLeadAsDoNotApply,
   deleteJob,
   type LeadStatus,
-  type JobWithLeadStatus
-} from '../../api/jobs'
-import styles from './JobLeadsPanel.module.css'
+  type JobWithLeadStatus,
+} from "../../api";
+import styles from "./JobLeadsPanel.module.css";
 
 interface JobLeadsPanelProps {
-  isOpen: boolean
-  onClose: () => void
-  onLeadsChange?: () => void  // Callback to notify parent of changes
+  isOpen: boolean;
+  onClose: () => void;
+  onLeadsChange?: () => void; // Callback to notify parent of changes
 }
 
-const JobLeadsPanel = ({ isOpen, onClose, onLeadsChange }: JobLeadsPanelProps) => {
-  const [leads, setLeads] = useState<JobWithLeadStatus[]>([])
-  const [leadStatuses, setLeadStatuses] = useState<LeadStatus[]>([])
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>(['Qualifying'])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [showToast, setShowToast] = useState(false)
-  const [toastMessage, setToastMessage] = useState('')
+const JobLeadsPanel = ({
+  isOpen,
+  onClose,
+  onLeadsChange,
+}: JobLeadsPanelProps) => {
+  const [leads, setLeads] = useState<JobWithLeadStatus[]>([]);
+  const [leadStatuses, setLeadStatuses] = useState<LeadStatus[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([
+    "Qualifying",
+  ]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("");
 
   // Load lead statuses on mount
   useEffect(() => {
-    loadLeadStatuses()
-  }, [])
+    loadLeadStatuses();
+  }, []);
 
   // Load leads when filters change or panel opens
   useEffect(() => {
     if (isOpen) {
-      loadLeads()
+      loadLeads();
     }
-  }, [isOpen, selectedStatuses])
+  }, [isOpen, selectedStatuses]);
 
   const loadLeadStatuses = async () => {
     try {
-      const statuses = await fetchLeadStatuses()
-      setLeadStatuses(statuses)
+      const statuses = await fetchLeadStatuses();
+      setLeadStatuses(statuses);
     } catch (err) {
-      console.error('Error loading lead statuses:', err)
+      console.error("Error loading lead statuses:", err);
     }
-  }
+  };
 
   const loadLeads = async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      const statusNames = selectedStatuses as ('Qualifying' | 'Cold' | 'Warm' | 'Hot')[]
-      const data = await fetchLeads(statusNames.length > 0 ? statusNames : undefined)
-      setLeads(data)
+      const statusNames = selectedStatuses as (
+        | "Qualifying"
+        | "Cold"
+        | "Warm"
+        | "Hot"
+      )[];
+      const data = await fetchLeads(
+        statusNames.length > 0 ? statusNames : undefined
+      );
+      setLeads(data);
     } catch (err) {
-      console.error('Error loading leads:', err)
-      setError('Failed to load job leads')
+      console.error("Error loading leads:", err);
+      setError("Failed to load job leads");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const showSuccessToast = (message: string) => {
-    setToastMessage(message)
-    setShowToast(true)
-    setTimeout(() => setShowToast(false), 3000)
-  }
+    setToastMessage(message);
+    setShowToast(true);
+    setTimeout(() => setShowToast(false), 3000);
+  };
 
   const handleStatusFilterChange = (statusName: string) => {
-    setSelectedStatuses(prev => {
+    setSelectedStatuses((prev) => {
       if (prev.includes(statusName)) {
-        return prev.filter(s => s !== statusName)
+        return prev.filter((s) => s !== statusName);
       } else {
-        return [...prev, statusName]
+        return [...prev, statusName];
       }
-    })
-  }
+    });
+  };
 
   const handleSelectAllStatuses = () => {
     if (selectedStatuses.length === leadStatuses.length) {
-      setSelectedStatuses([])
+      setSelectedStatuses([]);
     } else {
-      setSelectedStatuses(leadStatuses.map(s => s.name))
+      setSelectedStatuses(leadStatuses.map((s) => s.name));
     }
-  }
+  };
 
   const handleLeadStatusChange = async (jobId: string, newStatusId: string) => {
     try {
-      await updateJobLeadStatus(jobId, newStatusId)
-      await loadLeads()
-      onLeadsChange?.()
-      showSuccessToast('Lead status updated')
+      await updateJobLeadStatus(jobId, newStatusId);
+      await loadLeads();
+      onLeadsChange?.();
+      showSuccessToast("Lead status updated");
     } catch (err) {
-      console.error('Error updating lead status:', err)
-      alert('Failed to update lead status')
+      console.error("Error updating lead status:", err);
+      alert("Failed to update lead status");
     }
-  }
+  };
 
   const handleMarkAsApplied = async (jobId: string, company: string) => {
     try {
-      await markLeadAsApplied(jobId)
-      await loadLeads()
-      onLeadsChange?.()
-      showSuccessToast(`Marked ${company} as applied`)
+      await markLeadAsApplied(jobId);
+      await loadLeads();
+      onLeadsChange?.();
+      showSuccessToast(`Marked ${company} as applied`);
     } catch (err) {
-      console.error('Error marking as applied:', err)
-      alert('Failed to mark as applied')
+      console.error("Error marking as applied:", err);
+      alert("Failed to mark as applied");
     }
-  }
+  };
 
   const handleMarkAsDoNotApply = async (jobId: string, company: string) => {
     try {
-      await markLeadAsDoNotApply(jobId)
-      await loadLeads()
-      onLeadsChange?.()
-      showSuccessToast(`Marked ${company} as do not apply`)
+      await markLeadAsDoNotApply(jobId);
+      await loadLeads();
+      onLeadsChange?.();
+      showSuccessToast(`Marked ${company} as do not apply`);
     } catch (err) {
-      console.error('Error marking as do not apply:', err)
-      alert('Failed to mark as do not apply')
+      console.error("Error marking as do not apply:", err);
+      alert("Failed to mark as do not apply");
     }
-  }
+  };
 
   const handleRemove = async (jobId: string, company: string) => {
     try {
-      await deleteJob(jobId)
-      await loadLeads()
-      onLeadsChange?.()
-      showSuccessToast(`Removed ${company} from leads`)
+      await deleteJob(jobId);
+      await loadLeads();
+      onLeadsChange?.();
+      showSuccessToast(`Removed ${company} from leads`);
     } catch (err) {
-      console.error('Error removing lead:', err)
-      alert('Failed to remove lead')
+      console.error("Error removing lead:", err);
+      alert("Failed to remove lead");
     }
-  }
+  };
 
   const getStatusBadgeClass = (statusName: string): string => {
     switch (statusName) {
-      case 'Qualifying':
-        return styles.badgeQualifying
-      case 'Cold':
-        return styles.badgeCold
-      case 'Warm':
-        return styles.badgeWarm
-      case 'Hot':
-        return styles.badgeHot
+      case "Qualifying":
+        return styles.badgeQualifying;
+      case "Cold":
+        return styles.badgeCold;
+      case "Warm":
+        return styles.badgeWarm;
+      case "Hot":
+        return styles.badgeHot;
       default:
-        return styles.badgeQualifying
+        return styles.badgeQualifying;
     }
-  }
+  };
 
-  if (!isOpen) return null
+  if (!isOpen) return null;
 
   return (
     <>
@@ -191,7 +211,7 @@ const JobLeadsPanel = ({ isOpen, onClose, onLeadsChange }: JobLeadsPanelProps) =
               />
               <span>All</span>
             </label>
-            {leadStatuses.map(status => (
+            {leadStatuses.map((status) => (
               <label key={status.id} className={styles.filterOption}>
                 <input
                   type="checkbox"
@@ -208,13 +228,9 @@ const JobLeadsPanel = ({ isOpen, onClose, onLeadsChange }: JobLeadsPanelProps) =
 
         {/* Content */}
         <div className={styles.content}>
-          {loading && (
-            <div className={styles.loading}>Loading leads...</div>
-          )}
+          {loading && <div className={styles.loading}>Loading leads...</div>}
 
-          {error && (
-            <div className={styles.error}>{error}</div>
-          )}
+          {error && <div className={styles.error}>{error}</div>}
 
           {!loading && !error && leads.length === 0 && (
             <div className={styles.empty}>
@@ -224,7 +240,7 @@ const JobLeadsPanel = ({ isOpen, onClose, onLeadsChange }: JobLeadsPanelProps) =
 
           {!loading && !error && leads.length > 0 && (
             <div className={styles.leadsList}>
-              {leads.map(lead => (
+              {leads.map((lead) => (
                 <div key={lead.id} className={styles.leadCard}>
                   <div className={styles.leadHeader}>
                     <div>
@@ -233,11 +249,15 @@ const JobLeadsPanel = ({ isOpen, onClose, onLeadsChange }: JobLeadsPanelProps) =
                     </div>
                     {lead.lead_status && (
                       <select
-                        value={lead.lead_status_id || ''}
-                        onChange={(e) => handleLeadStatusChange(lead.id, e.target.value)}
-                        className={`${styles.statusDropdown} ${getStatusBadgeClass(lead.lead_status.name)}`}
+                        value={lead.lead_status_id || ""}
+                        onChange={(e) =>
+                          handleLeadStatusChange(lead.id, e.target.value)
+                        }
+                        className={`${
+                          styles.statusDropdown
+                        } ${getStatusBadgeClass(lead.lead_status.name)}`}
                       >
-                        {leadStatuses.map(status => (
+                        {leadStatuses.map((status) => (
                           <option key={status.id} value={status.id}>
                             {status.name}
                           </option>
@@ -275,7 +295,9 @@ const JobLeadsPanel = ({ isOpen, onClose, onLeadsChange }: JobLeadsPanelProps) =
                       <Trash2 size={16} />
                     </button>
                     <button
-                      onClick={() => handleMarkAsDoNotApply(lead.id, lead.company)}
+                      onClick={() =>
+                        handleMarkAsDoNotApply(lead.id, lead.company)
+                      }
                       className={`${styles.actionButton} ${styles.doNotApplyButton}`}
                       title="Mark as do not apply"
                     >
@@ -298,7 +320,7 @@ const JobLeadsPanel = ({ isOpen, onClose, onLeadsChange }: JobLeadsPanelProps) =
         </div>
       )}
     </>
-  )
-}
+  );
+};
 
-export default JobLeadsPanel
+export default JobLeadsPanel;
