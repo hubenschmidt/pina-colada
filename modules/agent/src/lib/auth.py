@@ -39,7 +39,7 @@ def _find_rsa_key(jwks: dict, kid: str) -> Optional[dict]:
                 "kid": key["kid"],
                 "use": key["use"],
                 "n": key["n"],
-                "e": key["e"]
+                "e": key["e"],
             }
     return None
 
@@ -51,8 +51,7 @@ def verify_token(token: str) -> dict:
 
     if not auth0_domain or not auth0_audience:
         raise HTTPException(
-            status_code=500,
-            detail="AUTH0_DOMAIN or AUTH0_AUDIENCE not configured"
+            status_code=500, detail="AUTH0_DOMAIN or AUTH0_AUDIENCE not configured"
         )
 
     try:
@@ -62,8 +61,7 @@ def verify_token(token: str) -> dict:
 
         if not rsa_key:
             raise HTTPException(
-                status_code=401,
-                detail="Unable to find appropriate key"
+                status_code=401, detail="Unable to find appropriate key"
             )
 
         payload = jwt.decode(
@@ -71,81 +69,56 @@ def verify_token(token: str) -> dict:
             rsa_key,
             algorithms=["RS256"],
             audience=auth0_audience,
-            issuer=f"https://{auth0_domain}/"
+            issuer=f"https://{auth0_domain}/",
         )
         return payload
 
     except JWTError as e:
-        raise HTTPException(
-            status_code=401,
-            detail=f"Invalid token: {str(e)}"
-        )
+        raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 
 def require_auth(func: Callable):
     """Decorator to protect routes with JWT authentication."""
+
     @wraps(func)
     async def wrapper(request: Request, *args, **kwargs):
-        # Log headers in a cleaner format
-        headers_dict = dict(request.headers)
-        logger.info("Request headers:")
-        for key, value in headers_dict.items():
-            if key.lower() == "authorization":
-                # Mask token for security
-                preview = value[:20] + "..." if len(value) > 20 else value
-                logger.info(f"  {key}: {preview}")
-            else:
-                logger.info(f"  {key}: {value}")
-        
         auth_header = request.headers.get("Authorization")
-        logger.info(f"Authorization header present: {auth_header is not None}")
         if not auth_header:
-            raise HTTPException(
-                status_code=401,
-                detail="Missing Authorization header"
-            )
+            raise HTTPException(status_code=401, detail="Missing Authorization header")
 
         if not auth_header.startswith("Bearer "):
             raise HTTPException(
-                status_code=401,
-                detail="Invalid Authorization header format"
+                status_code=401, detail="Invalid Authorization header format"
             )
 
         token = auth_header.split(" ")[1].strip()
         if not token:
-            raise HTTPException(
-                status_code=401,
-                detail="Token is empty"
-            )
-        
+            raise HTTPException(status_code=401, detail="Token is empty")
+
         # Basic JWT format validation (should have 3 parts separated by dots)
         token_parts = token.split(".")
         if len(token_parts) != 3:
             raise HTTPException(
                 status_code=401,
-                detail=f"Invalid token format. Expected JWT format (3 parts), got {len(token_parts)} parts"
+                detail=f"Invalid token format. Expected JWT format (3 parts), got {len(token_parts)} parts",
             )
-        
+
         claims = verify_token(token)
 
-        # Log token claims for debugging
-        logger.info(f"Token claims: sub={claims.get('sub')}, email={claims.get('email')}, aud={claims.get('aud')}, scope={claims.get('scope')}")
-        
         # Attach user info to request state
         request.state.auth0_sub = claims.get("sub")
-        
+
         # Get email from standard claim or namespaced custom claim (Auth0 action adds it)
         email = claims.get("email")
         if not email:
             auth0_domain = os.getenv("AUTH0_DOMAIN")
-            if auth0_domain:
-                email = claims.get(f"https://{auth0_domain}/email")
-        
-        logger.info(f"Extracted email: {email}")
+            email = claims.get(f"https://{auth0_domain}/email") if auth0_domain else None
+
         request.state.email = email
 
         # Load user from database
         from services.auth_service import get_or_create_user
+
         user = await get_or_create_user(claims.get("sub"), email)
         request.state.user = user
         request.state.user_id = user.id
@@ -159,7 +132,7 @@ def require_auth(func: Callable):
         if tenant_id:
             request.state.tenant_id = int(tenant_id)
             return await func(request, *args, **kwargs)
-        
+
         request.state.tenant_id = user.tenant_id if user.tenant_id else None
         return await func(request, *args, **kwargs)
 

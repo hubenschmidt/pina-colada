@@ -223,15 +223,3 @@ export const createTenant = async (name: string, plan: string = 'free'): Promise
   return response.data.tenant;
 }
 
-/**
- * Switch active tenant for current user
- */
-export const switchTenant = async (tenantId: number): Promise<void> => {
-  const authHeaders = await fetchBearerToken();
-  await axios.post(
-    `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/switch`,
-    { tenant_id: tenantId },
-    authHeaders
-  );
-}
-

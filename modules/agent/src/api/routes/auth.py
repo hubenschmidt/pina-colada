@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import APIRouter, Request
 from pydantic import BaseModel
 from lib.auth import require_auth
+from lib.error_logging import log_errors
 from services.auth_service import get_user_tenants, create_tenant_for_user
 from lib.serialization import model_to_dict
 
@@ -18,6 +19,7 @@ class TenantCreate(BaseModel):
 
 
 @router.get("/me")
+@log_errors
 @require_auth
 async def get_current_user(request: Request):
     """Get current user profile with tenant associations."""
@@ -32,6 +34,7 @@ async def get_current_user(request: Request):
 
 
 @router.post("/tenant/create")
+@log_errors
 @require_auth
 async def create_tenant(request: Request, tenant_data: TenantCreate):
     """Create new tenant and assign current user as owner."""

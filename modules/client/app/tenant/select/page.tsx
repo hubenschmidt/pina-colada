@@ -20,7 +20,7 @@ import {
   SET_BEARER_TOKEN,
   SET_TENANT_NAME,
 } from "../../../reducers/userReducer";
-import { createTenant, switchTenant } from "../../../api";
+import { createTenant } from "../../../api";
 
 const TenantSelectPage = () => {
   const { user, isLoading: userLoading } = useUser();
@@ -87,13 +87,7 @@ const TenantSelectPage = () => {
         payload: newTenant.name,
       });
 
-      // Switch to the new tenant
-      await switchTenant(newTenant.id);
-
-      // Store tenant in cookie
-      document.cookie = `tenant_id=${newTenant.id}; path=/`;
-
-      router.push("/");
+      router.push("/view");
     } catch (error: any) {
       console.error("Error creating tenant:", error);
       setError(

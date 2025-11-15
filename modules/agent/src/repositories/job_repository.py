@@ -17,6 +17,67 @@ from repositories.status_repository import find_status_by_name
 logger = logging.getLogger(__name__)
 
 
+def _get_status_id_from_name(status_name: str) -> Optional[int]:
+    """Get status ID from status name."""
+    status = find_status_by_name(status_name.title(), "job")
+    if not status:
+        return None
+    return status.id
+
+
+def _update_job_notes(job: Job, notes: str) -> None:
+    """Update job notes and lead description."""
+    job.notes = notes
+    if not job.lead:
+        return
+    job.lead.description = notes
+
+
+def _update_lead_status(lead: Lead, data: Dict[str, Any]) -> None:
+    """Update lead status from data."""
+    if "current_status_id" in data:
+        lead.current_status_id = data["current_status_id"]
+        return
+
+    if "status" not in data:
+        return
+    if not data["status"]:
+        return
+
+    status_id = _get_status_id_from_name(data["status"])
+    if status_id:
+        lead.current_status_id = status_id
+
+
+def _update_lead_source(lead: Lead, data: Dict[str, Any]) -> None:
+    """Update lead source if provided."""
+    if "source" not in data:
+        return
+    if data["source"] is None:
+        return
+    lead.source = data["source"]
+
+
+def _update_lead_title_if_needed(session, job: Job, data: Dict[str, Any]) -> None:
+    """Update lead title if job_title or organization changed."""
+    if "job_title" not in data and "organization_id" not in data:
+        return
+
+    org = session.get(Organization, job.organization_id)
+    job.lead.title = f"{org.name if org else 'Unknown'} - {job.job_title}"
+
+
+def _load_job_with_relationships(session, job_id: int) -> Job:
+    """Load job with all relationships eagerly."""
+    stmt = select(Job).options(
+        joinedload(Job.lead).joinedload(Lead.current_status),
+        joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
+        joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
+        joinedload(Job.organization).joinedload(Organization.tenant)
+    ).where(Job.id == job_id)
+    return session.execute(stmt).unique().scalar_one()
+
+
 def find_all_jobs() -> List[Job]:
     """Find all jobs with related data."""
     session = get_session()
@@ -77,13 +138,9 @@ def create_job(data: Dict[str, Any]) -> Job:
             deal_id = deal.id
 
         # Get status_id from status name if provided
-        status_id = data.get("current_status_id")
-        if not status_id and "status" in data:
-            # Map old status strings to Status records
-            status_name = data["status"].title()  # "applied" → "Applied"
-            status = find_status_by_name(status_name, "job")
-            if status:
-                status_id = status.id
+        status_id = data.get("current_status_id") or (
+            _get_status_id_from_name(data["status"]) if "status" in data else None
+        )
 
         # Build title from organization and job_title
         org = session.get(Organization, organization_id)
@@ -116,17 +173,7 @@ def create_job(data: Dict[str, Any]) -> Job:
 
         session.add(job)
         session.commit()
-
-        # Eagerly load all relationships before closing session
-        stmt = select(Job).options(
-            joinedload(Job.lead).joinedload(Lead.current_status),
-            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
-            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.organization).joinedload(Organization.tenant)
-        ).where(Job.id == job.id)
-
-        loaded_job = session.execute(stmt).unique().scalar_one()
-        return loaded_job
+        return _load_job_with_relationships(session, job.id)
     except Exception as e:
         session.rollback()
         logger.error(f"Failed to create job: {e}")
@@ -152,10 +199,7 @@ def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
         if "job_url" in data:
             job.job_url = data["job_url"]
         if "notes" in data:
-            job.notes = data["notes"]
-            # Also update Lead.description
-            if job.lead:
-                job.lead.description = data["notes"]
+            _update_job_notes(job, data["notes"])
         if "resume_date" in data:
             job.resume_date = data["resume_date"]
         if "salary_range" in data:
@@ -164,36 +208,16 @@ def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
             job.organization_id = data["organization_id"]
 
         # Update Lead fields if provided
-        if job.lead:
-            if "current_status_id" in data:
-                job.lead.current_status_id = data["current_status_id"]
-            elif "status" in data and data["status"]:
-                # Map status string to Status ID
-                status_name = data["status"].title()
-                status = find_status_by_name(status_name, "job")
-                if status:
-                    job.lead.current_status_id = status.id
+        if not job.lead:
+            session.commit()
+            return _load_job_with_relationships(session, job.id)
 
-            if "source" in data and data["source"] is not None:
-                job.lead.source = data["source"]
-
-            # Update title if job_title or organization changed
-            if "job_title" in data or "organization_id" in data:
-                org = session.get(Organization, job.organization_id)
-                job.lead.title = f"{org.name if org else 'Unknown'} - {job.job_title}"
+        _update_lead_status(job.lead, data)
+        _update_lead_source(job.lead, data)
+        _update_lead_title_if_needed(session, job, data)
 
         session.commit()
-
-        # Eagerly load all relationships before closing session
-        stmt = select(Job).options(
-            joinedload(Job.lead).joinedload(Lead.current_status),
-            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
-            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.organization).joinedload(Organization.tenant)
-        ).where(Job.id == job.id)
-
-        loaded_job = session.execute(stmt).unique().scalar_one()
-        return loaded_job
+        return _load_job_with_relationships(session, job.id)
     except Exception as e:
         session.rollback()
         logger.error(f"Failed to update job: {e}")
@@ -210,13 +234,9 @@ def delete_job(job_id: int) -> bool:
         if not job:
             return False
 
-        # Delete the Lead (Job will be cascade-deleted)
-        if not job.lead:
-            session.delete(job)
-            session.commit()
-            return True
-        
-        session.delete(job.lead)
+        # Delete the Lead (Job will be cascade-deleted), or just job if no lead
+        entity_to_delete = job.lead if job.lead else job
+        session.delete(entity_to_delete)
         session.commit()
         return True
     except Exception as e:
