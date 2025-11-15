@@ -1,8 +1,10 @@
 """Routes for jobs API endpoints."""
 
 from typing import Optional, Type
-from fastapi import APIRouter, Query, HTTPException
+from fastapi import APIRouter, Query, HTTPException, Request
 from pydantic import BaseModel, create_model
+from lib.auth import require_auth
+from lib.error_logging import log_errors
 from controllers.job_controller import (
     get_jobs,
     create_job,
@@ -53,7 +55,10 @@ JobUpdate = _make_job_update_model()
 
 
 @router.get("/")
+@log_errors
+@require_auth
 async def get_jobs_route(
+    request: Request,
     page: int = Query(1, ge=1),
     limit: int = Query(25, ge=1, le=100),
     order_by: str = Query("date", alias="orderBy"),
@@ -65,30 +70,40 @@ async def get_jobs_route(
 
 
 @router.post("/")
-async def create_job_route(job_data: JobCreate):
+@log_errors
+@require_auth
+async def create_job_route(request: Request, job_data: JobCreate):
     """Create a new job."""
     return create_job(job_data.dict())
 
 
 @router.get("/{job_id}")
-async def get_job_route(job_id: str):
+@log_errors
+@require_auth
+async def get_job_route(request: Request, job_id: str):
     """Get a job by ID."""
     return get_job(job_id)
 
 
 @router.put("/{job_id}")
-async def update_job_route(job_id: str, job_data: JobUpdate):
+@log_errors
+@require_auth
+async def update_job_route(request: Request, job_id: str, job_data: JobUpdate):
     """Update a job."""
     return update_job(job_id, job_data.dict(exclude_unset=True))
 
 
 @router.delete("/{job_id}")
-async def delete_job_route(job_id: str):
+@log_errors
+@require_auth
+async def delete_job_route(request: Request, job_id: str):
     """Delete a job."""
     return delete_job(job_id)
 
 
 @router.get("/recent-resume-date")
-async def get_recent_resume_date_route():
+@log_errors
+@require_auth
+async def get_recent_resume_date_route(request: Request):
     """Get the most recent resume date."""
     return get_recent_resume_date()

@@ -98,10 +98,10 @@ def require_auth(func: Callable):
         # Basic JWT format validation (should have 3 parts separated by dots)
         token_parts = token.split(".")
         if len(token_parts) != 3:
-            raise HTTPException(
-                status_code=401,
-                detail=f"Invalid token format. Expected JWT format (3 parts), got {len(token_parts)} parts",
-            )
+            detail = "Unauthorized"
+            if os.getenv("ENVIRONMENT") == "development":
+                detail = f"Invalid token format. Expected JWT format (3 parts), got {len(token_parts)} parts"
+            raise HTTPException(status_code=401, detail=detail)
 
         claims = verify_token(token)
 

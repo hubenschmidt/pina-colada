@@ -1,14 +1,21 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import {
+  useEffect,
+  useState,
+  useMemo,
+  useRef,
+  forwardRef,
+  useImperativeHandle,
+} from "react";
 import {
   AppliedJob,
   AppliedJobInsert,
   AppliedJobUpdate,
 } from "../../lib/supabase";
-import { fetchJobs, createJob, updateJob, deleteJob } from "../../api";
+import { getJobs, createJob, updateJob, deleteJob } from "../../api";
 import { DataTable, type Column, type PageData } from "../DataTable";
-import JobForm from "./JobForm";
+import JobForm, { JobFormRef } from "./JobForm";
 import JobEditModal from "./JobEditModal";
 import { RefreshCw, ExternalLink, Search, X } from "lucide-react";
 
@@ -16,7 +23,12 @@ import { RefreshCw, ExternalLink, Search, X } from "lucide-react";
 // In production, use Supabase directly
 const USE_API_ROUTES = process.env.NODE_ENV === "development";
 
-const JobTracker = () => {
+export type JobTrackerRef = {
+  openJobForm: () => void;
+};
+
+const JobTracker = forwardRef<JobTrackerRef, {}>((_props, ref) => {
+  const jobFormRef = useRef<JobFormRef>(null);
   const [data, setData] = useState<PageData<AppliedJob> | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -30,6 +42,10 @@ const JobTracker = () => {
   const [showLoadingBar, setShowLoadingBar] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
+  useImperativeHandle(ref, () => ({
+    openJobForm: () => jobFormRef.current?.open(),
+  }));
+
   const loadJobs = async (showFullLoading = false, showBar = false) => {
     if (showFullLoading) {
       setLoading(true);
@@ -41,7 +57,7 @@ const JobTracker = () => {
     setError(null);
 
     try {
-      const pageData = await fetchJobs(
+      const pageData = await getJobs(
         page,
         limit,
         sortBy,
@@ -271,17 +287,8 @@ const JobTracker = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header with stats */}
-      <div className="bg-gradient-to-r from-lime-500 to-yellow-400 rounded-lg p-6 text-blue-900">
-        <h1 className="text-3xl font-bold mb-2">Job Applications Tracker</h1>
-        <p className="text-blue-800">
-          Tracking {data?.total || 0} application
-          {(data?.total || 0) !== 1 ? "s" : ""}
-        </p>
-      </div>
-
       {/* Add job form */}
-      <JobForm onAdd={handleAddJob} />
+      <JobForm ref={jobFormRef} onAdd={handleAddJob} />
 
       {/* Search bar */}
       <div className="relative">
@@ -357,6 +364,8 @@ const JobTracker = () => {
       />
     </div>
   );
-};
+});
+
+JobTracker.displayName = "JobTracker";
 
 export default JobTracker;

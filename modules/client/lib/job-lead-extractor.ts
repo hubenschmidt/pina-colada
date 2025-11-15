@@ -1,4 +1,4 @@
-import { createJob, fetchLeadStatuses } from "../api";
+import { create_job, get_statuses } from "../api";
 
 /**
  * Pattern to match job leads in agent responses:
@@ -43,7 +43,7 @@ export const saveJobLeads = async (
   if (leads.length === 0) return 0;
 
   // Get the "Qualifying" lead status ID
-  const leadStatuses = await fetchLeadStatuses();
+  const leadStatuses = await get_statuses();
   const qualifyingStatus = leadStatuses.find((s) => s.name === "Qualifying");
 
   if (!qualifyingStatus) {
@@ -55,7 +55,7 @@ export const saveJobLeads = async (
 
   for (const lead of leads) {
     try {
-      await createJob({
+      await create_job({
         company: lead.company,
         job_title: lead.job_title,
         job_url: lead.job_url,

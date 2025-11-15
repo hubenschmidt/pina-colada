@@ -22,13 +22,17 @@ const Home = () => {
 
   useEffect(() => {
     if (!user) return;
+    if (isLoading) return;
+
+    // Wait for AuthStateManager to finish loading user data from backend
+    if (!userState.isAuthed) return;
 
     if (!userState.tenantName) {
       router.push("/tenant/select");
       return;
     }
     router.push("/view");
-  }, [user, userState.tenantName, router]);
+  }, [user, isLoading, userState.isAuthed, userState.tenantName, router]);
 
   // Clear the hash when user scrolls back to (near) top
   useEffect(() => {

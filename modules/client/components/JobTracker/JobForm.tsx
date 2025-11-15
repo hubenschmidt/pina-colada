@@ -1,14 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { AppliedJob } from "../../lib/supabase";
-import { getMostRecentResumeDate } from "../../api";
+import { get_recent_resume_date } from "../../api";
 import { Plus, X } from "lucide-react";
 
 type JobFormProps = {
   onAdd: (
     job: Omit<AppliedJob, "id" | "created_at" | "updated_at" | "date">
   ) => Promise<void>;
+};
+
+export type JobFormRef = {
+  open: () => void;
 };
 
 const STATUS_OPTIONS: AppliedJob["status"][] = [
@@ -19,7 +23,7 @@ const STATUS_OPTIONS: AppliedJob["status"][] = [
   "accepted",
 ];
 
-const JobForm = ({ onAdd }: JobFormProps) => {
+const JobForm = forwardRef<JobFormRef, JobFormProps>(({ onAdd }, ref) => {
   const [isOpen, setIsOpen] = useState(false);
   const [formData, setFormData] = useState({
     company: "",
@@ -36,11 +40,15 @@ const JobForm = ({ onAdd }: JobFormProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [useLatestResume, setUseLatestResume] = useState(true);
 
+  useImperativeHandle(ref, () => ({
+    open: () => setIsOpen(true),
+  }));
+
   // Fetch most recent resume date when form opens
   useEffect(() => {
     if (isOpen) {
       setUseLatestResume(true); // Reset checkbox when form opens
-      getMostRecentResumeDate()
+      get_recent_resume_date()
         .then((resumeDate) => {
           if (resumeDate) {
             setFormData((prev) => ({ ...prev, resume: resumeDate }));
@@ -60,7 +68,7 @@ const JobForm = ({ onAdd }: JobFormProps) => {
       setFormData((prev) => ({ ...prev, resume: "" }));
     } else {
       // Re-fetch and populate when checked
-      getMostRecentResumeDate()
+      get_recent_resume_date()
         .then((resumeDate) => {
           if (resumeDate) {
             setFormData((prev) => ({ ...prev, resume: resumeDate }));
@@ -110,18 +118,6 @@ const JobForm = ({ onAdd }: JobFormProps) => {
       setIsSubmitting(false);
     }
   };
-
-  if (!isOpen) {
-    return (
-      <button
-        onClick={() => setIsOpen(true)}
-        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-lime-500 to-yellow-400 text-blue-900 rounded-lg hover:brightness-95 font-semibold shadow-md"
-      >
-        <Plus size={20} />
-        Add New Application
-      </button>
-    );
-  }
 
   return (
     <div className="border border-zinc-300 rounded-lg p-6 bg-blue-50 shadow-lg">
@@ -297,6 +293,8 @@ const JobForm = ({ onAdd }: JobFormProps) => {
       </form>
     </div>
   );
-};
+});
+
+JobForm.displayName = "JobForm";
 
 export default JobForm;

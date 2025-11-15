@@ -10,12 +10,12 @@ import {
   Filter,
 } from "lucide-react";
 import {
-  fetchLeads,
-  fetchLeadStatuses,
-  updateJobLeadStatus,
-  markLeadAsApplied,
-  markLeadAsDoNotApply,
-  deleteJob,
+  get_leads,
+  get_statuses,
+  update_job,
+  mark_lead_as_applied,
+  mark_lead_as_do_not_apply,
+  delete_job,
   type LeadStatus,
   type JobWithLeadStatus,
 } from "../../api";
@@ -56,7 +56,7 @@ const JobLeadsPanel = ({
 
   const loadLeadStatuses = async () => {
     try {
-      const statuses = await fetchLeadStatuses();
+      const statuses = await get_statuses();
       setLeadStatuses(statuses);
     } catch (err) {
       console.error("Error loading lead statuses:", err);
@@ -73,7 +73,7 @@ const JobLeadsPanel = ({
         | "Warm"
         | "Hot"
       )[];
-      const data = await fetchLeads(
+      const data = await get_leads(
         statusNames.length > 0 ? statusNames : undefined
       );
       setLeads(data);
@@ -111,7 +111,7 @@ const JobLeadsPanel = ({
 
   const handleLeadStatusChange = async (jobId: string, newStatusId: string) => {
     try {
-      await updateJobLeadStatus(jobId, newStatusId);
+      await update_job(jobId, { lead_status_id: newStatusId });
       await loadLeads();
       onLeadsChange?.();
       showSuccessToast("Lead status updated");
@@ -123,7 +123,7 @@ const JobLeadsPanel = ({
 
   const handleMarkAsApplied = async (jobId: string, company: string) => {
     try {
-      await markLeadAsApplied(jobId);
+      await mark_lead_as_applied(jobId);
       await loadLeads();
       onLeadsChange?.();
       showSuccessToast(`Marked ${company} as applied`);
@@ -135,7 +135,7 @@ const JobLeadsPanel = ({
 
   const handleMarkAsDoNotApply = async (jobId: string, company: string) => {
     try {
-      await markLeadAsDoNotApply(jobId);
+      await mark_lead_as_do_not_apply(jobId);
       await loadLeads();
       onLeadsChange?.();
       showSuccessToast(`Marked ${company} as do not apply`);
@@ -147,7 +147,7 @@ const JobLeadsPanel = ({
 
   const handleRemove = async (jobId: string, company: string) => {
     try {
-      await deleteJob(jobId);
+      await delete_job(jobId);
       await loadLeads();
       onLeadsChange?.();
       showSuccessToast(`Removed ${company} from leads`);

@@ -7,6 +7,7 @@ import { UserProvider } from "../context/userContext";
 import { MantineProvider } from "@mantine/core";
 import { PublicEnvScript } from "next-runtime-env";
 import { Auth0Provider } from "@auth0/nextjs-auth0/client";
+import { AuthStateManager } from "../components/AuthStateManager";
 
 export const metadata: Metadata = {
   title: "PinaColada.co",
@@ -26,6 +27,7 @@ const RootLayout = ({
       <body>
         <Auth0Provider>
           <UserProvider>
+            <AuthStateManager />
             <MantineProvider>
               <NavProvider>
                 <Header />

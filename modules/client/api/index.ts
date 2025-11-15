@@ -1,22 +1,75 @@
 /**
- * API client - always calls agent's REST API
- * The agent's repository layer handles Supabase vs local Postgres based on environment
+ * API client
  */
 
-import axios from 'axios'
-import { AppliedJob, AppliedJobInsert, AppliedJobUpdate } from '../lib/supabase'
-import { PageData } from '../components/DataTable'
-import { env } from 'next-runtime-env'
-import { fetchBearerToken } from '../lib/fetch-bearer-token'
+import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
+import {
+  AppliedJob,
+  AppliedJobInsert,
+  AppliedJobUpdate,
+} from "../lib/supabase";
+import { PageData } from "../components/DataTable";
+import { env } from "next-runtime-env";
+import { fetchBearerToken } from "../lib/fetch-bearer-token";
 
-export const fetchJobs = async (
+const getClient = () => axios.create();
+
+const makeRequest = async <T>(
+  client: ReturnType<typeof getClient>,
+  method: "get" | "post" | "put" | "delete",
+  url: string,
+  data: any,
+  config: AxiosRequestConfig
+): Promise<AxiosResponse<T>> => {
+  if (method === "get") return client.get(url, config);
+  if (method === "delete") return client.delete(url, config);
+  if (method === "post") return client.post(url, data, config);
+  return client.put(url, data, config);
+};
+
+const apiRequest = async <T>(
+  method: "get" | "post" | "put" | "delete",
+  path: string,
+  data?: any,
+  config?: AxiosRequestConfig
+): Promise<T> => {
+  const client = getClient();
+  const authHeaders = await fetchBearerToken();
+  const mergedConfig = { ...authHeaders, ...config };
+  const url = `${env("NEXT_PUBLIC_API_URL")}${path}`;
+
+  return makeRequest<T>(client, method, url, data, mergedConfig)
+    .then((response) => response.data)
+    .catch((error) => {
+      const errorData = error.response?.data || {};
+      const message =
+        errorData.detail ||
+        errorData.error ||
+        error.message ||
+        "Request failed";
+      throw new Error(message);
+    });
+};
+
+const apiGet = <T>(path: string, config?: AxiosRequestConfig) =>
+  apiRequest<T>("get", path, undefined, config);
+
+const apiPost = <T>(path: string, data?: any, config?: AxiosRequestConfig) =>
+  apiRequest<T>("post", path, data, config);
+
+const apiPut = <T>(path: string, data?: any, config?: AxiosRequestConfig) =>
+  apiRequest<T>("put", path, data, config);
+
+const apiDelete = <T>(path: string, config?: AxiosRequestConfig) =>
+  apiRequest<T>("delete", path, undefined, config);
+
+export const getJobs = async (
   page: number = 1,
   limit: number = 25,
   orderBy: string = "date",
   order: "ASC" | "DESC" = "DESC",
   search?: string
 ): Promise<PageData<AppliedJob>> => {
-  const baseUrl = env('NEXT_PUBLIC_API_URL');
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
@@ -24,23 +77,19 @@ export const fetchJobs = async (
     order,
   });
   if (search && search.trim()) {
-    params.append('search', search.trim());
+    params.append("search", search.trim());
   }
-  const response = await fetch(`${baseUrl}/api/jobs?${params}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch jobs');
-  }
-  return response.json();
-}
+  return apiGet<PageData<AppliedJob>>(`/api/jobs?${params}`);
+};
 
 // Helper to sanitize date fields: convert empty strings to null
 const sanitizeJobInsert = (job: AppliedJobInsert): AppliedJobInsert => {
   const sanitized = { ...job };
   // Convert empty strings to null for date/timestamp fields
-  if (sanitized.date === '') {
+  if (sanitized.date === "") {
     sanitized.date = null as any;
   }
-  if (sanitized.resume === '') {
+  if (sanitized.resume === "") {
     sanitized.resume = null as any;
   }
   return sanitized;
@@ -49,10 +98,10 @@ const sanitizeJobInsert = (job: AppliedJobInsert): AppliedJobInsert => {
 const sanitizeJobUpdate = (job: AppliedJobUpdate): AppliedJobUpdate => {
   const sanitized = { ...job };
   // Convert empty strings to null for date/timestamp fields
-  if ('date' in sanitized && sanitized.date === '') {
+  if ("date" in sanitized && sanitized.date === "") {
     sanitized.date = null as any;
   }
-  if ('resume' in sanitized && sanitized.resume === '') {
+  if ("resume" in sanitized && sanitized.resume === "") {
     sanitized.resume = null as any;
   }
   return sanitized;
@@ -60,166 +109,131 @@ const sanitizeJobUpdate = (job: AppliedJobUpdate): AppliedJobUpdate => {
 
 export const createJob = async (job: AppliedJobInsert): Promise<AppliedJob> => {
   const sanitized = sanitizeJobInsert(job);
-  const baseUrl = env('NEXT_PUBLIC_API_URL');
-  const response = await fetch(`${baseUrl}/api/jobs`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(sanitized),
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || errorData.error || 'Failed to create job');
-  }
-  return response.json();
-}
+  return apiPost<AppliedJob>("/api/jobs", sanitized);
+};
 
-export const updateJob = async (id: string, job: AppliedJobUpdate): Promise<AppliedJob> => {
+export const get_job = async (id: string): Promise<AppliedJob> => {
+  return apiGet<AppliedJob>(`/api/jobs/${id}`);
+};
+
+export const updateJob = async (
+  id: string,
+  job: AppliedJobUpdate
+): Promise<AppliedJob> => {
   const sanitized = sanitizeJobUpdate(job);
-  const baseUrl = env('NEXT_PUBLIC_API_URL');
-  const response = await fetch(`${baseUrl}/api/jobs/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(sanitized),
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || errorData.error || 'Failed to update job');
-  }
-  return response.json();
-}
+  return apiPut<AppliedJob>(`/api/jobs/${id}`, sanitized);
+};
 
 export const deleteJob = async (id: string): Promise<void> => {
-  const baseUrl = env('NEXT_PUBLIC_API_URL');
-  const response = await fetch(`${baseUrl}/api/jobs/${id}`, {
-    method: 'DELETE',
-  });
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.detail || errorData.error || 'Failed to delete job');
-  }
-}
+  await apiDelete(`/api/jobs/${id}`);
+};
 
-export const getMostRecentResumeDate = async (): Promise<string | null> => {
-  const baseUrl = env('NEXT_PUBLIC_API_URL');
-  const response = await fetch(`${baseUrl}/api/jobs/recent-resume-date`);
-  if (!response.ok) {
+export const get_recent_resume_date = async (): Promise<string | null> => {
+  try {
+    const data = await apiGet<{ resume_date?: string }>(
+      "/api/jobs/recent-resume-date"
+    );
+    return data.resume_date || null;
+  } catch {
     return null;
   }
-  const data = await response.json();
-  return data.resume_date || null;
-}
+};
 
 // Lead Status Types
 export type LeadStatus = {
-  id: string
-  name: 'Qualifying' | 'Cold' | 'Warm' | 'Hot'
-  description: string | null
-  created_at: string
-}
+  id: string;
+  name: "Qualifying" | "Cold" | "Warm" | "Hot";
+  description: string | null;
+  created_at: string;
+};
 
 export type JobWithLeadStatus = AppliedJob & {
-  lead_status?: LeadStatus
-}
+  lead_status?: LeadStatus;
+};
 
 /**
  * Fetch all lead statuses from the database
  */
-export const fetchLeadStatuses = async (): Promise<LeadStatus[]> => {
-  const baseUrl = env('NEXT_PUBLIC_API_URL');
-  const response = await fetch(`${baseUrl}/api/lead-statuses`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch lead statuses');
-  }
-  return response.json();
-}
+export const get_statuses = async (): Promise<LeadStatus[]> => {
+  return apiGet<LeadStatus[]>("/api/lead-statuses");
+};
 
 /**
  * Fetch all job leads (jobs with non-null lead_status_id)
  * Optionally filter by lead status names
  */
-export const fetchLeads = async (
-  statusNames?: ('Qualifying' | 'Cold' | 'Warm' | 'Hot')[]
+export const get_leads = async (
+  statusNames?: ("Qualifying" | "Cold" | "Warm" | "Hot")[]
 ): Promise<JobWithLeadStatus[]> => {
-  const baseUrl = env('NEXT_PUBLIC_API_URL');
   const params = new URLSearchParams();
   if (statusNames && statusNames.length > 0) {
-    params.append('statuses', statusNames.join(','));
+    params.append("statuses", statusNames.join(","));
   }
-  const response = await fetch(`${baseUrl}/api/leads?${params}`);
-  if (!response.ok) {
-    throw new Error('Failed to fetch leads');
-  }
-  return response.json();
-}
-
-/**
- * Update a job's lead status
- */
-export const updateJobLeadStatus = async (
-  jobId: string,
-  leadStatusId: string | null
-): Promise<AppliedJob> => {
-  const baseUrl = env('NEXT_PUBLIC_API_URL');
-  const response = await fetch(`${baseUrl}/api/jobs/${jobId}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ lead_status_id: leadStatusId }),
-  });
-  if (!response.ok) {
-    throw new Error('Failed to update job lead status');
-  }
-  return response.json();
-}
+  return apiGet<JobWithLeadStatus[]>(`/api/leads?${params}`);
+};
 
 /**
  * Mark a lead as applied
  * Sets status to 'applied', clears lead_status_id, and sets date to now if not set
  */
-export const markLeadAsApplied = async (jobId: string): Promise<AppliedJob> => {
-  const baseUrl = env('NEXT_PUBLIC_API_URL');
-  const response = await fetch(`${baseUrl}/api/leads/${jobId}/apply`, {
-    method: 'POST',
-  });
-  if (!response.ok) {
-    throw new Error('Failed to mark lead as applied');
-  }
-  return response.json();
-}
+export const mark_lead_as_applied = async (
+  jobId: string
+): Promise<AppliedJob> => {
+  return apiPost<AppliedJob>(`/api/leads/${jobId}/apply`, {});
+};
 
 /**
  * Mark a lead as "do not apply"
  * Sets status to 'do_not_apply' and clears lead_status_id
  */
-export const markLeadAsDoNotApply = async (jobId: string): Promise<AppliedJob> => {
-  const baseUrl = env('NEXT_PUBLIC_API_URL');
-  const response = await fetch(`${baseUrl}/api/leads/${jobId}/do-not-apply`, {
-    method: 'POST',
-  });
-  if (!response.ok) {
-    throw new Error('Failed to mark lead as do not apply');
-  }
-  return response.json();
-}
+export const mark_lead_as_do_not_apply = async (
+  jobId: string
+): Promise<AppliedJob> => {
+  return apiPost<AppliedJob>(`/api/leads/${jobId}/do-not-apply`, {});
+};
 
 // Tenant Types
 export type Tenant = {
-  id: number
-  name: string
-  slug: string
-  plan: string
-  role?: string
-}
+  id: number;
+  name: string;
+  slug: string;
+  plan: string;
+  role?: string;
+};
+
+// User Types
+export type User = {
+  id: number;
+  auth0_sub: string;
+  email: string | null;
+  tenant_id: number | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type UserMeResponse = {
+  user: User;
+  tenants: Array<{ id: number; name: string; role: string }>;
+  current_tenant_id: number | null;
+};
+
+/**
+ * Get current authenticated user
+ */
+export const get_me = async (): Promise<UserMeResponse> => {
+  return apiGet<UserMeResponse>("/api/auth/me");
+};
 
 /**
  * Create a new tenant/organization
  */
-export const createTenant = async (name: string, plan: string = 'free'): Promise<Tenant> => {
-  const authHeaders = await fetchBearerToken();
-  const response = await axios.post(
-    `${env('NEXT_PUBLIC_API_URL')}/api/auth/tenant/create`,
-    { name, plan },
-    authHeaders
-  );
-  return response.data.tenant;
-}
-
+export const createTenant = async (
+  name: string,
+  plan: string = "free"
+): Promise<Tenant> => {
+  const data = await apiPost<{ tenant: Tenant }>("/api/auth/tenant/create", {
+    name,
+    plan,
+  });
+  return data.tenant;
+};
