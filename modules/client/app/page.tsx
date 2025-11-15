@@ -31,7 +31,7 @@ const Home = () => {
       router.push("/tenant/select");
       return;
     }
-    router.push("/view");
+    router.push("/chat");
   }, [user, isLoading, userState.isAuthed, userState.tenantName, router]);
 
   // Clear the hash when user scrolls back to (near) top

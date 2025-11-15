@@ -1,11 +1,13 @@
 "use client"
 
 import { useUser } from '@auth0/nextjs-auth0/client'
-import JobTracker from '../../components/JobTracker/JobTracker'
+import LeadTracker from '../../components/LeadTracker/LeadTracker'
+import { useLeadConfig } from '../../components/config'
 import { LogOut, Loader } from 'lucide-react'
 
 const JobsPage = () => {
   const { user, isLoading } = useUser()
+  const jobConfig = useLeadConfig("job")
 
   if (isLoading) {
     return (
@@ -37,7 +39,7 @@ const JobsPage = () => {
             Logout
           </a>
         </div>
-        <JobTracker />
+        <LeadTracker config={jobConfig} />
       </div>
     </main>
   )

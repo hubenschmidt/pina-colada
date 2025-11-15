@@ -1,4 +1,4 @@
-import { create_job, get_statuses } from "../api";
+import { createJob, get_statuses } from "../api";
 
 /**
  * Pattern to match job leads in agent responses:
@@ -55,7 +55,7 @@ export const saveJobLeads = async (
 
   for (const lead of leads) {
     try {
-      await create_job({
+      await createJob({
         company: lead.company,
         job_title: lead.job_title,
         job_url: lead.job_url,

@@ -9,28 +9,38 @@ const Header = () => {
   const { dispatchNav } = useNavContext();
   const { user, isLoading } = useUser();
   const pathname = usePathname();
-  const isTenantSelectPage = pathname === '/tenant/select';
+  const isTenantSelectPage = pathname === "/tenant/select";
 
   if (isLoading) return null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-zinc-200 bg-blue-50">
       <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
-        <Link href="/" className="flex items-center gap-2">
-          <Image
-            src="/logo.png"
-            alt="PinaColada.co"
-            width={48}
-            height={48}
-            priority
-          />
-          <span className="text-3xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
-            PinaColada
-          </span>
-        </Link>
+        <div className="flex items-center gap-6">
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/logo.png"
+              alt="PinaColada.co"
+              width={48}
+              height={48}
+              priority
+            />
+            <span className="text-3xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
+              PinaColada
+            </span>
+          </Link>
+          {user && !isTenantSelectPage && (
+            <Link
+              href="/chat"
+              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
+            >
+              Chat
+            </Link>
+          )}
+        </div>
         {/* Hide on mobile (portrait and landscape), show on tablets+ */}
         <nav className="hidden sm:flex [@media(max-height:500px)]:!hidden items-center gap-6 text-sm text-zinc-600 font-semibold">
-          {!isTenantSelectPage && (
+          {!user && !isTenantSelectPage && (
             <>
               <Link
                 href="/#agent"
@@ -50,7 +60,6 @@ const Header = () => {
               >
                 About
               </Link>
-
               <Link
                 href="/#services"
                 className="text-blue-700 hover:text-blue-500"
@@ -111,20 +120,11 @@ const Header = () => {
             <a
               href="/auth/logout"
               className="text-blue-700 hover:text-blue-500"
-              onClick={() =>
-                dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-              }
             >
               Logout
             </a>
           ) : (
-            <Link
-              href="/login"
-              className="text-blue-700 hover:text-blue-500"
-              onClick={() =>
-                dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-              }
-            >
+            <Link href="/login" className="text-blue-700 hover:text-blue-500">
               Login
             </Link>
           )}

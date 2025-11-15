@@ -3,11 +3,7 @@
  */
 
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
-import {
-  AppliedJob,
-  AppliedJobInsert,
-  AppliedJobUpdate,
-} from "../lib/supabase";
+import { CreatedJob } from "../types/types";
 import { PageData } from "../components/DataTable";
 import { env } from "next-runtime-env";
 import { fetchBearerToken } from "../lib/fetch-bearer-token";
@@ -69,7 +65,7 @@ export const getJobs = async (
   orderBy: string = "date",
   order: "ASC" | "DESC" = "DESC",
   search?: string
-): Promise<PageData<AppliedJob>> => {
+): Promise<PageData<CreatedJob>> => {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
@@ -79,49 +75,29 @@ export const getJobs = async (
   if (search && search.trim()) {
     params.append("search", search.trim());
   }
-  return apiGet<PageData<AppliedJob>>(`/api/jobs?${params}`);
+  return apiGet<PageData<CreatedJob>>(`/api/jobs?${params}`);
 };
 
-// Helper to sanitize date fields: convert empty strings to null
-const sanitizeJobInsert = (job: AppliedJobInsert): AppliedJobInsert => {
-  const sanitized = { ...job };
-  // Convert empty strings to null for date/timestamp fields
-  if (sanitized.date === "") {
-    sanitized.date = null as any;
-  }
-  if (sanitized.resume === "") {
-    sanitized.resume = null as any;
-  }
+const sanitize = (data: any): any => {
+  const sanitized = { ...data };
+  if (sanitized.date === "") sanitized.date = null;
+  if (sanitized.resume === "") sanitized.resume = null;
   return sanitized;
 };
 
-const sanitizeJobUpdate = (job: AppliedJobUpdate): AppliedJobUpdate => {
-  const sanitized = { ...job };
-  // Convert empty strings to null for date/timestamp fields
-  if ("date" in sanitized && sanitized.date === "") {
-    sanitized.date = null as any;
-  }
-  if ("resume" in sanitized && sanitized.resume === "") {
-    sanitized.resume = null as any;
-  }
-  return sanitized;
+export const createJob = async (job: Partial<CreatedJob>): Promise<CreatedJob> => {
+  return apiPost<CreatedJob>("/api/jobs", sanitize(job));
 };
 
-export const createJob = async (job: AppliedJobInsert): Promise<AppliedJob> => {
-  const sanitized = sanitizeJobInsert(job);
-  return apiPost<AppliedJob>("/api/jobs", sanitized);
-};
-
-export const get_job = async (id: string): Promise<AppliedJob> => {
-  return apiGet<AppliedJob>(`/api/jobs/${id}`);
+export const get_job = async (id: string): Promise<CreatedJob> => {
+  return apiGet<CreatedJob>(`/api/jobs/${id}`);
 };
 
 export const updateJob = async (
   id: string,
-  job: AppliedJobUpdate
-): Promise<AppliedJob> => {
-  const sanitized = sanitizeJobUpdate(job);
-  return apiPut<AppliedJob>(`/api/jobs/${id}`, sanitized);
+  job: Partial<CreatedJob>
+): Promise<CreatedJob> => {
+  return apiPut<CreatedJob>(`/api/jobs/${id}`, sanitize(job));
 };
 
 export const deleteJob = async (id: string): Promise<void> => {
@@ -147,7 +123,7 @@ export type LeadStatus = {
   created_at: string;
 };
 
-export type JobWithLeadStatus = AppliedJob & {
+export type JobWithLeadStatus = CreatedJob & {
   lead_status?: LeadStatus;
 };
 
@@ -178,8 +154,8 @@ export const get_leads = async (
  */
 export const mark_lead_as_applied = async (
   jobId: string
-): Promise<AppliedJob> => {
-  return apiPost<AppliedJob>(`/api/leads/${jobId}/apply`, {});
+): Promise<CreatedJob> => {
+  return apiPost<CreatedJob>(`/api/leads/${jobId}/apply`, {});
 };
 
 /**
@@ -188,8 +164,8 @@ export const mark_lead_as_applied = async (
  */
 export const mark_lead_as_do_not_apply = async (
   jobId: string
-): Promise<AppliedJob> => {
-  return apiPost<AppliedJob>(`/api/leads/${jobId}/do-not-apply`, {});
+): Promise<CreatedJob> => {
+  return apiPost<CreatedJob>(`/api/leads/${jobId}/do-not-apply`, {});
 };
 
 // Tenant Types

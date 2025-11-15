@@ -7,7 +7,7 @@ import { ChevronRight, ChevronDown } from "lucide-react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../../context/userContext";
 
-export default function ViewLayout({
+export default function ChatLayout({
   children,
 }: {
   children: React.ReactNode;
@@ -46,7 +46,7 @@ export default function ViewLayout({
             {leadsExpanded && (
               <div className="ml-6 mt-1 space-y-1">
                 <Link
-                  href="/view/leads/jobs"
+                  href="/leads/jobs"
                   className="block rounded px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
                 >
                   Jobs
@@ -58,7 +58,7 @@ export default function ViewLayout({
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8">{children}</main>
+      <main className="flex-1">{children}</main>
     </div>
   );
 }

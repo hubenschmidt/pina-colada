@@ -87,7 +87,7 @@ const TenantSelectPage = () => {
         payload: newTenant.name,
       });
 
-      router.push("/view");
+      router.push("/chat");
     } catch (error: any) {
       console.error("Error creating tenant:", error);
       setError(

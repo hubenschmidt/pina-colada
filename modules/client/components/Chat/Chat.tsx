@@ -2,7 +2,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { useWs, ChatMsg } from "../../hooks/useWs";
 import styles from "./Chat.module.css";
 import { Copy, Check, Download, Briefcase, ChevronDown } from "lucide-react";
-import JobLeadsPanel from "../JobLeadsPanel";
+import LeadPanel from "../LeadTracker/LeadPanel";
+import { usePanelConfig } from "../config";
 import { extractAndSaveJobLeads } from "../../lib/job-lead-extractor";
 import { env } from "next-runtime-env";
 
@@ -79,7 +80,7 @@ const getPositionOnce = (): Promise<GeolocationPosition | null> => {
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
   });
-}
+};
 
 const buildInitialContext = async (): Promise<UserContextV1> => {
   const ctx = await withOptionalBattery(baseContext());
@@ -111,7 +112,7 @@ const buildInitialContext = async (): Promise<UserContextV1> => {
   }
 
   return ctx;
-}
+};
 
 const baseContext = (): UserContextV1 => {
   const nav = navigator as any;
@@ -170,9 +171,11 @@ const baseContext = (): UserContextV1 => {
       session: supports.session(),
     },
   };
-}
+};
 
-const withOptionalBattery = async (ctx: UserContextV1): Promise<UserContextV1> => {
+const withOptionalBattery = async (
+  ctx: UserContextV1
+): Promise<UserContextV1> => {
   try {
     if ("getBattery" in navigator) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -184,7 +187,7 @@ const withOptionalBattery = async (ctx: UserContextV1): Promise<UserContextV1> =
     }
   } catch {}
   return ctx;
-}
+};
 
 // Turn bare URLs and [text](url) into clickable links; preserve newlines.
 export const renderWithLinks = (text: string): React.ReactNode[] => {
@@ -194,7 +197,7 @@ export const renderWithLinks = (text: string): React.ReactNode[] => {
 
   // Matches either [label](https://url) or bare https://url
   const LINK_RE = /(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))|(https?:\/\/[^\s]+)/g;
-  
+
   // Error message pattern
   const ERROR_MSG = "Sorry, there was an error generating the response.";
 
@@ -231,7 +234,7 @@ export const renderWithLinks = (text: string): React.ReactNode[] => {
 
   // Check if text contains error message
   const errorIndex = text.indexOf(ERROR_MSG);
-  
+
   // Process links normally (error message will be handled in trailing text)
   text.replace(LINK_RE, (match, _mdFull, mdLabel, mdUrl, bareUrl, offset) => {
     // preceding text
@@ -266,19 +269,19 @@ export const renderWithLinks = (text: string): React.ReactNode[] => {
   // Error message is in trailing text - split and style it
   const beforeError = trailingText.slice(0, errorIndex - last);
   const afterError = trailingText.slice(errorIndex - last + ERROR_MSG.length);
-  
+
   if (beforeError) pushText(beforeError);
   pushText(ERROR_MSG, true);
   if (afterError) pushText(afterError);
 
   return out;
-}
+};
 
 // ---------- Runtime configuration ----------
 
 const getWsUrl = () => {
-  const apiUrl = env('NEXT_PUBLIC_API_URL') || 'http://localhost:8000';
-  return apiUrl.replace(/^http/, 'ws') + '/ws';
+  const apiUrl = env("NEXT_PUBLIC_API_URL") || "http://localhost:8000";
+  return apiUrl.replace(/^http/, "ws") + "/ws";
 };
 
 const WS_URL = getWsUrl();
@@ -334,7 +337,7 @@ const Chat = () => {
             const savedCount = await extractAndSaveJobLeads(last.msg);
             if (savedCount > 0) {
               console.log(`Saved ${savedCount} job leads`);
-              setLeadsCount(prev => prev + savedCount);
+              setLeadsCount((prev) => prev + savedCount);
               setLeadsPanelOpen(true);
             }
           } catch (error) {
@@ -350,23 +353,28 @@ const Chat = () => {
         "add those to leads",
         "save those as leads",
         "add to leads",
-        "save as leads"
+        "save as leads",
       ];
-      
-      if (addLeadsCommands.some(cmd => userMsg.includes(cmd))) {
+
+      if (addLeadsCommands.some((cmd) => userMsg.includes(cmd))) {
         // Find the most recent assistant message with leads
         for (let i = messages.length - 2; i >= 0; i--) {
           if (messages[i].user === "PinaColada") {
             (async () => {
               try {
-                const savedCount = await extractAndSaveJobLeads(messages[i].msg);
+                const savedCount = await extractAndSaveJobLeads(
+                  messages[i].msg
+                );
                 if (savedCount > 0) {
                   console.log(`Saved ${savedCount} job leads from command`);
-                  setLeadsCount(prev => prev + savedCount);
+                  setLeadsCount((prev) => prev + savedCount);
                   setLeadsPanelOpen(true);
                 }
               } catch (error) {
-                console.error("Failed to extract and save job leads from command:", error);
+                console.error(
+                  "Failed to extract and save job leads from command:",
+                  error
+                );
               }
             })();
             break;
@@ -379,14 +387,18 @@ const Chat = () => {
   // Close tools dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (toolsDropdownRef.current && !toolsDropdownRef.current.contains(event.target as Node)) {
+      if (
+        toolsDropdownRef.current &&
+        !toolsDropdownRef.current.contains(event.target as Node)
+      ) {
         setToolsDropdownOpen(false);
       }
     };
 
     if (toolsDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () => document.removeEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [toolsDropdownOpen]);
 
@@ -467,11 +479,17 @@ const Chat = () => {
                 title="Tools"
               >
                 <span>Tools</span>
-                <ChevronDown size={16} className={toolsDropdownOpen ? styles.chevronOpen : ""} />
+                <ChevronDown
+                  size={16}
+                  className={toolsDropdownOpen ? styles.chevronOpen : ""}
+                />
               </button>
               {toolsDropdownOpen && (
                 <div className={styles.toolsMenu}>
-                  <button
+                  <div className="px-4 py-3 text-sm text-zinc-500 italic">
+                    Big things coming!
+                  </div>
+                  {/* <button
                     type="button"
                     className={styles.toolsMenuItem}
                     onClick={() => {
@@ -485,7 +503,7 @@ const Chat = () => {
                     {leadsCount > 0 && (
                       <span className={styles.leadsBadge}>{leadsCount}</span>
                     )}
-                  </button>
+                  </button> */}
                 </div>
               )}
             </div>
@@ -622,13 +640,14 @@ const Chat = () => {
       </section>
 
       {/* Job Leads Panel */}
-      <JobLeadsPanel
+      <LeadPanel
         isOpen={leadsPanelOpen}
         onClose={() => setLeadsPanelOpen(false)}
         onLeadsChange={() => {
           // Reset leads count when panel changes
           setLeadsCount(0);
         }}
+        config={usePanelConfig("job")}
       />
     </div>
   );

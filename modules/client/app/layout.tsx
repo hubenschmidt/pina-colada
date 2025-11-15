@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import "@mantine/core/styles.css";
 import "./globals.css";
-import Header from "../components/Header";
 import { NavProvider } from "../context/navContext";
 import { UserProvider } from "../context/userContext";
 import { MantineProvider } from "@mantine/core";
 import { PublicEnvScript } from "next-runtime-env";
 import { Auth0Provider } from "@auth0/nextjs-auth0/client";
 import { AuthStateManager } from "../components/AuthStateManager";
+import { RootLayoutClient } from "./RootLayoutClient";
 
 export const metadata: Metadata = {
   title: "PinaColada.co",
@@ -30,8 +30,7 @@ const RootLayout = ({
             <AuthStateManager />
             <MantineProvider>
               <NavProvider>
-                <Header />
-                {children}
+                <RootLayoutClient>{children}</RootLayoutClient>
               </NavProvider>
             </MantineProvider>
           </UserProvider>

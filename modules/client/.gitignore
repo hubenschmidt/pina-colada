@@ -18,7 +18,7 @@
 /out/
 
 # production
-/build
+/buildc:\Users\whube\Pictures\Screenshots\Screenshot 2025-11-15 173136.png
 
 # misc
 .DS_Store
@@ -47,3 +47,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# development screenshots
+/screenshots
