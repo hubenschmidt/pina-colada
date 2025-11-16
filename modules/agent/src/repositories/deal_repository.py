@@ -5,65 +5,57 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from models.Deal import Deal
-from lib.db import get_session
+from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)
 
 
-def find_all_deals(tenant_id: Optional[int] = None) -> List[Deal]:
+async def find_all_deals(tenant_id: Optional[int] = None) -> List[Deal]:
     """Find all deals, optionally filtered by tenant."""
-    session = get_session()
-    try:
+    async with async_get_session() as session:
         stmt = select(Deal).options(joinedload(Deal.current_status)).order_by(Deal.created_at.desc())
         if tenant_id is not None:
             stmt = stmt.where(Deal.tenant_id == tenant_id)
-        return list(session.execute(stmt).unique().scalars().all())
-    finally:
-        session.close()
+        result = await session.execute(stmt)
+        return list(result.unique().scalars().all())
 
 
-def find_deal_by_id(deal_id: int) -> Optional[Deal]:
+async def find_deal_by_id(deal_id: int) -> Optional[Deal]:
     """Find deal by ID."""
-    session = get_session()
-    try:
+    async with async_get_session() as session:
         stmt = select(Deal).options(joinedload(Deal.current_status)).where(Deal.id == deal_id)
-        return session.execute(stmt).unique().scalar_one_or_none()
-    finally:
-        session.close()
+        result = await session.execute(stmt)
+        return result.unique().scalar_one_or_none()
 
 
-def find_deal_by_name(name: str, tenant_id: Optional[int] = None) -> Optional[Deal]:
+async def find_deal_by_name(name: str, tenant_id: Optional[int] = None) -> Optional[Deal]:
     """Find deal by name, optionally scoped to tenant."""
-    session = get_session()
-    try:
+    async with async_get_session() as session:
         stmt = select(Deal).where(Deal.name == name)
         if tenant_id is not None:
             stmt = stmt.where(Deal.tenant_id == tenant_id)
-        return session.execute(stmt).scalar_one_or_none()
-    finally:
-        session.close()
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
 
 
-def create_deal(data: Dict[str, Any]) -> Deal:
+async def create_deal(data: Dict[str, Any]) -> Deal:
     """Create a new deal."""
-    session = get_session()
-    try:
-        deal = Deal(**data)
-        session.add(deal)
-        session.commit()
-        session.refresh(deal)
-        return deal
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Failed to create deal: {e}")
-        raise
-    finally:
-        session.close()
+    async with async_get_session() as session:
+        try:
+            deal = Deal(**data)
+            session.add(deal)
+            await session.commit()
+            await session.refresh(deal)
+            return deal
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to create deal: {e}")
+            raise
 
 
-def get_or_create_deal(name: str, tenant_id: Optional[int] = None) -> Deal:
+async def get_or_create_deal(name: str, tenant_id: Optional[int] = None) -> Deal:
     """Get or create deal by name."""
-    existing = find_deal_by_name(name, tenant_id)
+    existing = await find_deal_by_name(name, tenant_id)
     if existing:
         return existing
 
@@ -71,44 +63,40 @@ def get_or_create_deal(name: str, tenant_id: Optional[int] = None) -> Deal:
         "name": name,
         "tenant_id": tenant_id
     }
-    return create_deal(data)
+    return await create_deal(data)
 
 
-def update_deal(deal_id: int, data: Dict[str, Any]) -> Optional[Deal]:
+async def update_deal(deal_id: int, data: Dict[str, Any]) -> Optional[Deal]:
     """Update an existing deal."""
-    session = get_session()
-    try:
-        deal = session.get(Deal, deal_id)
-        if not deal:
-            return None
+    async with async_get_session() as session:
+        try:
+            deal = await session.get(Deal, deal_id)
+            if not deal:
+                return None
 
-        for key, value in data.items():
-            if hasattr(deal, key):
-                setattr(deal, key, value)
-        session.commit()
-        session.refresh(deal)
-        return deal
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Failed to update deal: {e}")
-        raise
-    finally:
-        session.close()
+            for key, value in data.items():
+                if hasattr(deal, key):
+                    setattr(deal, key, value)
+            await session.commit()
+            await session.refresh(deal)
+            return deal
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to update deal: {e}")
+            raise
 
 
-def delete_deal(deal_id: int) -> bool:
+async def delete_deal(deal_id: int) -> bool:
     """Delete a deal by ID."""
-    session = get_session()
-    try:
-        deal = session.get(Deal, deal_id)
-        if not deal:
-            return False
-        session.delete(deal)
-        session.commit()
-        return True
-    except Exception as e:
-        session.rollback()
-        logger.error(f"Failed to delete deal: {e}")
-        raise
-    finally:
-        session.close()
+    async with async_get_session() as session:
+        try:
+            deal = await session.get(Deal, deal_id)
+            if not deal:
+                return False
+            await session.delete(deal)
+            await session.commit()
+            return True
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to delete deal: {e}")
+            raise

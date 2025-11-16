@@ -2,8 +2,10 @@
 
 import logging
 import os
+from contextlib import asynccontextmanager
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from models import Base
 
 logger = logging.getLogger(__name__)
@@ -11,6 +13,8 @@ logger = logging.getLogger(__name__)
 # Module-level state
 _engine = None
 _session_factory = None
+_async_engine = None
+_async_session_factory = None
 
 
 def get_connection_string() -> str:
@@ -77,3 +81,72 @@ def get_session() -> Session:
         _session_factory = sessionmaker(bind=engine)
 
     return _session_factory()
+
+
+def get_async_connection_string() -> str:
+    """Get async Postgres connection string from environment."""
+    db_host = os.getenv("POSTGRES_HOST")
+    if not db_host:
+        raise ValueError("POSTGRES_HOST environment variable is required")
+
+    db_port = os.getenv("POSTGRES_PORT")
+    if not db_port:
+        raise ValueError("POSTGRES_PORT environment variable is required")
+
+    db_user = os.getenv("POSTGRES_USER")
+    if not db_user:
+        raise ValueError("POSTGRES_USER environment variable is required")
+
+    db_password = os.getenv("POSTGRES_PASSWORD")
+    if not db_password:
+        raise ValueError("POSTGRES_PASSWORD environment variable is required")
+
+    db_name = os.getenv("POSTGRES_DB")
+    if not db_name:
+        raise ValueError("POSTGRES_DB environment variable is required")
+
+    conn_string = f"postgresql+asyncpg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    logger.info(f"Async connection string: {conn_string}")
+
+    return conn_string
+
+
+def get_async_engine():
+    """Get or create async SQLAlchemy engine."""
+    global _async_engine
+    if _async_engine is not None:
+        return _async_engine
+
+    try:
+        conn_string = get_async_connection_string()
+        logger.info("Creating async SQLAlchemy engine...")
+        _async_engine = create_async_engine(
+            conn_string,
+            pool_pre_ping=True,
+            echo=True,  # Enable SQL query logging
+            future=True
+        )
+        logger.info("Async engine created successfully")
+        return _async_engine
+    except ValueError as e:
+        logger.error(f"Database configuration error: {e}")
+        raise
+    except Exception as e:
+        logger.error(f"Failed to create async database engine: {type(e).__name__}: {e}")
+        raise
+
+
+@asynccontextmanager
+async def async_get_session():
+    """Get async database session context manager."""
+    global _async_session_factory
+    if _async_session_factory is None:
+        engine = get_async_engine()
+        _async_session_factory = async_sessionmaker(
+            engine,
+            class_=AsyncSession,
+            expire_on_commit=False
+        )
+
+    async with _async_session_factory() as session:
+        yield session

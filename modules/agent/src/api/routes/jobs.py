@@ -66,7 +66,7 @@ async def get_jobs_route(
     search: Optional[str] = Query(None),
 ):
     """Get all jobs with pagination."""
-    return get_jobs(page, limit, order_by, order, search)
+    return await get_jobs(page, limit, order_by, order, search)
 
 
 @router.post("")
@@ -74,7 +74,7 @@ async def get_jobs_route(
 @require_auth
 async def create_job_route(request: Request, job_data: JobCreate):
     """Create a new job."""
-    return create_job(job_data.dict())
+    return await create_job(job_data.dict())
 
 
 @router.get("/{job_id}")
@@ -82,7 +82,7 @@ async def create_job_route(request: Request, job_data: JobCreate):
 @require_auth
 async def get_job_route(request: Request, job_id: str):
     """Get a job by ID."""
-    return get_job(job_id)
+    return await get_job(job_id)
 
 
 @router.put("/{job_id}")
@@ -90,7 +90,7 @@ async def get_job_route(request: Request, job_id: str):
 @require_auth
 async def update_job_route(request: Request, job_id: str, job_data: JobUpdate):
     """Update a job."""
-    return update_job(job_id, job_data.dict(exclude_unset=True))
+    return await update_job(job_id, job_data.dict(exclude_unset=True))
 
 
 @router.delete("/{job_id}")
@@ -98,7 +98,7 @@ async def update_job_route(request: Request, job_id: str, job_data: JobUpdate):
 @require_auth
 async def delete_job_route(request: Request, job_id: str):
     """Delete a job."""
-    return delete_job(job_id)
+    return await delete_job(job_id)
 
 
 @router.get("/recent-resume-date")
@@ -106,4 +106,4 @@ async def delete_job_route(request: Request, job_id: str):
 @require_auth
 async def get_recent_resume_date_route(request: Request):
     """Get the most recent resume date."""
-    return get_recent_resume_date()
+    return await get_recent_resume_date()
