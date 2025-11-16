@@ -33,10 +33,7 @@ const apiRequest = async <T>(
   const authHeaders = await fetchBearerToken();
   const mergedConfig = { ...authHeaders, ...config };
   const apiUrl = env("NEXT_PUBLIC_API_URL");
-  console.log(`[API Client] NEXT_PUBLIC_API_URL from env(): ${apiUrl}`);
-  console.log(`[API Client] process.env.NEXT_PUBLIC_API_URL: ${process.env.NEXT_PUBLIC_API_URL}`);
   const url = `${apiUrl}${path}`;
-  console.log(`[API Client] Full URL: ${url}`);
 
   return makeRequest<T>(client, method, url, data, mergedConfig)
     .then((response) => response.data)
@@ -215,11 +212,15 @@ export const getMe = async (): Promise<UserMeResponse> => {
  * Calls backend directly with user email
  * Returns tenant object if found, throws 404 error if not
  */
-export const checkUserTenant = async (user: { email?: string | null }): Promise<TenantResponse> => {
+export const checkUserTenant = async (user: {
+  email?: string | null;
+}): Promise<TenantResponse> => {
   if (!user.email) {
     throw new Error("User email is required");
   }
-  return apiGet<TenantResponse>(`/users/${encodeURIComponent(user.email)}/tenant`);
+  return apiGet<TenantResponse>(
+    `/users/${encodeURIComponent(user.email)}/tenant`
+  );
 };
 
 /**

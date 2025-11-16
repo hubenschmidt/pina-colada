@@ -121,7 +121,6 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
     return {
       ...formData,
       source: "manual",
-      lead_status_id: null,
     };
   },
   onValidate: (formData) => {

@@ -31,6 +31,7 @@ function LeadTracker<T extends BaseLead>({ config }: LeadTrackerProps<T>) {
   const enableSearch = config.enableSearch !== false;
 
     const loadLeads = async (showFullLoading = false, showBar = false) => {
+      console.log("[LeadTracker] loadLeads called with:", { showFullLoading, showBar });
       if (showFullLoading) {
         setLoading(true);
       }
@@ -48,7 +49,10 @@ function LeadTracker<T extends BaseLead>({ config }: LeadTrackerProps<T>) {
           sortDirection,
           searchQuery || undefined
         );
+        console.log("[LeadTracker] Received page data:", pageData);
+        console.log("[LeadTracker] Items with status:", pageData.items.map(item => ({ id: item.id, status: item.status })));
         setData(pageData);
+        console.log("[LeadTracker] Data state updated");
       } catch (err) {
         console.error(`Error fetching ${config.entityNamePlural}:`, err);
         setError(
@@ -81,8 +85,11 @@ function LeadTracker<T extends BaseLead>({ config }: LeadTrackerProps<T>) {
     };
 
     const handleUpdateLead = async (id: string, updates: Partial<T>) => {
+      console.log("[LeadTracker] handleUpdateLead called with:", { id, updates });
       await config.api.updateLead(id, updates);
+      console.log("[LeadTracker] API update complete, reloading leads...");
       await loadLeads(false);
+      console.log("[LeadTracker] Leads reloaded");
     };
 
     const handleDeleteLead = async (id: string) => {

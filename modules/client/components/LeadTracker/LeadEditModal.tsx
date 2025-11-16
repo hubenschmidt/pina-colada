@@ -114,10 +114,12 @@ const LeadEditModal = <T extends BaseLead>({
         submitData = config.onBeforeSubmit(submitData);
       }
 
+      console.log("[LeadEditModal] Submitting update:", { leadId: lead.id, submitData });
       await onUpdate(lead.id, submitData);
+      console.log("[LeadEditModal] Update successful");
       onClose();
     } catch (error) {
-      console.error("Failed to update:", error);
+      console.error("[LeadEditModal] Failed to update:", error);
       alert("Failed to update. Please try again.");
     } finally {
       setIsSubmitting(false);

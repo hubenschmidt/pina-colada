@@ -35,18 +35,29 @@ def _update_job_notes(job: Job, notes: str) -> None:
 
 def _update_lead_status(lead: Lead, data: Dict[str, Any]) -> None:
     """Update lead status from data."""
+    logger.info(f"[_update_lead_status] Input data: {data}")
+    logger.info(f"[_update_lead_status] Current lead.current_status_id: {lead.current_status_id}")
+
     if "current_status_id" in data:
+        logger.info(f"[_update_lead_status] Setting status via current_status_id: {data['current_status_id']}")
         lead.current_status_id = data["current_status_id"]
         return
 
     if "status" not in data:
+        logger.info("[_update_lead_status] No 'status' field in data, skipping")
         return
     if not data["status"]:
+        logger.info("[_update_lead_status] 'status' field is empty, skipping")
         return
 
+    logger.info(f"[_update_lead_status] Looking up status name: {data['status']}")
     status_id = _get_status_id_from_name(data["status"])
+    logger.info(f"[_update_lead_status] Status lookup result: {status_id}")
     if status_id:
         lead.current_status_id = status_id
+        logger.info(f"[_update_lead_status] Updated lead.current_status_id to: {status_id}")
+    else:
+        logger.warning(f"[_update_lead_status] Could not find status ID for name: {data['status']}")
 
 
 def _update_lead_source(lead: Lead, data: Dict[str, Any]) -> None:
@@ -187,11 +198,15 @@ def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
 
     Note: Updates both Job and Lead records as needed.
     """
+    logger.info(f"[update_job] Updating job {job_id} with data: {data}")
     session = get_session()
     try:
         job = session.get(Job, job_id)
         if not job:
+            logger.warning(f"[update_job] Job {job_id} not found")
             return None
+
+        logger.info(f"[update_job] Current job.lead.current_status_id: {job.lead.current_status_id if job.lead else 'No lead'}")
 
         # Update Job fields
         if "job_title" in data and data["job_title"] is not None:
@@ -209,10 +224,12 @@ def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
 
         # Update Lead fields if provided
         if not job.lead:
+            logger.warning(f"[update_job] Job {job_id} has no associated Lead")
             session.commit()
             return _load_job_with_relationships(session, job.id)
 
         _update_lead_status(job.lead, data)
+        logger.info(f"[update_job] After _update_lead_status, current_status_id: {job.lead.current_status_id}")
         _update_lead_source(job.lead, data)
         _update_lead_title_if_needed(session, job, data)
 
