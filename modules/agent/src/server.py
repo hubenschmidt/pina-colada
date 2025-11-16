@@ -24,15 +24,8 @@ configure_logging()  # plain logging to stdout (Docker captures it)
 logger = logging.getLogger("app.server")
 app = FastAPI()
 
-# Include routers
-app.include_router(jobs_routes)
-app.include_router(lead_status_routes)
-app.include_router(leads_routes)
-app.include_router(auth_routes)
-app.include_router(users_routes)
-
 # -----------------------------------------------------------------------------
-# CORS middleware
+# CORS middleware (MUST be added before routers)
 # -----------------------------------------------------------------------------
 app.add_middleware(
     CORSMiddleware,
@@ -47,6 +40,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include routers (AFTER middleware)
+app.include_router(jobs_routes)
+app.include_router(lead_status_routes)
+app.include_router(leads_routes)
+app.include_router(auth_routes)
+app.include_router(users_routes)
 
 
 # -----------------------------------------------------------------------------
