@@ -268,16 +268,16 @@ async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
 
 
 async def delete_job(job_id: int) -> bool:
-    """Delete a job by ID (cascades to Lead)."""
+    """Delete a job by ID."""
     async with async_get_session() as session:
         try:
-            job = await session.get(Job, job_id)
+            stmt = select(Job).where(Job.id == job_id)
+            result = await session.execute(stmt)
+            job = result.scalar_one_or_none()
             if not job:
                 return False
 
-            # Delete the Lead (Job will be cascade-deleted), or just job if no lead
-            entity_to_delete = job.lead if job.lead else job
-            await session.delete(entity_to_delete)
+            await session.delete(job)
             await session.commit()
             return True
         except Exception as e:
