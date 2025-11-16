@@ -13,4 +13,4 @@ router = APIRouter(prefix="/lead-statuses", tags=["lead-statuses"])
 @require_auth
 async def get_lead_statuses_route(request: Request):
     """Get all lead statuses."""
-    return get_statuses()
+    return await get_statuses()

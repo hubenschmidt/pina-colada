@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, HTTPException
 from repositories.user_repository import find_user_by_email
-from lib.db import get_session
+from lib.db import async_get_session
 from models.Tenant import Tenant
 
 router = APIRouter(prefix="/users", tags=["user"])
@@ -15,7 +15,7 @@ async def get_user_tenant(email: str):
     Returns tenant info if found, 404 if not.
     """
     # Find user by email
-    user = find_user_by_email(email)
+    user = await find_user_by_email(email)
 
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
@@ -25,9 +25,8 @@ async def get_user_tenant(email: str):
         raise HTTPException(status_code=404, detail="No tenant associated with user")
 
     # Get tenant details
-    session = get_session()
-    try:
-        tenant = session.get(Tenant, user.tenant_id)
+    async with async_get_session() as session:
+        tenant = await session.get(Tenant, user.tenant_id)
         if not tenant:
             raise HTTPException(status_code=404, detail="Tenant not found")
 
@@ -36,5 +35,3 @@ async def get_user_tenant(email: str):
             "name": tenant.name,
             "created_at": tenant.created_at.isoformat() if tenant.created_at else None,
         }
-    finally:
-        session.close()
