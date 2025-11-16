@@ -32,7 +32,11 @@ const apiRequest = async <T>(
   const client = getClient();
   const authHeaders = await fetchBearerToken();
   const mergedConfig = { ...authHeaders, ...config };
-  const url = `${env("NEXT_PUBLIC_API_URL")}${path}`;
+  const apiUrl = env("NEXT_PUBLIC_API_URL");
+  console.log(`[API Client] NEXT_PUBLIC_API_URL from env(): ${apiUrl}`);
+  console.log(`[API Client] process.env.NEXT_PUBLIC_API_URL: ${process.env.NEXT_PUBLIC_API_URL}`);
+  const url = `${apiUrl}${path}`;
+  console.log(`[API Client] Full URL: ${url}`);
 
   return makeRequest<T>(client, method, url, data, mergedConfig)
     .then((response) => response.data)
