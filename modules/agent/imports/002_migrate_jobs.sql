@@ -1729,7 +1729,106 @@ BEGIN
   INSERT INTO "Job" (id, organization_id, job_title, job_url, resume_date, salary_range, created_at, updated_at)
   VALUES (new_lead_id, org_id, 'Senior Full-Stack Engineer', 'https://current.com/careers/open-positions/?id=7305170&gh_jid=7305170', '2025-11-11 00:00:00', '150-240K', '2025-11-12 04:49:18', '2025-11-12 04:49:46');
 
-  RAISE NOTICE 'Migration complete! Migrated 187 jobs';
+  -- Job 188: Hatz - Senior Software Engineer
+  SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('Hatz');
+  mapped_status_id := (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job');
+  INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+  VALUES (default_deal_id, 'Job', 'Hatz - Senior Software Engineer', NULL, 'manual', mapped_status_id, '2025-11-13 16:00:39', '2025-11-13 16:00:57')
+  RETURNING id INTO new_lead_id;
+  INSERT INTO "Job" (id, organization_id, job_title, job_url, resume_date, created_at, updated_at)
+  VALUES (new_lead_id, org_id, 'Senior Software Engineer', 'https://hatz.ai/en/job-post-senior-engineer', '2025-11-13 00:00:00', '2025-11-13 16:00:39', '2025-11-13 16:00:57');
+
+  -- Job 189: Retool - Software Engineer, Workflows
+  SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('Retool');
+  mapped_status_id := (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job');
+  INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+  VALUES (default_deal_id, 'Job', 'Retool - Software Engineer, Workflows', NULL, 'manual', mapped_status_id, '2025-11-13 21:13:12', '2025-11-13 21:13:12')
+  RETURNING id INTO new_lead_id;
+  INSERT INTO "Job" (id, organization_id, job_title, job_url, resume_date, salary_range, created_at, updated_at)
+  VALUES (new_lead_id, org_id, 'Software Engineer, Workflows', 'https://job-boards.greenhouse.io/retool/jobs/4559232005', '2025-11-13 00:00:00', '$164,600 - $255,000', '2025-11-13 21:13:12', '2025-11-13 21:13:12');
+
+  -- Job 190: Adaptive - Senior Software Engineer (Fullstack)
+  SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('Adaptive');
+  mapped_status_id := (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job');
+  INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+  VALUES (default_deal_id, 'Job', 'Adaptive - Senior Software Engineer (Fullstack)', NULL, 'manual', mapped_status_id, '2025-11-14 02:07:34', '2025-11-14 02:26:31')
+  RETURNING id INTO new_lead_id;
+  INSERT INTO "Job" (id, organization_id, job_title, job_url, resume_date, salary_range, created_at, updated_at)
+  VALUES (new_lead_id, org_id, 'Senior Software Engineer (Fullstack)', 'https://jobs.ashbyhq.com/adaptive/c1a19602-303e-4eb3-8aa6-a40cbc1009da', '2025-11-13 00:00:00', '$200-250K', '2025-11-14 02:07:34', '2025-11-14 02:26:31');
+
+  -- Job 191: CardFlight - Senior Backend Software Engineer
+  SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('CardFlight');
+  mapped_status_id := (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job');
+  INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+  VALUES (default_deal_id, 'Job', 'CardFlight - Senior Backend Software Engineer', 'remote', 'manual', mapped_status_id, '2025-11-14 02:26:18', '2025-11-14 02:26:43')
+  RETURNING id INTO new_lead_id;
+  INSERT INTO "Job" (id, organization_id, job_title, job_url, resume_date, salary_range, created_at, updated_at)
+  VALUES (new_lead_id, org_id, 'Senior Backend Software Engineer', 'https://job-boards.greenhouse.io/cardflight/jobs/8139427002', '2025-11-13 00:00:00', '$150-180K', '2025-11-14 02:26:18', '2025-11-14 02:26:43');
+
+  -- Job 192: Knot - Senior / Staff Product Engineer
+  SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('Knot');
+  mapped_status_id := (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job');
+  INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+  VALUES (default_deal_id, 'Job', 'Knot - Senior / Staff Product Engineer', NULL, 'manual', mapped_status_id, '2025-11-14 02:37:49', '2025-11-14 02:37:49')
+  RETURNING id INTO new_lead_id;
+  INSERT INTO "Job" (id, organization_id, job_title, job_url, resume_date, created_at, updated_at)
+  VALUES (new_lead_id, org_id, 'Senior / Staff Product Engineer', 'https://jobs.ashbyhq.com/knot/4b0383ee-3b3f-47b9-ab65-a8b730e9b1b2', '2025-11-13 00:00:00', '2025-11-14 02:37:49', '2025-11-14 02:37:49');
+
+  -- Job 193: Middesk - Software Engineer
+  SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('Middesk');
+  mapped_status_id := (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job');
+  INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+  VALUES (default_deal_id, 'Job', 'Middesk - Software Engineer', NULL, 'manual', mapped_status_id, '2025-11-14 02:40:31', '2025-11-14 02:40:31')
+  RETURNING id INTO new_lead_id;
+  INSERT INTO "Job" (id, organization_id, job_title, job_url, resume_date, salary_range, created_at, updated_at)
+  VALUES (new_lead_id, org_id, 'Software Engineer', 'https://jobs.ashbyhq.com/middesk/e1c6af86-dce1-495f-a710-ad369fd1308c', '2025-11-13 00:00:00', '$148-230K', '2025-11-14 02:40:31', '2025-11-14 02:40:31');
+
+  -- Job 194: Plaid - Software Engineer
+  SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('Plaid');
+  mapped_status_id := (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job');
+  INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+  VALUES (default_deal_id, 'Job', 'Plaid - Software Engineer', NULL, 'manual', mapped_status_id, '2025-11-14 19:09:16', '2025-11-14 19:09:16')
+  RETURNING id INTO new_lead_id;
+  INSERT INTO "Job" (id, organization_id, job_title, job_url, resume_date, salary_range, created_at, updated_at)
+  VALUES (new_lead_id, org_id, 'Software Engineer', 'https://plaid.com/careers/openings/engineering/new-york/software-engineer/', '2025-11-13 00:00:00', '$148,800-$223,200', '2025-11-14 19:09:16', '2025-11-14 19:09:16');
+
+  -- Job 195: Green Spark - Software Engineer
+  SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('Green Spark');
+  mapped_status_id := (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job');
+  INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+  VALUES (default_deal_id, 'Job', 'Green Spark - Software Engineer', NULL, 'manual', mapped_status_id, '2025-11-14 19:22:03', '2025-11-14 19:22:03')
+  RETURNING id INTO new_lead_id;
+  INSERT INTO "Job" (id, organization_id, job_title, job_url, resume_date, created_at, updated_at)
+  VALUES (new_lead_id, org_id, 'Software Engineer', 'https://job-boards.greenhouse.io/applytogreenspark/jobs/4169702004', '2025-11-13 00:00:00', '2025-11-14 19:22:03', '2025-11-14 19:22:03');
+
+  -- Job 196: Double Verify - Senior Software Engineer II - Rockerbox
+  SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('Double Verify');
+  mapped_status_id := (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job');
+  INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+  VALUES (default_deal_id, 'Job', 'Double Verify - Senior Software Engineer II - Rockerbox', NULL, 'manual', mapped_status_id, '2025-11-15 19:36:38', '2025-11-15 19:36:38')
+  RETURNING id INTO new_lead_id;
+  INSERT INTO "Job" (id, organization_id, job_title, job_url, resume_date, salary_range, created_at, updated_at)
+  VALUES (new_lead_id, org_id, 'Senior Software Engineer II - Rockerbox', 'https://doubleverify.com/careers/job?id=8060826002', '2025-11-13 00:00:00', '$107,000 - $193,000', '2025-11-15 19:36:38', '2025-11-15 19:36:38');
+
+  -- Job 197: Mercury - Senior Full-Stack Engineer
+  SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('Mercury');
+  mapped_status_id := (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job');
+  INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+  VALUES (default_deal_id, 'Job', 'Mercury - Senior Full-Stack Engineer', NULL, 'manual', mapped_status_id, '2025-11-16 02:22:22', '2025-11-16 02:22:43')
+  RETURNING id INTO new_lead_id;
+  INSERT INTO "Job" (id, organization_id, job_title, job_url, resume_date, salary_range, created_at, updated_at)
+  VALUES (new_lead_id, org_id, 'Senior Full-Stack Engineer', 'https://job-boards.greenhouse.io/mercury/jobs/5493086004', '2025-11-15 00:00:00', '$166,600 - $208,300', '2025-11-16 02:22:22', '2025-11-16 02:22:43');
+
+  -- Job 198: Mercury - Senior Backend Engineer - Product
+  SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('Mercury');
+  mapped_status_id := (SELECT id FROM "Status" WHERE name = 'Applied' AND category = 'job');
+  INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+  VALUES (default_deal_id, 'Job', 'Mercury - Senior Backend Engineer - Product', NULL, 'manual', mapped_status_id, '2025-11-16 02:26:28', '2025-11-16 02:26:28')
+  RETURNING id INTO new_lead_id;
+  INSERT INTO "Job" (id, organization_id, job_title, job_url, resume_date, salary_range, created_at, updated_at)
+  VALUES (new_lead_id, org_id, 'Senior Backend Engineer - Product', 'https://job-boards.greenhouse.io/mercury/jobs/5520964004', '2025-11-15 00:00:00', '$166,600 - $208,300', '2025-11-16 02:26:28', '2025-11-16 02:26:28');
+
+  RAISE NOTICE 'Migration complete! Migrated 198 jobs';
 END $$;
 
 -- Verification queries
