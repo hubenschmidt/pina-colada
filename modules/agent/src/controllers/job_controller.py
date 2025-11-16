@@ -9,22 +9,18 @@ from repositories.job_repository import (
     count_jobs,
     find_job_by_id,
     create_job as create_job_repo,
-    update_job as update_job_repo,
     delete_job as delete_job_repo,
     find_all_statuses,
-    find_jobs_with_status
+    find_jobs_with_status,
 )
 from lib.serialization import model_to_dict
+from lib.decorators import handle_http_exceptions
+from services.job_service import update_job as update_job_service
 
 logger = logging.getLogger(__name__)
 
 
-def _parse_paging(
-    page: int,
-    limit: int,
-    order_by: str,
-    order: str
-) -> dict:
+def _parse_paging(page: int, limit: int, order_by: str, order: str) -> dict:
     """Parse pagination parameters."""
     offset = (page - 1) * limit
     return {
@@ -61,10 +57,16 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
 
     # Use Lead created_at for date (application date)
     created_at = job_dict.get("created_at", "")
-    date_str = created_at.isoformat() if isinstance(created_at, datetime) else str(created_at)
+    date_str = (
+        created_at.isoformat() if isinstance(created_at, datetime) else str(created_at)
+    )
 
     resume_date = job_dict.get("resume_date")
-    resume_str = resume_date.isoformat() if isinstance(resume_date, datetime) else (str(resume_date) if resume_date else None)
+    resume_str = (
+        resume_date.isoformat()
+        if isinstance(resume_date, datetime)
+        else (str(resume_date) if resume_date else None)
+    )
 
     return {
         "id": str(job_dict.get("id", "")),
@@ -78,7 +80,7 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
         "resume": resume_str,
         "source": job_dict.get("source", "manual"),
         "created_at": date_str,
-        "updated_at": job_dict.get("updated_at", "")
+        "updated_at": job_dict.get("updated_at", ""),
     }
 
 
@@ -87,17 +89,13 @@ def _parse_date_string(date_str: Optional[str]) -> Optional[datetime]:
     if not date_str:
         return None
     try:
-        return datetime.fromisoformat(date_str.replace('Z', '+00:00'))
+        return datetime.fromisoformat(date_str.replace("Z", "+00:00"))
     except (ValueError, TypeError):
         return None
 
 
 def get_jobs(
-    page: int,
-    limit: int,
-    order_by: str,
-    order: str,
-    search: Optional[str] = None
+    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None
 ) -> dict:
     """Get all jobs with pagination."""
     paging = _parse_paging(page, limit, order_by, order)
@@ -109,9 +107,10 @@ def get_jobs(
     if search and search.strip():
         search_lower = search.strip().lower()
         all_jobs = [
-            job for job in all_jobs
-            if (job.organization and search_lower in job.organization.name.lower()) or
-               (job.job_title and search_lower in job.job_title.lower())
+            job
+            for job in all_jobs
+            if (job.organization and search_lower in job.organization.name.lower())
+            or (job.job_title and search_lower in job.job_title.lower())
         ]
 
     total_count = len(all_jobs)
@@ -124,11 +123,13 @@ def get_jobs(
         "application_date": lambda j: j.lead.created_at if j.lead else "",
         "date": lambda j: j.lead.created_at if j.lead else "",
         "company": lambda j: (j.organization.name if j.organization else "").lower(),
-        "status": lambda j: j.lead.current_status.name if (j.lead and j.lead.current_status) else "",
+        "status": lambda j: (
+            j.lead.current_status.name if (j.lead and j.lead.current_status) else ""
+        ),
         "job_title": lambda j: (j.job_title or "").lower(),
         "resume": lambda j: j.resume_date or "",
     }
-    
+
     sort_fn = sort_functions.get(order_by_field)
     if sort_fn:
         all_jobs.sort(key=sort_fn, reverse=reverse)
@@ -152,7 +153,9 @@ def create_job(job_data: Dict[str, Any]) -> Dict[str, Any]:
     # Get or create organization from company/organization_name
     organization_name = job_data.get("company") or job_data.get("organization_name")
     if not organization_name:
-        raise HTTPException(status_code=400, detail="company or organization_name is required")
+        raise HTTPException(
+            status_code=400, detail="company or organization_name is required"
+        )
 
     org = get_or_create_organization(organization_name)
 
@@ -164,7 +167,7 @@ def create_job(job_data: Dict[str, Any]) -> Dict[str, Any]:
         "notes": job_data.get("notes"),
         "resume_date": resume_obj,
         "status": job_data.get("status", "applied"),  # Will be converted to status_id
-        "source": job_data.get("source", "manual")
+        "source": job_data.get("source", "manual"),
     }
 
     created = create_job_repo(data)
@@ -186,38 +189,10 @@ def get_job(job_id: str) -> Dict[str, Any]:
     return _job_to_response_dict(job)
 
 
+@handle_http_exceptions
 def update_job(job_id: str, job_data: Dict[str, Any]) -> Dict[str, Any]:
     """Update a job."""
-    from repositories.organization_repository import get_or_create_organization
-
-    try:
-        job_id_int = int(job_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid job ID format")
-
-    resume_obj = _parse_date_string(job_data.get("resume"))
-
-    data: Dict[str, Any] = {}
-
-    # Handle organization update
-    organization_name = job_data.get("company") or job_data.get("organization_name")
-    if organization_name:
-        org = get_or_create_organization(organization_name)
-        data["organization_id"] = org.id
-
-    # Update simple fields
-    allowed_fields = ["job_title", "job_url", "salary_range", "notes", "status", "source", "current_status_id"]
-    data.update({k: job_data[k] for k in allowed_fields if k in job_data})
-    
-    # Handle resume_date separately (can be None or explicitly set)
-    if resume_obj is not None or "resume" in job_data:
-        data["resume_date"] = resume_obj
-
-    updated = update_job_repo(job_id_int, data)
-
-    if not updated:
-        raise HTTPException(status_code=404, detail="Job not found")
-
+    updated = update_job_service(job_id, job_data)
     return _job_to_response_dict(updated)
 
 
@@ -254,49 +229,27 @@ def get_leads(statuses: Optional[str] = None) -> List[Dict[str, Any]]:
     for job in jobs:
         job_dict = _job_to_response_dict(job)
         if job.lead and job.lead.current_status:
-            job_dict["lead_status"] = model_to_dict(job.lead.current_status, include_relationships=False)
+            job_dict["lead_status"] = model_to_dict(
+                job.lead.current_status, include_relationships=False
+            )
         items.append(job_dict)
 
     return items
 
 
+@handle_http_exceptions
 def mark_lead_as_applied(job_id: str) -> Dict[str, Any]:
     """Mark a lead as applied."""
-    try:
-        job_id_int = int(job_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid job ID format")
-
-    job = find_job_by_id(job_id_int)
-    if not job:
-        raise HTTPException(status_code=404, detail="Job not found")
-
-    update_data: Dict[str, Any] = {
-        "status": "applied",
-    }
-
-    updated = update_job_repo(job_id_int, update_data)
-    if not updated:
-        raise HTTPException(status_code=404, detail="Job not found")
-
+    update_data: Dict[str, Any] = {"status": "applied"}
+    updated = update_job_service(job_id, update_data)
     return _job_to_response_dict(updated)
 
 
+@handle_http_exceptions
 def mark_lead_as_do_not_apply(job_id: str) -> Dict[str, Any]:
     """Mark a lead as do not apply."""
-    try:
-        job_id_int = int(job_id)
-    except ValueError:
-        raise HTTPException(status_code=400, detail="Invalid job ID format")
-
-    update_data: Dict[str, Any] = {
-        "status": "do_not_apply",
-    }
-
-    updated = update_job_repo(job_id_int, update_data)
-    if not updated:
-        raise HTTPException(status_code=404, detail="Job not found")
-
+    update_data: Dict[str, Any] = {"status": "do_not_apply"}
+    updated = update_job_service(job_id, update_data)
     return _job_to_response_dict(updated)
 
 
@@ -313,15 +266,14 @@ def get_recent_resume_date() -> Dict[str, Optional[str]]:
 
     # Sort by Lead created_at (application date) DESC to get most recent application
     jobs_with_resume.sort(
-        key=lambda j: j.lead.created_at if j.lead else datetime.min,
-        reverse=True
+        key=lambda j: j.lead.created_at if j.lead else datetime.min, reverse=True
     )
 
     # Get the resume date from the most recently applied job
     most_recent_job = jobs_with_resume[0]
     if most_recent_job.resume_date:
         # Convert to YYYY-MM-DD format
-        resume_date_str = most_recent_job.resume_date.isoformat().split('T')[0]
+        resume_date_str = most_recent_job.resume_date.isoformat().split("T")[0]
         return {"resume_date": resume_date_str}
 
     return {"resume_date": None}

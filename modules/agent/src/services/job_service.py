@@ -222,6 +222,72 @@ def _matches_job(job, company: str, job_title: str) -> bool:
     return job_title_lower in db_title_lower or db_title_lower in job_title_lower
 
 
+def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
+    """Update a job with the provided data.
+
+    Handles:
+    - ID validation
+    - Organization lookup/creation
+    - Date parsing
+    - Field validation
+    - Repository update
+    - Error handling
+
+    Args:
+        job_id: Job ID to update (string from route)
+        job_data: Dictionary of fields to update
+
+    Returns:
+        Updated Job ORM object
+
+    Raises:
+        HTTPException: If job_id is invalid or job not found
+    """
+    from repositories.job_repository import update_job as update_job_repo
+    from repositories.organization_repository import get_or_create_organization
+    from datetime import datetime
+    from fastapi import HTTPException
+
+    # Validate job_id
+    try:
+        job_id_int = int(job_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid job ID format")
+
+    data: Dict[str, Any] = {}
+
+    # Handle organization update
+    organization_name = job_data.get("company") or job_data.get("organization_name")
+    if organization_name:
+        org = get_or_create_organization(organization_name)
+        data["organization_id"] = org.id
+
+    # Update simple fields
+    allowed_fields = ["job_title", "job_url", "salary_range", "notes", "status", "source", "current_status_id"]
+    data.update({k: job_data[k] for k in allowed_fields if k in job_data})
+
+    # Handle resume_date parsing
+    resume_str = job_data.get("resume")
+    if resume_str is not None:
+        try:
+            resume_obj = datetime.fromisoformat(resume_str.replace('Z', '+00:00')) if resume_str else None
+            data["resume_date"] = resume_obj
+        except (ValueError, TypeError):
+            data["resume_date"] = None
+
+    # Update via repository
+    updated = update_job_repo(job_id_int, data)
+
+    # Handle not found
+    if not updated:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    # Clear cache on successful update
+    _clear_cache()
+
+    return updated
+
+
 def update_job_by_company(
     company: str,
     job_title: str,
@@ -233,7 +299,7 @@ def update_job_by_company(
     Find and update a job by company name and job title (fuzzy matching).
     Returns updated job or None if not found.
     """
-    from repositories.job_repository import find_all_jobs, update_job
+    from repositories.job_repository import find_all_jobs
 
     # Get all jobs and find matching one
     all_jobs = find_all_jobs()
