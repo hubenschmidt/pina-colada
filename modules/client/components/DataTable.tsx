@@ -216,6 +216,7 @@ export const DataTable = <T,>({
                                 <Table.Th
                                     key={i}
                                     visibleFrom={col.visibleFrom}
+                                    fw="normal"
                                     style={{
                                         width: col.width,
                                         border: cellBorder,
