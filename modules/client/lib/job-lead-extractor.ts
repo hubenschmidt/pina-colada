@@ -59,7 +59,7 @@ export const saveJobLeads = async (
         company: lead.company,
         job_title: lead.job_title,
         job_url: lead.job_url,
-        status: "lead",
+        status: "Lead",
         source: "agent",
         lead_status_id: qualifyingStatus.id,
       });
