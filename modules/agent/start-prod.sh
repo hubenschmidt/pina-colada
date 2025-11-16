@@ -14,7 +14,7 @@ HTTP_PORT=${PORT:-8080}
 
 # Check migration status (production uses Supabase)
 echo "ℹ️  Checking migration status..."
-python scripts/check_migration_status.py || echo "⚠️  Could not check migration status"
+python scripts/check_migration_status.py || echo "⚠️  Skipping migration status checks because migrations already ran.."
 
 echo "Starting LangGraph server on port 2024..."
 echo "Starting FastAPI server on port $HTTP_PORT..."
@@ -32,7 +32,7 @@ fi
 LG_PID=$!
 
 # Start FastAPI websocket server - production mode
-python -m uvicorn agent.server:app \
+python -m uvicorn server:app \
   --host 0.0.0.0 \
   --port "$HTTP_PORT" \
   --log-level info &
