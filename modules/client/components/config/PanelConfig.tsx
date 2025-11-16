@@ -77,20 +77,26 @@ const getJobPanelConfig = (): LeadPanelConfig<CreatedJob> => ({
 
   getStatusBadgeClass: (statusName: string) => {
     switch (statusName) {
-      case "Qualifying":
+      case "Lead":
         return styles.badgeQualifying;
-      case "Cold":
-        return styles.badgeCold;
-      case "Warm":
+      case "Applied":
         return styles.badgeWarm;
-      case "Hot":
+      case "Interviewing":
         return styles.badgeHot;
+      case "Offer":
+        return styles.badgeHot;
+      case "Accepted":
+        return styles.badgeHot;
+      case "Rejected":
+        return styles.badgeCold;
+      case "Do Not Apply":
+        return styles.badgeCold;
       default:
         return styles.badgeQualifying;
     }
   },
 
-  defaultStatusFilter: ["Qualifying"],
+  defaultStatusFilter: ["Lead"],
   emptyMessage: "No job leads found. Try adjusting your filters.",
 });
 

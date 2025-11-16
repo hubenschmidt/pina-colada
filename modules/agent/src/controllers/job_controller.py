@@ -39,9 +39,9 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
     company = job_dict.get("organization", {}).get("name", "")
 
     # Extract status name directly from ORM object (model_to_dict doesn't include nested relationships)
-    status = "applied"  # default
+    status = "Applied"  # default
     if job.lead and job.lead.current_status:
-        status = job.lead.current_status.name.lower()
+        status = job.lead.current_status.name
 
     # Use Lead created_at for date (application date)
     created_at = job_dict.get("created_at", "")

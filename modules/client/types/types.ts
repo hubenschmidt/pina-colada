@@ -3,7 +3,7 @@ export interface CreatedJob {
   company: string;
   job_title: string;
   date: string;
-  status: 'lead' | 'applied' | 'interviewing' | 'rejected' | 'offer' | 'accepted' | 'do_not_apply';
+  status: 'Lead' | 'Applied' | 'Interviewing' | 'Rejected' | 'Offer' | 'Accepted' | 'Do Not Apply';
   job_url: string | null;
   notes: string | null;
   resume: string | null;

@@ -48,33 +48,22 @@ const getJobLeadConfig = (): LeadTrackerConfig<JobLead, Partial<CreatedJob>, Par
         width: "10%",
         render: (job) => {
           const statusColors = {
-            lead: "bg-blue-100 text-blue-800 border-blue-300",
-            applied: "bg-green-100 text-green-800 border-green-300",
-            interviewing: "bg-yellow-100 text-yellow-800 border-yellow-300",
-            offer: "bg-purple-100 text-purple-800 border-purple-300",
-            accepted: "bg-teal-100 text-teal-800 border-teal-300",
-            rejected: "bg-gray-100 text-gray-800 border-gray-300",
-            do_not_apply: "bg-red-100 text-red-800 border-red-300",
-          };
-          const statusLabels = {
-            lead: "Lead",
-            applied: "Applied",
-            interviewing: "Interviewing",
-            offer: "Offer",
-            accepted: "Accepted",
-            rejected: "Rejected",
-            do_not_apply: "Do Not Apply",
+            Lead: "bg-blue-100 text-blue-800 border-blue-300",
+            Applied: "bg-green-100 text-green-800 border-green-300",
+            Interviewing: "bg-yellow-100 text-yellow-800 border-yellow-300",
+            Offer: "bg-purple-100 text-purple-800 border-purple-300",
+            Accepted: "bg-teal-100 text-teal-800 border-teal-300",
+            Rejected: "bg-gray-100 text-gray-800 border-gray-300",
+            "Do Not Apply": "bg-red-100 text-red-800 border-red-300",
           };
           const colorClass =
             statusColors[job.status as keyof typeof statusColors] ||
             "bg-gray-100 text-gray-800";
-          const label =
-            statusLabels[job.status as keyof typeof statusLabels] || job.status;
           return (
             <span
               className={`inline-block px-2 py-1 text-xs font-medium rounded border ${colorClass}`}
             >
-              {label}
+              {job.status}
             </span>
           );
         },

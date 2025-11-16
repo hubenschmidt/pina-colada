@@ -5,13 +5,13 @@ import { getRecentResumeDate } from "../../api";
 type LeadType = "job";
 
 const JOB_STATUS_OPTIONS: CreatedJob["status"][] = [
-  "lead",
-  "applied",
-  "interviewing",
-  "rejected",
-  "offer",
-  "accepted",
-  "do_not_apply",
+  "Lead",
+  "Applied",
+  "Interviewing",
+  "Rejected",
+  "Offer",
+  "Accepted",
+  "Do Not Apply",
 ];
 
 const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
@@ -100,10 +100,9 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
       name: "status",
       label: "Status",
       type: "select",
-      defaultValue: "applied",
+      defaultValue: "Applied",
       options: JOB_STATUS_OPTIONS.map((status) => ({
-        label:
-          status.charAt(0).toUpperCase() + status.slice(1).replace("_", " "),
+        label: status,
         value: status,
       })),
     },

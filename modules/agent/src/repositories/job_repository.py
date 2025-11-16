@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 def _get_status_id_from_name(status_name: str) -> Optional[int]:
     """Get status ID from status name."""
-    status = find_status_by_name(status_name.title(), "job")
+    status = find_status_by_name(status_name, "job")
     if not status:
         return None
     return status.id

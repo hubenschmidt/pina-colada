@@ -38,7 +38,7 @@ def _map_to_dict(job) -> Dict[str, str]:
     company = job_dict.get("organization", {}).get("name", "Unknown Company")
 
     # Extract status name from current_status (backward compatibility)
-    status = job_dict.get("current_status", {}).get("name", "applied").lower()
+    status = job_dict.get("current_status", {}).get("name", "Applied")
 
     created_at = job_dict.get("created_at")
     date_applied = str(created_at)[:10] if created_at else "Not specified"
@@ -86,10 +86,10 @@ def get_all_jobs(refresh: bool = False) -> List[Dict[str, str]]:
 
 
 def get_applied_jobs_only(refresh: bool = False) -> List[Dict[str, str]]:
-    """Get only jobs with status 'applied'."""
+    """Get only jobs with status 'Applied'."""
     all_jobs = get_all_jobs(refresh=refresh)
     applied_jobs = [
-        job for job in all_jobs if job.get("status", "").lower() == "applied"
+        job for job in all_jobs if job.get("status", "") == "Applied"
     ]
     logger.info(
         f"Filtered to {len(applied_jobs)} jobs with status 'applied' (from {len(all_jobs)} total)"
