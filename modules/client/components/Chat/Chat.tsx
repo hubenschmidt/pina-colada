@@ -4,7 +4,7 @@ import styles from "./Chat.module.css";
 import { Copy, Check, Download, Briefcase, ChevronDown } from "lucide-react";
 import LeadPanel from "../LeadTracker/LeadPanel";
 import { usePanelConfig } from "../config";
-import { extractAndSaveJobLeads } from "../../lib/job-lead-extractor";
+// import { extractAndSaveJobLeads } from "../../lib/job-lead-extractor";
 import { env } from "next-runtime-env";
 
 // ---------- User context (testing-only; no consent prompts) ----------
@@ -323,67 +323,6 @@ const Chat = () => {
     el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  // hide loader when the next assistant message arrives and check for job leads
-  useEffect(() => {
-    if (!messages.length) return;
-    const last = messages[messages.length - 1];
-    if (last.user !== "User") {
-      setWaitForWs(false);
-
-      // Check for job leads in assistant messages
-      if (last.user === "PinaColada") {
-        (async () => {
-          try {
-            const savedCount = await extractAndSaveJobLeads(last.msg);
-            if (savedCount > 0) {
-              console.log(`Saved ${savedCount} job leads`);
-              setLeadsCount((prev) => prev + savedCount);
-              setLeadsPanelOpen(true);
-            }
-          } catch (error) {
-            console.error("Failed to extract and save job leads:", error);
-          }
-        })();
-      }
-    } else {
-      // Check if user message contains a command to add leads
-      const userMsg = last.msg.toLowerCase();
-      const addLeadsCommands = [
-        "add all those to the leads list",
-        "add those to leads",
-        "save those as leads",
-        "add to leads",
-        "save as leads",
-      ];
-
-      if (addLeadsCommands.some((cmd) => userMsg.includes(cmd))) {
-        // Find the most recent assistant message with leads
-        for (let i = messages.length - 2; i >= 0; i--) {
-          if (messages[i].user === "PinaColada") {
-            (async () => {
-              try {
-                const savedCount = await extractAndSaveJobLeads(
-                  messages[i].msg
-                );
-                if (savedCount > 0) {
-                  console.log(`Saved ${savedCount} job leads from command`);
-                  setLeadsCount((prev) => prev + savedCount);
-                  setLeadsPanelOpen(true);
-                }
-              } catch (error) {
-                console.error(
-                  "Failed to extract and save job leads from command:",
-                  error
-                );
-              }
-            })();
-            break;
-          }
-        }
-      }
-    }
-  }, [messages]);
-
   // Close tools dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -515,7 +454,6 @@ const Chat = () => {
               title="Export chat to .txt file"
             >
               <Download size={16} />
-              <span>Export Chat</span>
             </button>
           </div>
         </header>

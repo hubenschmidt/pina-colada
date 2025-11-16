@@ -2,6 +2,7 @@ import logging
 import re
 import os
 import smtplib
+import traceback
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import List, Dict
@@ -12,35 +13,30 @@ from langchain_community.utilities import GoogleSerperAPIWrapper
 from langchain_community.utilities.wikipedia import WikipediaAPIWrapper
 from agent.tools.static_tools import push
 from dotenv import load_dotenv
-
-# Feature flag for choosing data source
-USE_SUPABASE = os.getenv("USE_SUPABASE", "true").lower() == "true"
-USE_LOCAL_POSTGRES = os.getenv("USE_LOCAL_POSTGRES", "false").lower() == "true"
-
-if USE_LOCAL_POSTGRES:
-    from services.job_service import (
-        get_jobs_details,
-        fetch_applied_jobs,
-        is_job_applied,
-        filter_jobs,
-        add_job
-    )
-    
-    def get_applied_jobs_tracker():
-        """Get job service tracker (functional dict interface)."""
-        return {
-            "get_jobs_details": lambda refresh=False: get_jobs_details(refresh=refresh),
-            "fetch_applied_jobs": lambda refresh=False: fetch_applied_jobs(refresh=refresh),
-            "is_job_applied": lambda company, title: is_job_applied(company, title),
-            "filter_jobs": lambda jobs: filter_jobs(jobs),
-            "add_applied_job": lambda **kwargs: add_job(**kwargs),
-        }
-else:
-    from services.supabase_client import get_applied_jobs_tracker
-from pydantic import BaseModel, Field
+from services.job_service import (
+    get_jobs_details,
+    fetch_applied_jobs,
+    is_job_applied,
+    filter_jobs,
+    add_job,
+    get_all_jobs,
+    update_job_by_company,
+)
+from pydantic import BaseModel, Field, create_model
 
 load_dotenv(override=True)
 logger = logging.getLogger(__name__)
+
+
+def get_applied_jobs_tracker():
+    """Get job service tracker (functional dict interface)."""
+    return {
+        "get_jobs_details": lambda refresh=False: get_jobs_details(refresh=refresh),
+        "fetch_applied_jobs": lambda refresh=False: fetch_applied_jobs(refresh=refresh),
+        "is_job_applied": lambda company, title: is_job_applied(company, title),
+        "filter_jobs": lambda jobs: filter_jobs(jobs),
+        "add_applied_job": lambda **kwargs: add_job(**kwargs),
+    }
 
 
 def get_file_tools():
@@ -76,15 +72,15 @@ def _get_smtp_config():
 
 def _format_line_with_url(line: str) -> str:
     """Format a single line that contains a URL."""
-    url_match = re.search(r'https?://[^\s]+', line)
+    url_match = re.search(r"https?://[^\s]+", line)
     if not url_match:
         return f"{line.strip()}\n"
-    
+
     url = url_match.group(0)
     parts = line.split(url)[0].strip()
     if not parts:
         return f"{url}\n"
-    
+
     return f"{parts}\n{url}\n"
 
 
@@ -92,10 +88,10 @@ def _format_job_listing_email(job_listings: str) -> str:
     """Format job listings for email."""
     if not job_listings:
         return "No job listings to send."
-    
-    lines = [line.strip() for line in job_listings.split('\n') if line.strip()]
+
+    lines = [line.strip() for line in job_listings.split("\n") if line.strip()]
     formatted_lines = [_format_line_with_url(line) for line in lines]
-    
+
     return "".join(formatted_lines)
 
 
@@ -103,12 +99,14 @@ def _build_email_body(body: str, job_listings: str) -> str:
     """Build complete email body with optional job listings."""
     if not job_listings:
         return body
-    
+
     formatted_listings = _format_job_listing_email(job_listings)
     return f"{body}\n\n{formatted_listings}"
 
 
-def _create_email_message(to_email: str, subject: str, body: str, from_email: str) -> MIMEMultipart:
+def _create_email_message(
+    to_email: str, subject: str, body: str, from_email: str
+) -> MIMEMultipart:
     """Create email message object."""
     msg = MIMEMultipart()
     msg["From"] = from_email
@@ -126,33 +124,28 @@ def _send_via_smtp(config: dict, msg: MIMEMultipart) -> None:
         server.send_message(msg)
 
 
-def send_email(
-    to_email: str,
-    subject: str,
-    body: str,
-    job_listings: str = ""
-) -> str:
+def send_email(to_email: str, subject: str, body: str, job_listings: str = "") -> str:
     """Send an email to the specified address."""
     config = _get_smtp_config()
-    
+
     if not config["username"] or not config["password"]:
         logger.warning("SMTP credentials not configured")
         return "Email not configured. SMTP_USERNAME and SMTP_PASSWORD environment variables are required."
-    
+
     if not to_email:
         return "Recipient email address is required."
-    
+
     try:
         email_body = _build_email_body(body, job_listings)
         msg = _create_email_message(to_email, subject, email_body, config["from_email"])
         _send_via_smtp(config, msg)
-        
+
         logger.info(f"Email sent successfully to {to_email}")
         return f"Email sent successfully to {to_email}"
-    
+
     except Exception as e:
         logger.error(f"Failed to send email: {e}")
-        import traceback
+
         logger.error(traceback.format_exc())
         return f"Failed to send email: {e}"
 
@@ -182,15 +175,15 @@ def _format_job_with_date(job: dict) -> str:
     title = job.get("title", "")
     date = job.get("date_applied", "")
     link = job.get("link", "")
-    
+
     result = f"{company} - {title}"
-    
+
     if date and date != "Not specified":
         result += f" (Applied: {date})"
-    
+
     if link:
         result += f" - {link}"
-    
+
     return result
 
 
@@ -199,15 +192,15 @@ def _format_job_title_only(job: dict) -> str:
     title = job.get("title", "")
     date = job.get("date_applied", "")
     link = job.get("link", "")
-    
+
     result = title
-    
+
     if date and date != "Not specified":
         result += f" (Applied: {date})"
-    
+
     if link:
         result += f" - {link}"
-    
+
     return result
 
 
@@ -216,12 +209,12 @@ def _format_job_simple(job: dict) -> str:
     company = job.get("company", "")
     title = job.get("title", "")
     link = job.get("link", "")
-    
+
     result = f"{company} - {title}"
-    
+
     if link:
         result += f" - {link}"
-    
+
     return result
 
 
@@ -238,7 +231,9 @@ def _handle_no_applications(tracker) -> str:
 def _handle_specific_job_check(tracker, company: str, job_title: str) -> str:
     """Handle check for specific company and job title."""
     if tracker["is_job_applied"](company, job_title):
-        return f"Yes, you have already applied to {company} for the {job_title} position."
+        return (
+            f"Yes, you have already applied to {company} for the {job_title} position."
+        )
     return f"No record found for {company} - {job_title}. You have not applied to this position yet."
 
 
@@ -246,13 +241,12 @@ def _handle_company_filter(tracker, company: str, jobs_details: list) -> str:
     """Handle filtering by company."""
     company_lower = company.lower().strip()
     matching_jobs = [
-        job for job in jobs_details 
-        if company_lower in job.get("company", "").lower()
+        job for job in jobs_details if company_lower in job.get("company", "").lower()
     ]
-    
+
     if not matching_jobs:
         return f"No applications found for {company}."
-    
+
     job_list = "\n".join(_format_job_title_only(job) for job in matching_jobs)
     return f"You have applied to {len(matching_jobs)} position(s) at {company}:\n{job_list}"
 
@@ -261,67 +255,72 @@ def _fuzzy_match_title(search_term: str, job_title: str) -> bool:
     """Check if search term matches job title using fuzzy matching."""
     search_lower = search_term.lower().strip()
     title_lower = job_title.lower().strip()
-    
+
     # Exact substring match
     if search_lower in title_lower:
         return True
-    
+
     # Word-based matching: check if all words in search term appear in title
     search_words = [w.strip() for w in search_lower.split() if w.strip()]
     if not search_words:
         return False
-    
+
     title_words = [w.strip() for w in title_lower.split() if w.strip()]
-    
+
     # Check if all search words appear in title (in any order)
     for word in search_words:
         if not any(word in tw or tw in word for tw in title_words):
             return False
-    
+
     return True
 
 
 def _handle_job_title_filter(tracker, job_title: str, jobs_details: list) -> str:
     """Handle filtering by job title with fuzzy matching."""
     title_lower = job_title.lower().strip()
-    logger.info(f"Searching for jobs with title containing '{title_lower}' in {len(jobs_details)} total jobs")
-    
+    logger.info(
+        f"Searching for jobs with title containing '{title_lower}' in {len(jobs_details)} total jobs"
+    )
+
     # Log sample titles for debugging
     if jobs_details:
         sample_titles = [job.get("title", "")[:50] for job in jobs_details[:10]]
         logger.info(f"Sample job titles: {sample_titles}")
-    
+
     # Use fuzzy matching
     matching_jobs = [
-        job for job in jobs_details 
+        job
+        for job in jobs_details
         if _fuzzy_match_title(title_lower, job.get("title", ""))
     ]
     logger.info(f"Found {len(matching_jobs)} matching jobs using fuzzy matching")
-    
+
     # Log some matching titles for debugging
     if matching_jobs:
         matching_titles = [job.get("title", "") for job in matching_jobs[:10]]
         logger.info(f"Sample matching titles: {matching_titles}")
-    
+
     if not matching_jobs:
         return f"No applications found for job title '{job_title}'."
-    
+
     job_list = "\n".join(_format_job_with_date(job) for job in matching_jobs[:50])
-    
+
     if len(matching_jobs) > 50:
         return f"You have applied to {len(matching_jobs)} position(s) with title containing '{job_title}':\n{job_list}\n... and {len(matching_jobs) - 50} more"
-    
+
     return f"You have applied to {len(matching_jobs)} position(s) with title containing '{job_title}':\n{job_list}"
 
 
 def _handle_list_all(tracker, applied_jobs: set, jobs_details: list) -> str:
     """Handle listing all jobs."""
     sheet_info = _get_sheet_info(tracker)
-    
+
     if len(jobs_details) <= 20:
         job_list = "\n".join(_format_job_simple(job) for job in jobs_details)
-        return f"You have applied to {len(applied_jobs)} job(s){sheet_info}:\n{job_list}"
-    
+        return (
+            f"You have applied to {len(applied_jobs)} job(s){sheet_info}:\n{job_list}"
+        )
+
     job_list = "\n".join(_format_job_simple(job) for job in jobs_details[:20])
     return f"You have applied to {len(applied_jobs)} jobs total{sheet_info}. Here are the first 20:\n{job_list}\n\nAsk me about a specific company or job title to see more."
 
@@ -340,16 +339,16 @@ def _parse_tool_input(query: str) -> tuple:
     # LangChain Tool passes a single string, so we need to parse it
     # Try to extract company and job_title from the query
     query_lower = query.lower().strip()
-    
+
     # If it's empty, return empty strings
     if not query:
         return "", ""
-    
+
     # Try to detect if it's asking for a specific job title
     # Common patterns: "Software Engineer", "jobs with Software Engineer", "include Software Engineer"
     title_keywords = ["title", "role", "position", "job"]
     company_keywords = ["company", "at", "for"]
-    
+
     # Simple heuristic: if query contains title-related words, treat as job_title
     # Otherwise, check if it looks like a company name or job title
     if any(kw in query_lower for kw in title_keywords):
@@ -361,11 +360,13 @@ def _parse_tool_input(query: str) -> tuple:
                     potential_title = parts[-1].strip().strip('"').strip("'").strip()
                     if potential_title:
                         return "", potential_title
-    
+
     # If it's a short phrase without keywords, assume it's a job title
-    if len(query.split()) <= 5 and not any(kw in query_lower for kw in company_keywords):
+    if len(query.split()) <= 5 and not any(
+        kw in query_lower for kw in company_keywords
+    ):
         return "", query.strip()
-    
+
     # Default: treat as job_title
     return "", query.strip()
 
@@ -373,7 +374,7 @@ def _parse_tool_input(query: str) -> tuple:
 def check_applied_jobs(query: str = "") -> str:
     """
     Check if a specific job has been applied to, or list all applied jobs.
-    
+
     This function accepts a query string that can contain:
     - A job title (e.g., "Software Engineer")
     - A company name (e.g., "Google")
@@ -390,7 +391,7 @@ def check_applied_jobs(query: str = "") -> str:
         # Parse the input - handle both string and dict formats
         company = ""
         job_title = ""
-        
+
         if isinstance(query, dict):
             company = query.get("company", "")
             job_title = query.get("job_title", "")
@@ -400,14 +401,18 @@ def check_applied_jobs(query: str = "") -> str:
             if query:
                 # Try to parse the string
                 company, job_title = _parse_tool_input(query)
-        
-        logger.info(f"check_applied_jobs called with query='{query}', parsed as company='{company}', job_title='{job_title}'")
-        
+
+        logger.info(
+            f"check_applied_jobs called with query='{query}', parsed as company='{company}', job_title='{job_title}'"
+        )
+
         tracker = get_applied_jobs_tracker()
         applied_jobs = tracker["fetch_applied_jobs"](refresh=True)
         jobs_details = tracker["get_jobs_details"](refresh=True)
-        
-        logger.info(f"Total applied_jobs count: {len(applied_jobs)}, Total jobs_details count: {len(jobs_details)}")
+
+        logger.info(
+            f"Total applied_jobs count: {len(applied_jobs)}, Total jobs_details count: {len(jobs_details)}"
+        )
 
         if not applied_jobs:
             return _handle_no_applications(tracker)
@@ -425,7 +430,6 @@ def check_applied_jobs(query: str = "") -> str:
 
     except Exception as e:
         logger.error(f"Failed to check applied jobs: {e}")
-        import traceback
         logger.error(traceback.format_exc())
         return f"Unable to check applied jobs: {e}. Please check that the Supabase integration is configured correctly."
 
@@ -445,10 +449,11 @@ def job_search_with_filter(query: str) -> str:
         tracker = get_applied_jobs_tracker()
 
         # Get all jobs (not just status='applied') to include 'do_not_apply' in filtering
-        from services.job_service import get_all_jobs
         all_jobs = get_all_jobs(refresh=True)
 
-        logger.info(f"Loaded {len(all_jobs)} total jobs for filtering (will filter out 'applied' and 'do_not_apply')")
+        logger.info(
+            f"Loaded {len(all_jobs)} total jobs for filtering (will filter out 'applied' and 'do_not_apply')"
+        )
 
         # Perform the search
         serper = GoogleSerperAPIWrapper()
@@ -468,7 +473,6 @@ def job_search_with_filter(query: str) -> str:
 
     except Exception as e:
         logger.error(f"Job search with filter failed: {e}")
-        import traceback
         logger.error(traceback.format_exc())
         return f"Job search failed: {e}"
 
@@ -484,26 +488,38 @@ def _company_matches(search_company: str, applied_company: str) -> bool:
     """Check if company names match (strict)."""
     if not search_company or not applied_company:
         return False
-    
+
     search_norm = _normalize_for_matching(search_company)
     applied_norm = _normalize_for_matching(applied_company)
-    
+
     # Exact match
     if search_norm == applied_norm:
         return True
-    
+
     # Remove common suffixes/prefixes for comparison
-    search_clean = search_norm.replace(" inc", "").replace(" llc", "").replace(" corp", "").replace(" ltd", "").strip()
-    applied_clean = applied_norm.replace(" inc", "").replace(" llc", "").replace(" corp", "").replace(" ltd", "").strip()
-    
+    search_clean = (
+        search_norm.replace(" inc", "")
+        .replace(" llc", "")
+        .replace(" corp", "")
+        .replace(" ltd", "")
+        .strip()
+    )
+    applied_clean = (
+        applied_norm.replace(" inc", "")
+        .replace(" llc", "")
+        .replace(" corp", "")
+        .replace(" ltd", "")
+        .strip()
+    )
+
     if search_clean == applied_clean:
         return True
-    
+
     # One is substring of the other (but require at least 4 chars to avoid false matches)
     if len(search_clean) >= 4 and len(applied_clean) >= 4:
         if search_clean in applied_clean or applied_clean in search_clean:
             return True
-    
+
     return False
 
 
@@ -511,28 +527,36 @@ def _title_matches(search_title: str, applied_title: str) -> bool:
     """Check if job titles match (strict - requires exact or very close match)."""
     if not search_title or not applied_title:
         return False
-    
+
     search_norm = _normalize_for_matching(search_title)
     applied_norm = _normalize_for_matching(applied_title)
-    
+
     # Exact match
     if search_norm == applied_norm:
         return True
-    
+
     # One contains the other (for variations like "Senior Software Engineer" vs "Software Engineer")
     if search_norm in applied_norm or applied_norm in search_norm:
         return True
-    
+
     # Check if core title words match (ignore modifiers like "Senior", "Lead", etc.)
-    search_words = [w for w in search_norm.split() if w not in ["senior", "lead", "staff", "principal", "junior", "mid", "level"]]
-    applied_words = [w for w in applied_norm.split() if w not in ["senior", "lead", "staff", "principal", "junior", "mid", "level"]]
-    
+    search_words = [
+        w
+        for w in search_norm.split()
+        if w not in ["senior", "lead", "staff", "principal", "junior", "mid", "level"]
+    ]
+    applied_words = [
+        w
+        for w in applied_norm.split()
+        if w not in ["senior", "lead", "staff", "principal", "junior", "mid", "level"]
+    ]
+
     # Require at least 2 core words to match
     if len(search_words) >= 2 and len(applied_words) >= 2:
         matching_words = [w for w in search_words if w in applied_words]
         if len(matching_words) >= 2:
             return True
-    
+
     return False
 
 
@@ -543,7 +567,9 @@ def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
 
     # Require both company AND title to match (strict)
     if not company or not title:
-        logger.debug(f"Skipping match check - missing company or title: company={bool(company)}, title={bool(title)}")
+        logger.debug(
+            f"Skipping match check - missing company or title: company={bool(company)}, title={bool(title)}"
+        )
         return False
 
     def _check_job_match(applied_job: Dict[str, str]) -> bool:
@@ -562,7 +588,9 @@ def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
         title_match = _title_matches(title, applied_title)
 
         if company_match and title_match:
-            logger.info(f"Filtering out job: {company} - {title} (matches {applied_company} - {applied_title}, status={job_status})")
+            logger.info(
+                f"Filtering out job: {company} - {title} (matches {applied_company} - {applied_title}, status={job_status})"
+            )
             return True
 
         return False
@@ -577,63 +605,77 @@ def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
 def _extract_company_from_line(line: str) -> str:
     """Extract company name from a line of text."""
     company_patterns = [
-        r'(?:Company|At|@):\s*([A-Z][A-Za-z0-9\s&.,-]+?)(?:\s*[-–]|\s*$|\s*\n)',
-        r'^([A-Z][A-Za-z0-9\s&.,-]+?)\s*[-–]\s*[A-Z]',
-        r'\b([A-Z][A-Za-z0-9\s&.,-]{2,})\s+(?:is|hiring|seeking)',
+        r"(?:Company|At|@):\s*([A-Z][A-Za-z0-9\s&.,-]+?)(?:\s*[-–]|\s*$|\s*\n)",
+        r"^([A-Z][A-Za-z0-9\s&.,-]+?)\s*[-–]\s*[A-Z]",
+        r"\b([A-Z][A-Za-z0-9\s&.,-]{2,})\s+(?:is|hiring|seeking)",
     ]
-    
+
     for pattern in company_patterns:
         match = re.search(pattern, line, re.IGNORECASE)
         if match:
             potential_company = match.group(1).strip()
-            if potential_company.lower() not in ['the', 'a', 'an', 'for', 'with', 'and', 'or']:
+            if potential_company.lower() not in [
+                "the",
+                "a",
+                "an",
+                "for",
+                "with",
+                "and",
+                "or",
+            ]:
                 return potential_company
-    
+
     return ""
 
 
 def _extract_title_from_line(line: str) -> str:
     """Extract job title from a line of text."""
     title_patterns = [
-        r'(?:Title|Position|Role):\s*([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))',
-        r'[-–]\s*([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))',
-        r'(?:looking for|seeking|hiring)\s+([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))',
+        r"(?:Title|Position|Role):\s*([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))",
+        r"[-–]\s*([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))",
+        r"(?:looking for|seeking|hiring)\s+([A-Z][A-Za-z\s/()-]+(?:Engineer|Developer|Manager|Analyst|Designer|Specialist|Lead|Senior|Junior|Architect|Scientist))",
     ]
-    
+
     for pattern in title_patterns:
         match = re.search(pattern, line, re.IGNORECASE)
         if match:
             return match.group(1).strip()
-    
+
     return ""
 
 
-def _should_skip_line(line: str, current_company: str, current_title: str, jobs_details: list) -> tuple[bool, str, str]:
+def _should_skip_line(
+    line: str, current_company: str, current_title: str, jobs_details: list
+) -> tuple[bool, str, str]:
     """Determine if line should be skipped and update current job info."""
     stripped = line.strip()
     if not stripped:
         return False, current_company, current_title
-    
+
     company = _extract_company_from_line(line)
     title = _extract_title_from_line(line)
-    
+
     new_company = company if company else current_company
     new_title = title if title else current_title
-    
+
     if new_company and new_title:
         if _matches_applied_job(new_company, new_title, jobs_details):
             return True, "", ""
-    
+
     return False, new_company, new_title
 
 
-def _process_line_for_filtering(line: str, current_company: str, current_title: str, jobs_details: list) -> tuple[bool, str, str]:
+def _process_line_for_filtering(
+    line: str, current_company: str, current_title: str, jobs_details: list
+) -> tuple[bool, str, str]:
     """Process a line and determine if it should be included."""
-    skip, new_company, new_title = _should_skip_line(line, current_company, current_title, jobs_details)
-    
+    skip, new_company, new_title = _should_skip_line(
+        line, current_company, current_title, jobs_details
+    )
+
     if skip:
         return False, "", ""
-    
+
     return True, new_company, new_title
 
 
@@ -642,30 +684,28 @@ def _filter_job_results(raw_results: str, tracker, jobs_details: list) -> str:
     if not jobs_details:
         logger.warning("No applied jobs details available for filtering")
         return raw_results
-    
-    lines = raw_results.split('\n')
+
+    lines = raw_results.split("\n")
     filtered_lines = []
     current_company = ""
     current_title = ""
 
     for line in lines:
-        include, new_company, new_title = _process_line_for_filtering(line, current_company, current_title, jobs_details)
-        
+        include, new_company, new_title = _process_line_for_filtering(
+            line, current_company, current_title, jobs_details
+        )
+
         current_company = new_company
         current_title = new_title
-        
+
         if include:
             filtered_lines.append(line)
 
-    return '\n'.join(filtered_lines)
+    return "\n".join(filtered_lines)
 
 
 def update_job_status(
-    company: str,
-    job_title: str,
-    status: str,
-    job_url: str = "",
-    notes: str = ""
+    company: str, job_title: str, status: str, job_url: str = "", notes: str = ""
 ) -> str:
     """
     Update the status of a job application. Use this when the user says they applied
@@ -681,10 +721,15 @@ def update_job_status(
     Returns:
         Confirmation message
     """
-    from services.job_service import update_job_by_company, add_job
-
     # Validate status
-    valid_statuses = ['applied', 'interviewing', 'rejected', 'offer', 'accepted', 'do_not_apply']
+    valid_statuses = [
+        "applied",
+        "interviewing",
+        "rejected",
+        "offer",
+        "accepted",
+        "do_not_apply",
+    ]
     if status.lower() not in valid_statuses:
         return f"Invalid status '{status}'. Valid statuses are: {', '.join(valid_statuses)}"
 
@@ -696,22 +741,26 @@ def update_job_status(
             status=status.lower(),
             lead_status_id=None,  # Clear lead_status when status changes
             job_url=job_url if job_url else None,
-            notes=notes if notes else None
+            notes=notes if notes else None,
         )
 
         if updated_job:
-            logger.info(f"Updated existing job: {company} - {job_title} to status {status}")
+            logger.info(
+                f"Updated existing job: {company} - {job_title} to status {status}"
+            )
             return f"Successfully marked {company} - {job_title} as {status}"
 
         # If not found, create new entry
-        logger.info(f"No existing job found, creating new: {company} - {job_title} with status {status}")
+        logger.info(
+            f"No existing job found, creating new: {company} - {job_title} with status {status}"
+        )
         new_job = add_job(
             company=company,
             job_title=job_title,
             status=status.lower(),
             job_url=job_url if job_url else "",
             notes=notes if notes else "",
-            source="agent"
+            source="agent",
         )
 
         if not new_job:
@@ -720,7 +769,6 @@ def update_job_status(
 
     except Exception as e:
         logger.error(f"Failed to update job status: {e}")
-        import traceback
         logger.error(traceback.format_exc())
         return f"Failed to update job status: {e}"
 
@@ -744,21 +792,25 @@ async def get_worker_tools():
         description="Record user contact information. Requires email, optional name and notes. Use after collecting contact info from the conversation.",
     )
     tools.append(record_details_tool)
-    
+
     # Email sending tool (using StructuredTool for multiple parameters)
     def _make_send_email_input_model():
         """Create SendEmailInput model functionally."""
-        from pydantic import create_model, Field
         return create_model(
             "SendEmailInput",
             to_email=(str, Field(description="Recipient email address")),
             subject=(str, Field(description="Email subject line")),
             body=(str, Field(description="Email body text")),
-            job_listings=(str, Field(default="", description="Optional job listings to include in email")),
+            job_listings=(
+                str,
+                Field(
+                    default="", description="Optional job listings to include in email"
+                ),
+            ),
         )
-    
+
     SendEmailInput = _make_send_email_input_model()
-    
+
     send_email_tool = StructuredTool.from_function(
         func=send_email,
         name="send_email",
@@ -802,7 +854,7 @@ async def get_worker_tools():
         description="Check job applications tracked in Supabase database. ALWAYS use this tool when user asks about job applications. Input: a query string. Examples: '' (empty string) for all jobs, 'Software Engineer' to find jobs with that title, 'Google' to find jobs at that company, 'Google Software Engineer' for specific company+title. The tool performs fuzzy matching on job titles, so 'Software Engineer' will match 'Senior Software Engineer', 'Full Stack Software Engineer', etc.",
     )
     tools.append(check_applied_tool)
-    
+
     # Get data source info tool
     data_source_info_tool = Tool(
         name="get_data_source_info",
@@ -814,14 +866,24 @@ async def get_worker_tools():
     # Update job status tool
     def _make_update_job_status_input_model():
         """Create UpdateJobStatusInput model functionally."""
-        from pydantic import create_model, Field
         return create_model(
             "UpdateJobStatusInput",
             company=(str, Field(description="Company name (fuzzy matching supported)")),
             job_title=(str, Field(description="Job title")),
-            status=(str, Field(description="Status to set (applied, interviewing, rejected, offer, accepted, do_not_apply)")),
-            job_url=(str, Field(default="", description="Optional URL for the job posting")),
-            notes=(str, Field(default="", description="Optional notes about the application")),
+            status=(
+                str,
+                Field(
+                    description="Status to set (applied, interviewing, rejected, offer, accepted, do_not_apply)"
+                ),
+            ),
+            job_url=(
+                str,
+                Field(default="", description="Optional URL for the job posting"),
+            ),
+            notes=(
+                str,
+                Field(default="", description="Optional notes about the application"),
+            ),
         )
 
     UpdateJobStatusInput = _make_update_job_status_input_model()

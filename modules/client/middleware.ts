@@ -10,6 +10,8 @@ export async function middleware(request: NextRequest) {
     '/',
     '/login',
     '/about',
+    '/terms',
+    '/privacy',
   ];
 
   // Allow auth routes

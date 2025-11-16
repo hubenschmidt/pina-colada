@@ -61,13 +61,18 @@ export const useWs = (url: string): UseWebSocketReturn => {
     wsRef.current = socket;
 
     socket.onopen = () => {
+      // Restore wsRef in case it was cleared by a premature close
+      wsRef.current = socket;
       setIsOpen(true);
       socket.send(JSON.stringify({ uuid, init: true }));
     };
 
     socket.onclose = () => {
       setIsOpen(false);
-      wsRef.current = null;
+      // Only clear the ref if this is the current socket
+      if (wsRef.current === socket) {
+        wsRef.current = null;
+      }
     };
 
     socket.onerror = () => setIsOpen(false);
