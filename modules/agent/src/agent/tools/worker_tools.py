@@ -22,10 +22,26 @@ from services.job_service import (
     get_all_jobs,
     update_job_by_company,
 )
-from pydantic import BaseModel, Field, create_model
+from pydantic import BaseModel, Field
 
 load_dotenv(override=True)
 logger = logging.getLogger(__name__)
+
+
+# Pydantic models for tool inputs
+class SendEmailInput(BaseModel):
+    to_email: str = Field(description="Recipient email address")
+    subject: str = Field(description="Email subject line")
+    body: str = Field(description="Email body text")
+    job_listings: str = Field(default="", description="Optional job listings to include in email")
+
+
+class UpdateJobStatusInput(BaseModel):
+    company: str = Field(description="Company name (fuzzy matching supported)")
+    job_title: str = Field(description="Job title")
+    status: str = Field(description="Status to set (applied, interviewing, rejected, offer, accepted, do_not_apply)")
+    job_url: str = Field(default="", description="Optional URL for the job posting")
+    notes: str = Field(default="", description="Optional notes about the application")
 
 
 def get_applied_jobs_tracker():
@@ -794,23 +810,6 @@ async def get_worker_tools():
     tools.append(record_details_tool)
 
     # Email sending tool (using StructuredTool for multiple parameters)
-    def _make_send_email_input_model():
-        """Create SendEmailInput model functionally."""
-        return create_model(
-            "SendEmailInput",
-            to_email=(str, Field(description="Recipient email address")),
-            subject=(str, Field(description="Email subject line")),
-            body=(str, Field(description="Email body text")),
-            job_listings=(
-                str,
-                Field(
-                    default="", description="Optional job listings to include in email"
-                ),
-            ),
-        )
-
-    SendEmailInput = _make_send_email_input_model()
-
     send_email_tool = StructuredTool.from_function(
         func=send_email,
         name="send_email",
@@ -864,29 +863,6 @@ async def get_worker_tools():
     tools.append(data_source_info_tool)
 
     # Update job status tool
-    def _make_update_job_status_input_model():
-        """Create UpdateJobStatusInput model functionally."""
-        return create_model(
-            "UpdateJobStatusInput",
-            company=(str, Field(description="Company name (fuzzy matching supported)")),
-            job_title=(str, Field(description="Job title")),
-            status=(
-                str,
-                Field(
-                    description="Status to set (applied, interviewing, rejected, offer, accepted, do_not_apply)"
-                ),
-            ),
-            job_url=(
-                str,
-                Field(default="", description="Optional URL for the job posting"),
-            ),
-            notes=(
-                str,
-                Field(default="", description="Optional notes about the application"),
-            ),
-        )
-
-    UpdateJobStatusInput = _make_update_job_status_input_model()
 
     update_job_status_tool = StructuredTool.from_function(
         func=update_job_status,

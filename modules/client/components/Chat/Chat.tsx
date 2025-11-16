@@ -341,6 +341,15 @@ const Chat = () => {
     }
   }, [toolsDropdownOpen]);
 
+  // Clear typing indicator when bot responds
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg.user === "PinaColada" && !lastMsg.streaming) {
+      setWaitForWs(false);
+    }
+  }, [messages]);
+
   // autofocus textarea on mount
   useEffect(() => {
     inputRef.current?.focus({ preventScroll: true });
@@ -533,11 +542,7 @@ const Chat = () => {
             {waitForWs && (
               <div className={styles.typingRow}>
                 <div className={styles.typingBubble}>
-                  <span className={styles.typingDots}>
-                    <span className={styles.dot} />
-                    <span className={styles.dot} />
-                    <span className={styles.dot} />
-                  </span>
+                  <span className={styles.thinkingText}>thinking</span>
                 </div>
               </div>
             )}

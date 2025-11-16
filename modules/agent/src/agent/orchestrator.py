@@ -278,9 +278,22 @@ async def create_orchestrator(
                 and current_content
                 and current_content != last_content
             )
+
+            # Detect if this is a NEW response (content got shorter or replaced, not just appended)
+            is_new_response = (
+                changed
+                and last_content
+                and not current_content.startswith(last_content)
+            )
+
             should_emit = is_ai and changed
 
             if should_emit:
+                # Send start event for new response to reset frontend streaming state
+                if is_new_response:
+                    logger.info(f"New response detected (content replaced), sending start event")
+                    await send_ws(json.dumps({"type": "start"}))
+
                 last_content = current_content
                 await send_ws(
                     json.dumps(
