@@ -62,7 +62,7 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
     date_str = created_at.isoformat() if isinstance(created_at, datetime) else str(created_at)
 
     resume_date = job_dict.get("resume_date")
-    resume_str = resume_date.isoformat() if resume_date else None
+    resume_str = resume_date.isoformat() if isinstance(resume_date, datetime) else (str(resume_date) if resume_date else None)
 
     return {
         "id": str(job_dict.get("id", "")),
