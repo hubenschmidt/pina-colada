@@ -30,6 +30,10 @@
   padding: 1rem 0;
 }
 
+.chatRootPage {
+  padding: 0;
+}
+
 /* SHELL CARD
    White background with subtle styling
 */
@@ -49,6 +53,15 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+.shellCardFlat {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 1rem;
+  min-height: auto;
+  max-height: calc(100svh - 80px);
 }
 
 /* HEADER ROW */
@@ -103,8 +116,8 @@
 
 .toolsButton {
   appearance: none;
-  background-color: #ffffff;
-  border: 1px solid #d1d5db;
+  background-color: transparent;
+  border: none;
   border-radius: 0.5rem;
   padding: 0.375rem 0.75rem;
   font-size: 0.875rem;
@@ -112,19 +125,17 @@
   color: var(--foreground);
   cursor: pointer;
   transition: all 0.15s ease-in-out;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   display: flex;
   align-items: center;
   gap: 0.375rem;
 }
 
 .toolsButton:hover {
-  background-color: #f9fafb;
-  border-color: #9ca3af;
+  background-color: #f3f4f6;
 }
 
 .toolsButton:active {
-  background-color: #f3f4f6;
+  background-color: #e5e7eb;
   transform: scale(0.98);
 }
 
@@ -190,8 +201,8 @@
 /* EXPORT BUTTON */
 .exportButton {
   appearance: none;
-  background-color: #ffffff;
-  border: 1px solid #d1d5db;
+  background-color: transparent;
+  border: none;
   border-radius: 0.5rem;
   padding: 0.375rem 0.75rem;
   font-size: 0.875rem;
@@ -199,7 +210,6 @@
   color: var(--foreground);
   cursor: pointer;
   transition: all 0.15s ease-in-out;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   display: flex;
   align-items: center;
   gap: 0.375rem;
@@ -207,7 +217,6 @@
 
 .exportButton:hover:not(:disabled) {
   background-color: #f3f4f6;
-  border-color: #9ca3af;
 }
 
 .exportButton:active:not(:disabled) {
@@ -225,8 +234,8 @@
 */
 .chatPanel {
   background-color: #ffffff;
-  border: 1px solid rgb(0 0 0 / 0.08);
-  border-radius: 0.5rem; /* 8px */
+  border: none;
+  border-radius: 0;
   padding: 0.75rem; /* 12px */
   color: var(--foreground);
   font-family: var(
@@ -253,7 +262,7 @@
 .msgList {
   display: flex;
   flex-direction: column;
-  row-gap: 0.5rem; /* 8px */
+  /* row-gap: 0.5rem;  */
   overflow-y: auto;
   overscroll-behavior: contain;
   padding-right: 0.25rem; /* 4px breathing room for scrollbar */
@@ -269,6 +278,10 @@
   width: 100%;
 }
 
+.msgRow:last-child {
+  border-bottom: none;
+}
+
 .msgRowUser {
   justify-content: flex-end;
 }
@@ -280,47 +293,48 @@
 .msgContainer {
   display: flex;
   flex-direction: column;
+  max-width: 48rem;
 }
 
 .msgContainerUser {
-  max-width: 80%;
   align-items: flex-end;
+  width: auto;
+  max-width: 70%;
+  margin-right: 10px;
 }
 
 .msgContainerBot {
-  max-width: 80%;
   align-items: flex-start;
+  width: 100%;
+  max-width: 48rem;
+  margin-left: 10px;
 }
 
-/* MESSAGE BUBBLES - BLUE */
+/* MESSAGE CONTENT - ChatGPT/Claude style */
 .bubble {
-  display: block;
-  width: fit-content;
-  max-width: 100%;
-  border: 1px solid transparent;
-  border-radius: 0.625rem; /* 10px */
+  display: inline-block;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  padding: 0.5rem 0.625rem; /* 8px 10px */
-  margin-bottom: 0.25rem; /* reduced for copy button */
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
   font-feature-settings: "ss01", "ss02", "liga" 1;
 }
 
 .bubbleUser {
-  background-color: #3b82f6; /* blue-500 */
-  color: #ffffff;
+  background-color: #f3f4f6;
+  border-radius: 1.25rem;
+  padding: 0.625rem 1rem;
+  color: var(--foreground);
+  max-width: 100%;
 }
 .bubbleBot {
-  background-color: #dbeafe; /* blue-100 */
-  color: #1e3a8a; /* blue-900 */
-  border-color: #93c5fd; /* blue-300 */
+  padding: 0;
+  color: var(--foreground);
+  width: 100%;
 }
 
 /* COPY BUTTON WRAPPER */
 .copyButtonWrapper {
   display: flex;
-  margin-top: 0.25rem;
+  margin-top: 0.5rem;
   width: 100%;
 }
 
@@ -329,21 +343,20 @@
 }
 
 .copyButtonWrapperBot {
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 /* COPY BUTTON */
 .copyButton {
   appearance: none;
-  background-color: #ffffff;
-  border: 1px solid #93c5fd;
+  background-color: transparent;
+  border: 1px solid #e5e7eb;
   border-radius: 0.375rem;
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
-  color: #1e40af;
+  color: #6b7280;
   cursor: pointer;
   transition: all 0.15s ease-in-out;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
   display: flex;
   align-items: center;
   gap: 0.25rem;
@@ -358,12 +371,13 @@
 }
 
 .copyButton:hover {
-  background-color: #eff6ff;
-  border-color: #60a5fa;
+  background-color: #f3f4f6;
+  border-color: #d1d5db;
+  color: var(--foreground);
 }
 
 .copyButton:active {
-  background-color: #dbeafe;
+  background-color: #e5e7eb;
   transform: scale(0.95);
 }
 
@@ -375,29 +389,28 @@
 
 /* AUTHOR LABEL */
 .bubbleAuthor {
-  font-size: 0.7rem;
-  line-height: 1rem;
-  opacity: 0.9;
-  margin-bottom: 0.25rem; /* 4px */
-  font-weight: 500;
-  letter-spacing: -0.02em;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+  margin-bottom: 0.5rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
 }
 
 .bubbleAuthorRight {
   text-align: right;
-  color: rgba(255, 255, 255, 0.9); /* white for user bubble */
 }
 .bubbleAuthorLeft {
   text-align: left;
-  color: #1e40af; /* blue-800 for bot bubble */
 }
 
 /* MESSAGE BODY TEXT */
 .bubbleText {
-  font-size: 0.9rem;
-  line-height: 1.4rem;
+  font-size: 0.9375rem;
+  line-height: 1.6;
   font-weight: 400;
   white-space: pre-wrap;
+  color: var(--foreground);
 }
 
 /* ERROR TEXT STYLING */
@@ -419,6 +432,7 @@
 
 /* INPUT FORM */
 .inputForm {
+  position: relative;
   display: grid;
   row-gap: 0.5rem; /* 8px */
   margin-top: 0.75rem; /* 12px */
@@ -442,8 +456,8 @@
 }
 
 .textarea:focus {
-  border-color: #3b82f6; /* blue-500 */
-  box-shadow: 0 0 0 3px rgb(59 130 246 / 0.1);
+  border-color: #84cc16; /* lime-500 */
+  box-shadow: 0 0 0 3px rgb(132 204 22 / 0.1);
 }
 
 /* ACTION ROW */
@@ -457,7 +471,7 @@
   appearance: none;
   border-radius: 0.5rem;
   border: 1px solid transparent;
-  background-color: #3b82f6; /* blue-500 */
+  background-color: #4b5563; /* gray-600 */
   color: #ffffff;
   padding: 0.5rem 0.75rem; /* 8px 12px */
   font-size: 0.8rem;
@@ -469,7 +483,7 @@
 }
 
 .btn:hover {
-  background-color: #2563eb; /* blue-600 */
+  background-color: #374151; /* gray-700 */
 }
 
 .btn:disabled {
@@ -490,27 +504,17 @@
 }
 
 /* TYPING INDICATOR -------------------------------------------------------- */
-.typingRow {
+.thinkingIndicator {
+  position: absolute;
+  top: -1.5rem;
+  right: 0;
   display: flex;
-  width: 100%;
-  justify-content: flex-start; /* bot side */
-}
-
-.typingBubble {
-  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  background-color: #dbeafe; /* blue-100 (matches bot bubble) */
-  color: #1e3a8a;
-  border: 1px solid #93c5fd;
-  border-radius: 0.625rem;
-  padding: 1rem 0.625rem;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.1);
 }
 
 .thinkingText {
   font-style: italic;
   font-weight: 300;
-  color: #6b7280;
+  color: #84cc16; /* lime-500 - PinaColada brand color */
   font-size: 0.875rem;
 }

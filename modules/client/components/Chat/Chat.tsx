@@ -286,7 +286,11 @@ const getWsUrl = () => {
 
 const WS_URL = getWsUrl();
 
-const Chat = () => {
+type ChatProps = {
+  variant?: "page" | "embedded";
+};
+
+const Chat = ({ variant = "embedded" }: ChatProps) => {
   // Log the WebSocket URL on mount for debugging
   useEffect(() => {
     console.log("WebSocket URL:", WS_URL);
@@ -404,9 +408,15 @@ const Chat = () => {
 
   return (
     <div
-      className={`${styles.chatRoot} w-full max-w-5xl mx-auto min-h-[80svh] flex items-center px-4 py-6`}
+      className={`${styles.chatRoot} ${
+        variant === "page" ? styles.chatRootPage : ""
+      } w-full ${variant === "embedded" ? "max-w-5xl" : "max-w-4xl"} mx-auto min-h-[80svh] flex items-center ${variant === "embedded" ? "px-4 py-6" : ""}`}
     >
-      <section className={`${styles.shellCard} w-full`}>
+      <section
+        className={`${styles.shellCard} ${
+          variant === "page" ? styles.shellCardFlat : ""
+        } w-full`}
+      >
         {/* header */}
         <header className={styles.header}>
           <div className={styles.headerLeft}>
@@ -495,15 +505,6 @@ const Chat = () => {
                         isUser ? styles.bubbleUser : styles.bubbleBot
                       }`}
                     >
-                      <div
-                        className={`${styles.bubbleAuthor} ${
-                          isUser
-                            ? styles.bubbleAuthorRight
-                            : styles.bubbleAuthorLeft
-                        }`}
-                      >
-                        <strong>{m.user}</strong>
-                      </div>
                       <div className={styles.bubbleText}>
                         {renderWithLinks(m.msg.trim())}
                       </div>
@@ -538,18 +539,16 @@ const Chat = () => {
                 </div>
               );
             })}
-            {/* Typing indicator (shows while waiting for next WS assistant message) */}
-            {waitForWs && (
-              <div className={styles.typingRow}>
-                <div className={styles.typingBubble}>
-                  <span className={styles.thinkingText}>thinking</span>
-                </div>
-              </div>
-            )}
           </section>
 
           {/* input */}
           <form className={styles.inputForm} onSubmit={onSubmit}>
+            {/* Typing indicator above input */}
+            {waitForWs && (
+              <div className={styles.thinkingIndicator}>
+                <span className={styles.thinkingText}>thinking</span>
+              </div>
+            )}
             <textarea
               ref={inputRef}
               value={input}
