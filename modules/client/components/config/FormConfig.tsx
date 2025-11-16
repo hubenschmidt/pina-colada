@@ -56,7 +56,7 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
         <div>
           <input
             type="date"
-            value={value || ""}
+            value={value ? value.split("T")[0] : ""}
             onChange={(e) => onChange(e.target.value)}
             className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
           />

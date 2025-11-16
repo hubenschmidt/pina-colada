@@ -2,14 +2,20 @@
 
 import logging
 from typing import Dict, List, Optional, Any
+from datetime import datetime
+from fastapi import HTTPException
 from lib.serialization import model_to_dict
 from repositories.job_repository import (
     find_all_jobs,
-    create_job,
+    create_job as create_job_repo,
     find_job_by_id,
-    update_job,
-    delete_job
+    update_job as update_job_repo,
+    delete_job as delete_job_repo,
+    find_all_statuses,
+    find_jobs_with_status,
 )
+from repositories.organization_repository import get_or_create_organization
+from repositories.job_repository import find_all_jobs as find_all_jobs_repo
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +75,11 @@ def get_all_jobs(refresh: bool = False) -> List[Dict[str, str]]:
     details = [_map_to_dict(job) for job in jobs]
 
     _details_cache = details
-    _cache = {_normalize_identifier(j["company"], j["title"]) for j in details if j.get("title")}
+    _cache = {
+        _normalize_identifier(j["company"], j["title"])
+        for j in details
+        if j.get("title")
+    }
 
     logger.info(f"Loaded {len(details)} jobs from repository")
     return details
@@ -78,15 +88,23 @@ def get_all_jobs(refresh: bool = False) -> List[Dict[str, str]]:
 def get_applied_jobs_only(refresh: bool = False) -> List[Dict[str, str]]:
     """Get only jobs with status 'applied'."""
     all_jobs = get_all_jobs(refresh=refresh)
-    applied_jobs = [job for job in all_jobs if job.get("status", "").lower() == "applied"]
-    logger.info(f"Filtered to {len(applied_jobs)} jobs with status 'applied' (from {len(all_jobs)} total)")
+    applied_jobs = [
+        job for job in all_jobs if job.get("status", "").lower() == "applied"
+    ]
+    logger.info(
+        f"Filtered to {len(applied_jobs)} jobs with status 'applied' (from {len(all_jobs)} total)"
+    )
     return applied_jobs
 
 
 def get_applied_identifiers(refresh: bool = False) -> set[str]:
     """Get set of normalized job identifiers (only status='applied')."""
     applied_jobs = get_applied_jobs_only(refresh=refresh)
-    return {_normalize_identifier(j["company"], j["title"]) for j in applied_jobs if j.get("title")}
+    return {
+        _normalize_identifier(j["company"], j["title"])
+        for j in applied_jobs
+        if j.get("title")
+    }
 
 
 def fetch_applied_jobs(refresh: bool = False) -> set[str]:
@@ -103,7 +121,11 @@ def is_job_applied(company: str, title: str) -> bool:
     """Check if a job has been applied to (status='applied' only)."""
     applied_jobs = get_applied_jobs_only()
     identifier = _normalize_identifier(company, title)
-    applied_identifiers = {_normalize_identifier(j["company"], j["title"]) for j in applied_jobs if j.get("title")}
+    applied_identifiers = {
+        _normalize_identifier(j["company"], j["title"])
+        for j in applied_jobs
+        if j.get("title")
+    }
     return identifier in applied_identifiers
 
 
@@ -116,13 +138,16 @@ def filter_jobs(jobs: List[Dict[str, str]]) -> List[Dict[str, str]]:
         return jobs
 
     filtered = [
-        job for job in jobs
+        job
+        for job in jobs
         if not is_job_applied(job.get("company", ""), job.get("title", ""))
     ]
 
     filtered_count = len(jobs) - len(filtered)
     if filtered_count > 0:
-        logger.info(f"Filtered {filtered_count} jobs with status 'applied', {len(filtered)} remaining")
+        logger.info(
+            f"Filtered {filtered_count} jobs with status 'applied', {len(filtered)} remaining"
+        )
 
     return filtered
 
@@ -134,10 +159,9 @@ def add_job(
     salary_range: str = "",
     notes: str = "",
     status: str = "applied",
-    source: str = "agent"
+    source: str = "agent",
 ) -> Optional[Dict[str, str]]:
     """Add a new job application."""
-    from repositories.organization_repository import get_or_create_organization
 
     # Get or create organization
     org = get_or_create_organization(organization_name)
@@ -149,7 +173,7 @@ def add_job(
         "salary_range": salary_range or None,
         "notes": notes or None,
         "status": status,  # Will be converted to status_id in repository
-        "source": source
+        "source": source,
     }
 
     created = create_job(data)
@@ -168,7 +192,7 @@ def add_applied_job(
     salary_range: str = "",
     notes: str = "",
     status: str = "applied",
-    source: str = "agent"
+    source: str = "agent",
 ) -> Optional[Dict[str, str]]:
     """Add a new job application (backward compatibility wrapper)."""
     return add_job(
@@ -178,7 +202,7 @@ def add_applied_job(
         salary_range=salary_range,
         notes=notes,
         status=status,
-        source=source
+        source=source,
     )
 
 
@@ -195,39 +219,46 @@ def _fuzzy_match_company(search_company: str, db_company: str) -> bool:
         return True
 
     # Remove common suffixes for comparison
-    search_clean = search_norm.replace(" inc", "").replace(" llc", "").replace(" corp", "").replace(" ltd", "").strip()
-    db_clean = db_norm.replace(" inc", "").replace(" llc", "").replace(" corp", "").replace(" ltd", "").strip()
+    search_clean = (
+        search_norm.replace(" inc", "")
+        .replace(" llc", "")
+        .replace(" corp", "")
+        .replace(" ltd", "")
+        .strip()
+    )
+    db_clean = (
+        db_norm.replace(" inc", "")
+        .replace(" llc", "")
+        .replace(" corp", "")
+        .replace(" ltd", "")
+        .strip()
+    )
 
     if search_clean == db_clean:
         return True
 
     # One is substring of the other (require at least 4 chars to avoid false matches)
-    if len(search_clean) >= 4 and len(db_clean) >= 4:
-        if search_clean in db_clean or db_clean in search_clean:
-            return True
+    if len(search_clean) < 4 or len(db_clean) < 4:
+        return False
 
-    return False
+    return search_clean in db_clean or db_clean in search_clean
 
 
 def _matches_job(job, company: str, job_title: str) -> bool:
     """Check if job matches company and title using fuzzy matching."""
     job_dict = model_to_dict(job, include_relationships=True)
     job_company = job_dict.get("organization", {}).get("name", "")
-    
+
     if not _fuzzy_match_company(company, job_company):
         return False
-    
+
     job_title_lower = job_title.lower().strip()
     db_title_lower = job_dict.get("job_title", "").lower()
     return job_title_lower in db_title_lower or db_title_lower in job_title_lower
 
 
 def get_jobs_paginated(
-    page: int,
-    limit: int,
-    order_by: str,
-    order: str,
-    search: Optional[str] = None
+    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None
 ) -> tuple[List[Any], int]:
     """Get all jobs with search, sorting, and pagination logic.
 
@@ -241,7 +272,6 @@ def get_jobs_paginated(
     Returns:
         Tuple of (paginated_jobs, total_count)
     """
-    from repositories.job_repository import find_all_jobs as find_all_jobs_repo
 
     # Get all jobs
     all_jobs = find_all_jobs_repo()
@@ -302,11 +332,6 @@ def create_job(job_data: Dict[str, Any]) -> Any:
     Raises:
         HTTPException: If required fields are missing
     """
-    from repositories.job_repository import create_job as create_job_repo
-    from repositories.organization_repository import get_or_create_organization
-    from datetime import datetime
-    from fastapi import HTTPException
-
     # Get or create organization
     organization_name = job_data.get("company") or job_data.get("organization_name")
     if not organization_name:
@@ -319,9 +344,11 @@ def create_job(job_data: Dict[str, Any]) -> Any:
     # Parse resume date
     resume_str = job_data.get("resume")
     resume_obj = None
+    if not resume_str:
+        pass  # No resume date provided
     if resume_str:
         try:
-            resume_obj = datetime.fromisoformat(resume_str.replace('Z', '+00:00'))
+            resume_obj = datetime.fromisoformat(resume_str.replace("Z", "+00:00"))
         except (ValueError, TypeError):
             pass
 
@@ -353,9 +380,6 @@ def get_job(job_id: str) -> Any:
     Raises:
         HTTPException: If job_id is invalid or job not found
     """
-    from repositories.job_repository import find_job_by_id
-    from fastapi import HTTPException
-
     try:
         job_id_int = int(job_id)
     except ValueError:
@@ -381,9 +405,6 @@ def delete_job(job_id: str) -> bool:
     Raises:
         HTTPException: If job_id is invalid or job not found
     """
-    from repositories.job_repository import delete_job as delete_job_repo
-    from fastapi import HTTPException
-
     try:
         job_id_int = int(job_id)
     except ValueError:
@@ -404,7 +425,6 @@ def get_statuses() -> List[Any]:
     Returns:
         List of Status ORM objects
     """
-    from repositories.job_repository import find_all_statuses
     return find_all_statuses()
 
 
@@ -417,7 +437,6 @@ def get_jobs_with_status(status_names: Optional[List[str]] = None) -> List[Any]:
     Returns:
         List of Job ORM objects
     """
-    from repositories.job_repository import find_jobs_with_status
     return find_jobs_with_status(status_names)
 
 
@@ -427,9 +446,6 @@ def get_recent_resume_date() -> Optional[str]:
     Returns:
         Resume date string (YYYY-MM-DD) or None
     """
-    from repositories.job_repository import find_all_jobs as find_all_jobs_repo
-    from datetime import datetime
-
     all_jobs = find_all_jobs_repo()
 
     # Filter jobs with resume dates and sort by Lead created_at DESC
@@ -471,11 +487,6 @@ def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
     Raises:
         HTTPException: If job_id is invalid or job not found
     """
-    from repositories.job_repository import update_job as update_job_repo
-    from repositories.organization_repository import get_or_create_organization
-    from datetime import datetime
-    from fastapi import HTTPException
-
     # Validate job_id
     try:
         job_id_int = int(job_id)
@@ -491,15 +502,26 @@ def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
         data["organization_id"] = org.id
 
     # Update simple fields
-    allowed_fields = ["job_title", "job_url", "salary_range", "notes", "status", "source", "current_status_id"]
+    allowed_fields = [
+        "job_title",
+        "job_url",
+        "salary_range",
+        "notes",
+        "status",
+        "source",
+        "current_status_id",
+    ]
     data.update({k: job_data[k] for k in allowed_fields if k in job_data})
 
     # Handle resume_date parsing
     resume_str = job_data.get("resume")
-    if resume_str is not None:
+    if resume_str is None:
+        pass  # No update to resume_date
+    if resume_str == "":
+        data["resume_date"] = None
+    if resume_str:
         try:
-            resume_obj = datetime.fromisoformat(resume_str.replace('Z', '+00:00')) if resume_str else None
-            data["resume_date"] = resume_obj
+            data["resume_date"] = datetime.fromisoformat(resume_str.replace("Z", "+00:00"))
         except (ValueError, TypeError):
             data["resume_date"] = None
 
@@ -521,40 +543,43 @@ def update_job_by_company(
     job_title: str,
     status: Optional[str] = None,
     job_url: Optional[str] = None,
-    notes: Optional[str] = None
+    notes: Optional[str] = None,
 ) -> Optional[Dict[str, str]]:
     """
     Find and update a job by company name and job title (fuzzy matching).
     Returns updated job or None if not found.
     """
-    from repositories.job_repository import find_all_jobs
-
     # Get all jobs and find matching one
     all_jobs = find_all_jobs()
     matching_job = next(
-        (job for job in all_jobs if _matches_job(job, company, job_title)),
-        None
+        (job for job in all_jobs if _matches_job(job, company, job_title)), None
     )
 
     if not matching_job:
         return None
 
     # Build update data
-    update_data: Dict[str, Any] = {}
-    if status is not None:
-        update_data["status"] = status
-    if job_url is not None:
-        update_data["job_url"] = job_url
-    if notes is not None:
-        update_data["notes"] = notes
+    update_data: Dict[str, Any] = {
+        k: v
+        for k, v in [
+            ("status", status),
+            ("job_url", job_url),
+            ("notes", notes),
+        ]
+        if v is not None
+    }
 
     # Update the job
     updated_job = update_job(matching_job.id, update_data)
     _clear_cache()
 
-    if updated_job:
-        job_dict = model_to_dict(updated_job, include_relationships=True)
-        updated_company = job_dict.get("organization", {}).get("name", "Unknown")
-        logger.info(f"Updated job via fuzzy match: {company} - {job_title} (matched to {updated_company})")
+    if not updated_job:
+        return None
 
-    return _map_to_dict(updated_job) if updated_job else None
+    job_dict = model_to_dict(updated_job, include_relationships=True)
+    updated_company = job_dict.get("organization", {}).get("name", "Unknown")
+    logger.info(
+        f"Updated job via fuzzy match: {company} - {job_title} (matched to {updated_company})"
+    )
+
+    return _map_to_dict(updated_job)
