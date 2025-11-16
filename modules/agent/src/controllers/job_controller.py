@@ -73,11 +73,11 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
 
 
 @handle_http_exceptions
-def get_jobs(
+async def get_jobs(
     page: int, limit: int, order_by: str, order: str, search: Optional[str] = None
 ) -> dict:
     """Get all jobs with pagination."""
-    paginated_jobs, total_count = get_jobs_paginated(
+    paginated_jobs, total_count = await get_jobs_paginated(
         page, limit, order_by, order, search
     )
     items = [_job_to_response_dict(job) for job in paginated_jobs]
@@ -85,48 +85,48 @@ def get_jobs(
 
 
 @handle_http_exceptions
-def create_job(job_data: Dict[str, Any]) -> Dict[str, Any]:
+async def create_job(job_data: Dict[str, Any]) -> Dict[str, Any]:
     """Create a new job."""
-    created = create_job_service(job_data)
+    created = await create_job_service(job_data)
     return _job_to_response_dict(created)
 
 
 @handle_http_exceptions
-def get_job(job_id: str) -> Dict[str, Any]:
+async def get_job(job_id: str) -> Dict[str, Any]:
     """Get a job by ID."""
-    job = get_job_service(job_id)
+    job = await get_job_service(job_id)
     return _job_to_response_dict(job)
 
 
 @handle_http_exceptions
-def update_job(job_id: str, job_data: Dict[str, Any]) -> Dict[str, Any]:
+async def update_job(job_id: str, job_data: Dict[str, Any]) -> Dict[str, Any]:
     """Update a job."""
-    updated = update_job_service(job_id, job_data)
+    updated = await update_job_service(job_id, job_data)
     return _job_to_response_dict(updated)
 
 
 @handle_http_exceptions
-def delete_job(job_id: str) -> dict:
+async def delete_job(job_id: str) -> dict:
     """Delete a job."""
-    delete_job_service(job_id)
+    await delete_job_service(job_id)
     return {"success": True}
 
 
 @handle_http_exceptions
-def get_statuses() -> List[Dict[str, Any]]:
+async def get_statuses() -> List[Dict[str, Any]]:
     """Get all job statuses."""
-    statuses = get_statuses_service()
+    statuses = await get_statuses_service()
     return [model_to_dict(s, include_relationships=False) for s in statuses]
 
 
 @handle_http_exceptions
-def get_leads(statuses: Optional[str] = None) -> List[Dict[str, Any]]:
+async def get_leads(statuses: Optional[str] = None) -> List[Dict[str, Any]]:
     """Get all job leads, optionally filtered by status names."""
     status_names = None
     if statuses:
         status_names = [s.strip() for s in statuses.split(",")]
 
-    jobs = get_jobs_with_status_service(status_names)
+    jobs = await get_jobs_with_status_service(status_names)
 
     items = []
     for job in jobs:
@@ -141,23 +141,23 @@ def get_leads(statuses: Optional[str] = None) -> List[Dict[str, Any]]:
 
 
 @handle_http_exceptions
-def mark_lead_as_applied(job_id: str) -> Dict[str, Any]:
+async def mark_lead_as_applied(job_id: str) -> Dict[str, Any]:
     """Mark a lead as applied."""
     update_data: Dict[str, Any] = {"status": "applied"}
-    updated = update_job_service(job_id, update_data)
+    updated = await update_job_service(job_id, update_data)
     return _job_to_response_dict(updated)
 
 
 @handle_http_exceptions
-def mark_lead_as_do_not_apply(job_id: str) -> Dict[str, Any]:
+async def mark_lead_as_do_not_apply(job_id: str) -> Dict[str, Any]:
     """Mark a lead as do not apply."""
     update_data: Dict[str, Any] = {"status": "do_not_apply"}
-    updated = update_job_service(job_id, update_data)
+    updated = await update_job_service(job_id, update_data)
     return _job_to_response_dict(updated)
 
 
 @handle_http_exceptions
-def get_recent_resume_date() -> Dict[str, Optional[str]]:
+async def get_recent_resume_date() -> Dict[str, Optional[str]]:
     """Get the most recent resume date."""
-    resume_date = get_recent_resume_date_service()
+    resume_date = await get_recent_resume_date_service()
     return {"resume_date": resume_date}

@@ -19,10 +19,6 @@ from repositories.job_repository import find_all_jobs as find_all_jobs_repo
 
 logger = logging.getLogger(__name__)
 
-# Module-level cache
-_cache: Optional[set[str]] = None
-_details_cache: Optional[List[Dict[str, str]]] = None
-
 
 def _normalize_identifier(company: str, title: str) -> str:
     """Normalize job identifier for comparison."""
@@ -56,38 +52,18 @@ def _map_to_dict(job) -> Dict[str, str]:
     }
 
 
-def _clear_cache() -> None:
-    """Clear module-level cache."""
-    global _cache, _details_cache
-    _cache = None
-    _details_cache = None
-
-
-def get_all_jobs(refresh: bool = False) -> List[Dict[str, str]]:
+async def get_all_jobs(refresh: bool = False) -> List[Dict[str, str]]:
     """Get all jobs as dictionaries."""
-    global _details_cache, _cache
-
-    if _details_cache and not refresh:
-        return _details_cache.copy()
-
-    jobs = find_all_jobs()
+    jobs, _ = await find_all_jobs()
     # Map to internal format with company/date_applied keys for consistency
     details = [_map_to_dict(job) for job in jobs]
-
-    _details_cache = details
-    _cache = {
-        _normalize_identifier(j["company"], j["title"])
-        for j in details
-        if j.get("title")
-    }
-
     logger.info(f"Loaded {len(details)} jobs from repository")
     return details
 
 
-def get_applied_jobs_only(refresh: bool = False) -> List[Dict[str, str]]:
+async def get_applied_jobs_only(refresh: bool = False) -> List[Dict[str, str]]:
     """Get only jobs with status 'Applied'."""
-    all_jobs = get_all_jobs(refresh=refresh)
+    all_jobs = await get_all_jobs(refresh=refresh)
     applied_jobs = [
         job for job in all_jobs if job.get("status", "") == "Applied"
     ]
@@ -97,9 +73,9 @@ def get_applied_jobs_only(refresh: bool = False) -> List[Dict[str, str]]:
     return applied_jobs
 
 
-def get_applied_identifiers(refresh: bool = False) -> set[str]:
+async def get_applied_identifiers(refresh: bool = False) -> set[str]:
     """Get set of normalized job identifiers (only status='applied')."""
-    applied_jobs = get_applied_jobs_only(refresh=refresh)
+    applied_jobs = await get_applied_jobs_only(refresh=refresh)
     return {
         _normalize_identifier(j["company"], j["title"])
         for j in applied_jobs
@@ -107,19 +83,19 @@ def get_applied_identifiers(refresh: bool = False) -> set[str]:
     }
 
 
-def fetch_applied_jobs(refresh: bool = False) -> set[str]:
+async def fetch_applied_jobs(refresh: bool = False) -> set[str]:
     """Fetch set of normalized job identifiers (for compatibility)."""
-    return get_applied_identifiers(refresh=refresh)
+    return await get_applied_identifiers(refresh=refresh)
 
 
-def get_jobs_details(refresh: bool = False) -> List[Dict[str, str]]:
+async def get_jobs_details(refresh: bool = False) -> List[Dict[str, str]]:
     """Get detailed list of applied jobs (status='applied' only, for compatibility)."""
-    return get_applied_jobs_only(refresh=refresh)
+    return await get_applied_jobs_only(refresh=refresh)
 
 
-def is_job_applied(company: str, title: str) -> bool:
+async def is_job_applied(company: str, title: str) -> bool:
     """Check if a job has been applied to (status='applied' only)."""
-    applied_jobs = get_applied_jobs_only()
+    applied_jobs = await get_applied_jobs_only()
     identifier = _normalize_identifier(company, title)
     applied_identifiers = {
         _normalize_identifier(j["company"], j["title"])
@@ -129,19 +105,19 @@ def is_job_applied(company: str, title: str) -> bool:
     return identifier in applied_identifiers
 
 
-def filter_jobs(jobs: List[Dict[str, str]]) -> List[Dict[str, str]]:
+async def filter_jobs(jobs: List[Dict[str, str]]) -> List[Dict[str, str]]:
     """Filter out jobs that have already been applied to (status='applied' only)."""
-    identifiers = get_applied_identifiers()
+    identifiers = await get_applied_identifiers()
 
     if not identifiers:
         logger.warning("No applied jobs (status='applied') found - returning all jobs")
         return jobs
 
-    filtered = [
-        job
-        for job in jobs
-        if not is_job_applied(job.get("company", ""), job.get("title", ""))
-    ]
+    filtered = []
+    for job in jobs:
+        is_applied = await is_job_applied(job.get("company", ""), job.get("title", ""))
+        if not is_applied:
+            filtered.append(job)
 
     filtered_count = len(jobs) - len(filtered)
     if filtered_count > 0:
@@ -152,7 +128,7 @@ def filter_jobs(jobs: List[Dict[str, str]]) -> List[Dict[str, str]]:
     return filtered
 
 
-def add_job(
+async def add_job(
     organization_name: str,
     job_title: str,
     job_url: str = "",
@@ -164,7 +140,7 @@ def add_job(
     """Add a new job application."""
 
     # Get or create organization
-    org = get_or_create_organization(organization_name)
+    org = await get_or_create_organization(organization_name)
 
     data: Dict[str, Any] = {
         "organization_id": org.id,
@@ -176,15 +152,13 @@ def add_job(
         "source": source,
     }
 
-    created = create_job(data)
+    created = await create_job(data)
     logger.info(f"Added job application: {organization_name} - {job_title}")
-
-    _clear_cache()
 
     return _map_to_dict(created)
 
 
-def add_applied_job(
+async def add_applied_job(
     company: str,
     job_title: str,
     job_url: str = "",
@@ -195,7 +169,7 @@ def add_applied_job(
     source: str = "agent",
 ) -> Optional[Dict[str, str]]:
     """Add a new job application (backward compatibility wrapper)."""
-    return add_job(
+    return await add_job(
         organization_name=company,
         job_title=job_title,
         job_url=job_url,
@@ -257,7 +231,7 @@ def _matches_job(job, company: str, job_title: str) -> bool:
     return job_title_lower in db_title_lower or db_title_lower in job_title_lower
 
 
-def get_jobs_paginated(
+async def get_jobs_paginated(
     page: int, limit: int, order_by: str, order: str, search: Optional[str] = None
 ) -> tuple[List[Any], int]:
     """Get all jobs with search, sorting, and pagination logic.
@@ -272,49 +246,16 @@ def get_jobs_paginated(
     Returns:
         Tuple of (paginated_jobs, total_count)
     """
-
-    # Get all jobs
-    all_jobs = find_all_jobs_repo()
-
-    # Apply search filter if provided
-    if search and search.strip():
-        search_lower = search.strip().lower()
-        all_jobs = [
-            job
-            for job in all_jobs
-            if (job.organization and search_lower in job.organization.name.lower())
-            or (job.job_title and search_lower in job.job_title.lower())
-        ]
-
-    total_count = len(all_jobs)
-
-    # Sorting
-    reverse = order.upper() == "DESC"
-    sort_functions = {
-        "application_date": lambda j: j.lead.created_at if j.lead else "",
-        "date": lambda j: j.lead.created_at if j.lead else "",
-        "company": lambda j: (j.organization.name if j.organization else "").lower(),
-        "status": lambda j: (
-            j.lead.current_status.name if (j.lead and j.lead.current_status) else ""
-        ),
-        "job_title": lambda j: (j.job_title or "").lower(),
-        "resume": lambda j: j.resume_date or "",
-    }
-
-    sort_fn = sort_functions.get(order_by)
-    if sort_fn:
-        all_jobs.sort(key=sort_fn, reverse=reverse)
-
-    # Paginate
-    offset = (page - 1) * limit
-    start = offset
-    end = start + limit
-    paginated_jobs = all_jobs[start:end]
-
-    return paginated_jobs, total_count
+    return await find_all_jobs_repo(
+        page=page,
+        page_size=limit,
+        search=search,
+        order_by=order_by,
+        order=order
+    )
 
 
-def create_job(job_data: Dict[str, Any]) -> Any:
+async def create_job(job_data: Dict[str, Any]) -> Any:
     """Create a new job.
 
     Handles:
@@ -339,7 +280,7 @@ def create_job(job_data: Dict[str, Any]) -> Any:
             status_code=400, detail="company or organization_name is required"
         )
 
-    org = get_or_create_organization(organization_name)
+    org = await get_or_create_organization(organization_name)
 
     # Parse resume date
     resume_str = job_data.get("resume")
@@ -363,12 +304,11 @@ def create_job(job_data: Dict[str, Any]) -> Any:
         "source": job_data.get("source", "manual"),
     }
 
-    created = create_job_repo(data)
-    _clear_cache()
+    created = await create_job_repo(data)
     return created
 
 
-def get_job(job_id: str) -> Any:
+async def get_job(job_id: str) -> Any:
     """Get a job by ID.
 
     Args:
@@ -385,7 +325,7 @@ def get_job(job_id: str) -> Any:
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
 
-    job = find_job_by_id(job_id_int)
+    job = await find_job_by_id(job_id_int)
 
     if not job:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -393,7 +333,7 @@ def get_job(job_id: str) -> Any:
     return job
 
 
-def delete_job(job_id: str) -> bool:
+async def delete_job(job_id: str) -> bool:
     """Delete a job by ID.
 
     Args:
@@ -410,25 +350,24 @@ def delete_job(job_id: str) -> bool:
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
 
-    deleted = delete_job_repo(job_id_int)
+    deleted = await delete_job_repo(job_id_int)
 
     if not deleted:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    _clear_cache()
     return deleted
 
 
-def get_statuses() -> List[Any]:
+async def get_statuses() -> List[Any]:
     """Get all job statuses.
 
     Returns:
         List of Status ORM objects
     """
-    return find_all_statuses()
+    return await find_all_statuses()
 
 
-def get_jobs_with_status(status_names: Optional[List[str]] = None) -> List[Any]:
+async def get_jobs_with_status(status_names: Optional[List[str]] = None) -> List[Any]:
     """Get jobs filtered by status names.
 
     Args:
@@ -437,16 +376,16 @@ def get_jobs_with_status(status_names: Optional[List[str]] = None) -> List[Any]:
     Returns:
         List of Job ORM objects
     """
-    return find_jobs_with_status(status_names)
+    return await find_jobs_with_status(status_names)
 
 
-def get_recent_resume_date() -> Optional[str]:
+async def get_recent_resume_date() -> Optional[str]:
     """Get the most recent resume date from all jobs.
 
     Returns:
         Resume date string (YYYY-MM-DD) or None
     """
-    all_jobs = find_all_jobs_repo()
+    all_jobs, _ = await find_all_jobs_repo()
 
     # Filter jobs with resume dates and sort by Lead created_at DESC
     jobs_with_resume = [job for job in all_jobs if job.resume_date]
@@ -466,7 +405,7 @@ def get_recent_resume_date() -> Optional[str]:
     return None
 
 
-def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
+async def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
     """Update a job with the provided data.
 
     Handles:
@@ -498,7 +437,7 @@ def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
     # Handle organization update
     organization_name = job_data.get("company") or job_data.get("organization_name")
     if organization_name:
-        org = get_or_create_organization(organization_name)
+        org = await get_or_create_organization(organization_name)
         data["organization_id"] = org.id
 
     # Update simple fields
@@ -526,19 +465,16 @@ def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
             data["resume_date"] = None
 
     # Update via repository
-    updated = update_job_repo(job_id_int, data)
+    updated = await update_job_repo(job_id_int, data)
 
     # Handle not found
     if not updated:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Clear cache on successful update
-    _clear_cache()
-
     return updated
 
 
-def update_job_by_company(
+async def update_job_by_company(
     company: str,
     job_title: str,
     status: Optional[str] = None,
@@ -550,7 +486,7 @@ def update_job_by_company(
     Returns updated job or None if not found.
     """
     # Get all jobs and find matching one
-    all_jobs = find_all_jobs()
+    all_jobs, _ = await find_all_jobs()
     matching_job = next(
         (job for job in all_jobs if _matches_job(job, company, job_title)), None
     )
@@ -570,8 +506,7 @@ def update_job_by_company(
     }
 
     # Update the job
-    updated_job = update_job(matching_job.id, update_data)
-    _clear_cache()
+    updated_job = await update_job(str(matching_job.id), update_data)
 
     if not updated_job:
         return None
