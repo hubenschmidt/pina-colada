@@ -34,11 +34,8 @@ function LeadPanel<T extends BaseLead>({
   const [toastMessage, setToastMessage] = useState("");
 
   useEffect(() => {
-    loadLeadStatuses();
-  }, []);
-
-  useEffect(() => {
     if (isOpen) {
+      loadLeadStatuses();
       loadLeads();
     }
   }, [isOpen, selectedStatuses]);
