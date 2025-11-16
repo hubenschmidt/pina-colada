@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, ChevronDown } from "lucide-react";
+import { ChevronRight, ChevronDown, PanelLeftClose, PanelLeft } from "lucide-react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../../context/userContext";
 
@@ -13,6 +13,7 @@ export default function LeadsLayout({
   children: React.ReactNode;
 }) {
   const [leadsExpanded, setLeadsExpanded] = useState(true);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { isLoading } = useUser();
   const { userState } = useUserContext();
 
@@ -28,33 +29,56 @@ export default function LeadsLayout({
   return (
     <div className="flex min-h-screen">
       {/* Sidebar */}
-      <aside className="w-64 border-r border-zinc-200 bg-zinc-50 p-4">
-        <nav className="space-y-2">
-          {/* Leads Section */}
-          <div>
+      <aside
+        className={`border-r border-zinc-200 bg-zinc-50 transition-all duration-300 ${
+          sidebarCollapsed ? "w-14" : "w-64"
+        }`}
+      >
+        <div className="flex h-full flex-col p-4">
+          {/* Toggle Button */}
+          <div className="mb-4 flex justify-end">
             <button
-              onClick={() => setLeadsExpanded(!leadsExpanded)}
-              className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="flex items-center justify-center rounded p-2 text-zinc-700 hover:bg-zinc-100"
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
-              {leadsExpanded ? (
-                <ChevronDown className="h-4 w-4" />
+              {sidebarCollapsed ? (
+                <PanelLeft className="h-5 w-5" />
               ) : (
-                <ChevronRight className="h-4 w-4" />
+                <PanelLeftClose className="h-5 w-5" />
               )}
-              Leads
             </button>
-            {leadsExpanded && (
-              <div className="ml-6 mt-1 space-y-1">
-                <Link
-                  href="/leads/jobs"
-                  className="block rounded px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                >
-                  Jobs
-                </Link>
-              </div>
-            )}
           </div>
-        </nav>
+
+          {!sidebarCollapsed && (
+            <nav className="space-y-2">
+              {/* Leads Section */}
+              <div>
+                <button
+                  onClick={() => setLeadsExpanded(!leadsExpanded)}
+                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+                >
+                  {leadsExpanded ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  Leads
+                </button>
+                {leadsExpanded && (
+                  <div className="ml-6 mt-1 space-y-1">
+                    <Link
+                      href="/leads/jobs"
+                      className="block rounded px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                    >
+                      Jobs
+                    </Link>
+                  </div>
+                )}
+              </div>
+            </nav>
+          )}
+        </div>
       </aside>
 
       {/* Main Content */}
