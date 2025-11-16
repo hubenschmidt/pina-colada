@@ -14,7 +14,7 @@ const Header = () => {
   if (isLoading) return null;
 
   return (
-    <header className="sticky top-0 z-40 border-b border-zinc-200 bg-blue-50">
+    <header className="sticky top-0 z-40 border-b-1 border-lime-500 bg-blue-50">
       <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2">
@@ -127,7 +127,10 @@ const Header = () => {
               Logout
             </a>
           ) : (
-            <Link href="/login" className="text-blue-700 hover:text-blue-500 text-sm font-semibold">
+            <Link
+              href="/login"
+              className="text-blue-700 hover:text-blue-500 text-sm font-semibold"
+            >
               Login
             </Link>
           )}

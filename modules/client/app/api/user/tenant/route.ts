@@ -1,9 +1,9 @@
-import { getSession } from "@auth0/nextjs-auth0";
 import { NextResponse } from "next/server";
+import { auth0 } from "../../../../lib/auth0";
 
 export async function GET() {
   try {
-    const session = await getSession();
+    const session = await auth0.getSession();
 
     if (!session?.user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -12,12 +12,16 @@ export async function GET() {
     const userEmail = session.user.email;
 
     // Query backend to check if user has a tenant
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const response = await fetch(`${backendUrl}/users/${encodeURIComponent(userEmail)}/tenant`, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+    const backendUrl =
+      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const response = await fetch(
+      `${backendUrl}/users/${encodeURIComponent(userEmail)}/tenant`,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
     if (!response.ok) {
       if (response.status === 404) {

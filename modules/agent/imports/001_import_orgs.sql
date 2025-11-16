@@ -5,6 +5,17 @@
 -- This will create Organization records for all unique companies from your Job data
 -- ==============================
 
+-- Create unique constraint on lowercase organization name if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'organization_name_lower_unique'
+  ) THEN
+    ALTER TABLE "Organization"
+    ADD CONSTRAINT organization_name_lower_unique UNIQUE (LOWER(name));
+  END IF;
+END $$;
+
 -- Insert unique organizations with proper timestamps
 INSERT INTO "Organization" (name, created_at, updated_at)
 VALUES
