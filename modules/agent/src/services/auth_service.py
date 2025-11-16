@@ -1,0 +1,61 @@
+"""Authentication service for user and tenant management."""
+
+import re
+from typing import Dict, Any, List
+from models.User import User
+from repositories.user_repository import find_user_by_auth0_sub, create_user
+from repositories.tenant_repository import (
+    find_or_create_tenant_with_user,
+    get_user_tenants_with_roles,
+    find_role_by_tenant_and_name,
+    create_user_role,
+)
+
+
+async def get_or_create_user(auth0_sub: str, email: str) -> User:
+    """Get or create user from Auth0 sub."""
+    user = find_user_by_auth0_sub(auth0_sub)
+    if user:
+        return user
+
+    # First login - create user without tenant
+    data: Dict[str, Any] = {"auth0_sub": auth0_sub, "email": email, "status": "active"}
+    return create_user(data)
+
+
+def get_user_tenants(user_id: int) -> List[dict]:
+    """Get all tenants user belongs to via UserRole relationships."""
+    results = get_user_tenants_with_roles(user_id)
+    return [
+        {"id": tenant.id, "name": tenant.name, "role": role.name}
+        for tenant, role in results
+    ]
+
+
+def create_tenant_for_user(
+    user_id: int, tenant_name: str, slug: str = None, plan: str = "free"
+) -> dict:
+    """Find or create tenant and assign user as owner."""
+    if slug is None:
+        slug = re.sub(r'[^a-z0-9]+', '-', tenant_name.lower()).strip('-')
+
+    tenant, role = find_or_create_tenant_with_user(user_id, tenant_name, slug, plan)
+
+    return {
+        "id": tenant.id,
+        "name": tenant.name,
+        "slug": tenant.slug,
+        "plan": tenant.plan,
+        "role": role.name,
+    }
+
+
+def add_user_to_tenant(user_id: int, tenant_id: int, role_name: str) -> None:
+    """Add user to existing tenant with role."""
+    # Find role by name in tenant
+    role = find_role_by_tenant_and_name(tenant_id, role_name)
+    if not role:
+        raise ValueError(f"Role {role_name} not found in tenant")
+
+    # Create UserRole assignment
+    create_user_role(user_id, role.id)

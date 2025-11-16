@@ -85,7 +85,12 @@ def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]
             raise
 
     async def handle_start(_):
-        return  # ignore
+        nonlocal last_sent_length
+        logger.info(f"Stream start event - resetting last_sent_length from {last_sent_length} to 0")
+        # Notify frontend of new response starting (only if we had prior content)
+        if last_sent_length > 0:
+            await _safe_send_text(json.dumps({"on_chat_model_start": True}))
+        last_sent_length = 0  # reset for new message
 
     async def handle_end(_):
         await _safe_send_text(json.dumps({"on_chat_model_end": True}))

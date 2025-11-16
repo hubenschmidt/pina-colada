@@ -1,0 +1,511 @@
+{
+  "info": {
+    "_postman_id": "pina-colada-api-collection",
+    "name": "PinaColada Agent API",
+    "description": "REST API collection for PinaColada agent backend",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const audience = pm.environment.get('auth0_audience');",
+          "const domain = pm.environment.get('auth0_domain');",
+          "const clientSecret = pm.environment.get('auth0_client_secret');",
+          "const clientId = pm.environment.get('auth0_client_id');",
+          "const username = pm.environment.get('auth0_username');",
+          "const password = pm.environment.get('auth0_password');",
+          "const connection = pm.environment.get('auth0_connection');",
+          "",
+          "pm.sendRequest({",
+          "  url: `https://${domain}/oauth/token`,",
+          "  method: 'POST',",
+          "  header: {",
+          "    'Content-Type': 'application/json'",
+          "  },",
+          "  body: {",
+          "    mode: 'raw',",
+          "    raw: JSON.stringify({",
+          "      client_id:     clientId,",
+          "      client_secret: clientSecret,",
+          "      audience:      audience,",
+          "      username:      username,",
+          "      password:      password,",
+          "      grant_type:    'password',",
+          "      scope:         'openid profile email',",
+          "      connection:    connection || 'Username-Password-Authentication'",
+          "    })",
+          "  }",
+          "}, (err, res) => {",
+          "  if (err) {",
+          "    console.error('Auth0 token request failed:', err);",
+          "    return;",
+          "  }",
+          "  const json = res.json();",
+          "  if (json.access_token) {",
+          "    pm.environment.set('bearer_token', json.access_token);",
+          "  }",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/",
+              "host": ["{{base_url}}"],
+              "path": [""]
+            },
+            "description": "Basic health check endpoint"
+          },
+          "response": []
+        },
+        {
+          "name": "Health Status",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Health status endpoint"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Create Tenant",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"My Organization\",\n  \"slug\": \"my-org\",\n  \"plan\": \"free\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/tenant/create",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "tenant", "create"]
+            },
+            "description": "Create a new tenant/organization. Requires authentication. Creates tenant, assigns owner role to current user."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Get current authenticated user with tenant associations"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Jobs",
+      "item": [
+        {
+          "name": "Get All Jobs",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/jobs?page=1&limit=25&orderBy=date&order=DESC&search=",
+              "host": ["{{base_url}}"],
+              "path": ["jobs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (min: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "25",
+                  "description": "Items per page (min: 1, max: 100)"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "date",
+                  "description": "Field to order by (date, job_title, company, status, resume)"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC",
+                  "description": "Sort order (ASC or DESC)"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Optional search term (searches company and job_title)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all jobs with pagination and optional search"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Job",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company\": \"Example Company\",\n  \"job_title\": \"Software Engineer\",\n  \"date\": \"2024-01-15T00:00:00Z\",\n  \"job_url\": \"https://example.com/job\",\n  \"salary_range\": \"$100k-$150k\",\n  \"notes\": \"Great opportunity\",\n  \"resume\": \"resume_v1.pdf\",\n  \"status\": \"applied\",\n  \"source\": \"manual\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/jobs",
+              "host": ["{{base_url}}"],
+              "path": ["jobs"]
+            },
+            "description": "Create a new job. Required: company, job_title. Optional: date, job_url, salary_range, notes, resume, status (default: 'applied'), source (default: 'manual')"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Job by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/jobs/:job_id",
+              "host": ["{{base_url}}"],
+              "path": ["jobs", ":job_id"],
+              "variable": [
+                {
+                  "key": "job_id",
+                  "value": "",
+                  "description": "Job UUID"
+                }
+              ]
+            },
+            "description": "Get a single job by its ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Job",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"company\": \"Updated Company\",\n  \"job_title\": \"Senior Software Engineer\",\n  \"status\": \"interviewing\",\n  \"lead_status_id\": null\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/jobs/:job_id",
+              "host": ["{{base_url}}"],
+              "path": ["jobs", ":job_id"],
+              "variable": [
+                {
+                  "key": "job_id",
+                  "value": "",
+                  "description": "Job UUID"
+                }
+              ]
+            },
+            "description": "Update a job. All fields are optional. Only provided fields will be updated."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Job",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/jobs/:job_id",
+              "host": ["{{base_url}}"],
+              "path": ["jobs", ":job_id"],
+              "variable": [
+                {
+                  "key": "job_id",
+                  "value": "",
+                  "description": "Job UUID"
+                }
+              ]
+            },
+            "description": "Delete a job by ID"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Lead Statuses",
+      "item": [
+        {
+          "name": "Get All Lead Statuses",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/lead-statuses",
+              "host": ["{{base_url}}"],
+              "path": ["lead-statuses"]
+            },
+            "description": "Get all available lead statuses (Qualifying, Cold, Warm, Hot)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get User Tenant",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/:email/tenant",
+              "host": ["{{base_url}}"],
+              "path": ["users", ":email", "tenant"],
+              "variable": [
+                {
+                  "key": "email",
+                  "value": "user@example.com",
+                  "description": "User email address"
+                }
+              ]
+            },
+            "description": "Check if a user has an associated tenant. Returns tenant info if found, 404 if not."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Leads",
+      "item": [
+        {
+          "name": "Get All Leads",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/leads?statuses=",
+              "host": ["{{base_url}}"],
+              "path": ["leads"],
+              "query": [
+                {
+                  "key": "statuses",
+                  "value": "",
+                  "description": "Optional comma-separated list of status names to filter by (e.g., 'Qualifying,Cold,Warm,Hot')",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all job leads (jobs with non-null lead_status_id). Optionally filter by status names."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Lead as Applied",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/leads/:job_id/apply",
+              "host": ["{{base_url}}"],
+              "path": ["leads", ":job_id", "apply"],
+              "variable": [
+                {
+                  "key": "job_id",
+                  "value": "",
+                  "description": "Job UUID"
+                }
+              ]
+            },
+            "description": "Mark a lead as applied. Sets status to 'applied', clears lead_status_id, and sets date to now if not set."
+          },
+          "response": []
+        },
+        {
+          "name": "Mark Lead as Do Not Apply",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/leads/:job_id/do-not-apply",
+              "host": ["{{base_url}}"],
+              "path": ["leads", ":job_id", "do-not-apply"],
+              "variable": [
+                {
+                  "key": "job_id",
+                  "value": "",
+                  "description": "Job UUID"
+                }
+              ]
+            },
+            "description": "Mark a lead as 'do not apply'. Sets status to 'do_not_apply' and clears lead_status_id."
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string",
+      "description": "JWT access token from Auth0. Get from /api/auth/token or Auth0 test tab"
+    }
+  ]
+}

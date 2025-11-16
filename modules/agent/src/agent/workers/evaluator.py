@@ -122,11 +122,7 @@ async def create_evaluator_node():
         # If we have feedback and multiple AI messages, we're in a retry loop
         has_feedback = bool(state.get("feedback_on_work"))
         is_retry_loop = has_feedback and ai_message_count >= 3
-        
-        if is_retry_loop:
-            retry_count = ai_message_count - 1  # Subtract 1 for the initial response
-        else:
-            retry_count = 0
+        retry_count = (ai_message_count - 1) if is_retry_loop else 0
         
         # Build prompts
         system_message = _build_system_prompt(state.get("resume_context", ""))

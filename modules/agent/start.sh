@@ -18,12 +18,18 @@ uv run python scripts/check_migration_status.py || echo "⚠️  Could not check
 echo "ℹ️  Checking if migrations need to be applied to local Postgres..."
 uv run python scripts/apply_migrations.py || echo "⚠️  Could not apply migrations automatically"
 
+# Run seeders after migrations (only inserts if data doesn't exist)
+echo "ℹ️  Running database seeders..."
+uv run python scripts/run_seeders.py || echo "⚠️  Could not run seeders"
+
 # Start LangGraph dev API (2024) - already has hot-reload built-in
+# Quiet LangGraph runtime queue stats by setting log level
+export LOG_LEVEL=WARNING
 uv run langgraph dev --host 0.0.0.0 --port 2024 &
 LG_PID=$!
 
 # Start your FastAPI websocket server (8000) with hot-reload
-uv run python -m uvicorn agent.server:app \
+uv run python -m uvicorn server:app \
   --host 0.0.0.0 \
   --port 8000 \
   --reload \

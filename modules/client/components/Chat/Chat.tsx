@@ -1,7 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useWs, ChatMsg } from "../../hooks/useWs";
 import styles from "./Chat.module.css";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Download, Briefcase, ChevronDown } from "lucide-react";
+import LeadPanel from "../LeadTracker/LeadPanel";
+import { usePanelConfig } from "../config";
+// import { extractAndSaveJobLeads } from "../../lib/job-lead-extractor";
+import { env } from "next-runtime-env";
 
 // ---------- User context (testing-only; no consent prompts) ----------
 
@@ -76,7 +80,7 @@ const getPositionOnce = (): Promise<GeolocationPosition | null> => {
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
   });
-}
+};
 
 const buildInitialContext = async (): Promise<UserContextV1> => {
   const ctx = await withOptionalBattery(baseContext());
@@ -108,7 +112,7 @@ const buildInitialContext = async (): Promise<UserContextV1> => {
   }
 
   return ctx;
-}
+};
 
 const baseContext = (): UserContextV1 => {
   const nav = navigator as any;
@@ -167,9 +171,11 @@ const baseContext = (): UserContextV1 => {
       session: supports.session(),
     },
   };
-}
+};
 
-const withOptionalBattery = async (ctx: UserContextV1): Promise<UserContextV1> => {
+const withOptionalBattery = async (
+  ctx: UserContextV1
+): Promise<UserContextV1> => {
   try {
     if ("getBattery" in navigator) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -181,7 +187,7 @@ const withOptionalBattery = async (ctx: UserContextV1): Promise<UserContextV1> =
     }
   } catch {}
   return ctx;
-}
+};
 
 // Turn bare URLs and [text](url) into clickable links; preserve newlines.
 export const renderWithLinks = (text: string): React.ReactNode[] => {
@@ -191,7 +197,7 @@ export const renderWithLinks = (text: string): React.ReactNode[] => {
 
   // Matches either [label](https://url) or bare https://url
   const LINK_RE = /(\[([^\]]+)\]\((https?:\/\/[^\s)]+)\))|(https?:\/\/[^\s]+)/g;
-  
+
   // Error message pattern
   const ERROR_MSG = "Sorry, there was an error generating the response.";
 
@@ -228,7 +234,7 @@ export const renderWithLinks = (text: string): React.ReactNode[] => {
 
   // Check if text contains error message
   const errorIndex = text.indexOf(ERROR_MSG);
-  
+
   // Process links normally (error message will be handled in trailing text)
   text.replace(LINK_RE, (match, _mdFull, mdLabel, mdUrl, bareUrl, offset) => {
     // preceding text
@@ -263,26 +269,28 @@ export const renderWithLinks = (text: string): React.ReactNode[] => {
   // Error message is in trailing text - split and style it
   const beforeError = trailingText.slice(0, errorIndex - last);
   const afterError = trailingText.slice(errorIndex - last + ERROR_MSG.length);
-  
+
   if (beforeError) pushText(beforeError);
   pushText(ERROR_MSG, true);
   if (afterError) pushText(afterError);
 
   return out;
-}
+};
 
 // ---------- Runtime configuration ----------
 
 const getWsUrl = () => {
-  if (typeof window === "undefined") return "ws://localhost:8000/ws";
-  if (window.location.hostname.includes("pinacolada.co"))
-    return "wss://api.pinacolada.co/ws";
-  return "ws://localhost:8000/ws";
+  const apiUrl = env("NEXT_PUBLIC_API_URL") || "http://localhost:8000";
+  return apiUrl.replace(/^http/, "ws") + "/ws";
 };
 
 const WS_URL = getWsUrl();
 
-const Chat = () => {
+type ChatProps = {
+  variant?: "page" | "embedded";
+};
+
+const Chat = ({ variant = "embedded" }: ChatProps) => {
   // Log the WebSocket URL on mount for debugging
   useEffect(() => {
     console.log("WebSocket URL:", WS_URL);
@@ -293,10 +301,14 @@ const Chat = () => {
   const [composing, setComposing] = useState(false);
   const [waitForWs, setWaitForWs] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [leadsPanelOpen, setLeadsPanelOpen] = useState(false);
+  const [leadsCount, setLeadsCount] = useState(0);
+  const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const sentCtxRef = useRef(false);
+  const toolsDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // --- Send rich user context as soon as WS opens (testing-only) ---
   useEffect(() => {
@@ -315,11 +327,31 @@ const Chat = () => {
     el.scrollTop = el.scrollHeight;
   }, [messages]);
 
-  // hide loader when the next assistant message arrives
+  // Close tools dropdown when clicking outside
   useEffect(() => {
-    if (!messages.length) return;
-    const last = messages[messages.length - 1];
-    if (last.user !== "User") setWaitForWs(false);
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        toolsDropdownRef.current &&
+        !toolsDropdownRef.current.contains(event.target as Node)
+      ) {
+        setToolsDropdownOpen(false);
+      }
+    };
+
+    if (toolsDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [toolsDropdownOpen]);
+
+  // Clear typing indicator when bot responds
+  useEffect(() => {
+    if (messages.length === 0) return;
+    const lastMsg = messages[messages.length - 1];
+    if (lastMsg.user === "PinaColada" && !lastMsg.streaming) {
+      setWaitForWs(false);
+    }
   }, [messages]);
 
   // autofocus textarea on mount
@@ -354,20 +386,95 @@ const Chat = () => {
     }
   };
 
+  const exportChat = () => {
+    if (!messages.length) return;
+
+    const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const content = messages
+      .map((msg) => {
+        const msgTimestamp = new Date().toISOString();
+        return `[${msgTimestamp}] ${msg.user}: ${msg.msg}`;
+      })
+      .join("\n\n");
+
+    const blob = new Blob([content], { type: "text/plain" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `pinacolada-chat-${timestamp}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div
-      className={`${styles.chatRoot} w-full max-w-5xl mx-auto min-h-[80svh] flex items-center px-4 py-6`}
+      className={`${styles.chatRoot} ${
+        variant === "page" ? styles.chatRootPage : ""
+      } w-full ${variant === "embedded" ? "max-w-5xl" : "max-w-4xl"} mx-auto min-h-[80svh] flex items-center ${variant === "embedded" ? "px-4 py-6" : ""}`}
     >
-      <section className={`${styles.shellCard} w-full`}>
+      <section
+        className={`${styles.shellCard} ${
+          variant === "page" ? styles.shellCardFlat : ""
+        } w-full`}
+      >
         {/* header */}
         <header className={styles.header}>
-          <div
-            className={`${styles.status} ${
-              isOpen ? styles.statusOnline : styles.statusOffline
-            }`}
-            title={isOpen ? "Connected" : "Disconnected"}
-          />
-          <b className={styles.title}>Chat</b>
+          <div className={styles.headerLeft}>
+            <div
+              className={`${styles.status} ${
+                isOpen ? styles.statusOnline : styles.statusOffline
+              }`}
+              title={isOpen ? "Connected" : "Disconnected"}
+            />
+            <b className={styles.title}>Chat</b>
+          </div>
+          <div className={styles.headerRight}>
+            <div className={styles.toolsDropdown} ref={toolsDropdownRef}>
+              <button
+                type="button"
+                className={styles.toolsButton}
+                onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}
+                title="Tools"
+              >
+                <span>Tools</span>
+                <ChevronDown
+                  size={16}
+                  className={toolsDropdownOpen ? styles.chevronOpen : ""}
+                />
+              </button>
+              {toolsDropdownOpen && (
+                <div className={styles.toolsMenu}>
+                  <div className="px-4 py-3 text-sm text-zinc-500 italic">
+                    Big things coming!
+                  </div>
+                  {/* <button
+                    type="button"
+                    className={styles.toolsMenuItem}
+                    onClick={() => {
+                      setLeadsPanelOpen(true);
+                      setToolsDropdownOpen(false);
+                    }}
+                    title="View job leads"
+                  >
+                    <Briefcase size={16} />
+                    <span>Leads</span>
+                    {leadsCount > 0 && (
+                      <span className={styles.leadsBadge}>{leadsCount}</span>
+                    )}
+                  </button> */}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              className={styles.exportButton}
+              onClick={exportChat}
+              disabled={!messages.length}
+              title="Export chat to .txt file"
+            >
+              <Download size={16} />
+            </button>
+          </div>
         </header>
 
         {/* dark "terminal" panel */}
@@ -398,15 +505,6 @@ const Chat = () => {
                         isUser ? styles.bubbleUser : styles.bubbleBot
                       }`}
                     >
-                      <div
-                        className={`${styles.bubbleAuthor} ${
-                          isUser
-                            ? styles.bubbleAuthorRight
-                            : styles.bubbleAuthorLeft
-                        }`}
-                      >
-                        <strong>{m.user}</strong>
-                      </div>
                       <div className={styles.bubbleText}>
                         {renderWithLinks(m.msg.trim())}
                       </div>
@@ -441,22 +539,16 @@ const Chat = () => {
                 </div>
               );
             })}
-            {/* Typing indicator (shows while waiting for next WS assistant message) */}
-            {waitForWs && (
-              <div className={styles.typingRow}>
-                <div className={styles.typingBubble}>
-                  <span className={styles.typingDots}>
-                    <span className={styles.dot} />
-                    <span className={styles.dot} />
-                    <span className={styles.dot} />
-                  </span>
-                </div>
-              </div>
-            )}
           </section>
 
           {/* input */}
           <form className={styles.inputForm} onSubmit={onSubmit}>
+            {/* Typing indicator above input */}
+            {waitForWs && (
+              <div className={styles.thinkingIndicator}>
+                <span className={styles.thinkingText}>thinking</span>
+              </div>
+            )}
             <textarea
               ref={inputRef}
               value={input}
@@ -488,6 +580,17 @@ const Chat = () => {
           </form>
         </main>
       </section>
+
+      {/* Job Leads Panel */}
+      <LeadPanel
+        isOpen={leadsPanelOpen}
+        onClose={() => setLeadsPanelOpen(false)}
+        onLeadsChange={() => {
+          // Reset leads count when panel changes
+          setLeadsCount(0);
+        }}
+        config={usePanelConfig("job")}
+      />
     </div>
   );
 };

@@ -23,14 +23,19 @@ def check_local_postgres():
     """Check migration status by checking if tables exist."""
     try:
         import psycopg2
-        
-        # Check for local Postgres connection
-        postgres_host = os.getenv("POSTGRES_HOST", "postgres")
-        postgres_port = int(os.getenv("POSTGRES_PORT", "5432"))
-        postgres_user = os.getenv("POSTGRES_USER", "postgres")
-        postgres_password = os.getenv("POSTGRES_PASSWORD", "postgres")
-        postgres_db = os.getenv("POSTGRES_DB", "pina_colada")
-        
+        import time
+    except ImportError:
+        return None
+    
+    postgres_host = os.getenv("POSTGRES_HOST")
+    postgres_port = int(os.getenv("POSTGRES_PORT"))
+    postgres_user = os.getenv("POSTGRES_USER")
+    postgres_password = os.getenv("POSTGRES_PASSWORD")
+    postgres_db = os.getenv("POSTGRES_DB")
+    
+    # Retry connection up to 3 times with 2 second delays
+    max_retries = 3
+    for attempt in range(max_retries):
         try:
             conn = psycopg2.connect(
                 host=postgres_host,
@@ -42,7 +47,6 @@ def check_local_postgres():
             )
             cursor = conn.cursor()
             
-            # Check if Job table exists (main table from migrations)
             cursor.execute("""
                 SELECT EXISTS (
                     SELECT FROM information_schema.tables 
@@ -57,25 +61,27 @@ def check_local_postgres():
             
             return {"type": "local_postgres", "migrations_applied": table_exists}
         except psycopg2.OperationalError:
-            # Can't connect to Postgres
+            if attempt < max_retries - 1:
+                time.sleep(2)
+                continue
             return None
-    except ImportError:
-        return None
-    except Exception:
-        return None
+        except Exception:
+            return None
+    
+    return None
 
 
 def get_migration_files():
     """Get list of migration files."""
     # Try Docker path first
-    docker_migrations_dir = Path("/app/supabase_migrations")
+    docker_migrations_dir = Path("/app/migrations")
     if docker_migrations_dir.exists():
         migrations_dir = docker_migrations_dir
     else:
-        # Local development path - migrations are in modules/agent/supabase_migrations/
+        # Local development path - migrations are in modules/agent/migrations/
         script_dir = Path(__file__).parent
         agent_dir = script_dir.parent
-        migrations_dir = agent_dir / "supabase_migrations"
+        migrations_dir = agent_dir / "migrations"
     
     if not migrations_dir.exists():
         return []

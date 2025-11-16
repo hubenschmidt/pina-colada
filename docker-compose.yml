@@ -16,7 +16,7 @@ services:
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: pina_colada
+      POSTGRES_DB: ${COMPOSE_PROJECT_NAME:-pina_colada}
     depends_on:
       postgres:
         condition: service_healthy
@@ -42,7 +42,7 @@ services:
       # Mount source code with consistency mode for better performance
       - ./modules/agent:/app:delegated
       # Mount migrations directory
-      - ./modules/agent/supabase_migrations:/app/supabase_migrations:ro
+      - ./modules/agent/migrations:/app/migrations:ro
       # Exclude these from the mount to avoid conflicts
       - /app/__pycache__
       - /app/.pytest_cache
@@ -214,8 +214,8 @@ services:
       - langfuse_postgres_data:/var/lib/postgresql/data
       - ./docker/postgres-init:/docker-entrypoint-initdb.d:ro
     # This Postgres instance hosts multiple databases:
-    # - ${COMPOSE_PROJECT_NAME:-postgres} - Used by Langfuse (created via POSTGRES_DB)
-    # - pina_colada - Used by agent/client (created via init script)
+    # - ${COMPOSE_PROJECT_NAME:-pina_colada} - Used by agent/client (created via POSTGRES_DB)
+    # - langfuse - Used by Langfuse (created via init script)
     # No collision: Each database is isolated, same Postgres instance
 
 volumes:

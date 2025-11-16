@@ -12,9 +12,11 @@
     "generate-types:local": "supabase gen types typescript --local --schema public > lib/database.types.ts"
   },
   "dependencies": {
+    "@auth0/nextjs-auth0": "^4.6.0",
     "@mantine/core": "^7.17.8",
     "@mantine/hooks": "^7.17.8",
     "@supabase/supabase-js": "^2.39.0",
+    "axios": "^1.7.9",
     "lucide-react": "^0.546.0",
     "next": "15.5.5",
     "next-runtime-env": "^3.3.0",

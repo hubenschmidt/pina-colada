@@ -44,6 +44,18 @@ const applyEndOfTurn = (prev: ChatMsg[]): ChatMsg[] => {
   return next;
 };
 
+/** Handle new response start - close current bubble if streaming */
+const applyStartOfTurn = (prev: ChatMsg[]): ChatMsg[] => {
+  const last = prev.at(-1);
+  // If there's an active streaming bubble, close it before starting new one
+  if (last && last.user === "PinaColada" && last.streaming) {
+    const next = prev.slice();
+    next[next.length - 1] = { ...last, streaming: false };
+    return next;
+  }
+  return prev;
+};
+
 export const useWs = (url: string): UseWebSocketReturn => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([
@@ -61,13 +73,18 @@ export const useWs = (url: string): UseWebSocketReturn => {
     wsRef.current = socket;
 
     socket.onopen = () => {
+      // Restore wsRef in case it was cleared by a premature close
+      wsRef.current = socket;
       setIsOpen(true);
       socket.send(JSON.stringify({ uuid, init: true }));
     };
 
     socket.onclose = () => {
       setIsOpen(false);
-      wsRef.current = null;
+      // Only clear the ref if this is the current socket
+      if (wsRef.current === socket) {
+        wsRef.current = null;
+      }
     };
 
     socket.onerror = () => setIsOpen(false);
@@ -89,6 +106,12 @@ export const useWs = (url: string): UseWebSocketReturn => {
 
       if (parsed === null || typeof parsed !== "object") return;
       const obj = parsed as Record<string, unknown>;
+
+      // Start of new assistant turn (close current bubble if streaming)
+      if (obj.on_chat_model_start === true) {
+        setMessages((prev) => applyStartOfTurn(prev));
+        return;
+      }
 
       // Streaming chunk
       const chunk = obj.on_chat_model_stream;
