@@ -6,6 +6,7 @@ from lib.auth import require_auth
 from lib.error_logging import log_errors
 from controllers.job_controller import (
     get_leads,
+    get_statuses,
     mark_lead_as_applied,
     mark_lead_as_do_not_apply
 )
@@ -19,6 +20,14 @@ router = APIRouter(prefix="/leads", tags=["leads"])
 async def get_leads_route(request: Request, statuses: Optional[str] = Query(None)):
     """Get all job leads, optionally filtered by status names."""
     return await get_leads(statuses)
+
+
+@router.get("/statuses")
+@log_errors
+@require_auth
+async def get_lead_statuses_route(request: Request):
+    """Get all lead statuses."""
+    return await get_statuses()
 
 
 @router.post("/{job_id}/apply")
