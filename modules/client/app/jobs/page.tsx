@@ -1,20 +1,21 @@
-"use client"
+"use client";
 
-import { useUser } from '@auth0/nextjs-auth0/client'
-import LeadTracker from '../../components/LeadTracker/LeadTracker'
-import { useLeadConfig } from '../../components/config'
-import { LogOut, Loader } from 'lucide-react'
+import { useUser } from "@auth0/nextjs-auth0/client";
+// import LeadTracker from '../../components/LeadTracker/LeadTracker' # disable for now but keep this here
+import { JobTracker } from "../../components/JobTracker/JobTracker";
+import { useLeadConfig } from "../../components/config";
+import { LogOut, Loader } from "lucide-react";
 
 const JobsPage = () => {
-  const { user, isLoading } = useUser()
-  const jobConfig = useLeadConfig("job")
+  const { user, isLoading } = useUser();
+  const jobConfig = useLeadConfig("job");
 
   if (isLoading) {
     return (
       <div className="min-h-screen bg-blue-50 flex items-center justify-center">
         <Loader size={48} className="text-blue-600 animate-spin" />
       </div>
-    )
+    );
   }
 
   // Middleware should redirect to /login if not authenticated
@@ -24,9 +25,10 @@ const JobsPage = () => {
       <div className="min-h-screen bg-blue-50 flex items-center justify-center">
         <p className="text-zinc-600">Redirecting to login...</p>
       </div>
-    )
+    );
   }
 
+  // disable LeadTracker but do not delete it
   return (
     <main className="min-h-screen bg-blue-50 py-8 px-4">
       <div className="max-w-6xl mx-auto">
@@ -39,10 +41,11 @@ const JobsPage = () => {
             Logout
           </a>
         </div>
-        <LeadTracker config={jobConfig} />
+        <JobTracker />
+        {/* <LeadTracker config={jobConfig} /> */}
       </div>
     </main>
-  )
-}
+  );
+};
 
-export default JobsPage
+export default JobsPage;
