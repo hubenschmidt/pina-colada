@@ -553,6 +553,18 @@ BEGIN
 END $$;
 
 -- ==============================
+-- Return counts for seeder verification
+-- ==============================
+SELECT
+  (SELECT COUNT(*) FROM "Organization") as organizations,
+  (SELECT COUNT(*) FROM "Individual") as individuals,
+  (SELECT COUNT(*) FROM "Contact") as contacts,
+  (SELECT COUNT(*) FROM "Deal") as deals,
+  (SELECT COUNT(*) FROM "Lead" WHERE type IN ('Opportunity', 'Partnership')) as leads,
+  (SELECT COUNT(*) FROM "Task") as tasks,
+  (SELECT COUNT(*) FROM "Activity") as activities;
+
+-- ==============================
 -- Verification Queries (commented out)
 -- ==============================
 -- Uncomment to verify seed data:

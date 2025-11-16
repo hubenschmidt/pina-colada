@@ -169,9 +169,33 @@ def run_seeders():
             print(f"\n🌱 Running seeder: {seeder_file.name}")
             sql_content = seeder_file.read_text()
             cursor.execute(sql_content)
+
+            # Try to fetch results if the seeder returns data
             rows_affected = cursor.rowcount
+            result_summary = None
+            try:
+                if cursor.description:  # Check if there are results
+                    results = cursor.fetchall()
+                    if results:
+                        # Format results nicely
+                        if len(results) == 1 and len(results[0]) == 1:
+                            # Single value (e.g., COUNT(*))
+                            result_summary = f"{results[0][0]} rows"
+                        else:
+                            # Multiple columns - show summary
+                            result_summary = ", ".join(
+                                f"{cursor.description[i][0]}: {val}"
+                                for i, val in enumerate(results[0])
+                            )
+            except:
+                pass
+
             _record_seeder(cursor, conn, seeder_file.name)
-            print(f"✓ Seeder {seeder_file.name} completed ({rows_affected} rows affected)")
+
+            if result_summary:
+                print(f"✓ Seeder {seeder_file.name} completed ({result_summary})")
+            else:
+                print(f"✓ Seeder {seeder_file.name} completed ({rows_affected} rows affected)")
 
         cursor.close()
         conn.close()

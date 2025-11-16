@@ -188,5 +188,18 @@ BEGIN
     );
   END IF;
 
-  RAISE NOTICE '✓ Sample job applications seeded successfully (5 jobs created)';
+  RAISE NOTICE '✓ Sample job applications seeded successfully';
 END $$;
+
+-- Return count of jobs created
+SELECT COUNT(*) as jobs_seeded FROM "Job"
+WHERE organization_id IN (
+  SELECT id FROM "Organization"
+  WHERE LOWER(name) IN (
+    LOWER('Acme Corp'),
+    LOWER('TechStartup Inc'),
+    LOWER('DataSystems Ltd'),
+    LOWER('CloudWorks'),
+    LOWER('AI Innovations')
+  )
+);
