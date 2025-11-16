@@ -222,6 +222,234 @@ def _matches_job(job, company: str, job_title: str) -> bool:
     return job_title_lower in db_title_lower or db_title_lower in job_title_lower
 
 
+def get_jobs_paginated(
+    page: int,
+    limit: int,
+    order_by: str,
+    order: str,
+    search: Optional[str] = None
+) -> tuple[List[Any], int]:
+    """Get all jobs with search, sorting, and pagination logic.
+
+    Args:
+        page: Page number
+        limit: Items per page
+        order_by: Field to sort by
+        order: Sort direction (ASC/DESC)
+        search: Optional search query
+
+    Returns:
+        Tuple of (paginated_jobs, total_count)
+    """
+    from repositories.job_repository import find_all_jobs as find_all_jobs_repo
+
+    # Get all jobs
+    all_jobs = find_all_jobs_repo()
+
+    # Apply search filter if provided
+    if search and search.strip():
+        search_lower = search.strip().lower()
+        all_jobs = [
+            job
+            for job in all_jobs
+            if (job.organization and search_lower in job.organization.name.lower())
+            or (job.job_title and search_lower in job.job_title.lower())
+        ]
+
+    total_count = len(all_jobs)
+
+    # Sorting
+    reverse = order.upper() == "DESC"
+    sort_functions = {
+        "application_date": lambda j: j.lead.created_at if j.lead else "",
+        "date": lambda j: j.lead.created_at if j.lead else "",
+        "company": lambda j: (j.organization.name if j.organization else "").lower(),
+        "status": lambda j: (
+            j.lead.current_status.name if (j.lead and j.lead.current_status) else ""
+        ),
+        "job_title": lambda j: (j.job_title or "").lower(),
+        "resume": lambda j: j.resume_date or "",
+    }
+
+    sort_fn = sort_functions.get(order_by)
+    if sort_fn:
+        all_jobs.sort(key=sort_fn, reverse=reverse)
+
+    # Paginate
+    offset = (page - 1) * limit
+    start = offset
+    end = start + limit
+    paginated_jobs = all_jobs[start:end]
+
+    return paginated_jobs, total_count
+
+
+def create_job(job_data: Dict[str, Any]) -> Any:
+    """Create a new job.
+
+    Handles:
+    - Organization lookup/creation
+    - Date parsing
+    - Field validation
+    - Repository creation
+
+    Args:
+        job_data: Dictionary of job fields
+
+    Returns:
+        Created Job ORM object
+
+    Raises:
+        HTTPException: If required fields are missing
+    """
+    from repositories.job_repository import create_job as create_job_repo
+    from repositories.organization_repository import get_or_create_organization
+    from datetime import datetime
+    from fastapi import HTTPException
+
+    # Get or create organization
+    organization_name = job_data.get("company") or job_data.get("organization_name")
+    if not organization_name:
+        raise HTTPException(
+            status_code=400, detail="company or organization_name is required"
+        )
+
+    org = get_or_create_organization(organization_name)
+
+    # Parse resume date
+    resume_str = job_data.get("resume")
+    resume_obj = None
+    if resume_str:
+        try:
+            resume_obj = datetime.fromisoformat(resume_str.replace('Z', '+00:00'))
+        except (ValueError, TypeError):
+            pass
+
+    data: Dict[str, Any] = {
+        "organization_id": org.id,
+        "job_title": job_data.get("job_title", ""),
+        "job_url": job_data.get("job_url"),
+        "salary_range": job_data.get("salary_range"),
+        "notes": job_data.get("notes"),
+        "resume_date": resume_obj,
+        "status": job_data.get("status", "applied"),
+        "source": job_data.get("source", "manual"),
+    }
+
+    created = create_job_repo(data)
+    _clear_cache()
+    return created
+
+
+def get_job(job_id: str) -> Any:
+    """Get a job by ID.
+
+    Args:
+        job_id: Job ID (string from route)
+
+    Returns:
+        Job ORM object
+
+    Raises:
+        HTTPException: If job_id is invalid or job not found
+    """
+    from repositories.job_repository import find_job_by_id
+    from fastapi import HTTPException
+
+    try:
+        job_id_int = int(job_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid job ID format")
+
+    job = find_job_by_id(job_id_int)
+
+    if not job:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    return job
+
+
+def delete_job(job_id: str) -> bool:
+    """Delete a job by ID.
+
+    Args:
+        job_id: Job ID (string from route)
+
+    Returns:
+        True if deleted
+
+    Raises:
+        HTTPException: If job_id is invalid or job not found
+    """
+    from repositories.job_repository import delete_job as delete_job_repo
+    from fastapi import HTTPException
+
+    try:
+        job_id_int = int(job_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid job ID format")
+
+    deleted = delete_job_repo(job_id_int)
+
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    _clear_cache()
+    return deleted
+
+
+def get_statuses() -> List[Any]:
+    """Get all job statuses.
+
+    Returns:
+        List of Status ORM objects
+    """
+    from repositories.job_repository import find_all_statuses
+    return find_all_statuses()
+
+
+def get_jobs_with_status(status_names: Optional[List[str]] = None) -> List[Any]:
+    """Get jobs filtered by status names.
+
+    Args:
+        status_names: Optional list of status names to filter by
+
+    Returns:
+        List of Job ORM objects
+    """
+    from repositories.job_repository import find_jobs_with_status
+    return find_jobs_with_status(status_names)
+
+
+def get_recent_resume_date() -> Optional[str]:
+    """Get the most recent resume date from all jobs.
+
+    Returns:
+        Resume date string (YYYY-MM-DD) or None
+    """
+    from repositories.job_repository import find_all_jobs as find_all_jobs_repo
+    from datetime import datetime
+
+    all_jobs = find_all_jobs_repo()
+
+    # Filter jobs with resume dates and sort by Lead created_at DESC
+    jobs_with_resume = [job for job in all_jobs if job.resume_date]
+    if not jobs_with_resume:
+        return None
+
+    # Sort by Lead created_at (application date) DESC to get most recent application
+    jobs_with_resume.sort(
+        key=lambda j: j.lead.created_at if j.lead else datetime.min, reverse=True
+    )
+
+    # Get the resume date from the most recently applied job
+    most_recent_job = jobs_with_resume[0]
+    if most_recent_job.resume_date:
+        return most_recent_job.resume_date.isoformat().split("T")[0]
+
+    return None
+
+
 def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
     """Update a job with the provided data.
 
