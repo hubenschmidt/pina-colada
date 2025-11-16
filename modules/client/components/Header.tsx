@@ -38,97 +38,100 @@ const Header = () => {
             </Link>
           )}
         </div>
-        {/* Hide on mobile (portrait and landscape), show on tablets+ */}
-        <nav className="hidden sm:flex [@media(max-height:500px)]:!hidden items-center gap-6 text-sm text-zinc-600 font-semibold">
-          {!user && !isTenantSelectPage && (
-            <>
-              <Link
-                href="/#agent"
-                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
-                onClick={() =>
-                  dispatchNav({ type: "SET_AGENT_OPEN", payload: true })
-                }
-              >
-                Chat with us
-              </Link>
-              <Link
-                href="/about"
-                className="text-blue-700 hover:text-blue-500"
-                onClick={() =>
-                  dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                }
-              >
-                About
-              </Link>
-              <Link
-                href="/#services"
-                className="text-blue-700 hover:text-blue-500"
-                onClick={() =>
-                  dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                }
-              >
-                Software Development
-              </Link>
-              <Link
-                href="/#ai"
-                className="text-blue-700 hover:text-blue-500"
-                onClick={() =>
-                  dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                }
-              >
-                AI
-              </Link>
-              <Link
-                href="/#approach"
-                className="text-blue-700 hover:text-blue-500"
-                onClick={() =>
-                  dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                }
-              >
-                Approach
-              </Link>
-              <Link
-                href="/#portfolio"
-                className="text-blue-700 hover:text-blue-500"
-                onClick={() =>
-                  dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                }
-              >
-                Portfolio
-              </Link>
-              <Link
-                href="/#contact"
-                className="text-blue-700 hover:text-blue-500"
-                onClick={() =>
-                  dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                }
-              >
-                Contact
-              </Link>
-              <Link
-                href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
-                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
-                onClick={() =>
-                  dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                }
-              >
-                Start a project
-              </Link>
-            </>
-          )}
+        <div className="flex items-center gap-4">
+          {/* Hide on mobile (portrait and landscape), show on tablets+ */}
+          <nav className="hidden sm:flex [@media(max-height:500px)]:!hidden items-center gap-6 text-sm text-zinc-600 font-semibold">
+            {!user && !isTenantSelectPage && (
+              <>
+                <Link
+                  href="/#agent"
+                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
+                  onClick={() =>
+                    dispatchNav({ type: "SET_AGENT_OPEN", payload: true })
+                  }
+                >
+                  Chat with us
+                </Link>
+                <Link
+                  href="/about"
+                  className="text-blue-700 hover:text-blue-500"
+                  onClick={() =>
+                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
+                  }
+                >
+                  About
+                </Link>
+                <Link
+                  href="/#services"
+                  className="text-blue-700 hover:text-blue-500"
+                  onClick={() =>
+                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
+                  }
+                >
+                  Software Development
+                </Link>
+                <Link
+                  href="/#ai"
+                  className="text-blue-700 hover:text-blue-500"
+                  onClick={() =>
+                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
+                  }
+                >
+                  AI
+                </Link>
+                <Link
+                  href="/#approach"
+                  className="text-blue-700 hover:text-blue-500"
+                  onClick={() =>
+                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
+                  }
+                >
+                  Approach
+                </Link>
+                <Link
+                  href="/#portfolio"
+                  className="text-blue-700 hover:text-blue-500"
+                  onClick={() =>
+                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
+                  }
+                >
+                  Portfolio
+                </Link>
+                <Link
+                  href="/#contact"
+                  className="text-blue-700 hover:text-blue-500"
+                  onClick={() =>
+                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
+                  }
+                >
+                  Contact
+                </Link>
+                <Link
+                  href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
+                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
+                  onClick={() =>
+                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
+                  }
+                >
+                  Start a project
+                </Link>
+              </>
+            )}
+          </nav>
+          {/* Login/Logout - Always visible */}
           {user ? (
             <a
               href="/auth/logout"
-              className="text-blue-700 hover:text-blue-500"
+              className="text-blue-700 hover:text-blue-500 text-sm font-semibold"
             >
               Logout
             </a>
           ) : (
-            <Link href="/login" className="text-blue-700 hover:text-blue-500">
+            <Link href="/login" className="text-blue-700 hover:text-blue-500 text-sm font-semibold">
               Login
             </Link>
           )}
-        </nav>
+        </div>
       </div>
     </header>
   );

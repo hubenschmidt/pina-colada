@@ -14,7 +14,7 @@ from controllers.job_controller import (
     get_recent_resume_date,
 )
 
-router = APIRouter(prefix="/api/jobs", tags=["jobs"])
+router = APIRouter(prefix="/jobs", tags=["jobs"])
 
 
 def _make_job_create_model() -> Type[BaseModel]:

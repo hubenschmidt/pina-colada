@@ -8,7 +8,7 @@ from lib.error_logging import log_errors
 from services.auth_service import get_user_tenants, create_tenant_for_user
 from lib.serialization import model_to_dict
 
-router = APIRouter(prefix="/api/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 class TenantCreate(BaseModel):

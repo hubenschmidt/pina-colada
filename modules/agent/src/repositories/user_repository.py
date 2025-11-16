@@ -39,6 +39,16 @@ def create_user(data: Dict[str, Any]) -> User:
         session.close()
 
 
+def find_user_by_email(email: str) -> Optional[User]:
+    """Find user by email."""
+    session = get_session()
+    try:
+        stmt = select(User).where(User.email == email)
+        return session.execute(stmt).scalar_one_or_none()
+    finally:
+        session.close()
+
+
 def update_user(user_id: int, data: Dict[str, Any]) -> Optional[User]:
     """Update user by ID."""
     session = get_session()

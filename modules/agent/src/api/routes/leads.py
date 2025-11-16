@@ -10,7 +10,7 @@ from controllers.job_controller import (
     mark_lead_as_do_not_apply
 )
 
-router = APIRouter(prefix="/api/leads", tags=["leads"])
+router = APIRouter(prefix="/leads", tags=["leads"])
 
 
 @router.get("/")

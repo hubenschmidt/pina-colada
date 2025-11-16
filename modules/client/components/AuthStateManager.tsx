@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../context/userContext";
 import { SET_USER, SET_TENANT_NAME, SET_AUTHED } from "../reducers/userReducer";
-import { get_me } from "../api";
+import { getMe } from "../api";
 
 /**
  * Manages authentication state by syncing Auth0 session with backend user data
@@ -24,7 +24,7 @@ export const AuthStateManager = () => {
         // Only fetch if we don't already have user data
         if (!userState.isAuthed) {
           try {
-            const response = await get_me();
+            const response = await getMe();
 
             dispatchUser({
               type: SET_USER,

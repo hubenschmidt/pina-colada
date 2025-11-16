@@ -75,7 +75,7 @@ export const getJobs = async (
   if (search && search.trim()) {
     params.append("search", search.trim());
   }
-  return apiGet<PageData<CreatedJob>>(`/api/jobs?${params}`);
+  return apiGet<PageData<CreatedJob>>(`/jobs?${params}`);
 };
 
 const sanitize = (data: any): any => {
@@ -85,29 +85,31 @@ const sanitize = (data: any): any => {
   return sanitized;
 };
 
-export const createJob = async (job: Partial<CreatedJob>): Promise<CreatedJob> => {
-  return apiPost<CreatedJob>("/api/jobs", sanitize(job));
+export const createJob = async (
+  job: Partial<CreatedJob>
+): Promise<CreatedJob> => {
+  return apiPost<CreatedJob>("/jobs", sanitize(job));
 };
 
-export const get_job = async (id: string): Promise<CreatedJob> => {
-  return apiGet<CreatedJob>(`/api/jobs/${id}`);
+export const getJob = async (id: string): Promise<CreatedJob> => {
+  return apiGet<CreatedJob>(`/jobs/${id}`);
 };
 
 export const updateJob = async (
   id: string,
   job: Partial<CreatedJob>
 ): Promise<CreatedJob> => {
-  return apiPut<CreatedJob>(`/api/jobs/${id}`, sanitize(job));
+  return apiPut<CreatedJob>(`/jobs/${id}`, sanitize(job));
 };
 
 export const deleteJob = async (id: string): Promise<void> => {
-  await apiDelete(`/api/jobs/${id}`);
+  await apiDelete(`/jobs/${id}`);
 };
 
-export const get_recent_resume_date = async (): Promise<string | null> => {
+export const getRecentResumeDate = async (): Promise<string | null> => {
   try {
     const data = await apiGet<{ resume_date?: string }>(
-      "/api/jobs/recent-resume-date"
+      "/jobs/recent-resume-date"
     );
     return data.resume_date || null;
   } catch {
@@ -130,42 +132,40 @@ export type JobWithLeadStatus = CreatedJob & {
 /**
  * Fetch all lead statuses from the database
  */
-export const get_statuses = async (): Promise<LeadStatus[]> => {
-  return apiGet<LeadStatus[]>("/api/lead-statuses");
+export const getStatuses = async (): Promise<LeadStatus[]> => {
+  return apiGet<LeadStatus[]>("/lead-statuses");
 };
 
 /**
  * Fetch all job leads (jobs with non-null lead_status_id)
  * Optionally filter by lead status names
  */
-export const get_leads = async (
+export const getLeads = async (
   statusNames?: ("Qualifying" | "Cold" | "Warm" | "Hot")[]
 ): Promise<JobWithLeadStatus[]> => {
   const params = new URLSearchParams();
   if (statusNames && statusNames.length > 0) {
     params.append("statuses", statusNames.join(","));
   }
-  return apiGet<JobWithLeadStatus[]>(`/api/leads?${params}`);
+  return apiGet<JobWithLeadStatus[]>(`/leads?${params}`);
 };
 
 /**
  * Mark a lead as applied
  * Sets status to 'applied', clears lead_status_id, and sets date to now if not set
  */
-export const mark_lead_as_applied = async (
-  jobId: string
-): Promise<CreatedJob> => {
-  return apiPost<CreatedJob>(`/api/leads/${jobId}/apply`, {});
+export const markLeadAsApplied = async (jobId: string): Promise<CreatedJob> => {
+  return apiPost<CreatedJob>(`/leads/${jobId}/apply`, {});
 };
 
 /**
  * Mark a lead as "do not apply"
  * Sets status to 'do_not_apply' and clears lead_status_id
  */
-export const mark_lead_as_do_not_apply = async (
+export const markLeadAsDoNotApply = async (
   jobId: string
 ): Promise<CreatedJob> => {
-  return apiPost<CreatedJob>(`/api/leads/${jobId}/do-not-apply`, {});
+  return apiPost<CreatedJob>(`/leads/${jobId}/do-not-apply`, {});
 };
 
 // Tenant Types
@@ -193,11 +193,29 @@ export type UserMeResponse = {
   current_tenant_id: number | null;
 };
 
+export type TenantResponse = {
+  id: number;
+  name: string;
+  created_at: string;
+};
+
 /**
  * Get current authenticated user
  */
-export const get_me = async (): Promise<UserMeResponse> => {
-  return apiGet<UserMeResponse>("/api/auth/me");
+export const getMe = async (): Promise<UserMeResponse> => {
+  return apiGet<UserMeResponse>("/auth/me");
+};
+
+/**
+ * Check if user has an associated tenant
+ * Calls backend directly with user email
+ * Returns tenant object if found, throws 404 error if not
+ */
+export const checkUserTenant = async (user: { email?: string | null }): Promise<TenantResponse> => {
+  if (!user.email) {
+    throw new Error("User email is required");
+  }
+  return apiGet<TenantResponse>(`/users/${encodeURIComponent(user.email)}/tenant`);
 };
 
 /**
@@ -207,7 +225,7 @@ export const createTenant = async (
   name: string,
   plan: string = "free"
 ): Promise<Tenant> => {
-  const data = await apiPost<{ tenant: Tenant }>("/api/auth/tenant/create", {
+  const data = await apiPost<{ tenant: Tenant }>("/auth/tenant/create", {
     name,
     plan,
   });

@@ -1,6 +1,6 @@
 import { CreatedJob } from "../../types/types";
 import { LeadFormConfig } from "../LeadTracker/LeadFormConfig";
-import { get_recent_resume_date } from "../../api";
+import { getRecentResumeDate } from "../../api";
 
 type LeadType = "job";
 
@@ -45,7 +45,7 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
       type: "custom",
       onInit: async () => {
         try {
-          const resumeDate = await get_recent_resume_date();
+          const resumeDate = await getRecentResumeDate();
           return resumeDate || "";
         } catch (error) {
           console.error("Failed to fetch recent resume date:", error);
@@ -67,7 +67,7 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
               onChange={async (e) => {
                 if (e.target.checked) {
                   try {
-                    const resumeDate = await get_recent_resume_date();
+                    const resumeDate = await getRecentResumeDate();
                     onChange(resumeDate || "");
                   } catch (error) {
                     console.error("Failed to fetch recent resume date:", error);

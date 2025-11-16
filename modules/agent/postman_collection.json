@@ -114,9 +114,9 @@
               "raw": "{\n  \"name\": \"My Organization\",\n  \"slug\": \"my-org\",\n  \"plan\": \"free\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/auth/tenant/create",
+              "raw": "{{base_url}}/auth/tenant/create",
               "host": ["{{base_url}}"],
-              "path": ["api", "auth", "tenant", "create"]
+              "path": ["auth", "tenant", "create"]
             },
             "description": "Create a new tenant/organization. Requires authentication. Creates tenant, assigns owner role to current user."
           },
@@ -138,9 +138,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/auth/me",
+              "raw": "{{base_url}}/auth/me",
               "host": ["{{base_url}}"],
-              "path": ["api", "auth", "me"]
+              "path": ["auth", "me"]
             },
             "description": "Get current authenticated user with tenant associations"
           },
@@ -167,9 +167,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/jobs?page=1&limit=25&orderBy=date&order=DESC&search=",
+              "raw": "{{base_url}}/jobs?page=1&limit=25&orderBy=date&order=DESC&search=",
               "host": ["{{base_url}}"],
-              "path": ["api", "jobs"],
+              "path": ["jobs"],
               "query": [
                 {
                   "key": "page",
@@ -228,9 +228,9 @@
               "raw": "{\n  \"company\": \"Example Company\",\n  \"job_title\": \"Software Engineer\",\n  \"date\": \"2024-01-15T00:00:00Z\",\n  \"job_url\": \"https://example.com/job\",\n  \"salary_range\": \"$100k-$150k\",\n  \"notes\": \"Great opportunity\",\n  \"resume\": \"resume_v1.pdf\",\n  \"status\": \"applied\",\n  \"source\": \"manual\"\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/jobs",
+              "raw": "{{base_url}}/jobs",
               "host": ["{{base_url}}"],
-              "path": ["api", "jobs"]
+              "path": ["jobs"]
             },
             "description": "Create a new job. Required: company, job_title. Optional: date, job_url, salary_range, notes, resume, status (default: 'applied'), source (default: 'manual')"
           },
@@ -252,9 +252,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/jobs/:job_id",
+              "raw": "{{base_url}}/jobs/:job_id",
               "host": ["{{base_url}}"],
-              "path": ["api", "jobs", ":job_id"],
+              "path": ["jobs", ":job_id"],
               "variable": [
                 {
                   "key": "job_id",
@@ -292,9 +292,9 @@
               "raw": "{\n  \"company\": \"Updated Company\",\n  \"job_title\": \"Senior Software Engineer\",\n  \"status\": \"interviewing\",\n  \"lead_status_id\": null\n}"
             },
             "url": {
-              "raw": "{{base_url}}/api/jobs/:job_id",
+              "raw": "{{base_url}}/jobs/:job_id",
               "host": ["{{base_url}}"],
-              "path": ["api", "jobs", ":job_id"],
+              "path": ["jobs", ":job_id"],
               "variable": [
                 {
                   "key": "job_id",
@@ -323,9 +323,9 @@
             "method": "DELETE",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/jobs/:job_id",
+              "raw": "{{base_url}}/jobs/:job_id",
               "host": ["{{base_url}}"],
-              "path": ["api", "jobs", ":job_id"],
+              "path": ["jobs", ":job_id"],
               "variable": [
                 {
                   "key": "job_id",
@@ -359,11 +359,37 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/lead-statuses",
+              "raw": "{{base_url}}/lead-statuses",
               "host": ["{{base_url}}"],
-              "path": ["api", "lead-statuses"]
+              "path": ["lead-statuses"]
             },
             "description": "Get all available lead statuses (Qualifying, Cold, Warm, Hot)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Get User Tenant",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/users/:email/tenant",
+              "host": ["{{base_url}}"],
+              "path": ["users", ":email", "tenant"],
+              "variable": [
+                {
+                  "key": "email",
+                  "value": "user@example.com",
+                  "description": "User email address"
+                }
+              ]
+            },
+            "description": "Check if a user has an associated tenant. Returns tenant info if found, 404 if not."
           },
           "response": []
         }
@@ -388,9 +414,9 @@
             "method": "GET",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/leads?statuses=",
+              "raw": "{{base_url}}/leads?statuses=",
               "host": ["{{base_url}}"],
-              "path": ["api", "leads"],
+              "path": ["leads"],
               "query": [
                 {
                   "key": "statuses",
@@ -420,9 +446,9 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/leads/:job_id/apply",
+              "raw": "{{base_url}}/leads/:job_id/apply",
               "host": ["{{base_url}}"],
-              "path": ["api", "leads", ":job_id", "apply"],
+              "path": ["leads", ":job_id", "apply"],
               "variable": [
                 {
                   "key": "job_id",
@@ -451,9 +477,9 @@
             "method": "POST",
             "header": [],
             "url": {
-              "raw": "{{base_url}}/api/leads/:job_id/do-not-apply",
+              "raw": "{{base_url}}/leads/:job_id/do-not-apply",
               "host": ["{{base_url}}"],
-              "path": ["api", "leads", ":job_id", "do-not-apply"],
+              "path": ["leads", ":job_id", "do-not-apply"],
               "variable": [
                 {
                   "key": "job_id",

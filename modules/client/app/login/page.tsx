@@ -1,36 +1,54 @@
 "use client";
 
 import { useUser } from "@auth0/nextjs-auth0/client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import Image from "next/image";
+import { checkUserTenant } from "../../api";
 
 const LoginPage = () => {
   const { user, isLoading } = useUser();
   const router = useRouter();
+  const [checkingTenant, setCheckingTenant] = useState(false);
 
-  // If already authenticated, redirect to tenant selection or home
+  // If already authenticated, check for tenant and redirect
   useEffect(() => {
     if (!isLoading && user) {
-      router.push("/tenant/select");
+      setCheckingTenant(true);
+
+      checkUserTenant(user)
+        .then((tenant) => {
+          if (tenant && tenant.id) {
+            router.push("/chat");
+            return;
+          }
+          router.push("/tenant/select");
+        })
+        .catch((error) => {
+          // On error (404 or no tenant), default to tenant selection
+          router.push("/tenant/select");
+        })
+        .finally(() => {
+          setCheckingTenant(false);
+        });
     }
   }, [user, isLoading, router]);
 
-  // Show loading state while checking auth
-  if (isLoading) {
+  // Show loading state while checking auth or tenant
+  if (isLoading || checkingTenant) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Image src="/icon.png" alt="Loading" width={200} height={200} />
+        <Image src="/icon.png" alt="Loading" width={100} height={100} />
       </div>
     );
   }
 
-  // Already authenticated
+  // Already authenticated (should be redirecting)
   if (user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <p className="text-blue-700">Redirecting...</p>
+        <Image src="/icon.png" alt="Loading" width={100} height={100} />
       </div>
     );
   }

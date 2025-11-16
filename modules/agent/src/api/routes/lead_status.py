@@ -5,7 +5,7 @@ from lib.auth import require_auth
 from lib.error_logging import log_errors
 from controllers.job_controller import get_statuses
 
-router = APIRouter(prefix="/api/lead-statuses", tags=["lead-statuses"])
+router = APIRouter(prefix="/lead-statuses", tags=["lead-statuses"])
 
 
 @router.get("/")

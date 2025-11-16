@@ -5,11 +5,11 @@ import {
   LeadWithStatus,
 } from "../LeadTracker/LeadPanelConfig";
 import {
-  get_leads,
-  get_statuses,
+  getLeads,
+  getStatuses,
   updateJob,
-  mark_lead_as_applied,
-  mark_lead_as_do_not_apply,
+  markLeadAsApplied,
+  markLeadAsDoNotApply,
   deleteJob,
   type JobWithLeadStatus,
 } from "../../api";
@@ -32,7 +32,7 @@ const getJobPanelConfig = (): LeadPanelConfig<CreatedJob> => ({
       icon: CheckCircle,
       variant: "success",
       onClick: async (lead) => {
-        await mark_lead_as_applied(lead.id);
+        await markLeadAsApplied(lead.id);
       },
     },
     {
@@ -49,14 +49,14 @@ const getJobPanelConfig = (): LeadPanelConfig<CreatedJob> => ({
       icon: XCircle,
       variant: "secondary",
       onClick: async (lead) => {
-        await mark_lead_as_do_not_apply(lead.id);
+        await markLeadAsDoNotApply(lead.id);
       },
     },
   ],
 
   api: {
     getLeads: async (statusNames) => {
-      const leads = await get_leads(
+      const leads = await getLeads(
         statusNames as ("Qualifying" | "Cold" | "Warm" | "Hot")[] | undefined
       );
       return leads.map((lead) => ({
@@ -65,7 +65,7 @@ const getJobPanelConfig = (): LeadPanelConfig<CreatedJob> => ({
       })) as LeadWithStatus<CreatedJob>[];
     },
     getStatuses: async () => {
-      return get_statuses();
+      return getStatuses();
     },
     updateLeadStatus: async (id, statusId) => {
       await updateJob(id, { lead_status_id: statusId });
