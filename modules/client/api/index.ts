@@ -134,7 +134,7 @@ export type JobWithLeadStatus = CreatedJob & {
  * Fetch all lead statuses from the database
  */
 export const getStatuses = async (): Promise<LeadStatus[]> => {
-  return apiGet<LeadStatus[]>("/lead-statuses");
+  return apiGet<LeadStatus[]>("/leads/statuses");
 };
 
 /**
