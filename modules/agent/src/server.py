@@ -22,7 +22,7 @@ from uuid import uuid4
 # -----------------------------------------------------------------------------
 configure_logging()  # plain logging to stdout (Docker captures it)
 logger = logging.getLogger("app.server")
-app = FastAPI()
+app = FastAPI(redirect_slashes=False)
 
 # -----------------------------------------------------------------------------
 # CORS middleware (MUST be added before routers)
