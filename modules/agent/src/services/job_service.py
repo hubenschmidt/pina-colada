@@ -57,7 +57,6 @@ async def get_all_jobs(refresh: bool = False) -> List[Dict[str, str]]:
     jobs, _ = await find_all_jobs()
     # Map to internal format with company/date_applied keys for consistency
     details = [_map_to_dict(job) for job in jobs]
-    logger.info(f"Loaded {len(details)} jobs from repository")
     return details
 
 
@@ -67,9 +66,6 @@ async def get_applied_jobs_only(refresh: bool = False) -> List[Dict[str, str]]:
     applied_jobs = [
         job for job in all_jobs if job.get("status", "") == "Applied"
     ]
-    logger.info(
-        f"Filtered to {len(applied_jobs)} jobs with status 'applied' (from {len(all_jobs)} total)"
-    )
     return applied_jobs
 
 
@@ -119,12 +115,6 @@ async def filter_jobs(jobs: List[Dict[str, str]]) -> List[Dict[str, str]]:
         if not is_applied:
             filtered.append(job)
 
-    filtered_count = len(jobs) - len(filtered)
-    if filtered_count > 0:
-        logger.info(
-            f"Filtered {filtered_count} jobs with status 'applied', {len(filtered)} remaining"
-        )
-
     return filtered
 
 
@@ -153,8 +143,6 @@ async def add_job(
     }
 
     created = await create_job(data)
-    logger.info(f"Added job application: {organization_name} - {job_title}")
-
     return _map_to_dict(created)
 
 
@@ -510,11 +498,5 @@ async def update_job_by_company(
 
     if not updated_job:
         return None
-
-    job_dict = model_to_dict(updated_job, include_relationships=True)
-    updated_company = job_dict.get("organization", {}).get("name", "Unknown")
-    logger.info(
-        f"Updated job via fuzzy match: {company} - {job_title} (matched to {updated_company})"
-    )
 
     return _map_to_dict(updated_job)
