@@ -82,7 +82,7 @@ async def create_job_route(request: Request, job_data: JobCreate):
 @require_auth
 async def get_recent_resume_date_route(request: Request):
     """Get the most recent resume date."""
-    return get_recent_resume_date()
+    return await get_recent_resume_date()
 
 
 @router.get("/{job_id}")
