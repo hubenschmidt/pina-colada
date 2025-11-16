@@ -76,24 +76,16 @@ const getJobPanelConfig = (): LeadPanelConfig<CreatedJob> => ({
   },
 
   getStatusBadgeClass: (statusName: string) => {
-    switch (statusName) {
-      case "Lead":
-        return styles.badgeQualifying;
-      case "Applied":
-        return styles.badgeWarm;
-      case "Interviewing":
-        return styles.badgeHot;
-      case "Offer":
-        return styles.badgeHot;
-      case "Accepted":
-        return styles.badgeHot;
-      case "Rejected":
-        return styles.badgeCold;
-      case "Do Not Apply":
-        return styles.badgeCold;
-      default:
-        return styles.badgeQualifying;
-    }
+    const statusMap: Record<string, string> = {
+      Lead: styles.badgeQualifying,
+      Applied: styles.badgeWarm,
+      Interviewing: styles.badgeHot,
+      Offer: styles.badgeHot,
+      Accepted: styles.badgeHot,
+      Rejected: styles.badgeCold,
+      "Do Not Apply": styles.badgeCold,
+    };
+    return statusMap[statusName] || styles.badgeQualifying;
   },
 
   defaultStatusFilter: ["Lead"],

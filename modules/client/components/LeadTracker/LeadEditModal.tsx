@@ -34,9 +34,9 @@ const LeadEditModal = <T extends BaseLead>({
         const value = (lead as any)[field.name];
         if (field.type === "date" && value) {
           data[field.name] = new Date(value).toISOString().split("T")[0];
-        } else {
-          data[field.name] = value ?? "";
+          return;
         }
+        data[field.name] = value ?? "";
       });
       setFormData(data);
       setErrors({});

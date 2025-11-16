@@ -65,15 +65,15 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
               type="checkbox"
               checked={!!value}
               onChange={async (e) => {
-                if (e.target.checked) {
-                  try {
-                    const resumeDate = await getRecentResumeDate();
-                    onChange(resumeDate || "");
-                  } catch (error) {
-                    console.error("Failed to fetch recent resume date:", error);
-                  }
-                } else {
+                if (!e.target.checked) {
                   onChange("");
+                  return;
+                }
+                try {
+                  const resumeDate = await getRecentResumeDate();
+                  onChange(resumeDate || "");
+                } catch (error) {
+                  console.error("Failed to fetch recent resume date:", error);
                 }
               }}
               className="w-4 h-4 text-lime-500 border-zinc-300 rounded focus:ring-lime-500"

@@ -29,13 +29,17 @@ const LeadForm = <T extends BaseLead>({
       config.fields.forEach((field) => {
         if (field.defaultValue !== undefined) {
           initialData[field.name] = field.defaultValue;
-        } else if (field.type === "date") {
-          initialData[field.name] = new Date().toISOString().split("T")[0];
-        } else if (field.type === "checkbox") {
-          initialData[field.name] = false;
-        } else {
-          initialData[field.name] = "";
+          return;
         }
+        if (field.type === "date") {
+          initialData[field.name] = new Date().toISOString().split("T")[0];
+          return;
+        }
+        if (field.type === "checkbox") {
+          initialData[field.name] = false;
+          return;
+        }
+        initialData[field.name] = "";
       });
       setFormData(initialData);
       setErrors({});
@@ -130,13 +134,17 @@ const LeadForm = <T extends BaseLead>({
       config.fields.forEach((field) => {
         if (field.defaultValue !== undefined) {
           resetData[field.name] = field.defaultValue;
-        } else if (field.type === "date") {
-          resetData[field.name] = new Date().toISOString().split("T")[0];
-        } else if (field.type === "checkbox") {
-          resetData[field.name] = false;
-        } else {
-          resetData[field.name] = "";
+          return;
         }
+        if (field.type === "date") {
+          resetData[field.name] = new Date().toISOString().split("T")[0];
+          return;
+        }
+        if (field.type === "checkbox") {
+          resetData[field.name] = false;
+          return;
+        }
+        resetData[field.name] = "";
       });
       setFormData(resetData);
       setErrors({});
