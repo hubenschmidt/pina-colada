@@ -54,7 +54,7 @@ JobCreate = _make_job_create_model()
 JobUpdate = _make_job_update_model()
 
 
-@router.get("/")
+@router.get("")
 @log_errors
 @require_auth
 async def get_jobs_route(
@@ -69,7 +69,7 @@ async def get_jobs_route(
     return get_jobs(page, limit, order_by, order, search)
 
 
-@router.post("/")
+@router.post("")
 @log_errors
 @require_auth
 async def create_job_route(request: Request, job_data: JobCreate):

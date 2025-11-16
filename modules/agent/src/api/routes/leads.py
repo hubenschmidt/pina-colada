@@ -13,7 +13,7 @@ from controllers.job_controller import (
 router = APIRouter(prefix="/leads", tags=["leads"])
 
 
-@router.get("/")
+@router.get("")
 @log_errors
 @require_auth
 async def get_leads_route(request: Request, statuses: Optional[str] = Query(None)):

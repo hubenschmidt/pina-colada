@@ -8,7 +8,7 @@ from controllers.job_controller import get_statuses
 router = APIRouter(prefix="/lead-statuses", tags=["lead-statuses"])
 
 
-@router.get("/")
+@router.get("")
 @log_errors
 @require_auth
 async def get_lead_statuses_route(request: Request):
