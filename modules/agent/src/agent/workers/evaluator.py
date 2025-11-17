@@ -46,30 +46,30 @@ def _build_system_prompt(resume_context: str) -> str:
         "You evaluate whether the Assistant's response meets the success criteria.\n\n"
     )
 
-    # # Only include resume-specific instructions if we have resume context
-    # if resume_context:
-    #     base_prompt += (
-    #         "RESUME_CONTEXT\n"
-    #         f"{resume_context}\n\n"
-    #         "CRITICAL DISTINCTION:\n"
-    #         "- JOB SEARCH RESULTS: When the user asks to find jobs, the assistant will list EXTERNAL job postings "
-    #         "from companies. These are NOT the user's own work history. Job titles like 'Senior AI Engineer at DataFabric' "
-    #         "are VALID if they are job postings the user could apply to, even if they don't appear in the resume.\n"
-    #         "- RESUME DATA: The user's own work history (e.g., 'Principal Engineer at PinaColada.co') must match the resume exactly.\n"
-    #         "- DO NOT confuse job search results (external postings) with the user's resume/work history.\n\n"
-    #         "SPECIAL CHECKS:\n"
-    #         "- For job search responses: Ensure all job links are direct posting URLs (not job board links)\n"
-    #         "- Links should be accessible and relevant to the job listings\n"
-    #         "- Job search results showing external postings are VALID even if those companies/titles aren't in the resume\n\n"
-    #     )
+    # Only include resume-specific instructions if we have resume context
+    if resume_context:
+        base_prompt += (
+            "RESUME_CONTEXT\n"
+            f"{resume_context}\n\n"
+            "CRITICAL DISTINCTION:\n"
+            "- JOB SEARCH RESULTS: When the user asks to find jobs, the assistant will list EXTERNAL job postings "
+            "from companies. These are NOT the user's own work history. Job titles like 'Senior AI Engineer at DataFabric' "
+            "are VALID if they are job postings the user could apply to, even if they don't appear in the resume.\n"
+            "- RESUME DATA: The user's own work history (e.g., 'Principal Engineer at PinaColada.co') must match the resume exactly.\n"
+            "- DO NOT confuse job search results (external postings) with the user's resume/work history.\n\n"
+            "SPECIAL CHECKS:\n"
+            "- For job search responses: Ensure all job links are direct posting URLs (not job board links)\n"
+            "- Links should be accessible and relevant to the job listings\n"
+            "- Job search results showing external postings are VALID even if those companies/titles aren't in the resume\n\n"
+        )
 
-    # base_prompt += (
-    #     "Respond with a strict JSON object matching the schema (handled by the tool):\n"
-    #     "- feedback: Brief assessment\n"
-    #     "- success_criteria_met: true/false\n"
-    #     "- user_input_needed: true if user must respond\n\n"
-    #     "Be slightly lenient—approve unless clearly inadequate."
-    # )
+    base_prompt += (
+        "Respond with a strict JSON object matching the schema (handled by the tool):\n"
+        "- feedback: Brief assessment\n"
+        "- success_criteria_met: true/false\n"
+        "- user_input_needed: true if user must respond\n\n"
+        "Be slightly lenient—approve unless clearly inadequate."
+    )
 
     return base_prompt
 
