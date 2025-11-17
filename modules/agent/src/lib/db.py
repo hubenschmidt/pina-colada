@@ -131,8 +131,10 @@ def get_async_engine():
             echo=True,  # Enable SQL query logging
             future=True,
             connect_args={
-                "prepared_statement_name_func": lambda: f"__asyncpg_{uuid4()}__"
-            },  # Unique prepared statement names for pgbouncer transaction mode
+                "prepared_statement_name_func": lambda: f"__asyncpg_{uuid4()}__",
+                "statement_cache_size": 0,
+                "prepared_statement_cache_size": 0,
+            },  # Disable statement caching for pgbouncer transaction mode
         )
         logger.info("Async engine created successfully")
         return _async_engine
