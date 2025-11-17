@@ -507,9 +507,18 @@
 .thinkingIndicator {
   position: absolute;
   top: -1.5rem;
-  right: 0;
+  right: 10px;
   display: flex;
   align-items: center;
+}
+
+@keyframes pulsate {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
 }
 
 .thinkingText {
@@ -517,6 +526,7 @@
   font-weight: 300;
   color: #84cc16; /* lime-500 - PinaColada brand color */
   font-size: 0.875rem;
+  animation: pulsate 1.5s ease-in-out infinite;
 }
 
 /* DEMO MODE SPLIT VIEW ---------------------------------------------------- */
