@@ -134,7 +134,7 @@ def get_async_engine():
                 "prepared_statement_name_func": lambda: f"__asyncpg_{uuid4()}__",
                 "statement_cache_size": 0,
                 "prepared_statement_cache_size": 0,
-            },  # Disable statement caching for pgbouncer transaction mode
+            },  # Disable statement caching for pgbouncer transaction mode https://github.com/MagicStack/asyncpg/issues/1058#issuecomment-1913635739
         )
         logger.info("Async engine created successfully")
         return _async_engine
