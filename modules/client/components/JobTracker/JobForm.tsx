@@ -25,21 +25,42 @@ export function JobForm({ isOpen, onClose, onAdd }: JobFormProps) {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [useLatestResume, setUseLatestResume] = useState(true);
 
   // Reset form when opened
   useEffect(() => {
     if (isOpen) {
-      setFormData({
-        company: "",
-        job_title: "",
-        date: new Date().toISOString().split("T")[0],
-        status: "Applied",
-        job_url: "",
-        notes: "",
-        resume: "",
-        salary_range: "",
-        source: "manual",
-      });
+      const loadResumeDate = async () => {
+        try {
+          const resumeDate = await api.getRecentResumeDate();
+          setFormData({
+            company: "",
+            job_title: "",
+            date: new Date().toISOString().split("T")[0],
+            status: "Applied",
+            job_url: "",
+            notes: "",
+            resume: resumeDate || "",
+            salary_range: "",
+            source: "manual",
+          });
+        } catch (error) {
+          console.error("Failed to fetch recent resume date:", error);
+          setFormData({
+            company: "",
+            job_title: "",
+            date: new Date().toISOString().split("T")[0],
+            status: "Applied",
+            job_url: "",
+            notes: "",
+            resume: "",
+            salary_range: "",
+            source: "manual",
+          });
+        }
+      };
+      loadResumeDate();
+      setUseLatestResume(true);
       setErrors({});
     }
   }, [isOpen]);
@@ -192,7 +213,7 @@ export function JobForm({ isOpen, onClose, onAdd }: JobFormProps) {
               Job URL
             </label>
             <input
-              type="url"
+              type="text"
               value={formData.job_url}
               onChange={(e) => handleChange("job_url", e.target.value)}
               className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
@@ -217,15 +238,35 @@ export function JobForm({ isOpen, onClose, onAdd }: JobFormProps) {
           {/* Resume */}
           <div>
             <label className="block text-sm font-medium text-zinc-700 mb-1">
-              Resume Version
+              Resume Date
             </label>
             <input
-              type="text"
-              value={formData.resume}
+              type="date"
+              value={formData.resume ? formData.resume.split("T")[0] : ""}
               onChange={(e) => handleChange("resume", e.target.value)}
               className="w-full px-3 py-2 border border-zinc-300 rounded focus:outline-none focus:ring-2 focus:ring-lime-500"
-              placeholder="e.g. v2024-01"
             />
+            <label className="flex items-center gap-2 mt-2 text-sm text-zinc-600 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={useLatestResume}
+                onChange={async (e) => {
+                  setUseLatestResume(e.target.checked);
+                  if (!e.target.checked) {
+                    handleChange("resume", "");
+                    return;
+                  }
+                  try {
+                    const resumeDate = await api.getRecentResumeDate();
+                    handleChange("resume", resumeDate || "");
+                  } catch (error) {
+                    console.error("Failed to fetch recent resume date:", error);
+                  }
+                }}
+                className="w-4 h-4 text-lime-500 border-zinc-300 rounded focus:ring-lime-500"
+              />
+              <span>Use latest resume on file?</span>
+            </label>
           </div>
 
           {/* Notes */}

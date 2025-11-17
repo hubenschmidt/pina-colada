@@ -77,6 +77,14 @@ async def create_job_route(request: Request, job_data: JobCreate):
     return await create_job(job_data.dict())
 
 
+@router.get("/recent-resume-date")
+@log_errors
+@require_auth
+async def get_recent_resume_date_route(request: Request):
+    """Get the most recent resume date."""
+    return await get_recent_resume_date()
+
+
 @router.get("/{job_id}")
 @log_errors
 @require_auth
@@ -99,11 +107,3 @@ async def update_job_route(request: Request, job_id: str, job_data: JobUpdate):
 async def delete_job_route(request: Request, job_id: str):
     """Delete a job."""
     return await delete_job(job_id)
-
-
-@router.get("/recent-resume-date")
-@log_errors
-@require_auth
-async def get_recent_resume_date_route(request: Request):
-    """Get the most recent resume date."""
-    return await get_recent_resume_date()

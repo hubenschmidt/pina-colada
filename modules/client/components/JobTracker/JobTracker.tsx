@@ -130,30 +130,38 @@ export function JobTracker({
 
   return (
     <div className="space-y-6">
-      {/* Search bar */}
+      {/* Search bar and Add button */}
       {enableSearch && (
         <div className="relative">
-          <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400"
-              size={20}
-            />
-            <input
-              type="text"
-              placeholder={searchPlaceholder}
-              value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full pl-10 pr-10 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent"
-            />
-            {searchQuery && (
-              <button
-                onClick={handleClearSearch}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-                aria-label="Clear search"
-              >
-                <X size={18} />
-              </button>
-            )}
+          <div className="flex gap-3 items-center">
+            <div className="relative flex-1">
+              <Search
+                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400"
+                size={20}
+              />
+              <input
+                type="text"
+                placeholder={searchPlaceholder}
+                value={searchQuery}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-full pl-10 pr-10 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent"
+              />
+              {searchQuery && (
+                <button
+                  onClick={handleClearSearch}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
+                  aria-label="Clear search"
+                >
+                  <X size={18} />
+                </button>
+              )}
+            </div>
+            <button
+              onClick={() => setIsFormOpen(true)}
+              className="px-4 py-2 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 font-medium whitespace-nowrap"
+            >
+              Add Job
+            </button>
           </div>
           {searchQuery && (
             <p className="mt-2 text-sm text-zinc-600">
