@@ -17,6 +17,7 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 load_dotenv(override=True)
 
+
 # State type definition
 class State(TypedDict):
     messages: Annotated[List[Any], add_messages]
@@ -103,7 +104,7 @@ async def create_orchestrator(
         - set_websocket_sender: function to set WS sender
     """
     from agent.tools.worker_tools import get_worker_tools
-    from agent.tools.scraper_tools import SCRAPER_TOOLS
+    from agent.tools.mcp_playwright import PLAYWRIGHT_MCP_TOOLS, init_playwright_mcp
     from agent.workers.worker import create_worker_node, route_from_worker
     from agent.workers.job_hunter import create_job_hunter_node, route_from_job_hunter
     from agent.workers.evaluator import create_evaluator_node, route_from_evaluator
@@ -124,14 +125,21 @@ async def create_orchestrator(
     tools = await get_worker_tools()
     logger.info(f"✓ Loaded {len(tools)} tools")
 
-    # Combine regular tools with scraper tools
-    all_tools = tools + SCRAPER_TOOLS
-    logger.info(f"✓ Total tools (including scraper): {len(all_tools)}")
+    # Initialize Playwright MCP
+    logger.info("Initializing Playwright MCP...")
+    await init_playwright_mcp()
+    logger.info("✓ Playwright MCP initialized")
+
+    # Combine regular tools with Playwright MCP tools
+    all_tools = tools + PLAYWRIGHT_MCP_TOOLS
+    logger.info(f"✓ Total tools (including Playwright MCP): {len(all_tools)}")
 
     # Create nodes (each returns a pure function with closed-over LLMs)
     worker = await create_worker_node(tools, resume_context_concise, _trim_messages)
-    job_hunter = await create_job_hunter_node(tools, resume_context_concise, _trim_messages)
-    scraper = await create_scraper_node(SCRAPER_TOOLS, resume_context_concise, _trim_messages)
+    job_hunter = await create_job_hunter_node(
+        tools, resume_context_concise, _trim_messages
+    )
+    scraper = await create_scraper_node(PLAYWRIGHT_MCP_TOOLS, _trim_messages)
     evaluator = await create_evaluator_node()
     cover_letter_writer = await create_cover_letter_writer_node(_trim_messages)
 
@@ -180,7 +188,7 @@ async def create_orchestrator(
     graph_builder.add_conditional_edges(
         "scraper",
         route_from_scraper,
-        {"tools": "tools", "evaluator": "evaluator"},
+        {"tools": "tools", "END": END},
     )
 
     def route_from_tools(state: Dict[str, Any]) -> str:
@@ -242,7 +250,7 @@ async def create_orchestrator(
 
         config = {
             "configurable": {"thread_id": thread_id},
-            "recursion_limit": 25,  # prevent recursion errors
+            "recursion_limit": 50,  # Higher limit for browser automation tasks
         }
 
         sc = (
@@ -308,7 +316,9 @@ async def create_orchestrator(
             if should_emit:
                 # Send start event for new response to reset frontend streaming state
                 if is_new_response:
-                    logger.info(f"New response detected (content replaced), sending start event")
+                    logger.info(
+                        f"New response detected (content replaced), sending start event"
+                    )
                     await send_ws(json.dumps({"type": "start"}))
 
                 last_content = current_content

@@ -13,66 +13,30 @@ logger = logging.getLogger(__name__)
 from agent.util.langfuse_helper import get_langfuse_handler
 
 
-def _build_scraper_prompt(
-    state: Dict[str, Any], resume_context_concise: str
-) -> str:
+def _build_scraper_prompt(state: Dict[str, Any]) -> str:
     """Pure function to build scraper system prompt."""
-    return f"""ROLE: You are {state['resume_name']} on his website, specialized in web scraping and browser automation.
-
-DATA ACCESS:
-{resume_context_concise}
+    return f"""You are a browser automation agent. Your job is to USE TOOLS, not describe them.
 
 TASK: {state['success_criteria']}
 
-CAPABILITIES:
-You have access to 4 powerful scraping tools:
+YOU MUST CALL THESE TOOLS TO COMPLETE THE TASK:
+- browser_navigate(url)
+- browser_snapshot()
+- browser_type(element, ref, text, submit)
+- browser_click(element, ref)
+- browser_wait_for(time)
+- browser_take_screenshot(filename)
 
-1. analyze_page_structure - Analyzes a page to determine optimal scraping strategy
-   Use this FIRST to understand if you need static scraping or browser automation
-
-2. scrape_static_page - Fast scraping for static HTML pages
-   Use for simple pages without JavaScript (requests + BeautifulSoup)
-
-3. automate_browser - Full browser automation with Playwright
-   Use for JavaScript-heavy sites, forms, multi-step flows
-   Supports: click, fill, wait, extract, screenshot, navigate
-
-4. fill_form - Intelligent form filling with auto-detection
-   Use for login forms, signup forms, data entry
-   Automatically matches fields by name/id/label
-
-STRATEGY:
-1. ALWAYS start by analyzing the page structure
-2. Choose static scraping when possible (faster, more reliable)
-3. Use browser automation for:
-   - JavaScript-rendered content
-   - Multi-step forms (like 401k rollover)
-   - Sites requiring interaction (clicks, waits)
-4. For 401k rollover automation:
-   - Login → Navigate accounts → Fill rollover form → Confirm
-
-STYLE:
-- Plain text only (no markdown/formatting)
-- Concise, focused responses
-- Explain which tool you're using and why
-- Report extracted data clearly
-- Handle errors gracefully
+DO NOT respond with text explanations. DO NOT say what you "will" do.
+IMMEDIATELY CALL browser_navigate to start. Then call browser_snapshot.
+Use refs from snapshot output for browser_click and browser_type.
 
 Date: {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
 """
 
 
-def _get_last_user_message(messages) -> str:
-    """Pure function to extract last user message."""
-    for msg in reversed(messages):
-        if isinstance(msg, HumanMessage):
-            return msg.content
-    return ""
-
-
 async def create_scraper_node(
     tools: list,
-    resume_context_concise: str,
     trim_messages_fn: Callable,
 ):
     """
@@ -80,33 +44,32 @@ async def create_scraper_node(
 
     Returns a pure function that takes state and returns updated state.
     """
-    logger.info("Setting up Scraper LLM: OpenAI GPT-5 (temperature=0.7)")
+    logger.info("Setting up Scraper LLM: GPT-5 (temperature=0)")
     langfuse_handler = get_langfuse_handler()
 
     callbacks = [langfuse_handler] if langfuse_handler else []
 
     scraper_llm = ChatOpenAI(
         model="gpt-5-chat-latest",
-        temperature=0.7,
-        max_completion_tokens=2048,  # Higher limit for scraping tasks
-        max_retries=3,
+        temperature=0,  # Deterministic for reliable tool calling
+        max_tokens=2048,
         callbacks=callbacks,
     )
 
     llm_with_tools = scraper_llm.bind_tools(tools)
     logger.info(f"✓ Scraper LLM configured with {len(tools)} tools")
 
-    def scraper_node(state: Dict[str, Any]) -> Dict[str, Any]:
+    async def scraper_node(state: Dict[str, Any]) -> Dict[str, Any]:
         """Pure function: state in -> state updates out"""
         logger.info("🌐 SCRAPER NODE: Processing web scraping request...")
 
-        system_prompt = _build_scraper_prompt(state, resume_context_concise)
+        system_prompt = _build_scraper_prompt(state)
 
         if state.get("feedback_on_work"):
             logger.info("⚠️  Scraper received feedback from evaluator, retrying...")
             system_prompt += f"\n\nEVALUATOR FEEDBACK:\n{state['feedback_on_work']}\n\nPlease improve your scraping approach based on this feedback."
 
-        trimmed_messages = trim_messages_fn(state["messages"], max_tokens=6000)
+        trimmed_messages = trim_messages_fn(state["messages"], max_tokens=1000)
         messages = [SystemMessage(content=system_prompt)] + trimmed_messages
 
         logger.info(
@@ -133,5 +96,5 @@ def route_from_scraper(state: Dict[str, Any]) -> str:
         logger.info("→ Routing to TOOLS")
         return "tools"
 
-    logger.info("→ Routing to EVALUATOR")
-    return "evaluator"
+    logger.info("→ Routing to END (skipping evaluator for scraper)")
+    return "END"

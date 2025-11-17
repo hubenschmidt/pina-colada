@@ -18,7 +18,9 @@ def _collect_recent_messages(messages, message_type, limit: int) -> list[str]:
     collected = []
     for msg in reversed(messages):
         if isinstance(msg, message_type):
-            collected.append(msg.content)
+            # Handle both str and list content (multimodal)
+            content = msg.content if isinstance(msg.content, str) else ""
+            collected.append(content)
         if len(collected) >= limit:
             return collected
     return collected

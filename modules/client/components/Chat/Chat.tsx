@@ -526,10 +526,39 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
                     onClick={() => {
                       setIsDemoMode(true);
                       setDemoDropdownOpen(false);
+                      // Send demo context to agent
+                      sendControl({
+                        type: "demo_context",
+                        demo_url: "http://localhost:8000/mocks/401k-rollover/",
+                        demo_type: "401k_rollover_browser",
+                        message: "User has opened the 401k Browser Automation Demo. The mock 401k provider site is loaded at http://localhost:8000/mocks/401k-rollover/. Demo credentials: username='demo', password='demo123'."
+                      });
+                      // Send initial demo guidance message
+                      sendMessage("Complete a 401k rollover on the mock provider site at http://localhost:8000/mocks/401k-rollover/. Login with username 'demo' and password 'demo123'. Navigate through the site, initiate a rollover, fill in the rollover form with test data, and complete the process. Use Playwright browser tools to automate this flow. Take a screenshot at the end showing the confirmation page.");
                     }}
-                    title="Launch 401k Scraper Demo"
+                    title="Browser Automation Demo"
                   >
-                    <span>401k Scraper Demo</span>
+                    <span>Browser Automation</span>
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.toolsMenuItem}
+                    onClick={() => {
+                      setIsDemoMode(true);
+                      setDemoDropdownOpen(false);
+                      // Send demo context for static scraping
+                      sendControl({
+                        type: "demo_context",
+                        demo_url: "http://localhost:8000/mocks/401k-rollover/",
+                        demo_type: "401k_rollover_static",
+                        message: "User has opened the 401k Static Scraping Demo. The mock 401k provider site is loaded at http://localhost:8000/mocks/401k-rollover/."
+                      });
+                      // Send scraping task
+                      sendMessage("Analyze and scrape the 401k provider site using ONLY static scraping tools (scrape_static_page, analyze_page_structure). Do NOT use browser automation. Extract all available information from the pages: login page structure, form fields, and any data you can gather without JavaScript execution. Show the difference between what static scraping can and cannot accomplish on this site.");
+                    }}
+                    title="Static Scraping Demo"
+                  >
+                    <span>Static Scraping</span>
                   </button>
                 </div>
               )}
