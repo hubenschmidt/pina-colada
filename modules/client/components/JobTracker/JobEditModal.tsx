@@ -40,7 +40,7 @@ export function JobEditModal({
       setFormData({
         company: job.company,
         job_title: job.job_title,
-        date: job.date ? new Date(job.date).toISOString().split("T")[0] : "",
+        date: job.date ? job.date.split("T")[0] : "",
         status: job.status,
         job_url: job.job_url || "",
         notes: job.notes || "",

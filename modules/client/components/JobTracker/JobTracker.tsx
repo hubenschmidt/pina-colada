@@ -198,7 +198,7 @@ export function JobTracker({
             },
             {
               header: "Date",
-              accessor: "date",
+              accessor: (job) => job.date ? job.date.split("T")[0] : "—",
               sortable: true,
               sortKey: "date",
             },
