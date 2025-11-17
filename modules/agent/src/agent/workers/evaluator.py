@@ -138,8 +138,10 @@ async def create_evaluator_node():
         retry_count = (ai_message_count - 1) if is_retry_loop else 0
 
         # Build prompts
-        system_message = _build_system_prompt(state.get("resume_context", ""))
-        logger.info(system_message)
+        resume_context = state.get("resume_context", "")
+        has_resume = bool(resume_context)
+        logger.info(f"📋 Evaluator using prompt {'WITH' if has_resume else 'WITHOUT'} resume context")
+        system_message = _build_system_prompt(resume_context)
 
         user_message = (
             "Recent conversation (condensed):\n"

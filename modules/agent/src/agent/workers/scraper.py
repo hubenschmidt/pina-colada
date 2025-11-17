@@ -96,5 +96,5 @@ def route_from_scraper(state: Dict[str, Any]) -> str:
         logger.info("→ Routing to TOOLS")
         return "tools"
 
-    logger.info("→ Routing to END (skipping evaluator for scraper)")
+    logger.info("→ Routing to END (bypassing evaluator to reduce iterations)")
     return "END"
