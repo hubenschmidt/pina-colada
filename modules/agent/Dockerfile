@@ -5,6 +5,13 @@ WORKDIR /app
 # OS deps (cached unless this changes)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl git build-essential ca-certificates \
+    # Node.js for MCP servers
+    nodejs npm \
+    # Playwright browser dependencies
+    libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 \
+    libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+    libxfixes3 libxrandr2 libgbm1 libasound2 libatspi2.0-0 \
+    libwayland-client0 \
  && rm -rf /var/lib/apt/lists/*
 
 # uv (cached unless this changes)
@@ -28,6 +35,9 @@ COPY src ./src
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv pip install -e . --no-cache-dir && \
     uv pip install watchfiles --no-cache-dir
+
+# Install Playwright browsers for MCP
+RUN npx -y playwright@latest install chrome chromium --with-deps
 
 # Copy remaining application files (changes frequently)
 COPY scripts ./scripts

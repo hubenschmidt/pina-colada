@@ -10,12 +10,16 @@ __all__ = ["app"]
 import json
 import logging
 from datetime import datetime
-from fastapi import FastAPI, WebSocket
+import time
+from fastapi import FastAPI, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
 from agent.graph import invoke_graph
 from agent.util.logging_config import configure_logging
 from api.routes import jobs_routes, leads_routes, auth_routes, users_routes
+from api.routes.mocks.k401_rollover import router as mock_401k_router
+from api.routes.videos import router as videos_router
 from uuid import uuid4
+import uvicorn
 
 # -----------------------------------------------------------------------------
 # App + logging
@@ -30,8 +34,8 @@ app = FastAPI(redirect_slashes=False)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "wss://api.pinacolada.co",  # Your production domain
-        "https://pinacolada.co",  # Your production domain
+        "wss://api.pinacolada.co",  # production domain
+        "https://pinacolada.co",  # production domain
         "https://www.pinacolada.co",  # www version
         "http://localhost:3000",  # Local development
         "http://localhost:3001",  # Local development (alternate port)
@@ -46,6 +50,8 @@ app.include_router(jobs_routes)
 app.include_router(leads_routes)
 app.include_router(auth_routes)
 app.include_router(users_routes)
+app.include_router(mock_401k_router)
+app.include_router(videos_router)
 
 
 # -----------------------------------------------------------------------------
@@ -64,10 +70,6 @@ async def health():
 # -----------------------------------------------------------------------------
 # Middleware to log all requests
 # -----------------------------------------------------------------------------
-from fastapi import Request
-import time
-
-
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
@@ -81,7 +83,9 @@ async def log_requests(request: Request, call_next):
 
     # Log response
     duration_ms = int((time.time() - start_time) * 1000)
-    logger.info(f"← {request.method} {request.url.path} | {response.status_code} | {duration_ms}ms")
+    logger.info(
+        f"← {request.method} {request.url.path} | {response.status_code} | {duration_ms}ms"
+    )
 
     return response
 
@@ -219,6 +223,4 @@ async def websocket_endpoint(websocket: WebSocket):
 # Local dev entrypoint (uvicorn)
 # -----------------------------------------------------------------------------
 if __name__ == "__main__":
-    import uvicorn
-
     uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")

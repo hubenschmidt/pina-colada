@@ -18,7 +18,9 @@ def _collect_recent_messages(messages, message_type, limit: int) -> list[str]:
     collected = []
     for msg in reversed(messages):
         if isinstance(msg, message_type):
-            collected.append(msg.content)
+            # Handle both str and list content (multimodal)
+            content = msg.content if isinstance(msg.content, str) else ""
+            collected.append(content)
         if len(collected) >= limit:
             return collected
     return collected
@@ -62,12 +64,29 @@ def route_to_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         "positions available",
     ]
 
+    scraper_phrases = [
+        "scrape",
+        "scraping",
+        "automate",
+        "browser automation",
+        "extract data",
+        "fill form",
+        "401k",
+        "rollover",
+        "web automation",
+        "playwright",
+    ]
+
     is_cover_letter_request = any(
         phrase in recent_context for phrase in cover_letter_phrases
     )
 
     is_job_search_request = any(
         phrase in recent_context for phrase in job_search_phrases
+    )
+
+    is_scraper_request = any(
+        phrase in recent_context for phrase in scraper_phrases
     )
 
     if is_cover_letter_request:
@@ -80,6 +99,11 @@ def route_to_agent(state: Dict[str, Any]) -> Dict[str, Any]:
         logger.info("→ Routing to JOB_HUNTER")
         return {"route_to_agent": "job_hunter"}
 
+    if is_scraper_request:
+        logger.info("✅ Detected scraper request in conversation context!")
+        logger.info("→ Routing to SCRAPER")
+        return {"route_to_agent": "scraper"}
+
     logger.info("→ Routing to WORKER")
     return {"route_to_agent": "worker"}
 
@@ -88,10 +112,10 @@ def route_from_router_edge(state: Dict[str, Any]) -> str:
     """Read which agent the router decided to use"""
     route = state.get("route_to_agent", "worker")
     logger.info(f"🔀 Router decided: {route}")
-    
-    valid_routes = {"worker", "cover_letter_writer", "job_hunter"}
+
+    valid_routes = {"worker", "cover_letter_writer", "job_hunter", "scraper"}
     if route not in valid_routes:
         logger.warning(f"Invalid route '{route}', defaulting to 'worker'")
         return "worker"
-    
+
     return route
