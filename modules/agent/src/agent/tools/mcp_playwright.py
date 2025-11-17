@@ -2,6 +2,7 @@
 
 import logging
 import asyncio
+import os
 from typing import Any, Dict, List, Optional
 from langchain_core.tools import tool
 
@@ -184,10 +185,13 @@ async def browser_take_screenshot(filename: Optional[str] = None) -> str:
     file_path = str(result)
 
     # Convert file path to HTTP URL
-    # e.g., /tmp/playwright-mcp-output/123/screenshot.png -> http://localhost:8000/screenshots/123/screenshot.png
+    # Use API_BASE_URL env var for prod, fallback to localhost for dev
+    api_base = os.getenv("API_BASE_URL")
+
+    # e.g., /tmp/playwright-mcp-output/123/screenshot.png -> https://api.pinacolada.co/screenshots/123/screenshot.png
     if "/tmp/playwright-mcp-output/" in file_path:
         relative_path = file_path.replace("/tmp/playwright-mcp-output/", "")
-        http_url = f"http://localhost:8000/screenshots/{relative_path}"
+        http_url = f"{api_base}/screenshots/{relative_path}"
         return http_url
 
     return file_path

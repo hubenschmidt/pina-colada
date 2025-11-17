@@ -2,6 +2,29 @@
 
 ## Context
 
+● 18 iterations = 9 tool calls. Each tool call = 2 iterations (scraper→tools→scraper).
+
+Pattern:
+
+1. Router
+2. Scraper (calls tool)
+3. Tools execute
+4. Back to scraper (calls another tool)
+5. Tools execute
+6. Back to scraper...
+   (repeats 9 times)
+
+● 9 tool calls for the 401k rollover:
+
+1. browser_click - Initiate Rollover button
+2. browser_type - Destination Account dropdown (tried typing)
+3. browser_click - Destination Account dropdown (clicked instead)
+4. browser_click - New IRA Account option
+5. browser_click - Confirmation checkbox
+6. browser_click - Submit Rollover Request button
+7. browser_wait_for - Wait 2 seconds
+8. browser_take_screenshot - Capture confirmation
+
 **Interview Prep for:** Integrations Engineer @ Capitalize (https://www.builtinnyc.com/job/integrations-engineer/7310182)
 **Interview Date:** Monday
 **Goal:** Build proof-of-concept demo emulating Capitalize's 401k rollover automation using LangGraph worker architecture
@@ -9,6 +32,7 @@
 ### Capitalize's Problem Space
 
 Capitalize automates 401k rollovers by:
+
 1. Embedding their app in iframe within financial advisor/bank portals
 2. Making REST API calls to 401k platforms (when APIs exist)
 3. Using web scraping/browser automation for platforms without APIs
@@ -109,6 +133,7 @@ def create_scraper_node(websocket_sender=None):
 **State Management:**
 
 Extends existing `State` TypedDict:
+
 - `messages`: Conversation history
 - `scraping_context`: Dict with URL, page type, extracted data
 - `scraping_strategy`: "static" | "browser" | "hybrid"
@@ -425,21 +450,25 @@ def route_to_agent(state: State) -> Literal["worker", "job_hunter", "cover_lette
 ### Architecture Decisions
 
 **Why LangGraph?**
+
 - State management for multi-step flows
 - Natural checkpointing/resume capability
 - LLM-powered decision making (static vs browser)
 
 **Why Hybrid Scraping?**
+
 - Static scraping is faster, lower resource usage
 - Browser automation handles JS rendering, complex interactions
 - LLM analyzes page and chooses optimal strategy
 
 **Scalability Considerations:**
+
 - Worker pool pattern for parallel scraping jobs
 - Playwright browser instances are resource-intensive → need orchestration
 - Caching strategies for repeated scraping of same sites
 
 **Error Handling:**
+
 - Evaluator provides feedback loop for retries
 - Screenshot capture for debugging failed automations
 - Graceful degradation: browser automation → static → manual intervention

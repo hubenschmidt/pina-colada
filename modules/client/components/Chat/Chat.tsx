@@ -279,9 +279,10 @@ export const renderWithLinks = (text: string): React.ReactNode[] => {
 
 // ---------- Runtime configuration ----------
 
+const API_URL = env("NEXT_PUBLIC_API_URL") || "http://localhost:8000";
+
 const getWsUrl = () => {
-  const apiUrl = env("NEXT_PUBLIC_API_URL") || "http://localhost:8000";
-  return apiUrl.replace(/^http/, "ws") + "/ws";
+  return API_URL.replace(/^http/, "ws") + "/ws";
 };
 
 const WS_URL = getWsUrl();
@@ -306,7 +307,9 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
   const [demoDropdownOpen, setDemoDropdownOpen] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
-  const [demoIframeUrl, setDemoIframeUrl] = useState("http://localhost:8000/mocks/401k-rollover/");
+  const [demoIframeUrl, setDemoIframeUrl] = useState(
+    `${API_URL}/mocks/401k-rollover/`
+  );
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
@@ -432,7 +435,15 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
     <div
       className={`${styles.chatRoot} ${
         variant === "page" ? styles.chatRootPage : ""
-      } w-full ${isDemoMode ? "max-w-full" : variant === "embedded" ? "max-w-5xl" : "max-w-4xl"} mx-auto min-h-[80svh] ${isDemoMode ? "flex flex-row gap-4 items-start" : "flex items-center"} ${variant === "embedded" ? "px-4 py-6" : ""}`}
+      } w-full ${
+        isDemoMode
+          ? "max-w-full"
+          : variant === "embedded"
+          ? "max-w-5xl"
+          : "max-w-4xl"
+      } mx-auto min-h-[80svh] ${
+        isDemoMode ? "flex flex-row gap-4 items-start" : "flex items-center"
+      } ${variant === "embedded" ? "px-4 py-6" : ""}`}
     >
       {isDemoMode && (
         <div className={styles.demoIframePanel}>
@@ -526,15 +537,18 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
                     onClick={() => {
                       setIsDemoMode(true);
                       setDemoDropdownOpen(false);
+                      const mockUrl = `${API_URL}/mocks/401k-rollover/`;
                       // Send demo context to agent
                       sendControl({
                         type: "demo_context",
-                        demo_url: "http://localhost:8000/mocks/401k-rollover/",
+                        demo_url: mockUrl,
                         demo_type: "401k_rollover_browser",
-                        message: "User has opened the 401k Browser Automation Demo. The mock 401k provider site is loaded at http://localhost:8000/mocks/401k-rollover/. Demo credentials: username='demo', password='demo123'."
+                        message: `User has opened the 401k Browser Automation Demo. The mock 401k provider site is loaded at ${mockUrl}. Demo credentials: username='demo', password='demo123'.`,
                       });
                       // Send initial demo guidance message
-                      sendMessage("Complete a 401k rollover on the mock provider site at http://localhost:8000/mocks/401k-rollover/. Login with username 'demo' and password 'demo123'. Navigate through the site, initiate a rollover, fill in the rollover form with test data, and complete the process. Use Playwright browser tools to automate this flow. Take a screenshot at the end showing the confirmation page.");
+                      sendMessage(
+                        `Complete a 401k rollover on the mock provider site at ${mockUrl}. Login with username 'demo' and password 'demo123'. Navigate through the site, initiate a rollover, fill in the rollover form with test data, and complete the process. Use Playwright browser tools to automate this flow. Take a screenshot at the end showing the confirmation page.`
+                      );
                     }}
                     title="Browser Automation Demo"
                   >
@@ -546,15 +560,18 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
                     onClick={() => {
                       setIsDemoMode(true);
                       setDemoDropdownOpen(false);
+                      const mockUrl = `${API_URL}/mocks/401k-rollover/`;
                       // Send demo context for static scraping
                       sendControl({
                         type: "demo_context",
-                        demo_url: "http://localhost:8000/mocks/401k-rollover/",
+                        demo_url: mockUrl,
                         demo_type: "401k_rollover_static",
-                        message: "User has opened the 401k Static Scraping Demo. The mock 401k provider site is loaded at http://localhost:8000/mocks/401k-rollover/."
+                        message: `User has opened the 401k Static Scraping Demo. The mock 401k provider site is loaded at ${mockUrl}.`,
                       });
                       // Send scraping task
-                      sendMessage("Analyze and scrape the 401k provider site using ONLY static scraping tools (scrape_static_page, analyze_page_structure). Do NOT use browser automation. Extract all available information from the pages: login page structure, form fields, and any data you can gather without JavaScript execution. Show the difference between what static scraping can and cannot accomplish on this site.");
+                      sendMessage(
+                        `Analyze and scrape the 401k provider site using ONLY static scraping tools (scrape_static_page, analyze_page_structure). Do NOT use browser automation. Extract all available information from the pages: login page structure, form fields, and any data you can gather without JavaScript execution. Show the difference between what static scraping can and cannot accomplish on this site.`
+                      );
                     }}
                     title="Static Scraping Demo"
                   >
