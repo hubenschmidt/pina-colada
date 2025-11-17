@@ -26,7 +26,9 @@ def get_connection_string() -> str:
     db_name = os.getenv("POSTGRES_DB")
 
     # Log DB config (mask password)
-    logger.info(f"DB Config - Host: {db_host}, Port: {db_port}, User: {db_user}, DB: {db_name}")
+    logger.info(
+        f"DB Config - Host: {db_host}, Port: {db_port}, User: {db_user}, DB: {db_name}"
+    )
 
     # Validate required fields
     if not db_host:
@@ -105,7 +107,9 @@ def get_async_connection_string() -> str:
     if not db_name:
         raise ValueError("POSTGRES_DB environment variable is required")
 
-    conn_string = f"postgresql+asyncpg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    conn_string = (
+        f"postgresql+asyncpg://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}"
+    )
     logger.info(f"Async connection string: {conn_string}")
 
     return conn_string
@@ -124,7 +128,10 @@ def get_async_engine():
             conn_string,
             pool_pre_ping=True,
             echo=True,  # Enable SQL query logging
-            future=True
+            future=True,
+            connect_args={
+                "statement_cache_size": 0
+            },  # Disable prepared statements for Transaction mode in Supabase
         )
         logger.info("Async engine created successfully")
         return _async_engine
@@ -143,9 +150,7 @@ async def async_get_session():
     if _async_session_factory is None:
         engine = get_async_engine()
         _async_session_factory = async_sessionmaker(
-            engine,
-            class_=AsyncSession,
-            expire_on_commit=False
+            engine, class_=AsyncSession, expire_on_commit=False
         )
 
     async with _async_session_factory() as session:
