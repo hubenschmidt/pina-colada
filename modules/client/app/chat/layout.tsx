@@ -3,7 +3,12 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ChevronRight, ChevronDown, PanelLeftClose, PanelLeft } from "lucide-react";
+import {
+  ChevronRight,
+  ChevronDown,
+  PanelLeftClose,
+  PanelLeft,
+} from "lucide-react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../../context/userContext";
 
@@ -13,7 +18,7 @@ export default function ChatLayout({
   children: React.ReactNode;
 }) {
   const [leadsExpanded, setLeadsExpanded] = useState(true);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const { isLoading } = useUser();
   const { userState } = useUserContext();
 

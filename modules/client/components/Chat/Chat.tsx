@@ -304,11 +304,15 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
   const [leadsPanelOpen, setLeadsPanelOpen] = useState(false);
   const [leadsCount, setLeadsCount] = useState(0);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
+  const [demoDropdownOpen, setDemoDropdownOpen] = useState(false);
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const [demoIframeUrl, setDemoIframeUrl] = useState("http://localhost:8000/mocks/401k-rollover/");
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const sentCtxRef = useRef(false);
   const toolsDropdownRef = useRef<HTMLDivElement | null>(null);
+  const demoDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // --- Send rich user context as soon as WS opens (testing-only) ---
   useEffect(() => {
@@ -344,6 +348,24 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
         document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [toolsDropdownOpen]);
+
+  // Close demo dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        demoDropdownRef.current &&
+        !demoDropdownRef.current.contains(event.target as Node)
+      ) {
+        setDemoDropdownOpen(false);
+      }
+    };
+
+    if (demoDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () =>
+        document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [demoDropdownOpen]);
 
   // Clear typing indicator when bot responds
   useEffect(() => {
@@ -410,8 +432,26 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
     <div
       className={`${styles.chatRoot} ${
         variant === "page" ? styles.chatRootPage : ""
-      } w-full ${variant === "embedded" ? "max-w-5xl" : "max-w-4xl"} mx-auto min-h-[80svh] flex items-center ${variant === "embedded" ? "px-4 py-6" : ""}`}
+      } w-full ${isDemoMode ? "max-w-full" : variant === "embedded" ? "max-w-5xl" : "max-w-4xl"} mx-auto min-h-[80svh] ${isDemoMode ? "flex flex-row gap-4 items-start" : "flex items-center"} ${variant === "embedded" ? "px-4 py-6" : ""}`}
     >
+      {isDemoMode && (
+        <div className={styles.demoIframePanel}>
+          <div className={styles.demoIframeHeader}>
+            <span className={styles.demoIframeTitle}>Mock 401k Provider</span>
+            <button
+              className={styles.exitDemoButton}
+              onClick={() => setIsDemoMode(false)}
+            >
+              Exit Demo
+            </button>
+          </div>
+          <iframe
+            src={demoIframeUrl}
+            className={styles.demoIframe}
+            title="401k Provider Demo"
+          />
+        </div>
+      )}
       <section
         className={`${styles.shellCard} ${
           variant === "page" ? styles.shellCardFlat : ""
@@ -465,6 +505,35 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
                 </div>
               )}
             </div>
+            <div className={styles.toolsDropdown} ref={demoDropdownRef}>
+              <button
+                type="button"
+                className={styles.toolsButton}
+                onClick={() => setDemoDropdownOpen(!demoDropdownOpen)}
+                title="Demo"
+              >
+                <span>Demo</span>
+                <ChevronDown
+                  size={16}
+                  className={demoDropdownOpen ? styles.chevronOpen : ""}
+                />
+              </button>
+              {demoDropdownOpen && (
+                <div className={styles.toolsMenu}>
+                  <button
+                    type="button"
+                    className={styles.toolsMenuItem}
+                    onClick={() => {
+                      setIsDemoMode(true);
+                      setDemoDropdownOpen(false);
+                    }}
+                    title="Launch 401k Scraper Demo"
+                  >
+                    <span>401k Scraper Demo</span>
+                  </button>
+                </div>
+              )}
+            </div>
             <button
               type="button"
               className={styles.exportButton}
@@ -477,7 +546,7 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
           </div>
         </header>
 
-        {/* dark "terminal" panel */}
+        {/* chat panel - always rendered the same */}
         <main className={styles.chatPanel}>
           {/* message list */}
           <section
