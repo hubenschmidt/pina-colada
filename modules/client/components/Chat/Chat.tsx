@@ -297,10 +297,9 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
     console.log("WebSocket URL:", WS_URL);
   }, []);
 
-  const { isOpen, messages, sendMessage, sendControl, reset } = useWs(WS_URL);
+  const { isOpen, isThinking, messages, sendMessage, sendControl, reset } = useWs(WS_URL);
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
-  const [waitForWs, setWaitForWs] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
   const [leadsPanelOpen, setLeadsPanelOpen] = useState(false);
   const [leadsCount, setLeadsCount] = useState(0);
@@ -370,14 +369,6 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
     }
   }, [demoDropdownOpen]);
 
-  // Clear typing indicator when bot responds
-  useEffect(() => {
-    if (messages.length === 0) return;
-    const lastMsg = messages[messages.length - 1];
-    if (lastMsg.user === "PinaColada" && !lastMsg.streaming) {
-      setWaitForWs(false);
-    }
-  }, [messages]);
 
   // autofocus textarea on mount
   useEffect(() => {
@@ -390,7 +381,6 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
     if (!text) return;
     sendMessage(text);
     setInput("");
-    setWaitForWs(true); // NEW: show typing indicator until next bot msg
   };
 
   const onKeyDown: React.KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
@@ -549,7 +539,6 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
                       sendMessage(
                         `Complete a 401k rollover on the mock provider site at ${mockUrl}. Login with username 'demo' and password 'demo123'. Navigate through the site, initiate a rollover, fill in the rollover form with test data, and complete the process. Use Playwright browser tools to automate this flow. Take a screenshot at the end showing the confirmation page.`
                       );
-                      setWaitForWs(true); // Show thinking indicator
                     }}
                     title="Browser Automation Demo"
                   >
@@ -573,7 +562,6 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
                       sendMessage(
                         `Analyze and scrape the 401k provider site using ONLY static scraping tools (scrape_static_page, analyze_page_structure). Do NOT use browser automation. Extract all available information from the pages: login page structure, form fields, and any data you can gather without JavaScript execution. Show the difference between what static scraping can and cannot accomplish on this site.`
                       );
-                      setWaitForWs(true); // Show thinking indicator
                     }}
                     title="Static Scraping Demo"
                   >
@@ -661,7 +649,7 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
           {/* input */}
           <form className={styles.inputForm} onSubmit={onSubmit}>
             {/* Typing indicator above input */}
-            {waitForWs && (
+            {isThinking && (
               <div className={styles.thinkingIndicator}>
                 <span className={styles.thinkingText}>thinking</span>
               </div>

@@ -7,6 +7,7 @@ const GREETING =
 
 type UseWebSocketReturn = {
   isOpen: boolean;
+  isThinking: boolean;
   messages: ChatMsg[];
   sendMessage: (text: string) => void; // chat messages -> UI bubble
   sendControl: (payload: unknown) => void; // control/telemetry -> silent
@@ -58,6 +59,7 @@ const applyStartOfTurn = (prev: ChatMsg[]): ChatMsg[] => {
 
 export const useWs = (url: string): UseWebSocketReturn => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([
     {
       user: "PinaColada",
@@ -109,6 +111,7 @@ export const useWs = (url: string): UseWebSocketReturn => {
 
       // Start of new assistant turn (close current bubble if streaming)
       if (obj.on_chat_model_start === true) {
+        setIsThinking(true);
         setMessages((prev) => applyStartOfTurn(prev));
         return;
       }
@@ -122,6 +125,7 @@ export const useWs = (url: string): UseWebSocketReturn => {
 
       // End of assistant turn
       if (obj.on_chat_model_end === true) {
+        setIsThinking(false);
         setMessages((prev) => applyEndOfTurn(prev));
         return;
       }
@@ -158,6 +162,7 @@ export const useWs = (url: string): UseWebSocketReturn => {
       if (!s || s.readyState !== WebSocket.OPEN) return;
 
       setMessages((prev) => [...prev, { user: "User", msg: t }]);
+      setIsThinking(true); // Start thinking when user sends message
       s.send(JSON.stringify({ uuid, message: t }));
     },
     [uuid]
@@ -186,5 +191,5 @@ export const useWs = (url: string): UseWebSocketReturn => {
     ]);
   }, []);
 
-  return { isOpen, messages, sendMessage, sendControl, reset };
+  return { isOpen, isThinking, messages, sendMessage, sendControl, reset };
 };
