@@ -184,10 +184,10 @@ async def browser_take_screenshot(filename: Optional[str] = None) -> str:
     file_path = str(result)
 
     # Convert file path to HTTP URL
-    # e.g., /tmp/playwright-mcp-output/123/screenshot.png -> http://localhost:8000/videos/screenshots/123/screenshot.png
+    # e.g., /tmp/playwright-mcp-output/123/screenshot.png -> http://localhost:8000/screenshots/123/screenshot.png
     if "/tmp/playwright-mcp-output/" in file_path:
         relative_path = file_path.replace("/tmp/playwright-mcp-output/", "")
-        http_url = f"http://localhost:8000/videos/screenshots/{relative_path}"
+        http_url = f"http://localhost:8000/screenshots/{relative_path}"
         return http_url
 
     return file_path

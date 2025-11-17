@@ -105,6 +105,7 @@ async def create_orchestrator(
     """
     from agent.tools.worker_tools import get_worker_tools
     from agent.tools.mcp_playwright import PLAYWRIGHT_MCP_TOOLS, init_playwright_mcp
+    from agent.tools.scraper_tools import SCRAPER_TOOLS
     from agent.workers.worker import create_worker_node, route_from_worker
     from agent.workers.job_hunter import create_job_hunter_node, route_from_job_hunter
     from agent.workers.evaluator import create_evaluator_node, route_from_evaluator
@@ -131,15 +132,19 @@ async def create_orchestrator(
     logger.info("✓ Playwright MCP initialized")
 
     # Combine regular tools with Playwright MCP tools
-    all_tools = tools + PLAYWRIGHT_MCP_TOOLS
-    logger.info(f"✓ Total tools (including Playwright MCP): {len(all_tools)}")
+    all_tools = tools + PLAYWRIGHT_MCP_TOOLS + SCRAPER_TOOLS
+    logger.info(f"✓ Total tools (including Playwright MCP + static scraping): {len(all_tools)}")
+
+    # Scraper gets both Playwright (for browser automation) and static scraping tools
+    scraper_tools = PLAYWRIGHT_MCP_TOOLS + SCRAPER_TOOLS
+    logger.info(f"✓ Scraper tools: {len(scraper_tools)} (Playwright MCP + static scraping)")
 
     # Create nodes (each returns a pure function with closed-over LLMs)
     worker = await create_worker_node(tools, resume_context_concise, _trim_messages)
     job_hunter = await create_job_hunter_node(
         tools, resume_context_concise, _trim_messages
     )
-    scraper = await create_scraper_node(PLAYWRIGHT_MCP_TOOLS, _trim_messages)
+    scraper = await create_scraper_node(scraper_tools, _trim_messages)
     evaluator = await create_evaluator_node()
     cover_letter_writer = await create_cover_letter_writer_node(_trim_messages)
 
