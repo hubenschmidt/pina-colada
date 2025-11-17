@@ -3,6 +3,7 @@
 import logging
 import os
 from contextlib import asynccontextmanager
+from uuid import uuid4
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
@@ -130,8 +131,8 @@ def get_async_engine():
             echo=True,  # Enable SQL query logging
             future=True,
             connect_args={
-                "statement_cache_size": 0
-            },  # Disable prepared statements for Transaction mode in Supabase
+                "prepared_statement_name_func": lambda: f"__asyncpg_{uuid4()}__"
+            },  # Unique prepared statement names for pgbouncer transaction mode
         )
         logger.info("Async engine created successfully")
         return _async_engine

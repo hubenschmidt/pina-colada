@@ -10,7 +10,6 @@ __all__ = ["app"]
 import json
 import logging
 from datetime import datetime
-from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket
 from fastapi.middleware.cors import CORSMiddleware
 from agent.graph import invoke_graph
@@ -23,21 +22,7 @@ from uuid import uuid4
 # -----------------------------------------------------------------------------
 configure_logging()  # plain logging to stdout (Docker captures it)
 logger = logging.getLogger("app.server")
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Dispose async engine on shutdown to prevent prepared statement collisions."""
-    logger.info("Application startup")
-    yield
-    logger.info("Application shutdown - disposing async engine")
-    from lib.db import _async_engine
-    if _async_engine is not None:
-        await _async_engine.dispose()
-        logger.info("Async engine disposed")
-
-
-app = FastAPI(redirect_slashes=False, lifespan=lifespan)
+app = FastAPI(redirect_slashes=False)
 
 # -----------------------------------------------------------------------------
 # CORS middleware (MUST be added before routers)
