@@ -10,6 +10,7 @@ import {
     type MantineBreakpoint,
 } from '@mantine/core';
 import { ArrowUp, ArrowDown, ChevronsUpDown } from 'lucide-react';
+import styles from './DataTable.module.css';
 
 type SortDir = 'ASC' | 'DESC';
 
@@ -199,6 +200,21 @@ export const DataTable = <T,>({
                         withEdges
                         size="sm"
                         radius="md"
+                        classNames={{
+                            control: styles.paginationControl,
+                        }}
+                        styles={{
+                            control: {
+                                '&[data-active]': {
+                                    backgroundColor: 'var(--surface)',
+                                    border: '2px solid var(--text-primary)',
+                                    fontWeight: 600,
+                                },
+                                '&[data-active]:hover': {
+                                    backgroundColor: 'var(--surface)',
+                                },
+                            },
+                        }}
                     />
                 </Group>
             </Group>

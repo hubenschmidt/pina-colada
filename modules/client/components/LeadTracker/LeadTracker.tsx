@@ -4,7 +4,17 @@ import { useEffect, useState } from "react";
 import { DataTable, type PageData } from "../DataTable";
 import { RefreshCw, Search, X } from "lucide-react";
 import { LeadTrackerConfig, BaseLead } from "./LeadTrackerConfig";
-import { Stack, Center, Loader, Alert, Group, TextInput, Button, Box, Text } from "@mantine/core";
+import {
+  Stack,
+  Center,
+  Loader,
+  Alert,
+  Group,
+  TextInput,
+  Button,
+  Box,
+  Text,
+} from "@mantine/core";
 
 interface LeadTrackerProps<T extends BaseLead> {
   config: LeadTrackerConfig<T>;
@@ -31,7 +41,7 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
 
   const enableSearch = config.enableSearch !== false;
 
-  const loadLeads = async (showFullLoading = false, showBar = false) => {
+  const loadLeads = (showFullLoading = false, showBar = false) => {
     if (showFullLoading) {
       setLoading(true);
     }
@@ -41,25 +51,22 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
     }
     setError(null);
 
-    try {
-      const pageData = await config.api.getLeads(
-        page,
-        limit,
-        sortBy,
-        sortDirection,
-        searchQuery || undefined
-      );
-      setData(pageData);
-    } catch (err) {
-      console.error(`Error fetching ${config.entityNamePlural}:`, err);
-      setError(
-        `Failed to load ${config.entityNamePlural.toLowerCase()}. Please try again.`
-      );
-    } finally {
-      setLoading(false);
-      setIsRefreshing(false);
-      setTimeout(() => setShowLoadingBar(false), 300);
-    }
+    config.api
+      .getLeads(page, limit, sortBy, sortDirection, searchQuery || undefined)
+      .then((pageData) => {
+        setData(pageData);
+      })
+      .catch((err) => {
+        console.error(`Error fetching ${config.entityNamePlural}:`, err);
+        setError(
+          `Failed to load ${config.entityNamePlural.toLowerCase()}. Please try again.`
+        );
+      })
+      .finally(() => {
+        setLoading(false);
+        setIsRefreshing(false);
+        setTimeout(() => setShowLoadingBar(false), 300);
+      });
   };
 
   useEffect(() => {
@@ -78,19 +85,37 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
   const handleAddLead = async (
     leadData: Omit<T, "id" | "created_at" | "updated_at">
   ) => {
-    await config.api.createLead(leadData);
-    await loadLeads(false);
-    setIsFormOpen(false);
+    return config.api
+      .createLead(leadData)
+      .then(() => {
+        loadLeads(false);
+        setIsFormOpen(false);
+      })
+      .catch((err) => {
+        console.error(`Error creating ${config.entityName}:`, err);
+      });
   };
 
   const handleUpdateLead = async (id: string, updates: Partial<T>) => {
-    await config.api.updateLead(id, updates);
-    await loadLeads(false);
+    return config.api
+      .updateLead(id, updates)
+      .then(() => {
+        loadLeads(false);
+      })
+      .catch((err) => {
+        console.error(`Error updating ${config.entityName}:`, err);
+      });
   };
 
   const handleDeleteLead = async (id: string) => {
-    await config.api.deleteLead(id);
-    await loadLeads(false);
+    return config.api
+      .deleteLead(id)
+      .then(() => {
+        loadLeads(false);
+      })
+      .catch((err) => {
+        console.error(`Error deleting ${config.entityName}:`, err);
+      });
   };
 
   const handleRowClick = (lead: T) => {
@@ -176,10 +201,7 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
               }
               style={{ flex: 1 }}
             />
-            <Button
-              onClick={() => setIsFormOpen(true)}
-              color="dark"
-            >
+            <Button onClick={() => setIsFormOpen(true)} variant="default">
               Add {config.entityName}
             </Button>
           </Group>

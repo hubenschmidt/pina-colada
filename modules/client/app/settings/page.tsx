@@ -99,8 +99,11 @@ const SettingsPage = () => {
 
   if (loading) {
     return (
-      <Center h="50vh">
-        <Loader size="lg" />
+      <Center mih={400}>
+        <Stack align="center" gap="md">
+          <Loader size="xl" color="lime" />
+          <Text c="dimmed">Loading settings...</Text>
+        </Stack>
       </Center>
     );
   }
