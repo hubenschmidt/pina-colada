@@ -203,18 +203,6 @@ export const DataTable = <T,>({
                         classNames={{
                             control: styles.paginationControl,
                         }}
-                        styles={{
-                            control: {
-                                '&[data-active]': {
-                                    backgroundColor: 'var(--surface)',
-                                    border: '2px solid var(--text-primary)',
-                                    fontWeight: 600,
-                                },
-                                '&[data-active]:hover': {
-                                    backgroundColor: 'var(--surface)',
-                                },
-                            },
-                        }}
                     />
                 </Group>
             </Group>

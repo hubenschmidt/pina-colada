@@ -99,12 +99,12 @@ async def find_all_jobs(
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
             joinedload(Job.organization).joinedload(Organization.tenant)
-        ).join(Lead)
+        ).join(Lead).join(Organization)
 
         # Apply search filter at DB level
         if search and search.strip():
             search_lower = search.strip().lower()
-            stmt = stmt.join(Organization).where(
+            stmt = stmt.where(
                 or_(
                     sql_func.lower(Organization.name).contains(search_lower),
                     sql_func.lower(Job.job_title).contains(search_lower)

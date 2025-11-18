@@ -8,13 +8,13 @@
   background-color: var(--hover-background);
 }
 
-.paginationControlActive {
+.paginationControl[data-active] {
   background-color: var(--surface);
   border: 2px solid var(--text-primary);
   font-weight: 600;
 }
 
-.paginationControlActive:hover {
+.paginationControl[data-active]:hover {
   background-color: var(--surface);
   border: 2px solid var(--text-primary);
 }

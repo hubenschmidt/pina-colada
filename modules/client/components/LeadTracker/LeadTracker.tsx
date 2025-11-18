@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { DataTable, type PageData } from "../DataTable";
-import { RefreshCw, Search, X } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { LeadTrackerConfig, BaseLead } from "./LeadTrackerConfig";
 import {
   Stack,
@@ -169,6 +169,10 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
 
   return (
     <Stack gap="lg">
+      <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+        {config.entityName} Tracker
+      </h1>
+
       {/* Lead form */}
       <FormComponent
         isOpen={isFormOpen}
@@ -192,7 +196,7 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
                 searchQuery && (
                   <button
                     onClick={handleClearSearch}
-                    className="text-zinc-400 hover:text-zinc-600"
+                    className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-400"
                     aria-label="Clear search"
                   >
                     <X size={18} />
@@ -200,6 +204,15 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
                 )
               }
               style={{ flex: 1 }}
+              styles={{
+                input: {
+                  transition: "background-color 0.2s ease",
+                  "&:hover": {
+                    backgroundColor: "var(--input-background)",
+                    filter: "brightness(0.97)",
+                  },
+                },
+              }}
             />
             <Button onClick={() => setIsFormOpen(true)} variant="default">
               Add {config.entityName}
