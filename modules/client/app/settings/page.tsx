@@ -3,9 +3,24 @@
 import { useUserContext } from "../../context/userContext";
 import { useState, useEffect } from "react";
 import { SET_THEME } from "../../reducers/userReducer";
-import { Container, Stack, Title, Radio, Paper, Text, Loader, Center } from "@mantine/core";
+import {
+  Container,
+  Stack,
+  Title,
+  Radio,
+  Paper,
+  Text,
+  Loader,
+  Center,
+} from "@mantine/core";
+import {
+  getUserPreferences,
+  updateUserPreferences,
+  getTenantPreferences,
+  updateTenantPreferences,
+} from "../../api";
 
-export default function SettingsPage() {
+const SettingsPage = () => {
   const { userState, dispatchUser } = useUserContext();
   const [userTheme, setUserTheme] = useState<string | null>(null);
   const [tenantTheme, setTenantTheme] = useState<string>("light");
@@ -16,18 +31,12 @@ export default function SettingsPage() {
       if (!userState.isAuthed) return;
 
       try {
-        const userPrefs = await fetch("/api/preferences/user");
-        if (userPrefs.ok) {
-          const data = await userPrefs.json();
-          setUserTheme(data.theme);
-        }
+        const userPrefs = await getUserPreferences();
+        setUserTheme(userPrefs.theme);
 
         if (userState.canEditTenantTheme) {
-          const tenantPrefs = await fetch("/api/preferences/tenant");
-          if (tenantPrefs.ok) {
-            const data = await tenantPrefs.json();
-            setTenantTheme(data.theme);
-          }
+          const tenantPrefs = await getTenantPreferences();
+          setTenantTheme(tenantPrefs.theme);
         }
       } catch (error) {
         console.error("Failed to fetch preferences:", error);
@@ -39,18 +48,11 @@ export default function SettingsPage() {
     fetchPrefs();
   }, [userState.isAuthed, userState.canEditTenantTheme]);
 
-  const updateUserTheme = async (newTheme: "light" | "dark" | null) => {
+  const updateUserTheme = (newTheme: "light" | "dark" | null) => {
     if (!userState.isAuthed) return;
 
-    try {
-      const res = await fetch("/api/preferences/user", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ theme: newTheme }),
-      });
-
-      if (res.ok) {
-        const data = await res.json();
+    updateUserPreferences(newTheme)
+      .then((data) => {
         setUserTheme(newTheme);
         dispatchUser({
           type: SET_THEME,
@@ -59,23 +61,17 @@ export default function SettingsPage() {
             canEditTenant: userState.canEditTenantTheme,
           },
         });
-      }
-    } catch (error) {
-      console.error("Failed to update user theme:", error);
-    }
+      })
+      .catch((error) => {
+        console.error("Failed to update user theme:", error);
+      });
   };
 
-  const updateTenantTheme = async (newTheme: "light" | "dark") => {
+  const updateTenantTheme = (newTheme: "light" | "dark") => {
     if (!userState.isAuthed || !userState.canEditTenantTheme) return;
 
-    try {
-      const res = await fetch("/api/preferences/tenant", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ theme: newTheme }),
-      });
-
-      if (res.ok) {
+    updateTenantPreferences(newTheme)
+      .then(() => {
         setTenantTheme(newTheme);
 
         if (userTheme === null) {
@@ -87,10 +83,10 @@ export default function SettingsPage() {
             },
           });
         }
-      }
-    } catch (error) {
-      console.error("Failed to update tenant theme:", error);
-    }
+      })
+      .catch((error) => {
+        console.error("Failed to update tenant theme:", error);
+      });
   };
 
   if (!userState.isAuthed) {
@@ -115,12 +111,18 @@ export default function SettingsPage() {
         <Title order={1}>Settings</Title>
 
         <Stack gap="md">
-          <Title order={2} size="h3">Personal Theme</Title>
-          <Radio.Group value={userTheme || ""} onChange={(value) => updateUserTheme(value as "light" | "dark" | null)}>
+          <Title order={2} size="h3">
+            Personal Theme
+          </Title>
+          <Radio.Group
+            value={userTheme || ""}
+            onChange={(value) =>
+              updateUserTheme(value as "light" | "dark" | null)
+            }
+          >
             <Stack gap="xs">
               <Radio value="light" label="Light" />
               <Radio value="dark" label="Dark" />
-              <Radio value="" label="Inherit from organization" />
             </Stack>
           </Radio.Group>
         </Stack>
@@ -129,12 +131,19 @@ export default function SettingsPage() {
           <Paper withBorder p="md">
             <Stack gap="md">
               <div>
-                <Title order={2} size="h3" mb="xs">Organization Theme (Admin)</Title>
+                <Title order={2} size="h3" mb="xs">
+                  Organization Theme (Admin)
+                </Title>
                 <Text size="sm" c="dimmed">
                   This affects all users who inherit the organization theme.
                 </Text>
               </div>
-              <Radio.Group value={tenantTheme} onChange={(value) => updateTenantTheme(value as "light" | "dark")}>
+              <Radio.Group
+                value={tenantTheme}
+                onChange={(value) =>
+                  updateTenantTheme(value as "light" | "dark")
+                }
+              >
                 <Stack gap="xs">
                   <Radio value="light" label="Light" />
                   <Radio value="dark" label="Dark" />
@@ -146,4 +155,6 @@ export default function SettingsPage() {
       </Stack>
     </Container>
   );
-}
+};
+
+export default SettingsPage;

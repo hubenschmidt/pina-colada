@@ -11,7 +11,7 @@ interface JobFormProps {
   onAdd: () => Promise<void>;
 }
 
-export function JobForm({ isOpen, onClose, onAdd }: JobFormProps) {
+const JobForm = ({ isOpen, onClose, onAdd }: JobFormProps) => {
   const [formData, setFormData] = useState({
     company: "",
     job_title: "",
@@ -304,4 +304,6 @@ export function JobForm({ isOpen, onClose, onAdd }: JobFormProps) {
       </form>
     </div>
   );
-}
+};
+
+export default JobForm;

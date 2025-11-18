@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useUserContext } from "../context/userContext";
 
-export default function NotFound() {
+const NotFound = () => {
   const router = useRouter();
   const { userState } = useUserContext();
 
@@ -22,4 +22,6 @@ export default function NotFound() {
       <p className="text-zinc-600">Redirecting...</p>
     </div>
   );
-}
+};
+
+export default NotFound;

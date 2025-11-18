@@ -10,7 +10,7 @@ interface LeadTrackerProps<T extends BaseLead> {
   config: LeadTrackerConfig<T>;
 }
 
-function LeadTracker<T extends BaseLead>({ config }: LeadTrackerProps<T>) {
+const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [data, setData] = useState<PageData<T> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -246,6 +246,6 @@ function LeadTracker<T extends BaseLead>({ config }: LeadTrackerProps<T>) {
       />
     </Stack>
   );
-}
+};
 
 export default LeadTracker;

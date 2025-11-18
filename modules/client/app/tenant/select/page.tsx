@@ -39,28 +39,29 @@ const TenantSelectPage = () => {
 
     if (!user) return;
 
-    const initializeAuth = async () => {
-      try {
-        // Store Auth0 user and fetch bearer token
-        if (!userState.user) {
-          dispatchUser({
-            type: SET_USER,
-            payload: user,
-          });
-        }
+    const initializeAuth = () => {
+      // Store Auth0 user and fetch bearer token
+      if (!userState.user) {
+        dispatchUser({
+          type: SET_USER,
+          payload: user,
+        });
+      }
 
-        if (!userState.bearerToken) {
-          const bearerTokenData = await fetchBearerToken();
-          dispatchUser({
-            type: SET_BEARER_TOKEN,
-            payload: bearerTokenData.headers.Authorization.replace(
-              "Bearer ",
-              ""
-            ),
+      if (!userState.bearerToken) {
+        fetchBearerToken()
+          .then((bearerTokenData) => {
+            dispatchUser({
+              type: SET_BEARER_TOKEN,
+              payload: bearerTokenData.headers.Authorization.replace(
+                "Bearer ",
+                ""
+              ),
+            });
+          })
+          .catch((error) => {
+            console.error("Error initializing auth:", error);
           });
-        }
-      } catch (error) {
-        console.error("Error initializing auth:", error);
       }
     };
 
@@ -68,7 +69,7 @@ const TenantSelectPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, userLoading]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -78,23 +79,25 @@ const TenantSelectPage = () => {
     }
 
     setLoading(true);
-    try {
-      const newTenant = await createTenant(tenantName, plan);
+    createTenant(tenantName, plan)
+      .then((newTenant) => {
+        // Store tenant in context
+        dispatchUser({
+          type: SET_TENANT_NAME,
+          payload: newTenant.name,
+        });
 
-      // Store tenant in context
-      dispatchUser({
-        type: SET_TENANT_NAME,
-        payload: newTenant.name,
+        router.push("/chat");
+      })
+      .catch((error: any) => {
+        console.error("Error creating tenant:", error);
+        setError(
+          error.response?.data?.message || "Failed to create organization"
+        );
+      })
+      .finally(() => {
+        setLoading(false);
       });
-
-      router.push("/chat");
-    } catch (error: any) {
-      console.error("Error creating tenant:", error);
-      setError(
-        error.response?.data?.message || "Failed to create organization"
-      );
-      setLoading(false);
-    }
   };
 
   if (userLoading) {

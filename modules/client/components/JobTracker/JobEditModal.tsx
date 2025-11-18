@@ -13,13 +13,13 @@ interface JobEditModalProps {
   onDelete: () => Promise<void>;
 }
 
-export function JobEditModal({
+const JobEditModal = ({
   job,
   opened,
   onClose,
   onUpdate,
   onDelete,
-}: JobEditModalProps) {
+}: JobEditModalProps) => {
   const [formData, setFormData] = useState({
     company: "",
     job_title: "",
@@ -294,4 +294,6 @@ export function JobEditModal({
       </Modal.Content>
     </Modal.Root>
   );
-}
+};
+
+export default JobEditModal;

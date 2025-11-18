@@ -39,7 +39,7 @@ const LoginPage = () => {
   if (isLoading || checkingTenant) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Image src="/icon.png" alt="Loading" width={100} height={100} />
+        <Image src="/icon.png" alt="Loading" width={50} height={50} />
       </div>
     );
   }
@@ -48,7 +48,7 @@ const LoginPage = () => {
   if (user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Image src="/icon.png" alt="Loading" width={100} height={100} />
+        <Image src="/icon.png" alt="Loading" width={50} height={50} />
       </div>
     );
   }

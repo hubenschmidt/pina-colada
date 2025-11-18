@@ -5,8 +5,8 @@ import { DataTable, type PageData } from "../DataTable";
 import { RefreshCw, Search, X } from "lucide-react";
 import { CreatedJob } from "../../types/types";
 import * as api from "../../api";
-import { JobForm } from "./JobForm";
-import { JobEditModal } from "./JobEditModal";
+import JobForm from "./JobForm";
+import JobEditModal from "./JobEditModal";
 
 interface JobTrackerProps {
   // Optional props for customization
@@ -15,11 +15,11 @@ interface JobTrackerProps {
   searchPlaceholder?: string;
 }
 
-export function JobTracker({
+const JobTracker = ({
   defaultPageSize = 25,
   enableSearch = true,
   searchPlaceholder = "Search jobs...",
-}: JobTrackerProps) {
+}: JobTrackerProps) => {
   // Data state
   const [data, setData] = useState<PageData<CreatedJob> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -258,4 +258,6 @@ export function JobTracker({
       />
     </div>
   );
-}
+};
+
+export default JobTracker;
