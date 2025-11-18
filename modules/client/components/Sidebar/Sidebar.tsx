@@ -19,14 +19,19 @@ export const Sidebar = () => {
 
   return (
     <aside
-      className={`border-r border-zinc-200 bg-zinc-50 transition-all duration-300 flex flex-col ${
+      className={`h-screen border-r border-zinc-200 bg-zinc-50 transition-all duration-300 grid grid-rows-[auto_1fr_auto] ${
         sidebarCollapsed ? "w-14" : "w-64"
       }`}
     >
       {/* Toggle Button */}
       <div className="p-4 pb-0 flex justify-end">
         <button
-          onClick={() => dispatchNav({ type: SET_SIDEBAR_COLLAPSED, payload: !sidebarCollapsed })}
+          onClick={() =>
+            dispatchNav({
+              type: SET_SIDEBAR_COLLAPSED,
+              payload: !sidebarCollapsed,
+            })
+          }
           className="flex items-center justify-center rounded p-2 text-zinc-700 hover:bg-zinc-100"
           title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
@@ -39,37 +44,39 @@ export const Sidebar = () => {
       </div>
 
       {/* Navigation Links */}
-      {!sidebarCollapsed && (
-        <nav className="flex-1 p-4 space-y-2">
-          {/* Leads Section */}
-          <div>
-            <button
-              onClick={() => setLeadsExpanded(!leadsExpanded)}
-              className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
-            >
-              {leadsExpanded ? (
-                <ChevronDown className="h-4 w-4" />
-              ) : (
-                <ChevronRight className="h-4 w-4" />
+      <div className="overflow-y-auto">
+        {!sidebarCollapsed && (
+          <nav className="p-4 space-y-2">
+            {/* Leads Section */}
+            <div>
+              <button
+                onClick={() => setLeadsExpanded(!leadsExpanded)}
+                className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-100"
+              >
+                {leadsExpanded ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+                Leads
+              </button>
+              {leadsExpanded && (
+                <div className="ml-6 mt-1 space-y-1">
+                  <Link
+                    href="/leads/jobs"
+                    className="block rounded px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
+                  >
+                    Jobs
+                  </Link>
+                </div>
               )}
-              Leads
-            </button>
-            {leadsExpanded && (
-              <div className="ml-6 mt-1 space-y-1">
-                <Link
-                  href="/leads/jobs"
-                  className="block rounded px-3 py-2 text-sm text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900"
-                >
-                  Jobs
-                </Link>
-              </div>
-            )}
-          </div>
-        </nav>
-      )}
+            </div>
+          </nav>
+        )}
+      </div>
 
       {/* Settings Button at Bottom */}
-      <div className="mt-auto p-4 border-t border-zinc-200">
+      <div className="sticky bottom-0 bg-zinc-50 p-4 border-t border-zinc-200">
         <Link
           href="/settings"
           className={`flex items-center gap-3 rounded px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-100 ${
