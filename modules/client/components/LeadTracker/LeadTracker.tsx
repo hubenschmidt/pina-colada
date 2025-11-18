@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { DataTable, type PageData } from "../DataTable";
 import { RefreshCw, Search, X } from "lucide-react";
 import { LeadTrackerConfig, BaseLead } from "./LeadTrackerConfig";
+import { Stack, Center, Loader, Alert, Group, TextInput, Button, Box, Text } from "@mantine/core";
 
 interface LeadTrackerProps<T extends BaseLead> {
   config: LeadTrackerConfig<T>;
@@ -114,32 +115,27 @@ function LeadTracker<T extends BaseLead>({ config }: LeadTrackerProps<T>) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <RefreshCw
-            className="animate-spin mx-auto mb-4 text-lime-500"
-            size={48}
-          />
-          <p className="text-zinc-600">
+      <Center mih={400}>
+        <Stack align="center" gap="md">
+          <Loader size="xl" color="lime" />
+          <Text c="dimmed">
             Loading {config.entityNamePlural.toLowerCase()}...
-          </p>
-        </div>
-      </div>
+          </Text>
+        </Stack>
+      </Center>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-        <p className="text-red-800 font-semibold mb-2">Error</p>
-        <p className="text-red-600">{error}</p>
-        <button
-          onClick={() => loadLeads(true)}
-          className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-        >
-          Retry
-        </button>
-      </div>
+      <Alert color="red" title="Error">
+        <Stack gap="md" align="center">
+          <Text>{error}</Text>
+          <Button color="red" onClick={() => loadLeads(true)}>
+            Retry
+          </Button>
+        </Stack>
+      </Alert>
     );
   }
 
@@ -147,7 +143,7 @@ function LeadTracker<T extends BaseLead>({ config }: LeadTrackerProps<T>) {
   const EditModalComponent = config.EditModalComponent;
 
   return (
-    <div className="space-y-6">
+    <Stack gap="lg">
       {/* Lead form */}
       <FormComponent
         isOpen={isFormOpen}
@@ -157,57 +153,62 @@ function LeadTracker<T extends BaseLead>({ config }: LeadTrackerProps<T>) {
 
       {/* Search bar and Add button */}
       {enableSearch && (
-        <div className="relative">
-          <div className="flex gap-3 items-center">
-            <div className="relative flex-1">
-              <Search
-                className="absolute left-3 top-1/2 transform -translate-y-1/2 text-zinc-400"
-                size={20}
-              />
-              <input
-                type="text"
-                placeholder={
-                  config.searchPlaceholder ||
-                  `Search ${config.entityNamePlural.toLowerCase()}...`
-                }
-                value={searchQuery}
-                onChange={(e) => handleSearchChange(e.target.value)}
-                className="w-full pl-10 pr-10 py-2 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent"
-              />
-              {searchQuery && (
-                <button
-                  onClick={handleClearSearch}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
-                  aria-label="Clear search"
-                >
-                  <X size={18} />
-                </button>
-              )}
-            </div>
-            <button
+        <Stack gap="xs">
+          <Group gap="md">
+            <TextInput
+              placeholder={
+                config.searchPlaceholder ||
+                `Search ${config.entityNamePlural.toLowerCase()}...`
+              }
+              value={searchQuery}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              leftSection={<Search size={20} />}
+              rightSection={
+                searchQuery && (
+                  <button
+                    onClick={handleClearSearch}
+                    className="text-zinc-400 hover:text-zinc-600"
+                    aria-label="Clear search"
+                  >
+                    <X size={18} />
+                  </button>
+                )
+              }
+              style={{ flex: 1 }}
+            />
+            <Button
               onClick={() => setIsFormOpen(true)}
-              className="px-4 py-2 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 font-medium whitespace-nowrap"
+              color="dark"
             >
               Add {config.entityName}
-            </button>
-          </div>
+            </Button>
+          </Group>
           {searchQuery && (
-            <p className="mt-2 text-sm text-zinc-600">
+            <Text size="sm" c="dimmed">
               Showing results for "{searchQuery}"
-            </p>
+            </Text>
           )}
-        </div>
+        </Stack>
       )}
 
       {/* DataTable */}
-      <div className="relative">
+      <Box pos="relative">
         {showLoadingBar && isRefreshing && (
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-zinc-100 z-10 overflow-hidden">
-            <div
-              className="h-full bg-zinc-300"
+          <Box
+            pos="absolute"
+            top={0}
+            left={0}
+            right={0}
+            h={2}
+            bg="gray.1"
+            style={{ zIndex: 10, overflow: "hidden" }}
+          >
+            <Box
+              h="100%"
+              bg="gray.3"
               style={{ width: "40%", transition: "width 0.3s ease" }}
             />
-          </div>
+          </Box>
         )}
         <DataTable
           data={data}
@@ -233,7 +234,7 @@ function LeadTracker<T extends BaseLead>({ config }: LeadTrackerProps<T>) {
             `No ${config.entityNamePlural.toLowerCase()} yet. Add your first one above!`
           }
         />
-      </div>
+      </Box>
 
       {/* Edit Modal */}
       <EditModalComponent
@@ -243,7 +244,7 @@ function LeadTracker<T extends BaseLead>({ config }: LeadTrackerProps<T>) {
         onUpdate={handleUpdateLead}
         onDelete={handleDeleteLead}
       />
-    </div>
+    </Stack>
   );
 }
 

@@ -3,6 +3,7 @@
 import { useUserContext } from "../../context/userContext";
 import { useState, useEffect } from "react";
 import { SET_THEME } from "../../reducers/userReducer";
+import { Container, Stack, Title, Radio, Paper, Text, Loader, Center } from "@mantine/core";
 
 export default function SettingsPage() {
   const { userState, dispatchUser } = useUserContext();
@@ -94,85 +95,55 @@ export default function SettingsPage() {
 
   if (!userState.isAuthed) {
     return (
-      <div className="p-8">
-        <p>Please log in to access settings.</p>
-      </div>
+      <Container size="sm" py="xl">
+        <Text>Please log in to access settings.</Text>
+      </Container>
     );
   }
 
   if (loading) {
     return (
-      <div className="p-8">
-        <p>Loading preferences...</p>
-      </div>
+      <Center h="50vh">
+        <Loader size="lg" />
+      </Center>
     );
   }
 
   return (
-    <div className="p-8 max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold mb-8">Settings</h1>
+    <Container size="sm" py="xl">
+      <Stack gap="xl">
+        <Title order={1}>Settings</Title>
 
-      <section className="mb-12">
-        <h2 className="text-2xl font-semibold mb-4">Personal Theme</h2>
-        <div className="space-y-3">
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="radio"
-              checked={userTheme === "light"}
-              onChange={() => updateUserTheme("light")}
-              className="w-4 h-4"
-            />
-            <span>Light</span>
-          </label>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="radio"
-              checked={userTheme === "dark"}
-              onChange={() => updateUserTheme("dark")}
-              className="w-4 h-4"
-            />
-            <span>Dark</span>
-          </label>
-          <label className="flex items-center gap-3 cursor-pointer">
-            <input
-              type="radio"
-              checked={userTheme === null}
-              onChange={() => updateUserTheme(null)}
-              className="w-4 h-4"
-            />
-            <span>Inherit from organization</span>
-          </label>
-        </div>
-      </section>
+        <Stack gap="md">
+          <Title order={2} size="h3">Personal Theme</Title>
+          <Radio.Group value={userTheme || ""} onChange={(value) => updateUserTheme(value as "light" | "dark" | null)}>
+            <Stack gap="xs">
+              <Radio value="light" label="Light" />
+              <Radio value="dark" label="Dark" />
+              <Radio value="" label="Inherit from organization" />
+            </Stack>
+          </Radio.Group>
+        </Stack>
 
-      {userState.canEditTenantTheme && (
-        <section className="mb-12 p-6 border rounded-lg">
-          <h2 className="text-2xl font-semibold mb-2">Organization Theme (Admin)</h2>
-          <p className="text-sm mb-4 opacity-70">
-            This affects all users who inherit the organization theme.
-          </p>
-          <div className="space-y-3">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="radio"
-                checked={tenantTheme === "light"}
-                onChange={() => updateTenantTheme("light")}
-                className="w-4 h-4"
-              />
-              <span>Light</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input
-                type="radio"
-                checked={tenantTheme === "dark"}
-                onChange={() => updateTenantTheme("dark")}
-                className="w-4 h-4"
-              />
-              <span>Dark</span>
-            </label>
-          </div>
-        </section>
-      )}
-    </div>
+        {userState.canEditTenantTheme && (
+          <Paper withBorder p="md">
+            <Stack gap="md">
+              <div>
+                <Title order={2} size="h3" mb="xs">Organization Theme (Admin)</Title>
+                <Text size="sm" c="dimmed">
+                  This affects all users who inherit the organization theme.
+                </Text>
+              </div>
+              <Radio.Group value={tenantTheme} onChange={(value) => updateTenantTheme(value as "light" | "dark")}>
+                <Stack gap="xs">
+                  <Radio value="light" label="Light" />
+                  <Radio value="dark" label="Dark" />
+                </Stack>
+              </Radio.Group>
+            </Stack>
+          </Paper>
+        )}
+      </Stack>
+    </Container>
   );
 }

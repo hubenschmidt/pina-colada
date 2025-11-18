@@ -2,14 +2,15 @@
 
 import LeadTracker from "../../../components/LeadTracker/LeadTracker";
 import { useLeadConfig } from "../../../components/config";
+import { Container } from "@mantine/core";
 
 const JobsPage = () => {
   const jobConfig = useLeadConfig("job");
 
   return (
-    <div>
+    <Container size="xl" p={0}>
       <LeadTracker config={jobConfig} />
-    </div>
+    </Container>
   );
 };
 
