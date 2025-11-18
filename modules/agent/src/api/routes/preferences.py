@@ -11,6 +11,8 @@ from models.User import User
 from models.UserPreferences import UserPreferences
 from models.TenantPreferences import TenantPreferences
 from models.Tenant import Tenant
+from models.UserRole import UserRole
+from models.Role import Role
 
 router = APIRouter(prefix="/preferences", tags=["preferences"])
 
@@ -42,48 +44,11 @@ def user_has_admin_role(user: User) -> bool:
     return "Admin" in role_names or "SuperAdmin" in role_names
 
 
-@router.get("/user/{user_id}")
-@log_errors
-@require_auth
-async def get_user_preferences(request: Request, user_id: int):
-    """Get user preferences by user ID with resolved theme."""
-    async with async_get_session() as session:
-        result = await session.execute(
-            select(User)
-            .options(
-                selectinload(User.preferences),
-                selectinload(User.tenant).selectinload(Tenant.preferences),
-                selectinload(User.user_roles)
-            )
-            .filter(User.id == user_id)
-        )
-        user = result.scalar_one_or_none()
-
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-
-        # Ensure preferences exist
-        if not user.preferences:
-            user_prefs = UserPreferences(user_id=user.id, theme=None)
-            session.add(user_prefs)
-            await session.commit()
-            await session.refresh(user, ["preferences"])
-
-        effective_theme = resolve_theme(user)
-        can_edit_tenant = user_has_admin_role(user)
-
-        return {
-            "theme": user.preferences.theme,
-            "effective_theme": effective_theme,
-            "can_edit_tenant": can_edit_tenant
-        }
-
-
 @router.get("/user")
 @log_errors
 @require_auth
-async def get_current_user_preferences(request: Request):
-    """Get current authenticated user's preferences with resolved theme."""
+async def get_user_preferences(request: Request):
+    """Get current user's preferences with resolved theme."""
     user_id = request.state.user_id
 
     async with async_get_session() as session:
@@ -92,7 +57,7 @@ async def get_current_user_preferences(request: Request):
             .options(
                 selectinload(User.preferences),
                 selectinload(User.tenant).selectinload(Tenant.preferences),
-                selectinload(User.user_roles)
+                selectinload(User.user_roles).selectinload(UserRole.role)
             )
             .filter(User.id == user_id)
         )
@@ -108,14 +73,18 @@ async def get_current_user_preferences(request: Request):
             await session.commit()
             await session.refresh(user, ["preferences"])
 
+        # Resolve theme while in session
         effective_theme = resolve_theme(user)
         can_edit_tenant = user_has_admin_role(user)
 
-        return {
-            "theme": user.preferences.theme,
-            "effective_theme": effective_theme,
-            "can_edit_tenant": can_edit_tenant
-        }
+        # Extract values while still in session
+        user_theme = user.preferences.theme
+
+    return {
+        "theme": user_theme,
+        "effective_theme": effective_theme,
+        "can_edit_tenant": can_edit_tenant
+    }
 
 
 @router.patch("/user")
@@ -151,10 +120,14 @@ async def update_user_preferences(request: Request, body: UpdateUserPreferencesR
         await session.commit()
         await session.refresh(user, ["preferences"])
 
-        return {
-            "theme": user.preferences.theme,
-            "effective_theme": resolve_theme(user)
-        }
+        # Resolve values while in session
+        user_theme = user.preferences.theme
+        effective_theme = resolve_theme(user)
+
+    return {
+        "theme": user_theme,
+        "effective_theme": effective_theme
+    }
 
 
 @router.get("/tenant")
@@ -168,7 +141,7 @@ async def get_tenant_preferences(request: Request):
         result = await session.execute(
             select(User)
             .options(
-                selectinload(User.user_roles),
+                selectinload(User.user_roles).selectinload(UserRole.role),
                 selectinload(User.tenant).selectinload(Tenant.preferences)
             )
             .filter(User.id == user_id)
@@ -188,7 +161,9 @@ async def get_tenant_preferences(request: Request):
             await session.commit()
             await session.refresh(user.tenant, ["preferences"])
 
-        return {"theme": user.tenant.preferences.theme}
+        tenant_theme = user.tenant.preferences.theme
+
+    return {"theme": tenant_theme}
 
 
 @router.patch("/tenant")
@@ -206,7 +181,7 @@ async def update_tenant_preferences(request: Request, body: UpdateTenantPreferen
         result = await session.execute(
             select(User)
             .options(
-                selectinload(User.user_roles),
+                selectinload(User.user_roles).selectinload(UserRole.role),
                 selectinload(User.tenant).selectinload(Tenant.preferences)
             )
             .filter(User.id == user_id)
@@ -226,4 +201,6 @@ async def update_tenant_preferences(request: Request, body: UpdateTenantPreferen
         user.tenant.preferences.theme = theme
         await session.commit()
 
-        return {"theme": user.tenant.preferences.theme}
+        tenant_theme = user.tenant.preferences.theme
+
+    return {"theme": tenant_theme}
