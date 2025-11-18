@@ -3,9 +3,16 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --border-color: #e5e5e5;
   --font-sans: var(--font-sans); /* Inter */
   --font-display: var(--font-display); /* Playfair */
   --grain: radial-gradient(transparent 65%, rgba(0, 0, 0, 0.04));
+}
+
+html.dark {
+  --background: #0a0a0a;
+  --foreground: #e5e5e5;
+  --border-color: #00FF00;
 }
 .bg-grain {
   background-image: var(--grain);

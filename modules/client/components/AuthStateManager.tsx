@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../context/userContext";
-import { SET_USER, SET_TENANT_NAME, SET_AUTHED } from "../reducers/userReducer";
+import { SET_USER, SET_TENANT_NAME, SET_AUTHED, SET_THEME } from "../reducers/userReducer";
 import { getMe } from "../api";
 
 /**
@@ -47,6 +47,23 @@ export const AuthStateManager = () => {
               type: SET_AUTHED,
               payload: true,
             });
+
+            // Fetch user preferences
+            try {
+              const prefsResponse = await fetch("/api/preferences/user");
+              if (prefsResponse.ok) {
+                const prefs = await prefsResponse.json();
+                dispatchUser({
+                  type: SET_THEME,
+                  payload: {
+                    theme: prefs.effective_theme,
+                    canEditTenant: prefs.can_edit_tenant,
+                  },
+                });
+              }
+            } catch (error) {
+              console.error("Failed to fetch user preferences:", error);
+            }
           } catch (error) {
             console.error("Failed to restore auth state:", error);
           }

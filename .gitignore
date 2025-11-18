@@ -2,6 +2,9 @@
 .cursor/
 .claude/
 
+# Docker logs (keep directory structure but ignore log files)
+logs/*.log
+
 # docker-compose local settings
 docker-compose.override.yml
 

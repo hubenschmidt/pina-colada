@@ -8,6 +8,7 @@ import { PublicEnvScript } from "next-runtime-env";
 import { Auth0Provider } from "@auth0/nextjs-auth0/client";
 import { AuthStateManager } from "../components/AuthStateManager";
 import { RootLayoutClient } from "./RootLayoutClient";
+import { ThemeApplier } from "../components/ThemeApplier";
 
 const theme = createTheme({
   primaryColor: "gray",
@@ -18,11 +19,7 @@ export const metadata: Metadata = {
   description: "Software and AI Solutions",
 };
 
-const RootLayout = ({
-  children,
-}: Readonly<{
-  children: React.ReactNode;
-}>) => {
+export default ({ children }: Readonly<{ children: React.ReactNode }>) => {
   return (
     <html lang="en" className="scroll-smooth">
       <head>
@@ -32,6 +29,7 @@ const RootLayout = ({
         <Auth0Provider>
           <UserProvider>
             <AuthStateManager />
+            <ThemeApplier />
             <MantineProvider theme={theme}>
               <NavProvider>
                 <RootLayoutClient>{children}</RootLayoutClient>
@@ -43,5 +41,3 @@ const RootLayout = ({
     </html>
   );
 };
-
-export default RootLayout
