@@ -83,7 +83,7 @@ export const Sidebar = () => {
             href="/settings"
             className={`flex items-center rounded text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
               sidebarCollapsed
-                ? "justify-center p-3"
+                ? "justify-center px-3 py-2"
                 : "gap-3 px-3 py-2"
             }`}
             title="Settings"
