@@ -35,15 +35,15 @@
 }
 
 /* SHELL CARD
-   White background with subtle styling
+   Surface background with subtle styling
 */
 .shellCard {
-  background-color: #ffffff;
-  color: var(--foreground);
+  background-color: var(--surface);
+  color: var(--text-primary);
 
-  border: 1px solid rgb(0 0 0 / 0.1);
+  border: 1px solid var(--border);
   border-radius: 0.75rem; /* ~12px */
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.1);
+  box-shadow: var(--shadow-md);
   padding: 1rem;
 
   /* Force a fixed height that fits in viewport */
@@ -91,14 +91,14 @@
   font-family: var(--font-serif, inherit); /* uses your display font token */
   font-size: 1rem;
   line-height: 1.25rem;
-  color: var(--foreground);
+  color: var(--text-primary);
 }
 
 .status {
   width: 10px;
   height: 10px;
   border-radius: 9999px;
-  border: 2px solid rgb(0 0 0 / 0.2);
+  border: 2px solid var(--border);
   transition: background-color 0.2s ease-in-out;
 }
 
@@ -122,7 +122,7 @@
   padding: 0.375rem 0.75rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--foreground);
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.15s ease-in-out;
   display: flex;
@@ -131,11 +131,11 @@
 }
 
 .toolsButton:hover {
-  background-color: #f3f4f6;
+  background-color: var(--hover-background);
 }
 
 .toolsButton:active {
-  background-color: #e5e7eb;
+  background-color: var(--active-background);
   transform: scale(0.98);
 }
 
@@ -151,10 +151,10 @@
   position: absolute;
   top: calc(100% + 0.25rem);
   right: 0;
-  background-color: #ffffff;
-  border: 1px solid #d1d5db;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 0.5rem;
-  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -1px rgb(0 0 0 / 0.06);
+  box-shadow: var(--shadow-lg);
   min-width: 150px;
   z-index: 100;
   overflow: hidden;
@@ -168,7 +168,7 @@
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--foreground);
+  color: var(--text-primary);
   cursor: pointer;
   transition: background-color 0.15s ease-in-out;
   display: flex;
@@ -179,11 +179,11 @@
 }
 
 .toolsMenuItem:hover {
-  background-color: #f3f4f6;
+  background-color: var(--hover-background);
 }
 
 .toolsMenuItem:active {
-  background-color: #e5e7eb;
+  background-color: var(--active-background);
 }
 
 .leadsBadge {
@@ -207,7 +207,7 @@
   padding: 0.375rem 0.75rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--foreground);
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.15s ease-in-out;
   display: flex;
@@ -216,11 +216,11 @@
 }
 
 .exportButton:hover:not(:disabled) {
-  background-color: #f3f4f6;
+  background-color: var(--hover-background);
 }
 
 .exportButton:active:not(:disabled) {
-  background-color: #e5e7eb;
+  background-color: var(--active-background);
   transform: scale(0.98);
 }
 
@@ -230,14 +230,14 @@
 }
 
 /* CHAT PANEL
-   White background for clean look
+   Surface background for clean look
 */
 .chatPanel {
-  background-color: #ffffff;
+  background-color: var(--surface);
   border: none;
   border-radius: 0;
   padding: 0.75rem; /* 12px */
-  color: var(--foreground);
+  color: var(--text-primary);
   font-family: var(
     --font-sans,
     system-ui,
@@ -319,15 +319,15 @@
 }
 
 .bubbleUser {
-  background-color: #f3f4f6;
+  background-color: var(--surface-tertiary);
   border-radius: 1.25rem;
   padding: 0.625rem 1rem;
-  color: var(--foreground);
+  color: var(--text-primary);
   max-width: 100%;
 }
 .bubbleBot {
   padding: 0;
-  color: var(--foreground);
+  color: var(--text-primary);
   width: 100%;
 }
 
@@ -350,11 +350,11 @@
 .copyButton {
   appearance: none;
   background-color: transparent;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   border-radius: 0.375rem;
   padding: 0.25rem 0.5rem;
   font-size: 0.75rem;
-  color: #6b7280;
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s ease-in-out;
   display: flex;
@@ -371,13 +371,13 @@
 }
 
 .copyButton:hover {
-  background-color: #f3f4f6;
-  border-color: #d1d5db;
-  color: var(--foreground);
+  background-color: var(--hover-background);
+  border-color: var(--border-hover);
+  color: var(--text-primary);
 }
 
 .copyButton:active {
-  background-color: #e5e7eb;
+  background-color: var(--active-background);
   transform: scale(0.95);
 }
 
@@ -394,7 +394,7 @@
   margin-bottom: 0.5rem;
   font-weight: 600;
   letter-spacing: -0.01em;
-  color: var(--foreground);
+  color: var(--text-primary);
 }
 
 .bubbleAuthorRight {
@@ -410,7 +410,7 @@
   line-height: 1.6;
   font-weight: 400;
   white-space: pre-wrap;
-  color: var(--foreground);
+  color: var(--text-primary);
 }
 
 /* ERROR TEXT STYLING */
@@ -443,20 +443,20 @@
 .textarea {
   resize: vertical;
   min-height: 4.5rem; /* 72px */
-  background-color: #f9fafb; /* gray-50 */
-  border: 1px solid #d1d5db; /* gray-300 */
+  background-color: var(--input-background);
+  border: 1px solid var(--input-border);
   border-radius: 0.5rem; /* 8px */
-  color: var(--foreground);
+  color: var(--text-primary);
   font-size: 0.9rem;
   line-height: 1.4rem;
   padding: 0.5rem; /* 8px */
   outline: none;
   font-family: inherit;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .textarea:focus {
-  border-color: #84cc16; /* lime-500 */
+  border-color: var(--input-focus);
   box-shadow: 0 0 0 3px rgb(132 204 22 / 0.1);
 }
 
@@ -471,36 +471,36 @@
   appearance: none;
   border-radius: 0.5rem;
   border: 1px solid transparent;
-  background-color: #4b5563; /* gray-600 */
-  color: #ffffff;
+  background-color: var(--button-primary-bg);
+  color: var(--button-primary-fg);
   padding: 0.5rem 0.75rem; /* 8px 12px */
   font-size: 0.8rem;
   font-weight: 500;
   line-height: 1.2rem;
   cursor: pointer;
   transition: background-color 0.15s ease-in-out, opacity 0.15s ease-in-out;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
+  box-shadow: var(--shadow-sm);
 }
 
 .btn:hover {
-  background-color: #374151; /* gray-700 */
+  background-color: var(--button-primary-hover);
 }
 
 .btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background-color: #9ca3af; /* gray-400 */
+  background-color: var(--text-tertiary);
 }
 
 .btnGhost {
-  background-color: transparent;
-  border-color: #d1d5db; /* gray-300 */
-  color: var(--foreground);
+  background-color: var(--button-secondary-bg);
+  border-color: var(--button-secondary-border);
+  color: var(--button-secondary-fg);
 }
 
 .btnGhost:hover {
-  background-color: #f3f4f6; /* gray-100 */
-  border-color: #9ca3af; /* gray-400 */
+  background-color: var(--button-secondary-hover);
+  border-color: var(--border-hover);
 }
 
 /* TYPING INDICATOR -------------------------------------------------------- */
@@ -534,8 +534,8 @@
   flex: 0 0 60%;
   display: flex;
   flex-direction: column;
-  background-color: #ffffff;
-  border: 1px solid rgb(0 0 0 / 0.1);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 0.75rem;
   overflow: hidden;
   height: 85vh;
@@ -547,31 +547,31 @@
   justify-content: space-between;
   align-items: center;
   padding: 0.75rem 1rem;
-  background-color: #f9fafb;
-  border-bottom: 1px solid rgb(0 0 0 / 0.1);
+  background-color: var(--surface-secondary);
+  border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 
 .demoIframeTitle {
   font-weight: 600;
   font-size: 0.875rem;
-  color: #374151;
+  color: var(--text-primary);
 }
 
 .exitDemoButton {
   padding: 0.375rem 0.75rem;
   font-size: 0.75rem;
-  background-color: #ffffff;
-  border: 1px solid #d1d5db;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 0.375rem;
-  color: #374151;
+  color: var(--text-primary);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .exitDemoButton:hover {
-  background-color: #f3f4f6;
-  border-color: #9ca3af;
+  background-color: var(--hover-background);
+  border-color: var(--border-hover);
 }
 
 .demoIframe {

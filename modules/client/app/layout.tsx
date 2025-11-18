@@ -3,16 +3,12 @@ import "@mantine/core/styles.css";
 import "./globals.css";
 import { NavProvider } from "../context/navContext";
 import { UserProvider } from "../context/userContext";
-import { MantineProvider, createTheme } from "@mantine/core";
 import { PublicEnvScript } from "next-runtime-env";
 import { Auth0Provider } from "@auth0/nextjs-auth0/client";
 import { AuthStateManager } from "../components/AuthStateManager";
 import { RootLayoutClient } from "./RootLayoutClient";
 import { ThemeApplier } from "../components/ThemeApplier";
-
-const theme = createTheme({
-  primaryColor: "gray",
-});
+import { MantineThemeProvider } from "../components/MantineThemeProvider";
 
 export const metadata: Metadata = {
   title: "PinaColada.co",
@@ -30,11 +26,11 @@ export default ({ children }: Readonly<{ children: React.ReactNode }>) => {
           <UserProvider>
             <AuthStateManager />
             <ThemeApplier />
-            <MantineProvider theme={theme}>
+            <MantineThemeProvider>
               <NavProvider>
                 <RootLayoutClient>{children}</RootLayoutClient>
               </NavProvider>
-            </MantineProvider>
+            </MantineThemeProvider>
           </UserProvider>
         </Auth0Provider>
       </body>

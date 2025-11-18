@@ -121,12 +121,12 @@ const JobForm = ({ isOpen, onClose, onAdd }: JobFormProps) => {
   if (!isOpen) return null;
 
   return (
-    <div className="border border-zinc-300 rounded-lg p-6 bg-blue-50 shadow-lg">
+    <div className="border border-zinc-300 dark:border-zinc-700 rounded-lg p-6 bg-blue-50 dark:bg-zinc-800 shadow-lg">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-xl font-semibold text-blue-900">Add New Job</h3>
+        <h3 className="text-xl font-semibold text-blue-900 dark:text-zinc-100">Add New Job</h3>
         <button
           onClick={onClose}
-          className="p-2 text-zinc-600 hover:bg-zinc-200 rounded"
+          className="p-2 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700 rounded"
         >
           <X size={20} />
         </button>
@@ -136,7 +136,7 @@ const JobForm = ({ isOpen, onClose, onAdd }: JobFormProps) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Company */}
           <div>
-            <label className="block text-sm font-medium text-zinc-700 mb-1">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
               Company <span className="text-red-500">*</span>
             </label>
             <input
@@ -144,8 +144,8 @@ const JobForm = ({ isOpen, onClose, onAdd }: JobFormProps) => {
               value={formData.company}
               onChange={(e) => handleChange("company", e.target.value)}
               className={`w-full px-3 py-2 border ${
-                errors.company ? "border-red-500" : "border-zinc-300"
-              } rounded focus:outline-none focus:ring-2 focus:ring-lime-500`}
+                errors.company ? "border-red-500" : "border-zinc-300 dark:border-zinc-600"
+              } bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100 rounded focus:outline-none focus:ring-2 focus:ring-lime-500`}
               placeholder="e.g. Acme Corp"
             />
             {errors.company && (
