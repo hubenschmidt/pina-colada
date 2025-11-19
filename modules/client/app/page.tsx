@@ -64,7 +64,7 @@ const Home = () => {
     document.getElementById("agent")?.scrollIntoView({ behavior: "smooth" });
   }, [agentOpen]);
 
-  if (isLoading) {
+  if (isLoading || user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Image src="/icon.png" alt="Loading" width={200} height={200} />
