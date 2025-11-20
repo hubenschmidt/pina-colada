@@ -31,7 +31,7 @@ def resolve_theme(user: User) -> str:
     """Resolve effective theme using hierarchy: user > tenant > system default."""
     if user.preferences and user.preferences.theme:
         return user.preferences.theme
-    if user.tenant.preferences and user.tenant.preferences.theme:
+    if user.tenant and user.tenant.preferences and user.tenant.preferences.theme:
         return user.tenant.preferences.theme
     return "light"
 

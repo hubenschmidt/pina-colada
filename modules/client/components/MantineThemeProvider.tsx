@@ -1,6 +1,6 @@
 "use client";
 
-import { MantineProvider, createTheme, MantineColorScheme } from "@mantine/core";
+import { MantineProvider, createTheme } from "@mantine/core";
 import { useEffect, useState } from "react";
 import { useUserContext } from "../context/userContext";
 
@@ -10,7 +10,7 @@ const theme = createTheme({
 
 export const MantineThemeProvider = ({ children }: { children: React.ReactNode }) => {
   const { userState } = useUserContext();
-  const [colorScheme, setColorScheme] = useState<MantineColorScheme>("light");
+  const [colorScheme, setColorScheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
     setColorScheme(userState.theme === "dark" ? "dark" : "light");
