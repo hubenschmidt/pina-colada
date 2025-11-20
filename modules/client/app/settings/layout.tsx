@@ -1,5 +1,7 @@
-import { AuthenticatedLayout } from "../../components/AuthenticatedLayout/AuthenticatedLayout";
+import AuthenticatedPageLayout from "../../components/AuthenticatedPageLayout";
 
-export default ({ children }: { children: React.ReactNode }) => {
-  return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
+const SettingsLayout = ({ children }: { children: React.ReactNode }) => {
+  return <AuthenticatedPageLayout>{children}</AuthenticatedPageLayout>;
 };
+
+export default SettingsLayout;

@@ -16,17 +16,17 @@ const Header = () => {
 
   return (
     <header className="sticky top-0 z-40 border-b-1 border-lime-500 bg-blue-50">
-      <div className="mx-auto max-w-6xl px-4 py-4 flex items-center justify-between">
+      <div className={`mx-auto max-w-6xl px-4 flex items-center justify-between ${user ? "py-2" : "py-4"}`}>
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center gap-2">
             <Image
               src="/logo.png"
               alt="PinaColada.co"
-              width={48}
-              height={48}
+              width={user ? 32 : 48}
+              height={user ? 32 : 48}
               priority
             />
-            <span className="text-3xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
+            <span className={`font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 ${user ? "text-xl" : "text-3xl"}`}>
               PinaColada
             </span>
           </Link>

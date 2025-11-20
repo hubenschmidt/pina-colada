@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../context/userContext";
-import { getMe } from "../api";
+import { getMe, getUserPreferences } from "../api";
+import { SET_THEME } from "../reducers/userReducer";
 
 /**
  * Manages authentication state by syncing Auth0 session with backend user data
@@ -40,6 +41,16 @@ export const AuthStateManager = () => {
         dispatchUser({
           type: "SET_AUTHED",
           payload: true,
+        });
+
+        // Load user preferences (theme)
+        const prefs = await getUserPreferences();
+        dispatchUser({
+          type: SET_THEME,
+          payload: {
+            theme: prefs.effective_theme,
+            canEditTenant: prefs.can_edit_tenant,
+          },
         });
       } catch (error) {
         console.error("Failed to restore auth state:", error);
