@@ -1,10 +1,5 @@
-import { AuthenticatedLayout } from "../../components/AuthenticatedLayout/AuthenticatedLayout";
+"use client";
 
-<<<<<<< HEAD
-export default ({ children }: { children: React.ReactNode }) => {
-  return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
-};
-=======
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -17,11 +12,7 @@ import {
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../../context/userContext";
 
-const ChatLayout = ({
-  children,
-}: {
-  children: React.ReactNode;
-}) => {
+const ChatLayout = ({ children }: { children: React.ReactNode }) => {
   const [leadsExpanded, setLeadsExpanded] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const { isLoading } = useUser();
@@ -98,4 +89,3 @@ const ChatLayout = ({
 };
 
 export default ChatLayout;
->>>>>>> 6ad842a46d25e1578737259ee70a54dccfbf1861

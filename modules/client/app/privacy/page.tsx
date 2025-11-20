@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-=======
 import Header from "../../components/Header";
 
->>>>>>> 6ad842a46d25e1578737259ee70a54dccfbf1861
 const PrivacyPolicy = () => {
   return (
     <>
@@ -129,11 +126,6 @@ const PrivacyPolicy = () => {
       </div>
     </>
   );
-<<<<<<< HEAD
-}
-
-=======
 };
->>>>>>> 6ad842a46d25e1578737259ee70a54dccfbf1861
 
 export default PrivacyPolicy;

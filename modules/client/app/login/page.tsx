@@ -37,28 +37,12 @@ const LoginPage = () => {
 
   // Show loading state while checking auth or tenant
   if (isLoading || checkingTenant) {
-<<<<<<< HEAD
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Image src="/icon.png" alt="Loading" width={48} height={48} />
-      </div>
-    );
-=======
     return null;
->>>>>>> 6ad842a46d25e1578737259ee70a54dccfbf1861
   }
 
   // Already authenticated (should be redirecting)
   if (user) {
-<<<<<<< HEAD
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Image src="/icon.png" alt="Loading" width={48} height={48} />
-      </div>
-    );
-=======
     return null;
->>>>>>> 6ad842a46d25e1578737259ee70a54dccfbf1861
   }
 
   // Unauthenticated: show login UI
