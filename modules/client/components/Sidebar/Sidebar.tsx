@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { Stack, ScrollArea } from "@mantine/core";
 import { useNavContext } from "../../context/navContext";
-import { SET_SIDEBAR_COLLAPSED } from "../../reducers/navReducer";
 
 export const Sidebar = () => {
   const [leadsExpanded, setLeadsExpanded] = useState(true);
@@ -30,7 +29,7 @@ export const Sidebar = () => {
           <button
             onClick={() =>
               dispatchNav({
-                type: SET_SIDEBAR_COLLAPSED,
+                type: "SET_SIDEBAR_COLLAPSED",
                 payload: !sidebarCollapsed,
               })
             }
@@ -82,9 +81,7 @@ export const Sidebar = () => {
           <Link
             href="/settings"
             className={`flex items-center rounded text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-              sidebarCollapsed
-                ? "justify-center px-3 py-2"
-                : "gap-3 px-3 py-2"
+              sidebarCollapsed ? "justify-center px-3 py-2" : "gap-3 px-3 py-2"
             }`}
             title="Settings"
           >
