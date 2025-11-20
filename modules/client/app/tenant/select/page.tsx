@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@auth0/nextjs-auth0/client";
-import Image from "next/image";
 import {
   Container,
   Title,
@@ -15,6 +14,8 @@ import {
 } from "@mantine/core";
 import { fetchBearerToken } from "../../../lib/fetch-bearer-token";
 import { useUserContext } from "../../../context/userContext";
+import { usePageLoading } from "../../../context/pageLoadingContext";
+import Header from "../../../components/Header";
 import {
   SET_USER,
   SET_BEARER_TOKEN,
@@ -26,10 +27,16 @@ const TenantSelectPage = () => {
   const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
   const { userState, dispatchUser } = useUserContext();
+  const { dispatchPageLoading } = usePageLoading();
   const [loading, setLoading] = useState(false);
   const [tenantName, setTenantName] = useState("");
   const [plan, setPlan] = useState("free");
   const [error, setError] = useState("");
+
+  // Update page loading state
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: userLoading });
+  }, [userLoading, dispatchPageLoading]);
 
   useEffect(() => {
     if (!userLoading && !user) {
@@ -100,19 +107,13 @@ const TenantSelectPage = () => {
       });
   };
 
-  if (userLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Image src="/icon.png" alt="Loading" width={200} height={200} />
-      </div>
-    );
-  }
-
   return (
-    <Container size="sm" className="py-12">
-      <Title order={1} mb="xl" className="text-center">
-        Welcome to PinaColada.co
-      </Title>
+    <>
+      <Header />
+      <Container size="sm" className="py-12">
+        <Title order={1} mb="xl" className="text-center">
+          Welcome to PinaColada.co
+        </Title>
       <Paper shadow="sm" p="xl" radius="md" withBorder>
         <Title order={2} mb="md" size="h3">
           Create Your Organization
@@ -158,8 +159,9 @@ const TenantSelectPage = () => {
             Create Organization
           </Button>
         </form>
-      </Paper>
-    </Container>
+        </Paper>
+      </Container>
+    </>
   );
 };
 

@@ -290,9 +290,10 @@ const WS_URL = getWsUrl();
 
 type ChatProps = {
   variant?: "page" | "embedded";
+  onConnectionChange?: (isConnected: boolean) => void;
 };
 
-const Chat = ({ variant = "embedded" }: ChatProps) => {
+const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
   // Log the WebSocket URL on mount for debugging
   useEffect(() => {
     console.log("WebSocket URL:", WS_URL);
@@ -316,6 +317,11 @@ const Chat = ({ variant = "embedded" }: ChatProps) => {
   const sentCtxRef = useRef(false);
   const toolsDropdownRef = useRef<HTMLDivElement | null>(null);
   const demoDropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Notify parent of connection state changes
+  useEffect(() => {
+    onConnectionChange?.(isOpen);
+  }, [isOpen, onConnectionChange]);
 
   // --- Send rich user context as soon as WS opens (testing-only) ---
   useEffect(() => {

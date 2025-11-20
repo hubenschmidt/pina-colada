@@ -3,8 +3,7 @@
 import { useEffect } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../context/userContext";
-import { SET_USER, SET_TENANT_NAME, SET_AUTHED, SET_THEME } from "../reducers/userReducer";
-import { getMe, getUserPreferences } from "../api";
+import { getMe } from "../api";
 
 /**
  * Manages authentication state by syncing Auth0 session with backend user data
@@ -15,57 +14,35 @@ export const AuthStateManager = () => {
   const { userState, dispatchUser } = useUserContext();
 
   useEffect(() => {
-    const restoreAuthState = () => {
-      // Don't do anything while Auth0 is loading
+    const restoreAuthState = async () => {
       if (isLoading) return;
+      if (!auth0User) return;
+      if (userState.isAuthed) return;
 
-      // User is logged in with Auth0
-      if (auth0User) {
-        // Only fetch if we don't already have user data
-        if (!userState.isAuthed) {
-          getMe()
-            .then((response) => {
-              dispatchUser({
-                type: SET_USER,
-                payload: response.user,
-              });
+      try {
+        const response = await getMe();
 
-              // Find tenant name from user's tenant_id or current_tenant_id
-              const tenantId = response.current_tenant_id || response.user.tenant_id;
-              if (tenantId && response.tenants.length > 0) {
-                const tenant = response.tenants.find(t => t.id === tenantId);
-                if (tenant) {
-                  dispatchUser({
-                    type: SET_TENANT_NAME,
-                    payload: tenant.name,
-                  });
-                }
-              }
+        dispatchUser({
+          type: "SET_USER",
+          payload: response.user,
+        });
 
-              dispatchUser({
-                type: SET_AUTHED,
-                payload: true,
-              });
+        const tenantId = response.current_tenant_id || response.user.tenant_id;
+        const tenant = response.tenants.find((t) => t.id === tenantId);
 
-              // Fetch user preferences
-              getUserPreferences()
-                .then((prefs) => {
-                  dispatchUser({
-                    type: SET_THEME,
-                    payload: {
-                      theme: prefs.effective_theme,
-                      canEditTenant: prefs.can_edit_tenant,
-                    },
-                  });
-                })
-                .catch((error) => {
-                  console.error("Failed to fetch user preferences:", error);
-                });
-            })
-            .catch((error) => {
-              console.error("Failed to restore auth state:", error);
-            });
+        if (tenant) {
+          dispatchUser({
+            type: "SET_TENANT_NAME",
+            payload: tenant.name,
+          });
         }
+
+        dispatchUser({
+          type: "SET_AUTHED",
+          payload: true,
+        });
+      } catch (error) {
+        console.error("Failed to restore auth state:", error);
       }
     };
 
