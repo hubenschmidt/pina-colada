@@ -118,12 +118,13 @@ const SettingsPage = () => {
             Personal Theme
           </Title>
           <Radio.Group
-            value={userTheme || ""}
+            value={userTheme === null ? "inherit" : userTheme}
             onChange={(value) =>
-              updateUserTheme(value as "light" | "dark" | null)
+              updateUserTheme(value === "inherit" ? null : (value as "light" | "dark"))
             }
           >
             <Stack gap="xs">
+              <Radio value="inherit" label="Inherit from organization" />
               <Radio value="light" label="Light" />
               <Radio value="dark" label="Dark" />
             </Stack>
