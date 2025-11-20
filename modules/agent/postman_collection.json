@@ -396,6 +396,125 @@
       ]
     },
     {
+      "name": "Preferences",
+      "item": [
+        {
+          "name": "Get User Preferences",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/preferences/user",
+              "host": ["{{base_url}}"],
+              "path": ["preferences", "user"]
+            },
+            "description": "Get current user's preferences with resolved theme (user > tenant > system default)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Preferences",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"theme\": \"dark\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/preferences/user",
+              "host": ["{{base_url}}"],
+              "path": ["preferences", "user"]
+            },
+            "description": "Update user's theme preference. Options: 'light', 'dark', or null (inherit from tenant)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Tenant Preferences",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/preferences/tenant",
+              "host": ["{{base_url}}"],
+              "path": ["preferences", "tenant"]
+            },
+            "description": "Get tenant preferences (Admin/SuperAdmin only)"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Tenant Preferences",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"theme\": \"dark\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/preferences/tenant",
+              "host": ["{{base_url}}"],
+              "path": ["preferences", "tenant"]
+            },
+            "description": "Update tenant theme preference (Admin/SuperAdmin only). Options: 'light' or 'dark'"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Leads",
       "item": [
         {

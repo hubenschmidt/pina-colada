@@ -12,7 +12,7 @@ const getClient = () => axios.create();
 
 const makeRequest = async <T>(
   client: ReturnType<typeof getClient>,
-  method: "get" | "post" | "put" | "delete",
+  method: "get" | "post" | "put" | "delete" | "patch",
   url: string,
   data: any,
   config: AxiosRequestConfig
@@ -20,11 +20,12 @@ const makeRequest = async <T>(
   if (method === "get") return client.get(url, config);
   if (method === "delete") return client.delete(url, config);
   if (method === "post") return client.post(url, data, config);
+  if (method === "patch") return client.patch(url, data, config);
   return client.put(url, data, config);
 };
 
 const apiRequest = async <T>(
-  method: "get" | "post" | "put" | "delete",
+  method: "get" | "post" | "put" | "delete" | "patch",
   path: string,
   data?: any,
   config?: AxiosRequestConfig
@@ -56,6 +57,9 @@ const apiPost = <T>(path: string, data?: any, config?: AxiosRequestConfig) =>
 
 const apiPut = <T>(path: string, data?: any, config?: AxiosRequestConfig) =>
   apiRequest<T>("put", path, data, config);
+
+const apiPatch = <T>(path: string, data?: any, config?: AxiosRequestConfig) =>
+  apiRequest<T>("patch", path, data, config);
 
 const apiDelete = <T>(path: string, config?: AxiosRequestConfig) =>
   apiRequest<T>("delete", path, undefined, config);
@@ -235,4 +239,47 @@ export const createTenant = async (
     plan,
   });
   return data.tenant;
+};
+
+// Preferences Types
+export type UserPreferencesResponse = {
+  theme: string | null;
+  effective_theme: string;
+  can_edit_tenant: boolean;
+};
+
+export type TenantPreferencesResponse = {
+  theme: string;
+};
+
+/**
+ * Get current user's preferences
+ */
+export const getUserPreferences = async (): Promise<UserPreferencesResponse> => {
+  return apiGet<UserPreferencesResponse>("/preferences/user");
+};
+
+/**
+ * Update current user's theme preference
+ */
+export const updateUserPreferences = async (
+  theme: "light" | "dark" | null
+): Promise<UserPreferencesResponse> => {
+  return apiPatch<UserPreferencesResponse>("/preferences/user", { theme });
+};
+
+/**
+ * Get tenant preferences (Admin/SuperAdmin only)
+ */
+export const getTenantPreferences = async (): Promise<TenantPreferencesResponse> => {
+  return apiGet<TenantPreferencesResponse>("/preferences/tenant");
+};
+
+/**
+ * Update tenant theme preference (Admin/SuperAdmin only)
+ */
+export const updateTenantPreferences = async (
+  theme: "light" | "dark"
+): Promise<TenantPreferencesResponse> => {
+  return apiPatch<TenantPreferencesResponse>("/preferences/tenant", { theme });
 };

@@ -6,6 +6,7 @@ import LeadPanel from "../LeadTracker/LeadPanel";
 import { usePanelConfig } from "../config";
 // import { extractAndSaveJobLeads } from "../../lib/job-lead-extractor";
 import { env } from "next-runtime-env";
+import { Box, Stack } from "@mantine/core";
 
 // ---------- User context (testing-only; no consent prompts) ----------
 
@@ -428,7 +429,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
   };
 
   return (
-    <div
+    <Box
       className={`${styles.chatRoot} ${
         variant === "page" ? styles.chatRootPage : ""
       } w-full ${
@@ -702,7 +703,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
         }}
         config={usePanelConfig("job")}
       />
-    </div>
+    </Box>
   );
 };
 

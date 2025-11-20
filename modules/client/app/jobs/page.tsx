@@ -1,8 +1,8 @@
 "use client";
 
 import { useUser } from "@auth0/nextjs-auth0/client";
-// import LeadTracker from '../../components/LeadTracker/LeadTracker' # disable for now but keep this here
-import { JobTracker } from "../../components/JobTracker/JobTracker";
+import LeadTracker from "../../components/LeadTracker/LeadTracker";
+// import { JobTracker } from "../../components/JobTracker/JobTracker";
 import { useLeadConfig } from "../../components/config";
 import { LogOut, Loader } from "lucide-react";
 import Header from "../../components/Header";
@@ -34,18 +34,18 @@ const JobsPage = () => {
     <>
       <Header />
       <main className="min-h-screen bg-blue-50 py-8 px-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-end mb-4">
-          <a
-            href="/auth/logout"
-            className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-300 rounded-lg text-zinc-700 hover:bg-zinc-50 transition-colors"
-          >
-            <LogOut size={18} />
-            Logout
-          </a>
-        </div>
-        <JobTracker />
-        {/* <LeadTracker config={jobConfig} /> */}
+        <div className="max-w-6xl mx-auto">
+          <div className="flex justify-end mb-4">
+            <a
+              href="/auth/logout"
+              className="flex items-center gap-2 px-4 py-2 bg-white border border-zinc-300 rounded-lg text-zinc-700 hover:bg-zinc-50 transition-colors"
+            >
+              <LogOut size={18} />
+              Logout
+            </a>
+          </div>
+          {/* <JobTracker /> */}
+          <LeadTracker config={jobConfig} />
         </div>
       </main>
     </>

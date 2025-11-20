@@ -12,7 +12,7 @@ interface JobPanelProps {
   onJobsChange?: () => void;
 }
 
-export function JobPanel({ isOpen, onClose, onJobsChange }: JobPanelProps) {
+const JobPanel = ({ isOpen, onClose, onJobsChange }: JobPanelProps) => {
   const [jobs, setJobs] = useState<JobWithLeadStatus[]>([]);
   const [leadStatuses, setLeadStatuses] = useState<LeadStatus[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
@@ -264,4 +264,6 @@ export function JobPanel({ isOpen, onClose, onJobsChange }: JobPanelProps) {
       )}
     </>
   );
-}
+};
+
+export default JobPanel;

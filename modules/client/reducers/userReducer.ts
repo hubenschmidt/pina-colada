@@ -2,6 +2,7 @@ export const SET_USER = "SET_USER";
 export const SET_TENANT_NAME = "SET_TENANT_NAME";
 export const SET_BEARER_TOKEN = "SET_BEARER_TOKEN";
 export const SET_AUTHED = "SET_AUTHED";
+export const SET_THEME = "SET_THEME";
 export const CLEAR_USER = "CLEAR_USER";
 
 export interface UserState {
@@ -9,6 +10,8 @@ export interface UserState {
   tenantName: string | null;
   bearerToken: string | null;
   isAuthed: boolean;
+  theme: "light" | "dark";
+  canEditTenantTheme: boolean;
 }
 
 export default (initialState: UserState) => {
@@ -25,6 +28,8 @@ export default (initialState: UserState) => {
         return setBearerToken(state, action.payload);
       case SET_AUTHED:
         return setAuthed(state, action.payload);
+      case SET_THEME:
+        return setTheme(state, action.payload);
       case CLEAR_USER:
         return clearUser(state);
       default:
@@ -61,6 +66,14 @@ const setAuthed = (state: UserState, payload: string): UserState => {
   };
 };
 
+const setTheme = (state: UserState, payload: { theme: "light" | "dark"; canEditTenant: boolean }): UserState => {
+  return {
+    ...state,
+    theme: payload.theme,
+    canEditTenantTheme: payload.canEditTenant,
+  };
+};
+
 const clearUser = (state: UserState): UserState => {
   return {
     ...state,
@@ -68,5 +81,7 @@ const clearUser = (state: UserState): UserState => {
     tenantName: null,
     bearerToken: null,
     isAuthed: false,
+    theme: "light",
+    canEditTenantTheme: false,
   };
 };

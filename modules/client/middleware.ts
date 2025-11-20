@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { auth0 } from './lib/auth0';
 
-export async function middleware(request: NextRequest) {
+export const middleware = async (request: NextRequest) => {
   const { pathname } = request.nextUrl;
 
   // Allow public routes
@@ -33,7 +33,7 @@ export async function middleware(request: NextRequest) {
   }
 
   return await auth0.middleware(request);
-}
+};
 
 export const config = {
   matcher: [

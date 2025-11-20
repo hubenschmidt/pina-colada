@@ -7,6 +7,8 @@ const initialState: UserState = {
   tenantName: null,
   bearerToken: null,
   isAuthed: false,
+  theme: "light",
+  canEditTenantTheme: false,
 };
 
 export const UserContext = createContext<{

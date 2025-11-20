@@ -15,14 +15,14 @@ interface LeadPanelProps<T extends BaseLead> {
   onClose: () => void;
   onLeadsChange?: () => void;
   config: LeadPanelConfig<T>;
-}
+};
 
-function LeadPanel<T extends BaseLead>({
+const LeadPanel = <T extends BaseLead>({
   isOpen,
   onClose,
   onLeadsChange,
   config,
-}: LeadPanelProps<T>) {
+}: LeadPanelProps<T>) => {
   const [leads, setLeads] = useState<LeadWithStatus<T>[]>([]);
   const [leadStatuses, setLeadStatuses] = useState<LeadStatus[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>(
@@ -292,6 +292,6 @@ function LeadPanel<T extends BaseLead>({
       )}
     </>
   );
-}
+};
 
 export default LeadPanel;
