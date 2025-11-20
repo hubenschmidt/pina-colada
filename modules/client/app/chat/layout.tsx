@@ -12,11 +12,11 @@ import {
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../../context/userContext";
 
-export default function ChatLayout({
+const ChatLayout = ({
   children,
 }: {
   children: React.ReactNode;
-}) {
+}) => {
   const [leadsExpanded, setLeadsExpanded] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const { isLoading } = useUser();
@@ -90,4 +90,6 @@ export default function ChatLayout({
       <main className="flex-1">{children}</main>
     </div>
   );
-}
+};
+
+export default ChatLayout;

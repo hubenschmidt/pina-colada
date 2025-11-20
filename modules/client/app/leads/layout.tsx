@@ -6,12 +6,13 @@ import Image from "next/image";
 import { ChevronRight, ChevronDown, PanelLeftClose, PanelLeft } from "lucide-react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../../context/userContext";
+import Header from "../../components/Header";
 
-export default function LeadsLayout({
+const LeadsLayout = ({
   children,
 }: {
   children: React.ReactNode;
-}) {
+}) => {
   const [leadsExpanded, setLeadsExpanded] = useState(true);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const { isLoading } = useUser();
@@ -27,7 +28,9 @@ export default function LeadsLayout({
   }
 
   return (
-    <div className="flex min-h-screen">
+    <>
+      <Header />
+      <div className="flex min-h-screen">
       {/* Sidebar */}
       <aside
         className={`border-r border-zinc-200 bg-zinc-50 transition-all duration-300 ${
@@ -83,6 +86,9 @@ export default function LeadsLayout({
 
       {/* Main Content */}
       <main className="flex-1 p-8">{children}</main>
-    </div>
+      </div>
+    </>
   );
-}
+};
+
+export default LeadsLayout;

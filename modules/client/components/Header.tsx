@@ -4,6 +4,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useNavContext } from "../context/navContext";
 import { useUser } from "@auth0/nextjs-auth0";
+import HeaderAuthed from "./HeaderAuthed";
 
 const Header = () => {
   const { dispatchNav } = useNavContext();
@@ -29,14 +30,7 @@ const Header = () => {
               PinaColada
             </span>
           </Link>
-          {user && !isTenantSelectPage && (
-            <Link
-              href="/chat"
-              className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
-            >
-              Chat
-            </Link>
-          )}
+          <HeaderAuthed />
         </div>
         <div className="flex items-center gap-4">
           {/* Hide on mobile (portrait and landscape), show on tablets+ */}

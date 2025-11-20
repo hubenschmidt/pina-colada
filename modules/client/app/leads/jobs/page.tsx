@@ -6,11 +6,7 @@ import { useLeadConfig } from "../../../components/config";
 const JobsPage = () => {
   const jobConfig = useLeadConfig("job");
 
-  return (
-    <div>
-      <LeadTracker config={jobConfig} />
-    </div>
-  );
+  return <LeadTracker config={jobConfig} />;
 };
 
 export default JobsPage;

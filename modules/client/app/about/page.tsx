@@ -1,11 +1,14 @@
 import Image from "next/image";
 import BandBg from "../../components/BandBg";
+import Header from "../../components/Header";
 
 export const metadata = { title: "About — PinaColada.co" };
 
 const AboutPage = () => {
   return (
-    <section className="relative overflow-hidden">
+    <>
+      <Header />
+      <section className="relative overflow-hidden">
       <main className="mx-auto max-w-6xl px-4 py-16">
         <BandBg className="z-0" />
 
@@ -57,8 +60,9 @@ const AboutPage = () => {
           </div>
         </div>
       </main>
-    </section>
+      </section>
+    </>
   );
 };
 
-export default AboutPage
+export default AboutPage;

@@ -5,6 +5,7 @@ import { useUser } from "@auth0/nextjs-auth0/client";
 import { JobTracker } from "../../components/JobTracker/JobTracker";
 import { useLeadConfig } from "../../components/config";
 import { LogOut, Loader } from "lucide-react";
+import Header from "../../components/Header";
 
 const JobsPage = () => {
   const { user, isLoading } = useUser();
@@ -30,7 +31,9 @@ const JobsPage = () => {
 
   // disable LeadTracker but do not delete it
   return (
-    <main className="min-h-screen bg-blue-50 py-8 px-4">
+    <>
+      <Header />
+      <main className="min-h-screen bg-blue-50 py-8 px-4">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-end mb-4">
           <a
@@ -43,8 +46,9 @@ const JobsPage = () => {
         </div>
         <JobTracker />
         {/* <LeadTracker config={jobConfig} /> */}
-      </div>
-    </main>
+        </div>
+      </main>
+    </>
   );
 };
 

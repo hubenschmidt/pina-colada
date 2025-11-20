@@ -3,6 +3,7 @@ import "@mantine/core/styles.css";
 import "./globals.css";
 import { NavProvider } from "../context/navContext";
 import { UserProvider } from "../context/userContext";
+import { PageLoadingProvider } from "../context/pageLoadingContext";
 import { MantineProvider, createTheme } from "@mantine/core";
 import { PublicEnvScript } from "next-runtime-env";
 import { Auth0Provider } from "@auth0/nextjs-auth0/client";
@@ -34,7 +35,9 @@ const RootLayout = ({
             <AuthStateManager />
             <MantineProvider theme={theme}>
               <NavProvider>
-                <RootLayoutClient>{children}</RootLayoutClient>
+                <PageLoadingProvider>
+                  <RootLayoutClient>{children}</RootLayoutClient>
+                </PageLoadingProvider>
               </NavProvider>
             </MantineProvider>
           </UserProvider>

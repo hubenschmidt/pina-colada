@@ -4,8 +4,8 @@ import { useUser } from "@auth0/nextjs-auth0/client";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ChevronLeft } from "lucide-react";
-import Image from "next/image";
 import { checkUserTenant } from "../../api";
+import Header from "../../components/Header";
 
 const LoginPage = () => {
   const { user, isLoading } = useUser();
@@ -37,25 +37,19 @@ const LoginPage = () => {
 
   // Show loading state while checking auth or tenant
   if (isLoading || checkingTenant) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Image src="/icon.png" alt="Loading" width={100} height={100} />
-      </div>
-    );
+    return null;
   }
 
   // Already authenticated (should be redirecting)
   if (user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Image src="/icon.png" alt="Loading" width={100} height={100} />
-      </div>
-    );
+    return null;
   }
 
   // Unauthenticated: show login UI
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
+    <>
+      <Header />
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center p-4">
       <div className="flex flex-col items-center gap-6 max-w-md w-full">
         <div className="text-center mb-4">
           <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 mb-2">
@@ -105,8 +99,9 @@ const LoginPage = () => {
             © {new Date().getFullYear()} PinaColada.co. All rights reserved.
           </p>
         </div>
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 
