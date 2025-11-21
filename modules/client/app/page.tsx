@@ -1,8 +1,8 @@
 "use client";
-import { useEffect } from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import SectionFrame from "../components/SectionFrame";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, ChevronRight } from "lucide-react";
 import { Card, SectionTitle, CardLink } from "../components/ui";
 import Hero from "../components/Hero";
 import BandBg from "../components/BandBg";
@@ -112,12 +112,12 @@ const Home = () => {
                   ],
                 },
               ].map((s) => (
-                <Card key={s.title} className="p-5">
+                <Card key={s.title} className="p-5 transition-shadow hover:shadow-md">
                   <div className="mb-3 flex items-start justify-between">
-                    <h3 className="text-2xl text-blue-800">{s.title}</h3>
+                    <h3 className="text-xl font-semibold text-blue-800">{s.title}</h3>
                     <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
                   </div>
-                  <ul className="text-xl space-y-1.5 text-sm text-blue-800">
+                  <ul className="space-y-1.5 text-sm text-blue-800">
                     {s.points.map((p) => (
                       <li key={p} className="flex items-center gap-2">
                         <CheckCircle2 className="size-4 text-lime-500/80" />
@@ -157,12 +157,12 @@ const Home = () => {
                     ],
                   },
                 ].map((s) => (
-                  <Card key={s.title} className="p-5">
+                  <Card key={s.title} className="p-5 transition-shadow hover:shadow-md">
                     <div className="mb-3 flex items-start justify-between">
-                      <h3 className="text-2xl text-blue-800">{s.title}</h3>
+                      <h3 className="text-xl font-semibold text-blue-800">{s.title}</h3>
                       <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
                     </div>
-                    <ul className="text-xl space-y-1.5 text-sm text-blue-800">
+                    <ul className="space-y-1.5 text-sm text-blue-800">
                       {s.points.map((p) => (
                         <li key={p} className="flex items-center gap-2">
                           <span>{p}</span>
@@ -182,7 +182,7 @@ const Home = () => {
                 Continuous Integration and Delivery
               </h2>
             </div>
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className="flex flex-col gap-4 md:flex-row md:items-stretch">
               {[
                 {
                   k: "1",
@@ -205,20 +205,31 @@ const Home = () => {
                     "Cloud solutions for security, infra, and support to optimize your software.",
                   ],
                 },
-              ].map((s) => (
-                <Card key={s.title} className="p-5">
-                  <div className="mb-3 flex items-start justify-between">
-                    <h3 className="text-2xl text-blue-800">{s.title}</h3>
-                    <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
-                  </div>
-                  <ul className="text-xl space-y-1.5 text-sm text-blue-800">
-                    {s.points.map((p) => (
-                      <li key={p} className="flex items-center gap-2">
-                        <span>{p}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </Card>
+              ].map((s, i) => (
+                <React.Fragment key={s.title}>
+                  <Card className="flex-1 p-5 transition-shadow hover:shadow-md">
+                    <div className="mb-3 flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 text-sm font-bold text-blue-900">
+                          {s.k}
+                        </span>
+                        <h3 className="text-xl font-semibold text-blue-800">{s.title}</h3>
+                      </div>
+                    </div>
+                    <ul className="space-y-1.5 text-sm text-blue-800">
+                      {s.points.map((p) => (
+                        <li key={p} className="flex items-center gap-2">
+                          <span>{p}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </Card>
+                  {i < 2 && (
+                    <div className="hidden md:flex items-center justify-center px-2">
+                      <ChevronRight className="size-6 text-blue-400" />
+                    </div>
+                  )}
+                </React.Fragment>
               ))}
             </div>
           </SectionFrame>
@@ -255,7 +266,7 @@ const Home = () => {
                     className={`h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400`}
                   />
                 </div>
-                <p className="text-xl mt-2 text-sm text-blue-800">
+                <p className="mt-2 text-sm text-blue-800">
                   {p.description}
                 </p>
               </CardLink>

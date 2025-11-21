@@ -15,7 +15,7 @@ const Header = () => {
   if (isLoading) return null;
 
   return (
-    <header className="sticky top-0 z-40 border-b-1 border-lime-500 bg-blue-50">
+    <header className="sticky top-0 z-40 bg-blue-50">
       <div className={`mx-auto max-w-6xl px-4 flex items-center justify-between ${user ? "py-0.5" : "py-4"}`}>
         <div className={`flex items-center ${user ? "gap-4" : "gap-6"}`}>
           <Link href="/" className="flex items-center gap-1.5">
