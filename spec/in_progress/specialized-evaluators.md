@@ -11,7 +11,7 @@ Previously, all workers (worker, job_hunter, cover_letter_writer, scraper) route
 
 **Goal:** Keep context length lean for efficient token usage. Each specialized evaluator only includes criteria relevant to its task type, avoiding unnecessary prompt bloat.
 
-**Solution:** Route workers to specialized evaluators based on task type via external YAML config.
+**Solution:** Route workers to specialized evaluators based on task type via database-driven configuration with YAML fallbacks.
 
 ---
 
@@ -29,17 +29,102 @@ Routing:
 - scraper → scraper_evaluator
 ```
 
-### Configuration-Driven Routing
+### Centralized Prompts in Code
 
-```yaml
-# config/evaluator_config.yaml
-evaluators:
-  career:
-    workers: [job_hunter, cover_letter_writer]
-  scraper:
-    workers: [scraper]
-  general:
-    workers: [worker]
+**Design Principle:** Core agent behavior stays in code (protected IP).
+
+This approach:
+- Protects core application logic from API exposure
+- Provides single source of truth for all prompts
+- Easy to review and update in one place
+
+#### Prompt Directory Structure
+
+Base system prompts are centralized in `src/agent/prompts/` directory. This provides a single source of truth for all prompts while keeping them protected from API exposure.
+
+```
+src/agent/prompts/
+├── __init__.py
+├── evaluator_prompts.py    # career, scraper, general evaluator prompts
+├── worker_prompts.py       # job_hunter, scraper, worker, cover_letter prompts
+└── orchestrator_prompts.py # orchestrator/router prompt
+```
+
+**Example: evaluator_prompts.py**
+```python
+# src/agent/prompts/evaluator_prompts.py
+
+# --- Career Evaluator Prompt Sections ---
+
+CAREER_BASE = """
+You evaluate whether the Assistant's response meets career-related success criteria.
+
+Respond with JSON: feedback, success_criteria_met, user_input_needed.
+Be slightly lenient—approve unless clearly inadequate.
+""".strip()
+
+CAREER_CRITICAL_DISTINCTION = """
+CRITICAL DISTINCTION:
+- JOB SEARCH RESULTS: External job postings are VALID even if not in resume
+- RESUME DATA: User's work history must match resume exactly
+""".strip()
+
+CAREER_CHECKS = """
+CAREER-SPECIFIC CHECKS:
+- Job links must be direct posting URLs
+- Cover letters must be tailored to job
+""".strip()
+
+
+def build_career_evaluator_prompt(resume_context: str) -> str:
+    """Build career evaluator system prompt."""
+    sections = [CAREER_BASE]
+
+    if resume_context:
+        sections.append(
+            "RESUME_CONTEXT (read-only factual background):\n"
+            "```resume\n"
+            f"{resume_context.strip()}\n"
+            "```"
+        )
+        sections.append(CAREER_CRITICAL_DISTINCTION)
+
+    sections.append(CAREER_CHECKS)
+
+    return "\n\n".join(sections)
+
+
+# --- Scraper Evaluator ---
+
+SCRAPER_BASE = """
+You evaluate whether the Assistant's web scraping response meets the success criteria.
+...
+""".strip()
+
+def build_scraper_evaluator_prompt() -> str:
+    """Build scraper evaluator system prompt."""
+    # ... similar pattern ...
+
+
+# --- General Evaluator ---
+
+def build_general_evaluator_prompt(resume_context: str) -> str:
+    """Build general evaluator system prompt."""
+    # ... similar pattern ...
+```
+
+**Usage in evaluators:**
+```python
+# In career_evaluator.py - now just imports and uses
+from agent.prompts.evaluator_prompts import build_career_evaluator_prompt
+
+def create_career_evaluator_node():
+    # ... setup code ...
+
+    def evaluator_node(state):
+        resume_context = state.get("resume_context", "")
+        system_message = build_career_evaluator_prompt(resume_context)
+        # ... rest of evaluation logic ...
 ```
 
 ---
@@ -135,26 +220,7 @@ COMMON ISSUES:
 
 ---
 
-### 5. Config Loader (`orchestrator.py`)
-
-```python
-def load_evaluator_config() -> Dict[str, Any]:
-    """Load evaluator routing configuration from YAML"""
-    config_path = Path(__file__).parent / "config" / "evaluator_config.yaml"
-    with open(config_path) as f:
-        return yaml.safe_load(f)
-
-def get_evaluator_for_worker(config: Dict[str, Any], worker_name: str) -> str:
-    """Get the evaluator type for a given worker"""
-    for evaluator_type, evaluator_config in config.get("evaluators", {}).items():
-        if worker_name in evaluator_config.get("workers", []):
-            return evaluator_type
-    return "general"
-```
-
----
-
-### 6. State Extension
+### 5. State Extension
 
 ```python
 class State(TypedDict):
@@ -218,21 +284,24 @@ graph_builder.add_conditional_edges("general_evaluator", route_from_evaluator, e
 
 ```
 modules/agent/src/agent/
-├── config/
-│   └── evaluator_config.yaml      # Worker-to-evaluator mapping
+├── prompts/                           # Centralized prompt definitions
+│   ├── __init__.py
+│   ├── evaluator_prompts.py           # career, scraper, general evaluator prompts
+│   ├── worker_prompts.py              # job_hunter, scraper, worker, cover_letter prompts
+│   └── orchestrator_prompts.py        # orchestrator/router prompt
 ├── workers/
 │   ├── evaluators/
-│   │   ├── __init__.py            # Package exports
-│   │   ├── base_evaluator.py      # Shared logic
-│   │   ├── career_evaluator.py    # Job/cover letter evaluation
-│   │   ├── scraper_evaluator.py   # Web scraping evaluation
-│   │   └── general_evaluator.py   # Default evaluation
+│   │   ├── __init__.py                # Package exports
+│   │   ├── base_evaluator.py          # Shared logic
+│   │   ├── career_evaluator.py        # Evaluator logic (imports from prompts/)
+│   │   ├── scraper_evaluator.py       # Evaluator logic (imports from prompts/)
+│   │   └── general_evaluator.py       # Evaluator logic (imports from prompts/)
 │   ├── worker.py
 │   ├── job_hunter.py
 │   ├── cover_letter_writer.py
 │   ├── scraper.py
-│   └── evaluator.py               # DEPRECATED - kept for reference
-└── orchestrator.py                # Updated with multi-evaluator wiring
+│   └── evaluator.py                   # DEPRECATED - kept for reference
+└── orchestrator.py                    # Multi-evaluator wiring
 ```
 
 ---
@@ -240,10 +309,11 @@ modules/agent/src/agent/
 ## Benefits
 
 1. **Task-specific evaluation**: Each worker type gets criteria appropriate to its output
-2. **Configurable routing**: YAML config allows easy changes without code edits
+2. **Centralized prompts**: Single source of truth in `agent/prompts/` directory
 3. **Shared infrastructure**: Base evaluator reduces code duplication
-4. **Extensible**: Add new evaluator types by creating new file + config entry
+4. **Extensible**: Add new evaluator types by creating new file
 5. **Better feedback loops**: Workers receive domain-specific improvement suggestions
+6. **Maintainable**: Easy to review and update all prompts in one place
 
 ---
 
@@ -253,3 +323,44 @@ modules/agent/src/agent/
 - **Evaluator metrics**: Track approval rates per evaluator type
 - **Custom retry limits**: Different retry thresholds per evaluator
 - **Evaluator chaining**: Multiple evaluators for complex outputs
+
+---
+
+## Migration/Cleanup
+
+When implementing this spec, perform the following changes:
+
+### Files to Delete
+- `modules/agent/src/agent/config/evaluator_config.yaml` - Redundant; routing defined by graph edges
+- `modules/agent/src/agent/config/default_system_prompts.yml` - Not needed; core prompts stay in code
+
+### Code to Remove from `orchestrator.py`
+- `load_evaluator_config()` function - Not used
+- `get_evaluator_for_worker()` function - Not used
+- `load_default_prompts()` function - Not needed
+- `get_system_prompt()` function - Not needed
+
+### New Directory to Create
+- `modules/agent/src/agent/prompts/` - Centralized prompt definitions
+  - `__init__.py`
+  - `evaluator_prompts.py` - Extract prompts from career/scraper/general_evaluator.py
+  - `worker_prompts.py` - Extract prompts from worker files
+
+### Files to Delete (from previous implementation attempt)
+- `models/NodeConfig.py` - Not needed for this spec
+- `repositories/node_config_repository.py` - Not needed for this spec
+- `controllers/node_config_controller.py` - Not needed for this spec
+- `api/routes/node_configs.py` - Not needed for this spec
+- Revert changes to `models/__init__.py`, `api/routes/__init__.py`, `server.py`
+
+### Evaluator Refactoring
+- Remove `_build_*_system_prompt()` functions from evaluator files
+- Import prompt builders from `agent.prompts.evaluator_prompts`
+
+---
+
+## References
+
+- [LLM Prompt Management in 2025: A Practical Playbook - DEV Community](https://dev.to/kamya_shah_3f4a20d6f64092/llm-prompt-management-in-2025-a-practical-playbook-for-scale-quality-and-speed-59bi)
+- [Prompt Engineering & Management in Production - ZenML](https://www.zenml.io/blog/prompt-engineering-management-in-production-practical-lessons-from-the-llmops-database)
+- [Best Tools for Creating System Prompts - PromptLayer](https://blog.promptlayer.com/the-best-tools-for-creating-system-prompts/)

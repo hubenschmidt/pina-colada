@@ -140,6 +140,10 @@ async def create_base_evaluator_node(
         if is_retry_loop:
             logger.warning(f"   ⚠️  Retry loop detected ({retry_count} retries)")
 
+        # TODO: When using database-driven prompts, tag Langfuse trace with node_config_id
+        # if langfuse_handler and config_id:
+        #     langfuse_handler.trace.update(metadata={"node_config_id": config_id})
+
         try:
             eval_result = llm_with_output.invoke(evaluator_messages)
 

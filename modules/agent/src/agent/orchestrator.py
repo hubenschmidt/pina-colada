@@ -22,18 +22,50 @@ load_dotenv(override=True)
 
 
 def load_evaluator_config() -> Dict[str, Any]:
-    """Load evaluator routing configuration from YAML"""
+    """Load evaluator routing configuration from YAML (legacy)"""
     config_path = Path(__file__).parent / "config" / "evaluator_config.yaml"
     with open(config_path) as f:
         return yaml.safe_load(f)
 
 
 def get_evaluator_for_worker(config: Dict[str, Any], worker_name: str) -> str:
-    """Get the evaluator type for a given worker"""
+    """Get the evaluator type for a given worker (legacy)"""
     for evaluator_type, evaluator_config in config.get("evaluators", {}).items():
         if worker_name in evaluator_config.get("workers", []):
             return evaluator_type
     return "general"  # default fallback
+
+
+def load_default_prompts() -> Dict[str, Any]:
+    """Load default prompts from YAML fallback"""
+    config_path = Path(__file__).parent / "config" / "default_system_prompts.yml"
+    with open(config_path) as f:
+        return yaml.safe_load(f)
+
+
+async def get_system_prompt(node_type: str, node_name: str) -> str:
+    """Get system prompt from DB, falling back to YAML defaults"""
+    from lib.db import async_get_session
+    from models.NodeConfig import NodeConfig
+    from sqlalchemy import select
+
+    # Try database first
+    async with async_get_session() as session:
+        stmt = select(NodeConfig).where(
+            NodeConfig.node_type == node_type,
+            NodeConfig.node_name == node_name,
+            NodeConfig.is_active == True
+        )
+        result = await session.execute(stmt)
+        config = result.scalar_one_or_none()
+
+        if config:
+            return config.system_prompt
+
+    # Fallback to YAML defaults
+    defaults = load_default_prompts()
+    node_type_plural = f"{node_type}s" if node_type != "orchestrator" else node_type
+    return defaults.get(node_type_plural, {}).get(node_name, {}).get("system_prompt", "")
 
 
 # State type definition
