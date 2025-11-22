@@ -8,9 +8,11 @@ Phase 2 of asset management focuses on programmatic/bulk asset ingestion. This e
 - Bulk imports from external systems
 - Automated data collection workflows
 
-**Depends on:** Phase 1 (`spec/asset-upload.md`) for core Asset/Tag schema.
+**Depends on:** Phase 1 (`spec/todo/asset-upload.md`) for core Asset/Tag schema.
 
-**Goal:** Efficient bulk ingestion with minimal overhead, maintaining tag-based queryability for agent context.
+**Related:** Tagging intelligence is a separate concern - see `spec/todo/tagging-strategy.md`.
+
+**Goal:** Generic, tag-agnostic ingestion service. Accepts data with tags however they were determined (user, rules, LLM). Efficient bulk ingestion with minimal overhead.
 
 ---
 
@@ -28,6 +30,38 @@ Phase 2 of asset management focuses on programmatic/bulk asset ingestion. This e
 - API keys for service-to-service auth
 - Scoped to tenant with configurable permissions
 - Rate limiting per key
+
+### Tagging Philosophy
+
+The ingestion service is **tag-agnostic**. It accepts tags but doesn't prescribe how they're determined. See "Tagging Strategies" section below.
+
+---
+
+## Tagging Strategies
+
+The ingestion service supports multiple tagging approaches. Tags can come from any source - the service just stores them.
+
+### Supported Tag Sources
+
+| Source | Description | Use Case |
+|--------|-------------|----------|
+| `user` | Manually assigned by user | UI uploads, curated content |
+| `rule` | Determined by ETL pipeline rules | Scraping pipelines with known patterns |
+| `llm` | Suggested by LLM analysis | Unknown content needing classification |
+| `hybrid` | LLM suggests, user confirms | Balance of automation and control |
+
+### API Fields
+
+```python
+tag_source: Literal["user", "rule", "llm", "hybrid"] | None = None
+suggest_tags: bool = False  # Request LLM tag suggestions
+```
+
+**`suggest_tags` flag:**
+- When `true`, ingestion service queues asset for LLM tagging
+- LLM analyzes content and adds suggested tags
+- Original tags preserved, suggestions appended
+- See `spec/todo/tagging-strategy.md` for implementation details
 
 ---
 
@@ -227,12 +261,16 @@ class AssetCreateRequest(BaseModel):
     content_type: str
     content: str  # base64 encoded
     tags: list[str] = []
+    tag_source: Literal["user", "rule", "llm", "hybrid"] | None = None
+    suggest_tags: bool = False
     description: str | None = None
     metadata: dict = {}
 
 class BulkAssetCreateRequest(BaseModel):
     assets: list[AssetCreateRequest]
     default_tags: list[str] = []
+    tag_source: Literal["user", "rule", "llm", "hybrid"] | None = None
+    suggest_tags: bool = False
     on_duplicate: Literal["skip", "replace", "error"] = "skip"
 
 class AssetCreateResponse(BaseModel):
@@ -427,8 +465,9 @@ modules/agent/
 ## Future Enhancements
 
 - Streaming uploads for large files
-- S3 pre-signed URL workflow
+- S3/Azure Blob pre-signed URL workflow
 - Deduplication by content hash
 - Asset transformation pipeline (resize images, extract text)
 - Webhook delivery (notify on asset creation)
 - Usage analytics per API key
+- **LLM tagging integration** - see `spec/todo/tagging-strategy.md`
