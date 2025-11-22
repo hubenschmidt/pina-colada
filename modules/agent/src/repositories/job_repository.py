@@ -9,8 +9,10 @@ from models.Job import Job
 from models.Lead import Lead
 from models.Status import Status
 from models.Organization import Organization
+from models.Individual import Individual
 from models.Deal import Deal
 from models.Account import Account
+from models.Tenant import Tenant
 from lib.db import async_get_session
 from repositories.deal_repository import get_or_create_deal
 from repositories.status_repository import find_status_by_name
@@ -65,21 +67,25 @@ def _update_lead_source(lead: Lead, data: Dict[str, Any]) -> None:
 
 
 async def _update_lead_title_if_needed(session, job: Job, data: Dict[str, Any]) -> None:
-    """Update lead title if job_title or organization changed."""
-    if "job_title" not in data and "organization_id" not in data:
+    """Update lead title if job_title or account changed."""
+    if "job_title" not in data and "account_id" not in data:
         return
 
-    org = await session.get(Organization, job.organization_id)
-    job.lead.title = f"{org.name if org else 'Unknown'} - {job.job_title}"
+    org_name = "Unknown"
+    if job.lead and job.lead.account and job.lead.account.organizations:
+        org_name = job.lead.account.organizations[0].name
+    job.lead.title = f"{org_name} - {job.job_title}"
 
 
 async def _load_job_with_relationships(session, job_id: int) -> Job:
     """Load job with all relationships eagerly."""
     stmt = select(Job).options(
         joinedload(Job.lead).joinedload(Lead.current_status),
+        joinedload(Job.lead).joinedload(Lead.tenant),
         joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
         joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-        joinedload(Job.organization).joinedload(Organization.account)
+        joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations),
+        joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals)
     ).where(Job.id == job_id)
     result = await session.execute(stmt)
     return result.unique().scalar_one()
@@ -98,10 +104,12 @@ async def find_all_jobs(
         # Base query with relationships
         stmt = select(Job).options(
             joinedload(Job.lead).joinedload(Lead.current_status),
+            joinedload(Job.lead).joinedload(Lead.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.organization).joinedload(Organization.account)
-        ).join(Lead).join(Organization)
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals)
+        ).join(Lead).outerjoin(Account, Lead.account_id == Account.id).outerjoin(Organization, Account.id == Organization.account_id)
 
         # Filter by tenant
         if tenant_id is not None:
@@ -157,9 +165,11 @@ async def find_job_by_id(job_id: int) -> Optional[Job]:
     async with async_get_session() as session:
         stmt = select(Job).options(
             joinedload(Job.lead).joinedload(Lead.current_status),
+            joinedload(Job.lead).joinedload(Lead.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.organization).joinedload(Organization.account)
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals)
         ).where(Job.id == job_id)
         result = await session.execute(stmt)
         return result.unique().scalar_one_or_none()
@@ -169,13 +179,16 @@ async def create_job(data: Dict[str, Any]) -> Job:
     """Create a new job (with Lead parent).
 
     Note: This handles the joined table inheritance by creating both Lead and Job records.
+    Expects account_id and account_name to be resolved by the service layer.
     """
     async with async_get_session() as session:
         try:
-            # Get organization_id
-            organization_id = data.get("organization_id")
-            if not organization_id:
-                raise ValueError("organization_id is required")
+            account_id = data.get("account_id")
+            account_name = data.get("account_name", "Unknown")
+            tenant_id = data.get("tenant_id")
+
+            if not account_id:
+                raise ValueError("account_id is required")
 
             # Get or create default deal if not provided
             deal_id = data.get("deal_id")
@@ -189,18 +202,19 @@ async def create_job(data: Dict[str, Any]) -> Job:
             if not status_id and "status" in data:
                 status_id = await _get_status_id_from_name(data["status"])
 
-            # Build title from organization and job_title
-            org = await session.get(Organization, organization_id)
-            title = f"{org.name if org else 'Unknown'} - {data.get('job_title', 'Job')}"
+            # Build title from account name and job_title
+            title = f"{account_name} - {data.get('job_title', 'Job')}"
 
-            # Create Lead first
+            # Create Lead first with account_id
             lead_data: Dict[str, Any] = {
                 "deal_id": deal_id,
                 "type": "Job",
                 "title": title,
                 "description": data.get("notes"),
                 "source": data.get("source", "manual"),
-                "current_status_id": status_id
+                "current_status_id": status_id,
+                "account_id": account_id,
+                "tenant_id": tenant_id
             }
 
             lead = Lead(**lead_data)
@@ -210,7 +224,6 @@ async def create_job(data: Dict[str, Any]) -> Job:
             # Create Job with same ID as Lead
             job = Job(
                 id=lead.id,
-                organization_id=organization_id,
                 job_title=data.get("job_title", ""),
                 job_url=data.get("job_url"),
                 notes=data.get("notes"),
@@ -234,8 +247,11 @@ async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
     """
     async with async_get_session() as session:
         try:
-            # Eagerly load the job with its lead relationship
-            stmt = select(Job).options(joinedload(Job.lead)).where(Job.id == job_id)
+            # Eagerly load the job with its lead and account relationships
+            stmt = select(Job).options(
+                joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations),
+                joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals)
+            ).where(Job.id == job_id)
             result = await session.execute(stmt)
             job = result.unique().scalar_one_or_none()
 
@@ -253,13 +269,18 @@ async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
                 job.resume_date = data["resume_date"]
             if "salary_range" in data:
                 job.salary_range = data["salary_range"]
-            if "organization_id" in data and data["organization_id"] is not None:
-                job.organization_id = data["organization_id"]
 
             # Update Lead fields if provided
             if not job.lead:
                 await session.commit()
                 return await _load_job_with_relationships(session, job.id)
+
+            # Handle organization/account update
+            if "organization_id" in data and data["organization_id"] is not None:
+                org = await session.get(Organization, data["organization_id"])
+                if org and org.account_id:
+                    job.lead.account_id = org.account_id
+                    data["account_id"] = org.account_id
 
             await _update_lead_status(job.lead, data)
             _update_lead_source(job.lead, data)
@@ -297,10 +318,12 @@ async def find_job_by_company_and_title(company: str, title: str) -> Optional[Jo
     async with async_get_session() as session:
         stmt = select(Job).options(
             joinedload(Job.lead).joinedload(Lead.current_status),
+            joinedload(Job.lead).joinedload(Lead.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.organization).joinedload(Organization.account)
-        ).join(Organization).join(Lead).where(
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals)
+        ).join(Lead).outerjoin(Account, Lead.account_id == Account.id).outerjoin(Organization, Account.id == Organization.account_id).where(
             sql_func.lower(Organization.name).contains(sql_func.lower(company.strip())),
             sql_func.lower(Job.job_title).contains(sql_func.lower(title.strip()))
         )
@@ -321,9 +344,11 @@ async def find_jobs_with_status(status_names: Optional[List[str]] = None) -> Lis
     async with async_get_session() as session:
         stmt = select(Job).options(
             joinedload(Job.lead).joinedload(Lead.current_status),
+            joinedload(Job.lead).joinedload(Lead.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.organization).joinedload(Organization.account)
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals)
         ).join(Lead).join(Status).where(Lead.current_status_id.isnot(None))
 
         if status_names:

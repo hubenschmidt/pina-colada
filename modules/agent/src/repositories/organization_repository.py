@@ -6,6 +6,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from models.Organization import Organization
 from models.Account import Account
+from models.Industry import Industry, Organization_Industry
 from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)
@@ -52,14 +53,48 @@ async def create_organization(data: Dict[str, Any]) -> Organization:
             raise
 
 
-async def get_or_create_organization(name: str, tenant_id: Optional[int] = None) -> Organization:
-    """Get or create organization by name."""
+async def get_or_create_organization(
+    name: str,
+    tenant_id: Optional[int] = None,
+    industry_id: Optional[int] = None
+) -> Organization:
+    """Get or create organization by name, optionally linking to industry."""
     existing = await find_organization_by_name(name, tenant_id)
     if existing:
         return existing
 
-    # Note: caller should create Account with tenant_id first, then pass account_id
-    return await create_organization({"name": name})
+    # Create account for the organization with tenant_id
+    async with async_get_session() as session:
+        try:
+            account = Account(
+                tenant_id=tenant_id,
+                name=name
+            )
+            session.add(account)
+            await session.flush()
+
+            org = Organization(
+                account_id=account.id,
+                name=name
+            )
+            session.add(org)
+            await session.flush()
+
+            # Link industry if provided
+            if industry_id:
+                stmt = Organization_Industry.insert().values(
+                    organization_id=org.id,
+                    industry_id=industry_id
+                )
+                await session.execute(stmt)
+
+            await session.commit()
+            await session.refresh(org)
+            return org
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to create organization: {e}")
+            raise
 
 
 async def update_organization(org_id: int, data: Dict[str, Any]) -> Optional[Organization]:

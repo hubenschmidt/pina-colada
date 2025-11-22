@@ -15,6 +15,7 @@ from repositories.job_repository import (
     find_jobs_with_status,
 )
 from repositories.organization_repository import get_or_create_organization
+from repositories.individual_repository import get_or_create_individual
 from repositories.job_repository import find_all_jobs as find_all_jobs_repo
 
 logger = logging.getLogger(__name__)
@@ -30,8 +31,25 @@ def _map_to_dict(job) -> Dict[str, str]:
     # Use model_to_dict which includes relationships
     job_dict = model_to_dict(job, include_relationships=True)
 
-    # Extract organization name for company field (backward compatibility)
-    company = job_dict.get("organization", {}).get("name", "Unknown Company")
+    # Extract account info from Lead.account
+    company = "Unknown Company"
+    contact_name = None
+    account_type = "Organization"
+    lead = job_dict.get("lead", {})
+    account = lead.get("account", {})
+    organizations = account.get("organizations", [])
+    individuals = account.get("individuals", [])
+
+    if organizations and len(organizations) > 0:
+        company = organizations[0].get("name", "Unknown Company")
+        account_type = "Organization"
+    elif individuals and len(individuals) > 0:
+        ind = individuals[0]
+        first_name = ind.get("first_name", "")
+        last_name = ind.get("last_name", "")
+        contact_name = f"{first_name} {last_name}".strip()
+        company = contact_name  # Use contact name as company for display
+        account_type = "Individual"
 
     # Extract status name from current_status (backward compatibility)
     status = job_dict.get("current_status", {}).get("name", "Applied")
@@ -39,7 +57,7 @@ def _map_to_dict(job) -> Dict[str, str]:
     created_at = job_dict.get("created_at")
     date_applied = str(created_at)[:10] if created_at else "Not specified"
 
-    return {
+    result = {
         "company": company,
         "title": job_dict.get("job_title", ""),
         "date_applied": date_applied,
@@ -47,9 +65,15 @@ def _map_to_dict(job) -> Dict[str, str]:
         "status": status,
         "salary_range": job_dict.get("salary_range") or "",
         "notes": job_dict.get("notes") or "",
-        "source": job_dict.get("source", "manual"),
+        "source": lead.get("source", "manual"),
         "id": str(job_dict.get("id", "")),
+        "account_type": account_type,
     }
+
+    if contact_name:
+        result["contact_name"] = contact_name
+
+    return result
 
 
 async def get_all_jobs(refresh: bool = False) -> List[Dict[str, str]]:
@@ -209,7 +233,14 @@ def _fuzzy_match_company(search_company: str, db_company: str) -> bool:
 def _matches_job(job, company: str, job_title: str) -> bool:
     """Check if job matches company and title using fuzzy matching."""
     job_dict = model_to_dict(job, include_relationships=True)
-    job_company = job_dict.get("organization", {}).get("name", "")
+
+    # Get company from Lead.account.organizations
+    job_company = ""
+    lead = job_dict.get("lead", {})
+    account = lead.get("account", {})
+    organizations = account.get("organizations", [])
+    if organizations and len(organizations) > 0:
+        job_company = organizations[0].get("name", "")
 
     if not _fuzzy_match_company(company, job_company):
         return False
@@ -249,7 +280,7 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
     """Create a new job.
 
     Handles:
-    - Organization lookup/creation
+    - Organization or Individual lookup/creation based on account_type
     - Date parsing
     - Field validation
     - Repository creation
@@ -263,20 +294,54 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
     Raises:
         HTTPException: If required fields are missing
     """
-    # Get or create organization
-    organization_name = job_data.get("company") or job_data.get("organization_name")
-    if not organization_name:
-        raise HTTPException(
-            status_code=400, detail="company or organization_name is required"
-        )
+    account_type = job_data.get("account_type", "Organization")
+    tenant_id = job_data.get("tenant_id")
+    account_id = None
+    account_name = "Unknown"
 
-    org = await get_or_create_organization(organization_name)
+    if account_type == "Individual":
+        # Individual account type
+        contact_name = job_data.get("contact_name")
+        if not contact_name:
+            raise HTTPException(
+                status_code=400, detail="contact_name is required for Individual account type"
+            )
+
+        # Split contact_name into first/last name
+        parts = contact_name.strip().split(" ", 1)
+        first_name = parts[0]
+        last_name = parts[1] if len(parts) > 1 else ""
+
+        # Get or create individual (this creates Account too)
+        individual = await get_or_create_individual(first_name, last_name, tenant_id)
+        account_id = individual.account_id
+        account_name = contact_name
+
+        if not account_id:
+            raise HTTPException(
+                status_code=400, detail=f"Individual {contact_name} has no account"
+            )
+    else:
+        # Organization account type (default)
+        organization_name = job_data.get("company") or job_data.get("organization_name")
+        if not organization_name:
+            raise HTTPException(
+                status_code=400, detail="company or organization_name is required"
+            )
+
+        industry_id = job_data.get("industry_id")
+        org = await get_or_create_organization(organization_name, tenant_id, industry_id)
+        account_id = org.account_id
+        account_name = org.name
+
+        if not account_id:
+            raise HTTPException(
+                status_code=400, detail=f"Organization {organization_name} has no account"
+            )
 
     # Parse resume date
     resume_str = job_data.get("resume")
     resume_obj = None
-    if not resume_str:
-        pass  # No resume date provided
     if resume_str:
         try:
             resume_obj = datetime.fromisoformat(resume_str.replace("Z", "+00:00"))
@@ -284,14 +349,16 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
             pass
 
     data: Dict[str, Any] = {
-        "organization_id": org.id,
+        "account_id": account_id,
+        "account_name": account_name,
         "job_title": job_data.get("job_title", ""),
         "job_url": job_data.get("job_url"),
         "salary_range": job_data.get("salary_range"),
         "notes": job_data.get("notes"),
-        "resume_date": resume_obj,
         "status": job_data.get("status", "applied"),
         "source": job_data.get("source", "manual"),
+        "tenant_id": tenant_id,
+        "resume_date": resume_obj,
     }
 
     created = await create_job_repo(data)

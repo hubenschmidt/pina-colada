@@ -14,7 +14,6 @@ class Opportunity(Base):
     __tablename__ = "Opportunity"
 
     id = Column(BigInteger, ForeignKey("Lead.id", ondelete="CASCADE"), primary_key=True)
-    organization_id = Column(BigInteger, ForeignKey("Organization.id", ondelete="CASCADE"), nullable=False)
     opportunity_name = Column(Text, nullable=False)
     estimated_value = Column(Numeric(18, 2), nullable=True)
     probability = Column(Numeric(5, 2), nullable=True)
@@ -25,4 +24,3 @@ class Opportunity(Base):
 
     # Relationships
     lead = relationship("Lead", back_populates="opportunity")
-    organization = relationship("Organization", back_populates="opportunities")

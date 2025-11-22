@@ -18,3 +18,4 @@ class Account(Base):
     tenant = relationship("Tenant", back_populates="accounts")
     organizations = relationship("Organization", back_populates="account")
     individuals = relationship("Individual", back_populates="account")
+    leads = relationship("Lead", back_populates="account")

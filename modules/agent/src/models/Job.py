@@ -18,7 +18,6 @@ class Job(Base):
     __tablename__ = "Job"
 
     id = Column(BigInteger, ForeignKey("Lead.id", ondelete="CASCADE"), primary_key=True)
-    organization_id = Column(BigInteger, ForeignKey("Organization.id", ondelete="CASCADE"), nullable=False)
     job_title = Column(Text, nullable=False)
     job_url = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
@@ -29,4 +28,3 @@ class Job(Base):
 
     # Relationships
     lead = relationship("Lead", back_populates="job")
-    organization = relationship("Organization", back_populates="jobs")

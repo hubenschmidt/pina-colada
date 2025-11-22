@@ -22,6 +22,13 @@ BEGIN
     ON CONFLICT (slug) DO UPDATE SET name = 'PinaColada', industry = 'Software', website = 'https://pinacolada.co', employee_count = 1
     RETURNING id INTO v_tenant_id;
 
+    -- Ensure we have tenant_id (in case ON CONFLICT didn't return it)
+    IF v_tenant_id IS NULL THEN
+        SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada' LIMIT 1;
+    END IF;
+
+    RAISE NOTICE 'Tenant ID: %', v_tenant_id;
+
     -- Create Account for the user's Individual (with tenant_id)
     INSERT INTO "Account" (tenant_id, name, created_at, updated_at)
     VALUES (v_tenant_id, 'William Hubenschmidt', NOW(), NOW())
@@ -46,7 +53,7 @@ BEGIN
     END IF;
 
     -- Create or update User
-    -- First try to find existing user by email
+    -- Use email index to find any existing user (regardless of tenant)
     SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
 
     IF v_user_id IS NULL THEN
@@ -63,6 +70,11 @@ BEGIN
             last_name = 'Hubenschmidt',
             updated_at = NOW()
         WHERE id = v_user_id;
+    END IF;
+
+    -- Ensure tenant_id is set (safety check)
+    IF v_tenant_id IS NOT NULL THEN
+        UPDATE "User" SET tenant_id = v_tenant_id WHERE id = v_user_id AND tenant_id IS NULL;
     END IF;
 
     -- Create Owner Role
@@ -323,6 +335,11 @@ DECLARE
     org_securenet_id BIGINT;
     org_innovatelab_id BIGINT;
 
+    acc_techventures_id BIGINT;
+    acc_cloudscale_id BIGINT;
+    acc_dataflow_id BIGINT;
+    acc_securenet_id BIGINT;
+
     status_qualified_id BIGINT;
     status_proposal_id BIGINT;
     status_nurturing_id BIGINT;
@@ -334,11 +351,11 @@ BEGIN
     SELECT id INTO deal_cloudscale_id FROM "Deal" WHERE name = 'Partnership - CloudScale' LIMIT 1;
     SELECT id INTO deal_securenet_id FROM "Deal" WHERE name = 'Business Development - SecureNet' LIMIT 1;
 
-    -- Get Organization IDs
-    SELECT id INTO org_techventures_id FROM "Organization" WHERE LOWER(name) = LOWER('TechVentures Inc') LIMIT 1;
-    SELECT id INTO org_cloudscale_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudScale Systems') LIMIT 1;
-    SELECT id INTO org_dataflow_id FROM "Organization" WHERE LOWER(name) = LOWER('DataFlow Analytics') LIMIT 1;
-    SELECT id INTO org_securenet_id FROM "Organization" WHERE LOWER(name) = LOWER('SecureNet Solutions') LIMIT 1;
+    -- Get Organization IDs and their Account IDs
+    SELECT o.id, o.account_id INTO org_techventures_id, acc_techventures_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('TechVentures Inc') LIMIT 1;
+    SELECT o.id, o.account_id INTO org_cloudscale_id, acc_cloudscale_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('CloudScale Systems') LIMIT 1;
+    SELECT o.id, o.account_id INTO org_dataflow_id, acc_dataflow_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('DataFlow Analytics') LIMIT 1;
+    SELECT o.id, o.account_id INTO org_securenet_id, acc_securenet_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('SecureNet Solutions') LIMIT 1;
     SELECT id INTO org_innovatelab_id FROM "Organization" WHERE LOWER(name) = LOWER('InnovateLab') LIMIT 1;
 
     -- Get Status IDs
@@ -347,10 +364,11 @@ BEGIN
     SELECT id INTO status_nurturing_id FROM "Status" WHERE name = 'Nurturing' AND category = 'lead' LIMIT 1;
 
     -- Create Opportunity Lead for TechVentures
-    IF deal_techventures_id IS NOT NULL AND org_techventures_id IS NOT NULL THEN
-        INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+    IF deal_techventures_id IS NOT NULL AND acc_techventures_id IS NOT NULL THEN
+        INSERT INTO "Lead" (deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at)
         VALUES (
             deal_techventures_id,
+            acc_techventures_id,
             'Opportunity',
             'TechVentures - Product Strategy Consulting',
             'Opportunity to provide product strategy consulting for their portfolio companies. Potential for ongoing engagement.',
@@ -362,10 +380,9 @@ BEGIN
         RETURNING id INTO lead_id;
 
         -- Create Opportunity record
-        INSERT INTO "Opportunity" (id, organization_id, opportunity_name, estimated_value, probability, expected_close_date, notes, created_at, updated_at)
+        INSERT INTO "Opportunity" (id, opportunity_name, estimated_value, probability, expected_close_date, notes, created_at, updated_at)
         VALUES (
             lead_id,
-            org_techventures_id,
             'Product Strategy Consulting - Q1 2026',
             75000.00,
             0.70,
@@ -377,10 +394,11 @@ BEGIN
     END IF;
 
     -- Create Partnership Lead for CloudScale
-    IF deal_cloudscale_id IS NOT NULL AND org_cloudscale_id IS NOT NULL THEN
-        INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+    IF deal_cloudscale_id IS NOT NULL AND acc_cloudscale_id IS NOT NULL THEN
+        INSERT INTO "Lead" (deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at)
         VALUES (
             deal_cloudscale_id,
+            acc_cloudscale_id,
             'Partnership',
             'CloudScale - Technical Partnership',
             'Technical partnership to integrate services. They have strong infrastructure we could leverage.',
@@ -392,10 +410,9 @@ BEGIN
         RETURNING id INTO lead_id;
 
         -- Create Partnership record
-        INSERT INTO "Partnership" (id, organization_id, partnership_type, partnership_name, start_date, notes, created_at, updated_at)
+        INSERT INTO "Partnership" (id, partnership_type, partnership_name, start_date, notes, created_at, updated_at)
         VALUES (
             lead_id,
-            org_cloudscale_id,
             'Technical',
             'CloudScale Infrastructure Integration',
             NOW() + INTERVAL '60 days',
@@ -406,10 +423,11 @@ BEGIN
     END IF;
 
     -- Create Opportunity Lead for DataFlow
-    IF deal_cloudscale_id IS NOT NULL AND org_dataflow_id IS NOT NULL THEN
-        INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+    IF deal_cloudscale_id IS NOT NULL AND acc_dataflow_id IS NOT NULL THEN
+        INSERT INTO "Lead" (deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at)
         VALUES (
             deal_cloudscale_id,
+            acc_dataflow_id,
             'Opportunity',
             'DataFlow - Analytics Consulting',
             'Consulting opportunity for data analytics strategy. Growing company with budget.',
@@ -421,10 +439,9 @@ BEGIN
         RETURNING id INTO lead_id;
 
         -- Create Opportunity record
-        INSERT INTO "Opportunity" (id, organization_id, opportunity_name, estimated_value, probability, expected_close_date, notes, created_at, updated_at)
+        INSERT INTO "Opportunity" (id, opportunity_name, estimated_value, probability, expected_close_date, notes, created_at, updated_at)
         VALUES (
             lead_id,
-            org_dataflow_id,
             'Data Analytics Strategy - Q2 2026',
             50000.00,
             0.40,
@@ -436,10 +453,11 @@ BEGIN
     END IF;
 
     -- Create Partnership Lead for SecureNet
-    IF deal_securenet_id IS NOT NULL AND org_securenet_id IS NOT NULL THEN
-        INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+    IF deal_securenet_id IS NOT NULL AND acc_securenet_id IS NOT NULL THEN
+        INSERT INTO "Lead" (deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at)
         VALUES (
             deal_securenet_id,
+            acc_securenet_id,
             'Partnership',
             'SecureNet - Security Integration Partnership',
             'Partnership to integrate security capabilities. Potential for joint go-to-market.',
@@ -451,10 +469,9 @@ BEGIN
         RETURNING id INTO lead_id;
 
         -- Create Partnership record
-        INSERT INTO "Partnership" (id, organization_id, partnership_type, partnership_name, start_date, notes, created_at, updated_at)
+        INSERT INTO "Partnership" (id, partnership_type, partnership_name, start_date, notes, created_at, updated_at)
         VALUES (
             lead_id,
-            org_securenet_id,
             'Strategic',
             'SecureNet Security Integration',
             NOW() + INTERVAL '90 days',

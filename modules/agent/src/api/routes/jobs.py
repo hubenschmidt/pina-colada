@@ -21,7 +21,10 @@ def _make_job_create_model() -> Type[BaseModel]:
     """Create JobCreate model functionally."""
     return create_model(
         "JobCreate",
-        company=(str, ...),
+        account_type=(str, "Organization"),
+        company=(Optional[str], None),
+        contact_name=(Optional[str], None),
+        industry_id=(Optional[int], None),
         job_title=(str, ...),
         date=(Optional[str], None),
         job_url=(Optional[str], None),
@@ -75,7 +78,9 @@ async def get_jobs_route(
 @require_auth
 async def create_job_route(request: Request, job_data: JobCreate):
     """Create a new job."""
-    return await create_job(job_data.dict())
+    data = job_data.dict()
+    data["tenant_id"] = getattr(request.state, "tenant_id", None)
+    return await create_job(data)
 
 
 @router.get("/recent-resume-date")

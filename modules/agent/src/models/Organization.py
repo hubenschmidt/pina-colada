@@ -25,9 +25,6 @@ class Organization(Base):
 
     # Relationships
     account = relationship("Account", back_populates="organizations")
-    jobs = relationship("Job", back_populates="organization")
-    opportunities = relationship("Opportunity", back_populates="organization")
-    partnerships = relationship("Partnership", back_populates="organization")
     contacts = relationship("Contact", back_populates="organization")
     industries = relationship("Industry", secondary=Organization_Industry, back_populates="organizations")
 

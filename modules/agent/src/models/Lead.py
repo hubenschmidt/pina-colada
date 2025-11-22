@@ -14,6 +14,7 @@ class Lead(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = Column(BigInteger, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=True)
+    account_id = Column(BigInteger, ForeignKey("Account.id", ondelete="SET NULL"), nullable=True)
     deal_id = Column(BigInteger, ForeignKey("Deal.id", ondelete="CASCADE"), nullable=False)
     type = Column(Text, nullable=False)  # Discriminator: 'Job', 'Opportunity', 'Partnership', etc.
     title = Column(Text, nullable=False)
@@ -26,6 +27,7 @@ class Lead(Base):
 
     # Relationships
     tenant = relationship("Tenant", back_populates="leads")
+    account = relationship("Account", back_populates="leads")
     deal = relationship("Deal", back_populates="leads")
     current_status = relationship("Status", back_populates="leads", foreign_keys=[current_status_id])
 
