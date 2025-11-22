@@ -74,11 +74,11 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
 
 @handle_http_exceptions
 async def get_jobs(
-    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None
+    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None, tenant_id: Optional[int] = None
 ) -> dict:
     """Get all jobs with pagination."""
     paginated_jobs, total_count = await get_jobs_paginated(
-        page, limit, order_by, order, search
+        page, limit, order_by, order, search, tenant_id
     )
     items = [_job_to_response_dict(job) for job in paginated_jobs]
     return _to_paged_response(total_count, page, limit, items)

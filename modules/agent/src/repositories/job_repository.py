@@ -10,6 +10,7 @@ from models.Lead import Lead
 from models.Status import Status
 from models.Organization import Organization
 from models.Deal import Deal
+from models.Account import Account
 from lib.db import async_get_session
 from repositories.deal_repository import get_or_create_deal
 from repositories.status_repository import find_status_by_name
@@ -78,7 +79,7 @@ async def _load_job_with_relationships(session, job_id: int) -> Job:
         joinedload(Job.lead).joinedload(Lead.current_status),
         joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
         joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-        joinedload(Job.organization).joinedload(Organization.tenant)
+        joinedload(Job.organization).joinedload(Organization.account)
     ).where(Job.id == job_id)
     result = await session.execute(stmt)
     return result.unique().scalar_one()
@@ -89,7 +90,8 @@ async def find_all_jobs(
     page_size: int = 50,
     search: Optional[str] = None,
     order_by: str = "date",
-    order: str = "DESC"
+    order: str = "DESC",
+    tenant_id: Optional[int] = None
 ) -> tuple[List[Job], int]:
     """Find jobs with pagination, filtering, and sorting at database level."""
     async with async_get_session() as session:
@@ -98,8 +100,12 @@ async def find_all_jobs(
             joinedload(Job.lead).joinedload(Lead.current_status),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.organization).joinedload(Organization.tenant)
+            joinedload(Job.organization).joinedload(Organization.account)
         ).join(Lead).join(Organization)
+
+        # Filter by tenant
+        if tenant_id is not None:
+            stmt = stmt.where(Lead.tenant_id == tenant_id)
 
         # Apply search filter at DB level
         if search and search.strip():
@@ -153,7 +159,7 @@ async def find_job_by_id(job_id: int) -> Optional[Job]:
             joinedload(Job.lead).joinedload(Lead.current_status),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.organization).joinedload(Organization.tenant)
+            joinedload(Job.organization).joinedload(Organization.account)
         ).where(Job.id == job_id)
         result = await session.execute(stmt)
         return result.unique().scalar_one_or_none()
@@ -293,7 +299,7 @@ async def find_job_by_company_and_title(company: str, title: str) -> Optional[Jo
             joinedload(Job.lead).joinedload(Lead.current_status),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.organization).joinedload(Organization.tenant)
+            joinedload(Job.organization).joinedload(Organization.account)
         ).join(Organization).join(Lead).where(
             sql_func.lower(Organization.name).contains(sql_func.lower(company.strip())),
             sql_func.lower(Job.job_title).contains(sql_func.lower(title.strip()))
@@ -317,7 +323,7 @@ async def find_jobs_with_status(status_names: Optional[List[str]] = None) -> Lis
             joinedload(Job.lead).joinedload(Lead.current_status),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.organization).joinedload(Organization.tenant)
+            joinedload(Job.organization).joinedload(Organization.account)
         ).join(Lead).join(Status).where(Lead.current_status_id.isnot(None))
 
         if status_names:

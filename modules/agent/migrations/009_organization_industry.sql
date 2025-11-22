@@ -1,0 +1,31 @@
+-- Create Industry table and Organization_Industry join table for many-to-many
+
+CREATE TABLE IF NOT EXISTS "Industry" (
+    id BIGSERIAL PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "Organization_Industry" (
+    organization_id BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
+    industry_id BIGINT NOT NULL REFERENCES "Industry"(id) ON DELETE CASCADE,
+    PRIMARY KEY (organization_id, industry_id)
+);
+
+-- Index for fast lookups by industry
+CREATE INDEX IF NOT EXISTS idx_org_industry_industry_id ON "Organization_Industry"(industry_id);
+
+-- Seed common industries
+INSERT INTO "Industry" (name) VALUES
+    ('Software'),
+    ('Cloud Infrastructure'),
+    ('Data Analytics'),
+    ('Cybersecurity'),
+    ('Consulting'),
+    ('Venture Capital'),
+    ('AI/ML'),
+    ('FinTech'),
+    ('HealthTech'),
+    ('E-commerce')
+ON CONFLICT (name) DO NOTHING;

@@ -12,7 +12,7 @@ class Individual(Base):
     __tablename__ = "Individual"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    tenant_id = Column(BigInteger, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=True)
+    account_id = Column(BigInteger, ForeignKey("Account.id", ondelete="SET NULL"), nullable=True)
     first_name = Column(Text, nullable=False)
     last_name = Column(Text, nullable=False)
     email = Column(Text, nullable=True)
@@ -24,10 +24,10 @@ class Individual(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
-    tenant = relationship("Tenant", back_populates="individuals")
+    account = relationship("Account", back_populates="individuals")
     contacts = relationship("Contact", back_populates="individual")
+    user = relationship("User", back_populates="individual", uselist=False)
 
     __table_args__ = (
-        Index('idx_individual_tenant_id', 'tenant_id'),
-        Index('idx_individual_email_lower_tenant', 'tenant_id', func.lower(email), unique=True),
+        Index('idx_individual_email_lower', func.lower(email), unique=True),
     )

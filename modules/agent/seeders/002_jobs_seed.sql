@@ -10,10 +10,15 @@ DECLARE
   default_deal_status_id BIGINT;
   new_lead_id BIGINT;
   org_id BIGINT;
+  account_id BIGINT;
+  v_tenant_id BIGINT;
   job_status_applied_id BIGINT;
   job_status_interviewing_id BIGINT;
   job_status_rejected_id BIGINT;
 BEGIN
+  -- Get tenant ID
+  SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada' LIMIT 1;
+
   -- Get status IDs
   SELECT id INTO default_deal_status_id FROM "Status" WHERE name = 'Prospecting' AND category = 'deal' LIMIT 1;
   SELECT id INTO job_status_applied_id FROM "Status" WHERE name = 'Applied' AND category = 'job' LIMIT 1;
@@ -36,21 +41,43 @@ BEGIN
     RAISE NOTICE 'Created Deal: Job Search 2025 (id=%)', default_deal_id;
   END IF;
 
-  -- Create sample organizations for jobs (only if they don't exist)
-  INSERT INTO "Organization" (tenant_id, name, website, industry, created_at, updated_at)
-  VALUES
-    (NULL, 'Acme Corp', 'https://acme.example.com', 'Technology', NOW(), NOW()),
-    (NULL, 'TechStartup Inc', 'https://techstartup.example.com', 'Software', NOW(), NOW()),
-    (NULL, 'DataSystems Ltd', 'https://datasystems.example.com', 'Data Analytics', NOW(), NOW()),
-    (NULL, 'CloudWorks', 'https://cloudworks.example.com', 'Cloud Computing', NOW(), NOW()),
-    (NULL, 'AI Innovations', 'https://aiinnovations.example.com', 'Artificial Intelligence', NOW(), NOW())
-  ON CONFLICT (tenant_id, (LOWER(name))) DO NOTHING;
+  -- Create sample organizations for jobs (with Accounts)
+  -- Acme Corp
+  INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Acme Corp', NOW(), NOW()) RETURNING id INTO account_id;
+  INSERT INTO "Organization" (account_id, name, website, created_at, updated_at)
+  VALUES (account_id, 'Acme Corp', 'https://acme.example.com', NOW(), NOW())
+  ON CONFLICT ((LOWER(name))) DO NOTHING;
+
+  -- TechStartup Inc
+  INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'TechStartup Inc', NOW(), NOW()) RETURNING id INTO account_id;
+  INSERT INTO "Organization" (account_id, name, website, created_at, updated_at)
+  VALUES (account_id, 'TechStartup Inc', 'https://techstartup.example.com', NOW(), NOW())
+  ON CONFLICT ((LOWER(name))) DO NOTHING;
+
+  -- DataSystems Ltd
+  INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'DataSystems Ltd', NOW(), NOW()) RETURNING id INTO account_id;
+  INSERT INTO "Organization" (account_id, name, website, created_at, updated_at)
+  VALUES (account_id, 'DataSystems Ltd', 'https://datasystems.example.com', NOW(), NOW())
+  ON CONFLICT ((LOWER(name))) DO NOTHING;
+
+  -- CloudWorks
+  INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'CloudWorks', NOW(), NOW()) RETURNING id INTO account_id;
+  INSERT INTO "Organization" (account_id, name, website, created_at, updated_at)
+  VALUES (account_id, 'CloudWorks', 'https://cloudworks.example.com', NOW(), NOW())
+  ON CONFLICT ((LOWER(name))) DO NOTHING;
+
+  -- AI Innovations
+  INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'AI Innovations', NOW(), NOW()) RETURNING id INTO account_id;
+  INSERT INTO "Organization" (account_id, name, website, created_at, updated_at)
+  VALUES (account_id, 'AI Innovations', 'https://aiinnovations.example.com', NOW(), NOW())
+  ON CONFLICT ((LOWER(name))) DO NOTHING;
 
   -- Job 1: Acme Corp - Senior Full Stack Engineer (Applied)
   SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('Acme Corp') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, deal_id, type, title, description, source, current_status_id, created_at, updated_at)
     VALUES (
+      v_tenant_id,
       default_deal_id,
       'Job',
       'Acme Corp - Senior Full Stack Engineer',
@@ -77,8 +104,9 @@ BEGIN
   -- Job 2: TechStartup Inc - Software Engineer (Interviewing)
   SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('TechStartup Inc') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, deal_id, type, title, description, source, current_status_id, created_at, updated_at)
     VALUES (
+      v_tenant_id,
       default_deal_id,
       'Job',
       'TechStartup Inc - Software Engineer',
@@ -106,8 +134,9 @@ BEGIN
   -- Job 3: DataSystems Ltd - Backend Engineer (Applied)
   SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('DataSystems Ltd') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, deal_id, type, title, description, source, current_status_id, created_at, updated_at)
     VALUES (
+      v_tenant_id,
       default_deal_id,
       'Job',
       'DataSystems Ltd - Backend Engineer',
@@ -134,8 +163,9 @@ BEGIN
   -- Job 4: CloudWorks - DevOps Engineer (Rejected)
   SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudWorks') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, deal_id, type, title, description, source, current_status_id, created_at, updated_at)
     VALUES (
+      v_tenant_id,
       default_deal_id,
       'Job',
       'CloudWorks - DevOps Engineer',
@@ -162,8 +192,9 @@ BEGIN
   -- Job 5: AI Innovations - ML Engineer (Applied)
   SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('AI Innovations') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (deal_id, type, title, description, source, current_status_id, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, deal_id, type, title, description, source, current_status_id, created_at, updated_at)
     VALUES (
+      v_tenant_id,
       default_deal_id,
       'Job',
       'AI Innovations - ML Engineer',

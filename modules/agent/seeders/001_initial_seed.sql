@@ -6,30 +6,209 @@
 -- This seeds data using the new DealTracker schema structure
 
 -- ==============================
--- STEP 1: Create Sample Organizations
+-- STEP 0: Create Default Tenant and User
 -- ==============================
-INSERT INTO "Organization" (tenant_id, name, website, industry, employee_count, description, created_at, updated_at)
-VALUES
-    (NULL, 'TechVentures Inc', 'https://techventures.example.com', 'Venture Capital', 50, 'Early-stage technology investor', NOW(), NOW()),
-    (NULL, 'CloudScale Systems', 'https://cloudscale.example.com', 'Cloud Infrastructure', 200, 'Enterprise cloud solutions provider', NOW(), NOW()),
-    (NULL, 'DataFlow Analytics', 'https://dataflow.example.com', 'Data Analytics', 75, 'Real-time data analytics platform', NOW(), NOW()),
-    (NULL, 'SecureNet Solutions', 'https://securenet.example.com', 'Cybersecurity', 150, 'Enterprise security software', NOW(), NOW()),
-    (NULL, 'InnovateLab', 'https://innovatelab.example.com', 'Consulting', 30, 'Innovation consulting for startups', NOW(), NOW())
-ON CONFLICT (tenant_id, (LOWER(name))) DO NOTHING;
+DO $$
+DECLARE
+    v_tenant_id BIGINT;
+    v_account_id BIGINT;
+    v_individual_id BIGINT;
+    v_user_id BIGINT;
+    v_role_id BIGINT;
+BEGIN
+    -- Create Tenant
+    INSERT INTO "Tenant" (name, slug, plan, industry, website, employee_count, created_at, updated_at)
+    VALUES ('PinaColada', 'pinacolada', 'free', 'Software', 'https://pinacolada.co', 1, NOW(), NOW())
+    ON CONFLICT (slug) DO UPDATE SET name = 'PinaColada', industry = 'Software', website = 'https://pinacolada.co', employee_count = 1
+    RETURNING id INTO v_tenant_id;
+
+    -- Create Account for the user's Individual (with tenant_id)
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at)
+    VALUES (v_tenant_id, 'William Hubenschmidt', NOW(), NOW())
+    RETURNING id INTO v_account_id;
+
+    -- Create or update Individual for the user
+    SELECT id INTO v_individual_id FROM "Individual" WHERE LOWER(email) = LOWER('whubenschmidt@gmail.com') LIMIT 1;
+
+    IF v_individual_id IS NULL THEN
+        -- Individual doesn't exist, create new
+        INSERT INTO "Individual" (account_id, first_name, last_name, email, created_at, updated_at)
+        VALUES (v_account_id, 'William', 'Hubenschmidt', 'whubenschmidt@gmail.com', NOW(), NOW())
+        RETURNING id INTO v_individual_id;
+    ELSE
+        -- Individual exists, update with account
+        UPDATE "Individual"
+        SET account_id = v_account_id,
+            first_name = 'William',
+            last_name = 'Hubenschmidt',
+            updated_at = NOW()
+        WHERE id = v_individual_id;
+    END IF;
+
+    -- Create or update User
+    -- First try to find existing user by email
+    SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
+
+    IF v_user_id IS NULL THEN
+        -- User doesn't exist, create new
+        INSERT INTO "User" (tenant_id, individual_id, email, first_name, last_name, status, created_at, updated_at)
+        VALUES (v_tenant_id, v_individual_id, 'whubenschmidt@gmail.com', 'William', 'Hubenschmidt', 'active', NOW(), NOW())
+        RETURNING id INTO v_user_id;
+    ELSE
+        -- User exists, update with tenant and individual
+        UPDATE "User"
+        SET tenant_id = v_tenant_id,
+            individual_id = v_individual_id,
+            first_name = 'William',
+            last_name = 'Hubenschmidt',
+            updated_at = NOW()
+        WHERE id = v_user_id;
+    END IF;
+
+    -- Create Owner Role
+    INSERT INTO "Role" (tenant_id, name, description)
+    VALUES (v_tenant_id, 'owner', 'Full access to all resources')
+    ON CONFLICT DO NOTHING
+    RETURNING id INTO v_role_id;
+
+    -- If role already exists, get its id
+    IF v_role_id IS NULL THEN
+        SELECT id INTO v_role_id FROM "Role" WHERE tenant_id = v_tenant_id AND name = 'owner';
+    END IF;
+
+    -- Create UserRole
+    INSERT INTO "UserRole" (user_id, role_id, created_at)
+    VALUES (v_user_id, v_role_id, NOW())
+    ON CONFLICT DO NOTHING;
+
+    -- Create default Organization for the tenant
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at)
+    VALUES (v_tenant_id, 'PinaColada', NOW(), NOW())
+    RETURNING id INTO v_account_id;
+
+    INSERT INTO "Organization" (account_id, name, created_at, updated_at)
+    VALUES (v_account_id, 'PinaColada', NOW(), NOW())
+    ON CONFLICT ((LOWER(name))) DO NOTHING;
+
+    RAISE NOTICE 'Default tenant and user created successfully. Tenant ID: %', v_tenant_id;
+END $$;
 
 -- ==============================
--- STEP 2: Create Sample Individuals
+-- STEP 1: Create Sample Organizations (with Accounts and Industries)
 -- ==============================
-INSERT INTO "Individual" (tenant_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
-VALUES
-    (NULL, 'Sarah', 'Chen', 'sarah.chen@techventures.example.com', '+1-415-555-0101', 'https://linkedin.com/in/sarachen', 'Partner', 'Focus on SaaS and AI investments', NOW(), NOW()),
-    (NULL, 'Michael', 'Rodriguez', 'michael.r@cloudscale.example.com', '+1-415-555-0102', 'https://linkedin.com/in/michaelrodriguez', 'VP of Engineering', 'Leads cloud infrastructure team', NOW(), NOW()),
-    (NULL, 'Emily', 'Johnson', 'emily.j@dataflow.example.com', '+1-650-555-0103', 'https://linkedin.com/in/emilyjohnson', 'Head of Product', 'Former Google PM', NOW(), NOW()),
-    (NULL, 'David', 'Kim', 'david.kim@securenet.example.com', '+1-408-555-0104', 'https://linkedin.com/in/davidkim', 'CTO', 'Security expert with 15+ years experience', NOW(), NOW()),
-    (NULL, 'Jessica', 'Williams', 'jessica.w@innovatelab.example.com', '+1-510-555-0105', 'https://linkedin.com/in/jessicawilliams', 'Principal Consultant', 'Specializes in go-to-market strategy', NOW(), NOW()),
-    (NULL, 'Robert', 'Taylor', 'robert.t@techventures.example.com', '+1-415-555-0106', 'https://linkedin.com/in/roberttaylor', 'Associate', 'Focuses on early-stage deals', NOW(), NOW()),
-    (NULL, 'Amanda', 'Brown', 'amanda.b@cloudscale.example.com', '+1-415-555-0107', 'https://linkedin.com/in/amandabrown', 'Senior Software Engineer', 'Backend infrastructure specialist', NOW(), NOW())
-ON CONFLICT (tenant_id, (LOWER(email))) DO NOTHING;
+DO $$
+DECLARE
+    account_id BIGINT;
+    org_id BIGINT;
+    v_tenant_id BIGINT;
+    industry_id BIGINT;
+BEGIN
+    -- Get the tenant ID
+    SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada';
+
+    -- TechVentures Inc
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'TechVentures Inc', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at)
+    VALUES (account_id, 'TechVentures Inc', 'https://techventures.example.com', 50, 'Early-stage technology investor', NOW(), NOW())
+    ON CONFLICT ((LOWER(name))) DO NOTHING;
+    SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('TechVentures Inc');
+    SELECT id INTO industry_id FROM "Industry" WHERE name = 'Venture Capital';
+    INSERT INTO "Organization_Industry" (organization_id, industry_id) VALUES (org_id, industry_id) ON CONFLICT DO NOTHING;
+
+    -- CloudScale Systems
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'CloudScale Systems', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at)
+    VALUES (account_id, 'CloudScale Systems', 'https://cloudscale.example.com', 200, 'Enterprise cloud solutions provider', NOW(), NOW())
+    ON CONFLICT ((LOWER(name))) DO NOTHING;
+    SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudScale Systems');
+    SELECT id INTO industry_id FROM "Industry" WHERE name = 'Cloud Infrastructure';
+    INSERT INTO "Organization_Industry" (organization_id, industry_id) VALUES (org_id, industry_id) ON CONFLICT DO NOTHING;
+
+    -- DataFlow Analytics
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'DataFlow Analytics', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at)
+    VALUES (account_id, 'DataFlow Analytics', 'https://dataflow.example.com', 75, 'Real-time data analytics platform', NOW(), NOW())
+    ON CONFLICT ((LOWER(name))) DO NOTHING;
+    SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('DataFlow Analytics');
+    SELECT id INTO industry_id FROM "Industry" WHERE name = 'Data Analytics';
+    INSERT INTO "Organization_Industry" (organization_id, industry_id) VALUES (org_id, industry_id) ON CONFLICT DO NOTHING;
+
+    -- SecureNet Solutions
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'SecureNet Solutions', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at)
+    VALUES (account_id, 'SecureNet Solutions', 'https://securenet.example.com', 150, 'Enterprise security software', NOW(), NOW())
+    ON CONFLICT ((LOWER(name))) DO NOTHING;
+    SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('SecureNet Solutions');
+    SELECT id INTO industry_id FROM "Industry" WHERE name = 'Cybersecurity';
+    INSERT INTO "Organization_Industry" (organization_id, industry_id) VALUES (org_id, industry_id) ON CONFLICT DO NOTHING;
+
+    -- InnovateLab
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'InnovateLab', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at)
+    VALUES (account_id, 'InnovateLab', 'https://innovatelab.example.com', 30, 'Innovation consulting for startups', NOW(), NOW())
+    ON CONFLICT ((LOWER(name))) DO NOTHING;
+    SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('InnovateLab');
+    SELECT id INTO industry_id FROM "Industry" WHERE name = 'Consulting';
+    INSERT INTO "Organization_Industry" (organization_id, industry_id) VALUES (org_id, industry_id) ON CONFLICT DO NOTHING;
+
+    RAISE NOTICE 'Organizations with Accounts and Industries created successfully';
+END $$;
+
+-- ==============================
+-- STEP 2: Create Sample Individuals (with Accounts)
+-- ==============================
+DO $$
+DECLARE
+    account_id BIGINT;
+    v_tenant_id BIGINT;
+BEGIN
+    -- Get the tenant ID
+    SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada';
+
+    -- Sarah Chen
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Sarah Chen', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
+    VALUES (account_id, 'Sarah', 'Chen', 'sarah.chen@techventures.example.com', '+1-415-555-0101', 'https://linkedin.com/in/sarachen', 'Partner', 'Focus on SaaS and AI investments', NOW(), NOW())
+    ON CONFLICT ((LOWER(email))) DO NOTHING;
+
+    -- Michael Rodriguez
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Michael Rodriguez', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
+    VALUES (account_id, 'Michael', 'Rodriguez', 'michael.r@cloudscale.example.com', '+1-415-555-0102', 'https://linkedin.com/in/michaelrodriguez', 'VP of Engineering', 'Leads cloud infrastructure team', NOW(), NOW())
+    ON CONFLICT ((LOWER(email))) DO NOTHING;
+
+    -- Emily Johnson
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Emily Johnson', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
+    VALUES (account_id, 'Emily', 'Johnson', 'emily.j@dataflow.example.com', '+1-650-555-0103', 'https://linkedin.com/in/emilyjohnson', 'Head of Product', 'Former Google PM', NOW(), NOW())
+    ON CONFLICT ((LOWER(email))) DO NOTHING;
+
+    -- David Kim
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'David Kim', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
+    VALUES (account_id, 'David', 'Kim', 'david.kim@securenet.example.com', '+1-408-555-0104', 'https://linkedin.com/in/davidkim', 'CTO', 'Security expert with 15+ years experience', NOW(), NOW())
+    ON CONFLICT ((LOWER(email))) DO NOTHING;
+
+    -- Jessica Williams
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Jessica Williams', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
+    VALUES (account_id, 'Jessica', 'Williams', 'jessica.w@innovatelab.example.com', '+1-510-555-0105', 'https://linkedin.com/in/jessicawilliams', 'Principal Consultant', 'Specializes in go-to-market strategy', NOW(), NOW())
+    ON CONFLICT ((LOWER(email))) DO NOTHING;
+
+    -- Robert Taylor
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Robert Taylor', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
+    VALUES (account_id, 'Robert', 'Taylor', 'robert.t@techventures.example.com', '+1-415-555-0106', 'https://linkedin.com/in/roberttaylor', 'Associate', 'Focuses on early-stage deals', NOW(), NOW())
+    ON CONFLICT ((LOWER(email))) DO NOTHING;
+
+    -- Amanda Brown
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Amanda Brown', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
+    VALUES (account_id, 'Amanda', 'Brown', 'amanda.b@cloudscale.example.com', '+1-415-555-0107', 'https://linkedin.com/in/amandabrown', 'Senior Software Engineer', 'Backend infrastructure specialist', NOW(), NOW())
+    ON CONFLICT ((LOWER(email))) DO NOTHING;
+
+    RAISE NOTICE 'Individuals with Accounts created successfully';
+END $$;
 
 -- ==============================
 -- STEP 3: Create Contact Relationships

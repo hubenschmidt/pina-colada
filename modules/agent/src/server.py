@@ -15,7 +15,7 @@ from fastapi import FastAPI, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
 from agent.graph import invoke_graph
 from agent.util.logging_config import configure_logging
-from api.routes import jobs_routes, leads_routes, auth_routes, users_routes, preferences_routes
+from api.routes import jobs_routes, leads_routes, auth_routes, users_routes, preferences_routes, organizations_routes, individuals_routes
 from api.routes.mocks.k401_rollover import router as mock_401k_router
 from uuid import uuid4
 import uvicorn
@@ -50,6 +50,8 @@ app.include_router(leads_routes)
 app.include_router(auth_routes)
 app.include_router(users_routes)
 app.include_router(preferences_routes)
+app.include_router(organizations_routes)
+app.include_router(individuals_routes)
 app.include_router(mock_401k_router)
 
 

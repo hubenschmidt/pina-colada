@@ -220,7 +220,7 @@ def _matches_job(job, company: str, job_title: str) -> bool:
 
 
 async def get_jobs_paginated(
-    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None
+    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None, tenant_id: Optional[int] = None
 ) -> tuple[List[Any], int]:
     """Get all jobs with search, sorting, and pagination logic.
 
@@ -230,6 +230,7 @@ async def get_jobs_paginated(
         order_by: Field to sort by
         order: Sort direction (ASC/DESC)
         search: Optional search query
+        tenant_id: Optional tenant ID for filtering
 
     Returns:
         Tuple of (paginated_jobs, total_count)
@@ -239,7 +240,8 @@ async def get_jobs_paginated(
         page_size=limit,
         search=search,
         order_by=order_by,
-        order=order
+        order=order,
+        tenant_id=tenant_id
     )
 
 

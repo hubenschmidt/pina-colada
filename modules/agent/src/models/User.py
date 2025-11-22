@@ -14,6 +14,7 @@ class User(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = Column(BigInteger, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=True)
+    individual_id = Column(BigInteger, ForeignKey("Individual.id", ondelete="SET NULL"), nullable=True)
     auth0_sub = Column(Text, unique=True, nullable=True)
     email = Column(Text, nullable=False)
     first_name = Column(Text, nullable=True)
@@ -26,6 +27,7 @@ class User(Base):
 
     # Relationships
     tenant = relationship("Tenant", back_populates="users")
+    individual = relationship("Individual", back_populates="user")
     user_roles = relationship("UserRole", back_populates="user")
     preferences = relationship("UserPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan")
 

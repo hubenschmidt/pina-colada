@@ -1,0 +1,103 @@
+"""Repository layer for individual data access."""
+
+import logging
+from typing import List, Optional, Dict, Any
+from sqlalchemy import select, func
+from models.Individual import Individual
+from models.Account import Account
+from lib.db import async_get_session
+
+logger = logging.getLogger(__name__)
+
+
+async def find_all_individuals(tenant_id: Optional[int] = None) -> List[Individual]:
+    """Find all individuals, optionally filtered by tenant (through Account)."""
+    async with async_get_session() as session:
+        stmt = select(Individual).order_by(Individual.last_name, Individual.first_name)
+        if tenant_id is not None:
+            stmt = stmt.join(Account, Individual.account_id == Account.id).where(Account.tenant_id == tenant_id)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+
+async def find_individual_by_id(individual_id: int) -> Optional[Individual]:
+    """Find individual by ID."""
+    async with async_get_session() as session:
+        return await session.get(Individual, individual_id)
+
+
+async def find_individual_by_email(email: str, tenant_id: Optional[int] = None) -> Optional[Individual]:
+    """Find individual by email (case-insensitive), optionally scoped to tenant (through Account)."""
+    async with async_get_session() as session:
+        stmt = select(Individual).where(func.lower(Individual.email) == func.lower(email))
+        if tenant_id is not None:
+            stmt = stmt.join(Account, Individual.account_id == Account.id).where(Account.tenant_id == tenant_id)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+
+async def create_individual(data: Dict[str, Any]) -> Individual:
+    """Create a new individual."""
+    async with async_get_session() as session:
+        try:
+            individual = Individual(**data)
+            session.add(individual)
+            await session.commit()
+            await session.refresh(individual)
+            return individual
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to create individual: {e}")
+            raise
+
+
+async def update_individual(individual_id: int, data: Dict[str, Any]) -> Optional[Individual]:
+    """Update an existing individual."""
+    async with async_get_session() as session:
+        try:
+            individual = await session.get(Individual, individual_id)
+            if not individual:
+                return None
+
+            for key, value in data.items():
+                if hasattr(individual, key):
+                    setattr(individual, key, value)
+
+            await session.commit()
+            await session.refresh(individual)
+            return individual
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to update individual: {e}")
+            raise
+
+
+async def delete_individual(individual_id: int) -> bool:
+    """Delete an individual by ID."""
+    async with async_get_session() as session:
+        try:
+            individual = await session.get(Individual, individual_id)
+            if not individual:
+                return False
+            await session.delete(individual)
+            await session.commit()
+            return True
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to delete individual: {e}")
+            raise
+
+
+async def search_individuals(query: str, tenant_id: Optional[int] = None) -> List[Individual]:
+    """Search individuals by name or email (case-insensitive partial match), filtered by tenant (through Account)."""
+    async with async_get_session() as session:
+        search_pattern = func.lower(f"%{query}%")
+        stmt = select(Individual).where(
+            (func.lower(Individual.first_name).like(search_pattern)) |
+            (func.lower(Individual.last_name).like(search_pattern)) |
+            (func.lower(Individual.email).like(search_pattern))
+        ).order_by(Individual.last_name, Individual.first_name)
+        if tenant_id is not None:
+            stmt = stmt.join(Account, Individual.account_id == Account.id).where(Account.tenant_id == tenant_id)
+        result = await session.execute(stmt)
+        return list(result.scalars().all())

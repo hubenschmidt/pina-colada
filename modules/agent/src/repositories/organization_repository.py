@@ -3,18 +3,20 @@
 import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy import select, func
+from sqlalchemy.orm import selectinload
 from models.Organization import Organization
+from models.Account import Account
 from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)
 
 
 async def find_all_organizations(tenant_id: Optional[int] = None) -> List[Organization]:
-    """Find all organizations, optionally filtered by tenant."""
+    """Find all organizations, optionally filtered by tenant (through Account)."""
     async with async_get_session() as session:
-        stmt = select(Organization).order_by(Organization.name)
+        stmt = select(Organization).options(selectinload(Organization.industries)).order_by(Organization.name)
         if tenant_id is not None:
-            stmt = stmt.where(Organization.tenant_id == tenant_id)
+            stmt = stmt.join(Account, Organization.account_id == Account.id).where(Account.tenant_id == tenant_id)
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
@@ -26,11 +28,11 @@ async def find_organization_by_id(org_id: int) -> Optional[Organization]:
 
 
 async def find_organization_by_name(name: str, tenant_id: Optional[int] = None) -> Optional[Organization]:
-    """Find organization by name (case-insensitive), optionally scoped to tenant."""
+    """Find organization by name (case-insensitive), optionally scoped to tenant (through Account)."""
     async with async_get_session() as session:
         stmt = select(Organization).where(func.lower(Organization.name) == func.lower(name))
         if tenant_id is not None:
-            stmt = stmt.where(Organization.tenant_id == tenant_id)
+            stmt = stmt.join(Account, Organization.account_id == Account.id).where(Account.tenant_id == tenant_id)
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -56,7 +58,8 @@ async def get_or_create_organization(name: str, tenant_id: Optional[int] = None)
     if existing:
         return existing
 
-    return await create_organization({"name": name, "tenant_id": tenant_id})
+    # Note: caller should create Account with tenant_id first, then pass account_id
+    return await create_organization({"name": name})
 
 
 async def update_organization(org_id: int, data: Dict[str, Any]) -> Optional[Organization]:
@@ -97,12 +100,12 @@ async def delete_organization(org_id: int) -> bool:
 
 
 async def search_organizations(query: str, tenant_id: Optional[int] = None) -> List[Organization]:
-    """Search organizations by name (case-insensitive partial match)."""
+    """Search organizations by name (case-insensitive partial match), filtered by tenant (through Account)."""
     async with async_get_session() as session:
         stmt = select(Organization).where(
             func.lower(Organization.name).contains(func.lower(query))
         ).order_by(Organization.name)
         if tenant_id is not None:
-            stmt = stmt.where(Organization.tenant_id == tenant_id)
+            stmt = stmt.join(Account, Organization.account_id == Account.id).where(Account.tenant_id == tenant_id)
         result = await session.execute(stmt)
         return list(result.scalars().all())

@@ -15,7 +15,7 @@ class Deal(Base):
     tenant_id = Column(BigInteger, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=True)
     name = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
-    owner_user_id = Column(BigInteger, nullable=True)
+    owner_individual_id = Column(BigInteger, ForeignKey("Individual.id", ondelete="SET NULL"), nullable=True)
     current_status_id = Column(BigInteger, ForeignKey("Status.id", ondelete="SET NULL"), nullable=True)
     value_amount = Column(Numeric(18, 2), nullable=True)
     value_currency = Column(Text, default="USD")

@@ -66,7 +66,8 @@ async def get_jobs_route(
     search: Optional[str] = Query(None),
 ):
     """Get all jobs with pagination."""
-    return await get_jobs(page, limit, order_by, order, search)
+    tenant_id = getattr(request.state, "tenant_id", None)
+    return await get_jobs(page, limit, order_by, order, search, tenant_id)
 
 
 @router.post("")

@@ -26,7 +26,7 @@ class Task(Base):
     priority_id = Column(BigInteger, ForeignKey("Status.id", ondelete="SET NULL"), nullable=True)
     due_date = Column(Date, nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
-    assigned_to_user_id = Column(BigInteger, nullable=True)
+    assigned_to_individual_id = Column(BigInteger, ForeignKey("Individual.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
