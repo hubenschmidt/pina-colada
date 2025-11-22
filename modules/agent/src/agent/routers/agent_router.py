@@ -1,111 +1,137 @@
+"""
+LLM-based router - uses Claude Haiku to decide which worker should handle the request
+"""
+
 import logging
-from typing import Dict, Any
-from langchain_core.messages import HumanMessage, AIMessage
+from typing import Dict, Any, Literal
+
+from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
+from langchain_anthropic import ChatAnthropic
+from pydantic import BaseModel, Field
+
+from agent.util.langfuse_helper import get_langfuse_handler
 
 logger = logging.getLogger(__name__)
 
 
-def _find_last_user_message(messages) -> str:
+class RouterDecision(BaseModel):
+    """Structured output for routing decision"""
+    route: Literal["worker", "job_search", "cover_letter_writer"] = Field(
+        description="The worker to route to based on user intent"
+    )
+    reasoning: str = Field(
+        description="Brief explanation of why this route was chosen"
+    )
+
+
+ROUTER_SYSTEM_PROMPT = """You are a routing assistant that decides which specialized worker should handle a user request.
+
+AVAILABLE WORKERS:
+1. worker - General-purpose assistant for questions, conversation, and non-specialized tasks
+2. job_search - Specialized for finding job opportunities, searching job boards, filtering jobs
+3. cover_letter_writer - Specialized for writing cover letters tailored to specific job postings
+
+ROUTING RULES:
+- Route to "job_search" when the user wants to FIND or SEARCH for jobs, see job listings, or filter job results
+- Route to "cover_letter_writer" when the user wants to WRITE or CREATE a cover letter for a specific role
+- Route to "worker" for ALL other requests including:
+  - General questions (technical, knowledge, etc.)
+  - Conversation and chitchat
+  - Resume questions
+  - Career advice (that isn't job search or cover letter writing)
+  - Any ambiguous requests
+
+IMPORTANT:
+- Focus on the CURRENT message's intent, not just keywords from context
+- If the current message is a general question, route to "worker" even if previous messages were about jobs/cover letters
+- When in doubt, route to "worker"
+
+Respond with your routing decision."""
+
+
+def _get_last_user_message(messages) -> str:
     """Extract the last user message from message history"""
     for msg in reversed(messages):
         if isinstance(msg, HumanMessage):
-            return msg.content
+            content = msg.content if isinstance(msg.content, str) else ""
+            return content
     return ""
 
 
-def _collect_recent_messages(messages, message_type, limit: int) -> list[str]:
-    """Collect recent messages of a specific type up to limit"""
-    collected = []
+def _get_recent_context(messages, limit: int = 4) -> str:
+    """Get recent conversation context for routing decision"""
+    recent = []
+    count = 0
+
     for msg in reversed(messages):
-        if isinstance(msg, message_type):
-            # Handle both str and list content (multimodal)
+        if count >= limit:
+            break
+
+        if isinstance(msg, HumanMessage):
             content = msg.content if isinstance(msg.content, str) else ""
-            collected.append(content)
-        if len(collected) >= limit:
-            return collected
-    return collected
+            recent.append(f"User: {content}")
+            count += 1
+        elif isinstance(msg, AIMessage) and msg.content:
+            content = msg.content if isinstance(msg.content, str) else ""
+            # Truncate long AI responses
+            truncated = content[:200] + "..." if len(content) > 200 else content
+            recent.append(f"Assistant: {truncated}")
+            count += 1
+
+    return "\n".join(reversed(recent))
 
 
-def route_to_agent(state: Dict[str, Any]) -> Dict[str, Any]:
-    """Initial router that decides which agent should handle the request"""
-    logger.info("🔀 ROUTER NODE: Deciding which agent to use...")
+async def create_router_node():
+    """
+    Factory function that creates an LLM-based router node.
 
-    last_user_message = _find_last_user_message(state["messages"])
-    logger.info(f"   Last user message: {last_user_message[:100]}...")
+    Returns:
+        Pure function that takes state and returns routing decision
+    """
+    logger.info("Setting up Router LLM: Claude Haiku 4.5")
+    langfuse_handler = get_langfuse_handler()
+    callbacks = [langfuse_handler] if langfuse_handler else []
 
-    # Check if ANY recent user message mentions cover letter (not just the last one)
-    # This handles cases where user asks for cover letter, then provides job details
-    recent_user_messages = _collect_recent_messages(state["messages"], HumanMessage, 3)
-    recent_assistant_messages = _collect_recent_messages(state["messages"], AIMessage, 2)
-
-    # Combine recent context
-    recent_context = " ".join(recent_user_messages + recent_assistant_messages).lower()
-
-    cover_letter_phrases = [
-        "cover letter",
-        "write a letter",
-        "write me a letter",
-        "draft a letter",
-        "draft me a letter",
-        "create a cover letter",
-        "application letter",
-    ]
-
-    job_search_phrases = [
-        "job search",
-        "find jobs",
-        "job leads",
-        "job opportunities",
-        "search for jobs",
-        "jobs in",
-        "job postings",
-        "job openings",
-        "hiring",
-        "positions available",
-    ]
-
-    scraper_phrases = [
-        "scrape",
-        "scraping",
-        "automate",
-        "browser automation",
-        "extract data",
-        "fill form",
-        "401k",
-        "rollover",
-        "web automation",
-        "playwright",
-    ]
-
-    is_cover_letter_request = any(
-        phrase in recent_context for phrase in cover_letter_phrases
+    router_llm = ChatAnthropic(
+        model="claude-haiku-4-5-20251001",
+        temperature=0,
+        max_tokens=200,
+        callbacks=callbacks,
     )
+    llm_with_output = router_llm.with_structured_output(RouterDecision)
+    logger.info("✓ Router LLM configured")
 
-    is_job_search_request = any(
-        phrase in recent_context for phrase in job_search_phrases
-    )
+    async def router_node(state: Dict[str, Any]) -> Dict[str, Any]:
+        """Route to appropriate worker based on user intent"""
+        logger.info("🔀 ROUTER NODE: Deciding which agent to use...")
 
-    is_scraper_request = any(
-        phrase in recent_context for phrase in scraper_phrases
-    )
+        current_message = _get_last_user_message(state["messages"])
+        recent_context = _get_recent_context(state["messages"])
 
-    if is_cover_letter_request:
-        logger.info("✅ Detected cover letter request in conversation context!")
-        logger.info("→ Routing to COVER_LETTER_WRITER")
-        return {"route_to_agent": "cover_letter_writer"}
+        logger.info(f"   Current message: {current_message[:100]}...")
 
-    if is_job_search_request:
-        logger.info("✅ Detected job search request in conversation context!")
-        logger.info("→ Routing to JOB_HUNTER")
-        return {"route_to_agent": "job_hunter"}
+        user_prompt = f"""Recent conversation:
+{recent_context}
 
-    if is_scraper_request:
-        logger.info("✅ Detected scraper request in conversation context!")
-        logger.info("→ Routing to SCRAPER")
-        return {"route_to_agent": "scraper"}
+Current user message to route: "{current_message}"
 
-    logger.info("→ Routing to WORKER")
-    return {"route_to_agent": "worker"}
+Which worker should handle this request?"""
+
+        messages = [
+            SystemMessage(content=ROUTER_SYSTEM_PROMPT),
+            HumanMessage(content=user_prompt),
+        ]
+
+        try:
+            decision = await llm_with_output.ainvoke(messages)
+            logger.info(f"✓ Router decision: {decision.route}")
+            logger.info(f"   Reasoning: {decision.reasoning}")
+            return {"route_to_agent": decision.route}
+        except Exception as e:
+            logger.error(f"⚠️ Router failed: {e}, defaulting to worker")
+            return {"route_to_agent": "worker"}
+
+    return router_node
 
 
 def route_from_router_edge(state: Dict[str, Any]) -> str:
@@ -113,7 +139,7 @@ def route_from_router_edge(state: Dict[str, Any]) -> str:
     route = state.get("route_to_agent", "worker")
     logger.info(f"🔀 Router decided: {route}")
 
-    valid_routes = {"worker", "cover_letter_writer", "job_hunter", "scraper"}
+    valid_routes = {"worker", "cover_letter_writer", "job_search"}
     if route not in valid_routes:
         logger.warning(f"Invalid route '{route}', defaulting to 'worker'")
         return "worker"

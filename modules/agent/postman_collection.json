@@ -612,6 +612,178 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Node Configs",
+      "item": [
+        {
+          "name": "Get All Node Configs",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/node-configs?nodeType=",
+              "host": ["{{base_url}}"],
+              "path": ["node-configs"],
+              "query": [
+                {
+                  "key": "nodeType",
+                  "value": "",
+                  "description": "Optional filter by node type (evaluator, worker, orchestrator)",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all node configs, optionally filtered by node type"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Node Config by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/node-configs/:config_id",
+              "host": ["{{base_url}}"],
+              "path": ["node-configs", ":config_id"],
+              "variable": [
+                {
+                  "key": "config_id",
+                  "value": "1",
+                  "description": "Config ID"
+                }
+              ]
+            },
+            "description": "Get a single node config by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Node Config",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"node_type\": \"evaluator\",\n  \"node_name\": \"career_evaluator\",\n  \"system_prompt\": \"You evaluate whether the Assistant's response meets career-related success criteria...\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/node-configs",
+              "host": ["{{base_url}}"],
+              "path": ["node-configs"]
+            },
+            "description": "Create a new node config. Required: node_type, node_name, system_prompt"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Node Config",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"system_prompt\": \"Updated system prompt...\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/node-configs/:config_id",
+              "host": ["{{base_url}}"],
+              "path": ["node-configs", ":config_id"],
+              "variable": [
+                {
+                  "key": "config_id",
+                  "value": "1",
+                  "description": "Config ID"
+                }
+              ]
+            },
+            "description": "Update a node config. Optional: system_prompt, is_active"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Node Config",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/node-configs/:config_id",
+              "host": ["{{base_url}}"],
+              "path": ["node-configs", ":config_id"],
+              "variable": [
+                {
+                  "key": "config_id",
+                  "value": "1",
+                  "description": "Config ID"
+                }
+              ]
+            },
+            "description": "Soft delete a node config (sets is_active to false)"
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [

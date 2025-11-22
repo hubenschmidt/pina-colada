@@ -299,7 +299,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
     console.log("WebSocket URL:", WS_URL);
   }, []);
 
-  const { isOpen, isThinking, messages, sendMessage, sendControl, reset } = useWs(WS_URL);
+  const { isOpen, isThinking, tokenUsage, messages, sendMessage, sendControl, reset } = useWs(WS_URL);
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -513,7 +513,8 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
                 </div>
               )}
             </div>
-            <div className={styles.toolsDropdown} ref={demoDropdownRef}>
+            {/* Demo dropdown disabled - not using demos */}
+            {/* <div className={styles.toolsDropdown} ref={demoDropdownRef}>
               <button
                 type="button"
                 className={styles.toolsButton}
@@ -576,7 +577,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
                   </button>
                 </div>
               )}
-            </div>
+            </div> */}
             <button
               type="button"
               className={styles.exportButton}
@@ -656,9 +657,22 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
           {/* input */}
           <form className={styles.inputForm} onSubmit={onSubmit}>
             {/* Typing indicator above input */}
-            {isThinking && (
+            {(isThinking || tokenUsage) && (
               <div className={styles.thinkingIndicator}>
-                <span className={styles.thinkingText}>thinking</span>
+                <span className={styles.thinkingText}>
+                  {isThinking ? "thinking" : ""}
+                </span>
+                {tokenUsage && (
+                  <span className={styles.tokenUsage}>
+                    {tokenUsage.current.total >= 1000
+                      ? `${(tokenUsage.current.total / 1000).toFixed(1)}k`
+                      : tokenUsage.current.total}
+                    {" / "}
+                    {tokenUsage.cumulative.total >= 1000
+                      ? `${(tokenUsage.cumulative.total / 1000).toFixed(1)}k`
+                      : tokenUsage.cumulative.total} tokens
+                  </span>
+                )}
               </div>
             )}
             <textarea

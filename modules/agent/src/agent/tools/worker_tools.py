@@ -450,7 +450,7 @@ def check_applied_jobs(query: str = "") -> str:
         return f"Unable to check applied jobs: {e}. Please check that the Supabase integration is configured correctly."
 
 
-def job_search_with_filter(query: str) -> str:
+async def job_search_with_filter(query: str) -> str:
     """
     Search for jobs and filter out ones already applied to or marked as 'do not apply'.
 
@@ -465,7 +465,7 @@ def job_search_with_filter(query: str) -> str:
         tracker = get_applied_jobs_tracker()
 
         # Get all jobs (not just status='applied') to include 'do_not_apply' in filtering
-        all_jobs = get_all_jobs(refresh=True)
+        all_jobs = await get_all_jobs(refresh=True)
 
         logger.info(
             f"Loaded {len(all_jobs)} total jobs for filtering (will filter out 'applied' and 'do_not_apply')"
@@ -838,10 +838,11 @@ async def get_worker_tools():
     )
     tools.append(web_search_tool)
 
-    # Job search tool with filtering
+    # Job search tool with filtering (async)
     job_search_tool = Tool(
         name="job_search",
-        func=job_search_with_filter,
+        func=lambda q: None,  # Placeholder for sync
+        coroutine=job_search_with_filter,
         description="Search for job postings and automatically filter out positions already applied to (tracked in Supabase). Use this instead of web_search for job-related queries. Input: a job search query (e.g., 'software engineer jobs in NYC').",
     )
     tools.append(job_search_tool)

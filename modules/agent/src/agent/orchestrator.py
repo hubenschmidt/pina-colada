@@ -6,12 +6,13 @@ Uses factory function pattern to create a graph with closed-over state
 import json
 import logging
 from typing import List, Any, Optional, Dict, Annotated
+
 from typing_extensions import TypedDict
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
-from langchain_core.messages import AIMessage, HumanMessage, trim_messages
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, trim_messages
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
@@ -28,6 +29,9 @@ class State(TypedDict):
     resume_name: str
     resume_context: str
     route_to_agent: Optional[str]
+    evaluator_type: Optional[str]  # career, scraper, or general
+    token_usage: Optional[Dict[str, int]]  # current call: input, output, total
+    token_usage_cumulative: Optional[Dict[str, int]]  # cumulative for entire request
 
 
 def _build_resume_context(
@@ -69,6 +73,37 @@ def _build_resume_context_concise(resume_text: str, summary: str) -> str:
     return " | ".join(context_parts)
 
 
+def _ensure_tool_pairs_intact(messages: List[Any]) -> List[Any]:
+    """Ensure tool_call messages are followed by their tool responses"""
+    if not messages:
+        return messages
+
+    # Find all tool_call_ids that need responses
+    pending_tool_calls = set()
+    for msg in messages:
+        if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
+            for tc in msg.tool_calls:
+                pending_tool_calls.add(tc.get('id'))
+        elif isinstance(msg, ToolMessage):
+            pending_tool_calls.discard(msg.tool_call_id)
+
+    # If there are pending tool calls without responses, remove them
+    if pending_tool_calls:
+        logger.warning(f"Removing {len(pending_tool_calls)} orphaned tool calls")
+        result = []
+        for msg in messages:
+            if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
+                # Check if any tool calls are orphaned
+                orphaned = any(tc.get('id') in pending_tool_calls for tc in msg.tool_calls)
+                if orphaned:
+                    # Skip this message or convert to regular message
+                    continue
+            result.append(msg)
+        return result
+
+    return messages
+
+
 def _trim_messages(messages: List[Any], max_tokens: int = 8000) -> List[Any]:
     """Pure function to trim message history"""
     try:
@@ -83,6 +118,9 @@ def _trim_messages(messages: List[Any], max_tokens: int = 8000) -> List[Any]:
 
         if len(trimmed) < len(messages):
             logger.info(f"Trimmed messages from {len(messages)} to {len(trimmed)}")
+
+        # Ensure tool call/response pairs are intact
+        trimmed = _ensure_tool_pairs_intact(trimmed)
 
         return trimmed
     except Exception as e:
@@ -104,14 +142,18 @@ async def create_orchestrator(
         - set_websocket_sender: function to set WS sender
     """
     from agent.tools.worker_tools import get_worker_tools
-    from agent.tools.mcp_playwright import PLAYWRIGHT_MCP_TOOLS, init_playwright_mcp
-    from agent.tools.scraper_tools import SCRAPER_TOOLS
-    from agent.workers.worker import create_worker_node, route_from_worker
-    from agent.workers.job_hunter import create_job_hunter_node, route_from_job_hunter
-    from agent.workers.evaluator import create_evaluator_node, route_from_evaluator
-    from agent.workers.cover_letter_writer import create_cover_letter_writer_node
-    from agent.workers.scraper import create_scraper_node, route_from_scraper
-    from agent.routers.agent_router import route_to_agent, route_from_router_edge
+    from agent.workers.general_worker import create_worker_node, route_from_worker
+    from agent.workers.career import (
+        create_job_search_node,
+        route_from_job_search,
+        create_cover_letter_writer_node,
+    )
+    from agent.routers.agent_router import create_router_node, route_from_router_edge
+    from agent.evaluators import (
+        route_from_evaluator,
+        create_career_evaluator_node,
+        create_general_evaluator_node,
+    )
 
     logger.info("=== AGENT SETUP ===")
 
@@ -126,27 +168,21 @@ async def create_orchestrator(
     tools = await get_worker_tools()
     logger.info(f"✓ Loaded {len(tools)} tools")
 
-    # Initialize Playwright MCP
-    logger.info("Initializing Playwright MCP...")
-    await init_playwright_mcp()
-    logger.info("✓ Playwright MCP initialized")
-
-    # Combine regular tools with Playwright MCP tools
-    all_tools = tools + PLAYWRIGHT_MCP_TOOLS + SCRAPER_TOOLS
-    logger.info(f"✓ Total tools (including Playwright MCP + static scraping): {len(all_tools)}")
-
-    # Scraper gets both Playwright (for browser automation) and static scraping tools
-    scraper_tools = PLAYWRIGHT_MCP_TOOLS + SCRAPER_TOOLS
-    logger.info(f"✓ Scraper tools: {len(scraper_tools)} (Playwright MCP + static scraping)")
-
     # Create nodes (each returns a pure function with closed-over LLMs)
     worker = await create_worker_node(tools, resume_context_concise, _trim_messages)
-    job_hunter = await create_job_hunter_node(
+    job_search = await create_job_search_node(
         tools, resume_context_concise, _trim_messages
     )
-    scraper = await create_scraper_node(scraper_tools, _trim_messages)
-    evaluator = await create_evaluator_node()
     cover_letter_writer = await create_cover_letter_writer_node(_trim_messages)
+
+    # Create specialized evaluators
+    career_evaluator = await create_career_evaluator_node()
+    general_evaluator = await create_general_evaluator_node()
+    logger.info("✓ Created specialized evaluators (career, general)")
+
+    # Create LLM-based router
+    router = await create_router_node()
+    logger.info("✓ Created LLM-based router")
 
     # Build graph
     logger.info("Building LangGraph workflow...")
@@ -154,13 +190,14 @@ async def create_orchestrator(
 
     # Add nodes - now they're all pure functions
     logger.info("Adding nodes to graph...")
-    graph_builder.add_node("router", route_to_agent)
+    graph_builder.add_node("router", router)
     graph_builder.add_node("worker", worker)
-    graph_builder.add_node("job_hunter", job_hunter)
-    graph_builder.add_node("scraper", scraper)
+    graph_builder.add_node("job_search", job_search)
     graph_builder.add_node("cover_letter_writer", cover_letter_writer)
-    graph_builder.add_node("tools", ToolNode(tools=all_tools))
-    graph_builder.add_node("evaluator", evaluator)
+    graph_builder.add_node("tools", ToolNode(tools=tools))
+    # Add specialized evaluators
+    graph_builder.add_node("career_evaluator", career_evaluator)
+    graph_builder.add_node("general_evaluator", general_evaluator)
     logger.info("✓ Nodes added")
 
     # Add edges
@@ -172,8 +209,7 @@ async def create_orchestrator(
         route_from_router_edge,
         {
             "worker": "worker",
-            "job_hunter": "job_hunter",
-            "scraper": "scraper",
+            "job_search": "job_search",
             "cover_letter_writer": "cover_letter_writer",
         },
     )
@@ -181,19 +217,13 @@ async def create_orchestrator(
     graph_builder.add_conditional_edges(
         "worker",
         route_from_worker,
-        {"tools": "tools", "evaluator": "evaluator"},
+        {"tools": "tools", "evaluator": "general_evaluator"},
     )
 
     graph_builder.add_conditional_edges(
-        "job_hunter",
-        route_from_job_hunter,
-        {"tools": "tools", "evaluator": "evaluator"},
-    )
-
-    graph_builder.add_conditional_edges(
-        "scraper",
-        route_from_scraper,
-        {"tools": "tools", "END": END},
+        "job_search",
+        route_from_job_search,
+        {"tools": "tools", "evaluator": "career_evaluator"},
     )
 
     def route_from_tools(state: Dict[str, Any]) -> str:
@@ -207,23 +237,30 @@ async def create_orchestrator(
         route_from_tools,
         {
             "worker": "worker",
-            "job_hunter": "job_hunter",
-            "scraper": "scraper",
+            "job_search": "job_search",
             "cover_letter_writer": "cover_letter_writer",
         },
     )
-    graph_builder.add_edge("cover_letter_writer", "evaluator")
+    graph_builder.add_edge("cover_letter_writer", "career_evaluator")
+
+    # Route from each evaluator back to worker or END
+    evaluator_routing = {
+        "worker": "worker",
+        "job_search": "job_search",
+        "cover_letter_writer": "cover_letter_writer",
+        "END": END,
+    }
 
     graph_builder.add_conditional_edges(
-        "evaluator",
+        "career_evaluator",
         route_from_evaluator,
-        {
-            "worker": "worker",
-            "job_hunter": "job_hunter",
-            "scraper": "scraper",
-            "cover_letter_writer": "cover_letter_writer",
-            "END": END,
-        },
+        evaluator_routing,
+    )
+
+    graph_builder.add_conditional_edges(
+        "general_evaluator",
+        route_from_evaluator,
+        evaluator_routing,
     )
 
     logger.info("✓ Edges added")
@@ -272,6 +309,9 @@ async def create_orchestrator(
             "resume_name": "William Hubenschmidt",
             "resume_context": resume_context,
             "route_to_agent": None,
+            "evaluator_type": None,
+            "token_usage": None,
+            "token_usage_cumulative": {"input": 0, "output": 0, "total": 0},
         }
 
         send_ws = ws_sender_ref["send_ws"]
@@ -287,6 +327,7 @@ async def create_orchestrator(
 
         last_content = ""
         iteration = 0
+        cumulative = {"input": 0, "output": 0, "total": 0}
 
         async for event in compiled_graph.astream(
             state, config=config, stream_mode="values"
@@ -335,6 +376,22 @@ async def create_orchestrator(
                             "is_final": False,
                         }
                     )
+                )
+
+            # Send token usage if available
+            token_usage = event.get("token_usage")
+            if token_usage and token_usage.get("total", 0) > 0:
+                # Accumulate tokens
+                cumulative["input"] += token_usage.get("input", 0)
+                cumulative["output"] += token_usage.get("output", 0)
+                cumulative["total"] += token_usage.get("total", 0)
+
+                await send_ws(
+                    json.dumps({
+                        "type": "token_usage",
+                        "token_usage": token_usage,
+                        "cumulative": cumulative.copy()
+                    })
                 )
 
         await send_ws(

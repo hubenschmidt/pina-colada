@@ -2,12 +2,18 @@ import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 
 export type ChatUser = "User" | "PinaColada";
 export type ChatMsg = { user: ChatUser; msg: string; streaming?: boolean };
+export type TokenUsageData = { input: number; output: number; total: number };
+export type TokenUsage = {
+  current: TokenUsageData;
+  cumulative: TokenUsageData;
+} | null;
 const GREETING =
   "Welcome! Ask me anything about our services, I would be glad to help.";
 
 type UseWebSocketReturn = {
   isOpen: boolean;
   isThinking: boolean;
+  tokenUsage: TokenUsage;
   messages: ChatMsg[];
   sendMessage: (text: string) => void; // chat messages -> UI bubble
   sendControl: (payload: unknown) => void; // control/telemetry -> silent
@@ -60,6 +66,7 @@ const applyStartOfTurn = (prev: ChatMsg[]): ChatMsg[] => {
 export const useWs = (url: string): UseWebSocketReturn => {
   const [isOpen, setIsOpen] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [tokenUsage, setTokenUsage] = useState<TokenUsage>(null);
   const [messages, setMessages] = useState<ChatMsg[]>([
     {
       user: "PinaColada",
@@ -112,7 +119,27 @@ export const useWs = (url: string): UseWebSocketReturn => {
       // Start of new assistant turn (close current bubble if streaming)
       if (obj.on_chat_model_start === true) {
         setIsThinking(true);
+        setTokenUsage(null); // Reset token usage for new response
         setMessages((prev) => applyStartOfTurn(prev));
+        return;
+      }
+
+      // Token usage update
+      if (obj.on_token_usage && typeof obj.on_token_usage === "object") {
+        const current = obj.on_token_usage as { input?: number; output?: number; total?: number };
+        const cumulative = (obj.on_token_cumulative || {}) as { input?: number; output?: number; total?: number };
+        setTokenUsage({
+          current: {
+            input: current.input || 0,
+            output: current.output || 0,
+            total: current.total || 0,
+          },
+          cumulative: {
+            input: cumulative.input || 0,
+            output: cumulative.output || 0,
+            total: cumulative.total || 0,
+          },
+        });
         return;
       }
 
@@ -191,5 +218,5 @@ export const useWs = (url: string): UseWebSocketReturn => {
     ]);
   }, []);
 
-  return { isOpen, isThinking, messages, sendMessage, sendControl, reset };
+  return { isOpen, isThinking, tokenUsage, messages, sendMessage, sendControl, reset };
 };

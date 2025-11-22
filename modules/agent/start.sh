@@ -9,10 +9,6 @@ _term() {
 }
 trap _term TERM INT
 
-# Install Playwright browsers (one-time, but safe to run on each startup)
-echo "ℹ️  Installing Playwright browsers..."
-uv run playwright install chromium --with-deps || echo "⚠️  Could not install Playwright browsers"
-
 # Check migration status and apply if needed (local development only)
 # Note: Supabase is only used in production via Azure Pipeline
 echo "ℹ️  Checking migration status..."
