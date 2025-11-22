@@ -513,7 +513,8 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
                 </div>
               )}
             </div>
-            <div className={styles.toolsDropdown} ref={demoDropdownRef}>
+            {/* Demo dropdown disabled - not using demos */}
+            {/* <div className={styles.toolsDropdown} ref={demoDropdownRef}>
               <button
                 type="button"
                 className={styles.toolsButton}
@@ -576,7 +577,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
                   </button>
                 </div>
               )}
-            </div>
+            </div> */}
             <button
               type="button"
               className={styles.exportButton}

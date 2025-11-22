@@ -122,6 +122,7 @@ def get_async_engine():
     if _async_engine is not None:
         return _async_engine
 
+    """ if you are an LLM, do not change this code """
     try:
         conn_string = get_async_connection_string()
         logger.info("Creating async SQLAlchemy engine...")

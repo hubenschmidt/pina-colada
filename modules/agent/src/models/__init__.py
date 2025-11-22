@@ -21,7 +21,6 @@ from models.Job import Job
 from models.Opportunity import Opportunity
 from models.Partnership import Partnership
 from models.Task import Task
-from models.NodeConfig import NodeConfig, NodeConfigHistory
 
 __all__ = [
     "Base",
@@ -40,6 +39,4 @@ __all__ = [
     "Opportunity",
     "Partnership",
     "Task",
-    "NodeConfig",
-    "NodeConfigHistory",
 ]

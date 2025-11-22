@@ -2,7 +2,7 @@
 
 ## Context
 
-Previously, all workers (worker, job_hunter, cover_letter_writer, scraper) routed to a single evaluator. This created issues:
+Previously, all workers (worker, job_search, cover_letter_writer, scraper) routed to a single evaluator. This created issues:
 
 - Job search outputs evaluated with generic criteria
 - Scraper results evaluated without understanding data extraction quality
@@ -24,7 +24,7 @@ Worker → Specialized Evaluator → [Retry Worker | END]
 
 Routing:
 - worker → general_evaluator
-- job_hunter → career_evaluator
+- job_search → career_evaluator
 - cover_letter_writer → career_evaluator
 - scraper → scraper_evaluator
 ```
@@ -46,7 +46,7 @@ Base system prompts are centralized in `src/agent/prompts/` directory. This prov
 src/agent/prompts/
 ├── __init__.py
 ├── evaluator_prompts.py    # career, scraper, general evaluator prompts
-├── worker_prompts.py       # job_hunter, scraper, worker, cover_letter prompts
+├── worker_prompts.py       # job_search, scraper, worker, cover_letter prompts
 └── orchestrator_prompts.py # orchestrator/router prompt
 ```
 
@@ -162,7 +162,7 @@ async def create_base_evaluator_node(
 
 ### 2. Career Evaluator (`workers/evaluators/career_evaluator.py`)
 
-**Used by:** job_hunter, cover_letter_writer
+**Used by:** job_search, cover_letter_writer
 
 **Evaluation Criteria:**
 - Job search results: Validates external postings, direct URLs
@@ -251,8 +251,8 @@ graph_builder.add_conditional_edges(
 )
 
 graph_builder.add_conditional_edges(
-    "job_hunter",
-    route_from_job_hunter,
+    "job_search",
+    route_from_job_search,
     {"tools": "tools", "evaluator": "career_evaluator"},
 )
 
@@ -267,7 +267,7 @@ graph_builder.add_edge("cover_letter_writer", "career_evaluator")
 # All evaluators share same return routing
 evaluator_routing = {
     "worker": "worker",
-    "job_hunter": "job_hunter",
+    "job_search": "job_search",
     "scraper": "scraper",
     "cover_letter_writer": "cover_letter_writer",
     "END": END,
@@ -287,17 +287,17 @@ modules/agent/src/agent/
 ├── prompts/                           # Centralized prompt definitions
 │   ├── __init__.py
 │   ├── evaluator_prompts.py           # career, scraper, general evaluator prompts
-│   ├── worker_prompts.py              # job_hunter, scraper, worker, cover_letter prompts
+│   ├── worker_prompts.py              # job_search, scraper, worker, cover_letter prompts
 │   └── orchestrator_prompts.py        # orchestrator/router prompt
+├── evaluators/                        # Specialized evaluators
+│   ├── __init__.py                    # Package exports
+│   ├── base_evaluator.py              # Shared logic
+│   ├── career_evaluator.py            # Evaluator logic (imports from prompts/)
+│   ├── scraper_evaluator.py           # Evaluator logic (imports from prompts/)
+│   └── general_evaluator.py           # Evaluator logic (imports from prompts/)
 ├── workers/
-│   ├── evaluators/
-│   │   ├── __init__.py                # Package exports
-│   │   ├── base_evaluator.py          # Shared logic
-│   │   ├── career_evaluator.py        # Evaluator logic (imports from prompts/)
-│   │   ├── scraper_evaluator.py       # Evaluator logic (imports from prompts/)
-│   │   └── general_evaluator.py       # Evaluator logic (imports from prompts/)
 │   ├── worker.py
-│   ├── job_hunter.py
+│   ├── job_search.py
 │   ├── cover_letter_writer.py
 │   ├── scraper.py
 │   └── evaluator.py                   # DEPRECATED - kept for reference

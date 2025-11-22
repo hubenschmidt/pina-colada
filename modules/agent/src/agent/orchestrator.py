@@ -5,67 +5,18 @@ Uses factory function pattern to create a graph with closed-over state
 
 import json
 import logging
-from pathlib import Path
 from typing import List, Any, Optional, Dict, Annotated
 
-import yaml
 from typing_extensions import TypedDict
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, START, END
 from langgraph.graph.message import add_messages
 from langgraph.prebuilt import ToolNode
-from langchain_core.messages import AIMessage, HumanMessage, trim_messages
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, trim_messages
 from dotenv import load_dotenv
 
 logger = logging.getLogger(__name__)
 load_dotenv(override=True)
-
-
-def load_evaluator_config() -> Dict[str, Any]:
-    """Load evaluator routing configuration from YAML (legacy)"""
-    config_path = Path(__file__).parent / "config" / "evaluator_config.yaml"
-    with open(config_path) as f:
-        return yaml.safe_load(f)
-
-
-def get_evaluator_for_worker(config: Dict[str, Any], worker_name: str) -> str:
-    """Get the evaluator type for a given worker (legacy)"""
-    for evaluator_type, evaluator_config in config.get("evaluators", {}).items():
-        if worker_name in evaluator_config.get("workers", []):
-            return evaluator_type
-    return "general"  # default fallback
-
-
-def load_default_prompts() -> Dict[str, Any]:
-    """Load default prompts from YAML fallback"""
-    config_path = Path(__file__).parent / "config" / "default_system_prompts.yml"
-    with open(config_path) as f:
-        return yaml.safe_load(f)
-
-
-async def get_system_prompt(node_type: str, node_name: str) -> str:
-    """Get system prompt from DB, falling back to YAML defaults"""
-    from lib.db import async_get_session
-    from models.NodeConfig import NodeConfig
-    from sqlalchemy import select
-
-    # Try database first
-    async with async_get_session() as session:
-        stmt = select(NodeConfig).where(
-            NodeConfig.node_type == node_type,
-            NodeConfig.node_name == node_name,
-            NodeConfig.is_active == True
-        )
-        result = await session.execute(stmt)
-        config = result.scalar_one_or_none()
-
-        if config:
-            return config.system_prompt
-
-    # Fallback to YAML defaults
-    defaults = load_default_prompts()
-    node_type_plural = f"{node_type}s" if node_type != "orchestrator" else node_type
-    return defaults.get(node_type_plural, {}).get(node_name, {}).get("system_prompt", "")
 
 
 # State type definition
@@ -120,6 +71,37 @@ def _build_resume_context_concise(resume_text: str, summary: str) -> str:
     return " | ".join(context_parts)
 
 
+def _ensure_tool_pairs_intact(messages: List[Any]) -> List[Any]:
+    """Ensure tool_call messages are followed by their tool responses"""
+    if not messages:
+        return messages
+
+    # Find all tool_call_ids that need responses
+    pending_tool_calls = set()
+    for msg in messages:
+        if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
+            for tc in msg.tool_calls:
+                pending_tool_calls.add(tc.get('id'))
+        elif isinstance(msg, ToolMessage):
+            pending_tool_calls.discard(msg.tool_call_id)
+
+    # If there are pending tool calls without responses, remove them
+    if pending_tool_calls:
+        logger.warning(f"Removing {len(pending_tool_calls)} orphaned tool calls")
+        result = []
+        for msg in messages:
+            if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
+                # Check if any tool calls are orphaned
+                orphaned = any(tc.get('id') in pending_tool_calls for tc in msg.tool_calls)
+                if orphaned:
+                    # Skip this message or convert to regular message
+                    continue
+            result.append(msg)
+        return result
+
+    return messages
+
+
 def _trim_messages(messages: List[Any], max_tokens: int = 8000) -> List[Any]:
     """Pure function to trim message history"""
     try:
@@ -134,6 +116,9 @@ def _trim_messages(messages: List[Any], max_tokens: int = 8000) -> List[Any]:
 
         if len(trimmed) < len(messages):
             logger.info(f"Trimmed messages from {len(messages)} to {len(trimmed)}")
+
+        # Ensure tool call/response pairs are intact
+        trimmed = _ensure_tool_pairs_intact(trimmed)
 
         return trimmed
     except Exception as e:
@@ -155,23 +140,20 @@ async def create_orchestrator(
         - set_websocket_sender: function to set WS sender
     """
     from agent.tools.worker_tools import get_worker_tools
-    from agent.workers.worker import create_worker_node, route_from_worker
-    from agent.workers.job_hunter import create_job_hunter_node, route_from_job_hunter
-    from agent.workers.cover_letter_writer import create_cover_letter_writer_node
-    from agent.workers.scraper import create_scraper_node, route_from_scraper
-    from agent.routers.agent_router import route_to_agent, route_from_router_edge
-    from agent.workers.evaluators import (
+    from agent.workers.general_worker import create_worker_node, route_from_worker
+    from agent.workers.career import (
+        create_job_search_node,
+        route_from_job_search,
+        create_cover_letter_writer_node,
+    )
+    from agent.routers.agent_router import create_router_node, route_from_router_edge
+    from agent.evaluators import (
         route_from_evaluator,
         create_career_evaluator_node,
-        create_scraper_evaluator_node,
         create_general_evaluator_node,
     )
 
     logger.info("=== AGENT SETUP ===")
-
-    # Load evaluator config
-    evaluator_config = load_evaluator_config()
-    logger.info("✓ Loaded evaluator routing config")
 
     # Build context
     cover_letters = cover_letters or []
@@ -186,17 +168,19 @@ async def create_orchestrator(
 
     # Create nodes (each returns a pure function with closed-over LLMs)
     worker = await create_worker_node(tools, resume_context_concise, _trim_messages)
-    job_hunter = await create_job_hunter_node(
+    job_search = await create_job_search_node(
         tools, resume_context_concise, _trim_messages
     )
-    scraper = await create_scraper_node([], _trim_messages)  # Stub - no tools
     cover_letter_writer = await create_cover_letter_writer_node(_trim_messages)
 
     # Create specialized evaluators
     career_evaluator = await create_career_evaluator_node()
-    scraper_evaluator = await create_scraper_evaluator_node()
     general_evaluator = await create_general_evaluator_node()
-    logger.info("✓ Created specialized evaluators (career, scraper, general)")
+    logger.info("✓ Created specialized evaluators (career, general)")
+
+    # Create LLM-based router
+    router = await create_router_node()
+    logger.info("✓ Created LLM-based router")
 
     # Build graph
     logger.info("Building LangGraph workflow...")
@@ -204,15 +188,13 @@ async def create_orchestrator(
 
     # Add nodes - now they're all pure functions
     logger.info("Adding nodes to graph...")
-    graph_builder.add_node("router", route_to_agent)
+    graph_builder.add_node("router", router)
     graph_builder.add_node("worker", worker)
-    graph_builder.add_node("job_hunter", job_hunter)
-    graph_builder.add_node("scraper", scraper)
+    graph_builder.add_node("job_search", job_search)
     graph_builder.add_node("cover_letter_writer", cover_letter_writer)
     graph_builder.add_node("tools", ToolNode(tools=tools))
     # Add specialized evaluators
     graph_builder.add_node("career_evaluator", career_evaluator)
-    graph_builder.add_node("scraper_evaluator", scraper_evaluator)
     graph_builder.add_node("general_evaluator", general_evaluator)
     logger.info("✓ Nodes added")
 
@@ -225,8 +207,7 @@ async def create_orchestrator(
         route_from_router_edge,
         {
             "worker": "worker",
-            "job_hunter": "job_hunter",
-            "scraper": "scraper",
+            "job_search": "job_search",
             "cover_letter_writer": "cover_letter_writer",
         },
     )
@@ -238,15 +219,9 @@ async def create_orchestrator(
     )
 
     graph_builder.add_conditional_edges(
-        "job_hunter",
-        route_from_job_hunter,
+        "job_search",
+        route_from_job_search,
         {"tools": "tools", "evaluator": "career_evaluator"},
-    )
-
-    graph_builder.add_conditional_edges(
-        "scraper",
-        route_from_scraper,
-        {"tools": "tools", "evaluator": "scraper_evaluator"},
     )
 
     def route_from_tools(state: Dict[str, Any]) -> str:
@@ -260,8 +235,7 @@ async def create_orchestrator(
         route_from_tools,
         {
             "worker": "worker",
-            "job_hunter": "job_hunter",
-            "scraper": "scraper",
+            "job_search": "job_search",
             "cover_letter_writer": "cover_letter_writer",
         },
     )
@@ -270,20 +244,13 @@ async def create_orchestrator(
     # Route from each evaluator back to worker or END
     evaluator_routing = {
         "worker": "worker",
-        "job_hunter": "job_hunter",
-        "scraper": "scraper",
+        "job_search": "job_search",
         "cover_letter_writer": "cover_letter_writer",
         "END": END,
     }
 
     graph_builder.add_conditional_edges(
         "career_evaluator",
-        route_from_evaluator,
-        evaluator_routing,
-    )
-
-    graph_builder.add_conditional_edges(
-        "scraper_evaluator",
         route_from_evaluator,
         evaluator_routing,
     )

@@ -1,29 +1,23 @@
 """
-DEPRECATED: This module is replaced by specialized evaluators.
-
-Use instead:
-- agent.workers.evaluators.career_evaluator (for job_hunter, cover_letter_writer)
-- agent.workers.evaluators.scraper_evaluator (for scraper)
-- agent.workers.evaluators.general_evaluator (for worker)
-
-See spec/specialized-evaluators.md for details.
+Base evaluator - shared logic for all specialized evaluators
 """
 
 import logging
-from typing import Dict, Any, Type, Annotated
+import shutil
+import textwrap
+from typing import Dict, Any, Type, Annotated, Callable
+
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage, ToolMessage
 from langchain_anthropic import ChatAnthropic
 from pydantic import BaseModel, Field, create_model
-import shutil
-import textwrap
-
-logger = logging.getLogger(__name__)
 
 from agent.util.langfuse_helper import get_langfuse_handler
 
+logger = logging.getLogger(__name__)
+
 
 def make_evaluator_output_model() -> Type[BaseModel]:
-    """Closure/factory that returns a Pydantic model class for the evaluator output."""
+    """Factory that returns a Pydantic model class for evaluator output."""
     EvaluatorOutput = create_model(
         "EvaluatorOutput",
         feedback=(
@@ -47,66 +41,40 @@ def make_evaluator_output_model() -> Type[BaseModel]:
     return EvaluatorOutput
 
 
-def _build_system_prompt(resume_context: str) -> str:
-    """Pure function to build evaluator system prompt"""
-    base_prompt = (
-        "You evaluate whether the Assistant's response meets the success criteria.\n\n"
-    )
-
-    # Only include resume-specific instructions if we have resume context
-    if resume_context:
-        base_prompt += (
-            "RESUME_CONTEXT\n"
-            f"{resume_context}\n\n"
-            "CRITICAL DISTINCTION:\n"
-            "- JOB SEARCH RESULTS: When the user asks to find jobs, the assistant will list EXTERNAL job postings "
-            "from companies. These are NOT the user's own work history. Job titles like 'Senior AI Engineer at DataFabric' "
-            "are VALID if they are job postings the user could apply to, even if they don't appear in the resume.\n"
-            "- RESUME DATA: The user's own work history (e.g., 'Principal Engineer at PinaColada.co') must match the resume exactly.\n"
-            "- DO NOT confuse job search results (external postings) with the user's resume/work history.\n\n"
-            "SPECIAL CHECKS:\n"
-            "- For job search responses: Ensure all job links are direct posting URLs (not job board links)\n"
-            "- Links should be accessible and relevant to the job listings\n"
-            "- Job search results showing external postings are VALID even if those companies/titles aren't in the resume\n\n"
-        )
-
-    base_prompt += (
-        "Respond with a strict JSON object matching the schema (handled by the tool):\n"
-        "- feedback: Brief assessment\n"
-        "- success_criteria_met: true/false\n"
-        "- user_input_needed: true if user must respond\n\n"
-        "Be slightly lenient—approve unless clearly inadequate."
-    )
-
-    return base_prompt
-
-
-def _format_conversation(messages) -> str:
-    """Pure function to format conversation history"""
+def format_conversation(messages) -> str:
+    """Format conversation history for evaluation"""
     formatted = []
     relevant_messages = messages[-6:] if len(messages) > 6 else messages
 
     for msg in relevant_messages:
         if isinstance(msg, HumanMessage):
             formatted.append(f"USER: {msg.content}")
-        elif isinstance(msg, AIMessage):
-            if msg.content:
-                formatted.append(f"ASSISTANT: {msg.content}")
-        elif isinstance(msg, ToolMessage):
+            continue
+        if isinstance(msg, AIMessage) and msg.content:
+            formatted.append(f"ASSISTANT: {msg.content}")
+            continue
+        if isinstance(msg, ToolMessage):
             formatted.append(f"[Tool executed: {msg.name}]")
 
     return "\n".join(formatted)
 
 
-async def create_evaluator_node():
+async def create_base_evaluator_node(
+    evaluator_name: str,
+    build_system_prompt: Callable[[str], str],
+):
     """
-    Factory function that creates an evaluator node
+    Factory function that creates an evaluator node with custom system prompt.
 
-    Returns a pure function that takes state and returns evaluation results
+    Args:
+        evaluator_name: Name for logging purposes
+        build_system_prompt: Function that takes resume_context and returns system prompt
+
+    Returns:
+        Pure function that takes state and returns evaluation results
     """
-    logger.info("Setting up Evaluator LLM: Claude Haiku 4.5 (temperature=0)")
+    logger.info(f"Setting up {evaluator_name} Evaluator LLM: Claude Haiku 4.5")
     langfuse_handler = get_langfuse_handler()
-
     callbacks = [langfuse_handler] if langfuse_handler else []
 
     evaluator_llm = ChatAnthropic(
@@ -117,12 +85,11 @@ async def create_evaluator_node():
     )
     EvaluatorOutput = make_evaluator_output_model()
     llm_with_output = evaluator_llm.with_structured_output(EvaluatorOutput)
-    logger.info("✓ Evaluator LLM configured")
+    logger.info(f"✓ {evaluator_name} Evaluator LLM configured")
 
-    # Return the actual node function with closed-over LLM
     def evaluator_node(state: Dict[str, Any]) -> Dict[str, Any]:
         """Pure function: state in -> evaluation updates out"""
-        logger.info("🔍 EVALUATOR NODE: Reviewing response with Claude Haiku...")
+        logger.info(f"🔍 {evaluator_name.upper()} EVALUATOR: Reviewing response...")
 
         last_message = state["messages"][-1]
 
@@ -134,25 +101,20 @@ async def create_evaluator_node():
                 "user_input_needed": False,
             }
 
-        # Detect retry loops by counting AIMessages (each retry adds a new AIMessage)
-        # If we have feedback_on_work set, we're already retrying
+        # Detect retry loops
         messages = state.get("messages", [])
         ai_message_count = sum(1 for msg in messages if isinstance(msg, AIMessage))
-
-        # If we have feedback and multiple AI messages, we're in a retry loop
         has_feedback = bool(state.get("feedback_on_work"))
         is_retry_loop = has_feedback and ai_message_count >= 3
         retry_count = (ai_message_count - 1) if is_retry_loop else 0
 
         # Build prompts
         resume_context = state.get("resume_context", "")
-        has_resume = bool(resume_context)
-        logger.info(f"📋 Evaluator using prompt {'WITH' if has_resume else 'WITHOUT'} resume context")
-        system_message = _build_system_prompt(resume_context)
+        system_message = build_system_prompt(resume_context)
 
         user_message = (
             "Recent conversation (condensed):\n"
-            f"{_format_conversation(state['messages'])}\n\n"
+            f"{format_conversation(state['messages'])}\n\n"
             f"Success criteria: {state.get('success_criteria','')}\n\n"
             "Final response to evaluate (from Assistant):\n"
             f"{last_message.content}\n\n"
@@ -175,28 +137,25 @@ async def create_evaluator_node():
         ]
 
         # Get evaluation
-        logger.info("   Calling Claude Haiku 4.5 for evaluation...")
+        logger.info(f"   Calling Claude Haiku 4.5 for {evaluator_name} evaluation...")
         if is_retry_loop:
-            logger.warning(
-                f"   ⚠️  Retry loop detected ({retry_count} retries) - being more lenient"
-            )
+            logger.warning(f"   ⚠️  Retry loop detected ({retry_count} retries)")
 
         try:
             eval_result = llm_with_output.invoke(evaluator_messages)
 
-            # If we're in a retry loop and still rejecting, force approval to break the loop
-            if (
+            # Force approval to break retry loops
+            should_force_approval = (
                 is_retry_loop
                 and not eval_result.success_criteria_met
                 and not eval_result.user_input_needed
-            ):
+            )
+            if should_force_approval:
                 logger.warning("   ⚠️  Forcing approval to break retry loop")
                 eval_result.success_criteria_met = True
-                eval_result.feedback = f"{eval_result.feedback} (Approved after {retry_count} retries to prevent infinite loop)"
+                eval_result.feedback = f"{eval_result.feedback} (Approved after {retry_count} retries)"
         except Exception as e:
             logger.error(f"⚠️  Evaluation failed: {e}")
-            logger.warning("   Falling back to default evaluation (approving response)")
-            # Return a default evaluation that approves the response
             return {
                 "feedback_on_work": "Evaluation error occurred, defaulting to approval.",
                 "success_criteria_met": True,
@@ -234,7 +193,6 @@ def route_from_evaluator(state: Dict[str, Any]) -> str:
         logger.info("→ Routing to END (response approved)")
         return "END"
 
-    # Route back to whichever agent was working on this
     route_to = state.get("route_to_agent", "worker")
     logger.info(f"→ Routing back to {route_to.upper()} (needs improvement)")
     return route_to

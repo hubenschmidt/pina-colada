@@ -5,8 +5,6 @@ WORKDIR /app
 # OS deps (cached unless this changes)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl git build-essential ca-certificates \
-    # Node.js for MCP servers
-    nodejs npm \
  && rm -rf /var/lib/apt/lists/*
 
 # uv (cached unless this changes)
