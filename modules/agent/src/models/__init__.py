@@ -21,6 +21,9 @@ from models.Job import Job
 from models.Opportunity import Opportunity
 from models.Partnership import Partnership
 from models.Task import Task
+from models.Asset import Asset
+from models.Tag import Tag
+from models.AssetTag import AssetTag
 
 __all__ = [
     "Base",
@@ -39,4 +42,7 @@ __all__ = [
     "Opportunity",
     "Partnership",
     "Task",
+    "Asset",
+    "Tag",
+    "AssetTag",
 ]

@@ -44,6 +44,8 @@ As a [user role], I want [goal] so that [benefit].
 
 ## Implementation Notes
 
+### Estimate of Scope
+
 ### Files to Modify
 - `path/to/file.py` - [description]
 
