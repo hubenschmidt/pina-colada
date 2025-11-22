@@ -81,12 +81,23 @@ async def create_base_worker_node(
         # Get response
         response = llm.invoke(messages)
 
+        # Extract token usage from response metadata
+        token_usage = {}
+        if hasattr(response, 'response_metadata'):
+            usage = response.response_metadata.get('token_usage', {})
+            token_usage = {
+                "input": usage.get('prompt_tokens', 0),
+                "output": usage.get('completion_tokens', 0),
+                "total": usage.get('total_tokens', 0),
+            }
+
         logger.info(f"✓ {worker_name} response generated")
         logger.info(f"   Response length: {len(response.content)} chars")
+        logger.info(f"   Token usage: {token_usage.get('total', 0)} total ({token_usage.get('input', 0)} in, {token_usage.get('output', 0)} out)")
         if tools:
             logger.info(f"   Has tool calls: {bool(response.tool_calls)}")
 
-        return {"messages": [response]}
+        return {"messages": [response], "token_usage": token_usage}
 
     return worker_node
 

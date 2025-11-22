@@ -30,6 +30,8 @@ class State(TypedDict):
     resume_context: str
     route_to_agent: Optional[str]
     evaluator_type: Optional[str]  # career, scraper, or general
+    token_usage: Optional[Dict[str, int]]  # current call: input, output, total
+    token_usage_cumulative: Optional[Dict[str, int]]  # cumulative for entire request
 
 
 def _build_resume_context(
@@ -308,6 +310,8 @@ async def create_orchestrator(
             "resume_context": resume_context,
             "route_to_agent": None,
             "evaluator_type": None,
+            "token_usage": None,
+            "token_usage_cumulative": {"input": 0, "output": 0, "total": 0},
         }
 
         send_ws = ws_sender_ref["send_ws"]
@@ -323,6 +327,7 @@ async def create_orchestrator(
 
         last_content = ""
         iteration = 0
+        cumulative = {"input": 0, "output": 0, "total": 0}
 
         async for event in compiled_graph.astream(
             state, config=config, stream_mode="values"
@@ -371,6 +376,22 @@ async def create_orchestrator(
                             "is_final": False,
                         }
                     )
+                )
+
+            # Send token usage if available
+            token_usage = event.get("token_usage")
+            if token_usage and token_usage.get("total", 0) > 0:
+                # Accumulate tokens
+                cumulative["input"] += token_usage.get("input", 0)
+                cumulative["output"] += token_usage.get("output", 0)
+                cumulative["total"] += token_usage.get("total", 0)
+
+                await send_ws(
+                    json.dumps({
+                        "type": "token_usage",
+                        "token_usage": token_usage,
+                        "cumulative": cumulative.copy()
+                    })
                 )
 
         await send_ws(

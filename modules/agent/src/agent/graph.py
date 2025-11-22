@@ -104,10 +104,20 @@ def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]
         last_sent_length = len(content)
         await _safe_send_text(json.dumps({"on_chat_model_stream": delta}))
 
+    async def handle_token_usage(payload):
+        token_usage = payload.get("token_usage", {})
+        cumulative = payload.get("cumulative", {})
+        if token_usage:
+            await _safe_send_text(json.dumps({
+                "on_token_usage": token_usage,
+                "on_token_cumulative": cumulative
+            }))
+
     handlers = {
         "start": handle_start,
         "end": handle_end,
         "content": handle_content,
+        "token_usage": handle_token_usage,
     }
 
     async def send(payload_str: str):
