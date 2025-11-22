@@ -11,7 +11,7 @@ Previously, all workers (worker, job_hunter, cover_letter_writer, scraper) route
 
 **Goal:** Keep context length lean for efficient token usage. Each specialized evaluator only includes criteria relevant to its task type, avoiding unnecessary prompt bloat.
 
-**Solution:** Route workers to specialized evaluators based on task type via database-driven configuration with YAML fallbacks.
+**Solution:** Route workers to specialized evaluators based on task type via graph edges, with prompts centralized in code.
 
 ---
 
@@ -345,6 +345,7 @@ When implementing this spec, perform the following changes:
   - `__init__.py`
   - `evaluator_prompts.py` - Extract prompts from career/scraper/general_evaluator.py
   - `worker_prompts.py` - Extract prompts from worker files
+  - `orchestrator_prompts.py` - Extract prompt from orchestrator/router
 
 ### Files to Delete (from previous implementation attempt)
 - `models/NodeConfig.py` - Not needed for this spec
