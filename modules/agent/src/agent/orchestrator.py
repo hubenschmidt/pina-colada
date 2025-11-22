@@ -5,7 +5,10 @@ Uses factory function pattern to create a graph with closed-over state
 
 import json
 import logging
+from pathlib import Path
 from typing import List, Any, Optional, Dict, Annotated
+
+import yaml
 from typing_extensions import TypedDict
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import StateGraph, START, END
@@ -18,6 +21,21 @@ logger = logging.getLogger(__name__)
 load_dotenv(override=True)
 
 
+def load_evaluator_config() -> Dict[str, Any]:
+    """Load evaluator routing configuration from YAML"""
+    config_path = Path(__file__).parent / "config" / "evaluator_config.yaml"
+    with open(config_path) as f:
+        return yaml.safe_load(f)
+
+
+def get_evaluator_for_worker(config: Dict[str, Any], worker_name: str) -> str:
+    """Get the evaluator type for a given worker"""
+    for evaluator_type, evaluator_config in config.get("evaluators", {}).items():
+        if worker_name in evaluator_config.get("workers", []):
+            return evaluator_type
+    return "general"  # default fallback
+
+
 # State type definition
 class State(TypedDict):
     messages: Annotated[List[Any], add_messages]
@@ -28,6 +46,7 @@ class State(TypedDict):
     resume_name: str
     resume_context: str
     route_to_agent: Optional[str]
+    evaluator_type: Optional[str]  # career, scraper, or general
 
 
 def _build_resume_context(
@@ -104,16 +123,23 @@ async def create_orchestrator(
         - set_websocket_sender: function to set WS sender
     """
     from agent.tools.worker_tools import get_worker_tools
-    from agent.tools.mcp_playwright import PLAYWRIGHT_MCP_TOOLS, init_playwright_mcp
-    from agent.tools.scraper_tools import SCRAPER_TOOLS
     from agent.workers.worker import create_worker_node, route_from_worker
     from agent.workers.job_hunter import create_job_hunter_node, route_from_job_hunter
-    from agent.workers.evaluator import create_evaluator_node, route_from_evaluator
     from agent.workers.cover_letter_writer import create_cover_letter_writer_node
     from agent.workers.scraper import create_scraper_node, route_from_scraper
     from agent.routers.agent_router import route_to_agent, route_from_router_edge
+    from agent.workers.evaluators import (
+        route_from_evaluator,
+        create_career_evaluator_node,
+        create_scraper_evaluator_node,
+        create_general_evaluator_node,
+    )
 
     logger.info("=== AGENT SETUP ===")
+
+    # Load evaluator config
+    evaluator_config = load_evaluator_config()
+    logger.info("✓ Loaded evaluator routing config")
 
     # Build context
     cover_letters = cover_letters or []
@@ -126,27 +152,19 @@ async def create_orchestrator(
     tools = await get_worker_tools()
     logger.info(f"✓ Loaded {len(tools)} tools")
 
-    # Initialize Playwright MCP
-    logger.info("Initializing Playwright MCP...")
-    await init_playwright_mcp()
-    logger.info("✓ Playwright MCP initialized")
-
-    # Combine regular tools with Playwright MCP tools
-    all_tools = tools + PLAYWRIGHT_MCP_TOOLS + SCRAPER_TOOLS
-    logger.info(f"✓ Total tools (including Playwright MCP + static scraping): {len(all_tools)}")
-
-    # Scraper gets both Playwright (for browser automation) and static scraping tools
-    scraper_tools = PLAYWRIGHT_MCP_TOOLS + SCRAPER_TOOLS
-    logger.info(f"✓ Scraper tools: {len(scraper_tools)} (Playwright MCP + static scraping)")
-
     # Create nodes (each returns a pure function with closed-over LLMs)
     worker = await create_worker_node(tools, resume_context_concise, _trim_messages)
     job_hunter = await create_job_hunter_node(
         tools, resume_context_concise, _trim_messages
     )
-    scraper = await create_scraper_node(scraper_tools, _trim_messages)
-    evaluator = await create_evaluator_node()
+    scraper = await create_scraper_node([], _trim_messages)  # Stub - no tools
     cover_letter_writer = await create_cover_letter_writer_node(_trim_messages)
+
+    # Create specialized evaluators
+    career_evaluator = await create_career_evaluator_node()
+    scraper_evaluator = await create_scraper_evaluator_node()
+    general_evaluator = await create_general_evaluator_node()
+    logger.info("✓ Created specialized evaluators (career, scraper, general)")
 
     # Build graph
     logger.info("Building LangGraph workflow...")
@@ -159,8 +177,11 @@ async def create_orchestrator(
     graph_builder.add_node("job_hunter", job_hunter)
     graph_builder.add_node("scraper", scraper)
     graph_builder.add_node("cover_letter_writer", cover_letter_writer)
-    graph_builder.add_node("tools", ToolNode(tools=all_tools))
-    graph_builder.add_node("evaluator", evaluator)
+    graph_builder.add_node("tools", ToolNode(tools=tools))
+    # Add specialized evaluators
+    graph_builder.add_node("career_evaluator", career_evaluator)
+    graph_builder.add_node("scraper_evaluator", scraper_evaluator)
+    graph_builder.add_node("general_evaluator", general_evaluator)
     logger.info("✓ Nodes added")
 
     # Add edges
@@ -181,19 +202,19 @@ async def create_orchestrator(
     graph_builder.add_conditional_edges(
         "worker",
         route_from_worker,
-        {"tools": "tools", "evaluator": "evaluator"},
+        {"tools": "tools", "evaluator": "general_evaluator"},
     )
 
     graph_builder.add_conditional_edges(
         "job_hunter",
         route_from_job_hunter,
-        {"tools": "tools", "evaluator": "evaluator"},
+        {"tools": "tools", "evaluator": "career_evaluator"},
     )
 
     graph_builder.add_conditional_edges(
         "scraper",
         route_from_scraper,
-        {"tools": "tools", "END": END},
+        {"tools": "tools", "evaluator": "scraper_evaluator"},
     )
 
     def route_from_tools(state: Dict[str, Any]) -> str:
@@ -212,18 +233,33 @@ async def create_orchestrator(
             "cover_letter_writer": "cover_letter_writer",
         },
     )
-    graph_builder.add_edge("cover_letter_writer", "evaluator")
+    graph_builder.add_edge("cover_letter_writer", "career_evaluator")
+
+    # Route from each evaluator back to worker or END
+    evaluator_routing = {
+        "worker": "worker",
+        "job_hunter": "job_hunter",
+        "scraper": "scraper",
+        "cover_letter_writer": "cover_letter_writer",
+        "END": END,
+    }
 
     graph_builder.add_conditional_edges(
-        "evaluator",
+        "career_evaluator",
         route_from_evaluator,
-        {
-            "worker": "worker",
-            "job_hunter": "job_hunter",
-            "scraper": "scraper",
-            "cover_letter_writer": "cover_letter_writer",
-            "END": END,
-        },
+        evaluator_routing,
+    )
+
+    graph_builder.add_conditional_edges(
+        "scraper_evaluator",
+        route_from_evaluator,
+        evaluator_routing,
+    )
+
+    graph_builder.add_conditional_edges(
+        "general_evaluator",
+        route_from_evaluator,
+        evaluator_routing,
     )
 
     logger.info("✓ Edges added")
@@ -272,6 +308,7 @@ async def create_orchestrator(
             "resume_name": "William Hubenschmidt",
             "resume_context": resume_context,
             "route_to_agent": None,
+            "evaluator_type": None,
         }
 
         send_ws = ws_sender_ref["send_ws"]

@@ -1,0 +1,19 @@
+# Evaluator routing configuration
+# Maps workers to specialized evaluators by task type
+
+evaluators:
+  career:
+    description: "Evaluates job search and career-related outputs"
+    workers:
+      - job_hunter
+      - cover_letter_writer
+
+  scraper:
+    description: "Evaluates web scraping and data extraction outputs"
+    workers:
+      - scraper
+
+  general:
+    description: "Default evaluator for general-purpose tasks"
+    workers:
+      - worker
