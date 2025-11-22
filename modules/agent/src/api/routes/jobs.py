@@ -1,6 +1,6 @@
 """Routes for jobs API endpoints."""
 
-from typing import Optional, Type
+from typing import Optional, List, Type
 from fastapi import APIRouter, Query, HTTPException, Request
 from pydantic import BaseModel, create_model
 from lib.auth import require_auth
@@ -24,7 +24,7 @@ def _make_job_create_model() -> Type[BaseModel]:
         account_type=(str, "Organization"),
         company=(Optional[str], None),
         contact_name=(Optional[str], None),
-        industry_id=(Optional[int], None),
+        industry_ids=(Optional[List[int]], None),
         job_title=(str, ...),
         date=(Optional[str], None),
         job_url=(Optional[str], None),

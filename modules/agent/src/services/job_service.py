@@ -17,6 +17,8 @@ from repositories.job_repository import (
 from repositories.organization_repository import get_or_create_organization
 from repositories.individual_repository import get_or_create_individual
 from repositories.job_repository import find_all_jobs as find_all_jobs_repo
+from repositories.deal_repository import get_or_create_deal
+from repositories.status_repository import find_status_by_name
 
 logger = logging.getLogger(__name__)
 
@@ -329,8 +331,8 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
                 status_code=400, detail="company or organization_name is required"
             )
 
-        industry_id = job_data.get("industry_id")
-        org = await get_or_create_organization(organization_name, tenant_id, industry_id)
+        industry_ids = job_data.get("industry_ids")
+        org = await get_or_create_organization(organization_name, tenant_id, industry_ids)
         account_id = org.account_id
         account_name = org.name
 
@@ -348,14 +350,28 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
         except (ValueError, TypeError):
             pass
 
+    # Resolve deal_id
+    deal_id = job_data.get("deal_id")
+    if not deal_id:
+        deal = await get_or_create_deal("Job Search 2025")
+        deal_id = deal.id
+
+    # Resolve status_id from status name
+    status_id = job_data.get("current_status_id")
+    if not status_id:
+        status_name = job_data.get("status", "applied")
+        status = await find_status_by_name(status_name, "job")
+        status_id = status.id if status else None
+
     data: Dict[str, Any] = {
         "account_id": account_id,
         "account_name": account_name,
+        "deal_id": deal_id,
+        "current_status_id": status_id,
         "job_title": job_data.get("job_title", ""),
         "job_url": job_data.get("job_url"),
         "salary_range": job_data.get("salary_range"),
         "notes": job_data.get("notes"),
-        "status": job_data.get("status", "applied"),
         "source": job_data.get("source", "manual"),
         "tenant_id": tenant_id,
         "resume_date": resume_obj,
@@ -503,11 +519,18 @@ async def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
         "job_url",
         "salary_range",
         "notes",
-        "status",
         "source",
-        "current_status_id",
     ]
     data.update({k: job_data[k] for k in allowed_fields if k in job_data})
+
+    # Resolve status name to status_id
+    if "current_status_id" in job_data:
+        data["current_status_id"] = job_data["current_status_id"]
+
+    status_name = job_data.get("status")
+    if "current_status_id" not in job_data and status_name:
+        status = await find_status_by_name(status_name, "job")
+        data["current_status_id"] = status.id if status else None
 
     # Handle resume_date parsing
     resume_str = job_data.get("resume")

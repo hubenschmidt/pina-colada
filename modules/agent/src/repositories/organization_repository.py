@@ -56,9 +56,9 @@ async def create_organization(data: Dict[str, Any]) -> Organization:
 async def get_or_create_organization(
     name: str,
     tenant_id: Optional[int] = None,
-    industry_id: Optional[int] = None
+    industry_ids: Optional[List[int]] = None
 ) -> Organization:
-    """Get or create organization by name, optionally linking to industry."""
+    """Get or create organization by name, optionally linking to industries."""
     existing = await find_organization_by_name(name, tenant_id)
     if existing:
         return existing
@@ -80,13 +80,14 @@ async def get_or_create_organization(
             session.add(org)
             await session.flush()
 
-            # Link industry if provided
-            if industry_id:
-                stmt = Organization_Industry.insert().values(
-                    organization_id=org.id,
-                    industry_id=industry_id
-                )
-                await session.execute(stmt)
+            # Link industries if provided
+            if industry_ids:
+                for industry_id in industry_ids:
+                    stmt = Organization_Industry.insert().values(
+                        organization_id=org.id,
+                        industry_id=industry_id
+                    )
+                    await session.execute(stmt)
 
             await session.commit()
             await session.refresh(org)

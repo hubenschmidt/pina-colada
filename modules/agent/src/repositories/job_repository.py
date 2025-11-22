@@ -14,18 +14,8 @@ from models.Deal import Deal
 from models.Account import Account
 from models.Tenant import Tenant
 from lib.db import async_get_session
-from repositories.deal_repository import get_or_create_deal
-from repositories.status_repository import find_status_by_name
 
 logger = logging.getLogger(__name__)
-
-
-async def _get_status_id_from_name(status_name: str) -> Optional[int]:
-    """Get status ID from status name."""
-    status = await find_status_by_name(status_name, "job")
-    if not status:
-        return None
-    return status.id
 
 
 def _update_job_notes(job: Job, notes: str) -> None:
@@ -36,25 +26,13 @@ def _update_job_notes(job: Job, notes: str) -> None:
     job.lead.description = notes
 
 
-async def _update_lead_status(lead: Lead, data: Dict[str, Any]) -> None:
-    """Update lead status from data."""
-    if "current_status_id" in data:
-        lead.current_status_id = data["current_status_id"]
+def _update_lead_status(lead: Lead, data: Dict[str, Any]) -> None:
+    """Update lead status from data. Expects current_status_id to be resolved by service."""
+    if "current_status_id" not in data:
         return
-
-    if "status" not in data:
+    if data["current_status_id"] is None:
         return
-
-    if not data["status"]:
-        return
-
-    status_id = await _get_status_id_from_name(data["status"])
-
-    if not status_id:
-        logger.warning(f"Could not find status ID for name: {data['status']}")
-        return
-
-    lead.current_status_id = status_id
+    lead.current_status_id = data["current_status_id"]
 
 
 def _update_lead_source(lead: Lead, data: Dict[str, Any]) -> None:
@@ -179,28 +157,20 @@ async def create_job(data: Dict[str, Any]) -> Job:
     """Create a new job (with Lead parent).
 
     Note: This handles the joined table inheritance by creating both Lead and Job records.
-    Expects account_id and account_name to be resolved by the service layer.
+    Expects account_id, account_name, deal_id, and current_status_id to be resolved by service layer.
     """
     async with async_get_session() as session:
         try:
             account_id = data.get("account_id")
             account_name = data.get("account_name", "Unknown")
             tenant_id = data.get("tenant_id")
+            deal_id = data.get("deal_id")
+            status_id = data.get("current_status_id")
 
             if not account_id:
                 raise ValueError("account_id is required")
-
-            # Get or create default deal if not provided
-            deal_id = data.get("deal_id")
             if not deal_id:
-                # Use default "Job Search" deal
-                deal = await get_or_create_deal("Job Search 2025")
-                deal_id = deal.id
-
-            # Get status_id from status name if provided
-            status_id = data.get("current_status_id")
-            if not status_id and "status" in data:
-                status_id = await _get_status_id_from_name(data["status"])
+                raise ValueError("deal_id is required")
 
             # Build title from account name and job_title
             title = f"{account_name} - {data.get('job_title', 'Job')}"
@@ -282,7 +252,7 @@ async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
                     job.lead.account_id = org.account_id
                     data["account_id"] = org.account_id
 
-            await _update_lead_status(job.lead, data)
+            _update_lead_status(job.lead, data)
             _update_lead_source(job.lead, data)
             await _update_lead_title_if_needed(session, job, data)
 
