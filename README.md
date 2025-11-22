@@ -2,7 +2,7 @@
 
 ## Description
 
-This is a production-grade LangGraph-based conversational AI agent that acts as a personal assistant. It uses an orchestrator pattern with multiple specialized worker nodes to handle various tasks like answering questions, writing cover letters, and searching for jobs.
+PinaColada is an AI-native CRM built on LangGraph that manages relationships and workflows through natural conversation. Core entities include Contacts, Leads, Deals, Opportunities, Organizations, and Jobs. The system uses an orchestrator pattern with specialized workers for tasks like job searching, cover letter writing, and general assistance—all driven by conversational AI rather than traditional forms and dashboards.
 
 ## System Overview
 
@@ -10,6 +10,8 @@ This is a production-grade LangGraph-based conversational AI agent that acts as 
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         FRONTEND (pinacolada.co)                    │
 │                         WebSocket Client                            │
+│  • Real-time streaming responses                                    │
+│  • Token usage display (current/cumulative)                         │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │
                            ▼
@@ -18,6 +20,7 @@ This is a production-grade LangGraph-based conversational AI agent that acts as 
 │                    (server.py)                                      │
 │  • Handles WebSocket connections                                    │
 │  • Message routing & streaming                                      │
+│  • Token usage tracking                                             │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │
                            ▼
@@ -26,55 +29,76 @@ This is a production-grade LangGraph-based conversational AI agent that acts as 
 │                    (orchestrator.py + graph.py)                     │
 │                                                                     │
 │  State Management:                                                  │
-│  • Messages (conversation history)                                  │
-│  • Success criteria (context-aware)                                 │
-│  • Resume context (full/concise)                                    │
-│  • Routing decisions                                                │
+│  • Messages (conversation history with tool pair validation)        │
+│  • Success criteria (auto-generated from message context)           │
+│  • Resume context (concise version for workers)                     │
+│  • Token usage (current call + cumulative)                          │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │
                            ▼
-                    ┌─────────────┐
-                    │ ROUTER NODE │
-                    └──────┬──────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                    LLM ROUTER (Claude Haiku 4.5)                    │
+│                    (routers/agent_router.py)                        │
+│                                                                     │
+│  • Intent-based routing (not keyword matching)                      │
+│  • Analyzes current message + recent context                        │
+│  • Routes to: worker | job_search | cover_letter_writer             │
+└──────────────────────────┬──────────────────────────────────────────┘
                            │
-            ┌──────────────┴──────────────────┐
-            ▼                                 ▼
-   ┌─────────────────┐         ┌───────────────────────────┐
-   │  WORKER NODE    │         │ COVER LETTER WRITER NODE  │
-   │  (GPT-5)        │         │         (GPT-5)           │
-   │                 │         │                           │
-   │ • Q&A           │         │ • Generates 200-300       │
-   │ • Job search    │         │   word letters            │
-   │ • Tool calling  │         │ • Uses resume data        │
-   └────────┬────────┘         │ • Professional tone       │
-            │                  └─────────┬─────────────────┘
-            ▼                            │
-   ┌─────────────────┐                   │
-   │  TOOL NODE      │                   │
-   │                 │                   │
-   │ • Web Search    │◄──────────────────┘
-   │ • File Ops      │
-   │ • Notifications │
-   │ • User Recording│
-   └────────┬────────┘
-            │
-            │         ┌────────────────────┐
-            └────────►│  EVALUATOR NODE    │
-                      │  (Claude Haiku 4.5)│
-                      │                    │
-                      │ Quality Control:   │
-                      │ • Checks criteria  │
-                      │ • Gives feedback   │
-                      │ • Routes END/RETRY │
-                      └─────────┬──────────┘
-                                │
-                    ┌───────────┴───────────┐
-                    ▼                       ▼
-              ┌──────────┐           ┌─────────────┐
-              │   END    │           │  RETRY      │
-              │ (Success)│           │ (w/feedback)│
-              └──────────┘           └─────────────┘
+         ┌─────────────────┼─────────────────┐
+         ▼                 ▼                 ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
+│  GENERAL WORKER │ │   JOB SEARCH    │ │  COVER LETTER   │
+│  (GPT-5)        │ │   (GPT-5)       │ │  WRITER (GPT-5) │
+│                 │ │                 │ │                 │
+│ • Q&A           │ │ • Find jobs     │ │ • 200-300 words │
+│ • General tasks │ │ • Filter by     │ │ • Resume-based  │
+│ • Tool calling  │ │   applied jobs  │ │ • Professional  │
+└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
+         │                   │                   │
+         └─────────┬─────────┘                   │
+                   ▼                             │
+          ┌─────────────────┐                    │
+          │   TOOL NODE     │                    │
+          │                 │                    │
+          │ • Web Search    │                    │
+          │ • Job Search    │                    │
+          │ • File Ops      │                    │
+          │ • Email         │                    │
+          │ • Notifications │                    │
+          └────────┬────────┘                    │
+                   │                             │
+         ┌─────────┴─────────────────────────────┘
+         ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    SPECIALIZED EVALUATORS                           │
+│                    (Claude Haiku 4.5)                               │
+│                                                                     │
+│  ┌─────────────────────┐    ┌─────────────────────┐                 │
+│  │  CAREER EVALUATOR   │    │  GENERAL EVALUATOR  │                 │
+│  │                     │    │                     │                 │
+│  │ • Job search        │    │ • General queries   │                 │
+│  │ • Cover letters     │    │ • Q&A responses     │                 │
+│  │ • Career advice     │    │ • Tool usage        │                 │
+│  └─────────────────────┘    └─────────────────────┘                 │
+│                                                                     │
+│  Quality Control: Check criteria → Feedback → Route END/RETRY       │
+└──────────────────────────┬──────────────────────────────────────────┘
+                           │
+               ┌───────────┴───────────┐
+               ▼                       ▼
+         ┌──────────┐           ┌─────────────┐
+         │   END    │           │   RETRY     │
+         │ (Success)│           │ (w/feedback)│
+         └──────────┘           └─────────────┘
 ```
+
+### Key Components
+
+- **prompts/** - Centralized prompt definitions (protected IP)
+- **workers/** - Specialized workers with dependency injection via base factory
+- **evaluators/** - Domain-specific evaluation with structured output
+- **routers/** - LLM-based intent routing
 
 ## License
 
