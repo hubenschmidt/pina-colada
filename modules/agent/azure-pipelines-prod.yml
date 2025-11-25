@@ -171,18 +171,14 @@ stages:
 
           - script: |
               echo "Applying database migrations..."
-              # Ensure Supabase CLI is in PATH (for self-hosted agents)
               export PATH="$(Agent.ToolsDirectory)/supabase:$PATH"
-
-              # Use supabase db push to apply migrations (as per Supabase docs)
-              # This command applies all new migrations from supabase/migrations/ directory
-              # Supabase CLI tracks applied migrations automatically, so this is idempotent
-              supabase db push
+              supabase db push --db-url "postgres://postgres.${SUPABASE_PROJECT_ID}:${SUPABASE_DB_PASSWORD}@aws-0-us-east-1.pooler.supabase.com:5432/postgres"
             displayName: "Push Migrations to Supabase"
             continueOnError: false
             workingDirectory: $(System.DefaultWorkingDirectory)
             env:
               SUPABASE_DB_PASSWORD: $(SUPABASE_DB_PASSWORD)
+              SUPABASE_PROJECT_ID: $(SUPABASE_PROJECT_ID)
 
   - stage: Push
     displayName: Push Docker Image to GHCR
