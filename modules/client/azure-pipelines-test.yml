@@ -26,7 +26,7 @@ variables:
   - name: owner
     value: "hubenschmidt"
   - name: imageName
-    value: "pina-colada-client"
+    value: "pina-colada-client-test"
   - name: imageRepository
     value: "$(owner)/$(imageName)"
   - name: dockerfilePath
