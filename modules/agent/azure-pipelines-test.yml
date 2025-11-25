@@ -34,8 +34,8 @@ variables:
     value: "modules/agent/Dockerfile.prod"
   - name: buildContext
     value: "modules/agent"
-  - name: tagTest
-    value: "test"
+  - name: tagLatest
+    value: "latest"
   - name: tagBuildId
     value: "$(Build.SourceBranchName)-$(Build.BuildId)"
 
@@ -59,7 +59,7 @@ stages:
               dockerfile: "$(dockerfilePath)"
               buildContext: "$(buildContext)"
               tags: |
-                $(tagTest)
+                $(tagLatest)
                 $(tagBuildId)
 
   - stage: Migrate
