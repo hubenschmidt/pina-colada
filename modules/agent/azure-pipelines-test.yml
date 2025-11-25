@@ -147,7 +147,7 @@ stages:
           - script: |
               echo "Applying database migrations..."
               export PATH="$(Agent.ToolsDirectory)/supabase:$PATH"
-              supabase db push
+              supabase db push --debug
             displayName: "Push Migrations to Supabase"
             continueOnError: false
             workingDirectory: $(System.DefaultWorkingDirectory)
