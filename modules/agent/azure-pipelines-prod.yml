@@ -135,9 +135,7 @@ stages:
               fi
 
               echo "Applying database migrations via pooler..."
-              # URL-encode password for special characters
-              ENCODED_PASSWORD=$(python3 -c "import urllib.parse; print(urllib.parse.quote('${SUPABASE_DB_PASSWORD}', safe=''))")
-              supabase db push --db-url "postgres://postgres.${SUPABASE_PROJECT_ID}:${ENCODED_PASSWORD}@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
+              supabase db push --db-url "postgres://postgres.${SUPABASE_PROJECT_ID}:${SUPABASE_DB_PASSWORD}@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
             displayName: "Push Migrations to Supabase"
             continueOnError: false
             workingDirectory: $(System.DefaultWorkingDirectory)
