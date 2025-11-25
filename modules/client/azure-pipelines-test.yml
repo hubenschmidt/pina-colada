@@ -33,8 +33,8 @@ variables:
     value: "modules/client/Dockerfile"
   - name: buildContext
     value: "modules/client"
-  - name: tagTest
-    value: "test"
+  - name: tagLatest
+    value: "latest"
   - name: tagBuildId
     value: "$(Build.SourceBranchName)-$(Build.BuildId)"
 
@@ -81,7 +81,7 @@ stages:
               buildContext: "$(buildContext)"
               addPipelineData: false
               tags: |
-                $(tagTest)
+                $(tagLatest)
                 $(tagBuildId)
 
   - stage: Deploy
