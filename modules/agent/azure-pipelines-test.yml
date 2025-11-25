@@ -145,7 +145,7 @@ stages:
               containerRegistry: "$(dockerRegistryServiceConnection)"
               repository: "$(imageRepository)"
               tags: |
-                $(tagTest)
+                $(tagLatest)
                 $(tagBuildId)
 
   - stage: Deploy
