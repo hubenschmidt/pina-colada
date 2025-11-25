@@ -26,6 +26,7 @@ class State(TypedDict):
     feedback_on_work: Optional[str]
     success_criteria_met: bool
     user_input_needed: bool
+    score: Optional[int]  # Numeric score from 0-100 rating response quality
     resume_name: str
     resume_context: str
     route_to_agent: Optional[str]
@@ -306,6 +307,7 @@ async def create_orchestrator(
             "feedback_on_work": None,
             "success_criteria_met": False,
             "user_input_needed": False,
+            "score": None,
             "resume_name": "William Hubenschmidt",
             "resume_context": resume_context,
             "route_to_agent": None,

@@ -283,3 +283,44 @@ export const updateTenantPreferences = async (
 ): Promise<TenantPreferencesResponse> => {
   return apiPatch<TenantPreferencesResponse>("/preferences/tenant", { theme });
 };
+
+// Individual Types
+export type Individual = {
+  id: number;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  title: string | null;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+/**
+ * Get all individuals for the current tenant
+ */
+export const getIndividuals = async (): Promise<Individual[]> => {
+  return apiGet<Individual[]>("/individuals");
+};
+
+// Organization Types
+export type Organization = {
+  id: number;
+  name: string;
+  website: string | null;
+  phone: string | null;
+  industries: string[];
+  employee_count: number | null;
+  description: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+/**
+ * Get all organizations for the current tenant
+ */
+export const getOrganizations = async (): Promise<Organization[]> => {
+  return apiGet<Organization[]>("/organizations");
+};

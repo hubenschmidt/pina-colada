@@ -36,6 +36,12 @@ def make_evaluator_output_model() -> Type[BaseModel]:
             ],
             ...,
         ),
+        score=(
+            Annotated[
+                int, Field(description="Numeric score from 0-100 rating the quality of the response", ge=0, le=100)
+            ],
+            ...,
+        ),
     )
     EvaluatorOutput.__doc__ = "Structured output for evaluator"
     return EvaluatorOutput
@@ -99,6 +105,7 @@ async def create_base_evaluator_node(
                 "feedback_on_work": "No AI response to evaluate.",
                 "success_criteria_met": True,
                 "user_input_needed": False,
+                "score": 100,
             }
 
         # Detect retry loops
@@ -154,18 +161,25 @@ async def create_base_evaluator_node(
                 logger.warning("   ⚠️  Forcing approval to break retry loop")
                 eval_result.success_criteria_met = True
                 eval_result.feedback = f"{eval_result.feedback} (Approved after {retry_count} retries)"
+                # Ensure score is at least 60 when forcing approval
+                if eval_result.score < 60:
+                    eval_result.score = 60
         except Exception as e:
             logger.error(f"⚠️  Evaluation failed: {e}")
             return {
                 "feedback_on_work": "Evaluation error occurred, defaulting to approval.",
                 "success_criteria_met": True,
                 "user_input_needed": False,
+                "score": 100,
             }
 
         # Log results
+        status = "PASS" if eval_result.success_criteria_met else "FAIL"
+        logger.info(f"✓ {evaluator_name.upper()} EVALUATOR: Result = {status} (score: {eval_result.score}/100)")
         logger.info("✓ Evaluator decision:")
         logger.info(f"   - Success criteria met: {eval_result.success_criteria_met}")
         logger.info(f"   - User input needed: {eval_result.user_input_needed}")
+        logger.info(f"   - Score: {eval_result.score}/100")
 
         width = shutil.get_terminal_size(fallback=(100, 24)).columns
         wrapped = textwrap.fill(
@@ -182,6 +196,7 @@ async def create_base_evaluator_node(
             "feedback_on_work": eval_result.feedback,
             "success_criteria_met": eval_result.success_criteria_met,
             "user_input_needed": eval_result.user_input_needed,
+            "score": eval_result.score,
         }
 
     return evaluator_node

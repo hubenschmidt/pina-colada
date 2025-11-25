@@ -9,6 +9,7 @@ services:
     command: >
       sh -c '
       mkdir -p /logs &&
+      rm -f /logs/*.log &&
       echo "Container logs started, saved to logs/ directory" &&
       docker logs -f pina_colada-client-1 2>&1 | while IFS= read -r line; do
         DATE=$$(date +%Y-%m-%d)
