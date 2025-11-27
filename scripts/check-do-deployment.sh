@@ -9,10 +9,7 @@ curl -s -H "Authorization: Bearer $DO_TOKEN" \
 import json, sys
 data = json.load(sys.stdin)
 d = data['deployments'][0]
-print(f\"Phase: {d['phase']}\")
-print(f\"Created: {d['created_at']}\")
-print(f\"Cause: {d.get('cause', 'N/A')}\")
 for svc in d.get('spec', {}).get('services', []):
     img = svc.get('image', {})
-    print(f\"Service: {svc.get('name')} -> {img.get('repository')}:{img.get('tag')}\")
+    print(f\"{svc.get('name')}: {img.get('tag')}\")
 "
