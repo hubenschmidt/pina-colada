@@ -91,16 +91,15 @@ def _ensure_tool_pairs_intact(messages: List[Any]) -> List[Any]:
     # If there are pending tool calls without responses, remove them
     if pending_tool_calls:
         logger.warning(f"Removing {len(pending_tool_calls)} orphaned tool calls")
-        result = []
-        for msg in messages:
+        
+        def is_not_orphaned(msg):
             if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
-                # Check if any tool calls are orphaned
                 orphaned = any(tc.get('id') in pending_tool_calls for tc in msg.tool_calls)
                 if orphaned:
-                    # Skip this message or convert to regular message
-                    continue
-            result.append(msg)
-        return result
+                    return False
+            return True
+        
+        return [msg for msg in messages if is_not_orphaned(msg)]
 
     return messages
 

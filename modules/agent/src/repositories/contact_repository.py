@@ -18,8 +18,10 @@ async def find_contact_by_individual_and_org(
         stmt = select(Contact).where(Contact.individual_id == individual_id)
         if organization_id is not None:
             stmt = stmt.where(Contact.organization_id == organization_id)
-        else:
-            stmt = stmt.where(Contact.organization_id.is_(None))
+            result = await session.execute(stmt)
+            return result.scalar_one_or_none()
+        
+        stmt = stmt.where(Contact.organization_id.is_(None))
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -182,7 +184,6 @@ async def search_contacts_and_individuals(query: str, tenant_id: Optional[int] =
     async with async_get_session() as session:
         search_pattern = f"%{query}%"
 
-        # Build query conditionally based on tenant_id
         if tenant_id is not None:
             sql = text("""
                 SELECT DISTINCT
@@ -205,29 +206,39 @@ async def search_contacts_and_individuals(query: str, tenant_id: Optional[int] =
                 LIMIT 20
             """)
             result = await session.execute(sql, {"pattern": search_pattern, "tenant_id": tenant_id})
-        else:
-            sql = text("""
-                SELECT DISTINCT
-                    i.id as individual_id,
-                    i.first_name,
-                    i.last_name,
-                    i.email,
-                    i.phone,
-                    'individual' as source
-                FROM "Individual" i
-                WHERE (
-                    i.first_name ILIKE :pattern
-                    OR i.last_name ILIKE :pattern
-                    OR i.email ILIKE :pattern
-                    OR CONCAT(i.first_name, ' ', i.last_name) ILIKE :pattern
-                )
-                ORDER BY i.first_name, i.last_name
-                LIMIT 20
-            """)
-            result = await session.execute(sql, {"pattern": search_pattern})
-
+            rows = result.fetchall()
+            return [
+                {
+                    "individual_id": row.individual_id,
+                    "first_name": row.first_name,
+                    "last_name": row.last_name,
+                    "email": row.email,
+                    "phone": row.phone,
+                    "source": row.source,
+                }
+                for row in rows
+            ]
+        
+        sql = text("""
+            SELECT DISTINCT
+                i.id as individual_id,
+                i.first_name,
+                i.last_name,
+                i.email,
+                i.phone,
+                'individual' as source
+            FROM "Individual" i
+            WHERE (
+                i.first_name ILIKE :pattern
+                OR i.last_name ILIKE :pattern
+                OR i.email ILIKE :pattern
+                OR CONCAT(i.first_name, ' ', i.last_name) ILIKE :pattern
+            )
+            ORDER BY i.first_name, i.last_name
+            LIMIT 20
+        """)
+        result = await session.execute(sql, {"pattern": search_pattern})
         rows = result.fetchall()
-
         return [
             {
                 "individual_id": row.individual_id,

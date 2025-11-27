@@ -277,7 +277,9 @@ const IndustrySelector = ({ value, onChange }: { value: string[]; onChange: (val
                     if (e.key === "Enter") {
                       e.preventDefault();
                       handleAddNew();
-                    } else if (e.key === "Escape") {
+                      return;
+                    }
+                    if (e.key === "Escape") {
                       setShowNewInput(false);
                       setNewIndustry("");
                     }

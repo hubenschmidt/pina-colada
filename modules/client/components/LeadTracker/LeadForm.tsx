@@ -40,6 +40,76 @@ function LeadForm<T extends BaseLead>({
   const [isDeleting, setIsDeleting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
+  // Parse field value based on field type
+  const parseFieldValue = (field: FormFieldConfig<T>, value: any): string => {
+    if (field.type === "date" && value) {
+      return new Date(value).toISOString().split("T")[0];
+    }
+    return value ?? "";
+  };
+
+  // Parse Individual account name into first/last name
+  const parseIndividualAccount = (data: any) => {
+    if (data.account_type !== "Individual" || !data.account) {
+      return;
+    }
+    
+    const parts = data.account.split(", ");
+    if (parts.length === 2) {
+      data.individual_last_name = parts[0];
+      data.individual_first_name = parts[1];
+      return;
+    }
+    
+    data.individual_first_name = data.account;
+  };
+
+  // Update contact with individual field value
+  const updateContactWithIndividualField = (
+    prevContacts: ContactInput[],
+    fieldName: string,
+    value: string
+  ): ContactInput[] => {
+    const newContacts = prevContacts.length > 0 ? [...prevContacts] : [emptyContact()];
+    if (fieldName === "individual_first_name") {
+      newContacts[0] = { ...newContacts[0], first_name: value };
+      return newContacts;
+    }
+    if (fieldName === "individual_last_name") {
+      newContacts[0] = { ...newContacts[0], last_name: value };
+    }
+    return newContacts;
+  };
+
+  // Validate a single field
+  const validateField = (field: FormFieldConfig<T>, value: any, errors: { [key: string]: string }) => {
+    if (field.required && (!value || value === "")) {
+      errors[String(field.name)] = `${field.label} is required`;
+      return;
+    }
+
+    if (!field.validation || !value) {
+      return;
+    }
+
+    const error = field.validation(value);
+    if (error) {
+      errors[String(field.name)] = error;
+    }
+  };
+
+  // Validate form-level rules
+  const validateFormLevel = (formData: any, errors: { [key: string]: string }) => {
+    if (!config.onValidate) {
+      return;
+    }
+
+    const formErrors = config.onValidate(formData);
+    if (formErrors) {
+      Object.assign(errors, formErrors);
+    }
+  };
+
   // Contact fields config for LeadForm
   const contactFields: ContactFieldConfig[] = [
     { name: "first_name", label: "First Name", placeholder: "e.g., John" },
@@ -55,22 +125,10 @@ function LeadForm<T extends BaseLead>({
       const data: any = {};
       config.fields.forEach((field) => {
         const value = (lead as any)[field.name];
-        if (field.type === "date" && value) {
-          data[field.name] = new Date(value).toISOString().split("T")[0];
-          return;
-        }
-        data[field.name] = value ?? "";
+        data[field.name] = parseFieldValue(field, value);
       });
       // Handle Individual account type - parse account into first/last name
-      if (data.account_type === "Individual" && data.account) {
-        const parts = data.account.split(", ");
-        if (parts.length === 2) {
-          data.individual_last_name = parts[0];
-          data.individual_first_name = parts[1];
-        } else {
-          data.individual_first_name = data.account;
-        }
-      }
+      parseIndividualAccount(data);
       setFormData(data);
       // Load contacts from lead if available
       const leadContacts = (lead as any).contacts;
@@ -138,15 +196,9 @@ function LeadForm<T extends BaseLead>({
       // When individual fields change and Account Type is Individual, auto-populate first contact
       if ((fieldName === "individual_first_name" || fieldName === "individual_last_name") &&
           newData.account_type === "Individual") {
-        setContacts((prevContacts) => {
-          const newContacts = prevContacts.length > 0 ? [...prevContacts] : [emptyContact()];
-          if (fieldName === "individual_first_name") {
-            newContacts[0] = { ...newContacts[0], first_name: processedValue };
-          } else if (fieldName === "individual_last_name") {
-            newContacts[0] = { ...newContacts[0], last_name: processedValue };
-          }
-          return newContacts;
-        });
+        setContacts((prevContacts) => 
+          updateContactWithIndividualField(prevContacts, fieldName, processedValue)
+        );
       }
 
       return newData;
@@ -168,28 +220,11 @@ function LeadForm<T extends BaseLead>({
     // Field-level validation
     config.fields.forEach((field) => {
       const value = formData[field.name];
-
-      // Required check
-      if (field.required && (!value || value === "")) {
-        newErrors[String(field.name)] = `${field.label} is required`;
-      }
-
-      // Custom validation
-      if (field.validation && value) {
-        const error = field.validation(value);
-        if (error) {
-          newErrors[String(field.name)] = error;
-        }
-      }
+      validateField(field, value, newErrors);
     });
 
     // Form-level validation
-    if (config.onValidate) {
-      const formErrors = config.onValidate(formData);
-      if (formErrors) {
-        Object.assign(newErrors, formErrors);
-      }
-    }
+    validateFormLevel(formData, newErrors);
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -235,38 +270,48 @@ function LeadForm<T extends BaseLead>({
       if (isEditMode && lead && onUpdate) {
         // Edit mode: update existing lead
         await onUpdate(lead.id, submitData);
-      } else if (onAdd) {
-        // Add mode: create new lead
-        await onAdd(submitData);
-
-        // Reset form only in add mode
-        const resetData: any = {};
-        config.fields.forEach((field) => {
-          if (field.defaultValue !== undefined) {
-            resetData[field.name] = field.defaultValue;
-            return;
-          }
-          if (field.type === "date") {
-            resetData[field.name] = new Date().toISOString().split("T")[0];
-            return;
-          }
-          if (field.type === "checkbox") {
-            resetData[field.name] = false;
-            return;
-          }
-          resetData[field.name] = "";
-        });
-        setFormData(resetData);
-        setContacts([]);
-        setErrors({});
+        onClose();
+        return;
       }
+      
+      if (!onAdd) {
+        onClose();
+        return;
+      }
+      
+      // Add mode: create new lead
+      await onAdd(submitData);
 
+      // Reset form only in add mode
+      const resetData: any = {};
+      config.fields.forEach((field) => {
+        if (field.defaultValue !== undefined) {
+          resetData[field.name] = field.defaultValue;
+          return;
+        }
+        if (field.type === "date") {
+          resetData[field.name] = new Date().toISOString().split("T")[0];
+          return;
+        }
+        if (field.type === "checkbox") {
+          resetData[field.name] = false;
+          return;
+        }
+        resetData[field.name] = "";
+      });
+      setFormData(resetData);
+      setContacts([]);
+      setErrors({});
       onClose();
     } catch (error: any) {
       console.error(isEditMode ? "Failed to update lead:" : "Failed to add lead:", error);
-      const errorMessage =
-        error?.message || error?.error || `Failed to ${isEditMode ? "update" : "add"}. Please try again.`;
-      alert(errorMessage);
+      const getErrorMessage = (err: any): string => {
+        if (typeof err?.message === "string") return err.message;
+        if (typeof err?.error === "string") return err.error;
+        if (typeof err === "string") return err;
+        return `Failed to ${isEditMode ? "update" : "add"}. Please try again.`;
+      };
+      alert(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }

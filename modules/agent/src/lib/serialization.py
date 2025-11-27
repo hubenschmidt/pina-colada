@@ -51,16 +51,18 @@ def model_to_dict(
             result[column.key] = value
 
     if include_relationships and _current_depth < max_depth:
-        for relationship in mapper.relationships:
+        def process_relationship(relationship):
             try:
                 rel_value = getattr(model, relationship.key, None)
             except DetachedInstanceError:
                 # Relationship not loaded and session is closed - skip it
-                continue
-
+                return
+            
             if rel_value is None:
                 result[relationship.key] = None
-            elif isinstance(rel_value, list):
+                return
+            
+            if isinstance(rel_value, list):
                 # One-to-many or many-to-many relationship
                 result[relationship.key] = [
                     model_to_dict(
@@ -72,15 +74,19 @@ def model_to_dict(
                     )
                     for item in rel_value
                 ]
-            else:
-                # Many-to-one or one-to-one relationship
-                result[relationship.key] = model_to_dict(
-                    rel_value,
-                    include_relationships=True,
-                    max_depth=max_depth,
-                    _current_depth=_current_depth + 1,
-                    _seen=_seen.copy()
-                )
+                return
+            
+            # Many-to-one or one-to-one relationship
+            result[relationship.key] = model_to_dict(
+                rel_value,
+                include_relationships=True,
+                max_depth=max_depth,
+                _current_depth=_current_depth + 1,
+                _seen=_seen.copy()
+            )
+        
+        for relationship in mapper.relationships:
+            process_relationship(relationship)
 
     return result
 
