@@ -36,6 +36,9 @@ app.add_middleware(
         "wss://api.pinacolada.co",  # production domain
         "https://pinacolada.co",  # production domain
         "https://www.pinacolada.co",  # www version
+        "wss://test.api.pinacolada.co",  # test domain
+        "https://test.pinacolada.co",  # test domain
+        "https://www.test.pinacolada.co",  # test www version
         "http://localhost:3000",  # Local development
         "http://localhost:3001",  # Local development (alternate port)
     ],
