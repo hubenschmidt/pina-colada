@@ -22,8 +22,10 @@ def _make_job_create_model() -> Type[BaseModel]:
     return create_model(
         "JobCreate",
         account_type=(str, "Organization"),
-        company=(Optional[str], None),
+        account=(Optional[str], None),
         contact_name=(Optional[str], None),
+        contacts=(Optional[List[dict]], None),
+        industry=(Optional[List[str]], None),
         industry_ids=(Optional[List[int]], None),
         job_title=(str, ...),
         date=(Optional[str], None),
@@ -40,7 +42,7 @@ def _make_job_update_model() -> Type[BaseModel]:
     """Create JobUpdate model functionally."""
     return create_model(
         "JobUpdate",
-        company=(Optional[str], None),
+        account=(Optional[str], None),
         job_title=(Optional[str], None),
         date=(Optional[str], None),
         job_url=(Optional[str], None),

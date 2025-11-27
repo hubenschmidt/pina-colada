@@ -16,9 +16,11 @@ from repositories.job_repository import (
 )
 from repositories.organization_repository import get_or_create_organization
 from repositories.individual_repository import get_or_create_individual
+from repositories.contact_repository import get_or_create_contact, create_lead_contact
 from repositories.job_repository import find_all_jobs as find_all_jobs_repo
 from repositories.deal_repository import get_or_create_deal
 from repositories.status_repository import find_status_by_name
+from repositories.industry_repository import find_industry_by_name
 
 logger = logging.getLogger(__name__)
 
@@ -325,14 +327,25 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
             )
     else:
         # Organization account type (default)
-        organization_name = job_data.get("company") or job_data.get("organization_name")
+        organization_name = job_data.get("account") or job_data.get("organization_name")
         if not organization_name:
             raise HTTPException(
-                status_code=400, detail="company or organization_name is required"
+                status_code=400, detail="account is required"
             )
 
+        # Handle industry - can be industry_ids (list of IDs) or industry (list of names or single name)
         industry_ids = job_data.get("industry_ids")
-        org = await get_or_create_organization(organization_name, tenant_id, industry_ids)
+        industry_input = job_data.get("industry")
+        if not industry_ids and industry_input:
+            # Handle both single string and list of strings
+            industry_names = industry_input if isinstance(industry_input, list) else [industry_input]
+            industry_ids = []
+            for name in industry_names:
+                if name:
+                    industry = await find_industry_by_name(name)
+                    if industry:
+                        industry_ids.append(industry.id)
+        org = await get_or_create_organization(organization_name, tenant_id, industry_ids if industry_ids else None)
         account_id = org.account_id
         account_name = org.name
 
@@ -378,6 +391,43 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
     }
 
     created = await create_job_repo(data)
+
+    # Process contacts if provided
+    contacts = job_data.get("contacts") or []
+    organization_id = None
+    if account_type == "Organization":
+        # Get org_id for linking contacts
+        organization_name = job_data.get("account") or job_data.get("organization_name")
+        if organization_name:
+            org = await get_or_create_organization(organization_name, tenant_id)
+            organization_id = org.id
+
+    for idx, contact_data in enumerate(contacts):
+        first_name = contact_data.get("first_name", "").strip()
+        last_name = contact_data.get("last_name", "").strip()
+        if not first_name or not last_name:
+            continue
+
+        # Get or create Individual for this contact
+        individual = await get_or_create_individual(first_name, last_name, tenant_id)
+
+        # Create Contact record (links individual to organization if applicable)
+        contact = await get_or_create_contact(
+            individual_id=individual.id,
+            organization_id=organization_id,
+            email=contact_data.get("email"),
+            phone=contact_data.get("phone"),
+            title=contact_data.get("title"),
+            is_primary=(idx == 0)  # First contact is primary
+        )
+
+        # Link contact to lead via Lead_Contact junction
+        await create_lead_contact(
+            lead_id=created.id,
+            contact_id=contact.id,
+            is_primary=(idx == 0)
+        )
+
     return created
 
 
@@ -508,7 +558,7 @@ async def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
     data: Dict[str, Any] = {}
 
     # Handle organization update
-    organization_name = job_data.get("company") or job_data.get("organization_name")
+    organization_name = job_data.get("account") or job_data.get("organization_name")
     if organization_name:
         org = await get_or_create_organization(organization_name)
         data["organization_id"] = org.id

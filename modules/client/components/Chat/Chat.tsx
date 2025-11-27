@@ -4,7 +4,6 @@ import styles from "./Chat.module.css";
 import { Copy, Check, Download, Briefcase, ChevronDown } from "lucide-react";
 import LeadPanel from "../LeadTracker/LeadPanel";
 import { usePanelConfig } from "../config";
-// import { extractAndSaveJobLeads } from "../../lib/job-lead-extractor";
 import { env } from "next-runtime-env";
 import { Box, Stack } from "@mantine/core";
 

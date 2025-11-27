@@ -1,6 +1,15 @@
+export interface ContactInput {
+  first_name: string;
+  last_name: string;
+  email?: string;
+  phone?: string;
+  title?: string;
+}
+
 export interface CreatedJob {
   id: string;
-  company: string;
+  account: string;
+  account_type: 'Organization' | 'Individual' | null;
   job_title: string;
   date: string;
   status: 'Lead' | 'Applied' | 'Interviewing' | 'Rejected' | 'Offer' | 'Accepted' | 'Do Not Apply';
@@ -8,8 +17,10 @@ export interface CreatedJob {
   notes: string | null;
   resume: string | null;
   salary_range: string | null;
+  industry: string | null;
   source: 'manual' | 'agent';
   lead_status_id: string | null;
+  contacts?: ContactInput[];
   created_at: string;
   updated_at: string;
 }

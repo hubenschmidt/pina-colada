@@ -324,3 +324,38 @@ export type Organization = {
 export const getOrganizations = async (): Promise<Organization[]> => {
   return apiGet<Organization[]>("/organizations");
 };
+
+/**
+ * Search organizations by name
+ */
+export const searchOrganizations = async (query: string): Promise<Organization[]> => {
+  return apiGet<Organization[]>(`/organizations/search?q=${encodeURIComponent(query)}`);
+};
+
+/**
+ * Search individuals by name or email
+ */
+export const searchIndividuals = async (query: string): Promise<Individual[]> => {
+  return apiGet<Individual[]>(`/individuals/search?q=${encodeURIComponent(query)}`);
+};
+
+// Industry Types
+export type Industry = {
+  id: number;
+  name: string;
+  created_at: string | null;
+};
+
+/**
+ * Get all industries
+ */
+export const getIndustries = async (): Promise<Industry[]> => {
+  return apiGet<Industry[]>("/industries");
+};
+
+/**
+ * Create a new industry
+ */
+export const createIndustry = async (name: string): Promise<Industry> => {
+  return apiPost<Industry>("/industries", { name });
+};

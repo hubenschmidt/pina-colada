@@ -165,7 +165,6 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
   }
 
   const FormComponent = config.FormComponent;
-  const EditModalComponent = config.EditModalComponent;
 
   return (
     <Stack gap="lg">
@@ -272,10 +271,10 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
       </Box>
 
       {/* Edit Modal */}
-      <EditModalComponent
-        lead={selectedLead}
-        opened={modalOpened}
+      <FormComponent
+        isOpen={modalOpened}
         onClose={handleModalClose}
+        lead={selectedLead}
         onUpdate={handleUpdateLead}
         onDelete={handleDeleteLead}
       />

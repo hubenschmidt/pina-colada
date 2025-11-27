@@ -35,11 +35,23 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
     """Convert job ORM to response dictionary."""
     job_dict = model_to_dict(job, include_relationships=True)
 
-    # Extract company name from Lead.account.organizations
+    # Extract company name from Lead.account (organizations or individuals)
     lead = job_dict.get("lead") or {}
     account = lead.get("account") or {}
     organizations = account.get("organizations") or []
-    company = organizations[0].get("name", "") if organizations else ""
+    individuals = account.get("individuals") or []
+
+    company = ""
+    company_type = "Organization"
+    if organizations:
+        company = organizations[0].get("name", "")
+        company_type = "Organization"
+    elif individuals:
+        ind = individuals[0]
+        first_name = ind.get("first_name", "")
+        last_name = ind.get("last_name", "")
+        company = f"{last_name}, {first_name}".strip(", ")
+        company_type = "Individual"
 
     # Extract status name directly from ORM object (model_to_dict doesn't include nested relationships)
     status = "Applied"  # default
@@ -61,7 +73,8 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
 
     return {
         "id": str(job_dict.get("id", "")),
-        "organization": company,
+        "account": company,
+        "account_type": company_type,
         "job_title": job_dict.get("job_title", ""),
         "date": date_str[:10] if date_str else "",  # YYYY-MM-DD format
         "status": status,

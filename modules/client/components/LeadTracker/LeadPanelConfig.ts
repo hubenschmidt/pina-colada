@@ -33,7 +33,7 @@ export interface LeadPanelConfig<T extends BaseLead> {
   entityNamePlural: string; // e.g., "jobs", "opportunities"
 
   // Field accessors
-  getCompanyName: (lead: LeadWithStatus<T>) => string;
+  getAccountName: (lead: LeadWithStatus<T>) => string;
   getTitle: (lead: LeadWithStatus<T>) => string;
   getUrl?: (lead: LeadWithStatus<T>) => string | null;
 

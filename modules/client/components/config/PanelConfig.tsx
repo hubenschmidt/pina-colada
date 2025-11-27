@@ -22,7 +22,7 @@ const getJobPanelConfig = (): LeadPanelConfig<CreatedJob> => ({
   entityName: "job",
   entityNamePlural: "jobs",
 
-  getCompanyName: (job) => job.company,
+  getAccountName: (job) => job.account,
   getTitle: (job) => job.job_title,
   getUrl: (job) => job.job_url,
 

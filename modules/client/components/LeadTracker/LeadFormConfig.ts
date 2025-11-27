@@ -36,6 +36,8 @@ export interface FormFieldConfig<T extends BaseLead = BaseLead> {
     value: any;
     onChange: (value: any) => void;
     field: FormFieldConfig<T>;
+    formData: any;
+    isEditMode?: boolean;
   }) => React.ReactNode;
   onInit?: () => Promise<any>; // Called when form opens
   onChange?: (value: any, formData: any) => any; // Transform value or update other fields
@@ -43,9 +45,15 @@ export interface FormFieldConfig<T extends BaseLead = BaseLead> {
   hidden?: boolean;
 }
 
+export interface FormSection {
+  name: string;
+  fieldNames: string[]; // Field names that belong to this section
+}
+
 export interface LeadFormConfig<T extends BaseLead = BaseLead> {
   title: string;
   fields: FormFieldConfig<T>[];
+  sections?: FormSection[]; // Optional sections for grouping fields
   submitButtonText?: string;
   cancelButtonText?: string;
   onValidate?: (formData: any) => { [key: string]: string } | null; // Form-level validation

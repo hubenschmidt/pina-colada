@@ -30,6 +30,7 @@ async def find_organization_by_id(org_id: int) -> Optional[Organization]:
 
 async def find_organization_by_name(name: str, tenant_id: Optional[int] = None) -> Optional[Organization]:
     """Find organization by name (case-insensitive), optionally scoped to tenant (through Account)."""
+    name = name.strip() if name else name
     async with async_get_session() as session:
         stmt = select(Organization).where(func.lower(Organization.name) == func.lower(name))
         if tenant_id is not None:
@@ -59,6 +60,7 @@ async def get_or_create_organization(
     industry_ids: Optional[List[int]] = None
 ) -> Organization:
     """Get or create organization by name, optionally linking to industries."""
+    name = name.strip() if name else name
     existing = await find_organization_by_name(name, tenant_id)
     if existing:
         return existing
@@ -138,7 +140,7 @@ async def delete_organization(org_id: int) -> bool:
 async def search_organizations(query: str, tenant_id: Optional[int] = None) -> List[Organization]:
     """Search organizations by name (case-insensitive partial match), filtered by tenant (through Account)."""
     async with async_get_session() as session:
-        stmt = select(Organization).where(
+        stmt = select(Organization).options(selectinload(Organization.industries)).where(
             func.lower(Organization.name).contains(func.lower(query))
         ).order_by(Organization.name)
         if tenant_id is not None:

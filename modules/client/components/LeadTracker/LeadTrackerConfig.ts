@@ -12,15 +12,12 @@ export interface BaseLead {
 export interface LeadFormProps<T extends BaseLead> {
   isOpen: boolean;
   onClose: () => void;
-  onAdd: (lead: Omit<T, "id" | "created_at" | "updated_at">) => Promise<void>;
-}
-
-export interface LeadEditModalProps<T extends BaseLead> {
-  lead: T | null;
-  opened: boolean;
-  onClose: () => void;
-  onUpdate: (id: string, updates: Partial<T>) => Promise<void>;
-  onDelete: (id: string) => Promise<void>;
+  // Add mode
+  onAdd?: (lead: Omit<T, "id" | "created_at" | "updated_at">) => Promise<void>;
+  // Edit mode
+  lead?: T | null;
+  onUpdate?: (id: string, updates: Partial<T>) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
 }
 
 export interface LeadAPI<T extends BaseLead, TInsert = Omit<T, "id" | "created_at" | "updated_at">, TUpdate = Partial<T>> {
@@ -46,7 +43,6 @@ export interface LeadTrackerConfig<
   entityNamePlural: string;
   columns: Column<T>[];
   FormComponent: React.ComponentType<LeadFormProps<T>>;
-  EditModalComponent: React.ComponentType<LeadEditModalProps<T>>;
   api: LeadAPI<T, TInsert, TUpdate>;
   defaultSortBy?: string;
   defaultSortDirection?: "ASC" | "DESC";

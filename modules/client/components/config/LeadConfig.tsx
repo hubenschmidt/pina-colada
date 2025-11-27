@@ -6,10 +6,8 @@ import {
   LeadTrackerConfig,
   BaseLead,
   LeadFormProps,
-  LeadEditModalProps,
 } from "../LeadTracker/LeadTrackerConfig";
 import LeadForm from "../LeadTracker/LeadForm";
-import LeadEditModal from "../LeadTracker/LeadEditModal";
 import { useFormConfig } from "./FormConfig";
 
 type LeadType = "job";
@@ -24,22 +22,24 @@ const getJobLeadConfig = (): LeadTrackerConfig<
 > => {
   const formConfig = useFormConfig("job");
 
-  // Wrappers to inject config into generic components
+  // Wrapper to inject config into LeadForm
   const JobFormAdapter = (props: LeadFormProps<JobLead>) => (
     <LeadForm {...props} config={formConfig} />
   );
 
-  const JobEditModalAdapter = (props: LeadEditModalProps<JobLead>) => (
-    <LeadEditModal {...props} config={formConfig} />
-  );
-
   const columns: Column<JobLead>[] = [
     {
-      header: "Company",
-      accessor: "company",
+      header: "Account",
+      accessor: "account",
       sortable: true,
-      sortKey: "company",
+      sortKey: "account",
       width: "12%",
+      render: (job: any) => {
+        if (!job.account || job.account.trim() === "") {
+          return <span className="text-zinc-400">—</span>;
+        }
+        return <span>{job.account}</span>;
+      },
     },
     {
       header: "Job Title",
@@ -151,7 +151,6 @@ const getJobLeadConfig = (): LeadTrackerConfig<
     entityNamePlural: "Jobs",
     columns,
     FormComponent: JobFormAdapter,
-    EditModalComponent: JobEditModalAdapter,
     api: {
       getLeads: async (page, limit, sortBy, sortDirection, search) => {
         return getJobs(page, limit, sortBy, sortDirection, search);
@@ -169,7 +168,7 @@ const getJobLeadConfig = (): LeadTrackerConfig<
     defaultSortBy: "date",
     defaultSortDirection: "DESC",
     defaultPageSize: 25,
-    searchPlaceholder: "Search by company or job title...",
+    searchPlaceholder: "Search by account or job title...",
     emptyMessage: "No job applications yet. Add your first one above!",
     enableSearch: true,
   };

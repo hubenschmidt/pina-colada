@@ -14,6 +14,7 @@ import { useNavContext } from "../../context/navContext";
 
 export const Sidebar = () => {
   const [leadsExpanded, setLeadsExpanded] = useState(true);
+  const [accountsExpanded, setAccountsExpanded] = useState(true);
   const { navState, dispatchNav } = useNavContext();
   const { sidebarCollapsed } = navState;
 
@@ -48,6 +49,37 @@ export const Sidebar = () => {
         <ScrollArea flex={1} type="auto">
           {!sidebarCollapsed && (
             <nav className="p-4 space-y-2">
+              {/* Accounts Section */}
+              <div>
+                <button
+                  onClick={() => setAccountsExpanded(!accountsExpanded)}
+                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                >
+                  {accountsExpanded ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  Accounts
+                </button>
+                {accountsExpanded && (
+                  <div className="ml-6 mt-1 space-y-1">
+                    <Link
+                      href="/accounts/individuals"
+                      className="block rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    >
+                      Individuals
+                    </Link>
+                    <Link
+                      href="/accounts/organizations"
+                      className="block rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    >
+                      Organizations
+                    </Link>
+                  </div>
+                )}
+              </div>
+
               {/* Leads Section */}
               <div>
                 <button

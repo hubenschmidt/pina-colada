@@ -207,7 +207,7 @@ const LeadPanel = <T extends BaseLead>({
           {!loading && !error && leads.length > 0 && (
             <div className={styles.leadsList}>
               {leads.map((lead) => {
-                const companyName = config.getCompanyName(lead);
+                const accountName = config.getAccountName(lead);
                 const title = config.getTitle(lead);
                 const url = config.getUrl ? config.getUrl(lead) : null;
 
@@ -215,7 +215,7 @@ const LeadPanel = <T extends BaseLead>({
                   <div key={lead.id} className={styles.leadCard}>
                     <div className={styles.leadHeader}>
                       <div>
-                        <h3 className={styles.leadCompany}>{companyName}</h3>
+                        <h3 className={styles.leadAccount}>{accountName}</h3>
                         <p className={styles.leadTitle}>{title}</p>
                       </div>
                       {lead.lead_status && (
