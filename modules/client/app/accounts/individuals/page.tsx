@@ -92,17 +92,17 @@ const IndividualsPage = () => {
     }
 
     const sorted = [...filtered].sort((a, b) => {
-      let aVal: string;
-      let bVal: string;
-
       if (sortBy === "name") {
-        aVal = `${a.first_name} ${a.last_name}`.toLowerCase();
-        bVal = `${b.first_name} ${b.last_name}`.toLowerCase();
-      } else {
-        aVal = (a[sortBy as keyof Individual] as string || "").toLowerCase();
-        bVal = (b[sortBy as keyof Individual] as string || "").toLowerCase();
+        const aVal = `${a.first_name} ${a.last_name}`.toLowerCase();
+        const bVal = `${b.first_name} ${b.last_name}`.toLowerCase();
+        if (sortDirection === "ASC") {
+          return aVal.localeCompare(bVal);
+        }
+        return bVal.localeCompare(aVal);
       }
-
+      
+      const aVal = (a[sortBy as keyof Individual] as string || "").toLowerCase();
+      const bVal = (b[sortBy as keyof Individual] as string || "").toLowerCase();
       if (sortDirection === "ASC") {
         return aVal.localeCompare(bVal);
       }

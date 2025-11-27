@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Save, Trash2 } from "lucide-react";
 import { formatPhoneNumber } from "../utils/phone";
 import ContactSection, { ContactFieldConfig } from "./ContactSection";
 import NotesSection from "./NotesSection";
+import FormActions from "./FormActions";
 import {
   Contact,
   createIndividualContact,
@@ -56,6 +56,8 @@ interface PendingContact {
   last_name: string;
   email: string;
   phone: string;
+  title?: string | null;
+  notes?: string | null;
 }
 
 const emptyPendingContact = (): PendingContact => ({
@@ -90,16 +92,19 @@ const AccountForm = ({
       setContacts(account.contacts || []);
       setPendingContacts([]);
       setPendingNotes([]);
-    } else {
-      setFormData(
-        isOrganization
-          ? { name: "", website: "", phone: "", employee_count: "", description: "" }
-          : { first_name: "", last_name: "", email: "", phone: "", linkedin_url: "", title: "", notes: "" }
-      );
-      setContacts([]);
-      setPendingContacts([]);
-      setPendingNotes([]);
+      setError(null);
+      setIsDeleting(false);
+      return;
     }
+    
+    setFormData(
+      isOrganization
+        ? { name: "", website: "", phone: "", employee_count: "", description: "" }
+        : { first_name: "", last_name: "", email: "", phone: "", linkedin_url: "", title: "", notes: "" }
+    );
+    setContacts([]);
+    setPendingContacts([]);
+    setPendingNotes([]);
     setError(null);
     setIsDeleting(false);
   }, [isEditMode, account, isOrganization]);
@@ -112,16 +117,14 @@ const AccountForm = ({
     e.preventDefault();
     setError(null);
 
-    if (isOrganization) {
-      if (!formData.name?.trim()) {
-        setError("Name is required");
-        return;
-      }
-    } else {
-      if (!formData.first_name?.trim() || !formData.last_name?.trim()) {
-        setError("First name and last name are required");
-        return;
-      }
+    if (isOrganization && !formData.name?.trim()) {
+      setError("Name is required");
+      return;
+    }
+    
+    if (!isOrganization && (!formData.first_name?.trim() || !formData.last_name?.trim())) {
+      setError("First name and last name are required");
+      return;
     }
 
     setIsSubmitting(true);
@@ -146,45 +149,60 @@ const AccountForm = ({
 
       if (isEditMode && account && onUpdate) {
         await onUpdate(account.id!, submitData);
-      } else if (onAdd) {
-        const created = await onAdd(submitData as any);
+        onClose();
+        return;
+      }
+      
+      if (!onAdd) {
+        onClose();
+        return;
+      }
+      
+      const created = await onAdd(submitData as any);
 
-        // Create pending contacts after entity is created
-        for (const pending of pendingContacts) {
-          try {
-            if (isOrganization && pending.individual_id) {
-              await createOrganizationContact(created.id, {
-                individual_id: pending.individual_id,
-                email: pending.email?.trim() || undefined,
-                phone: pending.phone?.trim() || undefined,
-                title: pending.title?.trim() || undefined,
-                notes: pending.notes?.trim() || undefined,
-                is_primary: false,
-              });
-            } else if (!isOrganization) {
-              await createIndividualContact(created.id, {
-                email: pending.email?.trim() || undefined,
-                phone: pending.phone?.trim() || undefined,
-                title: pending.title?.trim() || undefined,
-                notes: pending.notes?.trim() || undefined,
-                is_primary: false,
-              });
-            }
-          } catch (err) {
-            console.error("Failed to create contact:", err);
+      // Create pending contacts after entity is created
+      const createContact = async (pending: PendingContact) => {
+        try {
+          if (isOrganization && pending.individual_id) {
+            await createOrganizationContact(created.id, {
+              individual_id: pending.individual_id,
+              email: pending.email?.trim() || undefined,
+              phone: pending.phone?.trim() || undefined,
+              title: pending.title?.trim() || undefined,
+              notes: pending.notes?.trim() || undefined,
+              is_primary: false,
+            });
+            return;
           }
+          
+          if (!isOrganization) {
+            await createIndividualContact(created.id, {
+              email: pending.email?.trim() || undefined,
+              phone: pending.phone?.trim() || undefined,
+              title: pending.title?.trim() || undefined,
+              notes: pending.notes?.trim() || undefined,
+              is_primary: false,
+            });
+          }
+        } catch (err) {
+          console.error("Failed to create contact:", err);
         }
+      };
+      
+      for (const pending of pendingContacts) {
+        await createContact(pending);
+      }
 
-        // Create pending notes after entity is created
-        const entityType = isOrganization ? "organization" : "individual";
-        for (const noteContent of pendingNotes) {
-          try {
-            await createNote(entityType, created.id, noteContent);
-          } catch (err) {
-            console.error("Failed to create note:", err);
-          }
+      // Create pending notes after entity is created
+      const entityType = isOrganization ? "organization" : "individual";
+      for (const noteContent of pendingNotes) {
+        try {
+          await createNote(entityType, created.id, noteContent);
+        } catch (err) {
+          console.error("Failed to create note:", err);
         }
       }
+      
       onClose();
     } catch (err: any) {
       setError(err?.message || `Failed to ${isEditMode ? "update" : "create"}`);
@@ -223,26 +241,27 @@ const AccountForm = ({
     setError(null);
 
     try {
-      let newContactData: Contact;
-      if (isOrganization) {
-        if (!contact.individual_id) {
-          setError("Please select an individual from the search to add as a contact");
-          return;
-        }
-        newContactData = await createOrganizationContact(account.id, {
-          individual_id: contact.individual_id,
-          email: contact.email?.trim() || undefined,
-          phone: contact.phone?.trim() || undefined,
-          is_primary: contacts.length === 0,
-        });
-      } else {
-        newContactData = await createIndividualContact(account.id, {
-          individual_id: contact.individual_id,
-          email: contact.email?.trim() || undefined,
-          phone: contact.phone?.trim() || undefined,
-          is_primary: contacts.length === 0,
-        });
+      if (isOrganization && !contact.individual_id) {
+        setError("Please select an individual from the search to add as a contact");
+        return;
       }
+      
+      if (isOrganization) {
+        const newContactData = await createOrganizationContact(account.id, {
+          individual_id: contact.individual_id!,
+          email: contact.email?.trim() || undefined,
+          phone: contact.phone?.trim() || undefined,
+          is_primary: contacts.length === 0,
+        });
+        setContacts([...contacts, newContactData]);
+        return;
+      }
+      
+      const newContactData = await createIndividualContact(account.id, {
+        email: contact.email?.trim() || undefined,
+        phone: contact.phone?.trim() || undefined,
+        is_primary: contacts.length === 0,
+      });
       setContacts([...contacts, newContactData]);
     } catch (err: any) {
       setError(err?.message || "Failed to add contact");
@@ -263,9 +282,11 @@ const AccountForm = ({
     try {
       if (isOrganization) {
         await deleteOrganizationContact(account.id, contact.id);
-      } else {
-        await deleteIndividualContact(account.id, contact.id);
+        setContacts(contacts.filter((_, i) => i !== index));
+        return;
       }
+      
+      await deleteIndividualContact(account.id, contact.id);
       setContacts(contacts.filter((_, i) => i !== index));
     } catch (err: any) {
       setError(err?.message || "Failed to remove contact");
@@ -511,41 +532,14 @@ const AccountForm = ({
           />
         </div>
 
-        <div className="flex gap-3 pt-4">
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="flex items-center gap-2 px-6 py-2 bg-zinc-800 dark:bg-zinc-700 text-white rounded hover:bg-zinc-700 dark:hover:bg-zinc-600 disabled:opacity-50"
-          >
-            {isEditMode ? <Save size={18} /> : <Plus size={18} />}
-            {isSubmitting
-              ? isEditMode ? "Saving..." : "Creating..."
-              : isEditMode ? "Save Changes" : "Create"}
-          </button>
-
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-6 py-2 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-300 dark:hover:bg-zinc-700"
-          >
-            Cancel
-          </button>
-
-          {isEditMode && onDelete && (
-            <button
-              type="button"
-              onClick={handleDelete}
-              className={`flex items-center gap-2 px-6 py-2 rounded ml-auto ${
-                isDeleting
-                  ? "bg-red-600 text-white hover:bg-red-700"
-                  : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-              }`}
-            >
-              <Trash2 size={18} />
-              {isDeleting ? "Confirm Delete" : "Delete"}
-            </button>
-          )}
-        </div>
+        <FormActions
+          isEditMode={isEditMode}
+          isSubmitting={isSubmitting}
+          isDeleting={isDeleting}
+          onClose={onClose}
+          onDelete={onDelete ? handleDelete : undefined}
+          variant="compact"
+        />
       </form>
     </div>
   );

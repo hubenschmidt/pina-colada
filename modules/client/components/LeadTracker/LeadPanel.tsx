@@ -75,18 +75,17 @@ const LeadPanel = <T extends BaseLead>({
     setSelectedStatuses((prev) => {
       if (prev.includes(statusName)) {
         return prev.filter((s) => s !== statusName);
-      } else {
-        return [...prev, statusName];
       }
+      return [...prev, statusName];
     });
   };
 
   const handleSelectAllStatuses = () => {
     if (selectedStatuses.length === leadStatuses.length) {
       setSelectedStatuses([]);
-    } else {
-      setSelectedStatuses(leadStatuses.map((s) => s.name));
+      return;
     }
+    setSelectedStatuses(leadStatuses.map((s) => s.name));
   };
 
   const handleLeadStatusChange = async (
@@ -124,18 +123,13 @@ const LeadPanel = <T extends BaseLead>({
       return config.getStatusBadgeClass(statusName);
     }
     // Default styling
-    switch (statusName.toLowerCase()) {
-      case "qualifying":
-        return styles.badgeQualifying;
-      case "cold":
-        return styles.badgeCold;
-      case "warm":
-        return styles.badgeWarm;
-      case "hot":
-        return styles.badgeHot;
-      default:
-        return styles.badgeQualifying;
-    }
+    const statusMap: Record<string, string> = {
+      qualifying: styles.badgeQualifying,
+      cold: styles.badgeCold,
+      warm: styles.badgeWarm,
+      hot: styles.badgeHot,
+    };
+    return statusMap[statusName.toLowerCase()] || styles.badgeQualifying;
   };
 
   if (!isOpen) return null;

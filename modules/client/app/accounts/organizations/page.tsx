@@ -92,24 +92,26 @@ const OrganizationsPage = () => {
     }
 
     const sorted = [...filtered].sort((a, b) => {
-      let aVal: string | number;
-      let bVal: string | number;
-
       if (sortBy === "industries") {
-        aVal = (a.industries?.join(", ") || "").toLowerCase();
-        bVal = (b.industries?.join(", ") || "").toLowerCase();
-      } else if (sortBy === "employee_count") {
-        aVal = a.employee_count || 0;
-        bVal = b.employee_count || 0;
+        const aVal = (a.industries?.join(", ") || "").toLowerCase();
+        const bVal = (b.industries?.join(", ") || "").toLowerCase();
+        if (sortDirection === "ASC") {
+          return String(aVal).localeCompare(String(bVal));
+        }
+        return String(bVal).localeCompare(String(aVal));
+      }
+      
+      if (sortBy === "employee_count") {
+        const aVal = a.employee_count || 0;
+        const bVal = b.employee_count || 0;
         if (sortDirection === "ASC") {
           return (aVal as number) - (bVal as number);
         }
         return (bVal as number) - (aVal as number);
-      } else {
-        aVal = (a[sortBy as keyof Organization] as string || "").toLowerCase();
-        bVal = (b[sortBy as keyof Organization] as string || "").toLowerCase();
       }
-
+      
+      const aVal = (a[sortBy as keyof Organization] as string || "").toLowerCase();
+      const bVal = (b[sortBy as keyof Organization] as string || "").toLowerCase();
       if (sortDirection === "ASC") {
         return String(aVal).localeCompare(String(bVal));
       }

@@ -313,7 +313,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
 
   const listRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const sentCtxRef = useRef(false);
+  const [hasSentContext, setHasSentContext] = useState(false);
   const toolsDropdownRef = useRef<HTMLDivElement | null>(null);
   const demoDropdownRef = useRef<HTMLDivElement | null>(null);
 
@@ -324,13 +324,13 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
 
   // --- Send rich user context as soon as WS opens (testing-only) ---
   useEffect(() => {
-    if (!isOpen || sentCtxRef.current) return;
+    if (!isOpen || hasSentContext) return;
     (async () => {
       const ctx = await buildInitialContext();
       sendControl({ type: "user_context", ctx }); // single, silent send
-      sentCtxRef.current = true;
+      setHasSentContext(true);
     })();
-  }, [isOpen, sendControl]);
+  }, [isOpen, hasSentContext, sendControl]);
 
   // scroll the message list, not the page
   useEffect(() => {

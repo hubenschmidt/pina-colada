@@ -26,9 +26,9 @@ export const RootLayoutClient = ({
     if (pathname === "/") {
       if (userState.tenantName) {
         router.push("/chat");
-      } else {
-        router.push("/tenant/select");
+        return;
       }
+      router.push("/tenant/select");
       return;
     }
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { Center, Stack, Loader } from "@mantine/core";
 import { usePageLoading } from "../../../../context/pageLoadingContext";
 import LeadForm from "../../../../components/LeadTracker/LeadForm";
 import { useFormConfig } from "../../../../components/config";
@@ -50,9 +51,11 @@ const JobDetailPage = () => {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <p className="text-zinc-600 dark:text-zinc-400">Loading...</p>
-      </div>
+      <Center mih={400}>
+        <Stack align="center" gap="md">
+          <Loader size="xl" color="lime" />
+        </Stack>
+      </Center>
     );
   }
 

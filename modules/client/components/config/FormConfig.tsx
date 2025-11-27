@@ -540,11 +540,12 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
       if (!formData.individual_last_name || formData.individual_last_name.trim() === "") {
         errors.individual_last_name = "Last Name is required";
       }
-    } else {
-      // For Organization, require account field
-      if (!formData.account || formData.account.trim() === "") {
-        errors.account = "Organization is required";
-      }
+      return errors;
+    }
+    
+    // For Organization, require account field
+    if (!formData.account || formData.account.trim() === "") {
+      errors.account = "Organization is required";
     }
 
     if (!formData.job_title) {

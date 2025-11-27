@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Trash2 } from "lucide-react";
 import { BaseLead } from "./LeadTrackerConfig";
 import { LeadFormConfig, FormFieldConfig } from "./LeadFormConfig";
 import { ContactInput } from "../../types/types";
 import ContactSection, { ContactFieldConfig, SearchResult } from "../ContactSection";
 import { searchContacts } from "../../api";
+import FormActions from "../FormActions";
 
 const emptyContact = (): ContactInput => ({
   first_name: "",
@@ -25,14 +25,14 @@ interface LeadFormProps<T extends BaseLead> {
   onDelete?: (id: string) => Promise<void>;
 }
 
-const LeadForm = <T extends BaseLead>({
+function LeadForm<T extends BaseLead>({
   onClose,
   onAdd,
   config,
   lead,
   onUpdate,
   onDelete,
-}: LeadFormProps<T>) => {
+}: LeadFormProps<T>) {
   const isEditMode = !!lead;
   const [formData, setFormData] = useState<any>({});
   const [contacts, setContacts] = useState<ContactInput[]>([]);
@@ -77,8 +77,10 @@ const LeadForm = <T extends BaseLead>({
       setContacts(Array.isArray(leadContacts) ? leadContacts : []);
       setErrors({});
       setIsDeleting(false);
-    } else {
-      // Add mode: use defaults
+      return;
+    }
+    
+    // Add mode: use defaults
       const initialData: any = {};
       config.fields.forEach((field) => {
         if (field.defaultValue !== undefined) {
@@ -111,7 +113,6 @@ const LeadForm = <T extends BaseLead>({
           }
         }
       });
-    }
   }, [config.fields, isEditMode, lead]);
 
   const handleFieldChange = (fieldName: string, value: any) => {
@@ -558,39 +559,14 @@ const LeadForm = <T extends BaseLead>({
         )}
       </div>
 
-      <div className="flex gap-3 mt-6">
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="flex items-center gap-2 px-6 py-3 bg-zinc-800 dark:bg-zinc-700 text-white dark:text-zinc-100 rounded-lg hover:bg-zinc-700 dark:hover:bg-zinc-600 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {!isEditMode && <Plus size={18} />}
-          {isSubmitting
-            ? (isEditMode ? "Saving..." : "Adding...")
-            : (isEditMode ? "Save Changes" : (config.submitButtonText || "Add"))}
-        </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="px-6 py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-300 dark:hover:bg-zinc-700 font-semibold"
-        >
-          {config.cancelButtonText || "Cancel"}
-        </button>
-        {isEditMode && onDelete && (
-          <button
-            type="button"
-            onClick={handleDelete}
-            className={`px-6 py-3 rounded-lg font-semibold ml-auto ${
-              isDeleting
-                ? "bg-red-600 text-white hover:bg-red-700"
-                : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-            }`}
-          >
-            <Trash2 size={18} className="inline mr-2" />
-            {isDeleting ? "Confirm Delete" : "Delete"}
-          </button>
-        )}
-      </div>
+      <FormActions
+        isEditMode={isEditMode}
+        isSubmitting={isSubmitting}
+        isDeleting={isDeleting}
+        onClose={onClose}
+        onDelete={onDelete ? handleDelete : undefined}
+        cancelButtonText={config.cancelButtonText}
+      />
     </form>
   );
 
