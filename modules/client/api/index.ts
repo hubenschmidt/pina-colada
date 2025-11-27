@@ -41,12 +41,22 @@ const apiRequest = async <T>(
     .then((response) => response.data)
     .catch((error) => {
       const errorData = error.response?.data || {};
-      const message =
-        errorData.detail ||
-        errorData.error ||
-        error.message ||
-        "Request failed";
-      throw new Error(message);
+      // Handle Pydantic validation errors (422) which return detail as array
+      let message: string;
+      if (Array.isArray(errorData.detail)) {
+        message = errorData.detail
+          .map((e: { loc?: string[]; msg?: string }) =>
+            `${e.loc?.slice(1).join(".") || "field"}: ${e.msg || "invalid"}`
+          )
+          .join("; ");
+      } else {
+        message = errorData.detail || errorData.error || error.message || "Request failed";
+      }
+      console.error("API Error:", { status: error.response?.status, message, data: errorData });
+      const errorObj = new Error(message);
+      (errorObj as any).response = error.response;
+      (errorObj as any).errorData = errorData;
+      throw errorObj;
     });
 };
 

@@ -57,5 +57,5 @@ export interface LeadFormConfig<T extends BaseLead = BaseLead> {
   submitButtonText?: string;
   cancelButtonText?: string;
   onValidate?: (formData: any) => { [key: string]: string } | null; // Form-level validation
-  onBeforeSubmit?: (formData: any) => any; // Transform data before submission
+  onBeforeSubmit?: (formData: any, isEditMode?: boolean) => any; // Transform data before submission
 }

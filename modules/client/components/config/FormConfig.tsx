@@ -1,10 +1,25 @@
 import { CreatedJob } from "../../types/types";
 import { LeadFormConfig } from "../LeadTracker/LeadFormConfig";
 import { getRecentResumeDate, getIndustries, createIndustry, searchOrganizations, searchIndividuals, getRevenueRanges, type Industry, type Organization, type Individual, type RevenueRange } from "../../api";
-import { useState, useEffect, useCallback } from "react";
-import React from "react";
+import { useState, useEffect, useCallback, useId } from "react";
 
 type LeadType = "job";
+
+// Type guard for Organization vs Individual
+const isOrganization = (item: Organization | Individual): item is Organization =>
+  "name" in item && !("first_name" in item);
+
+// Typed debounce helper
+function debounce<T extends unknown[]>(
+  func: (...args: T) => void,
+  wait: number
+): (...args: T) => void {
+  let timeout: NodeJS.Timeout;
+  return (...args: T) => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
 
 // Account Search/Autocomplete Component for Organizations
 const AccountSelector = ({
@@ -22,7 +37,9 @@ const AccountSelector = ({
   const [results, setResults] = useState<(Organization | Individual)[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const dropdownId = useId();
+
+  const searchFn = accountType === "Organization" ? searchOrganizations : searchIndividuals;
 
   // Debounced search
   const searchDebounced = useCallback(
@@ -33,9 +50,7 @@ const AccountSelector = ({
       }
       setLoading(true);
       try {
-        const data = accountType === "Organization"
-          ? await searchOrganizations(searchQuery)
-          : await searchIndividuals(searchQuery);
+        const data = await searchFn(searchQuery);
         setResults(data);
         setIsOpen(true);
       } catch (error) {
@@ -45,7 +60,7 @@ const AccountSelector = ({
         setLoading(false);
       }
     }, 300),
-    [accountType]
+    [searchFn]
   );
 
   useEffect(() => {
@@ -54,13 +69,14 @@ const AccountSelector = ({
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const dropdown = document.getElementById(dropdownId);
+      if (dropdown && !dropdown.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [dropdownId]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -70,9 +86,9 @@ const AccountSelector = ({
   };
 
   const handleSelect = (item: Organization | Individual) => {
-    const displayName = accountType === "Organization"
-      ? (item as Organization).name
-      : `${(item as Individual).first_name} ${(item as Individual).last_name}`;
+    const displayName = isOrganization(item)
+      ? item.name
+      : `${item.first_name} ${item.last_name}`;
     setQuery(displayName);
     onChange(displayName);
     setIsOpen(false);
@@ -80,24 +96,19 @@ const AccountSelector = ({
   };
 
   const getDisplayName = (item: Organization | Individual) => {
-    if (accountType === "Organization") {
-      return (item as Organization).name;
-    }
-    const ind = item as Individual;
-    return `${ind.first_name} ${ind.last_name}`;
+    if (isOrganization(item)) return item.name;
+    return `${item.first_name} ${item.last_name}`;
   };
 
   const getSubtext = (item: Organization | Individual) => {
-    if (accountType === "Organization") {
-      const org = item as Organization;
-      return org.industries?.length > 0 ? org.industries.join(", ") : null;
+    if (isOrganization(item)) {
+      return item.industries?.length > 0 ? item.industries.join(", ") : null;
     }
-    const ind = item as Individual;
-    return ind.email || ind.title || null;
+    return item.email || item.title || null;
   };
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative" id={dropdownId}>
       <input
         type="text"
         value={query}
@@ -141,15 +152,6 @@ const AccountSelector = ({
   );
 };
 
-// Simple debounce helper
-function debounce<T extends (...args: any[]) => any>(func: T, wait: number): T {
-  let timeout: NodeJS.Timeout;
-  return ((...args: any[]) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  }) as T;
-}
-
 // Industry Multi-Select Dropdown Component
 const IndustrySelector = ({ value, onChange }: { value: string[]; onChange: (value: string[]) => void }) => {
   const [industries, setIndustries] = useState<Industry[]>([]);
@@ -158,7 +160,7 @@ const IndustrySelector = ({ value, onChange }: { value: string[]; onChange: (val
   const [isOpen, setIsOpen] = useState(false);
   const [showNewInput, setShowNewInput] = useState(false);
   const [newIndustry, setNewIndustry] = useState("");
-  const dropdownRef = React.useRef<HTMLDivElement>(null);
+  const dropdownId = useId();
 
   useEffect(() => {
     const loadIndustries = async () => {
@@ -180,14 +182,15 @@ const IndustrySelector = ({ value, onChange }: { value: string[]; onChange: (val
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      const dropdown = document.getElementById(dropdownId);
+      if (dropdown && !dropdown.contains(event.target as Node)) {
         setIsOpen(false);
         setShowNewInput(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [dropdownId]);
 
   const handleToggleIndustry = (industryName: string) => {
     const updated = selectedIndustries.includes(industryName)
@@ -226,7 +229,7 @@ const IndustrySelector = ({ value, onChange }: { value: string[]; onChange: (val
     : "Select industries...";
 
   return (
-    <div className="relative" ref={dropdownRef}>
+    <div className="relative" id={dropdownId}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
@@ -510,10 +513,44 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
     },
     // Contact Section fields removed - contacts are now handled dynamically in LeadForm
   ],
-  onBeforeSubmit: (formData) => {
+  onBeforeSubmit: (formData, isEditMode = false) => {
     // Clean up and normalize data before submission
     const cleaned = { ...formData };
 
+    // In edit mode, only include fields allowed by JobUpdate model
+    if (isEditMode) {
+      const allowedFields = [
+        "account",
+        "job_title",
+        "date",
+        "job_url",
+        "salary_range",
+        "revenue_range_id",
+        "notes",
+        "resume",
+        "status",
+        "source",
+        "lead_status_id",
+      ];
+      const filtered: Partial<CreatedJob> = {};
+      allowedFields.forEach((field) => {
+        const key = field as keyof CreatedJob;
+        if (cleaned[key] !== undefined) {
+          (filtered as Record<string, unknown>)[key] = cleaned[key];
+        }
+      });
+      // Ensure revenue_range_id is a number or null (select elements coerce to string)
+      const rawRevenueId = filtered.revenue_range_id as unknown;
+      if (rawRevenueId === "" || rawRevenueId === undefined || rawRevenueId === null) {
+        filtered.revenue_range_id = null;
+      }
+      if (filtered.revenue_range_id !== null) {
+        filtered.revenue_range_id = Number(filtered.revenue_range_id);
+      }
+      return filtered;
+    }
+
+    // Create mode: clean up and normalize data
     // Ensure industry is an array or null
     if (!cleaned.industry || (Array.isArray(cleaned.industry) && cleaned.industry.length === 0)) {
       cleaned.industry = null;

@@ -230,6 +230,22 @@ function LeadForm<T extends BaseLead>({
     return Object.keys(newErrors).length === 0;
   };
 
+  const getErrorMessage = (err: any): string => {
+    if (typeof err?.message === "string") return err.message;
+    if (typeof err?.error === "string") return err.error;
+    if (typeof err?.errorData?.detail === "string") return err.errorData.detail;
+    if (typeof err?.errorData?.error === "string") return err.errorData.error;
+    if (err?.errorData && typeof err.errorData === "object") {
+      const validationErrors = Object.entries(err.errorData)
+        .map(([key, value]) => `${key}: ${value}`)
+        .join(", ");
+      return validationErrors;
+    }
+    if (typeof err === "string") return err;
+    return `Failed to ${isEditMode ? "update" : "add"}. Please try again.`;
+  };
+
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -264,7 +280,7 @@ function LeadForm<T extends BaseLead>({
 
       // Pre-process data if needed
       if (config.onBeforeSubmit) {
-        submitData = config.onBeforeSubmit(submitData);
+        submitData = config.onBeforeSubmit(submitData, isEditMode);
       }
 
       if (isEditMode && lead && onUpdate) {
@@ -305,12 +321,6 @@ function LeadForm<T extends BaseLead>({
       onClose();
     } catch (error: any) {
       console.error(isEditMode ? "Failed to update lead:" : "Failed to add lead:", error);
-      const getErrorMessage = (err: any): string => {
-        if (typeof err?.message === "string") return err.message;
-        if (typeof err?.error === "string") return err.error;
-        if (typeof err === "string") return err;
-        return `Failed to ${isEditMode ? "update" : "add"}. Please try again.`;
-      };
       alert(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
