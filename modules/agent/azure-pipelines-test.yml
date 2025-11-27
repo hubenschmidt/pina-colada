@@ -58,6 +58,7 @@ stages:
               repository: "$(imageRepository)"
               dockerfile: "$(dockerfilePath)"
               buildContext: "$(buildContext)"
+              arguments: "--build-arg BUILD_ID=$(tagBuildId)"
               tags: |
                 $(tagLatest)
                 $(tagBuildId)

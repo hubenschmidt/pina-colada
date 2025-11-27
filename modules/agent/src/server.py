@@ -9,6 +9,7 @@ __all__ = ["app"]
 
 import json
 import logging
+import os
 from datetime import datetime
 import time
 from fastapi import FastAPI, WebSocket, Request
@@ -70,6 +71,11 @@ async def health_check():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+@app.get("/version")
+async def version():
+    return {"build_id": os.getenv("BUILD_ID", "local")}
 
 
 # -----------------------------------------------------------------------------

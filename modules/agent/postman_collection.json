@@ -83,6 +83,20 @@
             "description": "Health status endpoint"
           },
           "response": []
+        },
+        {
+          "name": "Version",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/version",
+              "host": ["{{base_url}}"],
+              "path": ["version"]
+            },
+            "description": "Get build version and environment info"
+          },
+          "response": []
         }
       ]
     },
