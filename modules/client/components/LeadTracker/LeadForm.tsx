@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { Modal } from "@mantine/core";
 import { BaseLead } from "./LeadTrackerConfig";
 import { LeadFormConfig, FormFieldConfig } from "./LeadFormConfig";
 import { ContactInput } from "../../types/types";
+import ContactSection, { ContactFieldConfig, SearchResult } from "../ContactSection";
+import { searchContacts } from "../../api";
 
 const emptyContact = (): ContactInput => ({
   first_name: "",
@@ -15,7 +16,6 @@ const emptyContact = (): ContactInput => ({
 });
 
 interface LeadFormProps<T extends BaseLead> {
-  isOpen: boolean;
   onClose: () => void;
   onAdd?: (lead: Omit<T, "id" | "created_at" | "updated_at">) => Promise<void>;
   config: LeadFormConfig<T>;
@@ -26,7 +26,6 @@ interface LeadFormProps<T extends BaseLead> {
 }
 
 const LeadForm = <T extends BaseLead>({
-  isOpen,
   onClose,
   onAdd,
   config,
@@ -41,73 +40,79 @@ const LeadForm = <T extends BaseLead>({
   const [isDeleting, setIsDeleting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
+  // Contact fields config for LeadForm
+  const contactFields: ContactFieldConfig[] = [
+    { name: "first_name", label: "First Name", placeholder: "e.g., John" },
+    { name: "last_name", label: "Last Name", placeholder: "e.g., Doe" },
+    { name: "email", label: "Email", type: "email", placeholder: "email@example.com" },
+    { name: "phone", label: "Phone", type: "tel", placeholder: "+1-555-123-4567" },
+  ];
+
   // Initialize form data
   useEffect(() => {
-    if (isOpen) {
-      if (isEditMode && lead) {
-        // Edit mode: populate from existing lead
-        const data: any = {};
-        config.fields.forEach((field) => {
-          const value = (lead as any)[field.name];
-          if (field.type === "date" && value) {
-            data[field.name] = new Date(value).toISOString().split("T")[0];
-            return;
-          }
-          data[field.name] = value ?? "";
-        });
-        // Handle Individual account type - parse account into first/last name
-        if (data.account_type === "Individual" && data.account) {
-          const parts = data.account.split(", ");
-          if (parts.length === 2) {
-            data.individual_last_name = parts[0];
-            data.individual_first_name = parts[1];
-          } else {
-            data.individual_first_name = data.account;
+    if (isEditMode && lead) {
+      // Edit mode: populate from existing lead
+      const data: any = {};
+      config.fields.forEach((field) => {
+        const value = (lead as any)[field.name];
+        if (field.type === "date" && value) {
+          data[field.name] = new Date(value).toISOString().split("T")[0];
+          return;
+        }
+        data[field.name] = value ?? "";
+      });
+      // Handle Individual account type - parse account into first/last name
+      if (data.account_type === "Individual" && data.account) {
+        const parts = data.account.split(", ");
+        if (parts.length === 2) {
+          data.individual_last_name = parts[0];
+          data.individual_first_name = parts[1];
+        } else {
+          data.individual_first_name = data.account;
+        }
+      }
+      setFormData(data);
+      // Load contacts from lead if available
+      const leadContacts = (lead as any).contacts;
+      setContacts(Array.isArray(leadContacts) ? leadContacts : []);
+      setErrors({});
+      setIsDeleting(false);
+    } else {
+      // Add mode: use defaults
+      const initialData: any = {};
+      config.fields.forEach((field) => {
+        if (field.defaultValue !== undefined) {
+          initialData[field.name] = field.defaultValue;
+          return;
+        }
+        if (field.type === "date") {
+          initialData[field.name] = new Date().toISOString().split("T")[0];
+          return;
+        }
+        if (field.type === "checkbox") {
+          initialData[field.name] = false;
+          return;
+        }
+        initialData[field.name] = "";
+      });
+      setFormData(initialData);
+      setContacts([]);
+      setErrors({});
+      setIsDeleting(false);
+
+      // Run onInit for fields that have it (only in add mode)
+      config.fields.forEach(async (field) => {
+        if (field.onInit) {
+          try {
+            const value = await field.onInit();
+            setFormData((prev: any) => ({ ...prev, [field.name]: value }));
+          } catch (error) {
+            console.error(`Failed to initialize field ${String(field.name)}:`, error);
           }
         }
-        setFormData(data);
-        // Load contacts from lead if available
-        const leadContacts = (lead as any).contacts;
-        setContacts(Array.isArray(leadContacts) ? leadContacts : []);
-        setErrors({});
-        setIsDeleting(false);
-      } else {
-        // Add mode: use defaults
-        const initialData: any = {};
-        config.fields.forEach((field) => {
-          if (field.defaultValue !== undefined) {
-            initialData[field.name] = field.defaultValue;
-            return;
-          }
-          if (field.type === "date") {
-            initialData[field.name] = new Date().toISOString().split("T")[0];
-            return;
-          }
-          if (field.type === "checkbox") {
-            initialData[field.name] = false;
-            return;
-          }
-          initialData[field.name] = "";
-        });
-        setFormData(initialData);
-        setContacts([]);
-        setErrors({});
-        setIsDeleting(false);
-
-        // Run onInit for fields that have it (only in add mode)
-        config.fields.forEach(async (field) => {
-          if (field.onInit) {
-            try {
-              const value = await field.onInit();
-              setFormData((prev: any) => ({ ...prev, [field.name]: value }));
-            } catch (error) {
-              console.error(`Failed to initialize field ${String(field.name)}:`, error);
-            }
-          }
-        });
-      }
+      });
     }
-  }, [isOpen, config.fields, isEditMode, lead]);
+  }, [config.fields, isEditMode, lead]);
 
   const handleFieldChange = (fieldName: string, value: any) => {
     const field = config.fields.find((f) => f.name === fieldName);
@@ -154,23 +159,6 @@ const LeadForm = <T extends BaseLead>({
         return newErrors;
       });
     }
-  };
-
-  // Contact management handlers
-  const handleAddContact = () => {
-    setContacts((prev) => [...prev, emptyContact()]);
-  };
-
-  const handleRemoveContact = (index: number) => {
-    setContacts((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleContactChange = (index: number, field: keyof ContactInput, value: string) => {
-    setContacts((prev) => {
-      const newContacts = [...prev];
-      newContacts[index] = { ...newContacts[index], [field]: value };
-      return newContacts;
-    });
   };
 
   const validate = (): boolean => {
@@ -474,204 +462,145 @@ const LeadForm = <T extends BaseLead>({
     );
   };
 
-  const renderContactsSection = () => {
-    const accountType = formData["account_type"] || "Organization";
-    const isFirstContactLocked = accountType === "Individual" && contacts.length > 0;
-
-    return (
-      <div className="space-y-4">
-        {contacts.map((contact, index) => (
-          <div key={index} className="p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg relative">
-            {index === 0 && (
-              <span className="absolute -top-2.5 left-3 px-2 bg-white dark:bg-zinc-900 text-xs text-lime-600 dark:text-lime-400 font-medium">
-                Primary Contact
-              </span>
-            )}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  value={contact.first_name}
-                  onChange={(e) => handleContactChange(index, "first_name", e.target.value)}
-                  disabled={index === 0 && isFirstContactLocked}
-                  className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
-                    index === 0 && isFirstContactLocked ? "opacity-60 cursor-not-allowed" : ""
-                  }`}
-                  placeholder="e.g., John"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  value={contact.last_name}
-                  onChange={(e) => handleContactChange(index, "last_name", e.target.value)}
-                  disabled={index === 0 && isFirstContactLocked}
-                  className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
-                    index === 0 && isFirstContactLocked ? "opacity-60 cursor-not-allowed" : ""
-                  }`}
-                  placeholder="e.g., Doe"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={contact.email || ""}
-                  onChange={(e) => handleContactChange(index, "email", e.target.value)}
-                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                  placeholder="e.g., john@example.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  Phone
-                </label>
-                <input
-                  type="text"
-                  value={contact.phone || ""}
-                  onChange={(e) => handleContactChange(index, "phone", e.target.value)}
-                  className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-                  placeholder="e.g., +1 (555) 123-4567"
-                />
-              </div>
-            </div>
-            {!(index === 0 && isFirstContactLocked) && (
-              <button
-                type="button"
-                onClick={() => handleRemoveContact(index)}
-                className="absolute top-2 right-2 p-1 text-zinc-400 hover:text-red-500 transition-colors"
-                title="Remove contact"
-              >
-                <Trash2 size={16} />
-              </button>
-            )}
-          </div>
-        ))}
-        <button
-          type="button"
-          onClick={handleAddContact}
-          className="flex items-center gap-2 px-4 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200 border border-dashed border-zinc-300 dark:border-zinc-600 rounded-lg hover:border-zinc-400 dark:hover:border-zinc-500 transition-colors"
-        >
-          <Plus size={16} />
-          Add Contact
-        </button>
-      </div>
-    );
+  // Contact handlers
+  const handleAddContact = (contact: ContactInput) => {
+    setContacts([...contacts, contact]);
   };
 
-  return (
-    <Modal.Root opened={isOpen} onClose={onClose} fullScreen>
-      <Modal.Overlay backgroundOpacity={0.5} />
-      <Modal.Content>
-        <Modal.Header>
-          <Modal.Title>{isEditMode ? config.title.replace("Add New", "Edit") : config.title}</Modal.Title>
-          <Modal.CloseButton />
-        </Modal.Header>
-        <Modal.Body>
-          <form onSubmit={handleSubmit}>
-        <div className="space-y-6">
-          {config.sections && config.sections.length > 0 ? (
-            // Render sections if configured
-            config.sections.map((section, sectionIndex) => {
-              // Special handling for Contact section - use dynamic contacts UI
-              const isContactSection = section.name === "Contact";
+  const handleRemoveContact = (index: number) => {
+    const accountType = formData["account_type"] || "Organization";
+    const isFirstContactLocked = accountType === "Individual" && index === 0;
+    if (!isFirstContactLocked) {
+      setContacts(contacts.filter((_, i) => i !== index));
+    }
+  };
 
-              if (isContactSection) {
-                return (
-                  <div key={section.name}>
-                    {sectionIndex > 0 && (
-                      <div className="border-t border-zinc-300 dark:border-zinc-700 mb-6"></div>
-                    )}
-                    <div>
-                      <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-                        Contacts
-                      </h4>
-                      {renderContactsSection()}
-                    </div>
-                  </div>
-                );
-              }
+  const handleSearchContacts = async (query: string): Promise<SearchResult[]> => {
+    const results = await searchContacts(query);
+    return results.map((result) => ({
+      individual_id: result.individual_id,
+      first_name: result.first_name,
+      last_name: result.last_name,
+      email: result.email,
+      phone: result.phone,
+    }));
+  };
 
-              const sectionFields = config.fields.filter((field) =>
-                section.fieldNames.includes(String(field.name))
-              );
+  const isContactLocked = (_: ContactInput, index: number) => {
+    const accountType = formData["account_type"] || "Organization";
+    return accountType === "Individual" && index === 0;
+  };
 
+  const formContent = (
+    <form onSubmit={handleSubmit}>
+      <div className="space-y-6">
+        {config.sections && config.sections.length > 0 ? (
+          // Render sections if configured
+          config.sections.map((section, sectionIndex) => {
+            // Special handling for Contact section - use dynamic contacts UI
+            const isContactSection = section.name === "Contact";
+
+            if (isContactSection) {
               return (
                 <div key={section.name}>
                   {sectionIndex > 0 && (
                     <div className="border-t border-zinc-300 dark:border-zinc-700 mb-6"></div>
                   )}
-                  <div>
-                    <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
-                      {section.name}
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {sectionFields.flatMap((field) => {
-                        const rendered = renderField(field);
-                        // Handle case where renderField returns an array (for Individual fields)
-                        if (Array.isArray(rendered)) {
-                          return rendered;
-                        }
-                        return rendered ? [rendered] : [];
-                      })}
-                    </div>
-                  </div>
+                  <ContactSection<ContactInput>
+                    contacts={contacts}
+                    onAdd={handleAddContact}
+                    onRemove={handleRemoveContact}
+                    fields={contactFields}
+                    emptyContact={emptyContact}
+                    display={{ nameFields: ["first_name", "last_name"] }}
+                    isContactLocked={isContactLocked}
+                    individualSearch={{
+                      enabled: true,
+                      onSearch: handleSearchContacts,
+                    }}
+                  />
                 </div>
               );
-            })
-          ) : (
-            // Fallback: render all fields in a single grid if no sections configured
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {config.fields.map((field) => renderField(field))}
-            </div>
-          )}
-        </div>
+            }
 
-            <div className="flex gap-3 mt-6">
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="flex items-center gap-2 px-6 py-3 bg-zinc-800 dark:bg-zinc-700 text-white dark:text-zinc-100 rounded-lg hover:bg-zinc-700 dark:hover:bg-zinc-600 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {!isEditMode && <Plus size={18} />}
-                {isSubmitting
-                  ? (isEditMode ? "Saving..." : "Adding...")
-                  : (isEditMode ? "Save Changes" : (config.submitButtonText || "Add"))}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-6 py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-300 dark:hover:bg-zinc-700 font-semibold"
-              >
-                {config.cancelButtonText || "Cancel"}
-              </button>
-              {isEditMode && onDelete && (
-                <button
-                  type="button"
-                  onClick={handleDelete}
-                  className={`px-6 py-3 rounded-lg font-semibold ml-auto ${
-                    isDeleting
-                      ? "bg-red-600 text-white hover:bg-red-700"
-                      : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-                  }`}
-                >
-                  <Trash2 size={18} className="inline mr-2" />
-                  {isDeleting ? "Confirm Delete" : "Delete"}
-                </button>
-              )}
-            </div>
-          </form>
-        </Modal.Body>
-      </Modal.Content>
-    </Modal.Root>
+            const sectionFields = config.fields.filter((field) =>
+              section.fieldNames.includes(String(field.name))
+            );
+
+            return (
+              <div key={section.name}>
+                {sectionIndex > 0 && (
+                  <div className="border-t border-zinc-300 dark:border-zinc-700 mb-6"></div>
+                )}
+                <div>
+                  <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
+                    {section.name}
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {sectionFields.flatMap((field) => {
+                      const rendered = renderField(field);
+                      // Handle case where renderField returns an array (for Individual fields)
+                      if (Array.isArray(rendered)) {
+                        return rendered;
+                      }
+                      return rendered ? [rendered] : [];
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          // Fallback: render all fields in a single grid if no sections configured
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {config.fields.map((field) => renderField(field))}
+          </div>
+        )}
+      </div>
+
+      <div className="flex gap-3 mt-6">
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="flex items-center gap-2 px-6 py-3 bg-zinc-800 dark:bg-zinc-700 text-white dark:text-zinc-100 rounded-lg hover:bg-zinc-700 dark:hover:bg-zinc-600 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {!isEditMode && <Plus size={18} />}
+          {isSubmitting
+            ? (isEditMode ? "Saving..." : "Adding...")
+            : (isEditMode ? "Save Changes" : (config.submitButtonText || "Add"))}
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="px-6 py-3 bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg hover:bg-zinc-300 dark:hover:bg-zinc-700 font-semibold"
+        >
+          {config.cancelButtonText || "Cancel"}
+        </button>
+        {isEditMode && onDelete && (
+          <button
+            type="button"
+            onClick={handleDelete}
+            className={`px-6 py-3 rounded-lg font-semibold ml-auto ${
+              isDeleting
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
+            }`}
+          >
+            <Trash2 size={18} className="inline mr-2" />
+            {isDeleting ? "Confirm Delete" : "Delete"}
+          </button>
+        )}
+      </div>
+    </form>
+  );
+
+  return (
+    <div className="p-6 max-w-4xl">
+      <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">
+        {isEditMode ? config.title.replace("Add New", "Edit") : config.title}
+      </h1>
+      {formContent}
+    </div>
   );
 };
 

@@ -25,6 +25,7 @@ from models.Asset import Asset
 from models.Tag import Tag
 from models.Account import Account
 from models.Industry import Industry
+from models.Note import Note
 
 __all__ = [
     "Base",
@@ -47,4 +48,5 @@ __all__ = [
     "Tag",
     "Account",
     "Industry",
+    "Note",
 ]

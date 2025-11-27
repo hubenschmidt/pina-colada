@@ -8,6 +8,9 @@ from api.routes.preferences import router as preferences_routes
 from api.routes.organizations import router as organizations_routes
 from api.routes.individuals import router as individuals_routes
 from api.routes.industries import router as industries_routes
+from api.routes.revenue_ranges import router as revenue_ranges_routes
+from api.routes.notes import router as notes_routes
+from api.routes.contacts import router as contacts_routes
 
 __all__ = [
     "jobs_routes",
@@ -18,5 +21,8 @@ __all__ = [
     "organizations_routes",
     "individuals_routes",
     "industries_routes",
+    "revenue_ranges_routes",
+    "notes_routes",
+    "contacts_routes",
 ]
 

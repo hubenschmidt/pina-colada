@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { DataTable, type PageData } from "../DataTable";
 import { Search, X } from "lucide-react";
 import { LeadTrackerConfig, BaseLead } from "./LeadTrackerConfig";
@@ -21,6 +22,7 @@ interface LeadTrackerProps<T extends BaseLead> {
 }
 
 const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
+  const router = useRouter();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [data, setData] = useState<PageData<T> | null>(null);
   const [loading, setLoading] = useState(true);
@@ -119,6 +121,10 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
   };
 
   const handleRowClick = (lead: T) => {
+    if (config.detailPagePath) {
+      router.push(`${config.detailPagePath}/${lead.id}`);
+      return;
+    }
     setSelectedLead(lead);
     setModalOpened(true);
   };
@@ -164,20 +170,11 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
     );
   }
 
-  const FormComponent = config.FormComponent;
-
   return (
     <Stack gap="lg">
       <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
         {config.entityName} Tracker
       </h1>
-
-      {/* Lead form */}
-      <FormComponent
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onAdd={handleAddLead}
-      />
 
       {/* Search bar and Add button */}
       {enableSearch && (
@@ -213,8 +210,17 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
                 },
               }}
             />
-            <Button onClick={() => setIsFormOpen(true)} variant="default">
-              Add {config.entityName}
+            <Button
+              onClick={() => {
+                if (config.newPagePath) {
+                  router.push(config.newPagePath);
+                  return;
+                }
+                setIsFormOpen(true);
+              }}
+              variant="default"
+            >
+              New {config.entityName}
             </Button>
           </Group>
           {searchQuery && (
@@ -269,15 +275,6 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
           }
         />
       </Box>
-
-      {/* Edit Modal */}
-      <FormComponent
-        isOpen={modalOpened}
-        onClose={handleModalClose}
-        lead={selectedLead}
-        onUpdate={handleUpdateLead}
-        onDelete={handleDeleteLead}
-      />
     </Stack>
   );
 };

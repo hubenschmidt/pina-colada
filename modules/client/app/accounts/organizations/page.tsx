@@ -1,15 +1,66 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 import { getOrganizations, Organization } from "../../../api";
-import { Table } from "@mantine/core";
+import { Stack, Center, Loader, Text } from "@mantine/core";
+import SearchHeader from "../../../components/SearchHeader";
+import { DataTable, Column, PageData } from "../../../components/DataTable";
+
+const columns: Column<Organization>[] = [
+  {
+    header: "Name",
+    accessor: "name",
+    sortable: true,
+    sortKey: "name",
+  },
+  {
+    header: "Industry",
+    sortable: true,
+    sortKey: "industries",
+    render: (org) => (org.industries?.length > 0 ? org.industries.join(", ") : "-"),
+  },
+  {
+    header: "Website",
+    accessor: "website",
+    sortable: true,
+    sortKey: "website",
+    render: (org) =>
+      org.website ? (
+        <a
+          href={org.website}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-blue-600 dark:text-blue-400 hover:underline"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {org.website}
+        </a>
+      ) : (
+        "-"
+      ),
+  },
+  {
+    header: "Employees",
+    accessor: "employee_count",
+    sortable: true,
+    sortKey: "employee_count",
+    render: (org) => org.employee_count || "-",
+  },
+];
 
 const OrganizationsPage = () => {
+  const router = useRouter();
   const { dispatchPageLoading } = usePageLoading();
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(10);
+  const [sortBy, setSortBy] = useState("name");
+  const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("ASC");
 
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -27,71 +78,125 @@ const OrganizationsPage = () => {
     fetchOrganizations();
   }, [dispatchPageLoading]);
 
+  const filteredAndSortedData = useMemo((): PageData<Organization> => {
+    let filtered = organizations;
+
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = organizations.filter(
+        (org) =>
+          org.name?.toLowerCase().includes(query) ||
+          org.website?.toLowerCase().includes(query) ||
+          org.industries?.some((ind) => ind.toLowerCase().includes(query))
+      );
+    }
+
+    const sorted = [...filtered].sort((a, b) => {
+      let aVal: string | number;
+      let bVal: string | number;
+
+      if (sortBy === "industries") {
+        aVal = (a.industries?.join(", ") || "").toLowerCase();
+        bVal = (b.industries?.join(", ") || "").toLowerCase();
+      } else if (sortBy === "employee_count") {
+        aVal = a.employee_count || 0;
+        bVal = b.employee_count || 0;
+        if (sortDirection === "ASC") {
+          return (aVal as number) - (bVal as number);
+        }
+        return (bVal as number) - (aVal as number);
+      } else {
+        aVal = (a[sortBy as keyof Organization] as string || "").toLowerCase();
+        bVal = (b[sortBy as keyof Organization] as string || "").toLowerCase();
+      }
+
+      if (sortDirection === "ASC") {
+        return String(aVal).localeCompare(String(bVal));
+      }
+      return String(bVal).localeCompare(String(aVal));
+    });
+
+    const totalPages = Math.ceil(sorted.length / limit);
+    const startIndex = (page - 1) * limit;
+    const items = sorted.slice(startIndex, startIndex + limit);
+
+    return {
+      items,
+      currentPage: page,
+      totalPages,
+      total: sorted.length,
+      pageSize: limit,
+    };
+  }, [organizations, searchQuery, sortBy, sortDirection, page, limit]);
+
+  const handleRowClick = (org: Organization) => {
+    router.push(`/accounts/organizations/${org.id}`);
+  };
+
   if (loading) {
     return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-          Organizations
-        </h1>
-        <p className="mt-4 text-zinc-600 dark:text-zinc-400">Loading...</p>
-      </div>
+      <Center mih={400}>
+        <Stack align="center" gap="md">
+          <Loader size="xl" color="lime" />
+          <Text c="dimmed">Loading organizations...</Text>
+        </Stack>
+      </Center>
     );
   }
 
   if (error) {
     return (
-      <div className="p-6">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+      <Stack gap="lg">
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
           Organizations
         </h1>
-        <p className="mt-4 text-red-600 dark:text-red-400">{error}</p>
-      </div>
+        <p className="text-red-600 dark:text-red-400">{error}</p>
+      </Stack>
     );
   }
 
   return (
-    <div className="p-6">
-      <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-4">
+    <Stack gap="lg">
+      <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
         Organizations
       </h1>
-      {organizations.length === 0 ? (
-        <p className="text-zinc-600 dark:text-zinc-400">No organizations found.</p>
-      ) : (
-        <Table striped highlightOnHover>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Name</Table.Th>
-              <Table.Th>Industry</Table.Th>
-              <Table.Th>Website</Table.Th>
-              <Table.Th>Employees</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {organizations.map((org) => (
-              <Table.Tr key={org.id}>
-                <Table.Td>{org.name}</Table.Td>
-                <Table.Td>{org.industries?.length > 0 ? org.industries.join(", ") : "-"}</Table.Td>
-                <Table.Td>
-                  {org.website ? (
-                    <a
-                      href={org.website}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 dark:text-blue-400 hover:underline"
-                    >
-                      {org.website}
-                    </a>
-                  ) : (
-                    "-"
-                  )}
-                </Table.Td>
-                <Table.Td>{org.employee_count || "-"}</Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      )}
-    </div>
+
+      <SearchHeader
+        placeholder="Search organizations..."
+        buttonLabel="New Organization"
+        onSearch={(query) => {
+          setSearchQuery(query);
+          setPage(1);
+        }}
+        onAdd={() => router.push("/accounts/organizations/new")}
+      />
+
+      <DataTable
+        data={filteredAndSortedData}
+        columns={columns}
+        onPageChange={setPage}
+        pageValue={page}
+        onPageSizeChange={(size) => {
+          setLimit(size);
+          setPage(1);
+        }}
+        pageSizeValue={limit}
+        sortBy={sortBy}
+        sortDirection={sortDirection}
+        onSortChange={({ sortBy: newSortBy, direction }) => {
+          setSortBy(newSortBy);
+          setSortDirection(direction);
+          setPage(1);
+        }}
+        onRowClick={handleRowClick}
+        rowKey={(org) => org.id}
+        emptyText={
+          searchQuery
+            ? "No matching organizations found."
+            : "No organizations yet. Add your first one above!"
+        }
+      />
+    </Stack>
   );
 };
 

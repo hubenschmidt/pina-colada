@@ -109,3 +109,133 @@ async def find_contacts_by_lead(lead_id: int) -> List[Contact]:
             if contact:
                 contacts.append(contact)
         return contacts
+
+
+async def find_contacts_by_individual(individual_id: int) -> List[Contact]:
+    """Find all contacts for an individual."""
+    async with async_get_session() as session:
+        stmt = select(Contact).where(Contact.individual_id == individual_id).order_by(
+            Contact.is_primary.desc(), Contact.id
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+
+async def find_contacts_by_organization(organization_id: int) -> List[Contact]:
+    """Find all contacts for an organization."""
+    async with async_get_session() as session:
+        stmt = select(Contact).where(Contact.organization_id == organization_id).order_by(
+            Contact.is_primary.desc(), Contact.id
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+
+async def find_contact_by_id(contact_id: int) -> Optional[Contact]:
+    """Find a contact by ID."""
+    async with async_get_session() as session:
+        return await session.get(Contact, contact_id)
+
+
+async def update_contact(contact_id: int, data: Dict[str, Any]) -> Optional[Contact]:
+    """Update an existing contact."""
+    async with async_get_session() as session:
+        try:
+            contact = await session.get(Contact, contact_id)
+            if not contact:
+                return None
+
+            for key, value in data.items():
+                if hasattr(contact, key):
+                    setattr(contact, key, value)
+
+            await session.commit()
+            await session.refresh(contact)
+            return contact
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to update contact: {e}")
+            raise
+
+
+async def delete_contact(contact_id: int) -> bool:
+    """Delete a contact by ID."""
+    async with async_get_session() as session:
+        try:
+            contact = await session.get(Contact, contact_id)
+            if not contact:
+                return False
+            await session.delete(contact)
+            await session.commit()
+            return True
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to delete contact: {e}")
+            raise
+
+
+async def search_contacts_and_individuals(query: str, tenant_id: Optional[int] = None) -> List[Dict[str, Any]]:
+    """
+    Search both Individuals and existing Contacts.
+    Returns unified results with individual info for linking.
+    """
+    async with async_get_session() as session:
+        search_pattern = f"%{query}%"
+
+        # Build query conditionally based on tenant_id
+        if tenant_id is not None:
+            sql = text("""
+                SELECT DISTINCT
+                    i.id as individual_id,
+                    i.first_name,
+                    i.last_name,
+                    i.email,
+                    i.phone,
+                    'individual' as source
+                FROM "Individual" i
+                LEFT JOIN "Account" a ON i.account_id = a.id
+                WHERE (
+                    i.first_name ILIKE :pattern
+                    OR i.last_name ILIKE :pattern
+                    OR i.email ILIKE :pattern
+                    OR CONCAT(i.first_name, ' ', i.last_name) ILIKE :pattern
+                )
+                AND a.tenant_id = :tenant_id
+                ORDER BY i.first_name, i.last_name
+                LIMIT 20
+            """)
+            result = await session.execute(sql, {"pattern": search_pattern, "tenant_id": tenant_id})
+        else:
+            sql = text("""
+                SELECT DISTINCT
+                    i.id as individual_id,
+                    i.first_name,
+                    i.last_name,
+                    i.email,
+                    i.phone,
+                    'individual' as source
+                FROM "Individual" i
+                WHERE (
+                    i.first_name ILIKE :pattern
+                    OR i.last_name ILIKE :pattern
+                    OR i.email ILIKE :pattern
+                    OR CONCAT(i.first_name, ' ', i.last_name) ILIKE :pattern
+                )
+                ORDER BY i.first_name, i.last_name
+                LIMIT 20
+            """)
+            result = await session.execute(sql, {"pattern": search_pattern})
+
+        rows = result.fetchall()
+
+        return [
+            {
+                "individual_id": row.individual_id,
+                "first_name": row.first_name,
+                "last_name": row.last_name,
+                "email": row.email,
+                "phone": row.phone,
+                "source": row.source,
+            }
+            for row in rows
+        ]

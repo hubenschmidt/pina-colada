@@ -95,6 +95,33 @@ class RevisionStorage(Protocol):
 
 ---
 
+## Analysis Architecture
+
+### Core Analysis Layer (Deterministic)
+
+Python functions that compute structured results from revision data:
+
+| Analysis Type | Approach |
+|---------------|----------|
+| State transitions | Sequence/graph traversal of status changes |
+| Time-in-state metrics | Timestamp arithmetic between revisions |
+| Yo-yo detection | Pattern matching on status sequences |
+| Field evolution | JSON diff comparison across snapshots |
+| Actor patterns | Aggregation queries on `actor_id`/`source` |
+
+These functions are fast, cheap, testable, and produce deterministic outputs with no hallucination risk.
+
+### Presentation Layer (LLM)
+
+The AI Agent consumes structured analysis results and:
+- Summarizes insights in natural language for users
+- Interprets patterns contextually (e.g., "this looks like a negotiation pattern")
+- Handles open-ended queries (e.g., "what's unusual about this job hunt?")
+
+The LLM does not perform the core computations—it explains them.
+
+---
+
 ## Configuration
 
 ### Cascading Behavior
@@ -194,3 +221,107 @@ BLOB_BUCKET=revisions-prod
 - Retention/cleanup policies (can add later)
 - Compression of snapshots
 - Real-time streaming of revisions
+
+---
+
+## Go Analytics Microservice (Future)
+
+### Rationale
+A dedicated Go service for snapshot analysis enables:
+- High-performance diff computation across large JSON snapshots
+- CPU-bound analysis without blocking Python async event loop
+- Skill development opportunity with production Go codebase
+
+### Scope
+**Initial capability**: Snapshot diff computation
+- Input: Two blob keys (or raw JSON payloads)
+- Output: Structured diff (added/removed/changed fields)
+
+### Architecture
+
+```
+modules/analytics/
+├── Dockerfile
+├── go.mod
+├── main.go
+├── internal/
+│   ├── api/          # HTTP handlers
+│   ├── diff/         # JSON diff logic
+│   └── storage/      # S3-compatible client (MinIO/R2)
+└── config/
+```
+
+### Integration
+- Python agent calls Go service via HTTP when analysis needed
+- Go service reads snapshots directly from MinIO/R2
+- Returns structured JSON (not natural language)
+
+### Docker Compose Addition
+
+```yaml
+analytics:
+  build:
+    context: ./modules/analytics
+    dockerfile: Dockerfile
+  ports:
+    - "9002:9002"
+  environment:
+    - BLOB_ENDPOINT=${BLOB_ENDPOINT:-http://minio:9000}
+    - BLOB_ACCESS_KEY=${BLOB_ACCESS_KEY:-minio}
+    - BLOB_SECRET_KEY=${BLOB_SECRET_KEY:-miniosecret}
+    - BLOB_BUCKET=${BLOB_BUCKET:-revisions}
+  depends_on:
+    minio:
+      condition: service_healthy
+  networks:
+    - app-network
+```
+
+### API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/health` | Health check |
+| POST | `/diff` | Compare two snapshots |
+
+### Example Request
+
+```json
+POST /diff
+{
+  "left": "Lead/123/1.json",
+  "right": "Lead/123/5.json"
+}
+```
+
+### Example Response
+
+```json
+{
+  "added": [],
+  "removed": [],
+  "changed": [
+    {
+      "path": "current_status_id",
+      "from": 1,
+      "to": 3
+    },
+    {
+      "path": "salary_range.max",
+      "from": 120000,
+      "to": 145000
+    }
+  ]
+}
+```
+
+### Dependencies
+- Go 1.22+
+- `github.com/wI2L/jsondiff` or similar
+- `github.com/aws/aws-sdk-go-v2` for S3
+
+### Implementation Phases
+1. Scaffold Go service with health endpoint
+2. Add S3 client for MinIO/R2
+3. Implement `/diff` endpoint
+4. Integrate with Python agent (HTTP client)

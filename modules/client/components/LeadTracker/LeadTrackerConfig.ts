@@ -52,4 +52,6 @@ export interface LeadTrackerConfig<
   searchFields?: (keyof T)[];
   enableSearch?: boolean;
   enableExport?: boolean;
+  detailPagePath?: string; // If provided, navigates to detail page instead of modal
+  newPagePath?: string; // If provided, navigates to new page instead of modal
 }

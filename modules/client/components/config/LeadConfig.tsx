@@ -171,6 +171,8 @@ const getJobLeadConfig = (): LeadTrackerConfig<
     searchPlaceholder: "Search by account or job title...",
     emptyMessage: "No job applications yet. Add your first one above!",
     enableSearch: true,
+    detailPagePath: "/leads/jobs",
+    newPagePath: "/leads/jobs/new",
   };
 };
 

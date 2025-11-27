@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 from fastapi import HTTPException
 from lib.serialization import model_to_dict
+from lib.validators import validate_phone
 from repositories.job_repository import (
     find_all_jobs,
     create_job as create_job_repo,
@@ -383,7 +384,8 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
         "current_status_id": status_id,
         "job_title": job_data.get("job_title", ""),
         "job_url": job_data.get("job_url"),
-        "salary_range": job_data.get("salary_range"),
+        "salary_range": job_data.get("salary_range"),  # Legacy field
+        "revenue_range_id": job_data.get("revenue_range_id"),
         "notes": job_data.get("notes"),
         "source": job_data.get("source", "manual"),
         "tenant_id": tenant_id,
@@ -408,15 +410,25 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
         if not first_name or not last_name:
             continue
 
-        # Get or create Individual for this contact
-        individual = await get_or_create_individual(first_name, last_name, tenant_id)
+        # Validate phone if provided
+        contact_phone = contact_data.get("phone")
+        try:
+            contact_phone = validate_phone(contact_phone)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Contact {first_name} {last_name}: {str(e)}")
+
+        # Use provided individual_id if available, otherwise create new Individual
+        individual_id = contact_data.get("individual_id")
+        if not individual_id:
+            individual = await get_or_create_individual(first_name, last_name, tenant_id)
+            individual_id = individual.id
 
         # Create Contact record (links individual to organization if applicable)
         contact = await get_or_create_contact(
-            individual_id=individual.id,
+            individual_id=individual_id,
             organization_id=organization_id,
             email=contact_data.get("email"),
-            phone=contact_data.get("phone"),
+            phone=contact_phone,
             title=contact_data.get("title"),
             is_primary=(idx == 0)  # First contact is primary
         )
@@ -567,7 +579,8 @@ async def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
     allowed_fields = [
         "job_title",
         "job_url",
-        "salary_range",
+        "salary_range",  # Legacy field
+        "revenue_range_id",
         "notes",
         "source",
     ]

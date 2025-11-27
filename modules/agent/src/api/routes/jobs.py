@@ -30,7 +30,8 @@ def _make_job_create_model() -> Type[BaseModel]:
         job_title=(str, ...),
         date=(Optional[str], None),
         job_url=(Optional[str], None),
-        salary_range=(Optional[str], None),
+        salary_range=(Optional[str], None),  # Legacy, kept for backwards compat
+        revenue_range_id=(Optional[int], None),
         notes=(Optional[str], None),
         resume=(Optional[str], None),
         status=(str, "applied"),
@@ -46,7 +47,8 @@ def _make_job_update_model() -> Type[BaseModel]:
         job_title=(Optional[str], None),
         date=(Optional[str], None),
         job_url=(Optional[str], None),
-        salary_range=(Optional[str], None),
+        salary_range=(Optional[str], None),  # Legacy, kept for backwards compat
+        revenue_range_id=(Optional[int], None),
         notes=(Optional[str], None),
         resume=(Optional[str], None),
         status=(Optional[str], None),

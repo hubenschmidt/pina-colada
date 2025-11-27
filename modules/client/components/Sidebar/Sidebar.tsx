@@ -7,7 +7,6 @@ import {
   ChevronDown,
   PanelLeftClose,
   PanelLeft,
-  Settings,
 } from "lucide-react";
 import { Stack, ScrollArea } from "@mantine/core";
 import { useNavContext } from "../../context/navContext";
@@ -107,20 +106,6 @@ export const Sidebar = () => {
             </nav>
           )}
         </ScrollArea>
-
-        {/* Settings Button at Bottom */}
-        <div className="sticky bottom-0 bg-zinc-50 dark:bg-zinc-900 p-4 border-t border-zinc-200 dark:border-zinc-700">
-          <Link
-            href="/settings"
-            className={`flex items-center rounded text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-              sidebarCollapsed ? "justify-center px-3 py-2" : "gap-3 px-3 py-2"
-            }`}
-            title="Settings"
-          >
-            <Settings className="h-5 w-5 flex-shrink-0" />
-            {!sidebarCollapsed && <span>Settings</span>}
-          </Link>
-        </div>
       </Stack>
     </aside>
   );

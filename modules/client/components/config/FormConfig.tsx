@@ -1,6 +1,6 @@
 import { CreatedJob } from "../../types/types";
 import { LeadFormConfig } from "../LeadTracker/LeadFormConfig";
-import { getRecentResumeDate, getIndustries, createIndustry, searchOrganizations, searchIndividuals, type Industry, type Organization, type Individual } from "../../api";
+import { getRecentResumeDate, getIndustries, createIndustry, searchOrganizations, searchIndividuals, getRevenueRanges, type Industry, type Organization, type Individual, type RevenueRange } from "../../api";
 import { useState, useEffect, useCallback } from "react";
 import React from "react";
 
@@ -302,6 +302,55 @@ const IndustrySelector = ({ value, onChange }: { value: string[]; onChange: (val
   );
 };
 
+// Salary Range Dropdown Component
+const SalaryRangeSelector = ({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (value: number | null) => void;
+}) => {
+  const [ranges, setRanges] = useState<RevenueRange[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadRanges = async () => {
+      try {
+        const data = await getRevenueRanges("salary");
+        setRanges(data);
+      } catch (error) {
+        console.error("Failed to fetch salary ranges:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadRanges();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
+        Loading...
+      </div>
+    );
+  }
+
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+      className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
+    >
+      <option value="">Select salary range...</option>
+      {ranges.map((range) => (
+        <option key={range.id} value={range.id}>
+          {range.label}
+        </option>
+      ))}
+    </select>
+  );
+};
+
 const JOB_STATUS_OPTIONS: CreatedJob["status"][] = [
   "Lead",
   "Applied",
@@ -318,7 +367,7 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
   sections: [
     {
       name: "Job Info",
-      fieldNames: ["job_title", "date", "resume", "salary_range", "job_url", "industry", "status", "notes"],
+      fieldNames: ["job_title", "date", "resume", "revenue_range_id", "job_url", "industry", "status", "notes"],
     },
     {
       name: "Account Info",
@@ -390,10 +439,12 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
       ),
     },
     {
-      name: "salary_range",
+      name: "revenue_range_id",
       label: "Salary Range",
-      type: "text",
-      placeholder: "e.g., $120k - $150k",
+      type: "custom",
+      renderCustom: ({ value, onChange }) => (
+        <SalaryRangeSelector value={value} onChange={onChange} />
+      ),
     },
     {
       name: "job_url",

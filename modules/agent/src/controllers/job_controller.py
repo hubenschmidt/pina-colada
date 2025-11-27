@@ -71,6 +71,15 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
         else (str(resume_date) if resume_date else None)
     )
 
+    # Get salary_range from revenue_range relationship, fallback to legacy field
+    salary_range = None
+    revenue_range_id = None
+    if job.revenue_range:
+        salary_range = job.revenue_range.label
+        revenue_range_id = job.revenue_range.id
+    elif job_dict.get("salary_range"):
+        salary_range = job_dict.get("salary_range")
+
     return {
         "id": str(job_dict.get("id", "")),
         "account": company,
@@ -79,7 +88,8 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
         "date": date_str[:10] if date_str else "",  # YYYY-MM-DD format
         "status": status,
         "job_url": job_dict.get("job_url"),
-        "salary_range": job_dict.get("salary_range"),
+        "salary_range": salary_range,
+        "revenue_range_id": revenue_range_id,
         "notes": job_dict.get("notes"),
         "resume": resume_str,
         "source": job_dict.get("source", "manual"),

@@ -25,7 +25,9 @@ async def find_all_organizations(tenant_id: Optional[int] = None) -> List[Organi
 async def find_organization_by_id(org_id: int) -> Optional[Organization]:
     """Find organization by ID."""
     async with async_get_session() as session:
-        return await session.get(Organization, org_id)
+        stmt = select(Organization).options(selectinload(Organization.industries)).where(Organization.id == org_id)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
 
 
 async def find_organization_by_name(name: str, tenant_id: Optional[int] = None) -> Optional[Organization]:
@@ -46,8 +48,10 @@ async def create_organization(data: Dict[str, Any]) -> Organization:
             org = Organization(**data)
             session.add(org)
             await session.commit()
-            await session.refresh(org)
-            return org
+            # Re-fetch with industries loaded
+            stmt = select(Organization).options(selectinload(Organization.industries)).where(Organization.id == org.id)
+            result = await session.execute(stmt)
+            return result.scalar_one()
         except Exception as e:
             await session.rollback()
             logger.error(f"Failed to create organization: {e}")
@@ -113,8 +117,10 @@ async def update_organization(org_id: int, data: Dict[str, Any]) -> Optional[Org
                     setattr(org, key, value)
 
             await session.commit()
-            await session.refresh(org)
-            return org
+            # Re-fetch with industries loaded
+            stmt = select(Organization).options(selectinload(Organization.industries)).where(Organization.id == org_id)
+            result = await session.execute(stmt)
+            return result.scalar_one()
         except Exception as e:
             await session.rollback()
             logger.error(f"Failed to update organization: {e}")

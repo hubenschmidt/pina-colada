@@ -63,7 +63,8 @@ async def _load_job_with_relationships(session, job_id: int) -> Job:
         joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
         joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
         joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations),
-        joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals)
+        joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals),
+        joinedload(Job.revenue_range)
     ).where(Job.id == job_id)
     result = await session.execute(stmt)
     return result.unique().scalar_one()
@@ -86,7 +87,8 @@ async def find_all_jobs(
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals)
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals),
+            joinedload(Job.revenue_range)
         ).join(Lead).outerjoin(Account, Lead.account_id == Account.id).outerjoin(Organization, Account.id == Organization.account_id)
 
         # Filter by tenant
@@ -147,7 +149,8 @@ async def find_job_by_id(job_id: int) -> Optional[Job]:
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals)
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals),
+            joinedload(Job.revenue_range)
         ).where(Job.id == job_id)
         result = await session.execute(stmt)
         return result.unique().scalar_one_or_none()
@@ -198,7 +201,8 @@ async def create_job(data: Dict[str, Any]) -> Job:
                 job_url=data.get("job_url"),
                 notes=data.get("notes"),
                 resume_date=data.get("resume_date"),
-                salary_range=data.get("salary_range")
+                salary_range=data.get("salary_range"),
+                revenue_range_id=data.get("revenue_range_id")
             )
 
             session.add(job)
@@ -239,6 +243,8 @@ async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
                 job.resume_date = data["resume_date"]
             if "salary_range" in data:
                 job.salary_range = data["salary_range"]
+            if "revenue_range_id" in data:
+                job.revenue_range_id = data["revenue_range_id"]
 
             # Update Lead fields if provided
             if not job.lead:
@@ -292,7 +298,8 @@ async def find_job_by_company_and_title(company: str, title: str) -> Optional[Jo
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals)
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals),
+            joinedload(Job.revenue_range)
         ).join(Lead).outerjoin(Account, Lead.account_id == Account.id).outerjoin(Organization, Account.id == Organization.account_id).where(
             sql_func.lower(Organization.name).contains(sql_func.lower(company.strip())),
             sql_func.lower(Job.job_title).contains(sql_func.lower(title.strip()))
@@ -318,7 +325,8 @@ async def find_jobs_with_status(status_names: Optional[List[str]] = None) -> Lis
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals)
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals),
+            joinedload(Job.revenue_range)
         ).join(Lead).join(Status).where(Lead.current_status_id.isnot(None))
 
         if status_names:

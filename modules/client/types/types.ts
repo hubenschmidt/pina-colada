@@ -1,4 +1,5 @@
 export interface ContactInput {
+  individual_id?: number;
   first_name: string;
   last_name: string;
   email?: string;
@@ -16,7 +17,8 @@ export interface CreatedJob {
   job_url: string | null;
   notes: string | null;
   resume: string | null;
-  salary_range: string | null;
+  salary_range: string | null;  // Display label from RevenueRange
+  revenue_range_id: number | null;  // FK to RevenueRange
   industry: string | null;
   source: 'manual' | 'agent';
   lead_status_id: string | null;

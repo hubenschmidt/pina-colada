@@ -4,6 +4,7 @@
 
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
 import { CreatedJob } from "../types/types";
+export type { CreatedJob } from "../types/types";
 import { PageData } from "../components/DataTable";
 import { env } from "next-runtime-env";
 import { fetchBearerToken } from "../lib/fetch-bearer-token";
@@ -284,6 +285,22 @@ export const updateTenantPreferences = async (
   return apiPatch<TenantPreferencesResponse>("/preferences/tenant", { theme });
 };
 
+// Contact Types
+export type Contact = {
+  id: number;
+  individual_id: number;
+  organization_id: number | null;
+  title: string | null;
+  department: string | null;
+  role: string | null;
+  email: string | null;
+  phone: string | null;
+  is_primary: boolean;
+  notes: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
 // Individual Types
 export type Individual = {
   id: number;
@@ -294,6 +311,7 @@ export type Individual = {
   linkedin_url: string | null;
   title: string | null;
   notes: string | null;
+  contacts?: Contact[];
   created_at: string | null;
   updated_at: string | null;
 };
@@ -305,6 +323,39 @@ export const getIndividuals = async (): Promise<Individual[]> => {
   return apiGet<Individual[]>("/individuals");
 };
 
+/**
+ * Get a single individual by ID
+ */
+export const getIndividual = async (id: number): Promise<Individual> => {
+  return apiGet<Individual>(`/individuals/${id}`);
+};
+
+/**
+ * Create a new individual
+ */
+export const createIndividual = async (
+  data: Partial<Omit<Individual, "id" | "created_at" | "updated_at">>
+): Promise<Individual> => {
+  return apiPost<Individual>("/individuals", data);
+};
+
+/**
+ * Update an individual
+ */
+export const updateIndividual = async (
+  id: number,
+  data: Partial<Omit<Individual, "id" | "created_at" | "updated_at">>
+): Promise<Individual> => {
+  return apiPut<Individual>(`/individuals/${id}`, data);
+};
+
+/**
+ * Delete an individual
+ */
+export const deleteIndividual = async (id: number): Promise<void> => {
+  await apiDelete(`/individuals/${id}`);
+};
+
 // Organization Types
 export type Organization = {
   id: number;
@@ -314,6 +365,7 @@ export type Organization = {
   industries: string[];
   employee_count: number | null;
   description: string | null;
+  contacts?: Contact[];
   created_at: string | null;
   updated_at: string | null;
 };
@@ -323,6 +375,39 @@ export type Organization = {
  */
 export const getOrganizations = async (): Promise<Organization[]> => {
   return apiGet<Organization[]>("/organizations");
+};
+
+/**
+ * Get a single organization by ID
+ */
+export const getOrganization = async (id: number): Promise<Organization> => {
+  return apiGet<Organization>(`/organizations/${id}`);
+};
+
+/**
+ * Create a new organization
+ */
+export const createOrganization = async (
+  data: Partial<Omit<Organization, "id" | "created_at" | "updated_at" | "industries">>
+): Promise<Organization> => {
+  return apiPost<Organization>("/organizations", data);
+};
+
+/**
+ * Update an organization
+ */
+export const updateOrganization = async (
+  id: number,
+  data: Partial<Omit<Organization, "id" | "created_at" | "updated_at" | "industries">>
+): Promise<Organization> => {
+  return apiPut<Organization>(`/organizations/${id}`, data);
+};
+
+/**
+ * Delete an organization
+ */
+export const deleteOrganization = async (id: number): Promise<void> => {
+  await apiDelete(`/organizations/${id}`);
 };
 
 /**
@@ -337,6 +422,24 @@ export const searchOrganizations = async (query: string): Promise<Organization[]
  */
 export const searchIndividuals = async (query: string): Promise<Individual[]> => {
   return apiGet<Individual[]>(`/individuals/search?q=${encodeURIComponent(query)}`);
+};
+
+// Contact Search Types
+export type ContactSearchResult = {
+  individual_id: number;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  source: "individual" | "contact";
+};
+
+/**
+ * Search contacts and individuals by name or email.
+ * Returns results that can be linked as contacts via individual_id.
+ */
+export const searchContacts = async (query: string): Promise<ContactSearchResult[]> => {
+  return apiGet<ContactSearchResult[]>(`/contacts/search?q=${encodeURIComponent(query)}`);
 };
 
 // Industry Types
@@ -358,4 +461,151 @@ export const getIndustries = async (): Promise<Industry[]> => {
  */
 export const createIndustry = async (name: string): Promise<Industry> => {
   return apiPost<Industry>("/industries", { name });
+};
+
+// Revenue Range Types
+export type RevenueRange = {
+  id: number;
+  category: string;
+  label: string;
+  min_value: number | null;
+  max_value: number | null;
+  display_order: number;
+};
+
+/**
+ * Get revenue ranges by category (e.g., 'salary')
+ */
+export const getRevenueRanges = async (category: string): Promise<RevenueRange[]> => {
+  return apiGet<RevenueRange[]>(`/revenue-ranges?category=${encodeURIComponent(category)}`);
+};
+
+// Contact Management for Individuals
+
+/**
+ * Get contacts for an individual
+ */
+export const getIndividualContacts = async (individualId: number): Promise<Contact[]> => {
+  return apiGet<Contact[]>(`/individuals/${individualId}/contacts`);
+};
+
+/**
+ * Create a contact for an individual
+ */
+export const createIndividualContact = async (
+  individualId: number,
+  data: Partial<Omit<Contact, "id" | "individual_id" | "created_at" | "updated_at">>
+): Promise<Contact> => {
+  return apiPost<Contact>(`/individuals/${individualId}/contacts`, data);
+};
+
+/**
+ * Update a contact for an individual
+ */
+export const updateIndividualContact = async (
+  individualId: number,
+  contactId: number,
+  data: Partial<Omit<Contact, "id" | "individual_id" | "created_at" | "updated_at">>
+): Promise<Contact> => {
+  return apiPut<Contact>(`/individuals/${individualId}/contacts/${contactId}`, data);
+};
+
+/**
+ * Delete a contact for an individual
+ */
+export const deleteIndividualContact = async (
+  individualId: number,
+  contactId: number
+): Promise<void> => {
+  await apiDelete(`/individuals/${individualId}/contacts/${contactId}`);
+};
+
+// Contact Management for Organizations
+
+/**
+ * Get contacts for an organization
+ */
+export const getOrganizationContacts = async (orgId: number): Promise<Contact[]> => {
+  return apiGet<Contact[]>(`/organizations/${orgId}/contacts`);
+};
+
+/**
+ * Add a contact (existing individual) to an organization
+ */
+export const createOrganizationContact = async (
+  orgId: number,
+  data: { individual_id: number } & Partial<Omit<Contact, "id" | "individual_id" | "organization_id" | "created_at" | "updated_at">>
+): Promise<Contact> => {
+  return apiPost<Contact>(`/organizations/${orgId}/contacts`, data);
+};
+
+/**
+ * Update a contact for an organization
+ */
+export const updateOrganizationContact = async (
+  orgId: number,
+  contactId: number,
+  data: Partial<Omit<Contact, "id" | "individual_id" | "organization_id" | "created_at" | "updated_at">>
+): Promise<Contact> => {
+  return apiPut<Contact>(`/organizations/${orgId}/contacts/${contactId}`, data);
+};
+
+/**
+ * Delete a contact for an organization
+ */
+export const deleteOrganizationContact = async (
+  orgId: number,
+  contactId: number
+): Promise<void> => {
+  await apiDelete(`/organizations/${orgId}/contacts/${contactId}`);
+};
+
+// Note Types
+export type Note = {
+  id: number;
+  tenant_id: number;
+  entity_type: string;
+  entity_id: number;
+  content: string;
+  created_by: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+/**
+ * Get notes for an entity
+ */
+export const getNotes = async (
+  entityType: string,
+  entityId: number
+): Promise<Note[]> => {
+  return apiGet<Note[]>(`/notes?entity_type=${encodeURIComponent(entityType)}&entity_id=${entityId}`);
+};
+
+/**
+ * Create a new note
+ */
+export const createNote = async (
+  entityType: string,
+  entityId: number,
+  content: string
+): Promise<Note> => {
+  return apiPost<Note>("/notes", { entity_type: entityType, entity_id: entityId, content });
+};
+
+/**
+ * Update a note
+ */
+export const updateNote = async (
+  noteId: number,
+  content: string
+): Promise<Note> => {
+  return apiPut<Note>(`/notes/${noteId}`, { content });
+};
+
+/**
+ * Delete a note
+ */
+export const deleteNote = async (noteId: number): Promise<void> => {
+  await apiDelete(`/notes/${noteId}`);
 };

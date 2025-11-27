@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useNavContext } from "../context/navContext";
 import { useUser } from "@auth0/nextjs-auth0";
 import HeaderAuthed from "./HeaderAuthed";
+import { Menu, Button } from "@mantine/core";
+import { ChevronDown, Settings, LogOut } from "lucide-react";
 
 const Header = () => {
   const { dispatchNav } = useNavContext();
@@ -112,14 +114,38 @@ const Header = () => {
               </>
             )}
           </nav>
-          {/* Login/Logout - Always visible */}
+          {/* Login/Account Menu */}
           {user ? (
-            <a
-              href="/auth/logout"
-              className="text-blue-700 hover:text-blue-500 text-sm font-semibold"
-            >
-              Logout
-            </a>
+            <Menu shadow="md" width={200}>
+              <Menu.Target>
+                <Button
+                  variant="subtle"
+                  color="blue"
+                  size="sm"
+                  rightSection={<ChevronDown size={14} />}
+                >
+                  Account
+                </Button>
+              </Menu.Target>
+              <Menu.Dropdown>
+                <Menu.Item
+                  leftSection={<Settings size={16} />}
+                  component={Link}
+                  href="/settings"
+                >
+                  Settings
+                </Menu.Item>
+                <Menu.Divider />
+                <Menu.Item
+                  leftSection={<LogOut size={16} />}
+                  component="a"
+                  href="/auth/logout"
+                  color="red"
+                >
+                  Logout
+                </Menu.Item>
+              </Menu.Dropdown>
+            </Menu>
           ) : (
             <Link
               href="/login"
