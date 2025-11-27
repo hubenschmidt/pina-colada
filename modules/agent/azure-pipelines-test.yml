@@ -104,23 +104,6 @@ stages:
             displayName: "Install Supabase CLI"
 
           - script: |
-              echo "Resetting test database (drop and recreate schema)..."
-              export PGPASSWORD="${SUPABASE_DB_PASSWORD}"
-              DB_URL="postgres://postgres.${SUPABASE_PROJECT_ID}@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
-
-              # Drop and recreate public schema for clean slate
-              psql "$DB_URL" -c "DROP SCHEMA IF EXISTS public CASCADE;"
-              psql "$DB_URL" -c "CREATE SCHEMA public;"
-              psql "$DB_URL" -c "GRANT ALL ON SCHEMA public TO postgres;"
-              psql "$DB_URL" -c "GRANT ALL ON SCHEMA public TO public;"
-
-              echo "✓ Test database schema reset complete"
-            displayName: "Reset Test Database Schema"
-            env:
-              SUPABASE_DB_PASSWORD: $(SUPABASE_DB_PASSWORD)
-              SUPABASE_PROJECT_ID: $(SUPABASE_PROJECT_ID)
-
-          - script: |
               echo "Setting up migrations..."
               export PATH="$(Agent.ToolsDirectory)/supabase:$PATH"
 
@@ -136,35 +119,8 @@ stages:
               fi
 
               echo "Applying database migrations via pooler..."
-              supabase db push --debug --db-url "postgres://postgres.${SUPABASE_PROJECT_ID}:${SUPABASE_DB_PASSWORD}@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
+              supabase db push --db-url "postgres://postgres.${SUPABASE_PROJECT_ID}:${SUPABASE_DB_PASSWORD}@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
             displayName: "Push Migrations to Supabase"
-            continueOnError: false
-            workingDirectory: $(System.DefaultWorkingDirectory)
-            env:
-              SUPABASE_DB_PASSWORD: $(SUPABASE_DB_PASSWORD)
-              SUPABASE_PROJECT_ID: $(SUPABASE_PROJECT_ID)
-
-          - script: |
-              echo "Running database seeders..."
-              export PGPASSWORD="${SUPABASE_DB_PASSWORD}"
-              DB_URL="postgres://postgres.${SUPABASE_PROJECT_ID}@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
-
-              # Create seeders tracking table
-              psql "$DB_URL" -c "CREATE TABLE IF NOT EXISTS schema_seeders (seeder_name TEXT PRIMARY KEY, applied_at TIMESTAMP DEFAULT NOW());"
-
-              # Run each seeder file
-              if [ -d "modules/agent/seeders" ]; then
-                for seeder in $(ls modules/agent/seeders/*.sql 2>/dev/null | sort); do
-                  seeder_name=$(basename "$seeder")
-                  echo "Running seeder: $seeder_name"
-                  psql "$DB_URL" -f "$seeder"
-                  psql "$DB_URL" -c "INSERT INTO schema_seeders (seeder_name) VALUES ('$seeder_name') ON CONFLICT DO NOTHING;"
-                done
-                echo "✓ All seeders applied"
-              else
-                echo "⚠️  No seeders directory found"
-              fi
-            displayName: "Run Database Seeders"
             continueOnError: false
             workingDirectory: $(System.DefaultWorkingDirectory)
             env:
