@@ -17,7 +17,7 @@ from repositories.job_repository import (
 )
 from repositories.organization_repository import get_or_create_organization
 from repositories.individual_repository import get_or_create_individual
-from repositories.contact_repository import get_or_create_contact, create_lead_contact, delete_lead_contacts_by_lead
+from repositories.contact_repository import get_or_create_contact
 from repositories.job_repository import find_all_jobs as find_all_jobs_repo
 from repositories.deal_repository import get_or_create_deal
 from repositories.status_repository import find_status_by_name
@@ -65,36 +65,46 @@ async def _resolve_organization_account(job_data: Dict[str, Any], tenant_id: Opt
     return org.account_id, org.name
 
 
+def _validate_contact_phone(phone: Optional[str], first_name: str, last_name: str) -> Optional[str]:
+    """Validate and return phone, or raise HTTPException."""
+    if not phone:
+        return None
+    try:
+        return validate_phone(phone)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Contact {first_name} {last_name}: {str(e)}")
+
+
 async def _process_single_contact(
     contact_data: Dict[str, Any],
-    lead_id: int,
     organization_id: Optional[int],
     tenant_id: Optional[str],
-    is_primary: bool
+    is_primary_default: bool
 ) -> None:
-    """Process a single contact for a job. Returns early if invalid."""
+    """Process a single contact for a job's account. Returns early if invalid."""
     first_name = contact_data.get("first_name", "").strip()
     last_name = contact_data.get("last_name", "").strip()
     if not first_name or not last_name:
         return
-    contact_phone = contact_data.get("phone")
-    try:
-        contact_phone = validate_phone(contact_phone)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Contact {first_name} {last_name}: {str(e)}")
+
+    contact_phone = _validate_contact_phone(contact_data.get("phone"), first_name, last_name)
+
+    # Use is_primary from contact_data if provided, otherwise use default
+    is_primary = contact_data.get("is_primary", is_primary_default)
+
+    # Use provided individual_id if available (e.g., from search selection)
     individual_id = contact_data.get("individual_id")
-    if not individual_id:
-        individual = await get_or_create_individual(first_name, last_name, tenant_id)
-        individual_id = individual.id
-    contact = await get_or_create_contact(
+
+    await get_or_create_contact(
         individual_id=individual_id,
         organization_id=organization_id,
+        first_name=first_name,
+        last_name=last_name,
         email=contact_data.get("email"),
         phone=contact_phone,
         title=contact_data.get("title"),
         is_primary=is_primary
     )
-    await create_lead_contact(lead_id=lead_id, contact_id=contact.id, is_primary=is_primary)
 
 
 def _parse_resume_date(resume_str: str | None) -> tuple[bool, datetime | None]:
@@ -435,7 +445,7 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
             organization_id = org.id
 
     for idx, contact_data in enumerate(contacts):
-        await _process_single_contact(contact_data, created.id, organization_id, tenant_id, is_primary=(idx == 0))
+        await _process_single_contact(contact_data, organization_id, tenant_id, is_primary_default=(idx == 0))
 
     return created
 
@@ -609,21 +619,19 @@ async def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
     if contacts is None:
         return updated
 
-    await delete_lead_contacts_by_lead(updated.id)
-
     # Get organization_id and tenant_id from the job's lead account
     organization_id = None
     tenant_id = None
     if not updated.lead or not updated.lead.account:
         for idx, contact_data in enumerate(contacts):
-            await _process_single_contact(contact_data, updated.id, organization_id, tenant_id, is_primary=(idx == 0))
+            await _process_single_contact(contact_data, organization_id, tenant_id, is_primary_default=(idx == 0))
         return updated
 
     organizations = updated.lead.account.organizations
     organization_id = organizations[0].id if organizations else None
     tenant_id = updated.lead.account.tenant_id
     for idx, contact_data in enumerate(contacts):
-        await _process_single_contact(contact_data, updated.id, organization_id, tenant_id, is_primary=(idx == 0))
+        await _process_single_contact(contact_data, organization_id, tenant_id, is_primary_default=(idx == 0))
     return updated
 
 

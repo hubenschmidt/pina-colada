@@ -18,7 +18,8 @@ export interface ContactDisplayConfig {
 }
 
 export interface SearchResult {
-  individual_id: number;
+  individual_id?: number | null;
+  contact_id?: number | null;
   first_name: string;
   last_name: string;
   email?: string | null;
@@ -42,6 +43,9 @@ interface ContactSectionProps<T extends Record<string, any>> {
     onSearch: (query: string) => Promise<SearchResult[]>;
   };
   showFormByDefault?: boolean;
+  // Disable adding contacts (e.g., when no account is selected)
+  disabled?: boolean;
+  disabledMessage?: string;
 }
 
 const ContactSection = <T extends Record<string, any>>({
@@ -56,6 +60,8 @@ const ContactSection = <T extends Record<string, any>>({
   isContactLocked,
   individualSearch,
   showFormByDefault = false,
+  disabled = false,
+  disabledMessage = "Select an account first to add contacts",
 }: ContactSectionProps<T>) => {
   const [showAddForm, setShowAddForm] = useState(showFormByDefault);
   const [newContact, setNewContact] = useState<T>(emptyContact());
@@ -101,15 +107,17 @@ const ContactSection = <T extends Record<string, any>>({
     setDebounceTimer(timer);
   };
 
-  const handleSelectIndividual = (individual: SearchResult) => {
-    // Auto-populate the contact fields from the selected individual, including individual_id for linking
+  const handleSelectIndividual = (result: SearchResult) => {
+    // Auto-populate the contact fields from the selected result
+    // Include individual_id or contact_id for linking
     setNewContact({
       ...newContact,
-      individual_id: individual.individual_id,
-      first_name: individual.first_name,
-      last_name: individual.last_name,
-      email: individual.email || "",
-      phone: individual.phone || "",
+      individual_id: result.individual_id || undefined,
+      contact_id: result.contact_id || undefined,
+      first_name: result.first_name,
+      last_name: result.last_name,
+      email: result.email || "",
+      phone: result.phone || "",
     } as T);
     setSearchQuery("");
     setSearchResults([]);
@@ -306,15 +314,15 @@ const ContactSection = <T extends Record<string, any>>({
           />
           {showResults && searchResults.length > 0 && (
             <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg max-h-48 overflow-auto">
-              {searchResults.map((ind) => (
+              {searchResults.map((result, idx) => (
                 <button
-                  key={ind.individual_id}
+                  key={result.contact_id || result.individual_id || idx}
                   type="button"
-                  onClick={() => handleSelectIndividual(ind)}
+                  onClick={() => handleSelectIndividual(result)}
                   className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
                 >
-                  {ind.first_name} {ind.last_name}
-                  {ind.email && <span className="text-zinc-500 text-sm ml-2">{ind.email}</span>}
+                  {result.first_name} {result.last_name}
+                  {result.email && <span className="text-zinc-500 text-sm ml-2">{result.email}</span>}
                 </button>
               ))}
             </div>
@@ -369,7 +377,7 @@ const ContactSection = <T extends Record<string, any>>({
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Contacts</span>
-        {!showAddForm && (
+        {!showAddForm && !disabled && (
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
@@ -381,13 +389,18 @@ const ContactSection = <T extends Record<string, any>>({
         )}
       </div>
 
+      {/* Disabled message */}
+      {disabled && contacts.length === 0 && (
+        <p className="text-sm text-zinc-500 dark:text-zinc-400 italic">{disabledMessage}</p>
+      )}
+
       {/* Add Form */}
-      {showAddForm && renderAddForm()}
+      {showAddForm && !disabled && renderAddForm()}
 
       {/* Contacts List */}
       {contacts.map((contact, index) => renderContactCard(contact, index))}
 
-      {contacts.length === 0 && !showAddForm && (
+      {contacts.length === 0 && !showAddForm && !disabled && (
         <p className="text-sm text-zinc-500 dark:text-zinc-400">No contacts added yet.</p>
       )}
     </div>

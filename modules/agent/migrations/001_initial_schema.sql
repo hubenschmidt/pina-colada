@@ -205,15 +205,6 @@ CREATE TABLE IF NOT EXISTS "Task_Priority" (
 -- STEP 4: Junction Tables
 -- ==============================
 
-CREATE TABLE IF NOT EXISTS "Lead_Contact" (
-  lead_id       BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
-  contact_id    BIGINT NOT NULL REFERENCES "Contact"(id) ON DELETE CASCADE,
-  role_on_lead  TEXT,
-  is_primary    BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (lead_id, contact_id)
-);
-
 CREATE TABLE IF NOT EXISTS "Lead_Organization" (
   lead_id         BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
   organization_id BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,

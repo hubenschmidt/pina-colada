@@ -54,27 +54,32 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
     individuals = account.get("individuals") or []
     company, company_type = _extract_company_info(organizations, individuals)
 
-    # Get contacts linked to this lead via Lead_Contact junction
+    # Get contacts linked to the Organization or Individual (via Account)
     contacts = []
-    if job.lead and job.lead.contacts:
-        for contact in job.lead.contacts:
-            # Use contact's own fields (new model has first_name, last_name on Contact)
-            first_name = contact.first_name or ""
-            last_name = contact.last_name or ""
-            # Fallback to first linked individual if contact has no name
-            if not first_name and contact.individuals:
-                first_name = contact.individuals[0].first_name or ""
-            if not last_name and contact.individuals:
-                last_name = contact.individuals[0].last_name or ""
-            contacts.append({
-                "id": contact.id,
-                "first_name": first_name,
-                "last_name": last_name,
-                "email": contact.email or "",
-                "phone": contact.phone or "",
-                "title": contact.title,
-                "is_primary": contact.is_primary,
-            })
+    account_contacts = []
+    if job.lead and job.lead.account:
+        if job.lead.account.organizations:
+            account_contacts = job.lead.account.organizations[0].contacts or []
+        elif job.lead.account.individuals:
+            account_contacts = job.lead.account.individuals[0].contacts or []
+    for contact in account_contacts:
+        # Use contact's own fields (new model has first_name, last_name on Contact)
+        first_name = contact.first_name or ""
+        last_name = contact.last_name or ""
+        # Fallback to first linked individual if contact has no name
+        if not first_name and contact.individuals:
+            first_name = contact.individuals[0].first_name or ""
+        if not last_name and contact.individuals:
+            last_name = contact.individuals[0].last_name or ""
+        contacts.append({
+            "id": contact.id,
+            "first_name": first_name,
+            "last_name": last_name,
+            "email": contact.email or "",
+            "phone": contact.phone or "",
+            "title": contact.title,
+            "is_primary": contact.is_primary,
+        })
 
     # Extract status name directly from ORM object (model_to_dict doesn't include nested relationships)
     status = "Applied"  # default

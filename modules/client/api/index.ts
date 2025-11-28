@@ -449,7 +449,8 @@ export const searchIndividuals = async (query: string): Promise<Individual[]> =>
 
 // Contact Search Types
 export type ContactSearchResult = {
-  individual_id: number;
+  individual_id: number | null;
+  contact_id: number | null;
   first_name: string;
   last_name: string;
   email: string | null;

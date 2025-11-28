@@ -4,7 +4,10 @@ import { useState, useEffect } from "react";
 import { BaseLead } from "./types/LeadTrackerTypes";
 import { LeadFormConfig, FormFieldConfig } from "./types/LeadFormTypes";
 import { ContactInput } from "../../types/types";
-import ContactSection, { ContactFieldConfig, SearchResult } from "../ContactSection";
+import ContactSection, {
+  ContactFieldConfig,
+  SearchResult,
+} from "../ContactSection";
 import { searchContacts, updateJob } from "../../api";
 import FormActions from "../FormActions";
 
@@ -25,7 +28,7 @@ interface LeadFormProps<T extends BaseLead> {
   onDelete?: (id: string) => Promise<void>;
 }
 
-const LeadForm =<T extends BaseLead>({
+const LeadForm = <T extends BaseLead>({
   onClose,
   onAdd,
   config,
@@ -53,14 +56,14 @@ const LeadForm =<T extends BaseLead>({
     if (data.account_type !== "Individual" || !data.account) {
       return;
     }
-    
+
     const parts = data.account.split(", ");
     if (parts.length === 2) {
       data.individual_last_name = parts[0];
       data.individual_first_name = parts[1];
       return;
     }
-    
+
     data.individual_first_name = data.account;
   };
 
@@ -70,7 +73,8 @@ const LeadForm =<T extends BaseLead>({
     fieldName: string,
     value: string
   ): ContactInput[] => {
-    const newContacts = prevContacts.length > 0 ? [...prevContacts] : [emptyContact()];
+    const newContacts =
+      prevContacts.length > 0 ? [...prevContacts] : [emptyContact()];
     if (fieldName === "individual_first_name") {
       newContacts[0] = { ...newContacts[0], first_name: value };
       return newContacts;
@@ -82,7 +86,11 @@ const LeadForm =<T extends BaseLead>({
   };
 
   // Validate a single field
-  const validateField = (field: FormFieldConfig<T>, value: any, errors: { [key: string]: string }) => {
+  const validateField = (
+    field: FormFieldConfig<T>,
+    value: any,
+    errors: { [key: string]: string }
+  ) => {
     if (field.required && (!value || value === "")) {
       errors[String(field.name)] = `${field.label} is required`;
       return;
@@ -99,7 +107,10 @@ const LeadForm =<T extends BaseLead>({
   };
 
   // Validate form-level rules
-  const validateFormLevel = (formData: any, errors: { [key: string]: string }) => {
+  const validateFormLevel = (
+    formData: any,
+    errors: { [key: string]: string }
+  ) => {
     if (!config.onValidate) {
       return;
     }
@@ -115,8 +126,18 @@ const LeadForm =<T extends BaseLead>({
     { name: "first_name", label: "First Name", placeholder: "e.g., John" },
     { name: "last_name", label: "Last Name", placeholder: "e.g., Doe" },
     { name: "title", label: "Title", placeholder: "e.g., VP of Sales" },
-    { name: "email", label: "Email", type: "email", placeholder: "email@example.com" },
-    { name: "phone", label: "Phone", type: "tel", placeholder: "+1-555-123-4567" },
+    {
+      name: "email",
+      label: "Email",
+      type: "email",
+      placeholder: "email@example.com",
+    },
+    {
+      name: "phone",
+      label: "Phone",
+      type: "tel",
+      placeholder: "+1-555-123-4567",
+    },
   ];
 
   // Initialize form data
@@ -138,40 +159,43 @@ const LeadForm =<T extends BaseLead>({
       setIsDeleting(false);
       return;
     }
-    
-    // Add mode: use defaults
-      const initialData: any = {};
-      config.fields.forEach((field) => {
-        if (field.defaultValue !== undefined) {
-          initialData[field.name] = field.defaultValue;
-          return;
-        }
-        if (field.type === "date") {
-          initialData[field.name] = new Date().toISOString().split("T")[0];
-          return;
-        }
-        if (field.type === "checkbox") {
-          initialData[field.name] = false;
-          return;
-        }
-        initialData[field.name] = "";
-      });
-      setFormData(initialData);
-      setContacts([]);
-      setErrors({});
-      setIsDeleting(false);
 
-      // Run onInit for fields that have it (only in add mode)
-      config.fields.forEach(async (field) => {
-        if (field.onInit) {
-          try {
-            const value = await field.onInit();
-            setFormData((prev: any) => ({ ...prev, [field.name]: value }));
-          } catch (error) {
-            console.error(`Failed to initialize field ${String(field.name)}:`, error);
-          }
+    // Add mode: use defaults
+    const initialData: any = {};
+    config.fields.forEach((field) => {
+      if (field.defaultValue !== undefined) {
+        initialData[field.name] = field.defaultValue;
+        return;
+      }
+      if (field.type === "date") {
+        initialData[field.name] = new Date().toISOString().split("T")[0];
+        return;
+      }
+      if (field.type === "checkbox") {
+        initialData[field.name] = false;
+        return;
+      }
+      initialData[field.name] = "";
+    });
+    setFormData(initialData);
+    setContacts([]);
+    setErrors({});
+    setIsDeleting(false);
+
+    // Run onInit for fields that have it (only in add mode)
+    config.fields.forEach(async (field) => {
+      if (field.onInit) {
+        try {
+          const value = await field.onInit();
+          setFormData((prev: any) => ({ ...prev, [field.name]: value }));
+        } catch (error) {
+          console.error(
+            `Failed to initialize field ${String(field.name)}:`,
+            error
+          );
         }
-      });
+      }
+    });
   }, [config.fields, isEditMode, lead]);
 
   const handleFieldChange = (fieldName: string, value: any) => {
@@ -195,10 +219,17 @@ const LeadForm =<T extends BaseLead>({
       }
 
       // When individual fields change and Account Type is Individual, auto-populate first contact
-      if ((fieldName === "individual_first_name" || fieldName === "individual_last_name") &&
-          newData.account_type === "Individual") {
-        setContacts((prevContacts) => 
-          updateContactWithIndividualField(prevContacts, fieldName, processedValue)
+      if (
+        (fieldName === "individual_first_name" ||
+          fieldName === "individual_last_name") &&
+        newData.account_type === "Individual"
+      ) {
+        setContacts((prevContacts) =>
+          updateContactWithIndividualField(
+            prevContacts,
+            fieldName,
+            processedValue
+          )
         );
       }
 
@@ -246,7 +277,6 @@ const LeadForm =<T extends BaseLead>({
     return `Failed to ${isEditMode ? "update" : "add"}. Please try again.`;
   };
 
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -263,7 +293,9 @@ const LeadForm =<T extends BaseLead>({
         const lastName = submitData.individual_last_name || "";
         const firstName = submitData.individual_first_name || "";
         if (lastName || firstName) {
-          submitData.account = `${lastName}, ${firstName}`.trim().replace(/^,\s*|,\s*$/g, "");
+          submitData.account = `${lastName}, ${firstName}`
+            .trim()
+            .replace(/^,\s*|,\s*$/g, "");
         }
       }
 
@@ -290,12 +322,12 @@ const LeadForm =<T extends BaseLead>({
         onClose();
         return;
       }
-      
+
       if (!onAdd) {
         onClose();
         return;
       }
-      
+
       // Add mode: create new lead
       await onAdd(submitData);
 
@@ -321,7 +353,10 @@ const LeadForm =<T extends BaseLead>({
       setErrors({});
       onClose();
     } catch (error: any) {
-      console.error(isEditMode ? "Failed to update lead:" : "Failed to add lead:", error);
+      console.error(
+        isEditMode ? "Failed to update lead:" : "Failed to add lead:",
+        error
+      );
       alert(getErrorMessage(error));
     } finally {
       setIsSubmitting(false);
@@ -354,8 +389,10 @@ const LeadForm =<T extends BaseLead>({
     const isAccountTypeField = field.name === "account_type";
 
     // In edit mode, account-related fields are read-only
-    const isAccountReadOnly = isEditMode && (isAccountField || isAccountTypeField);
-    const readOnlyClasses = "bg-zinc-100 dark:bg-zinc-700 cursor-not-allowed opacity-75";
+    const isAccountReadOnly =
+      isEditMode && (isAccountField || isAccountTypeField);
+    const readOnlyClasses =
+      "bg-zinc-100 dark:bg-zinc-700 cursor-not-allowed opacity-75";
 
     // If Individual is selected, render First Name instead of account field
     if (isAccountField && accountType === "Individual") {
@@ -363,20 +400,33 @@ const LeadForm =<T extends BaseLead>({
         <div className={field.gridColumn || ""} key="individual_first_name">
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
             First Name{" "}
-            {field.required && !isEditMode && <span className="text-red-500">*</span>}
+            {field.required && !isEditMode && (
+              <span className="text-red-500">*</span>
+            )}
           </label>
           <input
             type="text"
             value={formData.individual_first_name || ""}
-            onChange={(e) => !isEditMode && handleFieldChange("individual_first_name", e.target.value)}
+            onChange={(e) =>
+              !isEditMode &&
+              handleFieldChange("individual_first_name", e.target.value)
+            }
             readOnly={isEditMode}
             className={`w-full px-3 py-2 border ${
-              errors["individual_first_name"] ? "border-red-500" : "border-zinc-300 dark:border-zinc-700"
-            } rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${isEditMode ? readOnlyClasses : ""}`}
+              errors["individual_first_name"]
+                ? "border-red-500"
+                : "border-zinc-300 dark:border-zinc-700"
+            } rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
+              isEditMode ? readOnlyClasses : ""
+            }`}
             placeholder="e.g., John"
             required={field.required && !isEditMode}
           />
-          {errors["individual_first_name"] && <p className="text-red-500 text-xs mt-1">{errors["individual_first_name"]}</p>}
+          {errors["individual_first_name"] && (
+            <p className="text-red-500 text-xs mt-1">
+              {errors["individual_first_name"]}
+            </p>
+          )}
         </div>
       );
     }
@@ -390,9 +440,13 @@ const LeadForm =<T extends BaseLead>({
           </label>
           <select
             value={formData.account_type || "Organization"}
-            onChange={(e) => !isEditMode && handleFieldChange("account_type", e.target.value)}
+            onChange={(e) =>
+              !isEditMode && handleFieldChange("account_type", e.target.value)
+            }
             disabled={isEditMode}
-            className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${isEditMode ? readOnlyClasses : ""}`}
+            className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
+              isEditMode ? readOnlyClasses : ""
+            }`}
           >
             {field.options?.map((option) => (
               <option key={option.value} value={option.value}>
@@ -403,22 +457,32 @@ const LeadForm =<T extends BaseLead>({
         </div>,
         <div className={field.gridColumn || ""} key="individual_last_name">
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            Last Name{" "}
-            {!isEditMode && <span className="text-red-500">*</span>}
+            Last Name {!isEditMode && <span className="text-red-500">*</span>}
           </label>
           <input
             type="text"
             value={formData.individual_last_name || ""}
-            onChange={(e) => !isEditMode && handleFieldChange("individual_last_name", e.target.value)}
+            onChange={(e) =>
+              !isEditMode &&
+              handleFieldChange("individual_last_name", e.target.value)
+            }
             readOnly={isEditMode}
             className={`w-full px-3 py-2 border ${
-              errors["individual_last_name"] ? "border-red-500" : "border-zinc-300 dark:border-zinc-700"
-            } rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${isEditMode ? readOnlyClasses : ""}`}
+              errors["individual_last_name"]
+                ? "border-red-500"
+                : "border-zinc-300 dark:border-zinc-700"
+            } rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
+              isEditMode ? readOnlyClasses : ""
+            }`}
             placeholder="e.g., Doe"
             required={!isEditMode}
           />
-          {errors["individual_last_name"] && <p className="text-red-500 text-xs mt-1">{errors["individual_last_name"]}</p>}
-        </div>
+          {errors["individual_last_name"] && (
+            <p className="text-red-500 text-xs mt-1">
+              {errors["individual_last_name"]}
+            </p>
+          )}
+        </div>,
       ];
     }
 
@@ -444,7 +508,8 @@ const LeadForm =<T extends BaseLead>({
       return fieldWrapper(
         field.renderCustom({
           value,
-          onChange: (v) => !isAccountReadOnly && handleFieldChange(String(field.name), v),
+          onChange: (v) =>
+            !isAccountReadOnly && handleFieldChange(String(field.name), v),
           field,
           formData,
           isEditMode,
@@ -456,7 +521,9 @@ const LeadForm =<T extends BaseLead>({
       return fieldWrapper(
         <textarea
           value={value || ""}
-          onChange={(e) => handleFieldChange(String(field.name), e.target.value)}
+          onChange={(e) =>
+            handleFieldChange(String(field.name), e.target.value)
+          }
           className={inputClasses}
           placeholder={field.placeholder}
           rows={field.rows || 3}
@@ -471,7 +538,9 @@ const LeadForm =<T extends BaseLead>({
       return fieldWrapper(
         <select
           value={value || ""}
-          onChange={(e) => !isDisabled && handleFieldChange(String(field.name), e.target.value)}
+          onChange={(e) =>
+            !isDisabled && handleFieldChange(String(field.name), e.target.value)
+          }
           className={`${inputClasses} ${isDisabled ? readOnlyClasses : ""}`}
           required={field.required}
           disabled={isDisabled}
@@ -497,7 +566,9 @@ const LeadForm =<T extends BaseLead>({
             className="w-4 h-4 text-lime-500 border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded focus:ring-lime-500"
             disabled={field.disabled}
           />
-          <span className="text-sm text-zinc-600 dark:text-zinc-400">{field.placeholder}</span>
+          <span className="text-sm text-zinc-600 dark:text-zinc-400">
+            {field.placeholder}
+          </span>
         </label>
       );
     }
@@ -547,7 +618,9 @@ const LeadForm =<T extends BaseLead>({
   };
 
   const handleUpdateContact = (index: number, updatedContact: ContactInput) => {
-    const newContacts = contacts.map((c, i) => (i === index ? updatedContact : c));
+    const newContacts = contacts.map((c, i) =>
+      i === index ? updatedContact : c
+    );
     setContacts(newContacts);
     saveContacts(newContacts);
   };
@@ -561,7 +634,9 @@ const LeadForm =<T extends BaseLead>({
     saveContacts(newContacts);
   };
 
-  const handleSearchContacts = async (query: string): Promise<SearchResult[]> => {
+  const handleSearchContacts = async (
+    query: string
+  ): Promise<SearchResult[]> => {
     const results = await searchContacts(query);
     return results.map((result) => ({
       individual_id: result.individual_id,
@@ -606,6 +681,8 @@ const LeadForm =<T extends BaseLead>({
                       enabled: true,
                       onSearch: handleSearchContacts,
                     }}
+                    disabled={!isEditMode && !formData.account}
+                    disabledMessage="Select an account first to add contacts..."
                   />
                 </div>
               );

@@ -531,12 +531,9 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
       });
       // Ensure revenue_range_id is a number or null (select elements coerce to string)
       const rawRevenueId = filtered.revenue_range_id as unknown;
-      if (rawRevenueId === "" || rawRevenueId === undefined || rawRevenueId === null) {
-        filtered.revenue_range_id = null;
-      }
-      if (filtered.revenue_range_id !== null) {
-        filtered.revenue_range_id = Number(filtered.revenue_range_id);
-      }
+      filtered.revenue_range_id = rawRevenueId === "" || rawRevenueId === undefined || rawRevenueId === null
+        ? null
+        : Number(rawRevenueId);
       return filtered;
     }
 
@@ -553,6 +550,12 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
 
     // Add default source
     cleaned.source = "manual";
+
+    // Ensure revenue_range_id is a number or null (select elements coerce to string)
+    const rawRevenueId = cleaned.revenue_range_id as unknown;
+    cleaned.revenue_range_id = rawRevenueId === "" || rawRevenueId === undefined || rawRevenueId === null
+      ? null
+      : Number(rawRevenueId);
 
     return cleaned;
   },
