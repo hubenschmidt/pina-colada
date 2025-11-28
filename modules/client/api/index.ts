@@ -5,7 +5,7 @@
 import axios, { AxiosRequestConfig, AxiosResponse } from "axios";
 import { CreatedJob } from "../types/types";
 export type { CreatedJob } from "../types/types";
-import { PageData } from "../components/DataTable";
+import { PageData } from "../components/DataTable/DataTable";
 import { env } from "next-runtime-env";
 import { fetchBearerToken } from "../lib/fetch-bearer-token";
 

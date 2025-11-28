@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Pencil, Star } from "lucide-react";
 import { formatPhoneNumber } from "../lib/phone";
 
 export interface ContactFieldConfig {
@@ -29,6 +29,8 @@ interface ContactSectionProps<T extends Record<string, any>> {
   contacts: T[];
   onAdd: (contact: T) => void;
   onRemove: (index: number) => void;
+  onUpdate?: (index: number, contact: T) => void;
+  onSetPrimary?: (index: number) => void;
   fields: ContactFieldConfig[];
   emptyContact: () => T;
   display?: ContactDisplayConfig;
@@ -46,6 +48,8 @@ const ContactSection = <T extends Record<string, any>>({
   contacts,
   onAdd,
   onRemove,
+  onUpdate,
+  onSetPrimary,
   fields,
   emptyContact,
   display = {},
@@ -60,6 +64,8 @@ const ContactSection = <T extends Record<string, any>>({
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | null>(null);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editingContact, setEditingContact] = useState<T | null>(null);
 
   const inputClasses =
     "w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100";
@@ -145,10 +151,77 @@ const ContactSection = <T extends Record<string, any>>({
     return "";
   };
 
+  const handleStartEdit = (contact: T, index: number) => {
+    setEditingIndex(index);
+    setEditingContact({ ...contact });
+  };
+
+  const handleCancelEdit = () => {
+    setEditingIndex(null);
+    setEditingContact(null);
+  };
+
+  const handleSaveEdit = () => {
+    if (editingIndex !== null && editingContact && onUpdate) {
+      onUpdate(editingIndex, editingContact);
+    }
+    setEditingIndex(null);
+    setEditingContact(null);
+  };
+
+  const handleEditFieldChange = (fieldName: string, value: string, fieldType?: string) => {
+    if (!editingContact) return;
+    const processedValue = fieldType === "tel" ? formatPhoneNumber(value) : value;
+    setEditingContact({ ...editingContact, [fieldName]: processedValue });
+  };
+
   const renderContactCard = (contact: T, index: number) => {
-    const isPrimary = index === 0;
+    const isPrimary = contact.is_primary === true || (index === 0 && !contacts.some(c => c.is_primary));
     const isLocked = isContactLocked?.(contact, index) ?? false;
     const displayName = getContactDisplayName(contact);
+    const isEditing = editingIndex === index;
+
+    if (isEditing && editingContact) {
+      return (
+        <div
+          key={index}
+          className="p-3 border border-lime-300 dark:border-lime-700 rounded-lg bg-zinc-50 dark:bg-zinc-800/50"
+        >
+          <div className="grid grid-cols-2 gap-3">
+            {fields.map((field) => (
+              <div key={field.name} className={field.colSpan === 2 ? "col-span-2" : ""}>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
+                  {field.label}
+                </label>
+                <input
+                  type={field.type || "text"}
+                  value={editingContact[field.name] || ""}
+                  onChange={(e) => handleEditFieldChange(field.name, e.target.value, field.type)}
+                  className={inputClasses}
+                  placeholder={field.placeholder}
+                />
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2 mt-3">
+            <button
+              type="button"
+              onClick={handleSaveEdit}
+              className="px-3 py-1 text-sm bg-lime-600 text-white rounded hover:bg-lime-700"
+            >
+              Save
+            </button>
+            <button
+              type="button"
+              onClick={handleCancelEdit}
+              className="px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-300 dark:hover:bg-zinc-600"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div
@@ -173,16 +246,38 @@ const ContactSection = <T extends Record<string, any>>({
             {contact.phone && <span>{contact.phone}</span>}
           </div>
         </div>
-        {!isLocked && (
-          <button
-            type="button"
-            onClick={() => onRemove(index)}
-            className="text-zinc-400 hover:text-red-500"
-            title="Remove contact"
-          >
-            <Trash2 size={16} />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {!isPrimary && onSetPrimary && !isLocked && (
+            <button
+              type="button"
+              onClick={() => onSetPrimary(index)}
+              className="text-zinc-400 hover:text-yellow-500"
+              title="Set as primary"
+            >
+              <Star size={16} />
+            </button>
+          )}
+          {onUpdate && !isLocked && (
+            <button
+              type="button"
+              onClick={() => handleStartEdit(contact, index)}
+              className="text-zinc-400 hover:text-lime-500"
+              title="Edit contact"
+            >
+              <Pencil size={16} />
+            </button>
+          )}
+          {!isLocked && (
+            <button
+              type="button"
+              onClick={() => onRemove(index)}
+              className="text-zinc-400 hover:text-red-500"
+              title="Remove contact"
+            >
+              <Trash2 size={16} />
+            </button>
+          )}
+        </div>
       </div>
     );
   };

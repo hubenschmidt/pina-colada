@@ -5,7 +5,7 @@ import { BaseLead } from "./types/LeadTrackerTypes";
 import { LeadFormConfig, FormFieldConfig } from "./types/LeadFormTypes";
 import { ContactInput } from "../../types/types";
 import ContactSection, { ContactFieldConfig, SearchResult } from "../ContactSection";
-import { searchContacts } from "../../api";
+import { searchContacts, updateJob } from "../../api";
 import FormActions from "../FormActions";
 
 const emptyContact = (): ContactInput => ({
@@ -518,17 +518,46 @@ const LeadForm =<T extends BaseLead>({
     );
   };
 
-  // Contact handlers
+  // Contact handlers - auto-save in edit mode (bypasses onUpdate to avoid navigation)
+  const saveContacts = async (newContacts: ContactInput[]) => {
+    if (isEditMode && lead) {
+      try {
+        await updateJob((lead as any).id, { contacts: newContacts });
+      } catch (err) {
+        console.error("Failed to save contacts:", err);
+      }
+    }
+  };
+
   const handleAddContact = (contact: ContactInput) => {
-    setContacts([...contacts, contact]);
+    const newContacts = [...contacts, contact];
+    setContacts(newContacts);
+    saveContacts(newContacts);
   };
 
   const handleRemoveContact = (index: number) => {
     const accountType = formData["account_type"] || "Organization";
     const isFirstContactLocked = accountType === "Individual" && index === 0;
     if (!isFirstContactLocked) {
-      setContacts(contacts.filter((_, i) => i !== index));
+      const newContacts = contacts.filter((_, i) => i !== index);
+      setContacts(newContacts);
+      saveContacts(newContacts);
     }
+  };
+
+  const handleUpdateContact = (index: number, updatedContact: ContactInput) => {
+    const newContacts = contacts.map((c, i) => (i === index ? updatedContact : c));
+    setContacts(newContacts);
+    saveContacts(newContacts);
+  };
+
+  const handleSetPrimaryContact = (index: number) => {
+    const newContacts = contacts.map((c, i) => ({
+      ...c,
+      is_primary: i === index,
+    }));
+    setContacts(newContacts);
+    saveContacts(newContacts);
   };
 
   const handleSearchContacts = async (query: string): Promise<SearchResult[]> => {
@@ -566,6 +595,8 @@ const LeadForm =<T extends BaseLead>({
                     contacts={contacts}
                     onAdd={handleAddContact}
                     onRemove={handleRemoveContact}
+                    onUpdate={handleUpdateContact}
+                    onSetPrimary={handleSetPrimaryContact}
                     fields={contactFields}
                     emptyContact={emptyContact}
                     display={{ nameFields: ["first_name", "last_name"] }}

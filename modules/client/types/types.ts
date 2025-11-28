@@ -5,6 +5,7 @@ export interface ContactInput {
   email?: string;
   phone?: string;
   title?: string;
+  is_primary?: boolean;
 }
 
 export interface CreatedJob {

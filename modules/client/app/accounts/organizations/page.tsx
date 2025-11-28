@@ -6,7 +6,7 @@ import { usePageLoading } from "../../../context/pageLoadingContext";
 import { getOrganizations, Organization } from "../../../api";
 import { Stack, Center, Loader, Text } from "@mantine/core";
 import SearchHeader from "../../../components/SearchHeader";
-import { DataTable, Column, PageData } from "../../../components/DataTable";
+import { DataTable, Column, PageData } from "../../../components/DataTable/DataTable";
 
 const columns: Column<Organization>[] = [
   {

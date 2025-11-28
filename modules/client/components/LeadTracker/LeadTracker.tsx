@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { DataTable, type PageData } from "../DataTable";
+import { DataTable, type PageData } from "../DataTable/DataTable";
 import { Search, X } from "lucide-react";
 import { LeadTrackerConfig, BaseLead } from "./types/LeadTrackerTypes";
 import {

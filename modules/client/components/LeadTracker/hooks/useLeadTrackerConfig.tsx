@@ -1,7 +1,7 @@
 import { ExternalLink } from "lucide-react";
 import { CreatedJob } from "../../../types/types";
 import { getJobs, createJob, updateJob, deleteJob } from "../../../api";
-import { Column } from "../../DataTable";
+import { Column } from "../../DataTable/DataTable";
 import {
   LeadTrackerConfig,
   BaseLead,
