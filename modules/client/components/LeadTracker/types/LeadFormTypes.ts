@@ -1,4 +1,4 @@
-import { BaseLead } from "./LeadTrackerConfig";
+import { BaseLead } from "./LeadTrackerTypes";
 
 export type FormFieldType =
   | "text"

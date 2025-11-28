@@ -1,25 +1,14 @@
-import { CreatedJob } from "../../types/types";
-import { LeadFormConfig } from "../LeadTracker/LeadFormConfig";
-import { getRecentResumeDate, getIndustries, createIndustry, searchOrganizations, searchIndividuals, getRevenueRanges, type Industry, type Organization, type Individual, type RevenueRange } from "../../api";
+import { CreatedJob } from "../../../types/types";
+import { LeadFormConfig } from "../types/LeadFormTypes";
+import { getRecentResumeDate, getIndustries, createIndustry, searchOrganizations, searchIndividuals, getRevenueRanges, type Industry, type Organization, type Individual, type RevenueRange } from "../../../api";
 import { useState, useEffect, useCallback, useId } from "react";
+import { debounce } from "../../../lib/debounce";
 
 type LeadType = "job";
 
 // Type guard for Organization vs Individual
 const isOrganization = (item: Organization | Individual): item is Organization =>
   "name" in item && !("first_name" in item);
-
-// Typed debounce helper
-function debounce<T extends unknown[]>(
-  func: (...args: T) => void,
-  wait: number
-): (...args: T) => void {
-  let timeout: NodeJS.Timeout;
-  return (...args: T) => {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func(...args), wait);
-  };
-}
 
 // Account Search/Autocomplete Component for Organizations
 const AccountSelector = ({
@@ -521,6 +510,7 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
     if (isEditMode) {
       const allowedFields = [
         "account",
+        "contacts",
         "job_title",
         "date",
         "job_url",
@@ -595,7 +585,7 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
   },
 });
 
-export const useFormConfig = (type: LeadType): LeadFormConfig<any> => {
+export const useLeadFormConfig = (type: LeadType): LeadFormConfig<any> => {
   if (type === "job") return getJobFormConfig();
   throw new Error(`Unknown lead type: ${type}`);
 };

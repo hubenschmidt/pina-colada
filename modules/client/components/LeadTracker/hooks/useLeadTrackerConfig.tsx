@@ -1,14 +1,14 @@
 import { ExternalLink } from "lucide-react";
-import { CreatedJob } from "../../types/types";
-import { getJobs, createJob, updateJob, deleteJob } from "../../api";
-import { Column } from "../DataTable";
+import { CreatedJob } from "../../../types/types";
+import { getJobs, createJob, updateJob, deleteJob } from "../../../api";
+import { Column } from "../../DataTable";
 import {
   LeadTrackerConfig,
   BaseLead,
   LeadFormProps,
-} from "../LeadTracker/LeadTrackerConfig";
-import LeadForm from "../LeadTracker/LeadForm";
-import { useFormConfig } from "./FormConfig";
+} from "../types/LeadTrackerTypes";
+import LeadForm from "../LeadForm";
+import { useLeadFormConfig } from "./useLeadFormConfig";
 
 type LeadType = "job";
 
@@ -20,7 +20,7 @@ const getJobLeadConfig = (): LeadTrackerConfig<
   Partial<CreatedJob>,
   Partial<CreatedJob>
 > => {
-  const formConfig = useFormConfig("job");
+  const formConfig = useLeadFormConfig("job");
 
   // Wrapper to inject config into LeadForm
   const JobFormAdapter = (props: LeadFormProps<JobLead>) => (
@@ -176,9 +176,9 @@ const getJobLeadConfig = (): LeadTrackerConfig<
   };
 };
 
-export const useLeadConfig = (
+export const useLeadTrackerConfig = (
   type: LeadType
-): LeadTrackerConfig<any, any, any> => {
+): LeadTrackerConfig<JobLead, Partial<CreatedJob>, Partial<CreatedJob>> => {
   if (type === "job") return getJobLeadConfig();
   throw new Error(`Unknown lead type: ${type}`);
 };

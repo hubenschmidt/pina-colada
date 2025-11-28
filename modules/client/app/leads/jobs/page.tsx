@@ -2,11 +2,11 @@
 
 import { useEffect } from "react";
 import LeadTracker from "../../../components/LeadTracker/LeadTracker";
-import { useLeadConfig } from "../../../components/config";
+import { useLeadTrackerConfig } from "../../../components/LeadTracker/hooks/useLeadTrackerConfig";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 
 const JobsPage = () => {
-  const jobConfig = useLeadConfig("job");
+  const jobConfig = useLeadTrackerConfig("job");
   const { dispatchPageLoading } = usePageLoading();
 
   useEffect(() => {

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { BaseLead } from "./LeadTrackerConfig";
-import { LeadFormConfig, FormFieldConfig } from "./LeadFormConfig";
+import { BaseLead } from "./types/LeadTrackerTypes";
+import { LeadFormConfig, FormFieldConfig } from "./types/LeadFormTypes";
 import { ContactInput } from "../../types/types";
 import ContactSection, { ContactFieldConfig, SearchResult } from "../ContactSection";
 import { searchContacts } from "../../api";
@@ -25,14 +25,14 @@ interface LeadFormProps<T extends BaseLead> {
   onDelete?: (id: string) => Promise<void>;
 }
 
-function LeadForm<T extends BaseLead>({
+const LeadForm =<T extends BaseLead>({
   onClose,
   onAdd,
   config,
   lead,
   onUpdate,
   onDelete,
-}: LeadFormProps<T>) {
+}: LeadFormProps<T>) => {
   const isEditMode = !!lead;
   const [formData, setFormData] = useState<any>({});
   const [contacts, setContacts] = useState<ContactInput[]>([]);

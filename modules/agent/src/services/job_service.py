@@ -17,7 +17,7 @@ from repositories.job_repository import (
 )
 from repositories.organization_repository import get_or_create_organization
 from repositories.individual_repository import get_or_create_individual
-from repositories.contact_repository import get_or_create_contact, create_lead_contact
+from repositories.contact_repository import get_or_create_contact, create_lead_contact, delete_lead_contacts_by_lead
 from repositories.job_repository import find_all_jobs as find_all_jobs_repo
 from repositories.deal_repository import get_or_create_deal
 from repositories.status_repository import find_status_by_name
@@ -613,6 +613,56 @@ async def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
     # Handle not found
     if not updated:
         raise HTTPException(status_code=404, detail="Job not found")
+
+    # Handle contacts update if provided
+    contacts = job_data.get("contacts")
+    if contacts is not None:
+        # Clear existing lead_contacts
+        await delete_lead_contacts_by_lead(updated.id)
+
+        # Get organization_id from the job's lead account
+        organization_id = None
+        if updated.lead and updated.lead.account:
+            organizations = updated.lead.account.organizations
+            if organizations:
+                organization_id = organizations[0].id
+
+        # Add new contacts
+        for idx, contact_data in enumerate(contacts):
+            first_name = contact_data.get("first_name", "").strip()
+            last_name = contact_data.get("last_name", "").strip()
+            if not first_name or not last_name:
+                continue
+
+            # Validate phone if provided
+            contact_phone = contact_data.get("phone")
+            try:
+                contact_phone = validate_phone(contact_phone)
+            except ValueError as e:
+                raise HTTPException(status_code=400, detail=f"Contact {first_name} {last_name}: {str(e)}")
+
+            # Use provided individual_id if available, otherwise create new Individual
+            individual_id = contact_data.get("individual_id")
+            if not individual_id:
+                individual = await get_or_create_individual(first_name, last_name, updated.lead.account.tenant_id if updated.lead and updated.lead.account else None)
+                individual_id = individual.id
+
+            # Create Contact record
+            contact = await get_or_create_contact(
+                individual_id=individual_id,
+                organization_id=organization_id,
+                email=contact_data.get("email"),
+                phone=contact_phone,
+                title=contact_data.get("title"),
+                is_primary=(idx == 0)
+            )
+
+            # Link contact to lead via Lead_Contact junction
+            await create_lead_contact(
+                lead_id=updated.id,
+                contact_id=contact.id,
+                is_primary=(idx == 0)
+            )
 
     return updated
 

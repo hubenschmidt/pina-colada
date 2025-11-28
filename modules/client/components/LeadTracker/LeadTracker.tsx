@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, type PageData } from "../DataTable";
 import { Search, X } from "lucide-react";
-import { LeadTrackerConfig, BaseLead } from "./LeadTrackerConfig";
+import { LeadTrackerConfig, BaseLead } from "./types/LeadTrackerTypes";
 import {
   Stack,
   Center,
@@ -23,7 +23,6 @@ interface LeadTrackerProps<T extends BaseLead> {
 
 const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
   const router = useRouter();
-  const [isFormOpen, setIsFormOpen] = useState(false);
   const [data, setData] = useState<PageData<T> | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -36,8 +35,6 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">(
     config.defaultSortDirection || "DESC"
   );
-  const [selectedLead, setSelectedLead] = useState<T | null>(null);
-  const [modalOpened, setModalOpened] = useState(false);
   const [showLoadingBar, setShowLoadingBar] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -84,54 +81,11 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
     }
   }, [page, limit, sortBy, sortDirection, searchQuery]);
 
-  const handleAddLead = async (
-    leadData: Omit<T, "id" | "created_at" | "updated_at">
-  ) => {
-    return config.api
-      .createLead(leadData)
-      .then(() => {
-        loadLeads(false);
-        setIsFormOpen(false);
-      })
-      .catch((err) => {
-        console.error(`Error creating ${config.entityName}:`, err);
-      });
-  };
-
-  const handleUpdateLead = async (id: string, updates: Partial<T>) => {
-    return config.api
-      .updateLead(id, updates)
-      .then(() => {
-        loadLeads(false);
-      })
-      .catch((err) => {
-        console.error(`Error updating ${config.entityName}:`, err);
-      });
-  };
-
-  const handleDeleteLead = async (id: string) => {
-    return config.api
-      .deleteLead(id)
-      .then(() => {
-        loadLeads(false);
-      })
-      .catch((err) => {
-        console.error(`Error deleting ${config.entityName}:`, err);
-      });
-  };
-
   const handleRowClick = (lead: T) => {
     if (config.detailPagePath) {
       router.push(`${config.detailPagePath}/${lead.id}`);
       return;
     }
-    setSelectedLead(lead);
-    setModalOpened(true);
-  };
-
-  const handleModalClose = () => {
-    setModalOpened(false);
-    setSelectedLead(null);
   };
 
   const handleSearchChange = (value: string) => {
@@ -216,7 +170,6 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
                   router.push(config.newPagePath);
                   return;
                 }
-                setIsFormOpen(true);
               }}
               variant="default"
             >

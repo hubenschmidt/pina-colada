@@ -93,6 +93,21 @@ async def create_lead_contact(
             raise
 
 
+async def delete_lead_contacts_by_lead(lead_id: int) -> None:
+    """Delete all Lead_Contact entries for a lead."""
+    async with async_get_session() as session:
+        try:
+            await session.execute(
+                text('DELETE FROM "Lead_Contact" WHERE lead_id = :lead_id'),
+                {"lead_id": lead_id}
+            )
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to delete lead_contacts: {e}")
+            raise
+
+
 async def find_contacts_by_lead(lead_id: int) -> List[Contact]:
     """Find all contacts for a lead."""
     async with async_get_session() as session:

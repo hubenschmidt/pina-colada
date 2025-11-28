@@ -1,7 +1,7 @@
 import { type PropsWithChildren, type HTMLAttributes } from "react";
 import Link from "next/link";
 
-import cx from "../util/concat-classes";
+import cx from "../lib/concat-classes";
 
 type CardProps = PropsWithChildren<HTMLAttributes<HTMLDivElement>>;
 

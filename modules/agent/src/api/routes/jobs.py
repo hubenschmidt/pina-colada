@@ -44,6 +44,7 @@ def _make_job_update_model() -> Type[BaseModel]:
     return create_model(
         "JobUpdate",
         account=(Optional[str], None),
+        contacts=(Optional[List[dict]], None),
         job_title=(Optional[str], None),
         date=(Optional[str], None),
         job_url=(Optional[str], None),

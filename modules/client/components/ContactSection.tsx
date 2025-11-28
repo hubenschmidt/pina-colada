@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { formatPhoneNumber } from "../utils/phone";
+import { formatPhoneNumber } from "../lib/phone";
 
 export interface ContactFieldConfig {
   name: string;

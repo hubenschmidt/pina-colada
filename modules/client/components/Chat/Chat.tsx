@@ -1,11 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useWs, ChatMsg } from "../../hooks/useWs";
 import styles from "./Chat.module.css";
-import { Copy, Check, Download, Briefcase, ChevronDown } from "lucide-react";
-import LeadPanel from "../LeadTracker/LeadPanel";
-import { usePanelConfig } from "../config";
+import { Copy, Check, Download, ChevronDown } from "lucide-react";
 import { env } from "next-runtime-env";
-import { Box, Stack } from "@mantine/core";
+import { Box } from "@mantine/core";
 
 // ---------- User context (testing-only; no consent prompts) ----------
 
@@ -302,8 +300,6 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [leadsPanelOpen, setLeadsPanelOpen] = useState(false);
-  const [leadsCount, setLeadsCount] = useState(0);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
   const [demoDropdownOpen, setDemoDropdownOpen] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -494,89 +490,9 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
                   <div className="px-4 py-3 text-sm text-zinc-500 italic">
                     Big things coming!
                   </div>
-                  {/* <button
-                    type="button"
-                    className={styles.toolsMenuItem}
-                    onClick={() => {
-                      setLeadsPanelOpen(true);
-                      setToolsDropdownOpen(false);
-                    }}
-                    title="View job leads"
-                  >
-                    <Briefcase size={16} />
-                    <span>Leads</span>
-                    {leadsCount > 0 && (
-                      <span className={styles.leadsBadge}>{leadsCount}</span>
-                    )}
-                  </button> */}
                 </div>
               )}
             </div>
-            {/* Demo dropdown disabled - not using demos */}
-            {/* <div className={styles.toolsDropdown} ref={demoDropdownRef}>
-              <button
-                type="button"
-                className={styles.toolsButton}
-                onClick={() => setDemoDropdownOpen(!demoDropdownOpen)}
-                title="Demo"
-              >
-                <span>Demo</span>
-                <ChevronDown
-                  size={16}
-                  className={demoDropdownOpen ? styles.chevronOpen : ""}
-                />
-              </button>
-              {demoDropdownOpen && (
-                <div className={styles.toolsMenu}>
-                  <button
-                    type="button"
-                    className={styles.toolsMenuItem}
-                    onClick={() => {
-                      setIsDemoMode(true);
-                      setDemoDropdownOpen(false);
-                      const mockUrl = `${API_URL}/mocks/401k-rollover/`;
-                      // Send demo context to agent
-                      sendControl({
-                        type: "demo_context",
-                        demo_url: mockUrl,
-                        demo_type: "401k_rollover_browser",
-                        message: `User has opened the 401k Browser Automation Demo. The mock 401k provider site is loaded at ${mockUrl}. Demo credentials: username='demo', password='demo123'.`,
-                      });
-                      // Send initial demo guidance message
-                      sendMessage(
-                        `Complete a 401k rollover on the mock provider site at ${mockUrl}. Login with username 'demo' and password 'demo123'. Navigate through the site, initiate a rollover, fill in the rollover form with test data, and complete the process. Use Playwright browser tools to automate this flow. Take a screenshot at the end showing the confirmation page.`
-                      );
-                    }}
-                    title="Browser Automation Demo"
-                  >
-                    <span>Browser Automation</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.toolsMenuItem}
-                    onClick={() => {
-                      setIsDemoMode(true);
-                      setDemoDropdownOpen(false);
-                      const mockUrl = `${API_URL}/mocks/401k-rollover/`;
-                      // Send demo context for static scraping
-                      sendControl({
-                        type: "demo_context",
-                        demo_url: mockUrl,
-                        demo_type: "401k_rollover_static",
-                        message: `User has opened the 401k Static Scraping Demo. The mock 401k provider site is loaded at ${mockUrl}.`,
-                      });
-                      // Send scraping task
-                      sendMessage(
-                        `Analyze and scrape the 401k provider site using ONLY static scraping tools (scrape_static_page, analyze_page_structure). Do NOT use browser automation. Extract all available information from the pages: login page structure, form fields, and any data you can gather without JavaScript execution. Show the difference between what static scraping can and cannot accomplish on this site.`
-                      );
-                    }}
-                    title="Static Scraping Demo"
-                  >
-                    <span>Static Scraping</span>
-                  </button>
-                </div>
-              )}
-            </div> */}
             <button
               type="button"
               className={styles.exportButton}
@@ -705,17 +621,6 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
           </form>
         </main>
       </section>
-
-      {/* Job Leads Panel */}
-      <LeadPanel
-        isOpen={leadsPanelOpen}
-        onClose={() => setLeadsPanelOpen(false)}
-        onLeadsChange={() => {
-          // Reset leads count when panel changes
-          setLeadsCount(0);
-        }}
-        config={usePanelConfig("job")}
-      />
     </Box>
   );
 };

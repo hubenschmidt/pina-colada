@@ -2,12 +2,12 @@
 
 import { useRouter } from "next/navigation";
 import LeadForm from "../../../../components/LeadTracker/LeadForm";
-import { useFormConfig } from "../../../../components/config";
+import { useLeadFormConfig } from "../../../../components/LeadTracker/hooks/useLeadFormConfig";
 import { createJob } from "../../../../api";
 
 const NewJobPage = () => {
   const router = useRouter();
-  const formConfig = useFormConfig("job");
+  const formConfig = useLeadFormConfig("job");
 
   const handleClose = () => {
     router.push("/leads/jobs");

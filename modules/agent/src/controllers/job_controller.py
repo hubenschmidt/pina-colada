@@ -53,6 +53,21 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
         company = f"{last_name}, {first_name}".strip(", ")
         company_type = "Individual"
 
+    # Get contacts linked to this lead via Lead_Contact junction
+    contacts = []
+    if job.lead and job.lead.contacts:
+        for contact in job.lead.contacts:
+            contacts.append({
+                "id": contact.id,
+                "individual_id": contact.individual_id,
+                "first_name": contact.individual.first_name if contact.individual else "",
+                "last_name": contact.individual.last_name if contact.individual else "",
+                "email": contact.email or (contact.individual.email if contact.individual else ""),
+                "phone": contact.phone or (contact.individual.phone if contact.individual else ""),
+                "title": contact.title,
+                "is_primary": contact.is_primary,
+            })
+
     # Extract status name directly from ORM object (model_to_dict doesn't include nested relationships)
     status = "Applied"  # default
     if job.lead and job.lead.current_status:
@@ -95,6 +110,7 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
         "source": job_dict.get("source", "manual"),
         "created_at": date_str,
         "updated_at": job_dict.get("updated_at", ""),
+        "contacts": contacts,
     }
 
 

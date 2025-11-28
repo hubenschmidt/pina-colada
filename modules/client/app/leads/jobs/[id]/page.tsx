@@ -5,14 +5,14 @@ import { useParams, useRouter } from "next/navigation";
 import { Center, Stack, Loader } from "@mantine/core";
 import { usePageLoading } from "../../../../context/pageLoadingContext";
 import LeadForm from "../../../../components/LeadTracker/LeadForm";
-import { useFormConfig } from "../../../../components/config";
+import { useLeadFormConfig } from "../../../../components/LeadTracker/hooks/useLeadFormConfig";
 import { getJob, updateJob, deleteJob } from "../../../../api";
 
 const JobDetailPage = () => {
   const params = useParams();
   const router = useRouter();
   const { dispatchPageLoading } = usePageLoading();
-  const formConfig = useFormConfig("job");
+  const formConfig = useLeadFormConfig("job");
   const id = params.id as string;
 
   const [job, setJob] = useState<any>(null);
