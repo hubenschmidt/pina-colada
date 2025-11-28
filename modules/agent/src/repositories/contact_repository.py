@@ -3,6 +3,7 @@
 import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy import select, text
+from sqlalchemy.orm import selectinload
 from models.Contact import Contact
 from models.Individual import Individual
 from lib.db import async_get_session
@@ -129,20 +130,28 @@ async def find_contacts_by_lead(lead_id: int) -> List[Contact]:
 
 
 async def find_contacts_by_individual(individual_id: int) -> List[Contact]:
-    """Find all contacts for an individual."""
+    """Find all contacts linked to an individual."""
+    from models.Contact import ContactIndividual
     async with async_get_session() as session:
-        stmt = select(Contact).where(Contact.individual_id == individual_id).order_by(
-            Contact.is_primary.desc(), Contact.id
+        stmt = (
+            select(Contact)
+            .join(ContactIndividual, Contact.id == ContactIndividual.contact_id)
+            .where(ContactIndividual.individual_id == individual_id)
+            .order_by(Contact.is_primary.desc(), Contact.id)
         )
         result = await session.execute(stmt)
         return list(result.scalars().all())
 
 
 async def find_contacts_by_organization(organization_id: int) -> List[Contact]:
-    """Find all contacts for an organization."""
+    """Find all contacts linked to an organization."""
+    from models.Contact import ContactOrganization
     async with async_get_session() as session:
-        stmt = select(Contact).where(Contact.organization_id == organization_id).order_by(
-            Contact.is_primary.desc(), Contact.id
+        stmt = (
+            select(Contact)
+            .join(ContactOrganization, Contact.id == ContactOrganization.contact_id)
+            .where(ContactOrganization.organization_id == organization_id)
+            .order_by(Contact.is_primary.desc(), Contact.id)
         )
         result = await session.execute(stmt)
         return list(result.scalars().all())

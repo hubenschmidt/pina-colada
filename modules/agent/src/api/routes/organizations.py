@@ -52,7 +52,9 @@ class OrganizationUpdate(BaseModel):
 
 
 class OrgContactCreate(BaseModel):
-    individual_id: int
+    individual_id: Optional[int] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     title: Optional[str] = None
     department: Optional[str] = None
     role: Optional[str] = None
@@ -68,6 +70,8 @@ class OrgContactCreate(BaseModel):
 
 
 class OrgContactUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     title: Optional[str] = None
     department: Optional[str] = None
     role: Optional[str] = None
@@ -86,10 +90,18 @@ router = APIRouter(prefix="/organizations", tags=["organizations"])
 
 
 def _contact_to_dict(contact):
+    # Use contact's own name fields, fallback to first linked Individual
+    first_name = contact.first_name
+    last_name = contact.last_name
+    if not first_name and contact.individuals:
+        first_name = contact.individuals[0].first_name
+    if not last_name and contact.individuals:
+        last_name = contact.individuals[0].last_name
+
     return {
         "id": contact.id,
-        "individual_id": contact.individual_id,
-        "organization_id": contact.organization_id,
+        "first_name": first_name or "",
+        "last_name": last_name or "",
         "title": contact.title,
         "department": contact.department,
         "role": contact.role,
@@ -97,6 +109,8 @@ def _contact_to_dict(contact):
         "phone": contact.phone,
         "is_primary": contact.is_primary,
         "notes": contact.notes,
+        "individuals": [{"id": i.id, "first_name": i.first_name, "last_name": i.last_name} for i in (contact.individuals or [])],
+        "organizations": [{"id": o.id, "name": o.name} for o in (contact.organizations or [])],
         "created_at": contact.created_at.isoformat() if contact.created_at else None,
         "updated_at": contact.updated_at.isoformat() if contact.updated_at else None,
     }
@@ -204,20 +218,53 @@ async def get_organization_contacts_route(request: Request, org_id: int):
 @log_errors
 @require_auth
 async def create_organization_contact_route(request: Request, org_id: int, data: OrgContactCreate):
-    """Add a contact (existing individual) to an organization."""
+    """Add a contact to an organization. Can link to an existing individual or be standalone."""
+    from lib.db import async_get_session
+    from sqlalchemy import select
+    from models.Contact import Contact, ContactOrganization, ContactIndividual
+
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    # Verify individual exists
-    individual = await find_individual_by_id(data.individual_id)
-    if not individual:
-        raise HTTPException(status_code=404, detail="Individual not found")
+    # Verify individual exists if provided
+    if data.individual_id:
+        individual = await find_individual_by_id(data.individual_id)
+        if not individual:
+            raise HTTPException(status_code=404, detail="Individual not found")
 
-    contact_data = data.model_dump(exclude_none=True)
-    contact_data["organization_id"] = org_id
-    contact = await create_contact(contact_data)
-    return _contact_to_dict(contact)
+    async with async_get_session() as session:
+        # Create the contact
+        contact = Contact(
+            first_name=data.first_name,
+            last_name=data.last_name,
+            title=data.title,
+            department=data.department,
+            role=data.role,
+            email=data.email,
+            phone=data.phone,
+            is_primary=data.is_primary,
+            notes=data.notes,
+        )
+        session.add(contact)
+        await session.flush()
+
+        # Link to organization
+        org_link = ContactOrganization(contact_id=contact.id, organization_id=org_id, is_primary=data.is_primary)
+        session.add(org_link)
+
+        # Link to individual if provided
+        if data.individual_id:
+            ind_link = ContactIndividual(contact_id=contact.id, individual_id=data.individual_id)
+            session.add(ind_link)
+
+        await session.commit()
+
+        # Re-fetch to get relationships
+        stmt = select(Contact).where(Contact.id == contact.id)
+        result = await session.execute(stmt)
+        contact = result.scalar_one()
+        return _contact_to_dict(contact)
 
 
 @router.put("/{org_id}/contacts/{contact_id}")
@@ -225,23 +272,73 @@ async def create_organization_contact_route(request: Request, org_id: int, data:
 @require_auth
 async def update_organization_contact_route(request: Request, org_id: int, contact_id: int, data: OrgContactUpdate):
     """Update a contact for an organization."""
-    contact = await find_contact_by_id(contact_id)
-    if not contact or contact.organization_id != org_id:
-        raise HTTPException(status_code=404, detail="Contact not found")
+    from lib.db import async_get_session
+    from sqlalchemy import select
+    from models.Contact import Contact, ContactOrganization
 
-    contact_data = data.model_dump(exclude_none=True)
-    updated = await update_contact(contact_id, contact_data)
-    return _contact_to_dict(updated)
+    async with async_get_session() as session:
+        # Verify contact exists and is linked to this organization
+        stmt = select(ContactOrganization).where(
+            ContactOrganization.contact_id == contact_id,
+            ContactOrganization.organization_id == org_id
+        )
+        result = await session.execute(stmt)
+        link = result.scalar_one_or_none()
+        if not link:
+            raise HTTPException(status_code=404, detail="Contact not found for this organization")
+
+        # Get and update the contact
+        stmt = select(Contact).where(Contact.id == contact_id)
+        result = await session.execute(stmt)
+        contact = result.scalar_one()
+
+        if data.first_name is not None:
+            contact.first_name = data.first_name
+        if data.last_name is not None:
+            contact.last_name = data.last_name
+        if data.title is not None:
+            contact.title = data.title
+        if data.department is not None:
+            contact.department = data.department
+        if data.role is not None:
+            contact.role = data.role
+        if data.email is not None:
+            contact.email = data.email
+        if data.phone is not None:
+            contact.phone = data.phone
+        if data.is_primary is not None:
+            contact.is_primary = data.is_primary
+        if data.notes is not None:
+            contact.notes = data.notes
+
+        await session.commit()
+
+        # Re-fetch
+        stmt = select(Contact).where(Contact.id == contact_id)
+        result = await session.execute(stmt)
+        contact = result.scalar_one()
+        return _contact_to_dict(contact)
 
 
 @router.delete("/{org_id}/contacts/{contact_id}")
 @log_errors
 @require_auth
 async def delete_organization_contact_route(request: Request, org_id: int, contact_id: int):
-    """Remove a contact from an organization."""
-    contact = await find_contact_by_id(contact_id)
-    if not contact or contact.organization_id != org_id:
-        raise HTTPException(status_code=404, detail="Contact not found")
+    """Remove a contact from an organization (deletes the contact entirely)."""
+    from lib.db import async_get_session
+    from sqlalchemy import select
+    from models.Contact import ContactOrganization
+
+    async with async_get_session() as session:
+        # Verify contact is linked to this organization
+        stmt = select(ContactOrganization).where(
+            ContactOrganization.contact_id == contact_id,
+            ContactOrganization.organization_id == org_id
+        )
+        result = await session.execute(stmt)
+        link = result.scalar_one_or_none()
+        if not link:
+            raise HTTPException(status_code=404, detail="Contact not found for this organization")
 
     success = await delete_contact(contact_id)
     if not success:

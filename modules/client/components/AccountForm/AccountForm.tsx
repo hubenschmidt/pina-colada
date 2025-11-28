@@ -8,8 +8,10 @@ import {
   Contact,
   createIndividualContact,
   deleteIndividualContact,
+  updateIndividualContact,
   createOrganizationContact,
   deleteOrganizationContact,
+  updateOrganizationContact,
   searchContacts,
   createNote,
 } from "../../api";
@@ -270,14 +272,11 @@ const AccountForm = ({
     setErrors({});
 
     try {
-      if (isOrganization && !contact.individual_id) {
-        setErrors({ _form: "Please select an individual from the search to add as a contact" });
-        return;
-      }
-
       if (isOrganization) {
         const newContactData = await createOrganizationContact(account.id, {
-          individual_id: contact.individual_id!,
+          individual_id: contact.individual_id || undefined,
+          first_name: contact.first_name?.trim() || undefined,
+          last_name: contact.last_name?.trim() || undefined,
           email: contact.email?.trim() || undefined,
           phone: contact.phone?.trim() || undefined,
           is_primary: contacts.length === 0,
@@ -287,6 +286,8 @@ const AccountForm = ({
       }
 
       const newContactData = await createIndividualContact(account.id, {
+        first_name: contact.first_name?.trim() || undefined,
+        last_name: contact.last_name?.trim() || undefined,
         email: contact.email?.trim() || undefined,
         phone: contact.phone?.trim() || undefined,
         is_primary: contacts.length === 0,
@@ -318,6 +319,60 @@ const AccountForm = ({
       setContacts(contacts.filter((_, i) => i !== index));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to remove contact";
+      setErrors({ _form: message });
+    }
+  };
+
+  const handleUpdateContact = async (index: number, updatedContact: PendingContact) => {
+    if (!isEditMode) {
+      setPendingContacts(pendingContacts.map((c, i) => (i === index ? updatedContact : c)));
+      return;
+    }
+
+    const contact = contacts[index];
+    if (!account?.id || !contact) return;
+
+    try {
+      const updateData = {
+        email: updatedContact.email?.trim() || undefined,
+        phone: updatedContact.phone?.trim() || undefined,
+      };
+
+      if (isOrganization) {
+        const updated = await updateOrganizationContact(account.id, contact.id, updateData);
+        setContacts(contacts.map((c, i) => (i === index ? updated : c)));
+        return;
+      }
+
+      const updated = await updateIndividualContact(account.id, contact.id, updateData);
+      setContacts(contacts.map((c, i) => (i === index ? updated : c)));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to update contact";
+      setErrors({ _form: message });
+    }
+  };
+
+  const handleSetPrimaryContact = async (index: number) => {
+    if (!isEditMode || !account?.id) return;
+
+    const contact = contacts[index];
+    if (!contact) return;
+
+    try {
+      // Update the selected contact to be primary
+      if (isOrganization) {
+        await updateOrganizationContact(account.id, contact.id, { is_primary: true });
+      } else {
+        await updateIndividualContact(account.id, contact.id, { is_primary: true });
+      }
+
+      // Update local state - set selected as primary, others as not
+      setContacts(contacts.map((c, i) => ({
+        ...c,
+        is_primary: i === index,
+      })));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to set primary contact";
       setErrors({ _form: message });
     }
   };
@@ -402,11 +457,12 @@ const AccountForm = ({
             contacts={displayContacts}
             onAdd={handleAddContact}
             onRemove={handleRemoveContact}
+            onUpdate={handleUpdateContact}
+            onSetPrimary={handleSetPrimaryContact}
             fields={contactFields}
             emptyContact={emptyPendingContact}
             display={{ primaryLabel: "Primary" }}
             showFormByDefault={false}
-            isContactLocked={(_, index) => isEditMode && contacts[index]?.is_primary}
             individualSearch={{
               enabled: true,
               onSearch: handleSearchContacts,

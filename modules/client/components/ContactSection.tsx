@@ -230,14 +230,14 @@ const ContactSection = <T extends Record<string, any>>({
       >
         <div>
           <div className="flex items-center gap-2">
-            {isPrimary && (
-              <span className="text-xs bg-lime-100 dark:bg-lime-900/30 text-lime-700 dark:text-lime-400 px-2 py-0.5 rounded">
-                {display.primaryLabel || "Primary"}
-              </span>
-            )}
             {displayName && (
               <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                 {displayName}
+              </span>
+            )}
+            {isPrimary && (
+              <span className="text-xs bg-lime-100 dark:bg-lime-900/30 text-lime-700 dark:text-lime-400 px-2 py-0.5 rounded">
+                {display.primaryLabel || "Primary"}
               </span>
             )}
           </div>

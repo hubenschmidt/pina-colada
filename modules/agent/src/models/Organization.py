@@ -25,7 +25,12 @@ class Organization(Base):
 
     # Relationships
     account = relationship("Account", back_populates="organizations")
-    contacts = relationship("Contact", back_populates="organization")
+    contacts = relationship(
+        "Contact",
+        secondary="ContactOrganization",
+        back_populates="organizations",
+        lazy="selectin"
+    )
     industries = relationship("Industry", secondary=Organization_Industry, back_populates="organizations")
 
     __table_args__ = (

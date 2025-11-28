@@ -296,10 +296,21 @@ export const updateTenantPreferences = async (
 };
 
 // Contact Types
+export type ContactIndividualRef = {
+  id: number;
+  first_name: string;
+  last_name: string;
+};
+
+export type ContactOrganizationRef = {
+  id: number;
+  name: string;
+};
+
 export type Contact = {
   id: number;
-  individual_id: number;
-  organization_id: number | null;
+  first_name: string;
+  last_name: string;
   title: string | null;
   department: string | null;
   role: string | null;
@@ -307,6 +318,8 @@ export type Contact = {
   phone: string | null;
   is_primary: boolean;
   notes: string | null;
+  individuals: ContactIndividualRef[];
+  organizations: ContactOrganizationRef[];
   created_at: string | null;
   updated_at: string | null;
 };
@@ -490,6 +503,60 @@ export const getRevenueRanges = async (category: string): Promise<RevenueRange[]
   return apiGet<RevenueRange[]>(`/revenue-ranges?category=${encodeURIComponent(category)}`);
 };
 
+// Standalone Contact CRUD
+
+/**
+ * Get all contacts
+ */
+export const getContacts = async (): Promise<Contact[]> => {
+  return apiGet<Contact[]>("/contacts");
+};
+
+/**
+ * Get a single contact by ID
+ */
+export const getContact = async (id: number): Promise<Contact> => {
+  return apiGet<Contact>(`/contacts/${id}`);
+};
+
+export type ContactInput = {
+  first_name?: string;
+  last_name?: string;
+  title?: string;
+  department?: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+  is_primary?: boolean;
+  notes?: string;
+  individual_ids?: number[];
+  organization_ids?: number[];
+};
+
+/**
+ * Create a standalone contact
+ */
+export const createContact = async (data: ContactInput): Promise<Contact> => {
+  return apiPost<Contact>("/contacts", data);
+};
+
+/**
+ * Update a contact
+ */
+export const updateContact = async (
+  id: number,
+  data: ContactInput
+): Promise<Contact> => {
+  return apiPut<Contact>(`/contacts/${id}`, data);
+};
+
+/**
+ * Delete a contact
+ */
+export const deleteContact = async (id: number): Promise<void> => {
+  await apiDelete(`/contacts/${id}`);
+};
+
 // Contact Management for Individuals
 
 /**
@@ -544,7 +611,7 @@ export const getOrganizationContacts = async (orgId: number): Promise<Contact[]>
  */
 export const createOrganizationContact = async (
   orgId: number,
-  data: { individual_id: number } & Partial<Omit<Contact, "id" | "individual_id" | "organization_id" | "created_at" | "updated_at">>
+  data: Partial<Omit<Contact, "id" | "organization_id" | "created_at" | "updated_at">>
 ): Promise<Contact> => {
   return apiPost<Contact>(`/organizations/${orgId}/contacts`, data);
 };

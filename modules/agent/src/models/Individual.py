@@ -25,7 +25,12 @@ class Individual(Base):
 
     # Relationships
     account = relationship("Account", back_populates="individuals")
-    contacts = relationship("Contact", back_populates="individual")
+    contacts = relationship(
+        "Contact",
+        secondary="ContactIndividual",
+        back_populates="individuals",
+        lazy="selectin"
+    )
     user = relationship("User", back_populates="individual", uselist=False)
 
     __table_args__ = (

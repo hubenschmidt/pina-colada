@@ -64,16 +64,22 @@ export const Sidebar = () => {
                 {accountsExpanded && (
                   <div className="ml-6 mt-1 space-y-1">
                     <Link
+                      href="/accounts/organizations"
+                      className="block rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    >
+                      Organizations
+                    </Link>
+                    <Link
                       href="/accounts/individuals"
                       className="block rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
                     >
                       Individuals
                     </Link>
                     <Link
-                      href="/accounts/organizations"
+                      href="/accounts/contacts"
                       className="block rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
                     >
-                      Organizations
+                      Contacts
                     </Link>
                   </div>
                 )}

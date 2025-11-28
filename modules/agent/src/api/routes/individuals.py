@@ -55,6 +55,8 @@ class IndividualUpdate(BaseModel):
 
 
 class ContactCreate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     organization_id: Optional[int] = None
     title: Optional[str] = None
     department: Optional[str] = None
@@ -71,6 +73,8 @@ class ContactCreate(BaseModel):
 
 
 class ContactUpdate(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     organization_id: Optional[int] = None
     title: Optional[str] = None
     department: Optional[str] = None
@@ -90,10 +94,18 @@ router = APIRouter(prefix="/individuals", tags=["individuals"])
 
 
 def _contact_to_dict(contact):
+    # Use contact's own name fields, fallback to first linked Individual
+    first_name = contact.first_name
+    last_name = contact.last_name
+    if not first_name and contact.individuals:
+        first_name = contact.individuals[0].first_name
+    if not last_name and contact.individuals:
+        last_name = contact.individuals[0].last_name
+
     return {
         "id": contact.id,
-        "individual_id": contact.individual_id,
-        "organization_id": contact.organization_id,
+        "first_name": first_name or "",
+        "last_name": last_name or "",
         "title": contact.title,
         "department": contact.department,
         "role": contact.role,
@@ -101,6 +113,8 @@ def _contact_to_dict(contact):
         "phone": contact.phone,
         "is_primary": contact.is_primary,
         "notes": contact.notes,
+        "individuals": [{"id": i.id, "first_name": i.first_name, "last_name": i.last_name} for i in (contact.individuals or [])],
+        "organizations": [{"id": o.id, "name": o.name} for o in (contact.organizations or [])],
         "created_at": contact.created_at.isoformat() if contact.created_at else None,
         "updated_at": contact.updated_at.isoformat() if contact.updated_at else None,
     }
@@ -162,21 +176,10 @@ async def get_individual_route(request: Request, individual_id: int):
 @log_errors
 @require_auth
 async def create_individual_route(request: Request, data: IndividualCreate):
-    """Create a new individual and auto-create them as primary contact."""
+    """Create a new individual."""
     ind_data = data.model_dump(exclude_none=True)
     individual = await create_individual(ind_data)
-
-    # Auto-create the individual as their own primary contact
-    await create_contact({
-        "individual_id": individual.id,
-        "email": individual.email,
-        "phone": individual.phone,
-        "title": individual.title,
-        "is_primary": True,
-    })
-
-    contacts = await find_contacts_by_individual(individual.id)
-    return _ind_to_dict(individual, include_contacts=True, contacts=contacts)
+    return _ind_to_dict(individual, include_contacts=True, contacts=[])
 
 
 @router.put("/{individual_id}")
@@ -220,15 +223,42 @@ async def get_individual_contacts_route(request: Request, individual_id: int):
 @log_errors
 @require_auth
 async def create_individual_contact_route(request: Request, individual_id: int, data: ContactCreate):
-    """Create a new contact for an individual."""
+    """Create a new contact linked to an individual."""
+    from lib.db import async_get_session
+    from sqlalchemy import select
+    from models.Contact import Contact, ContactIndividual
+
     individual = await find_individual_by_id(individual_id)
     if not individual:
         raise HTTPException(status_code=404, detail="Individual not found")
 
-    contact_data = data.model_dump(exclude_none=True)
-    contact_data["individual_id"] = individual_id
-    contact = await create_contact(contact_data)
-    return _contact_to_dict(contact)
+    async with async_get_session() as session:
+        # Create the contact
+        contact = Contact(
+            first_name=data.first_name,
+            last_name=data.last_name,
+            title=data.title,
+            department=data.department,
+            role=data.role,
+            email=data.email,
+            phone=data.phone,
+            is_primary=data.is_primary,
+            notes=data.notes,
+        )
+        session.add(contact)
+        await session.flush()
+
+        # Link to individual
+        ind_link = ContactIndividual(contact_id=contact.id, individual_id=individual_id)
+        session.add(ind_link)
+
+        await session.commit()
+
+        # Re-fetch to get relationships
+        stmt = select(Contact).where(Contact.id == contact.id)
+        result = await session.execute(stmt)
+        contact = result.scalar_one()
+        return _contact_to_dict(contact)
 
 
 @router.put("/{individual_id}/contacts/{contact_id}")
@@ -236,13 +266,52 @@ async def create_individual_contact_route(request: Request, individual_id: int, 
 @require_auth
 async def update_individual_contact_route(request: Request, individual_id: int, contact_id: int, data: ContactUpdate):
     """Update a contact for an individual."""
-    contact = await find_contact_by_id(contact_id)
-    if not contact or contact.individual_id != individual_id:
-        raise HTTPException(status_code=404, detail="Contact not found")
+    from lib.db import async_get_session
+    from sqlalchemy import select
+    from models.Contact import Contact, ContactIndividual
 
-    contact_data = data.model_dump(exclude_none=True)
-    updated = await update_contact(contact_id, contact_data)
-    return _contact_to_dict(updated)
+    async with async_get_session() as session:
+        # Verify contact exists and is linked to this individual
+        stmt = select(ContactIndividual).where(
+            ContactIndividual.contact_id == contact_id,
+            ContactIndividual.individual_id == individual_id
+        )
+        result = await session.execute(stmt)
+        link = result.scalar_one_or_none()
+        if not link:
+            raise HTTPException(status_code=404, detail="Contact not found for this individual")
+
+        # Get and update the contact
+        stmt = select(Contact).where(Contact.id == contact_id)
+        result = await session.execute(stmt)
+        contact = result.scalar_one()
+
+        if data.first_name is not None:
+            contact.first_name = data.first_name
+        if data.last_name is not None:
+            contact.last_name = data.last_name
+        if data.title is not None:
+            contact.title = data.title
+        if data.department is not None:
+            contact.department = data.department
+        if data.role is not None:
+            contact.role = data.role
+        if data.email is not None:
+            contact.email = data.email
+        if data.phone is not None:
+            contact.phone = data.phone
+        if data.is_primary is not None:
+            contact.is_primary = data.is_primary
+        if data.notes is not None:
+            contact.notes = data.notes
+
+        await session.commit()
+
+        # Re-fetch
+        stmt = select(Contact).where(Contact.id == contact_id)
+        result = await session.execute(stmt)
+        contact = result.scalar_one()
+        return _contact_to_dict(contact)
 
 
 @router.delete("/{individual_id}/contacts/{contact_id}")
@@ -250,9 +319,20 @@ async def update_individual_contact_route(request: Request, individual_id: int, 
 @require_auth
 async def delete_individual_contact_route(request: Request, individual_id: int, contact_id: int):
     """Delete a contact for an individual."""
-    contact = await find_contact_by_id(contact_id)
-    if not contact or contact.individual_id != individual_id:
-        raise HTTPException(status_code=404, detail="Contact not found")
+    from lib.db import async_get_session
+    from sqlalchemy import select
+    from models.Contact import ContactIndividual
+
+    async with async_get_session() as session:
+        # Verify contact is linked to this individual
+        stmt = select(ContactIndividual).where(
+            ContactIndividual.contact_id == contact_id,
+            ContactIndividual.individual_id == individual_id
+        )
+        result = await session.execute(stmt)
+        link = result.scalar_one_or_none()
+        if not link:
+            raise HTTPException(status_code=404, detail="Contact not found for this individual")
 
     success = await delete_contact(contact_id)
     if not success:
