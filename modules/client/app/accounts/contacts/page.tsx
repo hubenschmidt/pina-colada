@@ -100,25 +100,21 @@ const ContactsPage = () => {
       );
     }
 
+    const getSortValue = (contact: Contact, field: string): string => {
+      if (field === "name") {
+        return `${contact.first_name} ${contact.last_name}`.toLowerCase();
+      }
+      if (field === "account") {
+        return (contact.organizations?.map((o) => o.name).join(", ") || "").toLowerCase();
+      }
+      return (contact[field as keyof Contact] as string || "").toLowerCase();
+    };
+
     const sorted = [...filtered].sort((a, b) => {
-      let aVal: string;
-      let bVal: string;
-
-      if (sortBy === "name") {
-        aVal = `${a.first_name} ${a.last_name}`.toLowerCase();
-        bVal = `${b.first_name} ${b.last_name}`.toLowerCase();
-      } else if (sortBy === "account") {
-        aVal = (a.organizations?.map((o) => o.name).join(", ") || "").toLowerCase();
-        bVal = (b.organizations?.map((o) => o.name).join(", ") || "").toLowerCase();
-      } else {
-        aVal = (a[sortBy as keyof Contact] as string || "").toLowerCase();
-        bVal = (b[sortBy as keyof Contact] as string || "").toLowerCase();
-      }
-
-      if (sortDirection === "ASC") {
-        return aVal.localeCompare(bVal);
-      }
-      return bVal.localeCompare(aVal);
+      const aVal = getSortValue(a, sortBy);
+      const bVal = getSortValue(b, sortBy);
+      const comparison = aVal.localeCompare(bVal);
+      return sortDirection === "ASC" ? comparison : -comparison;
     });
 
     const totalPages = Math.ceil(sorted.length / limit);

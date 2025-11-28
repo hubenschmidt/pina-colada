@@ -245,11 +245,8 @@ const AccountForm = ({
         // Process pending contact deletions
         for (const contact of pendingDeletions) {
           try {
-            if (isOrganization) {
-              await deleteOrganizationContact(account.id!, contact.id);
-            } else {
-              await deleteIndividualContact(account.id!, contact.id);
-            }
+            const deleteContact = isOrganization ? deleteOrganizationContact : deleteIndividualContact;
+            await deleteContact(account.id!, contact.id);
           } catch (err) {
             console.error("Failed to delete contact:", err);
           }
@@ -297,23 +294,27 @@ const AccountForm = ({
       }
 
       // Create contacts for pending relationships
+      const createRelationshipContact = async (rel: Relationship) => {
+        if (isOrganization && rel.type === "individual") {
+          return createOrganizationContact(created.id, {
+            individual_id: rel.id,
+            first_name: rel.name.split(" ")[0] || "",
+            last_name: rel.name.split(" ").slice(1).join(" ") || "",
+            is_primary: false,
+          });
+        }
+        if (!isOrganization && rel.type === "organization") {
+          return createIndividualContact(created.id, {
+            organization_id: rel.id,
+            is_primary: false,
+          });
+        }
+        return Promise.resolve();
+      };
+
       for (const rel of pendingRelationships) {
         try {
-          if (isOrganization && rel.type === "individual") {
-            // Link this org to the individual via a contact
-            await createOrganizationContact(created.id, {
-              individual_id: rel.id,
-              first_name: rel.name.split(" ")[0] || "",
-              last_name: rel.name.split(" ").slice(1).join(" ") || "",
-              is_primary: false,
-            });
-          } else if (!isOrganization && rel.type === "organization") {
-            // Link this individual to the org via a contact
-            await createIndividualContact(created.id, {
-              organization_id: rel.id,
-              is_primary: false,
-            });
-          }
+          await createRelationshipContact(rel);
         } catch (err) {
           console.error("Failed to create relationship:", err);
         }
@@ -443,11 +444,8 @@ const AccountForm = ({
 
     try {
       // Update the selected contact to be primary
-      if (isOrganization) {
-        await updateOrganizationContact(account.id, contact.id, { is_primary: true });
-      } else {
-        await updateIndividualContact(account.id, contact.id, { is_primary: true });
-      }
+      const updateContact = isOrganization ? updateOrganizationContact : updateIndividualContact;
+      await updateContact(account.id, contact.id, { is_primary: true });
 
       // Update local state - set selected as primary, others as not
       setContacts(contacts.map((c, i) => ({
@@ -485,17 +483,17 @@ const AccountForm = ({
   const handleAddRelationship = (relationship: Relationship) => {
     if (isEditMode) {
       setRelationships([...relationships, relationship]);
-    } else {
-      setPendingRelationships([...pendingRelationships, relationship]);
+      return;
     }
+    setPendingRelationships([...pendingRelationships, relationship]);
   };
 
   const handleRemoveRelationship = (index: number) => {
     if (isEditMode) {
       setRelationships(relationships.filter((_, i) => i !== index));
-    } else {
-      setPendingRelationships(pendingRelationships.filter((_, i) => i !== index));
+      return;
     }
+    setPendingRelationships(pendingRelationships.filter((_, i) => i !== index));
   };
 
   const displayRelationships = isEditMode ? relationships : pendingRelationships;

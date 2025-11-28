@@ -316,7 +316,7 @@ const ContactSection = <T extends Record<string, any>>({
             <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg max-h-48 overflow-auto">
               {searchResults.map((result, idx) => (
                 <button
-                  key={result.contact_id || result.individual_id || idx}
+                  key={result.contact_id ? `c-${result.contact_id}` : result.individual_id ? `i-${result.individual_id}` : `idx-${idx}`}
                   type="button"
                   onClick={() => handleSelectIndividual(result)}
                   className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
