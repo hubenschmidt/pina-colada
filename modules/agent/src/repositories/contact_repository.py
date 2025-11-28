@@ -2,7 +2,7 @@
 
 import logging
 from typing import List, Optional, Dict, Any
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from models.Contact import Contact
 from models.Individual import Individual
@@ -247,65 +247,77 @@ async def delete_contact(contact_id: int) -> bool:
             raise
 
 
+def _contact_to_search_result(contact: Contact) -> Dict[str, Any]:
+    """Convert Contact to search result dict."""
+    return {
+        "individual_id": None,
+        "contact_id": contact.id,
+        "first_name": contact.first_name,
+        "last_name": contact.last_name,
+        "email": contact.email,
+        "phone": contact.phone,
+        "source": "contact",
+    }
+
+
+def _individual_to_search_result(individual: Individual) -> Dict[str, Any]:
+    """Convert Individual to search result dict."""
+    return {
+        "individual_id": individual.id,
+        "contact_id": None,
+        "first_name": individual.first_name,
+        "last_name": individual.last_name,
+        "email": individual.email,
+        "phone": individual.phone,
+        "source": "individual",
+    }
+
+
 async def search_contacts_and_individuals(query: str, tenant_id: Optional[int] = None) -> List[Dict[str, Any]]:
     """
     Search both Individuals and existing Contacts.
-    Returns unified results - Contacts first, then Individuals without contacts.
+    Returns unified results - Contacts first, then Individuals.
     """
+    from sqlalchemy import or_, func
+
     async with async_get_session() as session:
         search_pattern = f"%{query}%"
 
-        # Search Contacts directly (they have their own first_name/last_name)
-        # UNION with Individuals that don't have a Contact yet
-        sql = text("""
-            SELECT DISTINCT
-                NULL::BIGINT as individual_id,
-                c.id as contact_id,
-                c.first_name,
-                c.last_name,
-                c.email,
-                c.phone,
-                'contact' as source
-            FROM "Contact" c
-            WHERE (
-                c.first_name ILIKE :pattern
-                OR c.last_name ILIKE :pattern
-                OR c.email ILIKE :pattern
-                OR CONCAT(c.first_name, ' ', c.last_name) ILIKE :pattern
+        # Search Contacts
+        contact_stmt = (
+            select(Contact)
+            .where(
+                or_(
+                    Contact.first_name.ilike(search_pattern),
+                    Contact.last_name.ilike(search_pattern),
+                    Contact.email.ilike(search_pattern),
+                    func.concat(Contact.first_name, " ", Contact.last_name).ilike(search_pattern),
+                )
             )
+            .order_by(Contact.first_name, Contact.last_name)
+            .limit(10)
+        )
+        contact_result = await session.execute(contact_stmt)
+        contacts = list(contact_result.scalars().all())
 
-            UNION
-
-            SELECT DISTINCT
-                i.id as individual_id,
-                NULL::BIGINT as contact_id,
-                i.first_name,
-                i.last_name,
-                i.email,
-                i.phone,
-                'individual' as source
-            FROM "Individual" i
-            WHERE (
-                i.first_name ILIKE :pattern
-                OR i.last_name ILIKE :pattern
-                OR i.email ILIKE :pattern
-                OR CONCAT(i.first_name, ' ', i.last_name) ILIKE :pattern
+        # Search Individuals
+        individual_stmt = (
+            select(Individual)
+            .where(
+                or_(
+                    Individual.first_name.ilike(search_pattern),
+                    Individual.last_name.ilike(search_pattern),
+                    Individual.email.ilike(search_pattern),
+                    func.concat(Individual.first_name, " ", Individual.last_name).ilike(search_pattern),
+                )
             )
+            .order_by(Individual.first_name, Individual.last_name)
+            .limit(10)
+        )
+        individual_result = await session.execute(individual_stmt)
+        individuals = list(individual_result.scalars().all())
 
-            ORDER BY first_name, last_name
-            LIMIT 20
-        """)
-        result = await session.execute(sql, {"pattern": search_pattern})
-        rows = result.fetchall()
-        return [
-            {
-                "individual_id": row.individual_id,
-                "contact_id": row.contact_id,
-                "first_name": row.first_name,
-                "last_name": row.last_name,
-                "email": row.email,
-                "phone": row.phone,
-                "source": row.source,
-            }
-            for row in rows
-        ]
+        # Combine results: contacts first, then individuals
+        results = [_contact_to_search_result(c) for c in contacts]
+        results.extend(_individual_to_search_result(i) for i in individuals)
+        return results[:20]

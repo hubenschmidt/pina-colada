@@ -135,6 +135,7 @@ const AccountForm = ({
   const [formData, setFormData] = useState<Record<string, unknown>>({});
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [pendingContacts, setPendingContacts] = useState<PendingContact[]>([]);
+  const [pendingDeletions, setPendingDeletions] = useState<Contact[]>([]);
   const [pendingNotes, setPendingNotes] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -145,6 +146,7 @@ const AccountForm = ({
       setFormData({ ...account });
       setContacts(account.contacts || []);
       setPendingContacts([]);
+      setPendingDeletions([]);
       setPendingNotes([]);
       setErrors({});
       setIsDeleting(false);
@@ -158,6 +160,7 @@ const AccountForm = ({
     setFormData(initialData);
     setContacts([]);
     setPendingContacts([]);
+    setPendingDeletions([]);
     setPendingNotes([]);
     setErrors({});
     setIsDeleting(false);
@@ -190,6 +193,20 @@ const AccountForm = ({
 
       if (isEditMode && account && onUpdate) {
         await onUpdate(account.id!, submitData as Partial<OrganizationData | IndividualData>);
+
+        // Process pending contact deletions
+        for (const contact of pendingDeletions) {
+          try {
+            if (isOrganization) {
+              await deleteOrganizationContact(account.id!, contact.id);
+            } else {
+              await deleteIndividualContact(account.id!, contact.id);
+            }
+          } catch (err) {
+            console.error("Failed to delete contact:", err);
+          }
+        }
+
         onClose();
         return;
       }
@@ -304,28 +321,18 @@ const AccountForm = ({
     }
   };
 
-  const handleRemoveContact = async (index: number) => {
+  const handleRemoveContact = (index: number) => {
     if (!isEditMode) {
       setPendingContacts(pendingContacts.filter((_, i) => i !== index));
       return;
     }
 
     const contact = contacts[index];
-    if (!account?.id || !contact) return;
+    if (!contact) return;
 
-    try {
-      if (isOrganization) {
-        await deleteOrganizationContact(account.id, contact.id);
-        setContacts(contacts.filter((_, i) => i !== index));
-        return;
-      }
-
-      await deleteIndividualContact(account.id, contact.id);
-      setContacts(contacts.filter((_, i) => i !== index));
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Failed to remove contact";
-      setErrors({ _form: message });
-    }
+    // Defer deletion until save
+    setPendingDeletions([...pendingDeletions, contact]);
+    setContacts(contacts.filter((_, i) => i !== index));
   };
 
   const handleUpdateContact = async (index: number, updatedContact: PendingContact) => {

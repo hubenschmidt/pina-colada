@@ -29,7 +29,7 @@ export interface SearchResult {
 interface ContactSectionProps<T extends Record<string, any>> {
   contacts: T[];
   onAdd: (contact: T) => void;
-  onRemove: (index: number) => void;
+  onRemove?: (index: number) => void;
   onUpdate?: (index: number, contact: T) => void;
   onSetPrimary?: (index: number) => void;
   fields: ContactFieldConfig[];
@@ -280,7 +280,7 @@ const ContactSection = <T extends Record<string, any>>({
               <Pencil size={16} />
             </button>
           )}
-          {!isLocked && (
+          {!isLocked && onRemove && (
             <button
               type="button"
               onClick={() => onRemove(index)}

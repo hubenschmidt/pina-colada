@@ -607,16 +607,6 @@ const LeadForm = <T extends BaseLead>({
     saveContacts(newContacts);
   };
 
-  const handleRemoveContact = (index: number) => {
-    const accountType = formData["account_type"] || "Organization";
-    const isFirstContactLocked = accountType === "Individual" && index === 0;
-    if (!isFirstContactLocked) {
-      const newContacts = contacts.filter((_, i) => i !== index);
-      setContacts(newContacts);
-      saveContacts(newContacts);
-    }
-  };
-
   const handleUpdateContact = (index: number, updatedContact: ContactInput) => {
     const newContacts = contacts.map((c, i) =>
       i === index ? updatedContact : c
@@ -670,7 +660,6 @@ const LeadForm = <T extends BaseLead>({
                   <ContactSection<ContactInput>
                     contacts={contacts}
                     onAdd={handleAddContact}
-                    onRemove={handleRemoveContact}
                     onUpdate={handleUpdateContact}
                     onSetPrimary={handleSetPrimaryContact}
                     fields={contactFields}
