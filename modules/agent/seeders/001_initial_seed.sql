@@ -167,7 +167,40 @@ BEGIN
 END $$;
 
 -- ==============================
--- STEP 2: Create Contacts (linked to Organizations only)
+-- STEP 2: Create Sample Individuals (with Accounts)
+-- These are people tracked independently, NOT organization contacts
+-- ==============================
+DO $$
+DECLARE
+    account_id BIGINT;
+    v_tenant_id BIGINT;
+BEGIN
+    -- Get the tenant ID
+    SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada';
+
+    -- Alex Thompson - Independent consultant
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Alex Thompson', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
+    VALUES (account_id, 'Alex', 'Thompson', 'alex.thompson@gmail.com', '+1-415-555-0201', 'https://linkedin.com/in/alexthompson', 'Independent Consultant', 'Met at TechCrunch Disrupt 2024. Interested in advisory roles.', NOW(), NOW())
+    ON CONFLICT ((LOWER(email))) DO NOTHING;
+
+    -- Maria Garcia - Freelance designer
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Maria Garcia', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
+    VALUES (account_id, 'Maria', 'Garcia', 'maria.garcia@designstudio.com', '+1-650-555-0202', 'https://linkedin.com/in/mariagarcia', 'UX Designer', 'Freelance designer, available for contract work.', NOW(), NOW())
+    ON CONFLICT ((LOWER(email))) DO NOTHING;
+
+    -- James Wilson - Mentor/Advisor
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'James Wilson', NOW(), NOW()) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
+    VALUES (account_id, 'James', 'Wilson', 'james.wilson@advisors.co', '+1-510-555-0203', 'https://linkedin.com/in/jameswilson', 'Startup Advisor', 'Former CTO, now advising early-stage startups.', NOW(), NOW())
+    ON CONFLICT ((LOWER(email))) DO NOTHING;
+
+    RAISE NOTICE 'Individuals with Accounts created successfully';
+END $$;
+
+-- ==============================
+-- STEP 3: Create Contacts (linked to Organizations only)
 -- Note: Contacts at organizations do NOT create Individual records.
 -- Individuals are only created explicitly when needed.
 -- ==============================
@@ -273,7 +306,7 @@ BEGIN
 END $$;
 
 -- ==============================
--- STEP 3: Create Sample Deals
+-- STEP 4: Create Sample Deals
 -- ==============================
 DO $$
 DECLARE
@@ -297,7 +330,7 @@ BEGIN
 END $$;
 
 -- ==============================
--- STEP 4: Create Sample Leads (Opportunities & Partnerships)
+-- STEP 5: Create Sample Leads (Opportunities & Partnerships)
 -- ==============================
 DO $$
 DECLARE
@@ -461,7 +494,7 @@ BEGIN
 END $$;
 
 -- ==============================
--- STEP 5: Create Sample Tasks
+-- STEP 6: Create Sample Tasks
 -- ==============================
 DO $$
 DECLARE
@@ -596,7 +629,7 @@ BEGIN
 END $$;
 
 -- ==============================
--- STEP 6: Create Sample Activities
+-- STEP 7: Create Sample Activities
 -- ==============================
 DO $$
 DECLARE
