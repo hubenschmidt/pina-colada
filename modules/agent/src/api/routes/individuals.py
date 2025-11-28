@@ -172,6 +172,44 @@ async def get_individual_route(request: Request, individual_id: int):
     return _ind_to_dict(individual, include_contacts=True, contacts=contacts)
 
 
+def _normalize_linkedin_url(url: str | None) -> str | None:
+    """Ensure LinkedIn URL has https:// prefix."""
+    if not url:
+        return url
+    url = url.strip()
+    if not url:
+        return None
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    return f"https://{url}"
+
+
+async def _check_duplicate_individual(first_name: str, last_name: str, email: str | None, linkedin_url: str | None) -> bool:
+    """Check if an individual with same name and (email or linkedin) already exists."""
+    from lib.db import async_get_session
+    from sqlalchemy import select, func, or_
+    from models.Individual import Individual
+
+    if not email and not linkedin_url:
+        return False
+
+    async with async_get_session() as session:
+        conditions = [
+            func.lower(Individual.first_name) == first_name.lower(),
+            func.lower(Individual.last_name) == last_name.lower(),
+        ]
+
+        match_conditions = []
+        if email:
+            match_conditions.append(func.lower(Individual.email) == email.lower())
+        if linkedin_url:
+            match_conditions.append(func.lower(Individual.linkedin_url) == linkedin_url.lower())
+
+        stmt = select(Individual).where(*conditions, or_(*match_conditions))
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
+
 @router.post("")
 @log_errors
 @require_auth
@@ -182,6 +220,20 @@ async def create_individual_route(request: Request, data: IndividualCreate):
 
     tenant_id = getattr(request.state, "tenant_id", None)
     ind_data = data.model_dump(exclude_none=True)
+
+    # Normalize LinkedIn URL
+    if "linkedin_url" in ind_data:
+        ind_data["linkedin_url"] = _normalize_linkedin_url(ind_data["linkedin_url"])
+
+    # Check for duplicate individual
+    is_duplicate = await _check_duplicate_individual(
+        ind_data.get("first_name", ""),
+        ind_data.get("last_name", ""),
+        ind_data.get("email"),
+        ind_data.get("linkedin_url"),
+    )
+    if is_duplicate:
+        raise HTTPException(status_code=400, detail="Individual already exists")
 
     # Create an Account for the Individual if not provided
     if not ind_data.get("account_id"):
@@ -202,7 +254,12 @@ async def create_individual_route(request: Request, data: IndividualCreate):
 @require_auth
 async def update_individual_route(request: Request, individual_id: int, data: IndividualUpdate):
     """Update an existing individual."""
-    ind_data = data.model_dump(exclude_none=True)
+    ind_data = data.model_dump(exclude_unset=True)
+
+    # Normalize LinkedIn URL (converts empty to None)
+    if "linkedin_url" in ind_data:
+        ind_data["linkedin_url"] = _normalize_linkedin_url(ind_data["linkedin_url"])
+
     individual = await update_individual(individual_id, ind_data)
     if not individual:
         raise HTTPException(status_code=404, detail="Individual not found")

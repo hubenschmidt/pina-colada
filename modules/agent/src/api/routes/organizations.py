@@ -21,7 +21,6 @@ from repositories.contact_repository import (
     delete_contact,
     find_contact_by_id,
 )
-from repositories.individual_repository import find_individual_by_id
 
 
 class OrganizationCreate(BaseModel):
@@ -174,6 +173,7 @@ async def create_organization_route(request: Request, data: OrganizationCreate):
     """Create a new organization with an associated Account."""
     from lib.db import async_get_session
     from models.Account import Account
+    from sqlalchemy.exc import IntegrityError
 
     tenant_id = getattr(request.state, "tenant_id", None)
     org_data = data.model_dump(exclude_none=True)
@@ -187,8 +187,13 @@ async def create_organization_route(request: Request, data: OrganizationCreate):
             await session.refresh(account)
             org_data["account_id"] = account.id
 
-    org = await create_organization(org_data)
-    return _org_to_dict(org)
+    try:
+        org = await create_organization(org_data)
+        return _org_to_dict(org)
+    except IntegrityError as e:
+        if "idx_organization_name_lower" in str(e):
+            raise HTTPException(status_code=400, detail="An organization with this name already exists")
+        raise
 
 
 @router.put("/{org_id}")
@@ -196,7 +201,7 @@ async def create_organization_route(request: Request, data: OrganizationCreate):
 @require_auth
 async def update_organization_route(request: Request, org_id: int, data: OrganizationUpdate):
     """Update an existing organization."""
-    org_data = data.model_dump(exclude_none=True)
+    org_data = data.model_dump(exclude_unset=True)
     org = await update_organization(org_id, org_data)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -235,17 +240,11 @@ async def create_organization_contact_route(request: Request, org_id: int, data:
     """Add a contact to an organization. Can link to an existing individual or be standalone."""
     from lib.db import async_get_session
     from sqlalchemy import select
-    from models.Contact import Contact, ContactOrganization, ContactIndividual
+    from models.Contact import Contact, ContactOrganization
 
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
-
-    # Verify individual exists if provided
-    if data.individual_id:
-        individual = await find_individual_by_id(data.individual_id)
-        if not individual:
-            raise HTTPException(status_code=404, detail="Individual not found")
 
     async with async_get_session() as session:
         # Create the contact
@@ -263,14 +262,9 @@ async def create_organization_contact_route(request: Request, org_id: int, data:
         session.add(contact)
         await session.flush()
 
-        # Link to organization
+        # Link to organization only - individual_id is for reference, not bidirectional linking
         org_link = ContactOrganization(contact_id=contact.id, organization_id=org_id, is_primary=data.is_primary)
         session.add(org_link)
-
-        # Link to individual if provided
-        if data.individual_id:
-            ind_link = ContactIndividual(contact_id=contact.id, individual_id=data.individual_id)
-            session.add(ind_link)
 
         await session.commit()
 

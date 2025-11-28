@@ -66,8 +66,8 @@ const individualFields: FormFieldConfig[] = [
   {
     name: "linkedin_url",
     label: "LinkedIn URL",
-    type: "url",
-    placeholder: "https://linkedin.com/in/username",
+    type: "text",
+    placeholder: "linkedin.com/in/username",
   },
   {
     name: "title",

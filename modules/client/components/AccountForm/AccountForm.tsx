@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ExternalLink } from "lucide-react";
 import ContactSection, { ContactFieldConfig } from "../ContactSection";
 import NotesSection from "../NotesSection";
 import FormActions from "../FormActions";
@@ -104,6 +105,36 @@ const renderField = (
           </option>
         ))}
       </select>
+    );
+  }
+
+  const isUrlField = field.name.endsWith("_url") || field.name === "website";
+  const hasUrl = isUrlField && value && String(value).trim();
+
+  if (hasUrl) {
+    const url = String(value).startsWith("http") ? String(value) : `https://${value}`;
+    return (
+      <div>
+        <input
+          type={field.type === "tel" ? "tel" : field.type}
+          value={value || ""}
+          onChange={handleChange}
+          className={inputClasses}
+          placeholder={field.placeholder}
+          required={field.required}
+          min={field.min}
+          max={field.max}
+        />
+        <a
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-1 mt-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+        >
+          {String(value)}
+          <ExternalLink size={14} />
+        </a>
+      </div>
     );
   }
 
@@ -437,12 +468,6 @@ const AccountForm = ({
         {title}
       </h1>
 
-      {errors._form && (
-        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
-          {errors._form}
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-4">
         {hasPairedFields ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -510,6 +535,12 @@ const AccountForm = ({
           onDelete={onDelete ? handleDelete : undefined}
           variant="compact"
         />
+
+        {errors._form && (
+          <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
+            {errors._form}
+          </div>
+        )}
       </form>
     </div>
   );

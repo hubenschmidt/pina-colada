@@ -363,7 +363,7 @@ const LeadForm = <T extends BaseLead>({
         isEditMode ? "Failed to update lead:" : "Failed to add lead:",
         error
       );
-      alert(getErrorMessage(error));
+      setErrors({ _form: getErrorMessage(error) });
     } finally {
       setIsSubmitting(false);
     }
@@ -380,9 +380,9 @@ const LeadForm = <T extends BaseLead>({
     try {
       await onDelete(lead.id);
       onClose();
-    } catch (error) {
+    } catch (error: any) {
       console.error("Failed to delete:", error);
-      alert("Failed to delete. Please try again.");
+      setErrors({ _form: error?.message || "Failed to delete. Please try again." });
       setIsDeleting(false);
     }
   };
@@ -736,6 +736,11 @@ const LeadForm = <T extends BaseLead>({
         {isEditMode ? config.title.replace("Add New", "Edit") : config.title}
       </h1>
       {formContent}
+      {errors._form && (
+        <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
+          {errors._form}
+        </div>
+      )}
     </div>
   );
 };

@@ -81,12 +81,6 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
         {isEditMode ? "Edit Contact" : "New Contact"}
       </h1>
 
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 rounded">
-          {error}
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -213,6 +207,12 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
           onDelete={onDelete ? handleDelete : undefined}
           variant="compact"
         />
+
+        {error && (
+          <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
+            {error}
+          </div>
+        )}
       </form>
     </div>
   );
