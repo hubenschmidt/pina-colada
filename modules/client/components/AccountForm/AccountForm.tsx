@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { ExternalLink } from "lucide-react";
 import ContactSection, { ContactFieldConfig } from "../ContactSection";
+import RelationshipsSection, { Relationship } from "../RelationshipsSection";
 import NotesSection from "../NotesSection";
 import FormActions from "../FormActions";
 import {
@@ -14,6 +15,7 @@ import {
   deleteOrganizationContact,
   updateOrganizationContact,
   searchContacts,
+  searchAccounts,
   createNote,
 } from "../../api";
 import { SearchResult } from "../ContactSection";
@@ -29,6 +31,7 @@ interface OrganizationData {
   employee_count?: number | null;
   description?: string | null;
   contacts?: Contact[];
+  relationships?: Relationship[];
 }
 
 interface IndividualData {
@@ -41,6 +44,7 @@ interface IndividualData {
   title?: string | null;
   notes?: string | null;
   contacts?: Contact[];
+  relationships?: Relationship[];
 }
 
 interface AccountFormProps {
@@ -169,6 +173,8 @@ const AccountForm = ({
   const [pendingContacts, setPendingContacts] = useState<PendingContact[]>([]);
   const [pendingDeletions, setPendingDeletions] = useState<Contact[]>([]);
   const [pendingNotes, setPendingNotes] = useState<string[]>([]);
+  const [relationships, setRelationships] = useState<Relationship[]>([]);
+  const [pendingRelationships, setPendingRelationships] = useState<Relationship[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -177,9 +183,11 @@ const AccountForm = ({
     if (isEditMode && account) {
       setFormData({ ...account });
       setContacts(account.contacts || []);
+      setRelationships(account.relationships || []);
       setPendingContacts([]);
       setPendingDeletions([]);
       setPendingNotes([]);
+      setPendingRelationships([]);
       setErrors({});
       setIsDeleting(false);
       return;
@@ -191,15 +199,17 @@ const AccountForm = ({
     });
     setFormData(initialData);
     setContacts([]);
+    setRelationships([]);
     setPendingContacts([]);
     setPendingDeletions([]);
     setPendingNotes([]);
+    setPendingRelationships([]);
     setErrors({});
     setIsDeleting(false);
   }, [isEditMode, account, config.fields]);
 
   const hasPendingChanges = usePendingChanges({
-    original: account as Record<string, unknown> | null,
+    original: account as unknown as Record<string, unknown> | null,
     current: formData,
     pendingDeletions,
   });
@@ -283,6 +293,29 @@ const AccountForm = ({
           }
         } catch (err) {
           console.error("Failed to create contact:", err);
+        }
+      }
+
+      // Create contacts for pending relationships
+      for (const rel of pendingRelationships) {
+        try {
+          if (isOrganization && rel.type === "individual") {
+            // Link this org to the individual via a contact
+            await createOrganizationContact(created.id, {
+              individual_id: rel.id,
+              first_name: rel.name.split(" ")[0] || "",
+              last_name: rel.name.split(" ").slice(1).join(" ") || "",
+              is_primary: false,
+            });
+          } else if (!isOrganization && rel.type === "organization") {
+            // Link this individual to the org via a contact
+            await createIndividualContact(created.id, {
+              organization_id: rel.id,
+              is_primary: false,
+            });
+          }
+        } catch (err) {
+          console.error("Failed to create relationship:", err);
         }
       }
 
@@ -438,6 +471,36 @@ const AccountForm = ({
     }));
   };
 
+  const handleSearchRelationships = async (query: string) => {
+    const results = await searchAccounts(query);
+    return results
+      .filter((r) => r.type !== "unknown")
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        type: r.type as "organization" | "individual",
+      }));
+  };
+
+  const handleAddRelationship = (relationship: Relationship) => {
+    if (isEditMode) {
+      setRelationships([...relationships, relationship]);
+    } else {
+      setPendingRelationships([...pendingRelationships, relationship]);
+    }
+  };
+
+  const handleRemoveRelationship = (index: number) => {
+    if (isEditMode) {
+      setRelationships(relationships.filter((_, i) => i !== index));
+    } else {
+      setPendingRelationships(pendingRelationships.filter((_, i) => i !== index));
+    }
+  };
+
+  const displayRelationships = isEditMode ? relationships : pendingRelationships;
+  const relationshipSearchType = isOrganization ? "individual" : "organization";
+
   const contactFields: ContactFieldConfig[] = [
     { name: "first_name", label: "First Name", placeholder: "e.g., John" },
     { name: "last_name", label: "Last Name", placeholder: "e.g., Doe" },
@@ -514,6 +577,16 @@ const AccountForm = ({
               enabled: true,
               onSearch: handleSearchContacts,
             }}
+          />
+        </div>
+
+        <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
+          <RelationshipsSection
+            relationships={displayRelationships}
+            onAdd={handleAddRelationship}
+            onRemove={handleRemoveRelationship}
+            searchType={relationshipSearchType}
+            onSearch={handleSearchRelationships}
           />
         </div>
 

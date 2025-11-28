@@ -447,6 +447,21 @@ export const searchIndividuals = async (query: string): Promise<Individual[]> =>
   return apiGet<Individual[]>(`/individuals/search?q=${encodeURIComponent(query)}`);
 };
 
+// Account Search Types
+export type AccountSearchResult = {
+  id: number;
+  account_id: number;
+  name: string;
+  type: "organization" | "individual" | "unknown";
+};
+
+/**
+ * Search accounts by name
+ */
+export const searchAccounts = async (query: string): Promise<AccountSearchResult[]> => {
+  return apiGet<AccountSearchResult[]>(`/accounts/search?q=${encodeURIComponent(query)}`);
+};
+
 // Contact Search Types
 export type ContactSearchResult = {
   individual_id: number | null;
@@ -572,7 +587,7 @@ export const getIndividualContacts = async (individualId: number): Promise<Conta
  */
 export const createIndividualContact = async (
   individualId: number,
-  data: Partial<Omit<Contact, "id" | "individual_id" | "created_at" | "updated_at">>
+  data: Partial<Omit<Contact, "id" | "individual_id" | "created_at" | "updated_at">> & { organization_id?: number }
 ): Promise<Contact> => {
   return apiPost<Contact>(`/individuals/${individualId}/contacts`, data);
 };

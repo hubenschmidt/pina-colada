@@ -135,6 +135,15 @@ def _ind_to_dict(ind, include_contacts=False, contacts=None):
     }
     if include_contacts and contacts is not None:
         result["contacts"] = [_contact_to_dict(c) for c in contacts]
+        # Extract unique related organizations from contacts
+        seen_org_ids = set()
+        related_orgs = []
+        for contact in contacts:
+            for org in (contact.organizations or []):
+                if org.id not in seen_org_ids:
+                    seen_org_ids.add(org.id)
+                    related_orgs.append({"id": org.id, "name": org.name, "type": "organization"})
+        result["relationships"] = related_orgs
     return result
 
 
@@ -184,13 +193,19 @@ def _normalize_linkedin_url(url: str | None) -> str | None:
     return f"https://{url}"
 
 
-async def _check_duplicate_individual(first_name: str, last_name: str, email: str | None, linkedin_url: str | None) -> bool:
-    """Check if an individual with same name and (email or linkedin) already exists."""
+async def _check_duplicate_individual(
+    first_name: str,
+    last_name: str,
+    email: str | None,
+    linkedin_url: str | None,
+    phone: str | None,
+) -> bool:
+    """Check if an individual with same name and (email, linkedin, or phone) already exists."""
     from lib.db import async_get_session
     from sqlalchemy import select, func, or_
     from models.Individual import Individual
 
-    if not email and not linkedin_url:
+    if not email and not linkedin_url and not phone:
         return False
 
     async with async_get_session() as session:
@@ -204,6 +219,8 @@ async def _check_duplicate_individual(first_name: str, last_name: str, email: st
             match_conditions.append(func.lower(Individual.email) == email.lower())
         if linkedin_url:
             match_conditions.append(func.lower(Individual.linkedin_url) == linkedin_url.lower())
+        if phone:
+            match_conditions.append(Individual.phone == phone)
 
         stmt = select(Individual).where(*conditions, or_(*match_conditions))
         result = await session.execute(stmt)
@@ -231,6 +248,7 @@ async def create_individual_route(request: Request, data: IndividualCreate):
         ind_data.get("last_name", ""),
         ind_data.get("email"),
         ind_data.get("linkedin_url"),
+        ind_data.get("phone"),
     )
     if is_duplicate:
         raise HTTPException(status_code=400, detail="Individual already exists")
@@ -295,10 +313,10 @@ async def get_individual_contacts_route(request: Request, individual_id: int):
 @log_errors
 @require_auth
 async def create_individual_contact_route(request: Request, individual_id: int, data: ContactCreate):
-    """Create a new contact linked to an individual."""
+    """Create a new contact linked to an individual, optionally linked to an organization."""
     from lib.db import async_get_session
     from sqlalchemy import select
-    from models.Contact import Contact, ContactIndividual
+    from models.Contact import Contact, ContactIndividual, ContactOrganization
 
     individual = await find_individual_by_id(individual_id)
     if not individual:
@@ -323,6 +341,15 @@ async def create_individual_contact_route(request: Request, individual_id: int, 
         # Link to individual
         ind_link = ContactIndividual(contact_id=contact.id, individual_id=individual_id)
         session.add(ind_link)
+
+        # Link to organization if provided
+        if data.organization_id:
+            org_link = ContactOrganization(
+                contact_id=contact.id,
+                organization_id=data.organization_id,
+                is_primary=data.is_primary
+            )
+            session.add(org_link)
 
         await session.commit()
 

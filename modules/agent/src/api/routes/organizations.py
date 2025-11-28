@@ -129,6 +129,19 @@ def _org_to_dict(org, include_contacts=False, contacts=None):
     }
     if include_contacts and contacts is not None:
         result["contacts"] = [_contact_to_dict(c) for c in contacts]
+        # Extract unique related individuals from contacts
+        seen_ind_ids = set()
+        related_individuals = []
+        for contact in contacts:
+            for ind in (contact.individuals or []):
+                if ind.id not in seen_ind_ids:
+                    seen_ind_ids.add(ind.id)
+                    related_individuals.append({
+                        "id": ind.id,
+                        "name": f"{ind.first_name} {ind.last_name}".strip(),
+                        "type": "individual",
+                    })
+        result["relationships"] = related_individuals
     return result
 
 
