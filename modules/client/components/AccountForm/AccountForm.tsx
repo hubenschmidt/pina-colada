@@ -58,6 +58,7 @@ interface PendingContact {
   phone: string;
   title?: string | null;
   notes?: string | null;
+  is_primary?: boolean;
 }
 
 const emptyPendingContact = (): PendingContact => ({
@@ -391,6 +392,7 @@ const AccountForm = ({
   const contactFields: ContactFieldConfig[] = [
     { name: "first_name", label: "First Name", placeholder: "e.g., John" },
     { name: "last_name", label: "Last Name", placeholder: "e.g., Doe" },
+    { name: "title", label: "Title", placeholder: "e.g., VP of Sales" },
     { name: "email", label: "Email", type: "email", placeholder: "email@example.com" },
     { name: "phone", label: "Phone", type: "tel", placeholder: "+1-555-123-4567" },
   ];
@@ -403,6 +405,8 @@ const AccountForm = ({
         last_name: (c as unknown as Record<string, string>).last_name || "",
         email: c.email || "",
         phone: c.phone || "",
+        title: c.title,
+        is_primary: c.is_primary,
       }))
     : pendingContacts;
 
@@ -410,7 +414,7 @@ const AccountForm = ({
   const hasPairedFields = config.fields.some((f) => f.gridColumn === "md:col-span-1");
 
   return (
-    <div className="p-6 max-w-2xl">
+    <div>
       <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">
         {title}
       </h1>

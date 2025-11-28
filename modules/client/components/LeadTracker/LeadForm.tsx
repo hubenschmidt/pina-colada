@@ -114,6 +114,7 @@ const LeadForm =<T extends BaseLead>({
   const contactFields: ContactFieldConfig[] = [
     { name: "first_name", label: "First Name", placeholder: "e.g., John" },
     { name: "last_name", label: "Last Name", placeholder: "e.g., Doe" },
+    { name: "title", label: "Title", placeholder: "e.g., VP of Sales" },
     { name: "email", label: "Email", type: "email", placeholder: "email@example.com" },
     { name: "phone", label: "Phone", type: "tel", placeholder: "+1-555-123-4567" },
   ];

@@ -171,8 +171,22 @@ async def get_organization_route(request: Request, org_id: int):
 @log_errors
 @require_auth
 async def create_organization_route(request: Request, data: OrganizationCreate):
-    """Create a new organization."""
+    """Create a new organization with an associated Account."""
+    from lib.db import async_get_session
+    from models.Account import Account
+
+    tenant_id = getattr(request.state, "tenant_id", None)
     org_data = data.model_dump(exclude_none=True)
+
+    # Create an Account for the Organization if not provided
+    if not org_data.get("account_id"):
+        async with async_get_session() as session:
+            account = Account(tenant_id=tenant_id, name=org_data.get("name", ""))
+            session.add(account)
+            await session.commit()
+            await session.refresh(account)
+            org_data["account_id"] = account.id
+
     org = await create_organization(org_data)
     return _org_to_dict(org)
 
@@ -306,7 +320,21 @@ async def update_organization_contact_route(request: Request, org_id: int, conta
             contact.email = data.email
         if data.phone is not None:
             contact.phone = data.phone
-        if data.is_primary is not None:
+        if data.is_primary:
+            # Unset all other contacts for this org first
+            from sqlalchemy import update
+            stmt = select(ContactOrganization.contact_id).where(
+                ContactOrganization.organization_id == org_id,
+                ContactOrganization.contact_id != contact_id
+            )
+            result = await session.execute(stmt)
+            other_contact_ids = [row[0] for row in result.fetchall()]
+            if other_contact_ids:
+                await session.execute(
+                    update(Contact).where(Contact.id.in_(other_contact_ids)).values(is_primary=False)
+                )
+            contact.is_primary = True
+        elif data.is_primary is not None:
             contact.is_primary = data.is_primary
         if data.notes is not None:
             contact.notes = data.notes

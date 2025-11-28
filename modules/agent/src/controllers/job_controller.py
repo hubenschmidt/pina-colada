@@ -57,13 +57,20 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
     contacts = []
     if job.lead and job.lead.contacts:
         for contact in job.lead.contacts:
+            # Use contact's own fields (new model has first_name, last_name on Contact)
+            first_name = contact.first_name or ""
+            last_name = contact.last_name or ""
+            # Fallback to first linked individual if contact has no name
+            if not first_name and contact.individuals:
+                first_name = contact.individuals[0].first_name or ""
+            if not last_name and contact.individuals:
+                last_name = contact.individuals[0].last_name or ""
             contacts.append({
                 "id": contact.id,
-                "individual_id": contact.individual_id,
-                "first_name": contact.individual.first_name if contact.individual else "",
-                "last_name": contact.individual.last_name if contact.individual else "",
-                "email": contact.email or (contact.individual.email if contact.individual else ""),
-                "phone": contact.phone or (contact.individual.phone if contact.individual else ""),
+                "first_name": first_name,
+                "last_name": last_name,
+                "email": contact.email or "",
+                "phone": contact.phone or "",
                 "title": contact.title,
                 "is_primary": contact.is_primary,
             })

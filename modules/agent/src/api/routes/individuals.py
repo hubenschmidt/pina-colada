@@ -176,8 +176,23 @@ async def get_individual_route(request: Request, individual_id: int):
 @log_errors
 @require_auth
 async def create_individual_route(request: Request, data: IndividualCreate):
-    """Create a new individual."""
+    """Create a new individual with an associated Account."""
+    from lib.db import async_get_session
+    from models.Account import Account
+
+    tenant_id = getattr(request.state, "tenant_id", None)
     ind_data = data.model_dump(exclude_none=True)
+
+    # Create an Account for the Individual if not provided
+    if not ind_data.get("account_id"):
+        async with async_get_session() as session:
+            account_name = f"{ind_data.get('first_name', '')} {ind_data.get('last_name', '')}".strip()
+            account = Account(tenant_id=tenant_id, name=account_name)
+            session.add(account)
+            await session.commit()
+            await session.refresh(account)
+            ind_data["account_id"] = account.id
+
     individual = await create_individual(ind_data)
     return _ind_to_dict(individual, include_contacts=True, contacts=[])
 
@@ -300,7 +315,21 @@ async def update_individual_contact_route(request: Request, individual_id: int, 
             contact.email = data.email
         if data.phone is not None:
             contact.phone = data.phone
-        if data.is_primary is not None:
+        if data.is_primary:
+            # Unset all other contacts for this individual first
+            from sqlalchemy import update
+            stmt = select(ContactIndividual.contact_id).where(
+                ContactIndividual.individual_id == individual_id,
+                ContactIndividual.contact_id != contact_id
+            )
+            result = await session.execute(stmt)
+            other_contact_ids = [row[0] for row in result.fetchall()]
+            if other_contact_ids:
+                await session.execute(
+                    update(Contact).where(Contact.id.in_(other_contact_ids)).values(is_primary=False)
+                )
+            contact.is_primary = True
+        elif data.is_primary is not None:
             contact.is_primary = data.is_primary
         if data.notes is not None:
             contact.notes = data.notes

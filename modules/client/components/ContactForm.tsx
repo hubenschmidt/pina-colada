@@ -26,8 +26,8 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
     notes: contact?.notes || "",
   });
 
-  const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const inputClasses =
@@ -40,33 +40,37 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSave = async () => {
-    setSaving(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
     setError(null);
     try {
       await onSave(formData);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save contact");
     } finally {
-      setSaving(false);
+      setIsSubmitting(false);
     }
   };
 
   const handleDelete = async () => {
     if (!onDelete) return;
-    setDeleting(true);
-    setError(null);
+
+    if (!isDeleting) {
+      setIsDeleting(true);
+      return;
+    }
+
     try {
       await onDelete();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete contact");
-    } finally {
-      setDeleting(false);
+      setIsDeleting(false);
     }
   };
 
   return (
-    <div className="max-w-2xl mx-auto p-6">
+    <div>
       <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">
         {isEditMode ? "Edit Contact" : "New Contact"}
       </h1>
@@ -77,7 +81,7 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
         </div>
       )}
 
-      <div className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -104,6 +108,17 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
             />
           </div>
         </div>
+
+        {isEditMode && contact?.organizations && contact.organizations.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+              Account
+            </label>
+            <div className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300">
+              {contact.organizations.map((org) => org.name).join(", ")}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -182,16 +197,16 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
             placeholder="Additional notes..."
           />
         </div>
-      </div>
 
-      <FormActions
-        onCancel={onClose}
-        onSave={handleSave}
-        onDelete={isEditMode ? handleDelete : undefined}
-        saving={saving}
-        deleting={deleting}
-        saveLabel={isEditMode ? "Save Changes" : "Create Contact"}
-      />
+        <FormActions
+          isEditMode={isEditMode}
+          isSubmitting={isSubmitting}
+          isDeleting={isDeleting}
+          onClose={onClose}
+          onDelete={onDelete ? handleDelete : undefined}
+          variant="compact"
+        />
+      </form>
     </div>
   );
 };

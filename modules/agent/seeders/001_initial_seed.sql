@@ -167,63 +167,9 @@ BEGIN
 END $$;
 
 -- ==============================
--- STEP 2: Create Sample Individuals (with Accounts)
--- ==============================
-DO $$
-DECLARE
-    account_id BIGINT;
-    v_tenant_id BIGINT;
-BEGIN
-    -- Get the tenant ID
-    SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada';
-
-    -- Sarah Chen
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Sarah Chen', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
-    VALUES (account_id, 'Sarah', 'Chen', 'sarah.chen@techventures.example.com', '+1-415-555-0101', 'https://linkedin.com/in/sarachen', 'Partner', 'Focus on SaaS and AI investments', NOW(), NOW())
-    ON CONFLICT ((LOWER(email))) DO NOTHING;
-
-    -- Michael Rodriguez
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Michael Rodriguez', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
-    VALUES (account_id, 'Michael', 'Rodriguez', 'michael.r@cloudscale.example.com', '+1-415-555-0102', 'https://linkedin.com/in/michaelrodriguez', 'VP of Engineering', 'Leads cloud infrastructure team', NOW(), NOW())
-    ON CONFLICT ((LOWER(email))) DO NOTHING;
-
-    -- Emily Johnson
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Emily Johnson', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
-    VALUES (account_id, 'Emily', 'Johnson', 'emily.j@dataflow.example.com', '+1-650-555-0103', 'https://linkedin.com/in/emilyjohnson', 'Head of Product', 'Former Google PM', NOW(), NOW())
-    ON CONFLICT ((LOWER(email))) DO NOTHING;
-
-    -- David Kim
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'David Kim', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
-    VALUES (account_id, 'David', 'Kim', 'david.kim@securenet.example.com', '+1-408-555-0104', 'https://linkedin.com/in/davidkim', 'CTO', 'Security expert with 15+ years experience', NOW(), NOW())
-    ON CONFLICT ((LOWER(email))) DO NOTHING;
-
-    -- Jessica Williams
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Jessica Williams', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
-    VALUES (account_id, 'Jessica', 'Williams', 'jessica.w@innovatelab.example.com', '+1-510-555-0105', 'https://linkedin.com/in/jessicawilliams', 'Principal Consultant', 'Specializes in go-to-market strategy', NOW(), NOW())
-    ON CONFLICT ((LOWER(email))) DO NOTHING;
-
-    -- Robert Taylor
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Robert Taylor', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
-    VALUES (account_id, 'Robert', 'Taylor', 'robert.t@techventures.example.com', '+1-415-555-0106', 'https://linkedin.com/in/roberttaylor', 'Associate', 'Focuses on early-stage deals', NOW(), NOW())
-    ON CONFLICT ((LOWER(email))) DO NOTHING;
-
-    -- Amanda Brown
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Amanda Brown', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, notes, created_at, updated_at)
-    VALUES (account_id, 'Amanda', 'Brown', 'amanda.b@cloudscale.example.com', '+1-415-555-0107', 'https://linkedin.com/in/amandabrown', 'Senior Software Engineer', 'Backend infrastructure specialist', NOW(), NOW())
-    ON CONFLICT ((LOWER(email))) DO NOTHING;
-
-    RAISE NOTICE 'Individuals with Accounts created successfully';
-END $$;
-
--- ==============================
--- STEP 3: Create Contacts (using many-to-many junction tables)
+-- STEP 2: Create Contacts (linked to Organizations only)
+-- Note: Contacts at organizations do NOT create Individual records.
+-- Individuals are only created explicitly when needed.
 -- ==============================
 DO $$
 DECLARE
@@ -232,15 +178,6 @@ DECLARE
     org_dataflow_id BIGINT;
     org_securenet_id BIGINT;
     org_innovatelab_id BIGINT;
-
-    ind_sarah_id BIGINT;
-    ind_michael_id BIGINT;
-    ind_emily_id BIGINT;
-    ind_david_id BIGINT;
-    ind_jessica_id BIGINT;
-    ind_robert_id BIGINT;
-    ind_amanda_id BIGINT;
-
     contact_id BIGINT;
 BEGIN
     -- Get Organization IDs
@@ -250,87 +187,65 @@ BEGIN
     SELECT id INTO org_securenet_id FROM "Organization" WHERE LOWER(name) = LOWER('SecureNet Solutions') LIMIT 1;
     SELECT id INTO org_innovatelab_id FROM "Organization" WHERE LOWER(name) = LOWER('InnovateLab') LIMIT 1;
 
-    -- Get Individual IDs
-    SELECT id INTO ind_sarah_id FROM "Individual" WHERE LOWER(email) = LOWER('sarah.chen@techventures.example.com') LIMIT 1;
-    SELECT id INTO ind_michael_id FROM "Individual" WHERE LOWER(email) = LOWER('michael.r@cloudscale.example.com') LIMIT 1;
-    SELECT id INTO ind_emily_id FROM "Individual" WHERE LOWER(email) = LOWER('emily.j@dataflow.example.com') LIMIT 1;
-    SELECT id INTO ind_david_id FROM "Individual" WHERE LOWER(email) = LOWER('david.kim@securenet.example.com') LIMIT 1;
-    SELECT id INTO ind_jessica_id FROM "Individual" WHERE LOWER(email) = LOWER('jessica.w@innovatelab.example.com') LIMIT 1;
-    SELECT id INTO ind_robert_id FROM "Individual" WHERE LOWER(email) = LOWER('robert.t@techventures.example.com') LIMIT 1;
-    SELECT id INTO ind_amanda_id FROM "Individual" WHERE LOWER(email) = LOWER('amanda.b@cloudscale.example.com') LIMIT 1;
-
-    -- =============================================
-    -- Contacts linked to both Individuals AND Organizations
-    -- =============================================
-
-    -- Sarah Chen's work contact at TechVentures (linked to both Individual and Org)
-    IF org_techventures_id IS NOT NULL AND ind_sarah_id IS NOT NULL THEN
+    -- Sarah Chen at TechVentures
+    IF org_techventures_id IS NOT NULL THEN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Sarah', 'Chen', 'Partner', 'Investments', 'Decision Maker', 'sarah.chen@techventures.example.com', '+1-415-555-0101', TRUE, 'Main contact for investment discussions', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_sarah_id, NOW());
         INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_techventures_id, TRUE, NOW());
     END IF;
 
     -- Robert Taylor at TechVentures
-    IF org_techventures_id IS NOT NULL AND ind_robert_id IS NOT NULL THEN
+    IF org_techventures_id IS NOT NULL THEN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Robert', 'Taylor', 'Associate', 'Investments', 'Influencer', 'robert.t@techventures.example.com', '+1-415-555-0106', FALSE, 'Can provide warm introductions', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_robert_id, NOW());
         INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_techventures_id, FALSE, NOW());
     END IF;
 
     -- Michael Rodriguez at CloudScale
-    IF org_cloudscale_id IS NOT NULL AND ind_michael_id IS NOT NULL THEN
+    IF org_cloudscale_id IS NOT NULL THEN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Michael', 'Rodriguez', 'VP of Engineering', 'Engineering', 'Decision Maker', 'michael.r@cloudscale.example.com', '+1-415-555-0102', TRUE, 'Hiring manager for engineering roles', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_michael_id, NOW());
         INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_cloudscale_id, TRUE, NOW());
     END IF;
 
     -- Amanda Brown at CloudScale
-    IF org_cloudscale_id IS NOT NULL AND ind_amanda_id IS NOT NULL THEN
+    IF org_cloudscale_id IS NOT NULL THEN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Amanda', 'Brown', 'Senior Software Engineer', 'Engineering', 'Technical Contact', 'amanda.b@cloudscale.example.com', '+1-415-555-0107', FALSE, 'Can provide technical insight', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_amanda_id, NOW());
         INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_cloudscale_id, FALSE, NOW());
     END IF;
 
     -- Emily Johnson at DataFlow
-    IF org_dataflow_id IS NOT NULL AND ind_emily_id IS NOT NULL THEN
+    IF org_dataflow_id IS NOT NULL THEN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Emily', 'Johnson', 'Head of Product', 'Product', 'Decision Maker', 'emily.j@dataflow.example.com', '+1-650-555-0103', TRUE, 'Leads product hiring', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_emily_id, NOW());
         INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_dataflow_id, TRUE, NOW());
     END IF;
 
     -- David Kim at SecureNet
-    IF org_securenet_id IS NOT NULL AND ind_david_id IS NOT NULL THEN
+    IF org_securenet_id IS NOT NULL THEN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('David', 'Kim', 'CTO', 'Technology', 'Decision Maker', 'david.kim@securenet.example.com', '+1-408-555-0104', TRUE, 'Technical leadership contact', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_david_id, NOW());
         INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_securenet_id, TRUE, NOW());
     END IF;
 
     -- Jessica Williams at InnovateLab
-    IF org_innovatelab_id IS NOT NULL AND ind_jessica_id IS NOT NULL THEN
+    IF org_innovatelab_id IS NOT NULL THEN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Jessica', 'Williams', 'Principal Consultant', 'Consulting', 'Champion', 'jessica.w@innovatelab.example.com', '+1-510-555-0105', TRUE, 'Strong advocate, met at conference', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_jessica_id, NOW());
         INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_innovatelab_id, TRUE, NOW());
     END IF;
 
-    -- =============================================
-    -- Contacts linked ONLY to Organizations (no Individual)
-    -- =============================================
+    -- Generic/department contacts
 
-    -- Generic reception contact at TechVentures
+    -- Reception at TechVentures
     IF org_techventures_id IS NOT NULL THEN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Front', 'Desk', 'Reception', 'Administration', 'Gatekeeper', 'info@techventures.example.com', '+1-415-555-0100', FALSE, 'General inquiries contact', NOW(), NOW())
@@ -354,32 +269,11 @@ BEGIN
         INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_dataflow_id, FALSE, NOW());
     END IF;
 
-    -- =============================================
-    -- Contacts linked ONLY to Individuals (no Organization)
-    -- e.g., personal assistants, personal contacts
-    -- =============================================
-
-    -- Sarah Chen's personal assistant
-    IF ind_sarah_id IS NOT NULL THEN
-        INSERT INTO "Contact" (first_name, last_name, title, role, email, phone, is_primary, notes, created_at, updated_at)
-        VALUES ('Lisa', 'Park', 'Executive Assistant', 'Assistant', 'lisa.park@techventures.example.com', '+1-415-555-0108', FALSE, 'Sarah Chen''s executive assistant - schedule through her', NOW(), NOW())
-        RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_sarah_id, NOW());
-    END IF;
-
-    -- David Kim's personal contact (external consultant)
-    IF ind_david_id IS NOT NULL THEN
-        INSERT INTO "Contact" (first_name, last_name, title, role, email, phone, is_primary, notes, created_at, updated_at)
-        VALUES ('Marcus', 'Chen', 'Security Consultant', 'Advisor', 'marcus.chen@securityadvisors.example.com', '+1-408-555-0109', FALSE, 'David Kim''s trusted external security advisor', NOW(), NOW())
-        RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_david_id, NOW());
-    END IF;
-
-    RAISE NOTICE 'Contacts created with many-to-many relationships successfully';
+    RAISE NOTICE 'Organization contacts created successfully';
 END $$;
 
 -- ==============================
--- STEP 4: Create Sample Deals
+-- STEP 3: Create Sample Deals
 -- ==============================
 DO $$
 DECLARE
@@ -403,7 +297,7 @@ BEGIN
 END $$;
 
 -- ==============================
--- STEP 5: Create Sample Leads (Opportunities & Partnerships)
+-- STEP 4: Create Sample Leads (Opportunities & Partnerships)
 -- ==============================
 DO $$
 DECLARE
@@ -567,7 +461,7 @@ BEGIN
 END $$;
 
 -- ==============================
--- STEP 6: Create Sample Tasks
+-- STEP 5: Create Sample Tasks
 -- ==============================
 DO $$
 DECLARE
@@ -702,7 +596,7 @@ BEGIN
 END $$;
 
 -- ==============================
--- STEP 7: Create Sample Activities
+-- STEP 6: Create Sample Activities
 -- ==============================
 DO $$
 DECLARE

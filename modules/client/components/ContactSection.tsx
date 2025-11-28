@@ -235,6 +235,11 @@ const ContactSection = <T extends Record<string, any>>({
                 {displayName}
               </span>
             )}
+            {contact.title && (
+              <span className="text-sm text-zinc-500 dark:text-zinc-400">
+                — {contact.title}
+              </span>
+            )}
             {isPrimary && (
               <span className="text-xs bg-lime-100 dark:bg-lime-900/30 text-lime-700 dark:text-lime-400 px-2 py-0.5 rounded">
                 {display.primaryLabel || "Primary"}
