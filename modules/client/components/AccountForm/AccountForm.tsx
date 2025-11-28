@@ -14,7 +14,8 @@ import {
   createNote,
 } from "../../api";
 import { SearchResult } from "../ContactSection";
-import { AccountType, FormFieldConfig, useAccountFormConfig } from "./AccountFormConfig";
+import { AccountType, FormFieldConfig } from "./types/AccountFormTypes";
+import { useAccountFormConfig } from "./hooks/useAccountFormConfig";
 
 interface OrganizationData {
   id?: number;

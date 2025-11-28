@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Center, Stack, Loader } from "@mantine/core";
 import { usePageLoading } from "../../../../context/pageLoadingContext";
-import AccountForm from "../../../../components/AccountForm";
+import AccountForm from "../../../../components/AccountForm/AccountForm";
 import { getIndividual, updateIndividual, deleteIndividual } from "../../../../api";
 
 const IndividualDetailPage = () => {

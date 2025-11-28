@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import AccountForm from "../../../../components/AccountForm";
+import AccountForm from "../../../../components/AccountForm/AccountForm";
 import { createIndividual } from "../../../../api";
 
 const NewIndividualPage = () => {
