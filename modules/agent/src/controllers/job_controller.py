@@ -31,6 +31,18 @@ def _to_paged_response(count: int, page: int, limit: int, items: List) -> dict:
     }
 
 
+def _extract_company_info(organizations: list, individuals: list) -> tuple[str, str]:
+    """Extract company name and type from account data."""
+    if organizations:
+        return organizations[0].get("name", ""), "Organization"
+    if individuals:
+        ind = individuals[0]
+        first_name = ind.get("first_name", "")
+        last_name = ind.get("last_name", "")
+        return f"{last_name}, {first_name}".strip(", "), "Individual"
+    return "", "Organization"
+
+
 def _job_to_response_dict(job) -> Dict[str, Any]:
     """Convert job ORM to response dictionary."""
     job_dict = model_to_dict(job, include_relationships=True)
@@ -40,18 +52,7 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
     account = lead.get("account") or {}
     organizations = account.get("organizations") or []
     individuals = account.get("individuals") or []
-
-    company = ""
-    company_type = "Organization"
-    if organizations:
-        company = organizations[0].get("name", "")
-        company_type = "Organization"
-    elif individuals:
-        ind = individuals[0]
-        first_name = ind.get("first_name", "")
-        last_name = ind.get("last_name", "")
-        company = f"{last_name}, {first_name}".strip(", ")
-        company_type = "Individual"
+    company, company_type = _extract_company_info(organizations, individuals)
 
     # Get contacts linked to this lead via Lead_Contact junction
     contacts = []
@@ -99,7 +100,7 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
     if job.revenue_range:
         salary_range = job.revenue_range.label
         revenue_range_id = job.revenue_range.id
-    elif job_dict.get("salary_range"):
+    if not salary_range:
         salary_range = job_dict.get("salary_range")
 
     return {

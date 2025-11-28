@@ -77,7 +77,7 @@ const apiDelete = <T>(path: string, config?: AxiosRequestConfig) =>
 
 export const getJobs = async (
   page: number = 1,
-  limit: number = 25,
+  limit: number = 50,
   orderBy: string = "date",
   order: "ASC" | "DESC" = "DESC",
   search?: string
@@ -607,11 +607,27 @@ export const getOrganizationContacts = async (orgId: number): Promise<Contact[]>
 };
 
 /**
+ * Input type for creating an organization contact
+ */
+export type OrgContactInput = {
+  individual_id?: number;
+  first_name?: string;
+  last_name?: string;
+  title?: string;
+  department?: string;
+  role?: string;
+  email?: string;
+  phone?: string;
+  is_primary?: boolean;
+  notes?: string;
+};
+
+/**
  * Add a contact (existing individual) to an organization
  */
 export const createOrganizationContact = async (
   orgId: number,
-  data: Partial<Omit<Contact, "id" | "organization_id" | "created_at" | "updated_at">>
+  data: OrgContactInput
 ): Promise<Contact> => {
   return apiPost<Contact>(`/organizations/${orgId}/contacts`, data);
 };

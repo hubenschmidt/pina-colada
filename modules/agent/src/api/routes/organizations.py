@@ -334,7 +334,7 @@ async def update_organization_contact_route(request: Request, org_id: int, conta
                     update(Contact).where(Contact.id.in_(other_contact_ids)).values(is_primary=False)
                 )
             contact.is_primary = True
-        elif data.is_primary is not None:
+        if data.is_primary is not None:
             contact.is_primary = data.is_primary
         if data.notes is not None:
             contact.notes = data.notes

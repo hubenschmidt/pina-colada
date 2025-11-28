@@ -85,7 +85,7 @@ def _ensure_tool_pairs_intact(messages: List[Any]) -> List[Any]:
         if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
             for tc in msg.tool_calls:
                 pending_tool_calls.add(tc.get('id'))
-        elif isinstance(msg, ToolMessage):
+        if isinstance(msg, ToolMessage):
             pending_tool_calls.discard(msg.tool_call_id)
 
     # If there are pending tool calls without responses, remove them

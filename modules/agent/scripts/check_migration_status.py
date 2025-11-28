@@ -61,10 +61,9 @@ def check_local_postgres():
             
             return {"type": "local_postgres", "migrations_applied": table_exists}
         except psycopg2.OperationalError:
-            if attempt < max_retries - 1:
-                time.sleep(2)
-                continue
-            return None
+            if attempt >= max_retries - 1:
+                return None
+            time.sleep(2)
         except Exception:
             return None
     
@@ -73,42 +72,38 @@ def check_local_postgres():
 
 def get_migration_files():
     """Get list of migration files."""
-    # Try Docker path first
     docker_migrations_dir = Path("/app/migrations")
-    if docker_migrations_dir.exists():
-        migrations_dir = docker_migrations_dir
-    else:
-        # Local development path - migrations are in modules/agent/migrations/
-        script_dir = Path(__file__).parent
-        agent_dir = script_dir.parent
-        migrations_dir = agent_dir / "migrations"
-    
+    script_dir = Path(__file__).parent
+    agent_dir = script_dir.parent
+    migrations_dir = docker_migrations_dir if docker_migrations_dir.exists() else agent_dir / "migrations"
+
     if not migrations_dir.exists():
         return []
-    
+
     migration_files = sorted(migrations_dir.glob("*.sql"))
     return [f.name for f in migration_files]
 
 
+def _print_migration_status(postgres_status: dict) -> None:
+    """Print migration status message."""
+    if postgres_status["migrations_applied"]:
+        print("✓ Database schema up to date, migrations already applied")
+        return
+    migration_files = get_migration_files()
+    if not migration_files:
+        print("ℹ️  No migration files found")
+        return
+    print(f"⚠️  {len(migration_files)} migration file(s) found but not yet applied")
+    print("   Migrations will be applied automatically on startup")
+
+
 def main():
     """Main entry point."""
-    # Check local Postgres (development only)
-    # Note: Supabase migrations are handled in Azure Pipeline for production
     postgres_status = check_local_postgres()
-    if postgres_status:
-        if postgres_status["migrations_applied"]:
-            print("✓ Database schema up to date, migrations already applied")
-        else:
-            migration_files = get_migration_files()
-            if migration_files:
-                print(f"⚠️  {len(migration_files)} migration file(s) found but not yet applied")
-                print("   Migrations will be applied automatically on startup")
-            else:
-                print("ℹ️  No migration files found")
+    if not postgres_status:
+        print("ℹ️  Could not determine migration status (no database connection available)")
         return
-    
-    # Can't determine status
-    print("ℹ️  Could not determine migration status (no database connection available)")
+    _print_migration_status(postgres_status)
 
 
 if __name__ == "__main__":

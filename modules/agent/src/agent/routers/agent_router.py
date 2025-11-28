@@ -90,7 +90,7 @@ def _get_recent_context(messages, limit: int = 4) -> str:
         
         if isinstance(msg, HumanMessage):
             process_human_message(msg)
-        elif isinstance(msg, AIMessage) and msg.content:
+        if isinstance(msg, AIMessage) and msg.content:
             process_ai_message(msg)
 
     return "\n".join(reversed(recent))

@@ -57,7 +57,7 @@ const IndividualsPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(10);
+  const [limit, setLimit] = useState(50);
   const [sortBy, setSortBy] = useState("name");
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("ASC");
 

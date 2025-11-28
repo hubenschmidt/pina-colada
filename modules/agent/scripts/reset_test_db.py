@@ -206,13 +206,9 @@ def reset_database(skip_confirmation: bool = False):
     script_dir = Path(__file__).parent
     docker_base = Path("/app")
 
-    if docker_base.exists():
-        migrations_dir = docker_base / "migrations"
-        seeders_dir = docker_base / "seeders"
-    else:
-        agent_dir = script_dir.parent
-        migrations_dir = agent_dir / "migrations"
-        seeders_dir = agent_dir / "seeders"
+    agent_dir = script_dir.parent
+    migrations_dir = docker_base / "migrations" if docker_base.exists() else agent_dir / "migrations"
+    seeders_dir = docker_base / "seeders" if docker_base.exists() else agent_dir / "seeders"
 
     print(f"\nMigrations: {migrations_dir}")
     print(f"Seeders: {seeders_dir}")

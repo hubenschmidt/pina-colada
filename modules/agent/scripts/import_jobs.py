@@ -11,6 +11,7 @@ Usage:
 """
 
 import csv
+import re
 import sys
 import os
 from datetime import datetime
@@ -85,68 +86,88 @@ def normalize_status(status: str, date_str: str) -> str:
     return "applied"
 
 
+def _get_field_insensitive(row: dict, *keys: str) -> str:
+    """Get field value case-insensitively."""
+    for key in keys:
+        if key in row:
+            return row[key].strip() if row[key] else ""
+        for row_key in row.keys():
+            if row_key.lower() == key.lower():
+                return row[row_key].strip() if row[row_key] else ""
+    return ""
+
+
+def _try_split_description(description: str) -> tuple[str, str] | None:
+    """Try to split description into company and job title."""
+    # Try regex split first (em-dash or dash with space)
+    parts = re.split(r'\s*[–-]\s+', description, maxsplit=1)
+    if len(parts) == 2:
+        return parts[0].strip(), parts[1].strip()
+    # Try em-dash only
+    if '–' in description:
+        parts = description.rsplit('–', 1)
+        if len(parts) == 2:
+            return parts[0].strip(), parts[1].strip()
+    # Try dash with spaces
+    if ' - ' in description:
+        parts = description.rsplit(' - ', 1)
+        if len(parts) == 2:
+            return parts[0].strip(), parts[1].strip()
+    return None
+
+
 def should_skip_row(row: dict) -> bool:
     """Determine if row should be skipped."""
-    # Try multiple possible field names (case-insensitive)
-    def _get_field_insensitive(row: dict, *keys: str) -> str:
-        for key in keys:
-            if key in row:
-                return row[key].strip() if row[key] else ""
-            for row_key in row.keys():
-                if row_key.lower() == key.lower():
-                    return row[row_key].strip() if row[row_key] else ""
-        return ""
-    
     description = _get_field_insensitive(row, "Description", "description", "company")
     job_title = _get_field_insensitive(row, "Job title", "job title", "job_title", "title")
     date_applied = _get_field_insensitive(row, "date applied", "date", "date_applied").lower()
-    
-    # Handle case where description and job title are combined in description field
-    # Format: "Company Name – Job Title" or "Company Name - Job Title"
+
     if description and not job_title:
-        import re
-        # Try to split on em-dash (–) or regular dash (-) if followed by space
-        parts = re.split(r'\s*[–-]\s+', description, maxsplit=1)
-        if len(parts) == 2:
-            description = parts[0].strip()
-            job_title = parts[1].strip()
-        elif '–' in description:
-            parts = description.rsplit('–', 1)
-            if len(parts) == 2:
-                description = parts[0].strip()
-                job_title = parts[1].strip()
-        elif ' - ' in description:
-            parts = description.rsplit(' - ', 1)
-            if len(parts) == 2:
-                description = parts[0].strip()
-                job_title = parts[1].strip()
-    
-    # Skip if missing required fields (after trying to split)
+        split_result = _try_split_description(description)
+        if split_result:
+            description, job_title = split_result
+
     if not description or not job_title:
         return True
-    
-    # Skip if explicitly marked as not applied
+
     skip_indicators = ["did not apply", "to apply", "jen to apply", "need to finish"]
-    if date_applied in skip_indicators:
-        return True
-    
-    return False
+    return date_applied in skip_indicators
+
+
+def _is_duplicate_job(job: Job, existing: Job) -> bool:
+    """Check if job matches an existing job."""
+    if existing.company.lower() != job.company.lower():
+        return False
+    if existing.job_title.lower() != job.job_title.lower():
+        return False
+    if job.date and existing.date:
+        return job.date.date() == existing.date.date()
+    return job.date is None and existing.date is None
 
 
 def check_duplicate(job: Job, existing_jobs: list[Job]) -> bool:
     """Check if job already exists in database."""
-    for existing in existing_jobs:
-        # Match on company, job_title, and date (if available)
-        if (existing.company.lower() == job.company.lower() and
-            existing.job_title.lower() == job.job_title.lower()):
-            # If both have dates, they must match
-            if job.date and existing.date:
-                if job.date.date() == existing.date.date():
-                    return True
-            # If only one has a date, consider it a duplicate if company+title match
-            elif job.date is None and existing.date is None:
-                return True
-    return False
+    return any(_is_duplicate_job(job, existing) for existing in existing_jobs)
+
+
+def _import_single_row(row_num: int, row: dict, process_fn, existing_jobs: list, skip_duplicates: bool, dry_run: bool) -> str:
+    """Process a single row and return result status."""
+    try:
+        job = process_fn(row_num, row)
+        if not job:
+            return "skipped"
+        if skip_duplicates and check_duplicate(job, existing_jobs):
+            print(f"⊘ Row {row_num}: {job.company} - {job.job_title} (duplicate, skipping)")
+            return "duplicate"
+        if not dry_run:
+            create_job_from_orm(job)
+        existing_jobs.append(job)
+        print(f"✓ Row {row_num}: {job.company} - {job.job_title}")
+        return "imported"
+    except Exception as e:
+        error_msg = f"Row {row_num}: {str(e)}"
+        print(f"✗ {error_msg}")
+        return f"error:{error_msg}"
 
 
 def import_csv(file_path: str, dry_run: bool = False, skip_duplicates: bool = True) -> None:
@@ -213,26 +234,10 @@ def import_csv(file_path: str, dry_run: bool = False, skip_duplicates: bool = Tr
             source = _get_field(row, "job board", "job_board", "source") or "manual"
             
             # Handle case where description and job title are combined in description field
-            # Format: "Company Name – Job Title" or "Company Name - Job Title"
             if description and not job_title:
-                # Try to split on em-dash (–) or regular dash (-) if followed by space
-                import re
-                # Match em-dash or dash followed by space
-                parts = re.split(r'\s*[–-]\s+', description, maxsplit=1)
-                if len(parts) == 2:
-                    description = parts[0].strip()
-                    job_title = parts[1].strip()
-                # If still no job title, try splitting on last dash
-                elif not job_title and '–' in description:
-                    parts = description.rsplit('–', 1)
-                    if len(parts) == 2:
-                        description = parts[0].strip()
-                        job_title = parts[1].strip()
-                elif not job_title and ' - ' in description:
-                    parts = description.rsplit(' - ', 1)
-                    if len(parts) == 2:
-                        description = parts[0].strip()
-                        job_title = parts[1].strip()
+                split_result = _try_split_description(description)
+                if split_result:
+                    description, job_title = split_result
             
             # Parse resume date (if provided)
             resume_date = None
@@ -240,12 +245,10 @@ def import_csv(file_path: str, dry_run: bool = False, skip_duplicates: bool = Tr
                 parsed_resume = parse_date(resume_str)
                 if parsed_resume:
                     resume_date = parsed_resume
-                else:
-                    # If resume is not a date, add it to notes
-                    if notes:
-                        notes = f"{notes} | Resume: {resume_str}"
-                    else:
-                        notes = f"Resume: {resume_str}"
+                if not parsed_resume and notes:
+                    notes = f"{notes} | Resume: {resume_str}"
+                if not parsed_resume and not notes:
+                    notes = f"Resume: {resume_str}"
             
             job = Job(
                 company=description,
@@ -267,31 +270,13 @@ def import_csv(file_path: str, dry_run: bool = False, skip_duplicates: bool = Tr
             return job
         
         for row_num, row in enumerate(reader, start=2):
-            try:
-                job = _process_row(row_num, row)
-                if not job:
-                    skipped += 1
-                    continue
-                
-                # Check for duplicates
-                if skip_duplicates and check_duplicate(job, existing_jobs):
-                    duplicates += 1
-                    print(f"⊘ Row {row_num}: {job.company} - {job.job_title} (duplicate, skipping)")
-                    continue
-                
-                    if not dry_run:
-                        create_job_from_orm(job)
-                    # Add to existing jobs list to prevent duplicates within the same import
-                    existing_jobs.append(job)
-                    
-                    imported += 1
-                    print(f"✓ Row {row_num}: {job.company} - {job.job_title}")
-            
-            except Exception as e:
+            result = _import_single_row(row_num, row, _process_row, existing_jobs, skip_duplicates, dry_run)
+            skipped += result == "skipped"
+            duplicates += result == "duplicate"
+            imported += result == "imported"
+            if result.startswith("error:"):
                 skipped += 1
-                error_msg = f"Row {row_num}: {str(e)}"
-                errors.append(error_msg)
-                print(f"✗ {error_msg}")
+                errors.append(result[6:])
     
     print(f"\n{'[DRY RUN] ' if dry_run else ''}Import complete:")
     print(f"  Imported: {imported}")

@@ -28,7 +28,7 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(config.defaultPageSize || 25);
+  const [limit, setLimit] = useState(config.defaultPageSize || 50);
   const [sortBy, setSortBy] = useState<string>(
     config.defaultSortBy || "created_at"
   );
@@ -75,7 +75,7 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
   useEffect(() => {
     if (data !== null && !loading) {
       const prevPage = data.currentPage || 1;
-      const prevLimit = data.pageSize || 25;
+      const prevLimit = data.pageSize || 50;
       const isPagination = page !== prevPage || limit !== prevLimit;
       loadLeads(false, isPagination);
     }

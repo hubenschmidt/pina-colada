@@ -43,12 +43,7 @@ def model_to_dict(
 
     for column in mapper.columns:
         value = getattr(model, column.key)
-
-        # Handle datetime objects
-        if isinstance(value, (datetime, date)):
-            result[column.key] = value.isoformat() if value else None
-        else:
-            result[column.key] = value
+        result[column.key] = value.isoformat() if isinstance(value, (datetime, date)) and value else value
 
     if include_relationships and _current_depth < max_depth:
         def process_relationship(relationship):

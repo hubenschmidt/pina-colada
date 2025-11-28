@@ -47,22 +47,22 @@ def make_evaluator_output_model() -> Type[BaseModel]:
     return EvaluatorOutput
 
 
+def _format_message(msg) -> str | None:
+    """Format a single message. Returns None if not formattable."""
+    if isinstance(msg, HumanMessage):
+        return f"USER: {msg.content}"
+    if isinstance(msg, AIMessage) and msg.content:
+        return f"ASSISTANT: {msg.content}"
+    if isinstance(msg, ToolMessage):
+        return f"[Tool executed: {msg.name}]"
+    return None
+
+
 def format_conversation(messages) -> str:
     """Format conversation history for evaluation"""
-    formatted = []
     relevant_messages = messages[-6:] if len(messages) > 6 else messages
-
-    for msg in relevant_messages:
-        if isinstance(msg, HumanMessage):
-            formatted.append(f"USER: {msg.content}")
-            continue
-        if isinstance(msg, AIMessage) and msg.content:
-            formatted.append(f"ASSISTANT: {msg.content}")
-            continue
-        if isinstance(msg, ToolMessage):
-            formatted.append(f"[Tool executed: {msg.name}]")
-
-    return "\n".join(formatted)
+    formatted = [_format_message(msg) for msg in relevant_messages]
+    return "\n".join(f for f in formatted if f)
 
 
 async def create_base_evaluator_node(

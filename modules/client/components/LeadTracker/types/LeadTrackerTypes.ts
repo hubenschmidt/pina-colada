@@ -1,4 +1,4 @@
-import { Column, PageData } from "../DataTable";
+import { Column, PageData } from "../../DataTable/DataTable";
 
 export type LeadStatus = string;
 
@@ -20,7 +20,11 @@ export interface LeadFormProps<T extends BaseLead> {
   onDelete?: (id: string) => Promise<void>;
 }
 
-export interface LeadAPI<T extends BaseLead, TInsert = Omit<T, "id" | "created_at" | "updated_at">, TUpdate = Partial<T>> {
+export interface LeadAPI<
+  T extends BaseLead,
+  TInsert = Omit<T, "id" | "created_at" | "updated_at">,
+  TUpdate = Partial<T>
+> {
   getLeads: (
     page: number,
     limit: number,

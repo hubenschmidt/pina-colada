@@ -7,6 +7,10 @@ import {
   ChevronDown,
   PanelLeftClose,
   PanelLeft,
+  Building2,
+  Users,
+  Contact,
+  Briefcase,
 } from "lucide-react";
 import { Stack, ScrollArea } from "@mantine/core";
 import { useNavContext } from "../../context/navContext";
@@ -65,20 +69,23 @@ export const Sidebar = () => {
                   <div className="ml-6 mt-1 space-y-1">
                     <Link
                       href="/accounts/organizations"
-                      className="block rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                      className="flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
                     >
+                      <Building2 className="h-4 w-4" />
                       Organizations
                     </Link>
                     <Link
                       href="/accounts/individuals"
-                      className="block rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                      className="flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
                     >
+                      <Users className="h-4 w-4" />
                       Individuals
                     </Link>
                     <Link
                       href="/accounts/contacts"
-                      className="block rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                      className="flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
                     >
+                      <Contact className="h-4 w-4" />
                       Contacts
                     </Link>
                   </div>
@@ -102,8 +109,9 @@ export const Sidebar = () => {
                   <div className="ml-6 mt-1 space-y-1">
                     <Link
                       href="/leads/jobs"
-                      className="block rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                      className="flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
                     >
+                      <Briefcase className="h-4 w-4" />
                       Jobs
                     </Link>
                   </div>

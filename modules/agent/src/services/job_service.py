@@ -26,35 +26,116 @@ from repositories.industry_repository import find_industry_by_name
 logger = logging.getLogger(__name__)
 
 
+async def _resolve_individual_account(job_data: Dict[str, Any], tenant_id: Optional[str]) -> tuple[int, str]:
+    """Resolve account for Individual account type."""
+    contact_name = job_data.get("contact_name")
+    if not contact_name:
+        raise HTTPException(
+            status_code=400, detail="contact_name is required for Individual account type"
+        )
+    parts = contact_name.strip().split(" ", 1)
+    first_name = parts[0]
+    last_name = parts[1] if len(parts) > 1 else ""
+    individual = await get_or_create_individual(first_name, last_name, tenant_id)
+    if not individual.account_id:
+        raise HTTPException(
+            status_code=400, detail=f"Individual {contact_name} has no account"
+        )
+    return individual.account_id, contact_name
+
+
+async def _resolve_organization_account(job_data: Dict[str, Any], tenant_id: Optional[str]) -> tuple[int, str]:
+    """Resolve account for Organization account type."""
+    organization_name = job_data.get("account") or job_data.get("organization_name")
+    if not organization_name:
+        raise HTTPException(status_code=400, detail="account is required")
+    industry_ids = job_data.get("industry_ids")
+    industry_input = job_data.get("industry")
+    if not industry_ids and industry_input:
+        industry_names = industry_input if isinstance(industry_input, list) else [industry_input]
+        industry_ids = [
+            ind.id for name in industry_names if name
+            for ind in [await find_industry_by_name(name)] if ind
+        ]
+    org = await get_or_create_organization(organization_name, tenant_id, industry_ids if industry_ids else None)
+    if not org.account_id:
+        raise HTTPException(
+            status_code=400, detail=f"Organization {organization_name} has no account"
+        )
+    return org.account_id, org.name
+
+
+async def _process_single_contact(
+    contact_data: Dict[str, Any],
+    lead_id: int,
+    organization_id: Optional[int],
+    tenant_id: Optional[str],
+    is_primary: bool
+) -> None:
+    """Process a single contact for a job. Returns early if invalid."""
+    first_name = contact_data.get("first_name", "").strip()
+    last_name = contact_data.get("last_name", "").strip()
+    if not first_name or not last_name:
+        return
+    contact_phone = contact_data.get("phone")
+    try:
+        contact_phone = validate_phone(contact_phone)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Contact {first_name} {last_name}: {str(e)}")
+    individual_id = contact_data.get("individual_id")
+    if not individual_id:
+        individual = await get_or_create_individual(first_name, last_name, tenant_id)
+        individual_id = individual.id
+    contact = await get_or_create_contact(
+        individual_id=individual_id,
+        organization_id=organization_id,
+        email=contact_data.get("email"),
+        phone=contact_phone,
+        title=contact_data.get("title"),
+        is_primary=is_primary
+    )
+    await create_lead_contact(lead_id=lead_id, contact_id=contact.id, is_primary=is_primary)
+
+
+def _parse_resume_date(resume_str: str | None) -> tuple[bool, datetime | None]:
+    """Parse resume date string. Returns (should_update, parsed_value)."""
+    if resume_str is None:
+        return False, None
+    if resume_str == "":
+        return True, None
+    try:
+        return True, datetime.fromisoformat(resume_str.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return True, None
+
+
 def _normalize_identifier(company: str, title: str) -> str:
     """Normalize job identifier for comparison."""
     return f"{company.lower().strip()}|{title.lower().strip()}"
 
 
-def _map_to_dict(job) -> Dict[str, str]:
-    """Map database model to dictionary for API compatibility."""
-    # Use model_to_dict which includes relationships
-    job_dict = model_to_dict(job, include_relationships=True)
-
-    # Extract account info from Lead.account
-    company = "Unknown Company"
-    contact_name = None
-    account_type = "Organization"
-    lead = job_dict.get("lead", {})
-    account = lead.get("account", {})
-    organizations = account.get("organizations", [])
-    individuals = account.get("individuals", [])
-
-    if organizations and len(organizations) > 0:
-        company = organizations[0].get("name", "Unknown Company")
-        account_type = "Organization"
-    elif individuals and len(individuals) > 0:
+def _extract_account_info(organizations: list, individuals: list) -> tuple[str, str, str | None]:
+    """Extract company, account_type, and contact_name from account data."""
+    if organizations:
+        return organizations[0].get("name", "Unknown Company"), "Organization", None
+    if individuals:
         ind = individuals[0]
         first_name = ind.get("first_name", "")
         last_name = ind.get("last_name", "")
         contact_name = f"{first_name} {last_name}".strip()
-        company = contact_name  # Use contact name as company for display
-        account_type = "Individual"
+        return contact_name, "Individual", contact_name
+    return "Unknown Company", "Organization", None
+
+
+def _map_to_dict(job) -> Dict[str, str]:
+    """Map database model to dictionary for API compatibility."""
+    job_dict = model_to_dict(job, include_relationships=True)
+
+    lead = job_dict.get("lead", {})
+    account = lead.get("account", {})
+    organizations = account.get("organizations", [])
+    individuals = account.get("individuals", [])
+    company, account_type, contact_name = _extract_account_info(organizations, individuals)
 
     # Extract status name from current_status (backward compatibility)
     status = job_dict.get("current_status", {}).get("name", "Applied")
@@ -301,59 +382,8 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
     """
     account_type = job_data.get("account_type", "Organization")
     tenant_id = job_data.get("tenant_id")
-    account_id = None
-    account_name = "Unknown"
-
-    if account_type == "Individual":
-        # Individual account type
-        contact_name = job_data.get("contact_name")
-        if not contact_name:
-            raise HTTPException(
-                status_code=400, detail="contact_name is required for Individual account type"
-            )
-
-        # Split contact_name into first/last name
-        parts = contact_name.strip().split(" ", 1)
-        first_name = parts[0]
-        last_name = parts[1] if len(parts) > 1 else ""
-
-        # Get or create individual (this creates Account too)
-        individual = await get_or_create_individual(first_name, last_name, tenant_id)
-        account_id = individual.account_id
-        account_name = contact_name
-
-        if not account_id:
-            raise HTTPException(
-                status_code=400, detail=f"Individual {contact_name} has no account"
-            )
-    else:
-        # Organization account type (default)
-        organization_name = job_data.get("account") or job_data.get("organization_name")
-        if not organization_name:
-            raise HTTPException(
-                status_code=400, detail="account is required"
-            )
-
-        # Handle industry - can be industry_ids (list of IDs) or industry (list of names or single name)
-        industry_ids = job_data.get("industry_ids")
-        industry_input = job_data.get("industry")
-        if not industry_ids and industry_input:
-            # Handle both single string and list of strings
-            industry_names = industry_input if isinstance(industry_input, list) else [industry_input]
-            industry_ids = []
-            for name in industry_names:
-                if name:
-                    industry = await find_industry_by_name(name)
-                    if industry:
-                        industry_ids.append(industry.id)
-        org = await get_or_create_organization(organization_name, tenant_id, industry_ids if industry_ids else None)
-        account_id = org.account_id
-        account_name = org.name
-
-        if not account_id:
-            raise HTTPException(
-                status_code=400, detail=f"Organization {organization_name} has no account"
-            )
+    resolve_account = _resolve_individual_account if account_type == "Individual" else _resolve_organization_account
+    account_id, account_name = await resolve_account(job_data, tenant_id)
 
     # Parse resume date
     resume_str = job_data.get("resume")
@@ -405,40 +435,7 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
             organization_id = org.id
 
     for idx, contact_data in enumerate(contacts):
-        first_name = contact_data.get("first_name", "").strip()
-        last_name = contact_data.get("last_name", "").strip()
-        if not first_name or not last_name:
-            continue
-
-        # Validate phone if provided
-        contact_phone = contact_data.get("phone")
-        try:
-            contact_phone = validate_phone(contact_phone)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=f"Contact {first_name} {last_name}: {str(e)}")
-
-        # Use provided individual_id if available, otherwise create new Individual
-        individual_id = contact_data.get("individual_id")
-        if not individual_id:
-            individual = await get_or_create_individual(first_name, last_name, tenant_id)
-            individual_id = individual.id
-
-        # Create Contact record (links individual to organization if applicable)
-        contact = await get_or_create_contact(
-            individual_id=individual_id,
-            organization_id=organization_id,
-            email=contact_data.get("email"),
-            phone=contact_phone,
-            title=contact_data.get("title"),
-            is_primary=(idx == 0)  # First contact is primary
-        )
-
-        # Link contact to lead via Lead_Contact junction
-        await create_lead_contact(
-            lead_id=created.id,
-            contact_id=contact.id,
-            is_primary=(idx == 0)
-        )
+        await _process_single_contact(contact_data, created.id, organization_id, tenant_id, is_primary=(idx == 0))
 
     return created
 
@@ -596,16 +593,9 @@ async def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
         data["current_status_id"] = status.id if status else None
 
     # Handle resume_date parsing
-    resume_str = job_data.get("resume")
-    if resume_str is None:
-        pass  # No update to resume_date
-    if resume_str == "":
-        data["resume_date"] = None
-    if resume_str:
-        try:
-            data["resume_date"] = datetime.fromisoformat(resume_str.replace("Z", "+00:00"))
-        except (ValueError, TypeError):
-            data["resume_date"] = None
+    should_update, resume_date = _parse_resume_date(job_data.get("resume"))
+    if should_update:
+        data["resume_date"] = resume_date
 
     # Update via repository
     updated = await update_job_repo(job_id_int, data)
@@ -616,54 +606,24 @@ async def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
 
     # Handle contacts update if provided
     contacts = job_data.get("contacts")
-    if contacts is not None:
-        # Clear existing lead_contacts
-        await delete_lead_contacts_by_lead(updated.id)
+    if contacts is None:
+        return updated
 
-        # Get organization_id from the job's lead account
-        organization_id = None
-        if updated.lead and updated.lead.account:
-            organizations = updated.lead.account.organizations
-            if organizations:
-                organization_id = organizations[0].id
+    await delete_lead_contacts_by_lead(updated.id)
 
-        # Add new contacts
+    # Get organization_id and tenant_id from the job's lead account
+    organization_id = None
+    tenant_id = None
+    if not updated.lead or not updated.lead.account:
         for idx, contact_data in enumerate(contacts):
-            first_name = contact_data.get("first_name", "").strip()
-            last_name = contact_data.get("last_name", "").strip()
-            if not first_name or not last_name:
-                continue
+            await _process_single_contact(contact_data, updated.id, organization_id, tenant_id, is_primary=(idx == 0))
+        return updated
 
-            # Validate phone if provided
-            contact_phone = contact_data.get("phone")
-            try:
-                contact_phone = validate_phone(contact_phone)
-            except ValueError as e:
-                raise HTTPException(status_code=400, detail=f"Contact {first_name} {last_name}: {str(e)}")
-
-            # Use provided individual_id if available, otherwise create new Individual
-            individual_id = contact_data.get("individual_id")
-            if not individual_id:
-                individual = await get_or_create_individual(first_name, last_name, updated.lead.account.tenant_id if updated.lead and updated.lead.account else None)
-                individual_id = individual.id
-
-            # Create Contact record
-            contact = await get_or_create_contact(
-                individual_id=individual_id,
-                organization_id=organization_id,
-                email=contact_data.get("email"),
-                phone=contact_phone,
-                title=contact_data.get("title"),
-                is_primary=(idx == 0)
-            )
-
-            # Link contact to lead via Lead_Contact junction
-            await create_lead_contact(
-                lead_id=updated.id,
-                contact_id=contact.id,
-                is_primary=(idx == 0)
-            )
-
+    organizations = updated.lead.account.organizations
+    organization_id = organizations[0].id if organizations else None
+    tenant_id = updated.lead.account.tenant_id
+    for idx, contact_data in enumerate(contacts):
+        await _process_single_contact(contact_data, updated.id, organization_id, tenant_id, is_primary=(idx == 0))
     return updated
 
 

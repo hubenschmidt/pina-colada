@@ -411,12 +411,8 @@ def check_applied_jobs(query: str = "") -> str:
         if isinstance(query, dict):
             company = query.get("company", "")
             job_title = query.get("job_title", "")
-        elif isinstance(query, str):
-            if not query:
-                company, job_title = "", ""
-            if query:
-                # Try to parse the string
-                company, job_title = _parse_tool_input(query)
+        if isinstance(query, str) and query:
+            company, job_title = _parse_tool_input(query)
 
         logger.info(
             f"check_applied_jobs called with query='{query}', parsed as company='{company}', job_title='{job_title}'"

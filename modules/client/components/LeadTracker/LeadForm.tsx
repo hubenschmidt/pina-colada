@@ -658,7 +658,7 @@ const LeadForm =<T extends BaseLead>({
   );
 
   return (
-    <div className="p-6 max-w-4xl">
+    <div>
       <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">
         {isEditMode ? config.title.replace("Add New", "Edit") : config.title}
       </h1>

@@ -203,9 +203,11 @@ const AccountForm = ({
 
       for (const pending of pendingContacts) {
         try {
-          if (isOrganization && pending.individual_id) {
+          if (isOrganization) {
             await createOrganizationContact(created.id, {
-              individual_id: pending.individual_id,
+              individual_id: pending.individual_id || undefined,
+              first_name: pending.first_name?.trim() || undefined,
+              last_name: pending.last_name?.trim() || undefined,
               email: pending.email?.trim() || undefined,
               phone: pending.phone?.trim() || undefined,
               title: pending.title?.trim() || undefined,
@@ -215,6 +217,8 @@ const AccountForm = ({
           }
           if (!isOrganization) {
             await createIndividualContact(created.id, {
+              first_name: pending.first_name?.trim() || undefined,
+              last_name: pending.last_name?.trim() || undefined,
               email: pending.email?.trim() || undefined,
               phone: pending.phone?.trim() || undefined,
               title: pending.title?.trim() || undefined,
