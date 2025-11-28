@@ -10,6 +10,7 @@ import ContactSection, {
 } from "../ContactSection";
 import { searchContacts, updateJob } from "../../api";
 import FormActions from "../FormActions";
+import { usePendingChanges } from "../../hooks/usePendingChanges";
 
 const emptyContact = (): ContactInput => ({
   first_name: "",
@@ -197,6 +198,11 @@ const LeadForm = <T extends BaseLead>({
       }
     });
   }, [config.fields, isEditMode, lead]);
+
+  const hasPendingChanges = usePendingChanges({
+    original: lead as Record<string, unknown> | null,
+    current: formData,
+  });
 
   const handleFieldChange = (fieldName: string, value: any) => {
     const field = config.fields.find((f) => f.name === fieldName);
@@ -716,6 +722,7 @@ const LeadForm = <T extends BaseLead>({
         isEditMode={isEditMode}
         isSubmitting={isSubmitting}
         isDeleting={isDeleting}
+        hasPendingChanges={hasPendingChanges}
         onClose={onClose}
         onDelete={onDelete ? handleDelete : undefined}
         cancelButtonText={config.cancelButtonText}

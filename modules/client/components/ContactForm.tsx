@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Contact } from "../api";
 import { formatPhoneNumber } from "../lib/phone";
 import FormActions from "./FormActions";
+import { usePendingChanges } from "../hooks/usePendingChanges";
 
 interface ContactFormProps {
   contact?: Contact;
@@ -29,6 +30,11 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const hasPendingChanges = usePendingChanges({
+    original: contact as Record<string, unknown> | null,
+    current: formData,
+  });
 
   const inputClasses =
     "w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100";
@@ -202,6 +208,7 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
           isEditMode={isEditMode}
           isSubmitting={isSubmitting}
           isDeleting={isDeleting}
+          hasPendingChanges={hasPendingChanges}
           onClose={onClose}
           onDelete={onDelete ? handleDelete : undefined}
           variant="compact"

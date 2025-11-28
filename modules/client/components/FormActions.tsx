@@ -6,6 +6,7 @@ interface FormActionsProps {
   isEditMode: boolean;
   isSubmitting: boolean;
   isDeleting?: boolean;
+  hasPendingChanges?: boolean;
   onClose: () => void;
   onDelete?: () => void;
   submitButtonText?: string;
@@ -17,6 +18,7 @@ const FormActions = ({
   isEditMode,
   isSubmitting,
   isDeleting = false,
+  hasPendingChanges = false,
   onClose,
   onDelete,
   submitButtonText,
@@ -40,7 +42,11 @@ const FormActions = ({
       <button
         type="submit"
         disabled={isSubmitting}
-        className={`flex items-center gap-2 px-6 ${paddingY} bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700 ${rounded} hover:bg-zinc-50 dark:hover:bg-zinc-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed`}
+        className={`flex items-center gap-2 px-6 ${paddingY} ${rounded} font-semibold disabled:opacity-50 disabled:cursor-not-allowed ${
+          hasPendingChanges
+            ? "bg-lime-600 text-white border border-lime-600 hover:bg-lime-700"
+            : "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700"
+        }`}
       >
         {isEditMode ? <Save size={18} /> : <Plus size={18} />}
         {getSubmitText()}

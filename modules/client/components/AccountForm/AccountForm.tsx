@@ -18,6 +18,7 @@ import {
 import { SearchResult } from "../ContactSection";
 import { AccountType, FormFieldConfig } from "./types/AccountFormTypes";
 import { useAccountFormConfig } from "./hooks/useAccountFormConfig";
+import { usePendingChanges } from "../../hooks/usePendingChanges";
 
 interface OrganizationData {
   id?: number;
@@ -165,6 +166,12 @@ const AccountForm = ({
     setErrors({});
     setIsDeleting(false);
   }, [isEditMode, account, config.fields]);
+
+  const hasPendingChanges = usePendingChanges({
+    original: account as Record<string, unknown> | null,
+    current: formData,
+    pendingDeletions,
+  });
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -498,6 +505,7 @@ const AccountForm = ({
           isEditMode={isEditMode}
           isSubmitting={isSubmitting}
           isDeleting={isDeleting}
+          hasPendingChanges={hasPendingChanges}
           onClose={onClose}
           onDelete={onDelete ? handleDelete : undefined}
           variant="compact"
