@@ -6,7 +6,7 @@ from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 from models.Organization import Organization
 from models.Account import Account
-from models.Industry import Industry, Organization_Industry
+from models.Industry import Account_Industry
 from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,11 @@ logger = logging.getLogger(__name__)
 async def find_all_organizations(tenant_id: Optional[int] = None) -> List[Organization]:
     """Find all organizations, optionally filtered by tenant (through Account)."""
     async with async_get_session() as session:
-        stmt = select(Organization).options(selectinload(Organization.industries)).order_by(Organization.name)
+        stmt = (
+            select(Organization)
+            .options(selectinload(Organization.account).selectinload(Account.industries))
+            .order_by(Organization.name)
+        )
         if tenant_id is not None:
             stmt = stmt.join(Account, Organization.account_id == Account.id).where(Account.tenant_id == tenant_id)
         result = await session.execute(stmt)
@@ -25,7 +29,11 @@ async def find_all_organizations(tenant_id: Optional[int] = None) -> List[Organi
 async def find_organization_by_id(org_id: int) -> Optional[Organization]:
     """Find organization by ID."""
     async with async_get_session() as session:
-        stmt = select(Organization).options(selectinload(Organization.industries)).where(Organization.id == org_id)
+        stmt = (
+            select(Organization)
+            .options(selectinload(Organization.account).selectinload(Account.industries))
+            .where(Organization.id == org_id)
+        )
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
@@ -48,8 +56,12 @@ async def create_organization(data: Dict[str, Any]) -> Organization:
             org = Organization(**data)
             session.add(org)
             await session.commit()
-            # Re-fetch with industries loaded
-            stmt = select(Organization).options(selectinload(Organization.industries)).where(Organization.id == org.id)
+            # Re-fetch with account and industries loaded
+            stmt = (
+                select(Organization)
+                .options(selectinload(Organization.account).selectinload(Account.industries))
+                .where(Organization.id == org.id)
+            )
             result = await session.execute(stmt)
             return result.scalar_one()
         except Exception as e:
@@ -63,7 +75,7 @@ async def get_or_create_organization(
     tenant_id: Optional[int] = None,
     industry_ids: Optional[List[int]] = None
 ) -> Organization:
-    """Get or create organization by name, optionally linking to industries."""
+    """Get or create organization by name, optionally linking industries to the account."""
     name = name.strip() if name else name
     existing = await find_organization_by_name(name, tenant_id)
     if existing:
@@ -86,11 +98,11 @@ async def get_or_create_organization(
             session.add(org)
             await session.flush()
 
-            # Link industries if provided
+            # Link industries to the account if provided
             if industry_ids:
                 for industry_id in industry_ids:
-                    stmt = Organization_Industry.insert().values(
-                        organization_id=org.id,
+                    stmt = Account_Industry.insert().values(
+                        account_id=account.id,
                         industry_id=industry_id
                     )
                     await session.execute(stmt)
@@ -117,8 +129,12 @@ async def update_organization(org_id: int, data: Dict[str, Any]) -> Optional[Org
                     setattr(org, key, value)
 
             await session.commit()
-            # Re-fetch with industries loaded
-            stmt = select(Organization).options(selectinload(Organization.industries)).where(Organization.id == org_id)
+            # Re-fetch with account and industries loaded
+            stmt = (
+                select(Organization)
+                .options(selectinload(Organization.account).selectinload(Account.industries))
+                .where(Organization.id == org_id)
+            )
             result = await session.execute(stmt)
             return result.scalar_one()
         except Exception as e:
@@ -146,7 +162,9 @@ async def delete_organization(org_id: int) -> bool:
 async def search_organizations(query: str, tenant_id: Optional[int] = None) -> List[Organization]:
     """Search organizations by name (case-insensitive partial match), filtered by tenant (through Account)."""
     async with async_get_session() as session:
-        stmt = select(Organization).options(selectinload(Organization.industries)).where(
+        stmt = select(Organization).options(
+            selectinload(Organization.account).selectinload(Account.industries)
+        ).where(
             func.lower(Organization.name).contains(func.lower(query))
         ).order_by(Organization.name)
         if tenant_id is not None:

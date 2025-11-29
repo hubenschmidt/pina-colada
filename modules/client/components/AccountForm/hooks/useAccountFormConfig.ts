@@ -7,12 +7,14 @@ const organizationFields: FormFieldConfig[] = [
     label: "Name",
     type: "text",
     required: true,
+    gridColumn: "md:col-span-2",
   },
   {
     name: "website",
     label: "Website",
     type: "url",
     placeholder: "https://example.com",
+    gridColumn: "md:col-span-1",
   },
   {
     name: "phone",
@@ -20,18 +22,27 @@ const organizationFields: FormFieldConfig[] = [
     type: "tel",
     placeholder: "+1-555-123-4567",
     onChange: formatPhoneNumber,
+    gridColumn: "md:col-span-1",
+  },
+  {
+    name: "industry",
+    label: "Industry",
+    type: "custom",
+    gridColumn: "md:col-span-1",
   },
   {
     name: "employee_count",
     label: "Employee Count",
     type: "number",
     min: 0,
+    gridColumn: "md:col-span-1",
   },
   {
     name: "description",
     label: "Description",
     type: "textarea",
     rows: 3,
+    gridColumn: "md:col-span-2",
   },
 ];
 
@@ -55,6 +66,7 @@ const individualFields: FormFieldConfig[] = [
     label: "Email",
     type: "email",
     placeholder: "john@example.com",
+    gridColumn: "md:col-span-1",
   },
   {
     name: "phone",
@@ -62,24 +74,34 @@ const individualFields: FormFieldConfig[] = [
     type: "tel",
     placeholder: "+1-555-123-4567",
     onChange: formatPhoneNumber,
+    gridColumn: "md:col-span-1",
   },
   {
-    name: "linkedin_url",
-    label: "LinkedIn URL",
-    type: "text",
-    placeholder: "linkedin.com/in/username",
+    name: "industry",
+    label: "Industry",
+    type: "custom",
+    gridColumn: "md:col-span-1",
   },
   {
     name: "title",
     label: "Title",
     type: "text",
     placeholder: "Software Engineer",
+    gridColumn: "md:col-span-1",
+  },
+  {
+    name: "linkedin_url",
+    label: "LinkedIn URL",
+    type: "text",
+    placeholder: "linkedin.com/in/username",
+    gridColumn: "md:col-span-2",
   },
   {
     name: "notes",
     label: "Notes",
     type: "textarea",
     rows: 3,
+    gridColumn: "md:col-span-2",
   },
 ];
 

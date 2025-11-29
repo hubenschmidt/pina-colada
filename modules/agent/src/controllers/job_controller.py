@@ -108,6 +108,11 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
     if not salary_range:
         salary_range = job_dict.get("salary_range")
 
+    # Get industries from the account
+    industries = []
+    if job.lead and job.lead.account and job.lead.account.industries:
+        industries = [ind.name for ind in job.lead.account.industries]
+
     return {
         "id": str(job_dict.get("id", "")),
         "account": company,
@@ -124,6 +129,7 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
         "created_at": date_str,
         "updated_at": job_dict.get("updated_at", ""),
         "contacts": contacts,
+        "industry": industries,
     }
 
 

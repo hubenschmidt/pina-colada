@@ -361,11 +361,11 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
   sections: [
     {
       name: "Job Info",
-      fieldNames: ["job_title", "date", "resume", "revenue_range_id", "job_url", "industry", "status", "notes"],
+      fieldNames: ["job_title", "date", "resume", "revenue_range_id", "job_url", "status", "notes"],
     },
     {
       name: "Account Info",
-      fieldNames: ["account", "account_type"],
+      fieldNames: ["account", "account_type", "industry"],
     },
     {
       name: "Contact",
@@ -443,18 +443,9 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
     {
       name: "job_url",
       label: "Job URL",
-      type: "url",
-      placeholder: "https://...",
+      type: "text",
+      placeholder: "linkedin.com/jobs/...",
       gridColumn: "md:col-span-2",
-    },
-    {
-      name: "industry",
-      label: "Industry",
-      type: "custom",
-      defaultValue: [],
-      renderCustom: ({ value, onChange }) => (
-        <IndustrySelector value={value || []} onChange={onChange} />
-      ),
     },
     {
       name: "status",
@@ -480,6 +471,7 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
       label: "Organization",
       type: "custom",
       required: true,
+      gridColumn: "md:col-span-1",
       renderCustom: ({ value, onChange, formData, isEditMode }) => (
         <AccountSelector
           value={value}
@@ -495,10 +487,21 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
       type: "select",
       required: false,
       defaultValue: "Organization",
+      gridColumn: "md:col-span-1",
       options: [
         { label: "Organization", value: "Organization" },
         { label: "Individual", value: "Individual" },
       ],
+    },
+    {
+      name: "industry",
+      label: "Industry",
+      type: "custom",
+      defaultValue: [],
+      gridColumn: "md:col-span-1",
+      renderCustom: ({ value, onChange }) => (
+        <IndustrySelector value={value || []} onChange={onChange} />
+      ),
     },
     // Contact Section fields removed - contacts are now handled dynamically in LeadForm
   ],

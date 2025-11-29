@@ -64,6 +64,7 @@ async def _load_job_with_relationships(session, job_id: int) -> Job:
         joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
         joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
         joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
+        joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
         joinedload(Job.revenue_range)
     ).where(Job.id == job_id)
     result = await session.execute(stmt)
@@ -88,6 +89,7 @@ async def find_all_jobs(
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
             joinedload(Job.revenue_range)
         ).join(Lead).outerjoin(Account, Lead.account_id == Account.id).outerjoin(Organization, Account.id == Organization.account_id)
 
@@ -150,6 +152,7 @@ async def find_job_by_id(job_id: int) -> Optional[Job]:
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
             joinedload(Job.revenue_range)
         ).where(Job.id == job_id)
         result = await session.execute(stmt)
@@ -299,6 +302,7 @@ async def find_job_by_company_and_title(company: str, title: str) -> Optional[Jo
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
             joinedload(Job.revenue_range)
         ).join(Lead).outerjoin(Account, Lead.account_id == Account.id).outerjoin(Organization, Account.id == Organization.account_id).where(
             sql_func.lower(Organization.name).contains(sql_func.lower(company.strip())),
@@ -326,6 +330,7 @@ async def find_jobs_with_status(status_names: Optional[List[str]] = None) -> Lis
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
             joinedload(Job.revenue_range)
         ).join(Lead).join(Status).where(Lead.current_status_id.isnot(None))
 

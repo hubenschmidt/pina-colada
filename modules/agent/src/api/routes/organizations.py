@@ -30,6 +30,7 @@ class OrganizationCreate(BaseModel):
     employee_count: Optional[int] = None
     description: Optional[str] = None
     account_id: Optional[int] = None
+    industry_ids: Optional[List[int]] = None
 
     @field_validator("phone")
     @classmethod
@@ -43,6 +44,7 @@ class OrganizationUpdate(BaseModel):
     phone: Optional[str] = None
     employee_count: Optional[int] = None
     description: Optional[str] = None
+    industry_ids: Optional[List[int]] = None
 
     @field_validator("phone")
     @classmethod
@@ -116,12 +118,16 @@ def _contact_to_dict(contact):
 
 
 def _org_to_dict(org, include_contacts=False, contacts=None):
+    # Get industries from the account
+    industries = []
+    if org.account and org.account.industries:
+        industries = [ind.name for ind in org.account.industries]
     result = {
         "id": org.id,
         "name": org.name,
         "website": org.website,
         "phone": org.phone,
-        "industries": [ind.name for ind in org.industries] if org.industries else [],
+        "industries": industries,
         "employee_count": org.employee_count,
         "description": org.description,
         "created_at": org.created_at.isoformat() if org.created_at else None,
@@ -186,16 +192,29 @@ async def create_organization_route(request: Request, data: OrganizationCreate):
     """Create a new organization with an associated Account."""
     from lib.db import async_get_session
     from models.Account import Account
+    from models.Industry import Account_Industry
     from sqlalchemy.exc import IntegrityError
 
     tenant_id = getattr(request.state, "tenant_id", None)
     org_data = data.model_dump(exclude_none=True)
+    industry_ids = org_data.pop("industry_ids", None)
 
     # Create an Account for the Organization if not provided
     if not org_data.get("account_id"):
         async with async_get_session() as session:
             account = Account(tenant_id=tenant_id, name=org_data.get("name", ""))
             session.add(account)
+            await session.flush()
+
+            # Link industries to the account
+            if industry_ids:
+                for industry_id in industry_ids:
+                    stmt = Account_Industry.insert().values(
+                        account_id=account.id,
+                        industry_id=industry_id
+                    )
+                    await session.execute(stmt)
+
             await session.commit()
             await session.refresh(account)
             org_data["account_id"] = account.id
@@ -214,10 +233,36 @@ async def create_organization_route(request: Request, data: OrganizationCreate):
 @require_auth
 async def update_organization_route(request: Request, org_id: int, data: OrganizationUpdate):
     """Update an existing organization."""
+    from lib.db import async_get_session
+    from models.Industry import Account_Industry
+    from sqlalchemy import delete
+
     org_data = data.model_dump(exclude_unset=True)
+    industry_ids = org_data.pop("industry_ids", None)
+
     org = await update_organization(org_id, org_data)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
+
+    # Update industries if provided
+    if industry_ids is not None and org.account_id:
+        async with async_get_session() as session:
+            # Remove existing industries
+            await session.execute(
+                delete(Account_Industry).where(Account_Industry.c.account_id == org.account_id)
+            )
+            # Add new industries
+            for industry_id in industry_ids:
+                stmt = Account_Industry.insert().values(
+                    account_id=org.account_id,
+                    industry_id=industry_id
+                )
+                await session.execute(stmt)
+            await session.commit()
+
+        # Re-fetch to get updated industries
+        org = await find_organization_by_id(org_id)
+
     return _org_to_dict(org)
 
 

@@ -129,7 +129,7 @@ def get_async_engine():
         _async_engine = create_async_engine(
             conn_string,
             pool_pre_ping=True,
-            echo=True,  # Enable SQL query logging
+            echo=False,  # Disable SQL query logging
             future=True,
             connect_args={
                 "prepared_statement_name_func": lambda: f"__asyncpg_{uuid4()}__",

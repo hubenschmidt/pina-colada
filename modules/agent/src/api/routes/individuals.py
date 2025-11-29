@@ -32,6 +32,7 @@ class IndividualCreate(BaseModel):
     title: Optional[str] = None
     notes: Optional[str] = None
     account_id: Optional[int] = None
+    industry_ids: Optional[List[int]] = None
 
     @field_validator("phone")
     @classmethod
@@ -47,6 +48,7 @@ class IndividualUpdate(BaseModel):
     linkedin_url: Optional[str] = None
     title: Optional[str] = None
     notes: Optional[str] = None
+    industry_ids: Optional[List[int]] = None
 
     @field_validator("phone")
     @classmethod
@@ -121,6 +123,11 @@ def _contact_to_dict(contact):
 
 
 def _ind_to_dict(ind, include_contacts=False, contacts=None):
+    # Get industries from the account
+    industries = []
+    if ind.account and ind.account.industries:
+        industries = [industry.name for industry in ind.account.industries]
+
     result = {
         "id": ind.id,
         "first_name": ind.first_name,
@@ -130,6 +137,7 @@ def _ind_to_dict(ind, include_contacts=False, contacts=None):
         "linkedin_url": ind.linkedin_url,
         "title": ind.title,
         "notes": ind.notes,
+        "industries": industries,
         "created_at": ind.created_at.isoformat() if ind.created_at else None,
         "updated_at": ind.updated_at.isoformat() if ind.updated_at else None,
     }
@@ -234,9 +242,11 @@ async def create_individual_route(request: Request, data: IndividualCreate):
     """Create a new individual with an associated Account."""
     from lib.db import async_get_session
     from models.Account import Account
+    from models.Industry import Account_Industry
 
     tenant_id = getattr(request.state, "tenant_id", None)
     ind_data = data.model_dump(exclude_none=True)
+    industry_ids = ind_data.pop("industry_ids", None)
 
     # Normalize LinkedIn URL
     if "linkedin_url" in ind_data:
@@ -259,6 +269,17 @@ async def create_individual_route(request: Request, data: IndividualCreate):
             account_name = f"{ind_data.get('first_name', '')} {ind_data.get('last_name', '')}".strip()
             account = Account(tenant_id=tenant_id, name=account_name)
             session.add(account)
+            await session.flush()
+
+            # Link industries to the account
+            if industry_ids:
+                for industry_id in industry_ids:
+                    stmt = Account_Industry.insert().values(
+                        account_id=account.id,
+                        industry_id=industry_id
+                    )
+                    await session.execute(stmt)
+
             await session.commit()
             await session.refresh(account)
             ind_data["account_id"] = account.id
@@ -272,7 +293,12 @@ async def create_individual_route(request: Request, data: IndividualCreate):
 @require_auth
 async def update_individual_route(request: Request, individual_id: int, data: IndividualUpdate):
     """Update an existing individual."""
+    from lib.db import async_get_session
+    from models.Industry import Account_Industry
+    from sqlalchemy import delete
+
     ind_data = data.model_dump(exclude_unset=True)
+    industry_ids = ind_data.pop("industry_ids", None)
 
     # Normalize LinkedIn URL (converts empty to None)
     if "linkedin_url" in ind_data:
@@ -281,6 +307,26 @@ async def update_individual_route(request: Request, individual_id: int, data: In
     individual = await update_individual(individual_id, ind_data)
     if not individual:
         raise HTTPException(status_code=404, detail="Individual not found")
+
+    # Update industries if provided
+    if industry_ids is not None and individual.account_id:
+        async with async_get_session() as session:
+            # Remove existing industries
+            await session.execute(
+                delete(Account_Industry).where(Account_Industry.c.account_id == individual.account_id)
+            )
+            # Add new industries
+            for industry_id in industry_ids:
+                stmt = Account_Industry.insert().values(
+                    account_id=individual.account_id,
+                    industry_id=industry_id
+                )
+                await session.execute(stmt)
+            await session.commit()
+
+        # Re-fetch to get updated industries
+        individual = await find_individual_by_id(individual_id)
+
     return _ind_to_dict(individual)
 
 

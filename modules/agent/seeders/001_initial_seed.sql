@@ -125,7 +125,7 @@ BEGIN
     ON CONFLICT ((LOWER(name))) DO NOTHING;
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('TechVentures Inc');
     SELECT id INTO industry_id FROM "Industry" WHERE name = 'Venture Capital';
-    INSERT INTO "Organization_Industry" (organization_id, industry_id) VALUES (org_id, industry_id) ON CONFLICT DO NOTHING;
+    INSERT INTO "Account_Industry" (account_id, industry_id) VALUES (account_id, industry_id) ON CONFLICT DO NOTHING;
 
     -- CloudScale Systems
     INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'CloudScale Systems', NOW(), NOW()) RETURNING id INTO account_id;
@@ -134,7 +134,7 @@ BEGIN
     ON CONFLICT ((LOWER(name))) DO NOTHING;
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudScale Systems');
     SELECT id INTO industry_id FROM "Industry" WHERE name = 'Cloud Infrastructure';
-    INSERT INTO "Organization_Industry" (organization_id, industry_id) VALUES (org_id, industry_id) ON CONFLICT DO NOTHING;
+    INSERT INTO "Account_Industry" (account_id, industry_id) VALUES (account_id, industry_id) ON CONFLICT DO NOTHING;
 
     -- DataFlow Analytics
     INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'DataFlow Analytics', NOW(), NOW()) RETURNING id INTO account_id;
@@ -143,7 +143,7 @@ BEGIN
     ON CONFLICT ((LOWER(name))) DO NOTHING;
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('DataFlow Analytics');
     SELECT id INTO industry_id FROM "Industry" WHERE name = 'Data Analytics';
-    INSERT INTO "Organization_Industry" (organization_id, industry_id) VALUES (org_id, industry_id) ON CONFLICT DO NOTHING;
+    INSERT INTO "Account_Industry" (account_id, industry_id) VALUES (account_id, industry_id) ON CONFLICT DO NOTHING;
 
     -- SecureNet Solutions
     INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'SecureNet Solutions', NOW(), NOW()) RETURNING id INTO account_id;
@@ -152,7 +152,7 @@ BEGIN
     ON CONFLICT ((LOWER(name))) DO NOTHING;
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('SecureNet Solutions');
     SELECT id INTO industry_id FROM "Industry" WHERE name = 'Cybersecurity';
-    INSERT INTO "Organization_Industry" (organization_id, industry_id) VALUES (org_id, industry_id) ON CONFLICT DO NOTHING;
+    INSERT INTO "Account_Industry" (account_id, industry_id) VALUES (account_id, industry_id) ON CONFLICT DO NOTHING;
 
     -- InnovateLab
     INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'InnovateLab', NOW(), NOW()) RETURNING id INTO account_id;
@@ -161,7 +161,7 @@ BEGIN
     ON CONFLICT ((LOWER(name))) DO NOTHING;
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('InnovateLab');
     SELECT id INTO industry_id FROM "Industry" WHERE name = 'Consulting';
-    INSERT INTO "Organization_Industry" (organization_id, industry_id) VALUES (org_id, industry_id) ON CONFLICT DO NOTHING;
+    INSERT INTO "Account_Industry" (account_id, industry_id) VALUES (account_id, industry_id) ON CONFLICT DO NOTHING;
 
     RAISE NOTICE 'Organizations with Accounts and Industries created successfully';
 END $$;

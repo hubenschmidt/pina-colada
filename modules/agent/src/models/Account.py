@@ -1,6 +1,7 @@
 from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, func
 from sqlalchemy.orm import relationship
 from models import Base
+from models.Industry import Account_Industry
 
 
 class Account(Base):
@@ -19,3 +20,4 @@ class Account(Base):
     organizations = relationship("Organization", back_populates="account")
     individuals = relationship("Individual", back_populates="account")
     leads = relationship("Lead", back_populates="account")
+    industries = relationship("Industry", secondary=Account_Industry, back_populates="accounts")

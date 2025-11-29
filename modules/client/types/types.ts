@@ -20,7 +20,7 @@ export interface CreatedJob {
   resume: string | null;
   salary_range: string | null;  // Display label from RevenueRange
   revenue_range_id: number | null;  // FK to RevenueRange
-  industry: string | null;
+  industry: string[] | null;
   source: 'manual' | 'agent';
   lead_status_id: string | null;
   contacts?: ContactInput[];

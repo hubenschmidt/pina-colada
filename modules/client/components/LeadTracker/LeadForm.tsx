@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { ExternalLink } from "lucide-react";
 import { BaseLead } from "./types/LeadTrackerTypes";
 import { LeadFormConfig, FormFieldConfig } from "./types/LeadFormTypes";
 import { ContactInput } from "../../types/types";
@@ -576,6 +577,36 @@ const LeadForm = <T extends BaseLead>({
             {field.placeholder}
           </span>
         </label>
+      );
+    }
+
+    // Handle URL fields with clickable link
+    const isUrlField = String(field.name).endsWith("_url");
+    const hasUrl = isUrlField && value && String(value).trim();
+
+    if (hasUrl) {
+      const url = String(value).startsWith("http") ? String(value) : `https://${value}`;
+      return fieldWrapper(
+        <div>
+          <input
+            type="text"
+            value={value || ""}
+            onChange={(e) => handleFieldChange(String(field.name), e.target.value)}
+            className={inputClasses}
+            placeholder={field.placeholder}
+            required={field.required}
+            disabled={field.disabled}
+          />
+          <a
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 mt-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            {String(value)}
+            <ExternalLink size={14} />
+          </a>
+        </div>
       );
     }
 

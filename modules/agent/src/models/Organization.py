@@ -4,7 +4,6 @@ from sqlalchemy import Column, Text, Integer, DateTime, BigInteger, ForeignKey, 
 from sqlalchemy.orm import relationship
 
 from models import Base
-from models.Industry import Organization_Industry
 
 
 class Organization(Base):
@@ -31,7 +30,6 @@ class Organization(Base):
         back_populates="organizations",
         lazy="selectin"
     )
-    industries = relationship("Industry", secondary=Organization_Industry, back_populates="organizations")
 
     __table_args__ = (
         Index('idx_organization_name_lower', func.lower(name), unique=True),
