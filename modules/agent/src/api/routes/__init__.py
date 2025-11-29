@@ -17,6 +17,7 @@ from api.routes.accounts import router as accounts_routes
 from api.routes.revenue_ranges import router as revenue_ranges_routes
 from api.routes.technologies import router as technologies_routes
 from api.routes.provenance import router as provenance_routes
+from api.routes.reports import router as reports_routes
 
 __all__ = [
     "jobs_routes",
@@ -36,5 +37,6 @@ __all__ = [
     "revenue_ranges_routes",
     "technologies_routes",
     "provenance_routes",
+    "reports_routes",
 ]
 

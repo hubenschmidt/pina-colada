@@ -11,6 +11,9 @@ import {
   Users,
   Contact,
   Briefcase,
+  BarChart3,
+  FileSpreadsheet,
+  Wrench,
 } from "lucide-react";
 import { Stack, ScrollArea } from "@mantine/core";
 import { useNavContext } from "../../context/navContext";
@@ -18,6 +21,7 @@ import { useNavContext } from "../../context/navContext";
 export const Sidebar = () => {
   const [leadsExpanded, setLeadsExpanded] = useState(true);
   const [accountsExpanded, setAccountsExpanded] = useState(true);
+  const [reportsExpanded, setReportsExpanded] = useState(true);
   const { navState, dispatchNav } = useNavContext();
   const { sidebarCollapsed } = navState;
 
@@ -113,6 +117,39 @@ export const Sidebar = () => {
                     >
                       <Briefcase className="h-4 w-4" />
                       Jobs
+                    </Link>
+                  </div>
+                )}
+              </div>
+
+              {/* Reports Section */}
+              <div>
+                <button
+                  onClick={() => setReportsExpanded(!reportsExpanded)}
+                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                >
+                  {reportsExpanded ? (
+                    <ChevronDown className="h-4 w-4" />
+                  ) : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
+                  Reports
+                </button>
+                {reportsExpanded && (
+                  <div className="ml-6 mt-1 space-y-1">
+                    <Link
+                      href="/reports/canned"
+                      className="flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    >
+                      <BarChart3 className="h-4 w-4" />
+                      Canned
+                    </Link>
+                    <Link
+                      href="/reports/custom"
+                      className="flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                    >
+                      <Wrench className="h-4 w-4" />
+                      Custom
                     </Link>
                   </div>
                 )}

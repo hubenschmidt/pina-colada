@@ -965,3 +965,156 @@ export type IndividualWithResearch = Individual & {
   reports_to?: { id: number; first_name: string; last_name: string };
   direct_reports?: { id: number; first_name: string; last_name: string; title: string | null }[];
 };
+
+// ==============================================
+// Reports Types and API
+// ==============================================
+
+export type ReportFilter = {
+  field: string;
+  operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "contains" | "starts_with" | "is_null" | "is_not_null" | "in";
+  value?: any;
+};
+
+export type ReportAggregation = {
+  function: "count" | "sum" | "avg" | "min" | "max";
+  field: string;
+  alias: string;
+};
+
+export type ReportQueryRequest = {
+  primary_entity: "organizations" | "individuals" | "contacts" | "leads";
+  columns: string[];
+  filters?: ReportFilter[];
+  group_by?: string[];
+  aggregations?: ReportAggregation[];
+  limit?: number;
+  offset?: number;
+};
+
+export type ReportQueryResult = {
+  data: Record<string, any>[];
+  total: number;
+  limit: number;
+  offset: number;
+};
+
+export type SavedReport = {
+  id: number;
+  name: string;
+  description: string | null;
+  query_definition: ReportQueryRequest;
+  created_by: number | null;
+  creator_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type LeadPipelineReport = {
+  total_leads: number;
+  by_type: Record<string, number>;
+  by_source: Record<string, number>;
+};
+
+export type AccountOverviewReport = {
+  total_organizations: number;
+  total_individuals: number;
+  organizations_by_country: Record<string, number>;
+  organizations_by_type: Record<string, number>;
+};
+
+export type ContactCoverageReport = {
+  total_organizations: number;
+  total_contacts: number;
+  average_contacts_per_org: number;
+  organizations_with_zero_contacts: number;
+  decision_maker_count: number;
+  decision_maker_ratio: number;
+  coverage_by_org: { organization_id: number; organization_name: string; contact_count: number }[];
+};
+
+export type EntityFields = {
+  base: string[];
+  joins: string[];
+};
+
+// Canned Reports
+
+export const getLeadPipelineReport = async (
+  dateFrom?: string,
+  dateTo?: string
+): Promise<LeadPipelineReport> => {
+  const params = new URLSearchParams();
+  if (dateFrom) params.append("date_from", dateFrom);
+  if (dateTo) params.append("date_to", dateTo);
+  const query = params.toString() ? `?${params}` : "";
+  return apiGet<LeadPipelineReport>(`/reports/canned/lead-pipeline${query}`);
+};
+
+export const getAccountOverviewReport = async (): Promise<AccountOverviewReport> => {
+  return apiGet<AccountOverviewReport>("/reports/canned/account-overview");
+};
+
+export const getContactCoverageReport = async (): Promise<ContactCoverageReport> => {
+  return apiGet<ContactCoverageReport>("/reports/canned/contact-coverage");
+};
+
+// Custom Reports - Fields
+
+export const getEntityFields = async (entity: string): Promise<EntityFields> => {
+  return apiGet<EntityFields>(`/reports/fields/${entity}`);
+};
+
+// Custom Reports - Execution
+
+export const previewCustomReport = async (
+  query: ReportQueryRequest
+): Promise<ReportQueryResult> => {
+  return apiPost<ReportQueryResult>("/reports/custom/preview", query);
+};
+
+export const runCustomReport = async (
+  query: ReportQueryRequest
+): Promise<ReportQueryResult> => {
+  return apiPost<ReportQueryResult>("/reports/custom/run", query);
+};
+
+export const exportCustomReport = async (query: ReportQueryRequest): Promise<Blob> => {
+  const client = axios.create();
+  const authHeaders = await fetchBearerToken();
+  const apiUrl = env("NEXT_PUBLIC_API_URL");
+  const response = await client.post(`${apiUrl}/reports/custom/export`, query, {
+    ...authHeaders,
+    responseType: "blob",
+  });
+  return response.data;
+};
+
+// Saved Reports CRUD
+
+export const getSavedReports = async (): Promise<SavedReport[]> => {
+  return apiGet<SavedReport[]>("/reports/saved");
+};
+
+export const getSavedReport = async (id: number): Promise<SavedReport> => {
+  return apiGet<SavedReport>(`/reports/saved/${id}`);
+};
+
+export const createSavedReport = async (data: {
+  name: string;
+  description?: string;
+  query_definition: ReportQueryRequest;
+}): Promise<SavedReport> => {
+  return apiPost<SavedReport>("/reports/saved", data);
+};
+
+export const updateSavedReport = async (
+  id: number,
+  data: { name?: string; description?: string; query_definition?: ReportQueryRequest }
+): Promise<SavedReport> => {
+  return apiPut<SavedReport>(`/reports/saved/${id}`, data);
+};
+
+export const deleteSavedReport = async (id: number): Promise<void> => {
+  await apiDelete(`/reports/saved/${id}`);
+};

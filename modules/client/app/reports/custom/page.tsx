@@ -1,0 +1,155 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Stack, Center, Loader, Text, Card, Button, Group, Table, ActionIcon } from "@mantine/core";
+import { Plus, Trash2, Edit } from "lucide-react";
+import { getSavedReports, deleteSavedReport, SavedReport } from "../../../api";
+
+const CustomReportsPage = () => {
+  const router = useRouter();
+  const [reports, setReports] = useState<SavedReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchReports = async () => {
+    try {
+      const data = await getSavedReports();
+      setReports(data);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load saved reports");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this report?")) {
+      return;
+    }
+    try {
+      await deleteSavedReport(id);
+      setReports((prev) => prev.filter((r) => r.id !== id));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete report");
+    }
+  };
+
+  if (loading) {
+    return (
+      <Center mih={400}>
+        <Stack align="center" gap="md">
+          <Loader size="xl" color="lime" />
+          <Text c="dimmed">Loading saved reports...</Text>
+        </Stack>
+      </Center>
+    );
+  }
+
+  if (error) {
+    return (
+      <Stack gap="lg">
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+          Custom Reports
+        </h1>
+        <Text c="red">{error}</Text>
+      </Stack>
+    );
+  }
+
+  return (
+    <Stack gap="lg">
+      <Group justify="space-between">
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+          Custom Reports
+        </h1>
+        <Button
+          leftSection={<Plus className="h-4 w-4" />}
+          color="lime"
+          onClick={() => router.push("/reports/custom/new")}
+        >
+          New Report
+        </Button>
+      </Group>
+
+      {reports.length === 0 ? (
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Stack align="center" gap="md" py="xl">
+            <Text c="dimmed">No saved reports yet</Text>
+            <Button
+              variant="light"
+              color="lime"
+              onClick={() => router.push("/reports/custom/new")}
+            >
+              Create your first report
+            </Button>
+          </Stack>
+        </Card>
+      ) : (
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Table>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Name</Table.Th>
+                <Table.Th>Description</Table.Th>
+                <Table.Th>Entity</Table.Th>
+                <Table.Th>Created</Table.Th>
+                <Table.Th>Actions</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {reports.map((report) => (
+                <Table.Tr key={report.id}>
+                  <Table.Td>
+                    <Text fw={500}>{report.name}</Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text c="dimmed" size="sm" lineClamp={1}>
+                      {report.description || "-"}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" tt="capitalize">
+                      {report.query_definition?.primary_entity || "-"}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed">
+                      {report.created_at
+                        ? new Date(report.created_at).toLocaleDateString()
+                        : "-"}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td>
+                    <Group gap="xs">
+                      <ActionIcon
+                        variant="subtle"
+                        color="blue"
+                        onClick={() => router.push(`/reports/custom/${report.id}`)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </ActionIcon>
+                      <ActionIcon
+                        variant="subtle"
+                        color="red"
+                        onClick={() => handleDelete(report.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </ActionIcon>
+                    </Group>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+        </Card>
+      )}
+    </Stack>
+  );
+};
+
+export default CustomReportsPage;

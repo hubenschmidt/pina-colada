@@ -35,6 +35,7 @@ from models.OrganizationTechnology import OrganizationTechnology
 from models.FundingRound import FundingRound
 from models.CompanySignal import CompanySignal
 from models.DataProvenance import DataProvenance
+from models.SavedReport import SavedReport
 
 __all__ = [
     "Base",
@@ -67,4 +68,5 @@ __all__ = [
     "FundingRound",
     "CompanySignal",
     "DataProvenance",
+    "SavedReport",
 ]
