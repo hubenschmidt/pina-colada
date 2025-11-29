@@ -983,8 +983,9 @@ export type ReportAggregation = {
 };
 
 export type ReportQueryRequest = {
-  primary_entity: "organizations" | "individuals" | "contacts" | "leads";
+  primary_entity: "organizations" | "individuals" | "contacts" | "leads" | "notes";
   columns: string[];
+  joins?: string[];
   filters?: ReportFilter[];
   group_by?: string[];
   aggregations?: ReportAggregation[];
@@ -1033,9 +1034,15 @@ export type ContactCoverageReport = {
   coverage_by_org: { organization_id: number; organization_name: string; contact_count: number }[];
 };
 
+export type AvailableJoin = {
+  name: string;
+  fields: string[];
+};
+
 export type EntityFields = {
   base: string[];
   joins: string[];
+  available_joins: AvailableJoin[];
 };
 
 // Canned Reports
@@ -1057,6 +1064,24 @@ export const getAccountOverviewReport = async (): Promise<AccountOverviewReport>
 
 export const getContactCoverageReport = async (): Promise<ContactCoverageReport> => {
   return apiGet<ContactCoverageReport>("/reports/canned/contact-coverage");
+};
+
+export type NotesActivityReport = {
+  total_notes: number;
+  by_entity_type: Record<string, number>;
+  entities_with_notes: Record<string, number>;
+  recent_notes: {
+    id: number;
+    entity_type: string;
+    entity_id: number;
+    entity_name: string | null;
+    content: string;
+    created_at: string;
+  }[];
+};
+
+export const getNotesActivityReport = async (): Promise<NotesActivityReport> => {
+  return apiGet<NotesActivityReport>("/reports/canned/notes-activity");
 };
 
 // Custom Reports - Fields

@@ -1,8 +1,8 @@
 """Routes for notes API endpoints."""
 
-from typing import Optional, List
 from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
+
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 from repositories.note_repository import (
@@ -12,6 +12,20 @@ from repositories.note_repository import (
     update_note,
     delete_note,
 )
+
+
+# Normalize entity_type to PascalCase for consistency with database
+ENTITY_TYPE_MAP = {
+    "organization": "Organization",
+    "individual": "Individual",
+    "contact": "Contact",
+    "lead": "Lead",
+}
+
+
+def _normalize_entity_type(entity_type: str) -> str:
+    """Normalize entity_type to PascalCase."""
+    return ENTITY_TYPE_MAP.get(entity_type.lower(), entity_type)
 
 
 class NoteCreate(BaseModel):
@@ -51,7 +65,8 @@ async def get_notes_route(
 ):
     """Get all notes for a specific entity."""
     tenant_id = request.state.tenant_id
-    notes = await find_notes_by_entity(tenant_id, entity_type, entity_id)
+    normalized_type = _normalize_entity_type(entity_type)
+    notes = await find_notes_by_entity(tenant_id, normalized_type, entity_id)
     return [_note_to_dict(n) for n in notes]
 
 
@@ -77,7 +92,7 @@ async def create_note_route(request: Request, data: NoteCreate):
 
     note_data = {
         "tenant_id": tenant_id,
-        "entity_type": data.entity_type,
+        "entity_type": _normalize_entity_type(data.entity_type),
         "entity_id": data.entity_id,
         "content": data.content,
         "created_by": user_id,

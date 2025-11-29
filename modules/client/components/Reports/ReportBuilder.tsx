@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import {
   Stack,
   Card,
@@ -14,6 +15,7 @@ import {
   ActionIcon,
   Modal,
   Textarea,
+  Anchor,
 } from "@mantine/core";
 import { Plus, Trash2, Play, Download, Save } from "lucide-react";
 import {
@@ -25,6 +27,13 @@ import {
   previewCustomReport,
   exportCustomReport,
 } from "../../api";
+
+const ENTITY_ROUTES: Record<string, string> = {
+  organizations: "/accounts/organizations",
+  individuals: "/accounts/individuals",
+  contacts: "/contacts",
+  leads: "/leads",
+};
 
 type ReportBuilderProps = {
   initialQuery?: ReportQueryRequest;
@@ -38,6 +47,7 @@ const ENTITIES = [
   { value: "individuals", label: "Individuals" },
   { value: "contacts", label: "Contacts" },
   { value: "leads", label: "Leads" },
+  { value: "notes", label: "Notes" },
 ];
 
 const OPERATORS = [
@@ -62,6 +72,7 @@ export const ReportBuilder = ({
   const [entity, setEntity] = useState<string>(initialQuery?.primary_entity || "");
   const [availableFields, setAvailableFields] = useState<EntityFields | null>(null);
   const [selectedColumns, setSelectedColumns] = useState<string[]>(initialQuery?.columns || []);
+  const [selectedJoins, setSelectedJoins] = useState<string[]>(initialQuery?.joins || []);
   const [filters, setFilters] = useState<ReportFilter[]>(initialQuery?.filters || []);
   const [preview, setPreview] = useState<ReportQueryResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -110,6 +121,7 @@ export const ReportBuilder = ({
   const buildQuery = (): ReportQueryRequest => ({
     primary_entity: entity as ReportQueryRequest["primary_entity"],
     columns: selectedColumns,
+    joins: selectedJoins.length > 0 ? selectedJoins : undefined,
     filters: filters.filter((f) => f.field && f.operator),
     limit: 100,
     offset: 0,
@@ -187,16 +199,41 @@ export const ReportBuilder = ({
           onChange={(val) => {
             setEntity(val || "");
             setSelectedColumns([]);
+            setSelectedJoins([]);
             setFilters([]);
             setPreview(null);
           }}
         />
       </Card>
 
+      {/* Join Selection */}
+      {entity && availableFields && availableFields.available_joins.length > 0 && (
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Text fw={600} mb="md">2. Link Related Entities (Optional)</Text>
+          <MultiSelect
+            label="Join with"
+            placeholder="Select entities to join"
+            data={availableFields.available_joins.map((j) => ({
+              value: j.name,
+              label: j.name.charAt(0).toUpperCase() + j.name.slice(1),
+            }))}
+            value={selectedJoins}
+            onChange={setSelectedJoins}
+          />
+          {selectedJoins.length > 0 && (
+            <Text c="dimmed" size="xs" mt="xs">
+              Fields from joined entities will be available in column selection
+            </Text>
+          )}
+        </Card>
+      )}
+
       {/* Column Selection */}
       {entity && availableFields && (
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text fw={600} mb="md">2. Select Columns</Text>
+          <Text fw={600} mb="md">
+            {availableFields.available_joins.length > 0 ? "3" : "2"}. Select Columns
+          </Text>
           <MultiSelect
             label="Columns to include"
             placeholder="Select columns"
@@ -212,7 +249,9 @@ export const ReportBuilder = ({
       {entity && availableFields && (
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <Group justify="space-between" mb="md">
-            <Text fw={600}>3. Filters (Optional)</Text>
+            <Text fw={600}>
+              {availableFields.available_joins.length > 0 ? "4" : "3"}. Filters (Optional)
+            </Text>
             <Button
               variant="light"
               size="xs"
@@ -322,17 +361,37 @@ export const ReportBuilder = ({
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {preview.data.map((row, idx) => (
-                    <Table.Tr key={idx}>
-                      {selectedColumns.map((col) => (
-                        <Table.Td key={col}>
-                          {row[col] !== null && row[col] !== undefined
-                            ? String(row[col])
-                            : "-"}
-                        </Table.Td>
-                      ))}
-                    </Table.Tr>
-                  ))}
+                  {preview.data.map((row, idx) => {
+                    const entityRoute = ENTITY_ROUTES[entity];
+                    const entityId = row["id"];
+                    const entityLink = entityRoute && entityId ? `${entityRoute}/${entityId}` : null;
+
+                    return (
+                      <Table.Tr key={idx}>
+                        {selectedColumns.map((col) => {
+                          const value = row[col];
+                          const displayValue = value !== null && value !== undefined ? String(value) : "-";
+
+                          // Make the ID column a clickable link
+                          if (col === "id" && entityLink) {
+                            return (
+                              <Table.Td key={col}>
+                                <Anchor component={Link} href={entityLink} size="sm" c="blue">
+                                  {displayValue}
+                                </Anchor>
+                              </Table.Td>
+                            );
+                          }
+
+                          return (
+                            <Table.Td key={col}>
+                              {displayValue}
+                            </Table.Td>
+                          );
+                        })}
+                      </Table.Tr>
+                    );
+                  })}
                 </Table.Tbody>
               </Table>
             </div>

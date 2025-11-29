@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Stack, Center, Loader, Text, Card, Button, Group, Table, ActionIcon } from "@mantine/core";
-import { Plus, Trash2, Edit } from "lucide-react";
+import Link from "next/link";
+import { Stack, Center, Loader, Text, Card, Button, Group, Table, ActionIcon, Anchor } from "@mantine/core";
+import { Plus, Trash2 } from "lucide-react";
 import { getSavedReports, deleteSavedReport, SavedReport } from "../../../api";
 
 const CustomReportsPage = () => {
@@ -98,14 +99,16 @@ const CustomReportsPage = () => {
                 <Table.Th>Description</Table.Th>
                 <Table.Th>Entity</Table.Th>
                 <Table.Th>Created</Table.Th>
-                <Table.Th>Actions</Table.Th>
+                <Table.Th></Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
               {reports.map((report) => (
                 <Table.Tr key={report.id}>
                   <Table.Td>
-                    <Text fw={500}>{report.name}</Text>
+                    <Anchor component={Link} href={`/reports/custom/${report.id}`} fw={500} c="blue">
+                      {report.name}
+                    </Anchor>
                   </Table.Td>
                   <Table.Td>
                     <Text c="dimmed" size="sm" lineClamp={1}>
@@ -125,22 +128,13 @@ const CustomReportsPage = () => {
                     </Text>
                   </Table.Td>
                   <Table.Td>
-                    <Group gap="xs">
-                      <ActionIcon
-                        variant="subtle"
-                        color="blue"
-                        onClick={() => router.push(`/reports/custom/${report.id}`)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </ActionIcon>
-                      <ActionIcon
-                        variant="subtle"
-                        color="red"
-                        onClick={() => handleDelete(report.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </ActionIcon>
-                    </Group>
+                    <ActionIcon
+                      variant="subtle"
+                      color="red"
+                      onClick={() => handleDelete(report.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </ActionIcon>
                   </Table.Td>
                 </Table.Tr>
               ))}

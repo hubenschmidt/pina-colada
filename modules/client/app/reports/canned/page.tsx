@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { Stack, Card, Text, SimpleGrid } from "@mantine/core";
-import { BarChart3, Building2, Users } from "lucide-react";
+import { BarChart3, Building2, Users, StickyNote } from "lucide-react";
 
 const cannedReports = [
   {
@@ -22,6 +22,12 @@ const cannedReports = [
     description: "Contact density per organization, decision-maker ratios, coverage gaps",
     href: "/reports/canned/contact-coverage",
     icon: Users,
+  },
+  {
+    title: "Notes Activity",
+    description: "Notes distribution by entity type, recent activity, and coverage metrics",
+    href: "/reports/canned/notes-activity",
+    icon: StickyNote,
   },
 ];
 

@@ -21,6 +21,7 @@ from services.report_builder import (
     get_lead_pipeline_report,
     get_account_overview_report,
     get_contact_coverage_report,
+    get_notes_activity_report,
     get_available_fields,
     generate_excel_bytes,
 )
@@ -44,8 +45,9 @@ class Aggregation(BaseModel):
 
 
 class ReportQueryRequest(BaseModel):
-    primary_entity: Literal["organizations", "individuals", "contacts", "leads"]
+    primary_entity: Literal["organizations", "individuals", "contacts", "leads", "notes"]
     columns: List[str]
+    joins: Optional[List[str]] = None
     filters: Optional[List[ReportFilter]] = None
     group_by: Optional[List[str]] = None
     aggregations: Optional[List[Aggregation]] = None
@@ -113,6 +115,15 @@ async def get_contact_coverage(request: Request):
     return await get_contact_coverage_report(tenant_id)
 
 
+@router.get("/canned/notes-activity")
+@log_errors
+@require_auth
+async def get_notes_activity(request: Request):
+    """Get notes activity canned report."""
+    tenant_id = request.state.tenant_id
+    return await get_notes_activity_report(tenant_id)
+
+
 # --- Custom Report Execution ---
 
 @router.get("/fields/{entity}")
@@ -132,12 +143,13 @@ async def get_entity_fields(request: Request, entity: str):
 async def preview_custom_report(request: Request, query: ReportQueryRequest):
     """Preview a custom report with limited rows."""
     tenant_id = request.state.tenant_id
-    query.limit = min(query.limit, 100)  # Cap preview at 100 rows
+    query.limit = min(query.limit, 100)
     filters = [f.model_dump() for f in query.filters] if query.filters else None
     result = await execute_custom_query(
         tenant_id=tenant_id,
         primary_entity=query.primary_entity,
         columns=query.columns,
+        joins=query.joins,
         filters=filters,
         group_by=query.group_by,
         limit=query.limit,
@@ -157,6 +169,7 @@ async def run_custom_report(request: Request, query: ReportQueryRequest):
         tenant_id=tenant_id,
         primary_entity=query.primary_entity,
         columns=query.columns,
+        joins=query.joins,
         filters=filters,
         group_by=query.group_by,
         limit=query.limit,
@@ -171,7 +184,6 @@ async def run_custom_report(request: Request, query: ReportQueryRequest):
 async def export_custom_report(request: Request, query: ReportQueryRequest):
     """Export a custom report to Excel."""
     tenant_id = request.state.tenant_id
-    # Fetch all data for export (higher limit)
     query.limit = 10000
     query.offset = 0
     filters = [f.model_dump() for f in query.filters] if query.filters else None
@@ -179,6 +191,7 @@ async def export_custom_report(request: Request, query: ReportQueryRequest):
         tenant_id=tenant_id,
         primary_entity=query.primary_entity,
         columns=query.columns,
+        joins=query.joins,
         filters=filters,
         group_by=query.group_by,
         limit=query.limit,

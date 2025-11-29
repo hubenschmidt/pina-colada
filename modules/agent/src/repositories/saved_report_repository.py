@@ -43,8 +43,14 @@ async def create_saved_report(data: Dict[str, Any]) -> SavedReport:
         report = SavedReport(**data)
         session.add(report)
         await session.commit()
-        await session.refresh(report)
-        return report
+        # Re-fetch with relationships loaded
+        stmt = (
+            select(SavedReport)
+            .options(selectinload(SavedReport.creator))
+            .where(SavedReport.id == report.id)
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one()
 
 
 async def update_saved_report(report_id: int, tenant_id: int, data: Dict[str, Any]) -> Optional[SavedReport]:
@@ -61,8 +67,14 @@ async def update_saved_report(report_id: int, tenant_id: int, data: Dict[str, An
         for key, value in data.items():
             setattr(report, key, value)
         await session.commit()
-        await session.refresh(report)
-        return report
+        # Re-fetch with relationships loaded
+        stmt = (
+            select(SavedReport)
+            .options(selectinload(SavedReport.creator))
+            .where(SavedReport.id == report_id)
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one()
 
 
 async def delete_saved_report(report_id: int, tenant_id: int) -> bool:

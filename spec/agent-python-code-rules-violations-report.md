@@ -2,31 +2,24 @@
 # Generated for modules/agent directory
 
 ## Summary
-- Total violations found: 29
-- Files analyzed: 119
+- Total violations found: 26
+- Files analyzed: 123
 
 ### Violations by Type
 
-- **complex_function**: 10
+- **complex_function**: 7
+- **continue_statement**: 4
 - **guard_clause**: 1
-- **long_function**: 10
+- **long_function**: 6
 - **nested_conditional**: 8
 
 ## Detailed Violations
 
 ### Complex Function
 
-#### agent/src/agent/evaluators/_base_evaluator.py
-
-- **Line 96**: KISS - Keep It Simple
-  ```python
-  def evaluator_node
-  ```
-  - Note: Function has 7 conditionals - consider breaking into smaller functions
-
 #### agent/src/agent/graph.py
 
-- **Line 56**: KISS - Keep It Simple
+- **Line 68**: KISS - Keep It Simple
   ```python
   def make_websocket_stream_adapter
   ```
@@ -60,30 +53,6 @@
   ```
   - Note: Function has 6 conditionals - consider breaking into smaller functions
 
-#### agent/src/agent/util/get_success_criteria.py
-
-- **Line 1**: KISS - Keep It Simple
-  ```python
-  def get_success_criteria
-  ```
-  - Note: Function has 11 conditionals - consider breaking into smaller functions
-
-#### agent/src/controllers/job_controller.py
-
-- **Line 46**: KISS - Keep It Simple
-  ```python
-  def _job_to_response_dict
-  ```
-  - Note: Function has 9 conditionals - consider breaking into smaller functions
-
-#### agent/src/lib/auth.py
-
-- **Line 80**: KISS - Keep It Simple
-  ```python
-  def require_auth
-  ```
-  - Note: Function has 8 conditionals - consider breaking into smaller functions
-
 #### agent/src/lib/serialization.py
 
 - **Line 10**: KISS - Keep It Simple
@@ -91,6 +60,38 @@
   def model_to_dict
   ```
   - Note: Function has 6 conditionals - consider breaking into smaller functions
+
+#### agent/src/services/report_builder.py
+
+- **Line 150**: KISS - Keep It Simple
+  ```python
+  def _extract_field_value
+  ```
+  - Note: Function has 8 conditionals - consider breaking into smaller functions
+
+### Continue Statement
+
+#### agent/src/services/report_builder.py
+
+- **Line 224**: Avoid continue; refactor with small pure functions, early returns
+  ```python
+  continue
+  ```
+
+- **Line 226**: Avoid continue; refactor with small pure functions, early returns
+  ```python
+  continue  # Skip join field filters for now
+  ```
+
+- **Line 228**: Avoid continue; refactor with small pure functions, early returns
+  ```python
+  continue
+  ```
+
+- **Line 252**: Avoid continue; refactor with small pure functions, early returns
+  ```python
+  continue
+  ```
 
 ### Guard Clause
 
@@ -103,21 +104,13 @@
 
 ### Long Function
 
-#### agent/src/agent/evaluators/_base_evaluator.py
-
-- **Line 96**: KISS - Keep It Simple
-  ```python
-  def evaluator_node
-  ```
-  - Note: Function is 104 lines - consider breaking into smaller functions
-
 #### agent/src/agent/graph.py
 
-- **Line 56**: KISS - Keep It Simple
+- **Line 68**: KISS - Keep It Simple
   ```python
   def make_websocket_stream_adapter
   ```
-  - Note: Function is 97 lines - consider breaking into smaller functions
+  - Note: Function is 83 lines - consider breaking into smaller functions
 
 #### agent/src/agent/tools/worker_tools.py
 
@@ -133,14 +126,6 @@
   ```
   - Note: Function is 66 lines - consider breaking into smaller functions
 
-#### agent/src/agent/util/get_success_criteria.py
-
-- **Line 1**: KISS - Keep It Simple
-  ```python
-  def get_success_criteria
-  ```
-  - Note: Function is 186 lines - consider breaking into smaller functions
-
 #### agent/src/api/routes/individuals.py
 
 - **Line 141**: KISS - Keep It Simple
@@ -148,22 +133,6 @@
   def _ind_to_dict
   ```
   - Note: Function is 56 lines - consider breaking into smaller functions
-
-#### agent/src/controllers/job_controller.py
-
-- **Line 46**: KISS - Keep It Simple
-  ```python
-  def _job_to_response_dict
-  ```
-  - Note: Function is 87 lines - consider breaking into smaller functions
-
-#### agent/src/lib/auth.py
-
-- **Line 80**: KISS - Keep It Simple
-  ```python
-  def require_auth
-  ```
-  - Note: Function is 59 lines - consider breaking into smaller functions
 
 #### agent/src/lib/serialization.py
 
@@ -183,16 +152,9 @@
 
 ### Nested Conditional
 
-#### agent/src/agent/evaluators/_base_evaluator.py
-
-- **Line 165**: Avoid nested conditionals; use guard clauses
-  ```python
-  if eval_result.score < 60:
-  ```
-
 #### agent/src/agent/graph.py
 
-- **Line 294**: Avoid nested conditionals; use guard clauses
+- **Line 282**: Avoid nested conditionals; use guard clauses
   ```python
   if _is_disconnect_error(send_err):
   ```
@@ -216,13 +178,6 @@
   if potential_title:
   ```
 
-#### agent/src/controllers/job_controller.py
-
-- **Line 63**: Avoid nested conditionals; use guard clauses
-  ```python
-  elif job.lead.account.individuals:
-  ```
-
 #### agent/src/repositories/contact_repository.py
 
 - **Line 151**: Avoid nested conditionals; use guard clauses
@@ -235,4 +190,16 @@
 - **Line 261**: Avoid nested conditionals; use guard clauses
   ```python
   if org and org.account_id:
+  ```
+
+#### agent/src/services/report_builder.py
+
+- **Line 169**: Avoid nested conditionals; use guard clauses
+  ```python
+  if hasattr(val, "isoformat"):
+  ```
+
+- **Line 268**: Avoid nested conditionals; use guard clauses
+  ```python
+  if entity_type:
   ```
