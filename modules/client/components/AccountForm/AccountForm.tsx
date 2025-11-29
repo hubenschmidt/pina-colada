@@ -28,6 +28,7 @@ import {
   FundingStage,
   RevenueRange,
 } from "../../api";
+import { useProjectContext } from "../../context/projectContext";
 import { SearchResult } from "../ContactSection";
 import { AccountType, FormFieldConfig } from "./types/AccountFormTypes";
 import { useAccountFormConfig } from "./hooks/useAccountFormConfig";
@@ -47,6 +48,8 @@ interface OrganizationData {
   contacts?: Contact[];
   relationships?: Relationship[];
   industries?: string[];
+  project_ids?: number[];
+  projects?: { id: number; name: string }[];
 }
 
 interface IndividualData {
@@ -61,6 +64,8 @@ interface IndividualData {
   contacts?: Contact[];
   relationships?: Relationship[];
   industries?: string[];
+  project_ids?: number[];
+  projects?: { id: number; name: string }[];
 }
 
 interface AccountFormProps {
@@ -394,6 +399,83 @@ const RevenueRangeSelector = ({
   );
 };
 
+// Project Multi-Select Dropdown Component
+const ProjectSelector = ({
+  value,
+  onChange,
+  projects,
+}: {
+  value: number[];
+  onChange: (value: number[]) => void;
+  projects: { id: number; name: string }[];
+}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownId = useId();
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const dropdown = document.getElementById(dropdownId);
+      if (dropdown && !dropdown.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [dropdownId]);
+
+  const handleToggleProject = (projectId: number) => {
+    const updated = value.includes(projectId)
+      ? value.filter((id) => id !== projectId)
+      : [...value, projectId];
+    onChange(updated);
+  };
+
+  const displayText = value.length > 0
+    ? projects.filter((p) => value.includes(p.id)).map((p) => p.name).join(", ")
+    : "Select projects...";
+
+  return (
+    <div className="relative" id={dropdownId}>
+      <button
+        type="button"
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-left flex justify-between items-center"
+      >
+        <span className={value.length === 0 ? "text-zinc-500 dark:text-zinc-400" : ""}>
+          {displayText}
+        </span>
+        <svg className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
+      </button>
+      {isOpen && (
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg max-h-60 overflow-y-auto">
+          {projects.map((project) => {
+            const isSelected = value.includes(project.id);
+            return (
+              <label
+                key={project.id}
+                className="flex items-center px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"
+              >
+                <input
+                  type="checkbox"
+                  checked={isSelected}
+                  onChange={() => handleToggleProject(project.id)}
+                  className="w-4 h-4 text-lime-500 border-zinc-300 dark:border-zinc-600 rounded focus:ring-lime-500 bg-white dark:bg-zinc-700"
+                />
+                <span className="ml-2 text-zinc-900 dark:text-zinc-100">{project.name}</span>
+              </label>
+            );
+          })}
+          {projects.length === 0 && (
+            <div className="px-3 py-2 text-zinc-500 dark:text-zinc-400">No projects available</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const renderField = (
   field: FormFieldConfig,
   value: string | number,
@@ -487,6 +569,7 @@ const AccountForm = ({
   onDelete,
 }: AccountFormProps) => {
   const config = useAccountFormConfig(type);
+  const { projectState } = useProjectContext();
   const isEditMode = !!account;
   const isOrganization = type === "organization";
 
@@ -498,6 +581,7 @@ const AccountForm = ({
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [pendingRelationships, setPendingRelationships] = useState<Relationship[]>([]);
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<number[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -507,6 +591,9 @@ const AccountForm = ({
       setFormData({ ...account });
       setContacts(account.contacts || []);
       setSelectedIndustries(account.industries || []);
+      // Load project IDs from projects array or project_ids
+      const projectIds = account.projects?.map((p) => p.id) || account.project_ids || [];
+      setSelectedProjectIds(projectIds);
       setRelationships(account.relationships || []);
       setPendingContacts([]);
       setPendingDeletions([]);
@@ -525,19 +612,28 @@ const AccountForm = ({
     setContacts([]);
     setRelationships([]);
     setSelectedIndustries([]);
+    // Default to currently selected project for new accounts
+    setSelectedProjectIds(projectState.selectedProject ? [projectState.selectedProject.id] : []);
     setPendingContacts([]);
     setPendingDeletions([]);
     setPendingNotes([]);
     setPendingRelationships([]);
     setErrors({});
     setIsDeleting(false);
-  }, [isEditMode, account, config.fields]);
+  }, [isEditMode, account, config.fields, projectState.selectedProject?.id]);
 
-  const hasPendingChanges = usePendingChanges({
+  const formDataHasChanges = usePendingChanges({
     original: account as unknown as Record<string, unknown> | null,
     current: formData,
     pendingDeletions,
   });
+
+  // Check if projects have changed
+  const originalProjectIds = account?.projects?.map((p) => p.id).sort() || [];
+  const currentProjectIds = [...selectedProjectIds].sort();
+  const projectsChanged = JSON.stringify(originalProjectIds) !== JSON.stringify(currentProjectIds);
+
+  const hasPendingChanges = formDataHasChanges || projectsChanged;
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -638,13 +734,14 @@ const AccountForm = ({
     try {
       const submitData = config.onBeforeSubmit?.(formData) ?? formData;
       const industryIds = await resolveIndustryIds();
-      const dataWithIndustries = {
+      const dataWithIndustriesAndProjects = {
         ...submitData,
         industry_ids: industryIds.length > 0 ? industryIds : undefined,
+        project_ids: selectedProjectIds.length > 0 ? selectedProjectIds : [],
       };
 
       if (isEditMode && account && onUpdate) {
-        await onUpdate(account.id!, dataWithIndustries as Partial<OrganizationData | IndividualData>);
+        await onUpdate(account.id!, dataWithIndustriesAndProjects as Partial<OrganizationData | IndividualData>);
         await processPendingContactDeletions(account.id!);
         onClose();
         return;
@@ -655,7 +752,7 @@ const AccountForm = ({
         return;
       }
 
-      const created = await onAdd(dataWithIndustries as unknown as OrganizationData | IndividualData);
+      const created = await onAdd(dataWithIndustriesAndProjects as unknown as OrganizationData | IndividualData);
       await createPendingContacts(created.id);
       await createRelationshipContacts(created.id);
       await createPendingNotes(created.id);
@@ -920,6 +1017,18 @@ const AccountForm = ({
             </div>
           ))
         )}
+
+        {/* Project Assignment */}
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+            Projects
+          </label>
+          <ProjectSelector
+            value={selectedProjectIds}
+            onChange={setSelectedProjectIds}
+            projects={projectState.projects}
+          />
+        </div>
 
         <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
           <ContactSection<PendingContact>

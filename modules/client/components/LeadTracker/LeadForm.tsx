@@ -49,9 +49,13 @@ const LeadForm = <T extends BaseLead>({
   const [pendingNotes, setPendingNotes] = useState<string[]>([]);
 
   // Parse field value based on field type
-  const parseFieldValue = (field: FormFieldConfig<T>, value: any): string => {
+  const parseFieldValue = (field: FormFieldConfig<T>, value: any): any => {
     if (field.type === "date" && value) {
       return new Date(value).toISOString().split("T")[0];
+    }
+    // Preserve arrays as-is (e.g., project_ids)
+    if (Array.isArray(value)) {
+      return value;
     }
     return value ?? "";
   };

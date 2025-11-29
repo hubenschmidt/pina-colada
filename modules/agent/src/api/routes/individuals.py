@@ -27,6 +27,7 @@ class IndividualCreate(BaseModel):
     description: Optional[str] = None
     account_id: Optional[int] = None
     industry_ids: Optional[List[int]] = None
+    project_ids: Optional[List[int]] = None  # Associate with multiple projects
     # Contact intelligence fields
     twitter_url: Optional[str] = None
     github_url: Optional[str] = None
@@ -51,6 +52,7 @@ class IndividualUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     industry_ids: Optional[List[int]] = None
+    project_ids: Optional[List[int]] = None  # Associate with multiple projects
     # Contact intelligence fields
     twitter_url: Optional[str] = None
     github_url: Optional[str] = None
@@ -139,6 +141,13 @@ def _get_industries(ind) -> list:
     return [industry.name for industry in ind.account.industries]
 
 
+def _get_projects(ind) -> list:
+    """Extract projects info from individual's account."""
+    if not ind.account or not ind.account.projects:
+        return []
+    return [{"id": p.id, "name": p.name} for p in ind.account.projects]
+
+
 def _get_base_ind_dict(ind) -> dict:
     """Build base individual dictionary."""
     return {
@@ -151,6 +160,7 @@ def _get_base_ind_dict(ind) -> dict:
         "title": ind.title,
         "description": ind.description,
         "industries": _get_industries(ind),
+        "projects": _get_projects(ind),
         "twitter_url": ind.twitter_url,
         "github_url": ind.github_url,
         "bio": ind.bio,
@@ -293,10 +303,12 @@ async def create_individual_route(request: Request, data: IndividualCreate):
     from lib.db import async_get_session
     from models.Account import Account
     from models.Industry import Account_Industry
+    from models.AccountProject import AccountProject
 
     tenant_id = getattr(request.state, "tenant_id", None)
     ind_data = data.model_dump(exclude_none=True)
     industry_ids = ind_data.pop("industry_ids", None)
+    project_ids = ind_data.pop("project_ids", None)
 
     # Normalize LinkedIn URL
     if "linkedin_url" in ind_data:
@@ -330,12 +342,18 @@ async def create_individual_route(request: Request, data: IndividualCreate):
                     )
                     await session.execute(stmt)
 
+            # Link projects to the account
+            if project_ids:
+                for project_id in project_ids:
+                    account_project = AccountProject(account_id=account.id, project_id=project_id)
+                    session.add(account_project)
+
             await session.commit()
             await session.refresh(account)
             ind_data["account_id"] = account.id
 
     individual = await create_individual(ind_data)
-    # Re-fetch to ensure relationships (account.industries) are loaded
+    # Re-fetch to ensure relationships (account.industries, account.projects) are loaded
     individual = await find_individual_by_id(individual.id)
     return _ind_to_dict(individual, include_contacts=True, contacts=[])
 
@@ -347,10 +365,12 @@ async def update_individual_route(request: Request, individual_id: int, data: In
     """Update an existing individual."""
     from lib.db import async_get_session
     from models.Industry import Account_Industry
+    from models.AccountProject import AccountProject
     from sqlalchemy import delete
 
     ind_data = data.model_dump(exclude_unset=True)
     industry_ids = ind_data.pop("industry_ids", None)
+    project_ids = ind_data.pop("project_ids", None)
 
     # Normalize LinkedIn URL (converts empty to None)
     if "linkedin_url" in ind_data:
@@ -376,8 +396,22 @@ async def update_individual_route(request: Request, individual_id: int, data: In
                 await session.execute(stmt)
             await session.commit()
 
-        # Re-fetch to get updated industries
-        individual = await find_individual_by_id(individual_id)
+    # Update projects if provided (project_ids in exclude_unset means it was explicitly set)
+    if "project_ids" in data.model_dump(exclude_unset=True) and individual.account_id:
+        async with async_get_session() as session:
+            # Remove existing project links
+            await session.execute(
+                delete(AccountProject).where(AccountProject.account_id == individual.account_id)
+            )
+            # Add new project links
+            if project_ids:
+                for project_id in project_ids:
+                    account_project = AccountProject(account_id=individual.account_id, project_id=project_id)
+                    session.add(account_project)
+            await session.commit()
+
+    # Re-fetch to get updated data
+    individual = await find_individual_by_id(individual_id)
 
     return _ind_to_dict(individual)
 

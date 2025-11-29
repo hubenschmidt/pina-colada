@@ -23,6 +23,7 @@ from models.Partnership import Partnership
 from models.Task import Task
 from models.Asset import Asset
 from models.Tag import Tag
+from models.AccountProject import AccountProject
 from models.Account import Account
 from models.Industry import Industry
 from models.Note import Note
@@ -36,6 +37,7 @@ from models.FundingRound import FundingRound
 from models.CompanySignal import CompanySignal
 from models.DataProvenance import DataProvenance
 from models.SavedReport import SavedReport
+from models.LeadProject import LeadProject
 
 __all__ = [
     "Base",
@@ -56,6 +58,7 @@ __all__ = [
     "Task",
     "Asset",
     "Tag",
+    "AccountProject",
     "Account",
     "Industry",
     "Note",
@@ -69,4 +72,5 @@ __all__ = [
     "CompanySignal",
     "DataProvenance",
     "SavedReport",
+    "LeadProject",
 ]

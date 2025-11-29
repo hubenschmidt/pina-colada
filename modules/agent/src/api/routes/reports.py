@@ -53,28 +53,36 @@ class ReportQueryRequest(BaseModel):
     aggregations: Optional[List[Aggregation]] = None
     limit: int = 100
     offset: int = 0
+    project_id: Optional[int] = None  # Filter data by project scope
 
 
 class SavedReportCreate(BaseModel):
     name: str
     description: Optional[str] = None
     query_definition: dict
+    project_ids: Optional[List[int]] = None  # Empty/None = global report
 
 
 class SavedReportUpdate(BaseModel):
     name: Optional[str] = None
     description: Optional[str] = None
     query_definition: Optional[dict] = None
+    project_ids: Optional[List[int]] = None  # Empty = global, None = don't update
 
 
 # --- Helper Functions ---
 
 def _saved_report_to_dict(report) -> dict:
+    project_ids = [p.id for p in report.projects] if report.projects else []
+    project_names = [p.name for p in report.projects] if report.projects else []
     return {
         "id": report.id,
         "name": report.name,
         "description": report.description,
         "query_definition": report.query_definition,
+        "project_ids": project_ids,
+        "project_names": project_names,
+        "is_global": len(project_ids) == 0,
         "created_by": report.created_by,
         "creator_name": f"{report.creator.first_name} {report.creator.last_name}" if report.creator else None,
         "created_at": report.created_at.isoformat() if report.created_at else None,
@@ -91,10 +99,15 @@ async def get_lead_pipeline(
     request: Request,
     date_from: Optional[str] = None,
     date_to: Optional[str] = None,
+    project_id: Optional[int] = None,
 ):
-    """Get lead pipeline canned report."""
+    """Get lead pipeline canned report.
+
+    If project_id is provided, filters to leads in that project.
+    If project_id is None, returns global report for all leads.
+    """
     tenant_id = request.state.tenant_id
-    return await get_lead_pipeline_report(tenant_id, date_from, date_to)
+    return await get_lead_pipeline_report(tenant_id, date_from, date_to, project_id)
 
 
 @router.get("/canned/account-overview")
@@ -118,10 +131,14 @@ async def get_contact_coverage(request: Request):
 @router.get("/canned/notes-activity")
 @log_errors
 @require_auth
-async def get_notes_activity(request: Request):
-    """Get notes activity canned report."""
+async def get_notes_activity(request: Request, project_id: Optional[int] = None):
+    """Get notes activity canned report.
+
+    If project_id is provided, filters to notes on leads in that project.
+    If project_id is None, returns global report for all notes.
+    """
     tenant_id = request.state.tenant_id
-    return await get_notes_activity_report(tenant_id)
+    return await get_notes_activity_report(tenant_id, project_id)
 
 
 # --- Custom Report Execution ---
@@ -154,6 +171,7 @@ async def preview_custom_report(request: Request, query: ReportQueryRequest):
         group_by=query.group_by,
         limit=query.limit,
         offset=query.offset,
+        project_id=query.project_id,
     )
     return result
 
@@ -174,6 +192,7 @@ async def run_custom_report(request: Request, query: ReportQueryRequest):
         group_by=query.group_by,
         limit=query.limit,
         offset=query.offset,
+        project_id=query.project_id,
     )
     return result
 
@@ -196,6 +215,7 @@ async def export_custom_report(request: Request, query: ReportQueryRequest):
         group_by=query.group_by,
         limit=query.limit,
         offset=query.offset,
+        project_id=query.project_id,
     )
     if "error" in result:
         raise HTTPException(status_code=400, detail=result["error"])
@@ -213,10 +233,19 @@ async def export_custom_report(request: Request, query: ReportQueryRequest):
 @router.get("/saved")
 @log_errors
 @require_auth
-async def list_saved_reports(request: Request):
-    """List all saved reports for the tenant."""
+async def list_saved_reports(
+    request: Request,
+    project_id: Optional[int] = None,
+    include_global: bool = True
+):
+    """List saved reports for the tenant.
+
+    Args:
+        project_id: Filter by project ID. If None, only global reports are returned.
+        include_global: If True, also include global reports (project_id IS NULL).
+    """
     tenant_id = request.state.tenant_id
-    reports = await find_all_saved_reports(tenant_id)
+    reports = await find_all_saved_reports(tenant_id, project_id, include_global)
     return [_saved_report_to_dict(r) for r in reports]
 
 
@@ -227,13 +256,16 @@ async def create_saved_report_route(request: Request, data: SavedReportCreate):
     """Create a new saved report."""
     tenant_id = request.state.tenant_id
     user_id = getattr(request.state, "user_id", None)
-    report = await create_saved_report({
-        "tenant_id": tenant_id,
-        "name": data.name,
-        "description": data.description,
-        "query_definition": data.query_definition,
-        "created_by": user_id,
-    })
+    report = await create_saved_report(
+        {
+            "tenant_id": tenant_id,
+            "name": data.name,
+            "description": data.description,
+            "query_definition": data.query_definition,
+            "created_by": user_id,
+        },
+        project_ids=data.project_ids
+    )
     return _saved_report_to_dict(report)
 
 
@@ -255,10 +287,16 @@ async def get_saved_report_route(request: Request, report_id: int):
 async def update_saved_report_route(request: Request, report_id: int, data: SavedReportUpdate):
     """Update a saved report."""
     tenant_id = request.state.tenant_id
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    if not update_data:
+    # Separate project_ids from other update data
+    project_ids = data.project_ids
+    update_data = {
+        k: v for k, v in data.model_dump().items()
+        if v is not None and k != "project_ids"
+    }
+    # Allow empty update_data if only project_ids is being updated
+    if not update_data and project_ids is None:
         raise HTTPException(status_code=400, detail="No fields to update")
-    report = await update_saved_report(report_id, tenant_id, update_data)
+    report = await update_saved_report(report_id, tenant_id, update_data, project_ids)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
     return _saved_report_to_dict(report)

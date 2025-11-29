@@ -17,7 +17,7 @@ import {
   Textarea,
   Anchor,
 } from "@mantine/core";
-import { Plus, Trash2, Play, Download, Save } from "lucide-react";
+import { Plus, Trash2, Play, Download, Save, Globe, FolderKanban } from "lucide-react";
 import {
   ReportQueryRequest,
   ReportFilter,
@@ -27,6 +27,7 @@ import {
   previewCustomReport,
   exportCustomReport,
 } from "../../api";
+import { useProjectContext } from "../../context/projectContext";
 
 const ENTITY_ROUTES: Record<string, string> = {
   organizations: "/accounts/organizations",
@@ -37,9 +38,10 @@ const ENTITY_ROUTES: Record<string, string> = {
 
 type ReportBuilderProps = {
   initialQuery?: ReportQueryRequest;
-  onSave?: (name: string, description: string, query: ReportQueryRequest) => Promise<void>;
+  onSave?: (name: string, description: string, query: ReportQueryRequest, projectIds: number[]) => Promise<void>;
   reportName?: string;
   reportDescription?: string;
+  initialProjectIds?: number[];
 };
 
 const ENTITIES = [
@@ -68,6 +70,7 @@ export const ReportBuilder = ({
   onSave,
   reportName: initialName = "",
   reportDescription: initialDescription = "",
+  initialProjectIds = [],
 }: ReportBuilderProps) => {
   const [entity, setEntity] = useState<string>(initialQuery?.primary_entity || "");
   const [availableFields, setAvailableFields] = useState<EntityFields | null>(null);
@@ -81,6 +84,11 @@ export const ReportBuilder = ({
   const [saveName, setSaveName] = useState(initialName);
   const [saveDescription, setSaveDescription] = useState(initialDescription);
   const [saving, setSaving] = useState(false);
+  const [selectedProjectIds, setSelectedProjectIds] = useState<string[]>(
+    initialProjectIds.map(String)
+  );
+  const { projectState } = useProjectContext();
+  const { projects, selectedProject } = projectState;
 
   useEffect(() => {
     if (!entity) {
@@ -97,6 +105,14 @@ export const ReportBuilder = ({
     };
     fetchFields();
   }, [entity]);
+
+  // Re-run preview when selected project changes (only for entities that support project filtering)
+  useEffect(() => {
+    if (preview && entity === "leads" && selectedColumns.length > 0) {
+      runPreview();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProject?.id]);
 
   const allFields = availableFields
     ? [...availableFields.base, ...availableFields.joins]
@@ -118,6 +134,9 @@ export const ReportBuilder = ({
     setFilters((prev) => prev.filter((_, i) => i !== index));
   };
 
+  // Only leads entity supports project filtering
+  const entitySupportsProjectFilter = entity === "leads";
+
   const buildQuery = (): ReportQueryRequest => ({
     primary_entity: entity as ReportQueryRequest["primary_entity"],
     columns: selectedColumns,
@@ -125,6 +144,7 @@ export const ReportBuilder = ({
     filters: filters.filter((f) => f.field && f.operator),
     limit: 100,
     offset: 0,
+    project_id: entitySupportsProjectFilter ? selectedProject?.id : undefined,
   });
 
   const runPreview = async () => {
@@ -177,7 +197,8 @@ export const ReportBuilder = ({
     }
     setSaving(true);
     try {
-      await onSave(saveName, saveDescription, buildQuery());
+      const projectIds = selectedProjectIds.map(Number);
+      await onSave(saveName, saveDescription, buildQuery(), projectIds);
       setSaveModalOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save report");
@@ -419,6 +440,31 @@ export const ReportBuilder = ({
             value={saveDescription}
             onChange={(e) => setSaveDescription(e.target.value)}
           />
+          <div>
+            <Text size="sm" fw={500} mb="xs">Report Scope</Text>
+            <MultiSelect
+              placeholder="Select projects (leave empty for global)"
+              data={projects
+                .filter((p) => p.status !== "Inactive")
+                .map((p) => ({ value: p.id.toString(), label: p.name }))}
+              value={selectedProjectIds}
+              onChange={setSelectedProjectIds}
+              clearable
+              searchable
+              leftSection={
+                selectedProjectIds.length === 0 ? (
+                  <Globe className="h-4 w-4 text-gray-400" />
+                ) : (
+                  <FolderKanban className="h-4 w-4 text-lime-500" />
+                )
+              }
+            />
+            <Text size="xs" c="dimmed" mt="xs">
+              {selectedProjectIds.length === 0
+                ? "Global reports are visible regardless of project selection"
+                : `This report will be visible when any of the selected projects is active`}
+            </Text>
+          </div>
           <Group justify="flex-end">
             <Button variant="subtle" onClick={() => setSaveModalOpen(false)}>
               Cancel

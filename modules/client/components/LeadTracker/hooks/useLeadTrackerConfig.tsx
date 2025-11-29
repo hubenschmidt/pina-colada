@@ -1,3 +1,4 @@
+import { useContext } from "react";
 import { ExternalLink } from "lucide-react";
 import { CreatedJob } from "../../../types/types";
 import { getJobs, createJob, updateJob, deleteJob } from "../../../api";
@@ -9,6 +10,7 @@ import {
 } from "../types/LeadTrackerTypes";
 import LeadForm from "../LeadForm";
 import { useLeadFormConfig } from "./useLeadFormConfig";
+import { ProjectContext } from "../../../context/projectContext";
 
 type LeadType = "job";
 
@@ -30,7 +32,7 @@ const STATUS_COLORS: Record<string, string> = {
 // Extend CreatedJob to match BaseLead interface
 type JobLead = CreatedJob & BaseLead;
 
-const getJobLeadConfig = (): LeadTrackerConfig<
+const getJobLeadConfig = (selectedProjectId: number | null): LeadTrackerConfig<
   JobLead,
   Partial<CreatedJob>,
   Partial<CreatedJob>
@@ -139,8 +141,8 @@ const getJobLeadConfig = (): LeadTrackerConfig<
     columns,
     FormComponent: JobFormAdapter,
     api: {
-      getLeads: async (page, limit, sortBy, sortDirection, search) => {
-        return getJobs(page, limit, sortBy, sortDirection, search);
+      getLeads: async (page, limit, sortBy, sortDirection, search, projectId) => {
+        return getJobs(page, limit, sortBy, sortDirection, search, projectId ?? selectedProjectId);
       },
       createLead: async (job) => {
         return await createJob(job);
@@ -166,6 +168,9 @@ const getJobLeadConfig = (): LeadTrackerConfig<
 export const useLeadTrackerConfig = (
   type: LeadType
 ): LeadTrackerConfig<JobLead, Partial<CreatedJob>, Partial<CreatedJob>> => {
-  if (type === "job") return getJobLeadConfig();
+  const { projectState } = useContext(ProjectContext);
+  const selectedProjectId = projectState.selectedProject?.id ?? null;
+
+  if (type === "job") return getJobLeadConfig(selectedProjectId);
   throw new Error(`Unknown lead type: ${type}`);
 };

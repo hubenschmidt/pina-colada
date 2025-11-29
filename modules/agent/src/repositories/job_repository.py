@@ -11,6 +11,7 @@ from models.Organization import Organization
 from models.Individual import Individual
 from models.Deal import Deal
 from models.Account import Account
+from models.Project import Project
 from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)
@@ -63,6 +64,7 @@ async def _load_job_with_relationships(session, job_id: int) -> Job:
         joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
         joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
         joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
+        joinedload(Job.lead).joinedload(Lead.projects),
         joinedload(Job.salary_range_ref)
     ).where(Job.id == job_id)
     result = await session.execute(stmt)
@@ -75,9 +77,12 @@ async def find_all_jobs(
     search: Optional[str] = None,
     order_by: str = "updated_at",
     order: str = "DESC",
-    tenant_id: Optional[int] = None
+    tenant_id: Optional[int] = None,
+    project_id: Optional[int] = None
 ) -> tuple[List[Job], int]:
     """Find jobs with pagination, filtering, and sorting at database level."""
+    from models.LeadProject import LeadProject
+
     async with async_get_session() as session:
         # Base query with relationships
         stmt = select(Job).options(
@@ -88,12 +93,19 @@ async def find_all_jobs(
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
+            joinedload(Job.lead).joinedload(Lead.projects),
             joinedload(Job.salary_range_ref)
         ).join(Lead).outerjoin(Account, Lead.account_id == Account.id).outerjoin(Organization, Account.id == Organization.account_id)
 
         # Filter by tenant
         if tenant_id is not None:
             stmt = stmt.where(Lead.tenant_id == tenant_id)
+
+        # Filter by project (via many-to-many junction table)
+        # Require a specific project to be selected - return empty if none selected
+        if project_id is None:
+            return [], 0
+        stmt = stmt.join(LeadProject, Lead.id == LeadProject.lead_id).where(LeadProject.project_id == project_id)
 
         # Apply search filter at DB level
         if search and search.strip():
@@ -152,6 +164,7 @@ async def find_job_by_id(job_id: int) -> Optional[Job]:
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
+            joinedload(Job.lead).joinedload(Lead.projects),
             joinedload(Job.salary_range_ref)
         ).where(Job.id == job_id)
         result = await session.execute(stmt)
@@ -189,12 +202,19 @@ async def create_job(data: Dict[str, Any]) -> Job:
                 "source": data.get("source", "manual"),
                 "current_status_id": status_id,
                 "account_id": account_id,
-                "tenant_id": tenant_id
+                "tenant_id": tenant_id,
             }
 
             lead = Lead(**lead_data)
             session.add(lead)
             await session.flush()  # Get the lead.id
+
+            # Handle project_ids (many-to-many) - insert directly into junction table
+            from models.LeadProject import LeadProject
+            project_ids = data.get("project_ids") or []
+            for pid in project_ids:
+                lead_project = LeadProject(lead_id=lead.id, project_id=pid)
+                session.add(lead_project)
 
             # Create Job with same ID as Lead
             job = Job(
@@ -272,6 +292,19 @@ async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
             _update_lead_source(job.lead, data)
             await _update_lead_title_if_needed(session, job, data)
 
+            # Update project_ids if provided (many-to-many)
+            if "project_ids" in data:
+                from models.LeadProject import LeadProject
+                from sqlalchemy import delete
+                # Delete existing links
+                await session.execute(
+                    delete(LeadProject).where(LeadProject.lead_id == job.lead.id)
+                )
+                # Insert new links
+                for pid in (data["project_ids"] or []):
+                    lead_project = LeadProject(lead_id=job.lead.id, project_id=pid)
+                    session.add(lead_project)
+
             await session.commit()
             return await _load_job_with_relationships(session, job.id)
         except Exception as e:
@@ -310,6 +343,7 @@ async def find_job_by_company_and_title(company: str, title: str) -> Optional[Jo
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
+            joinedload(Job.lead).joinedload(Lead.projects),
             joinedload(Job.salary_range_ref)
         ).join(Lead).outerjoin(Account, Lead.account_id == Account.id).outerjoin(Organization, Account.id == Organization.account_id).where(
             sql_func.lower(Organization.name).contains(sql_func.lower(company.strip())),
@@ -338,6 +372,7 @@ async def find_jobs_with_status(status_names: Optional[List[str]] = None) -> Lis
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
+            joinedload(Job.lead).joinedload(Lead.projects),
             joinedload(Job.salary_range_ref)
         ).join(Lead).join(Status).where(Lead.current_status_id.isnot(None))
 

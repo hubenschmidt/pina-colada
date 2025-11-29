@@ -27,6 +27,7 @@ class OrganizationCreate(BaseModel):
     description: Optional[str] = None
     account_id: Optional[int] = None
     industry_ids: Optional[List[int]] = None
+    project_ids: Optional[List[int]] = None  # Associate with multiple projects
     # Firmographic fields
     revenue_range_id: Optional[int] = None
     founding_year: Optional[int] = None
@@ -52,6 +53,7 @@ class OrganizationUpdate(BaseModel):
     funding_stage_id: Optional[int] = None
     description: Optional[str] = None
     industry_ids: Optional[List[int]] = None
+    project_ids: Optional[List[int]] = None  # Associate with multiple projects
     # Firmographic fields
     revenue_range_id: Optional[int] = None
     founding_year: Optional[int] = None
@@ -183,12 +185,17 @@ def _org_to_dict(org, include_contacts=False, contacts=None, include_research=Fa
     industries = []
     if org.account and org.account.industries:
         industries = [ind.name for ind in org.account.industries]
+    # Get projects from the account
+    projects = []
+    if org.account and org.account.projects:
+        projects = [{"id": p.id, "name": p.name} for p in org.account.projects]
     result = {
         "id": org.id,
         "name": org.name,
         "website": org.website,
         "phone": org.phone,
         "industries": industries,
+        "projects": projects,
         "employee_count": org.employee_count,
         "employee_count_range_id": org.employee_count_range_id,
         "employee_count_range": org.employee_count_range.label if org.employee_count_range else None,
@@ -272,11 +279,13 @@ async def create_organization_route(request: Request, data: OrganizationCreate):
     from lib.db import async_get_session
     from models.Account import Account
     from models.Industry import Account_Industry
+    from models.AccountProject import AccountProject
     from sqlalchemy.exc import IntegrityError
 
     tenant_id = getattr(request.state, "tenant_id", None)
     org_data = data.model_dump(exclude_none=True)
     industry_ids = org_data.pop("industry_ids", None)
+    project_ids = org_data.pop("project_ids", None)
 
     # Create an Account for the Organization if not provided
     if not org_data.get("account_id"):
@@ -293,6 +302,12 @@ async def create_organization_route(request: Request, data: OrganizationCreate):
                         industry_id=industry_id
                     )
                     await session.execute(stmt)
+
+            # Link projects to the account
+            if project_ids:
+                for project_id in project_ids:
+                    account_project = AccountProject(account_id=account.id, project_id=project_id)
+                    session.add(account_project)
 
             await session.commit()
             await session.refresh(account)
@@ -314,10 +329,12 @@ async def update_organization_route(request: Request, org_id: int, data: Organiz
     """Update an existing organization."""
     from lib.db import async_get_session
     from models.Industry import Account_Industry
+    from models.AccountProject import AccountProject
     from sqlalchemy import delete
 
     org_data = data.model_dump(exclude_unset=True)
     industry_ids = org_data.pop("industry_ids", None)
+    project_ids = org_data.pop("project_ids", None)
 
     org = await update_organization(org_id, org_data)
     if not org:
@@ -339,8 +356,22 @@ async def update_organization_route(request: Request, org_id: int, data: Organiz
                 await session.execute(stmt)
             await session.commit()
 
-        # Re-fetch to get updated industries
-        org = await find_organization_by_id(org_id)
+    # Update projects if provided (project_ids in exclude_unset means it was explicitly set)
+    if "project_ids" in data.model_dump(exclude_unset=True) and org.account_id:
+        async with async_get_session() as session:
+            # Remove existing project links
+            await session.execute(
+                delete(AccountProject).where(AccountProject.account_id == org.account_id)
+            )
+            # Add new project links
+            if project_ids:
+                for project_id in project_ids:
+                    account_project = AccountProject(account_id=org.account_id, project_id=project_id)
+                    session.add(account_project)
+            await session.commit()
+
+    # Re-fetch to get updated data
+    org = await find_organization_by_id(org_id)
 
     return _org_to_dict(org)
 

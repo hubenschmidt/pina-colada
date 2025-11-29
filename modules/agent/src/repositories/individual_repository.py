@@ -16,7 +16,10 @@ async def find_all_individuals(tenant_id: Optional[int] = None) -> List[Individu
     async with async_get_session() as session:
         stmt = (
             select(Individual)
-            .options(selectinload(Individual.account).selectinload(Account.industries))
+            .options(
+                selectinload(Individual.account).selectinload(Account.industries),
+                selectinload(Individual.account).selectinload(Account.projects),
+            )
             .order_by(Individual.updated_at.desc())
         )
         if tenant_id is not None:
@@ -32,6 +35,7 @@ async def find_individual_by_id(individual_id: int) -> Optional[Individual]:
             select(Individual)
             .options(
                 selectinload(Individual.account).selectinload(Account.industries),
+                selectinload(Individual.account).selectinload(Account.projects),
                 selectinload(Individual.reports_to),
                 selectinload(Individual.direct_reports),
             )
@@ -153,7 +157,10 @@ async def search_individuals(query: str, tenant_id: Optional[int] = None) -> Lis
         search_pattern = func.lower(f"%{query}%")
         stmt = (
             select(Individual)
-            .options(selectinload(Individual.account).selectinload(Account.industries))
+            .options(
+                selectinload(Individual.account).selectinload(Account.industries),
+                selectinload(Individual.account).selectinload(Account.projects),
+            )
             .where(
                 (func.lower(Individual.first_name).like(search_pattern)) |
                 (func.lower(Individual.last_name).like(search_pattern)) |

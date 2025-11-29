@@ -8,6 +8,7 @@ DECLARE
     v_ind_id BIGINT;
     v_contact_id BIGINT;
     v_lead_id BIGINT;
+    v_job_lead_id BIGINT;
 BEGIN
     -- Get the default tenant
     SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada' LIMIT 1;
@@ -21,7 +22,8 @@ BEGIN
     SELECT id INTO v_org_id FROM "Organization" LIMIT 1;
     SELECT id INTO v_ind_id FROM "Individual" LIMIT 1;
     SELECT id INTO v_contact_id FROM "Contact" LIMIT 1;
-    SELECT id INTO v_lead_id FROM "Lead" LIMIT 1;
+    SELECT id INTO v_lead_id FROM "Lead" WHERE type = 'Opportunity' LIMIT 1;
+    SELECT id INTO v_job_lead_id FROM "Lead" WHERE type = 'Job' LIMIT 1;
 
     -- Insert notes for Organization
     IF v_org_id IS NOT NULL THEN
@@ -54,7 +56,7 @@ BEGIN
         RAISE NOTICE 'Added notes for Contact ID: %', v_contact_id;
     END IF;
 
-    -- Insert notes for Lead
+    -- Insert notes for Lead (Opportunity)
     IF v_lead_id IS NOT NULL THEN
         INSERT INTO "Note" (tenant_id, entity_type, entity_id, content, created_at, updated_at)
         VALUES
@@ -62,7 +64,18 @@ BEGIN
             (v_tenant_id, 'Lead', v_lead_id, 'Timeline: Decision expected by end of month.', NOW(), NOW()),
             (v_tenant_id, 'Lead', v_lead_id, 'Technical requirements reviewed. Our solution is a good fit.', NOW(), NOW())
         ON CONFLICT DO NOTHING;
-        RAISE NOTICE 'Added notes for Lead ID: %', v_lead_id;
+        RAISE NOTICE 'Added notes for Opportunity Lead ID: %', v_lead_id;
+    END IF;
+
+    -- Insert notes for Lead (Job)
+    IF v_job_lead_id IS NOT NULL THEN
+        INSERT INTO "Note" (tenant_id, entity_type, entity_id, content, created_at, updated_at)
+        VALUES
+            (v_tenant_id, 'Lead', v_job_lead_id, 'Great company culture. Remote-friendly position.', NOW(), NOW()),
+            (v_tenant_id, 'Lead', v_job_lead_id, 'Technical interview scheduled for next Tuesday.', NOW(), NOW()),
+            (v_tenant_id, 'Lead', v_job_lead_id, 'Salary range confirmed: $150K-$180K + equity.', NOW(), NOW())
+        ON CONFLICT DO NOTHING;
+        RAISE NOTICE 'Added notes for Job Lead ID: %', v_job_lead_id;
     END IF;
 
     RAISE NOTICE 'Notes seed completed for tenant: %', v_tenant_id;

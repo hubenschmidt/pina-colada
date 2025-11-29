@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Stack, Center, Loader, Text } from "@mantine/core";
+import { Stack, Center, Loader, Text, Group, Badge } from "@mantine/core";
 import { ReportBuilder } from "../../../../components/Reports/ReportBuilder";
 import {
   getSavedReport,
@@ -10,11 +10,14 @@ import {
   SavedReport,
   ReportQueryRequest,
 } from "../../../../api";
+import { useProjectContext } from "../../../../context/projectContext";
 
 const EditReportPage = () => {
   const router = useRouter();
   const params = useParams();
   const reportId = Number(params.id);
+  const { projectState } = useProjectContext();
+  const { selectedProject } = projectState;
 
   const [report, setReport] = useState<SavedReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,11 +37,17 @@ const EditReportPage = () => {
     fetchReport();
   }, [reportId]);
 
-  const handleSave = async (name: string, description: string, query: ReportQueryRequest) => {
+  const handleSave = async (
+    name: string,
+    description: string,
+    query: ReportQueryRequest,
+    projectIds: number[]
+  ) => {
     await updateSavedReport(reportId, {
       name,
       description: description || undefined,
       query_definition: query,
+      project_ids: projectIds,
     });
     router.push("/reports/custom");
   };
@@ -65,15 +74,30 @@ const EditReportPage = () => {
     );
   }
 
+  // Only leads entity supports project filtering
+  const entitySupportsProjectFilter = report.query_definition?.primary_entity === "leads";
+
   return (
     <Stack gap="lg">
-      <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-        Edit Report: {report.name}
-      </h1>
+      <Group justify="space-between">
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+          Edit Report: {report.name}
+        </h1>
+        {entitySupportsProjectFilter && selectedProject ? (
+          <Badge variant="light" color="lime">
+            {selectedProject.name}
+          </Badge>
+        ) : (
+          <Badge variant="light" color="gray">
+            Global
+          </Badge>
+        )}
+      </Group>
       <ReportBuilder
         initialQuery={report.query_definition}
         reportName={report.name}
         reportDescription={report.description || ""}
+        initialProjectIds={report.project_ids}
         onSave={handleSave}
       />
     </Stack>

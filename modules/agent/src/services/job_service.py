@@ -245,13 +245,30 @@ async def filter_jobs(jobs: List[Dict[str, str]]) -> List[Dict[str, str]]:
 async def add_job(
     organization_name: str,
     job_title: str,
+    project_ids: List[int],
     job_url: str = "",
     salary_range: str = "",
     notes: str = "",
     status: str = "applied",
     source: str = "agent",
 ) -> Optional[Dict[str, str]]:
-    """Add a new job application."""
+    """Add a new job application.
+
+    Args:
+        organization_name: Company name
+        job_title: Job title
+        project_ids: List of project IDs (required, must have at least one)
+        job_url: Optional job posting URL
+        salary_range: Optional salary range
+        notes: Optional notes
+        status: Job status (default: applied)
+        source: Source of job (default: agent)
+    """
+    if not project_ids:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one project must be specified for a job"
+        )
 
     # Get or create organization
     org = await get_or_create_organization(organization_name)
@@ -264,6 +281,7 @@ async def add_job(
         "notes": notes or None,
         "status": status,  # Will be converted to status_id in repository
         "source": source,
+        "project_ids": project_ids,
     }
 
     created = await create_job(data)
@@ -273,6 +291,7 @@ async def add_job(
 async def add_applied_job(
     company: str,
     job_title: str,
+    project_ids: List[int],
     job_url: str = "",
     location: str = "",  # Deprecated, kept for backward compatibility but ignored
     salary_range: str = "",
@@ -284,6 +303,7 @@ async def add_applied_job(
     return await add_job(
         organization_name=company,
         job_title=job_title,
+        project_ids=project_ids,
         job_url=job_url,
         salary_range=salary_range,
         notes=notes,
@@ -351,7 +371,7 @@ def _matches_job(job, company: str, job_title: str) -> bool:
 
 
 async def get_jobs_paginated(
-    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None, tenant_id: Optional[int] = None
+    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None, tenant_id: Optional[int] = None, project_id: Optional[int] = None
 ) -> tuple[List[Any], int]:
     """Get all jobs with search, sorting, and pagination logic.
 
@@ -362,6 +382,7 @@ async def get_jobs_paginated(
         order: Sort direction (ASC/DESC)
         search: Optional search query
         tenant_id: Optional tenant ID for filtering
+        project_id: Optional project ID for filtering
 
     Returns:
         Tuple of (paginated_jobs, total_count)
@@ -372,7 +393,8 @@ async def get_jobs_paginated(
         search=search,
         order_by=order_by,
         order=order,
-        tenant_id=tenant_id
+        tenant_id=tenant_id,
+        project_id=project_id
     )
 
 
@@ -434,7 +456,15 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
         "source": job_data.get("source", "manual"),
         "tenant_id": tenant_id,
         "resume_date": resume_obj,
+        "project_ids": job_data.get("project_ids") or [],
     }
+
+    # Validate that at least one project is specified
+    if not data["project_ids"]:
+        raise HTTPException(
+            status_code=400,
+            detail="At least one project must be specified for a job"
+        )
 
     created = await create_job_repo(data)
 
@@ -594,6 +624,7 @@ async def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
         "salary_range_id",
         "notes",
         "source",
+        "project_ids",
     ]
     data.update({k: job_data[k] for k in allowed_fields if k in job_data})
 

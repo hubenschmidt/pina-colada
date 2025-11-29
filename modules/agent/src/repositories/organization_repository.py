@@ -20,6 +20,7 @@ async def find_all_organizations(tenant_id: Optional[int] = None) -> List[Organi
             select(Organization)
             .options(
                 selectinload(Organization.account).selectinload(Account.industries),
+                selectinload(Organization.account).selectinload(Account.projects),
                 selectinload(Organization.employee_count_range),
                 selectinload(Organization.funding_stage),
                 selectinload(Organization.revenue_range),
@@ -39,6 +40,7 @@ async def find_organization_by_id(org_id: int) -> Optional[Organization]:
             select(Organization)
             .options(
                 selectinload(Organization.account).selectinload(Account.industries),
+                selectinload(Organization.account).selectinload(Account.projects),
                 selectinload(Organization.employee_count_range),
                 selectinload(Organization.funding_stage),
                 selectinload(Organization.revenue_range),

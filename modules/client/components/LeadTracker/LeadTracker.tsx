@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, type PageData } from "../DataTable/DataTable";
 import { Search, X } from "lucide-react";
 import { LeadTrackerConfig, BaseLead } from "./types/LeadTrackerTypes";
+import { ProjectContext } from "../../context/projectContext";
 import {
   Stack,
   Center,
@@ -23,6 +24,9 @@ interface LeadTrackerProps<T extends BaseLead> {
 
 const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
   const router = useRouter();
+  const { projectState } = useContext(ProjectContext);
+  const selectedProjectId = projectState.selectedProject?.id ?? null;
+
   const [data, setData] = useState<PageData<T> | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -51,7 +55,7 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
     setError(null);
 
     config.api
-      .getLeads(page, limit, sortBy, sortDirection, searchQuery || undefined)
+      .getLeads(page, limit, sortBy, sortDirection, searchQuery || undefined, selectedProjectId)
       .then((pageData) => {
         setData(pageData);
       })
@@ -70,7 +74,7 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
 
   useEffect(() => {
     loadLeads(true);
-  }, []);
+  }, [selectedProjectId]);
 
   useEffect(() => {
     if (data !== null && !loading) {

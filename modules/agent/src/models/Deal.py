@@ -13,6 +13,7 @@ class Deal(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = Column(BigInteger, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=True)
+    project_id = Column(BigInteger, ForeignKey("Project.id", ondelete="SET NULL"), nullable=True)
     name = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
     owner_individual_id = Column(BigInteger, ForeignKey("Individual.id", ondelete="SET NULL"), nullable=True)
@@ -27,9 +28,11 @@ class Deal(Base):
 
     # Relationships
     tenant = relationship("Tenant", back_populates="deals")
+    project = relationship("Project", back_populates="deals")
     current_status = relationship("Status", back_populates="deals")
     leads = relationship("Lead", back_populates="deal")
 
     __table_args__ = (
         Index('idx_deal_tenant_id', 'tenant_id'),
+        Index('idx_deal_project_id', 'project_id'),
     )

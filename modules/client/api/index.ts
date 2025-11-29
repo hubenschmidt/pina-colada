@@ -77,7 +77,8 @@ export const getJobs = async (
   limit: number = 50,
   orderBy: string = "date",
   order: "ASC" | "DESC" = "DESC",
-  search?: string
+  search?: string,
+  projectId?: number | null
 ): Promise<PageData<CreatedJob>> => {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -87,6 +88,9 @@ export const getJobs = async (
   });
   if (search && search.trim()) {
     params.append("search", search.trim());
+  }
+  if (projectId) {
+    params.append("projectId", projectId.toString());
   }
   return apiGet<PageData<CreatedJob>>(`/jobs?${params}`);
 };
@@ -992,6 +996,7 @@ export type ReportQueryRequest = {
   aggregations?: ReportAggregation[];
   limit?: number;
   offset?: number;
+  project_id?: number | null;  // Filter data by project scope
 };
 
 export type ReportQueryResult = {
@@ -1006,6 +1011,9 @@ export type SavedReport = {
   name: string;
   description: string | null;
   query_definition: ReportQueryRequest;
+  project_ids: number[];
+  project_names: string[];
+  is_global: boolean;
   created_by: number | null;
   creator_name: string | null;
   created_at: string | null;
@@ -1050,11 +1058,15 @@ export type EntityFields = {
 
 export const getLeadPipelineReport = async (
   dateFrom?: string,
-  dateTo?: string
+  dateTo?: string,
+  projectId?: number | null
 ): Promise<LeadPipelineReport> => {
   const params = new URLSearchParams();
   if (dateFrom) params.append("date_from", dateFrom);
   if (dateTo) params.append("date_to", dateTo);
+  if (projectId !== undefined && projectId !== null) {
+    params.append("project_id", projectId.toString());
+  }
   const query = params.toString() ? `?${params}` : "";
   return apiGet<LeadPipelineReport>(`/reports/canned/lead-pipeline${query}`);
 };
@@ -1081,8 +1093,15 @@ export type NotesActivityReport = {
   }[];
 };
 
-export const getNotesActivityReport = async (): Promise<NotesActivityReport> => {
-  return apiGet<NotesActivityReport>("/reports/canned/notes-activity");
+export const getNotesActivityReport = async (
+  projectId?: number | null
+): Promise<NotesActivityReport> => {
+  const params = new URLSearchParams();
+  if (projectId !== undefined && projectId !== null) {
+    params.append("project_id", projectId.toString());
+  }
+  const query = params.toString() ? `?${params}` : "";
+  return apiGet<NotesActivityReport>(`/reports/canned/notes-activity${query}`);
 };
 
 // Custom Reports - Fields
@@ -1118,8 +1137,17 @@ export const exportCustomReport = async (query: ReportQueryRequest): Promise<Blo
 
 // Saved Reports CRUD
 
-export const getSavedReports = async (): Promise<SavedReport[]> => {
-  return apiGet<SavedReport[]>("/reports/saved");
+export const getSavedReports = async (
+  projectId?: number | null,
+  includeGlobal: boolean = true
+): Promise<SavedReport[]> => {
+  const params = new URLSearchParams();
+  if (projectId !== undefined && projectId !== null) {
+    params.append("project_id", projectId.toString());
+  }
+  params.append("include_global", includeGlobal.toString());
+  const query = params.toString() ? `?${params}` : "";
+  return apiGet<SavedReport[]>(`/reports/saved${query}`);
 };
 
 export const getSavedReport = async (id: number): Promise<SavedReport> => {
@@ -1130,17 +1158,102 @@ export const createSavedReport = async (data: {
   name: string;
   description?: string;
   query_definition: ReportQueryRequest;
+  project_ids?: number[];
 }): Promise<SavedReport> => {
   return apiPost<SavedReport>("/reports/saved", data);
 };
 
 export const updateSavedReport = async (
   id: number,
-  data: { name?: string; description?: string; query_definition?: ReportQueryRequest }
+  data: {
+    name?: string;
+    description?: string;
+    query_definition?: ReportQueryRequest;
+    project_ids?: number[];
+  }
 ): Promise<SavedReport> => {
   return apiPut<SavedReport>(`/reports/saved/${id}`, data);
 };
 
 export const deleteSavedReport = async (id: number): Promise<void> => {
   await apiDelete(`/reports/saved/${id}`);
+};
+
+// ==============================================
+// Project Types and API
+// ==============================================
+
+export type Project = {
+  id: number;
+  name: string;
+  description: string | null;
+  status: string | null;
+  current_status_id: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  deals_count?: number;
+  leads_count?: number;
+};
+
+export type ProjectInput = {
+  name: string;
+  description?: string | null;
+  status?: string | null;
+  current_status_id?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
+};
+
+export const getProjects = async (): Promise<Project[]> => {
+  return apiGet<Project[]>("/projects");
+};
+
+export const getProject = async (id: number): Promise<Project> => {
+  return apiGet<Project>(`/projects/${id}`);
+};
+
+export const createProject = async (data: ProjectInput): Promise<Project> => {
+  return apiPost<Project>("/projects", data);
+};
+
+export const updateProject = async (
+  id: number,
+  data: Partial<ProjectInput>
+): Promise<Project> => {
+  return apiPut<Project>(`/projects/${id}`, data);
+};
+
+export const deleteProject = async (id: number): Promise<void> => {
+  await apiDelete(`/projects/${id}`);
+};
+
+export type ProjectLead = {
+  id: number;
+  title: string;
+  type: string;
+  description: string | null;
+  source: string | null;
+  current_status: string | null;
+  account_name: string | null;
+  created_at: string | null;
+};
+
+export type ProjectDeal = {
+  id: number;
+  name: string;
+  description: string | null;
+  current_status: string | null;
+  value_amount: number | null;
+  value_currency: string | null;
+  created_at: string | null;
+};
+
+export const getProjectLeads = async (projectId: number): Promise<ProjectLead[]> => {
+  return apiGet<ProjectLead[]>(`/projects/${projectId}/leads`);
+};
+
+export const getProjectDeals = async (projectId: number): Promise<ProjectDeal[]> => {
+  return apiGet<ProjectDeal[]>(`/projects/${projectId}/deals`);
 };

@@ -3,19 +3,22 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Stack, Center, Loader, Text, Card, Button, Group, Table, ActionIcon, Anchor } from "@mantine/core";
+import { Stack, Center, Loader, Text, Card, Button, Group, Table, ActionIcon, Anchor, Badge } from "@mantine/core";
 import { Plus, Trash2 } from "lucide-react";
 import { getSavedReports, deleteSavedReport, SavedReport } from "../../../api";
+import { useProjectContext } from "../../../context/projectContext";
 
 const CustomReportsPage = () => {
   const router = useRouter();
   const [reports, setReports] = useState<SavedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { projectState } = useProjectContext();
+  const { selectedProject } = projectState;
 
   const fetchReports = async () => {
     try {
-      const data = await getSavedReports();
+      const data = await getSavedReports(selectedProject?.id, true);
       setReports(data);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load saved reports");
@@ -25,8 +28,9 @@ const CustomReportsPage = () => {
   };
 
   useEffect(() => {
+    setLoading(true);
     fetchReports();
-  }, []);
+  }, [selectedProject?.id]);
 
   const handleDelete = async (id: number) => {
     if (!confirm("Are you sure you want to delete this report?")) {
@@ -96,6 +100,7 @@ const CustomReportsPage = () => {
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Name</Table.Th>
+                <Table.Th>Scope</Table.Th>
                 <Table.Th>Description</Table.Th>
                 <Table.Th>Entity</Table.Th>
                 <Table.Th>Created</Table.Th>
@@ -109,6 +114,17 @@ const CustomReportsPage = () => {
                     <Anchor component={Link} href={`/reports/custom/${report.id}`} fw={500} c="blue">
                       {report.name}
                     </Anchor>
+                  </Table.Td>
+                  <Table.Td>
+                    {report.query_definition?.primary_entity === "leads" && selectedProject ? (
+                      <Badge variant="light" color="lime">
+                        {selectedProject.name}
+                      </Badge>
+                    ) : (
+                      <Badge variant="light" color="gray">
+                        Global
+                      </Badge>
+                    )}
                   </Table.Td>
                   <Table.Td>
                     <Text c="dimmed" size="sm" lineClamp={1}>

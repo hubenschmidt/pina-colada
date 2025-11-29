@@ -8,7 +8,12 @@ from models import Base
 
 
 class SavedReport(Base):
-    """SavedReport SQLAlchemy model for custom report definitions."""
+    """SavedReport SQLAlchemy model for custom report definitions.
+
+    Reports can be scoped to multiple projects via the SavedReportProject junction table.
+    No projects = global report (visible regardless of selected project)
+    One or more projects = project-specific report (visible when any of those projects is selected)
+    """
 
     __tablename__ = "SavedReport"
 
@@ -24,3 +29,4 @@ class SavedReport(Base):
     # Relationships
     tenant = relationship("Tenant")
     creator = relationship("Individual")
+    projects = relationship("Project", secondary="SavedReportProject", backref="saved_reports")

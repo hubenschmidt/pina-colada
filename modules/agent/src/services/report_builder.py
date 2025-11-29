@@ -13,6 +13,7 @@ from models.Contact import Contact
 from models.Lead import Lead
 from models.Account import Account
 from models.Note import Note
+from models.LeadProject import LeadProject
 from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)
@@ -324,6 +325,7 @@ async def execute_custom_query(
     aggregations: Optional[List[Dict[str, Any]]] = None,
     limit: int = 100,
     offset: int = 0,
+    project_id: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Execute a custom report query and return results."""
     model = ENTITY_MAP.get(primary_entity)
@@ -335,6 +337,12 @@ async def execute_custom_query(
     async with async_get_session() as session:
         stmt = select(model)
         stmt = _apply_tenant_filter(stmt, model, primary_entity, tenant_id)
+
+        # Apply project filter for leads
+        if project_id is not None and primary_entity == "leads":
+            stmt = stmt.join(
+                LeadProject, Lead.id == LeadProject.lead_id
+            ).where(LeadProject.project_id == project_id)
 
         # Load relationships for built-in join fields
         if primary_entity == "organizations":
@@ -375,8 +383,17 @@ async def execute_custom_query(
         return {"data": data, "total": len(data), "limit": limit, "offset": offset}
 
 
-async def get_lead_pipeline_report(tenant_id: int, date_from: Optional[str] = None, date_to: Optional[str] = None) -> Dict[str, Any]:
-    """Generate lead pipeline canned report."""
+async def get_lead_pipeline_report(
+    tenant_id: int,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    project_id: Optional[int] = None
+) -> Dict[str, Any]:
+    """Generate lead pipeline canned report.
+
+    If project_id is provided, filters leads to only those in the project.
+    If project_id is None, returns data for all leads (global report).
+    """
     async with async_get_session() as session:
         # Base query for leads in tenant
         base_stmt = (
@@ -384,6 +401,12 @@ async def get_lead_pipeline_report(tenant_id: int, date_from: Optional[str] = No
             .join(Account, Lead.account_id == Account.id)
             .where(Account.tenant_id == tenant_id)
         )
+
+        # Filter by project if provided
+        if project_id is not None:
+            base_stmt = base_stmt.join(
+                LeadProject, Lead.id == LeadProject.lead_id
+            ).where(LeadProject.project_id == project_id)
 
         if date_from:
             base_stmt = base_stmt.where(Lead.created_at >= date_from)
@@ -547,11 +570,30 @@ async def _get_entity_name_for_note(session, note) -> Optional[str]:
     return extractor(entity)
 
 
-async def get_notes_activity_report(tenant_id: int) -> Dict[str, Any]:
-    """Generate notes activity canned report."""
+async def get_notes_activity_report(tenant_id: int, project_id: Optional[int] = None) -> Dict[str, Any]:
+    """Generate notes activity canned report.
+
+    If project_id is provided, filters to notes on leads in that project.
+    If project_id is None, returns data for all notes (global report).
+    """
     async with async_get_session() as session:
-        # Get all notes for tenant
-        notes_stmt = select(Note).where(Note.tenant_id == tenant_id).order_by(Note.created_at.desc())
+        # Get notes for tenant
+        notes_stmt = select(Note).where(Note.tenant_id == tenant_id)
+
+        # Filter by project - only include notes on Leads that are in the project
+        if project_id is not None:
+            # Subquery to get lead IDs in the project
+            lead_ids_subq = (
+                select(LeadProject.lead_id)
+                .where(LeadProject.project_id == project_id)
+                .scalar_subquery()
+            )
+            notes_stmt = notes_stmt.where(
+                Note.entity_type == "Lead",
+                Note.entity_id.in_(lead_ids_subq)
+            )
+
+        notes_stmt = notes_stmt.order_by(Note.created_at.desc())
         result = await session.execute(notes_stmt)
         notes = result.scalars().all()
 

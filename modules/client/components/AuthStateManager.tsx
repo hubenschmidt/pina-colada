@@ -44,16 +44,25 @@ export const AuthStateManager = () => {
         });
 
         // Load user preferences (theme)
-        const prefs = await getUserPreferences();
-        dispatchUser({
-          type: SET_THEME,
-          payload: {
-            theme: prefs.effective_theme,
-            canEditTenant: prefs.can_edit_tenant,
-          },
-        });
+        try {
+          const prefs = await getUserPreferences();
+          dispatchUser({
+            type: SET_THEME,
+            payload: {
+              theme: prefs.effective_theme,
+              canEditTenant: prefs.can_edit_tenant,
+            },
+          });
+        } catch (prefError) {
+          console.error("Failed to load preferences:", prefError);
+        }
       } catch (error) {
         console.error("Failed to restore auth state:", error);
+        // Still mark as authed if Auth0 session exists - let routes handle errors
+        dispatchUser({
+          type: "SET_AUTHED",
+          payload: true,
+        });
       }
     };
 

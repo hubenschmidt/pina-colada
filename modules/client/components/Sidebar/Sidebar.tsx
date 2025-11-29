@@ -12,11 +12,13 @@ import {
   Contact,
   Briefcase,
   BarChart3,
-  FileSpreadsheet,
   Wrench,
+  FolderKanban,
+  Check,
 } from "lucide-react";
-import { Stack, ScrollArea } from "@mantine/core";
+import { Stack, ScrollArea, Select } from "@mantine/core";
 import { useNavContext } from "../../context/navContext";
+import { useProjectContext } from "../../context/projectContext";
 
 export const Sidebar = () => {
   const [leadsExpanded, setLeadsExpanded] = useState(true);
@@ -24,6 +26,8 @@ export const Sidebar = () => {
   const [reportsExpanded, setReportsExpanded] = useState(true);
   const { navState, dispatchNav } = useNavContext();
   const { sidebarCollapsed } = navState;
+  const { projectState, selectProject } = useProjectContext();
+  const { projects, selectedProject } = projectState;
 
   return (
     <aside
@@ -56,6 +60,38 @@ export const Sidebar = () => {
         <ScrollArea flex={1} type="auto">
           {!sidebarCollapsed && (
             <nav className="p-4 space-y-2">
+              {/* Projects Section */}
+              <div className="mb-4">
+                <Link
+                  href="/projects"
+                  className="flex items-center gap-2 rounded px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                >
+                  <FolderKanban className="h-4 w-4" />
+                  Projects
+                </Link>
+                {projects.filter((p) => p.status !== "Inactive").length > 0 && (
+                  <div className="mt-2 px-3">
+                    <Select
+                      size="xs"
+                      placeholder="Select project..."
+                      value={selectedProject?.id?.toString() || null}
+                      onChange={(value) => {
+                        const project = projects.find((p) => p.id.toString() === value);
+                        selectProject(project || null);
+                      }}
+                      data={projects
+                        .filter((p) => p.status !== "Inactive")
+                        .map((p) => ({
+                          value: p.id.toString(),
+                          label: p.name,
+                        }))}
+                      clearable
+                      comboboxProps={{ withinPortal: false }}
+                    />
+                  </div>
+                )}
+              </div>
+
               {/* Accounts Section */}
               <div>
                 <button

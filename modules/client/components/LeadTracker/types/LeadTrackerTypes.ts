@@ -30,7 +30,8 @@ export interface LeadAPI<
     limit: number,
     sortBy: string,
     sortDirection: "ASC" | "DESC",
-    search?: string
+    search?: string,
+    projectId?: number | null
   ) => Promise<PageData<T>>;
   createLead: (lead: TInsert) => Promise<T | void>;
   updateLead: (id: string, updates: TUpdate) => Promise<void>;

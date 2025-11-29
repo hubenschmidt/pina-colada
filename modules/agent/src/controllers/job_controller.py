@@ -127,6 +127,11 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
     created_at = job_dict.get("created_at", "")
     salary_range, salary_range_id = _get_salary_info(job, job_dict)
 
+    # Get project IDs from many-to-many relationship
+    project_ids = []
+    if job.lead and job.lead.projects:
+        project_ids = [p.id for p in job.lead.projects]
+
     return {
         "id": str(job_dict.get("id", "")),
         "account": company,
@@ -144,16 +149,17 @@ def _job_to_response_dict(job) -> Dict[str, Any]:
         "updated_at": job_dict.get("updated_at", ""),
         "contacts": contacts,
         "industry": _get_industries(job),
+        "project_ids": project_ids,
     }
 
 
 @handle_http_exceptions
 async def get_jobs(
-    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None, tenant_id: Optional[int] = None
+    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None, tenant_id: Optional[int] = None, project_id: Optional[int] = None
 ) -> dict:
     """Get all jobs with pagination."""
     paginated_jobs, total_count = await get_jobs_paginated(
-        page, limit, order_by, order, search, tenant_id
+        page, limit, order_by, order, search, tenant_id, project_id
     )
     items = [_job_to_response_dict(job) for job in paginated_jobs]
     return _to_paged_response(total_count, page, limit, items)

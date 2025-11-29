@@ -36,6 +36,7 @@ def _make_job_create_model() -> Type[BaseModel]:
         resume=(Optional[str], None),
         status=(str, "applied"),
         source=(str, "manual"),
+        project_ids=(Optional[List[int]], None),
     )
 
 
@@ -55,6 +56,7 @@ def _make_job_update_model() -> Type[BaseModel]:
         status=(Optional[str], None),
         source=(Optional[str], None),
         lead_status_id=(Optional[str], None),
+        project_ids=(Optional[List[int]], None),
     )
 
 
@@ -72,10 +74,11 @@ async def get_jobs_route(
     order_by: str = Query("updated_at", alias="orderBy"),
     order: str = Query("DESC", regex="^(ASC|DESC)$"),
     search: Optional[str] = Query(None),
+    project_id: Optional[int] = Query(None, alias="projectId"),
 ):
     """Get all jobs with pagination."""
     tenant_id = getattr(request.state, "tenant_id", None)
-    return await get_jobs(page, limit, order_by, order, search, tenant_id)
+    return await get_jobs(page, limit, order_by, order, search, tenant_id, project_id)
 
 
 @router.post("")

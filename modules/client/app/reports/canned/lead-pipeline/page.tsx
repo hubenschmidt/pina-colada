@@ -1,18 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Stack, Center, Loader, Text, Card, SimpleGrid, Table } from "@mantine/core";
+import { Stack, Center, Loader, Text, Card, SimpleGrid, Table, Badge, Group } from "@mantine/core";
 import { getLeadPipelineReport, LeadPipelineReport } from "../../../../api";
+import { useProjectContext } from "../../../../context/projectContext";
 
 const LeadPipelinePage = () => {
   const [report, setReport] = useState<LeadPipelineReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { projectState } = useProjectContext();
+  const { selectedProject } = projectState;
 
   useEffect(() => {
     const fetchReport = async () => {
+      setLoading(true);
       try {
-        const data = await getLeadPipelineReport();
+        const data = await getLeadPipelineReport(undefined, undefined, selectedProject?.id);
         setReport(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load report");
@@ -21,7 +25,7 @@ const LeadPipelinePage = () => {
       }
     };
     fetchReport();
-  }, []);
+  }, [selectedProject?.id]);
 
   if (loading) {
     return (
@@ -54,9 +58,20 @@ const LeadPipelinePage = () => {
 
   return (
     <Stack gap="lg">
-      <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-        Lead Pipeline Report
-      </h1>
+      <Group justify="space-between">
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+          Lead Pipeline Report
+        </h1>
+        {selectedProject ? (
+          <Badge variant="light" color="lime">
+            {selectedProject.name}
+          </Badge>
+        ) : (
+          <Badge variant="light" color="gray">
+            Global
+          </Badge>
+        )}
+      </Group>
 
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
         <Card shadow="sm" padding="lg" radius="md" withBorder>
