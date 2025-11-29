@@ -550,6 +550,80 @@ const AccountForm = ({
     }
   };
 
+  const resolveIndustryIds = async (): Promise<number[]> => {
+    if (selectedIndustries.length === 0) return [];
+    const allIndustries = await getIndustries();
+    return selectedIndustries
+      .map((name) => allIndustries.find((ind) => ind.name === name)?.id)
+      .filter((id): id is number => id !== undefined);
+  };
+
+  const processPendingContactDeletions = async (accountId: number) => {
+    const deleteContact = isOrganization ? deleteOrganizationContact : deleteIndividualContact;
+    for (const contact of pendingDeletions) {
+      try {
+        await deleteContact(accountId, contact.id);
+      } catch (err) {
+        console.error("Failed to delete contact:", err);
+      }
+    }
+  };
+
+  const buildContactData = (pending: PendingContact) => ({
+    individual_id: pending.individual_id || undefined,
+    first_name: pending.first_name?.trim() || undefined,
+    last_name: pending.last_name?.trim() || undefined,
+    email: pending.email?.trim() || undefined,
+    phone: pending.phone?.trim() || undefined,
+    title: pending.title?.trim() || undefined,
+    notes: pending.notes?.trim() || undefined,
+    is_primary: false,
+  });
+
+  const createPendingContacts = async (entityId: number) => {
+    const createContact = isOrganization ? createOrganizationContact : createIndividualContact;
+    for (const pending of pendingContacts) {
+      try {
+        await createContact(entityId, buildContactData(pending));
+      } catch (err) {
+        console.error("Failed to create contact:", err);
+      }
+    }
+  };
+
+  const createRelationshipContacts = async (entityId: number) => {
+    for (const rel of pendingRelationships) {
+      try {
+        if (isOrganization && rel.type === "individual") {
+          await createOrganizationContact(entityId, {
+            individual_id: rel.id,
+            first_name: rel.name.split(" ")[0] || "",
+            last_name: rel.name.split(" ").slice(1).join(" ") || "",
+            is_primary: false,
+          });
+        } else if (!isOrganization && rel.type === "organization") {
+          await createIndividualContact(entityId, {
+            organization_id: rel.id,
+            is_primary: false,
+          });
+        }
+      } catch (err) {
+        console.error("Failed to create relationship:", err);
+      }
+    }
+  };
+
+  const createPendingNotes = async (entityId: number) => {
+    const entityType = isOrganization ? "organization" : "individual";
+    for (const noteContent of pendingNotes) {
+      try {
+        await createNote(entityType, entityId, noteContent);
+      } catch (err) {
+        console.error("Failed to create note:", err);
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -563,32 +637,15 @@ const AccountForm = ({
     setIsSubmitting(true);
     try {
       const submitData = config.onBeforeSubmit?.(formData) ?? formData;
-
-      // Resolve industry names to IDs
-      let industryIds: number[] = [];
-      if (selectedIndustries.length > 0) {
-        const allIndustries = await getIndustries();
-        industryIds = selectedIndustries
-          .map((name) => allIndustries.find((ind) => ind.name === name)?.id)
-          .filter((id): id is number => id !== undefined);
-      }
-
-      // Add industry_ids to submit data
-      const dataWithIndustries = { ...submitData, industry_ids: industryIds.length > 0 ? industryIds : undefined };
+      const industryIds = await resolveIndustryIds();
+      const dataWithIndustries = {
+        ...submitData,
+        industry_ids: industryIds.length > 0 ? industryIds : undefined,
+      };
 
       if (isEditMode && account && onUpdate) {
         await onUpdate(account.id!, dataWithIndustries as Partial<OrganizationData | IndividualData>);
-
-        // Process pending contact deletions
-        for (const contact of pendingDeletions) {
-          try {
-            const deleteContact = isOrganization ? deleteOrganizationContact : deleteIndividualContact;
-            await deleteContact(account.id!, contact.id);
-          } catch (err) {
-            console.error("Failed to delete contact:", err);
-          }
-        }
-
+        await processPendingContactDeletions(account.id!);
         onClose();
         return;
       }
@@ -599,73 +656,9 @@ const AccountForm = ({
       }
 
       const created = await onAdd(dataWithIndustries as unknown as OrganizationData | IndividualData);
-
-      for (const pending of pendingContacts) {
-        try {
-          if (isOrganization) {
-            await createOrganizationContact(created.id, {
-              individual_id: pending.individual_id || undefined,
-              first_name: pending.first_name?.trim() || undefined,
-              last_name: pending.last_name?.trim() || undefined,
-              email: pending.email?.trim() || undefined,
-              phone: pending.phone?.trim() || undefined,
-              title: pending.title?.trim() || undefined,
-              notes: pending.notes?.trim() || undefined,
-              is_primary: false,
-            });
-          }
-          if (!isOrganization) {
-            await createIndividualContact(created.id, {
-              first_name: pending.first_name?.trim() || undefined,
-              last_name: pending.last_name?.trim() || undefined,
-              email: pending.email?.trim() || undefined,
-              phone: pending.phone?.trim() || undefined,
-              title: pending.title?.trim() || undefined,
-              notes: pending.notes?.trim() || undefined,
-              is_primary: false,
-            });
-          }
-        } catch (err) {
-          console.error("Failed to create contact:", err);
-        }
-      }
-
-      // Create contacts for pending relationships
-      const createRelationshipContact = async (rel: Relationship) => {
-        if (isOrganization && rel.type === "individual") {
-          return createOrganizationContact(created.id, {
-            individual_id: rel.id,
-            first_name: rel.name.split(" ")[0] || "",
-            last_name: rel.name.split(" ").slice(1).join(" ") || "",
-            is_primary: false,
-          });
-        }
-        if (!isOrganization && rel.type === "organization") {
-          return createIndividualContact(created.id, {
-            organization_id: rel.id,
-            is_primary: false,
-          });
-        }
-        return Promise.resolve();
-      };
-
-      for (const rel of pendingRelationships) {
-        try {
-          await createRelationshipContact(rel);
-        } catch (err) {
-          console.error("Failed to create relationship:", err);
-        }
-      }
-
-      const entityType = isOrganization ? "organization" : "individual";
-      for (const noteContent of pendingNotes) {
-        try {
-          await createNote(entityType, created.id, noteContent);
-        } catch (err) {
-          console.error("Failed to create note:", err);
-        }
-      }
-
+      await createPendingContacts(created.id);
+      await createRelationshipContacts(created.id);
+      await createPendingNotes(created.id);
       onClose();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : `Failed to ${isEditMode ? "update" : "create"}`;
@@ -702,27 +695,18 @@ const AccountForm = ({
     if (!account?.id) return;
     setErrors({});
 
-    try {
-      if (isOrganization) {
-        const newContactData = await createOrganizationContact(account.id, {
-          individual_id: contact.individual_id || undefined,
-          first_name: contact.first_name?.trim() || undefined,
-          last_name: contact.last_name?.trim() || undefined,
-          email: contact.email?.trim() || undefined,
-          phone: contact.phone?.trim() || undefined,
-          is_primary: contacts.length === 0,
-        });
-        setContacts([...contacts, newContactData]);
-        return;
-      }
+    const createContact = isOrganization ? createOrganizationContact : createIndividualContact;
+    const contactData = {
+      individual_id: isOrganization ? (contact.individual_id || undefined) : undefined,
+      first_name: contact.first_name?.trim() || undefined,
+      last_name: contact.last_name?.trim() || undefined,
+      email: contact.email?.trim() || undefined,
+      phone: contact.phone?.trim() || undefined,
+      is_primary: contacts.length === 0,
+    };
 
-      const newContactData = await createIndividualContact(account.id, {
-        first_name: contact.first_name?.trim() || undefined,
-        last_name: contact.last_name?.trim() || undefined,
-        email: contact.email?.trim() || undefined,
-        phone: contact.phone?.trim() || undefined,
-        is_primary: contacts.length === 0,
-      });
+    try {
+      const newContactData = await createContact(account.id, contactData);
       setContacts([...contacts, newContactData]);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to add contact";
@@ -753,19 +737,14 @@ const AccountForm = ({
     const contact = contacts[index];
     if (!account?.id || !contact) return;
 
+    const updateContact = isOrganization ? updateOrganizationContact : updateIndividualContact;
+    const updateData = {
+      email: updatedContact.email?.trim() || undefined,
+      phone: updatedContact.phone?.trim() || undefined,
+    };
+
     try {
-      const updateData = {
-        email: updatedContact.email?.trim() || undefined,
-        phone: updatedContact.phone?.trim() || undefined,
-      };
-
-      if (isOrganization) {
-        const updated = await updateOrganizationContact(account.id, contact.id, updateData);
-        setContacts(contacts.map((c, i) => (i === index ? updated : c)));
-        return;
-      }
-
-      const updated = await updateIndividualContact(account.id, contact.id, updateData);
+      const updated = await updateContact(account.id, contact.id, updateData);
       setContacts(contacts.map((c, i) => (i === index ? updated : c)));
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Failed to update contact";
@@ -803,6 +782,7 @@ const AccountForm = ({
       last_name: result.last_name,
       email: result.email,
       phone: result.phone,
+      account_name: result.account_name,
     }));
   };
 

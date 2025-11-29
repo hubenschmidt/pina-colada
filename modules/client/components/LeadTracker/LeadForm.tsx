@@ -273,61 +273,82 @@ const LeadForm = <T extends BaseLead>({
   };
 
   const getErrorMessage = (err: any): string => {
-    if (typeof err?.message === "string") return err.message;
-    if (typeof err?.error === "string") return err.error;
-    if (typeof err?.errorData?.detail === "string") return err.errorData.detail;
-    if (typeof err?.errorData?.error === "string") return err.errorData.error;
-    if (err?.errorData && typeof err.errorData === "object") {
-      const validationErrors = Object.entries(err.errorData)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(", ");
-      return validationErrors;
+    const extractors = [
+      () => typeof err?.message === "string" ? err.message : null,
+      () => typeof err?.error === "string" ? err.error : null,
+      () => typeof err?.errorData?.detail === "string" ? err.errorData.detail : null,
+      () => typeof err?.errorData?.error === "string" ? err.errorData.error : null,
+      () => err?.errorData && typeof err.errorData === "object"
+        ? Object.entries(err.errorData).map(([k, v]) => `${k}: ${v}`).join(", ")
+        : null,
+      () => typeof err === "string" ? err : null,
+    ];
+    for (const extractor of extractors) {
+      const result = extractor();
+      if (result) return result;
     }
-    if (typeof err === "string") return err;
     return `Failed to ${isEditMode ? "update" : "add"}. Please try again.`;
+  };
+
+  const buildIndividualAccountName = (data: any): string | undefined => {
+    if (data.account_type !== "Individual" || isEditMode) return undefined;
+    const lastName = data.individual_last_name || "";
+    const firstName = data.individual_first_name || "";
+    if (!lastName && !firstName) return undefined;
+    return `${lastName}, ${firstName}`.trim().replace(/^,\s*|,\s*$/g, "");
+  };
+
+  const prepareSubmitData = (data: any): any => {
+    const submitData = { ...data };
+
+    const accountName = buildIndividualAccountName(submitData);
+    if (accountName) {
+      submitData.account = accountName;
+    }
+
+    const validContacts = contacts.filter((c) => c.first_name.trim() && c.last_name.trim());
+    if (validContacts.length > 0) {
+      submitData.contacts = validContacts;
+    }
+
+    delete submitData.individual_first_name;
+    delete submitData.individual_last_name;
+
+    return config.onBeforeSubmit ? config.onBeforeSubmit(submitData, isEditMode) : submitData;
+  };
+
+  const createPendingNotes = async (leadId: number) => {
+    for (const noteContent of pendingNotes) {
+      await createNote("job", leadId, noteContent);
+    }
+  };
+
+  const getFieldDefaultValue = (field: FormFieldConfig<T>): any => {
+    if (field.defaultValue !== undefined) return field.defaultValue;
+    if (field.type === "date") return new Date().toISOString().split("T")[0];
+    if (field.type === "checkbox") return false;
+    return "";
+  };
+
+  const resetForm = () => {
+    const resetData: any = {};
+    config.fields.forEach((field) => {
+      resetData[field.name] = getFieldDefaultValue(field);
+    });
+    setFormData(resetData);
+    setContacts([]);
+    setErrors({});
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!validate()) {
-      return;
-    }
+    if (!validate()) return;
 
     setIsSubmitting(true);
     try {
-      let submitData = { ...formData };
-
-      // If Account Type is Individual, combine individual first/last name into account
-      if (submitData.account_type === "Individual" && !isEditMode) {
-        const lastName = submitData.individual_last_name || "";
-        const firstName = submitData.individual_first_name || "";
-        if (lastName || firstName) {
-          submitData.account = `${lastName}, ${firstName}`
-            .trim()
-            .replace(/^,\s*|,\s*$/g, "");
-        }
-      }
-
-      // Filter out empty contacts and add to submit data
-      const validContacts = contacts.filter(
-        (c) => c.first_name.trim() && c.last_name.trim()
-      );
-      if (validContacts.length > 0) {
-        submitData.contacts = validContacts;
-      }
-
-      // Remove temporary fields (they're for form only)
-      delete submitData.individual_first_name;
-      delete submitData.individual_last_name;
-
-      // Pre-process data if needed
-      if (config.onBeforeSubmit) {
-        submitData = config.onBeforeSubmit(submitData, isEditMode);
-      }
+      const submitData = prepareSubmitData(formData);
 
       if (isEditMode && lead && onUpdate) {
-        // Edit mode: update existing lead
         await onUpdate(lead.id, submitData);
         onClose();
         return;
@@ -338,43 +359,15 @@ const LeadForm = <T extends BaseLead>({
         return;
       }
 
-      // Add mode: create new lead
       const createdLead = await onAdd(submitData);
-
-      // Create pending notes after lead is created
       if (createdLead && pendingNotes.length > 0) {
-        const leadId = parseInt(createdLead.id, 10);
-        for (const noteContent of pendingNotes) {
-          await createNote("job", leadId, noteContent);
-        }
+        await createPendingNotes(parseInt(createdLead.id, 10));
       }
 
-      // Reset form only in add mode
-      const resetData: any = {};
-      config.fields.forEach((field) => {
-        if (field.defaultValue !== undefined) {
-          resetData[field.name] = field.defaultValue;
-          return;
-        }
-        if (field.type === "date") {
-          resetData[field.name] = new Date().toISOString().split("T")[0];
-          return;
-        }
-        if (field.type === "checkbox") {
-          resetData[field.name] = false;
-          return;
-        }
-        resetData[field.name] = "";
-      });
-      setFormData(resetData);
-      setContacts([]);
-      setErrors({});
+      resetForm();
       onClose();
     } catch (error: any) {
-      console.error(
-        isEditMode ? "Failed to update lead:" : "Failed to add lead:",
-        error
-      );
+      console.error(isEditMode ? "Failed to update lead:" : "Failed to add lead:", error);
       setErrors({ _form: getErrorMessage(error) });
     } finally {
       setIsSubmitting(false);
@@ -682,6 +675,7 @@ const LeadForm = <T extends BaseLead>({
       last_name: result.last_name,
       email: result.email,
       phone: result.phone,
+      account_name: result.account_name,
     }));
   };
 

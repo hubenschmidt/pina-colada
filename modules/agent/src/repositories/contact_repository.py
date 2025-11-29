@@ -262,6 +262,10 @@ async def delete_contact(contact_id: int) -> bool:
 
 def _contact_to_search_result(contact: Contact) -> Dict[str, Any]:
     """Convert Contact to search result dict."""
+    # Get account name from linked organizations
+    account_name = None
+    if contact.organizations:
+        account_name = contact.organizations[0].name
     return {
         "individual_id": None,
         "contact_id": contact.id,
@@ -269,12 +273,14 @@ def _contact_to_search_result(contact: Contact) -> Dict[str, Any]:
         "last_name": contact.last_name,
         "email": contact.email,
         "phone": contact.phone,
+        "account_name": account_name,
         "source": "contact",
     }
 
 
 def _individual_to_search_result(individual: Individual) -> Dict[str, Any]:
     """Convert Individual to search result dict."""
+    account_name = individual.account.name if individual.account else None
     return {
         "individual_id": individual.id,
         "contact_id": None,
@@ -282,6 +288,7 @@ def _individual_to_search_result(individual: Individual) -> Dict[str, Any]:
         "last_name": individual.last_name,
         "email": individual.email,
         "phone": individual.phone,
+        "account_name": account_name,
         "source": "individual",
     }
 
@@ -296,9 +303,10 @@ async def search_contacts_and_individuals(query: str, tenant_id: Optional[int] =
     async with async_get_session() as session:
         search_pattern = f"%{query}%"
 
-        # Search Contacts
+        # Search Contacts (with organizations for account name)
         contact_stmt = (
             select(Contact)
+            .options(selectinload(Contact.organizations))
             .where(
                 or_(
                     Contact.first_name.ilike(search_pattern),
@@ -313,9 +321,10 @@ async def search_contacts_and_individuals(query: str, tenant_id: Optional[int] =
         contact_result = await session.execute(contact_stmt)
         contacts = list(contact_result.scalars().all())
 
-        # Search Individuals
+        # Search Individuals (with account for account name)
         individual_stmt = (
             select(Individual)
+            .options(selectinload(Individual.account))
             .where(
                 or_(
                     Individual.first_name.ilike(search_pattern),

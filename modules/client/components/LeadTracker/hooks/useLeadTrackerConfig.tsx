@@ -12,6 +12,21 @@ import { useLeadFormConfig } from "./useLeadFormConfig";
 
 type LeadType = "job";
 
+const EmptyCell = () => <span className="text-zinc-400">—</span>;
+
+const renderDate = (value: string | null | undefined) =>
+  value ? new Date(value).toLocaleDateString() : <EmptyCell />;
+
+const STATUS_COLORS: Record<string, string> = {
+  Lead: "bg-blue-100 text-blue-800 border-blue-300",
+  Applied: "bg-green-100 text-green-800 border-green-300",
+  Interviewing: "bg-yellow-100 text-yellow-800 border-yellow-300",
+  Offer: "bg-purple-100 text-purple-800 border-purple-300",
+  Accepted: "bg-teal-100 text-teal-800 border-teal-300",
+  Rejected: "bg-gray-100 text-gray-800 border-gray-300",
+  "Do Not Apply": "bg-red-100 text-red-800 border-red-300",
+};
+
 // Extend CreatedJob to match BaseLead interface
 type JobLead = CreatedJob & BaseLead;
 
@@ -34,12 +49,8 @@ const getJobLeadConfig = (): LeadTrackerConfig<
       sortable: true,
       sortKey: "account",
       width: "12%",
-      render: (job: any) => {
-        if (!job.account || job.account.trim() === "") {
-          return <span className="text-zinc-400">—</span>;
-        }
-        return <span>{job.account}</span>;
-      },
+      render: (job: any) =>
+        job.account?.trim() ? <span>{job.account}</span> : <EmptyCell />,
     },
     {
       header: "Job Title",
@@ -54,44 +65,24 @@ const getJobLeadConfig = (): LeadTrackerConfig<
       sortable: true,
       sortKey: "status",
       width: "10%",
-      render: (job) => {
-        const statusColors = {
-          Lead: "bg-blue-100 text-blue-800 border-blue-300",
-          Applied: "bg-green-100 text-green-800 border-green-300",
-          Interviewing: "bg-yellow-100 text-yellow-800 border-yellow-300",
-          Offer: "bg-purple-100 text-purple-800 border-purple-300",
-          Accepted: "bg-teal-100 text-teal-800 border-teal-300",
-          Rejected: "bg-gray-100 text-gray-800 border-gray-300",
-          "Do Not Apply": "bg-red-100 text-red-800 border-red-300",
-        };
-        const colorClass =
-          statusColors[job.status as keyof typeof statusColors] ||
-          "bg-gray-100 text-gray-800";
-        return (
-          <span
-            className={`inline-block px-2 py-1 text-xs font-medium rounded border ${colorClass}`}
-          >
-            {job.status}
-          </span>
-        );
-      },
+      render: (job) => (
+        <span
+          className={`inline-block px-2 py-1 text-xs font-medium rounded border ${STATUS_COLORS[job.status] || "bg-gray-100 text-gray-800"}`}
+        >
+          {job.status}
+        </span>
+      ),
     },
     {
       header: "Notes",
       accessor: "notes",
       width: "20%",
       render: (job) => {
-        if (!job.notes) return <span className="text-zinc-400">—</span>;
-        const truncated =
-          job.notes.length > 50
-            ? `${job.notes.substring(0, 50)}...`
-            : job.notes;
+        if (!job.notes) return <EmptyCell />;
+        const isTruncated = job.notes.length > 50;
         return (
-          <span
-            title={job.notes.length > 50 ? job.notes : undefined}
-            className="text-sm"
-          >
-            {truncated}
+          <span title={isTruncated ? job.notes : undefined} className="text-sm">
+            {isTruncated ? `${job.notes.substring(0, 50)}...` : job.notes}
           </span>
         );
       },
@@ -102,33 +93,26 @@ const getJobLeadConfig = (): LeadTrackerConfig<
       sortable: true,
       sortKey: "resume",
       width: "10%",
-      render: (job) =>
-        job.resume ? (
-          new Date(job.resume).toLocaleDateString()
-        ) : (
-          <span className="text-zinc-400">—</span>
-        ),
+      render: (job) => renderDate(job.resume),
     },
     {
       header: "URL",
       accessor: "job_url",
       width: "8%",
-      render: (job) => (
-        <div className="flex items-center gap-2">
-          {job.job_url && (
-            <a
-              href={job.job_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-              title="View job posting"
-            >
-              <ExternalLink size={16} />
-            </a>
-          )}
-          {!job.job_url && <span className="text-zinc-400">—</span>}
-        </div>
-      ),
+      render: (job) =>
+        job.job_url ? (
+          <a
+            href={job.job_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="p-1 text-blue-600 hover:bg-blue-50 rounded"
+            title="View job posting"
+          >
+            <ExternalLink size={16} />
+          </a>
+        ) : (
+          <EmptyCell />
+        ),
     },
     {
       header: "Created",
@@ -136,12 +120,7 @@ const getJobLeadConfig = (): LeadTrackerConfig<
       sortable: true,
       sortKey: "date",
       width: "8%",
-      render: (job) =>
-        job.date ? (
-          new Date(job.date).toLocaleDateString()
-        ) : (
-          <span className="text-zinc-400">—</span>
-        ),
+      render: (job) => renderDate(job.date),
     },
     {
       header: "Updated",
@@ -149,12 +128,7 @@ const getJobLeadConfig = (): LeadTrackerConfig<
       sortable: true,
       sortKey: "updated_at",
       width: "8%",
-      render: (job) =>
-        job.updated_at ? (
-          new Date(job.updated_at).toLocaleDateString()
-        ) : (
-          <span className="text-zinc-400">—</span>
-        ),
+      render: (job) => renderDate(job.updated_at),
     },
   ];
 

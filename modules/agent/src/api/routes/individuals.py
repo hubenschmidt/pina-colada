@@ -335,6 +335,8 @@ async def create_individual_route(request: Request, data: IndividualCreate):
             ind_data["account_id"] = account.id
 
     individual = await create_individual(ind_data)
+    # Re-fetch to ensure relationships (account.industries) are loaded
+    individual = await find_individual_by_id(individual.id)
     return _ind_to_dict(individual, include_contacts=True, contacts=[])
 
 

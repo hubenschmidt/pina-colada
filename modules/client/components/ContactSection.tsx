@@ -24,6 +24,7 @@ export interface SearchResult {
   last_name: string;
   email?: string | null;
   phone?: string | null;
+  account_name?: string | null;
 }
 
 interface ContactSectionProps<T extends Record<string, any>> {
@@ -325,8 +326,17 @@ const ContactSection = <T extends Record<string, any>>({
                   onClick={() => handleSelectIndividual(result)}
                   className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
                 >
-                  {result.first_name} {result.last_name}
-                  {result.email && <span className="text-zinc-500 text-sm ml-2">{result.email}</span>}
+                  <div className="flex justify-between items-center">
+                    <span>
+                      {result.first_name} {result.last_name}
+                      {result.email && <span className="text-zinc-500 text-sm ml-2">{result.email}</span>}
+                    </span>
+                    {result.account_name && (
+                      <span className="text-xs text-zinc-400 dark:text-zinc-500 truncate max-w-[40%]">
+                        {result.account_name}
+                      </span>
+                    )}
+                  </div>
                 </button>
               ))}
             </div>

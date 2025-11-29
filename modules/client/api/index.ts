@@ -472,6 +472,7 @@ export type ContactSearchResult = {
   last_name: string;
   email: string | null;
   phone: string | null;
+  account_name: string | null;
   source: "individual" | "contact";
 };
 

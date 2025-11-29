@@ -63,6 +63,64 @@ const applyStartOfTurn = (prev: ChatMsg[]): ChatMsg[] => {
   return prev;
 };
 
+type MessageHandlerContext = {
+  setIsThinking: (v: boolean) => void;
+  setTokenUsage: (v: TokenUsage) => void;
+  setMessages: React.Dispatch<React.SetStateAction<ChatMsg[]>>;
+};
+
+const parseTokenUsage = (obj: Record<string, unknown>): TokenUsage | null => {
+  if (!obj.on_token_usage || typeof obj.on_token_usage !== "object") return null;
+  const current = obj.on_token_usage as { input?: number; output?: number; total?: number };
+  const cumulative = (obj.on_token_cumulative || {}) as { input?: number; output?: number; total?: number };
+  return {
+    current: { input: current.input || 0, output: current.output || 0, total: current.total || 0 },
+    cumulative: { input: cumulative.input || 0, output: cumulative.output || 0, total: cumulative.total || 0 },
+  };
+};
+
+const handleParsedMessage = (obj: Record<string, unknown>, ctx: MessageHandlerContext): boolean => {
+  // Start of new assistant turn
+  if (obj.on_chat_model_start === true) {
+    ctx.setIsThinking(true);
+    ctx.setTokenUsage(null);
+    ctx.setMessages((prev) => applyStartOfTurn(prev));
+    return true;
+  }
+
+  // Token usage update
+  const tokenData = parseTokenUsage(obj);
+  if (tokenData) {
+    ctx.setTokenUsage(tokenData);
+    return true;
+  }
+
+  // Streaming chunk
+  const chunk = obj.on_chat_model_stream;
+  if (typeof chunk === "string" && chunk.length > 0) {
+    ctx.setMessages((prev) => applyStreamChunk(prev, chunk));
+    return true;
+  }
+
+  // End of assistant turn
+  if (obj.on_chat_model_end === true) {
+    ctx.setIsThinking(false);
+    ctx.setMessages((prev) => applyEndOfTurn(prev));
+    return true;
+  }
+
+  return false;
+};
+
+const handleUiEvents = (obj: Record<string, unknown>, ctx: MessageHandlerContext) => {
+  const uiKeys = Object.keys(obj).filter(
+    (k) => k.startsWith("on_ui_") && k !== "on_chat_model_stream" && k !== "on_chat_model_end"
+  );
+  if (uiKeys.length === 0) return;
+  const k = uiKeys[0];
+  ctx.setMessages((prev) => [...prev, { user: "PinaColada", msg: `🔔 ${k}: ${JSON.stringify(obj[k])}` }]);
+};
+
 export const useWs = (url: string): UseWebSocketReturn => {
   const [isOpen, setIsOpen] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
@@ -106,71 +164,16 @@ export const useWs = (url: string): UseWebSocketReturn => {
         parsed = JSON.parse(event.data);
       } catch {
         // Plain text from server -> bot bubble
-        setMessages((prev) => [
-          ...prev,
-          { user: "PinaColada", msg: event.data },
-        ]);
+        setMessages((prev) => [...prev, { user: "PinaColada", msg: event.data }]);
         return;
       }
 
       if (parsed === null || typeof parsed !== "object") return;
       const obj = parsed as Record<string, unknown>;
+      const ctx: MessageHandlerContext = { setIsThinking, setTokenUsage, setMessages };
 
-      // Start of new assistant turn (close current bubble if streaming)
-      if (obj.on_chat_model_start === true) {
-        setIsThinking(true);
-        setTokenUsage(null); // Reset token usage for new response
-        setMessages((prev) => applyStartOfTurn(prev));
-        return;
-      }
-
-      // Token usage update
-      if (obj.on_token_usage && typeof obj.on_token_usage === "object") {
-        const current = obj.on_token_usage as { input?: number; output?: number; total?: number };
-        const cumulative = (obj.on_token_cumulative || {}) as { input?: number; output?: number; total?: number };
-        setTokenUsage({
-          current: {
-            input: current.input || 0,
-            output: current.output || 0,
-            total: current.total || 0,
-          },
-          cumulative: {
-            input: cumulative.input || 0,
-            output: cumulative.output || 0,
-            total: cumulative.total || 0,
-          },
-        });
-        return;
-      }
-
-      // Streaming chunk
-      const chunk = obj.on_chat_model_stream;
-      if (typeof chunk === "string" && chunk.length > 0) {
-        setMessages((prev) => applyStreamChunk(prev, chunk));
-        return;
-      }
-
-      // End of assistant turn
-      if (obj.on_chat_model_end === true) {
-        setIsThinking(false);
-        setMessages((prev) => applyEndOfTurn(prev));
-        return;
-      }
-
-      // 🧹 Only surface *explicit UI events* (keys starting with "on_ui_")
-      const uiKeys = Object.keys(obj).filter(
-        (k) =>
-          k.startsWith("on_ui_") &&
-          k !== "on_chat_model_stream" &&
-          k !== "on_chat_model_end"
-      );
-      if (uiKeys.length === 0) return;
-
-      const k = uiKeys[0];
-      setMessages((prev) => [
-        ...prev,
-        { user: "PinaColada", msg: `🔔 ${k}: ${JSON.stringify(obj[k])}` },
-      ]);
+      if (handleParsedMessage(obj, ctx)) return;
+      handleUiEvents(obj, ctx);
     };
 
     return () => {
