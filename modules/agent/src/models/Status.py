@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, Boolean, BigInteger, func
+from sqlalchemy import Column, Text, DateTime, Boolean, BigInteger, func
 from sqlalchemy.orm import relationship
 from models import Base
 

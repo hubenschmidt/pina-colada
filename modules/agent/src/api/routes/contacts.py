@@ -3,19 +3,13 @@
 from typing import Optional, List
 from fastapi import APIRouter, Request, Query, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import select
+
 from lib.error_logging import log_errors
 from lib.auth import require_auth
 from lib.validators import validate_phone
-from repositories.contact_repository import (
-    search_contacts_and_individuals,
-    create_contact,
-    update_contact,
-    delete_contact,
-    find_contact_by_id,
-)
 from lib.db import async_get_session
-from sqlalchemy import select
-from sqlalchemy.orm import selectinload
+from repositories.contact_repository import search_contacts_and_individuals, delete_contact
 from models.Contact import Contact
 
 

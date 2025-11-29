@@ -1,7 +1,7 @@
 """Routes for jobs API endpoints."""
 
 from typing import Optional, List, Type
-from fastapi import APIRouter, Query, HTTPException, Request
+from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, create_model
 from lib.auth import require_auth
 from lib.error_logging import log_errors

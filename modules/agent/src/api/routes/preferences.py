@@ -12,7 +12,6 @@ from models.UserPreferences import UserPreferences
 from models.TenantPreferences import TenantPreferences
 from models.Tenant import Tenant
 from models.UserRole import UserRole
-from models.Role import Role
 
 router = APIRouter(prefix="/preferences", tags=["preferences"])
 

@@ -14,13 +14,7 @@ from repositories.individual_repository import (
     delete_individual,
     search_individuals,
 )
-from repositories.contact_repository import (
-    find_contacts_by_individual,
-    create_contact,
-    update_contact,
-    delete_contact,
-    find_contact_by_id,
-)
+from repositories.contact_repository import find_contacts_by_individual, delete_contact
 
 
 class IndividualCreate(BaseModel):

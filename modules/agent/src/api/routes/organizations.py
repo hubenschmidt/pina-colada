@@ -14,13 +14,7 @@ from repositories.organization_repository import (
     delete_organization,
     search_organizations,
 )
-from repositories.contact_repository import (
-    find_contacts_by_organization,
-    create_contact,
-    update_contact,
-    delete_contact,
-    find_contact_by_id,
-)
+from repositories.contact_repository import find_contacts_by_organization, delete_contact
 
 
 class OrganizationCreate(BaseModel):

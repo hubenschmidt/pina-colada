@@ -1,8 +1,7 @@
 """Repository layer for job data access."""
-from typing import Dict, Any, Optional
-
 import logging
-from typing import List, Optional
+from typing import Dict, Any, List, Optional
+
 from sqlalchemy import select, func as sql_func, or_
 from sqlalchemy.orm import joinedload
 from models.Job import Job
@@ -12,7 +11,6 @@ from models.Organization import Organization
 from models.Individual import Individual
 from models.Deal import Deal
 from models.Account import Account
-from models.Tenant import Tenant
 from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)

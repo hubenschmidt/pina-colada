@@ -4,7 +4,6 @@ Langfuse helper utility - conditionally initializes Langfuse only if credentials
 
 import logging
 import os
-from typing import Optional
 
 logger = logging.getLogger(__name__)
 

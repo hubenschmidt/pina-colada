@@ -2,7 +2,7 @@
 
 from typing import Optional
 from fastapi import APIRouter, Request, Query
-from sqlalchemy import select, or_
+from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from lib.auth import require_auth
 from lib.error_logging import log_errors

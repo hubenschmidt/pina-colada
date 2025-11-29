@@ -3,7 +3,6 @@
 import logging
 from typing import List, Optional, Dict, Any
 from datetime import datetime
-from fastapi import HTTPException
 from lib.serialization import model_to_dict
 from lib.decorators import handle_http_exceptions
 from services.job_service import (

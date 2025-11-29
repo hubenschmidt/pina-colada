@@ -5,7 +5,7 @@ import smtplib
 import traceback
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import List, Dict
+from typing import Dict, Optional
 from langchain_core.tools import Tool, StructuredTool
 from langchain_community.agent_toolkits import FileManagementToolkit
 from langchain_community.tools.wikipedia.tool import WikipediaQueryRun

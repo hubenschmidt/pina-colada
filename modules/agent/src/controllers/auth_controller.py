@@ -1,6 +1,6 @@
 """Controller layer for auth routing to services."""
 
-from typing import List, Dict, Any
+from typing import Dict, Any
 from lib.decorators import handle_http_exceptions
 from lib.serialization import model_to_dict
 from services.auth_service import (
