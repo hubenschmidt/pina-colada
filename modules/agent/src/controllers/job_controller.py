@@ -43,93 +43,108 @@ def _extract_company_info(organizations: list, individuals: list) -> tuple[str, 
     return "", "Organization"
 
 
+def _format_date(value) -> str:
+    """Format datetime to ISO string, truncated to date."""
+    if not value:
+        return ""
+    date_str = value.isoformat() if isinstance(value, datetime) else str(value)
+    return date_str[:10] if date_str else ""
+
+
+def _format_datetime(value) -> str:
+    """Format datetime to full ISO string."""
+    if not value:
+        return ""
+    return value.isoformat() if isinstance(value, datetime) else str(value)
+
+
+def _get_account_contacts(job) -> list:
+    """Get contacts from job's account (org or individual)."""
+    if not job.lead or not job.lead.account:
+        return []
+
+    if job.lead.account.organizations:
+        return job.lead.account.organizations[0].contacts or []
+
+    if job.lead.account.individuals:
+        return job.lead.account.individuals[0].contacts or []
+
+    return []
+
+
+def _build_contact_dict(contact) -> dict:
+    """Build contact dictionary from ORM contact."""
+    first_name = contact.first_name or ""
+    last_name = contact.last_name or ""
+
+    # Fallback to first linked individual if contact has no name
+    if not first_name and contact.individuals:
+        first_name = contact.individuals[0].first_name or ""
+    if not last_name and contact.individuals:
+        last_name = contact.individuals[0].last_name or ""
+
+    return {
+        "id": contact.id,
+        "first_name": first_name,
+        "last_name": last_name,
+        "email": contact.email or "",
+        "phone": contact.phone or "",
+        "title": contact.title,
+        "is_primary": contact.is_primary,
+    }
+
+
+def _get_salary_info(job, job_dict: dict) -> tuple[Optional[str], Optional[int]]:
+    """Get salary range and ID from job."""
+    if job.salary_range_ref:
+        return job.salary_range_ref.label, job.salary_range_ref.id
+    return job_dict.get("salary_range"), None
+
+
+def _get_industries(job) -> list:
+    """Get industry names from job's account."""
+    if not job.lead or not job.lead.account or not job.lead.account.industries:
+        return []
+    return [ind.name for ind in job.lead.account.industries]
+
+
 def _job_to_response_dict(job) -> Dict[str, Any]:
     """Convert job ORM to response dictionary."""
     job_dict = model_to_dict(job, include_relationships=True)
 
-    # Extract company name from Lead.account (organizations or individuals)
     lead = job_dict.get("lead") or {}
     account = lead.get("account") or {}
-    organizations = account.get("organizations") or []
-    individuals = account.get("individuals") or []
-    company, company_type = _extract_company_info(organizations, individuals)
+    company, company_type = _extract_company_info(
+        account.get("organizations") or [],
+        account.get("individuals") or [],
+    )
 
-    # Get contacts linked to the Organization or Individual (via Account)
-    contacts = []
-    account_contacts = []
-    if job.lead and job.lead.account:
-        if job.lead.account.organizations:
-            account_contacts = job.lead.account.organizations[0].contacts or []
-        elif job.lead.account.individuals:
-            account_contacts = job.lead.account.individuals[0].contacts or []
-    for contact in account_contacts:
-        # Use contact's own fields (new model has first_name, last_name on Contact)
-        first_name = contact.first_name or ""
-        last_name = contact.last_name or ""
-        # Fallback to first linked individual if contact has no name
-        if not first_name and contact.individuals:
-            first_name = contact.individuals[0].first_name or ""
-        if not last_name and contact.individuals:
-            last_name = contact.individuals[0].last_name or ""
-        contacts.append({
-            "id": contact.id,
-            "first_name": first_name,
-            "last_name": last_name,
-            "email": contact.email or "",
-            "phone": contact.phone or "",
-            "title": contact.title,
-            "is_primary": contact.is_primary,
-        })
+    contacts = [_build_contact_dict(c) for c in _get_account_contacts(job)]
 
-    # Extract status name directly from ORM object (model_to_dict doesn't include nested relationships)
-    status = "Applied"  # default
+    status = "Applied"
     if job.lead and job.lead.current_status:
         status = job.lead.current_status.name
 
-    # Use Lead created_at for date (application date)
     created_at = job_dict.get("created_at", "")
-    date_str = (
-        created_at.isoformat() if isinstance(created_at, datetime) else str(created_at)
-    )
-
-    resume_date = job_dict.get("resume_date")
-    resume_str = (
-        resume_date.isoformat()
-        if isinstance(resume_date, datetime)
-        else (str(resume_date) if resume_date else None)
-    )
-
-    # Get salary_range from salary_range_ref relationship, fallback to legacy field
-    salary_range = None
-    salary_range_id = None
-    if job.salary_range_ref:
-        salary_range = job.salary_range_ref.label
-        salary_range_id = job.salary_range_ref.id
-    if not salary_range:
-        salary_range = job_dict.get("salary_range")
-
-    # Get industries from the account
-    industries = []
-    if job.lead and job.lead.account and job.lead.account.industries:
-        industries = [ind.name for ind in job.lead.account.industries]
+    salary_range, salary_range_id = _get_salary_info(job, job_dict)
 
     return {
         "id": str(job_dict.get("id", "")),
         "account": company,
         "account_type": company_type,
         "job_title": job_dict.get("job_title", ""),
-        "date": date_str[:10] if date_str else "",  # YYYY-MM-DD format
+        "date": _format_date(created_at),
         "status": status,
         "job_url": job_dict.get("job_url"),
         "salary_range": salary_range,
         "salary_range_id": salary_range_id,
         "notes": job_dict.get("notes"),
-        "resume": resume_str,
+        "resume": _format_datetime(job_dict.get("resume_date")),
         "source": job_dict.get("source", "manual"),
-        "created_at": date_str,
+        "created_at": _format_datetime(created_at),
         "updated_at": job_dict.get("updated_at", ""),
         "contacts": contacts,
-        "industry": industries,
+        "industry": _get_industries(job),
     }
 
 

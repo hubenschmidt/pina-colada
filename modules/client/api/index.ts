@@ -749,3 +749,219 @@ export const updateNote = async (
 export const deleteNote = async (noteId: number): Promise<void> => {
   await apiDelete(`/notes/${noteId}`);
 };
+
+// ==============================================
+// Revenue Range Types and API
+// ==============================================
+
+export type RevenueRange = {
+  id: number;
+  label: string;
+  min_value: number | null;
+  max_value: number | null;
+  display_order: number;
+};
+
+/**
+ * Get all revenue ranges
+ */
+export const getRevenueRanges = async (): Promise<RevenueRange[]> => {
+  return apiGet<RevenueRange[]>("/revenue-ranges");
+};
+
+// ==============================================
+// Technology Types and API
+// ==============================================
+
+export type Technology = {
+  id: number;
+  name: string;
+  category: string;
+  vendor: string | null;
+};
+
+export type OrganizationTechnology = {
+  organization_id: number;
+  technology_id: number;
+  technology: Technology | null;
+  detected_at: string | null;
+  source: string | null;
+  confidence: number | null;
+};
+
+/**
+ * Get all technologies
+ */
+export const getTechnologies = async (category?: string): Promise<Technology[]> => {
+  const params = category ? `?category=${encodeURIComponent(category)}` : "";
+  return apiGet<Technology[]>(`/technologies${params}`);
+};
+
+/**
+ * Create a new technology
+ */
+export const createTechnology = async (data: { name: string; category: string; vendor?: string }): Promise<Technology> => {
+  return apiPost<Technology>("/technologies", data);
+};
+
+/**
+ * Get technologies for an organization
+ */
+export const getOrganizationTechnologies = async (orgId: number): Promise<{ technologies: OrganizationTechnology[] }> => {
+  return apiGet<{ technologies: OrganizationTechnology[] }>(`/organizations/${orgId}/technologies`);
+};
+
+/**
+ * Add a technology to an organization
+ */
+export const addOrganizationTechnology = async (
+  orgId: number,
+  data: { technology_id: number; source?: string; confidence?: number }
+): Promise<{ organization_technology: OrganizationTechnology }> => {
+  return apiPost<{ organization_technology: OrganizationTechnology }>(`/organizations/${orgId}/technologies`, data);
+};
+
+/**
+ * Remove a technology from an organization
+ */
+export const removeOrganizationTechnology = async (orgId: number, technologyId: number): Promise<void> => {
+  await apiDelete(`/organizations/${orgId}/technologies/${technologyId}`);
+};
+
+// ==============================================
+// Funding Round Types and API
+// ==============================================
+
+export type FundingRound = {
+  id: number;
+  organization_id: number;
+  round_type: string;
+  amount: number | null;
+  announced_date: string | null;
+  lead_investor: string | null;
+  source_url: string | null;
+  created_at: string | null;
+};
+
+/**
+ * Get funding rounds for an organization
+ */
+export const getOrganizationFundingRounds = async (orgId: number): Promise<{ funding_rounds: FundingRound[] }> => {
+  return apiGet<{ funding_rounds: FundingRound[] }>(`/organizations/${orgId}/funding-rounds`);
+};
+
+/**
+ * Create a funding round for an organization
+ */
+export const createOrganizationFundingRound = async (
+  orgId: number,
+  data: {
+    round_type: string;
+    amount?: number;
+    announced_date?: string;
+    lead_investor?: string;
+    source_url?: string;
+  }
+): Promise<{ funding_round: FundingRound }> => {
+  return apiPost<{ funding_round: FundingRound }>(`/organizations/${orgId}/funding-rounds`, data);
+};
+
+/**
+ * Delete a funding round
+ */
+export const deleteOrganizationFundingRound = async (orgId: number, roundId: number): Promise<void> => {
+  await apiDelete(`/organizations/${orgId}/funding-rounds/${roundId}`);
+};
+
+// ==============================================
+// Company Signal Types and API
+// ==============================================
+
+export type CompanySignal = {
+  id: number;
+  organization_id: number;
+  signal_type: string;
+  headline: string;
+  description: string | null;
+  signal_date: string | null;
+  source: string | null;
+  source_url: string | null;
+  sentiment: string | null;
+  relevance_score: number | null;
+  created_at: string | null;
+};
+
+/**
+ * Get signals for an organization
+ */
+export const getOrganizationSignals = async (
+  orgId: number,
+  options?: { signal_type?: string; limit?: number }
+): Promise<{ signals: CompanySignal[] }> => {
+  const params = new URLSearchParams();
+  if (options?.signal_type) params.append("signal_type", options.signal_type);
+  if (options?.limit) params.append("limit", options.limit.toString());
+  const query = params.toString() ? `?${params}` : "";
+  return apiGet<{ signals: CompanySignal[] }>(`/organizations/${orgId}/signals${query}`);
+};
+
+/**
+ * Create a signal for an organization
+ */
+export const createOrganizationSignal = async (
+  orgId: number,
+  data: {
+    signal_type: string;
+    headline: string;
+    description?: string;
+    signal_date?: string;
+    source?: string;
+    source_url?: string;
+    sentiment?: string;
+    relevance_score?: number;
+  }
+): Promise<{ signal: CompanySignal }> => {
+  return apiPost<{ signal: CompanySignal }>(`/organizations/${orgId}/signals`, data);
+};
+
+/**
+ * Delete a signal
+ */
+export const deleteOrganizationSignal = async (orgId: number, signalId: number): Promise<void> => {
+  await apiDelete(`/organizations/${orgId}/signals/${signalId}`);
+};
+
+// ==============================================
+// Extended Organization Type (with research data)
+// ==============================================
+
+export type OrganizationWithResearch = Organization & {
+  revenue_range_id: number | null;
+  revenue_range: string | null;
+  founding_year: number | null;
+  headquarters_city: string | null;
+  headquarters_state: string | null;
+  headquarters_country: string | null;
+  company_type: string | null;
+  linkedin_url: string | null;
+  crunchbase_url: string | null;
+  technologies?: OrganizationTechnology[];
+  funding_rounds?: FundingRound[];
+  signals?: CompanySignal[];
+};
+
+// ==============================================
+// Extended Individual Type (with research data)
+// ==============================================
+
+export type IndividualWithResearch = Individual & {
+  twitter_url: string | null;
+  github_url: string | null;
+  bio: string | null;
+  seniority_level: string | null;
+  department: string | null;
+  is_decision_maker: boolean | null;
+  reports_to_id: number | null;
+  reports_to?: { id: number; first_name: string; last_name: string };
+  direct_reports?: { id: number; first_name: string; last_name: string; title: string | null }[];
+};

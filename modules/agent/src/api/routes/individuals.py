@@ -30,9 +30,17 @@ class IndividualCreate(BaseModel):
     phone: Optional[str] = None
     linkedin_url: Optional[str] = None
     title: Optional[str] = None
-    notes: Optional[str] = None
+    description: Optional[str] = None
     account_id: Optional[int] = None
     industry_ids: Optional[List[int]] = None
+    # Contact intelligence fields
+    twitter_url: Optional[str] = None
+    github_url: Optional[str] = None
+    bio: Optional[str] = None
+    seniority_level: Optional[str] = None
+    department: Optional[str] = None
+    is_decision_maker: Optional[bool] = None
+    reports_to_id: Optional[int] = None
 
     @field_validator("phone")
     @classmethod
@@ -47,8 +55,16 @@ class IndividualUpdate(BaseModel):
     phone: Optional[str] = None
     linkedin_url: Optional[str] = None
     title: Optional[str] = None
-    notes: Optional[str] = None
+    description: Optional[str] = None
     industry_ids: Optional[List[int]] = None
+    # Contact intelligence fields
+    twitter_url: Optional[str] = None
+    github_url: Optional[str] = None
+    bio: Optional[str] = None
+    seniority_level: Optional[str] = None
+    department: Optional[str] = None
+    is_decision_maker: Optional[bool] = None
+    reports_to_id: Optional[int] = None
 
     @field_validator("phone")
     @classmethod
@@ -122,7 +138,7 @@ def _contact_to_dict(contact):
     }
 
 
-def _ind_to_dict(ind, include_contacts=False, contacts=None):
+def _ind_to_dict(ind, include_contacts=False, contacts=None, include_research=False):
     # Get industries from the account
     industries = []
     if ind.account and ind.account.industries:
@@ -136,8 +152,16 @@ def _ind_to_dict(ind, include_contacts=False, contacts=None):
         "phone": ind.phone,
         "linkedin_url": ind.linkedin_url,
         "title": ind.title,
-        "notes": ind.notes,
+        "description": ind.description,
         "industries": industries,
+        # Contact intelligence fields
+        "twitter_url": ind.twitter_url,
+        "github_url": ind.github_url,
+        "bio": ind.bio,
+        "seniority_level": ind.seniority_level,
+        "department": ind.department,
+        "is_decision_maker": ind.is_decision_maker,
+        "reports_to_id": ind.reports_to_id,
         "created_at": ind.created_at.isoformat() if ind.created_at else None,
         "updated_at": ind.updated_at.isoformat() if ind.updated_at else None,
     }
@@ -152,6 +176,24 @@ def _ind_to_dict(ind, include_contacts=False, contacts=None):
                     seen_org_ids.add(org.id)
                     related_orgs.append({"id": org.id, "name": org.name, "type": "organization"})
         result["relationships"] = related_orgs
+    if include_research:
+        # Include reports_to info
+        if ind.reports_to:
+            result["reports_to"] = {
+                "id": ind.reports_to.id,
+                "first_name": ind.reports_to.first_name,
+                "last_name": ind.reports_to.last_name,
+            }
+        # Include direct reports
+        result["direct_reports"] = [
+            {
+                "id": dr.id,
+                "first_name": dr.first_name,
+                "last_name": dr.last_name,
+                "title": dr.title,
+            }
+            for dr in (ind.direct_reports or [])
+        ]
     return result
 
 
@@ -181,12 +223,12 @@ async def search_individuals_route(request: Request, q: Optional[str] = Query(No
 @log_errors
 @require_auth
 async def get_individual_route(request: Request, individual_id: int):
-    """Get a single individual by ID with their contacts."""
+    """Get a single individual by ID with their contacts and research data."""
     individual = await find_individual_by_id(individual_id)
     if not individual:
         raise HTTPException(status_code=404, detail="Individual not found")
     contacts = await find_contacts_by_individual(individual_id)
-    return _ind_to_dict(individual, include_contacts=True, contacts=contacts)
+    return _ind_to_dict(individual, include_contacts=True, contacts=contacts, include_research=True)
 
 
 def _normalize_linkedin_url(url: str | None) -> str | None:

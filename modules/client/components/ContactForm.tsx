@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Contact } from "../api";
+import { Contact, createNote } from "../api";
 import { formatPhoneNumber } from "../lib/phone";
 import FormActions from "./FormActions";
+import NotesSection from "./NotesSection";
 import Timestamps from "./Timestamps";
 import { usePendingChanges } from "../hooks/usePendingChanges";
 
 interface ContactFormProps {
   contact?: Contact;
-  onSave: (data: Partial<Contact>) => Promise<void>;
+  onSave: (data: Partial<Contact>) => Promise<Contact | void>;
   onDelete?: () => Promise<void>;
   onClose: () => void;
 }
@@ -31,6 +32,7 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pendingNotes, setPendingNotes] = useState<string[]>([]);
 
   const hasPendingChanges = usePendingChanges({
     original: contact as Record<string, unknown> | null,
@@ -52,7 +54,13 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
     setIsSubmitting(true);
     setError(null);
     try {
-      await onSave(formData);
+      const savedContact = await onSave(formData);
+      // Create pending notes after contact is created
+      if (!isEditMode && savedContact && pendingNotes.length > 0) {
+        for (const noteContent of pendingNotes) {
+          await createNote("contact", savedContact.id, noteContent);
+        }
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save contact");
     } finally {
@@ -189,13 +197,22 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
 
         <div>
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            Notes
+            Description
           </label>
           <textarea
             value={formData.notes}
             onChange={(e) => handleChange("notes", e.target.value)}
             className={`${inputClasses} min-h-[100px]`}
-            placeholder="Additional notes..."
+            placeholder="Description..."
+          />
+        </div>
+
+        <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
+          <NotesSection
+            entityType="contact"
+            entityId={isEditMode ? contact?.id ?? null : null}
+            pendingNotes={!isEditMode ? pendingNotes : undefined}
+            onPendingNotesChange={!isEditMode ? setPendingNotes : undefined}
           />
         </div>
 

@@ -33,6 +33,15 @@ class OrganizationCreate(BaseModel):
     description: Optional[str] = None
     account_id: Optional[int] = None
     industry_ids: Optional[List[int]] = None
+    # Firmographic fields
+    revenue_range_id: Optional[int] = None
+    founding_year: Optional[int] = None
+    headquarters_city: Optional[str] = None
+    headquarters_state: Optional[str] = None
+    headquarters_country: Optional[str] = None
+    company_type: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    crunchbase_url: Optional[str] = None
 
     @field_validator("phone")
     @classmethod
@@ -49,6 +58,15 @@ class OrganizationUpdate(BaseModel):
     funding_stage_id: Optional[int] = None
     description: Optional[str] = None
     industry_ids: Optional[List[int]] = None
+    # Firmographic fields
+    revenue_range_id: Optional[int] = None
+    founding_year: Optional[int] = None
+    headquarters_city: Optional[str] = None
+    headquarters_state: Optional[str] = None
+    headquarters_country: Optional[str] = None
+    company_type: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    crunchbase_url: Optional[str] = None
 
     @field_validator("phone")
     @classmethod
@@ -121,7 +139,52 @@ def _contact_to_dict(contact):
     }
 
 
-def _org_to_dict(org, include_contacts=False, contacts=None):
+def _technology_to_dict(org_tech):
+    return {
+        "organization_id": org_tech.organization_id,
+        "technology_id": org_tech.technology_id,
+        "technology": {
+            "id": org_tech.technology.id,
+            "name": org_tech.technology.name,
+            "category": org_tech.technology.category,
+            "vendor": org_tech.technology.vendor,
+        } if org_tech.technology else None,
+        "detected_at": org_tech.detected_at.isoformat() if org_tech.detected_at else None,
+        "source": org_tech.source,
+        "confidence": float(org_tech.confidence) if org_tech.confidence else None,
+    }
+
+
+def _funding_round_to_dict(fr):
+    return {
+        "id": fr.id,
+        "organization_id": fr.organization_id,
+        "round_type": fr.round_type,
+        "amount": fr.amount,
+        "announced_date": fr.announced_date.isoformat() if fr.announced_date else None,
+        "lead_investor": fr.lead_investor,
+        "source_url": fr.source_url,
+        "created_at": fr.created_at.isoformat() if fr.created_at else None,
+    }
+
+
+def _signal_to_dict(s):
+    return {
+        "id": s.id,
+        "organization_id": s.organization_id,
+        "signal_type": s.signal_type,
+        "headline": s.headline,
+        "description": s.description,
+        "signal_date": s.signal_date.isoformat() if s.signal_date else None,
+        "source": s.source,
+        "source_url": s.source_url,
+        "sentiment": s.sentiment,
+        "relevance_score": float(s.relevance_score) if s.relevance_score else None,
+        "created_at": s.created_at.isoformat() if s.created_at else None,
+    }
+
+
+def _org_to_dict(org, include_contacts=False, contacts=None, include_research=False):
     # Get industries from the account
     industries = []
     if org.account and org.account.industries:
@@ -138,6 +201,16 @@ def _org_to_dict(org, include_contacts=False, contacts=None):
         "funding_stage_id": org.funding_stage_id,
         "funding_stage": org.funding_stage.label if org.funding_stage else None,
         "description": org.description,
+        # Firmographic fields
+        "revenue_range_id": org.revenue_range_id,
+        "revenue_range": org.revenue_range.label if org.revenue_range else None,
+        "founding_year": org.founding_year,
+        "headquarters_city": org.headquarters_city,
+        "headquarters_state": org.headquarters_state,
+        "headquarters_country": org.headquarters_country,
+        "company_type": org.company_type,
+        "linkedin_url": org.linkedin_url,
+        "crunchbase_url": org.crunchbase_url,
         "created_at": org.created_at.isoformat() if org.created_at else None,
         "updated_at": org.updated_at.isoformat() if org.updated_at else None,
     }
@@ -156,6 +229,10 @@ def _org_to_dict(org, include_contacts=False, contacts=None):
                         "type": "individual",
                     })
         result["relationships"] = related_individuals
+    if include_research:
+        result["technologies"] = [_technology_to_dict(t) for t in (org.technologies or [])]
+        result["funding_rounds"] = [_funding_round_to_dict(fr) for fr in (org.funding_rounds or [])]
+        result["signals"] = [_signal_to_dict(s) for s in (org.signals or [])]
     return result
 
 
@@ -185,12 +262,12 @@ async def search_organizations_route(request: Request, q: Optional[str] = Query(
 @log_errors
 @require_auth
 async def get_organization_route(request: Request, org_id: int):
-    """Get a single organization by ID with contacts."""
+    """Get a single organization by ID with contacts and research data."""
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
     contacts = await find_contacts_by_organization(org_id)
-    return _org_to_dict(org, include_contacts=True, contacts=contacts)
+    return _org_to_dict(org, include_contacts=True, contacts=contacts, include_research=True)
 
 
 @router.post("")
@@ -431,4 +508,184 @@ async def delete_organization_contact_route(request: Request, org_id: int, conta
     success = await delete_contact(contact_id)
     if not success:
         raise HTTPException(status_code=404, detail="Contact not found")
+    return {"success": True}
+
+
+# ==============================================
+# Tech Stack endpoints
+# ==============================================
+
+class OrgTechnologyCreate(BaseModel):
+    technology_id: int
+    source: Optional[str] = None
+    confidence: Optional[float] = None
+
+
+@router.get("/{org_id}/technologies")
+@log_errors
+@require_auth
+async def get_organization_technologies_route(request: Request, org_id: int):
+    """Get all technologies for an organization."""
+    from repositories.technology_repository import find_organization_technologies
+    org = await find_organization_by_id(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    technologies = await find_organization_technologies(org_id)
+    return {"technologies": [_technology_to_dict(t) for t in technologies]}
+
+
+@router.post("/{org_id}/technologies")
+@log_errors
+@require_auth
+async def add_organization_technology_route(request: Request, org_id: int, data: OrgTechnologyCreate):
+    """Add a technology to an organization."""
+    from repositories.technology_repository import add_organization_technology
+    org = await find_organization_by_id(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    org_tech = await add_organization_technology(
+        org_id=org_id,
+        tech_id=data.technology_id,
+        source=data.source,
+        confidence=data.confidence
+    )
+    return {"organization_technology": _technology_to_dict(org_tech)}
+
+
+@router.delete("/{org_id}/technologies/{technology_id}")
+@log_errors
+@require_auth
+async def remove_organization_technology_route(request: Request, org_id: int, technology_id: int):
+    """Remove a technology from an organization."""
+    from repositories.technology_repository import remove_organization_technology
+    success = await remove_organization_technology(org_id, technology_id)
+    if not success:
+        raise HTTPException(status_code=404, detail="Technology not found for this organization")
+    return {"success": True}
+
+
+# ==============================================
+# Funding Round endpoints
+# ==============================================
+
+class FundingRoundCreate(BaseModel):
+    round_type: str
+    amount: Optional[int] = None
+    announced_date: Optional[str] = None
+    lead_investor: Optional[str] = None
+    source_url: Optional[str] = None
+
+
+@router.get("/{org_id}/funding-rounds")
+@log_errors
+@require_auth
+async def get_organization_funding_rounds_route(request: Request, org_id: int):
+    """Get all funding rounds for an organization."""
+    from repositories.funding_round_repository import find_funding_rounds_by_org
+    org = await find_organization_by_id(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    funding_rounds = await find_funding_rounds_by_org(org_id)
+    return {"funding_rounds": [_funding_round_to_dict(fr) for fr in funding_rounds]}
+
+
+@router.post("/{org_id}/funding-rounds")
+@log_errors
+@require_auth
+async def create_organization_funding_round_route(request: Request, org_id: int, data: FundingRoundCreate):
+    """Create a funding round for an organization."""
+    from repositories.funding_round_repository import create_funding_round
+    org = await find_organization_by_id(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    funding_round = await create_funding_round(
+        org_id=org_id,
+        round_type=data.round_type,
+        amount=data.amount,
+        announced_date=data.announced_date,
+        lead_investor=data.lead_investor,
+        source_url=data.source_url
+    )
+    return {"funding_round": _funding_round_to_dict(funding_round)}
+
+
+@router.delete("/{org_id}/funding-rounds/{round_id}")
+@log_errors
+@require_auth
+async def delete_organization_funding_round_route(request: Request, org_id: int, round_id: int):
+    """Delete a funding round."""
+    from repositories.funding_round_repository import delete_funding_round, find_funding_round_by_id
+    funding_round = await find_funding_round_by_id(round_id)
+    if not funding_round or funding_round.organization_id != org_id:
+        raise HTTPException(status_code=404, detail="Funding round not found")
+    await delete_funding_round(round_id)
+    return {"success": True}
+
+
+# ==============================================
+# Company Signal endpoints
+# ==============================================
+
+class SignalCreate(BaseModel):
+    signal_type: str
+    headline: str
+    description: Optional[str] = None
+    signal_date: Optional[str] = None
+    source: Optional[str] = None
+    source_url: Optional[str] = None
+    sentiment: Optional[str] = None
+    relevance_score: Optional[float] = None
+
+
+@router.get("/{org_id}/signals")
+@log_errors
+@require_auth
+async def get_organization_signals_route(
+    request: Request,
+    org_id: int,
+    signal_type: Optional[str] = Query(None),
+    limit: int = Query(20, le=100)
+):
+    """Get signals for an organization."""
+    from repositories.company_signal_repository import find_signals_by_org
+    org = await find_organization_by_id(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    signals = await find_signals_by_org(org_id, signal_type=signal_type, limit=limit)
+    return {"signals": [_signal_to_dict(s) for s in signals]}
+
+
+@router.post("/{org_id}/signals")
+@log_errors
+@require_auth
+async def create_organization_signal_route(request: Request, org_id: int, data: SignalCreate):
+    """Create a signal for an organization."""
+    from repositories.company_signal_repository import create_signal
+    org = await find_organization_by_id(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    signal = await create_signal(
+        org_id=org_id,
+        signal_type=data.signal_type,
+        headline=data.headline,
+        description=data.description,
+        signal_date=data.signal_date,
+        source=data.source,
+        source_url=data.source_url,
+        sentiment=data.sentiment,
+        relevance_score=data.relevance_score
+    )
+    return {"signal": _signal_to_dict(signal)}
+
+
+@router.delete("/{org_id}/signals/{signal_id}")
+@log_errors
+@require_auth
+async def delete_organization_signal_route(request: Request, org_id: int, signal_id: int):
+    """Delete a signal."""
+    from repositories.company_signal_repository import delete_signal, find_signal_by_id
+    signal = await find_signal_by_id(signal_id)
+    if not signal or signal.organization_id != org_id:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    await delete_signal(signal_id)
     return {"success": True}

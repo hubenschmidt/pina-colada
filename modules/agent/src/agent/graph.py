@@ -23,6 +23,18 @@ load_dotenv(override=True)
 
 from langfuse import observe
 
+
+def _is_disconnect_error(err: Exception) -> bool:
+    """Check if exception indicates websocket disconnect."""
+    error_name = type(err).__name__.lower()
+    error_msg = str(err).lower()
+    return (
+        "disconnect" in error_name
+        or "close" in error_name
+        or "disconnect" in error_msg
+        or "close" in error_msg
+    )
+
 # Load resume documents
 RESUME_NAME = "William Hubenschmidt"
 logger.info("Loading documents from me/ directory...")
@@ -66,21 +78,14 @@ def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]
         nonlocal disconnected
         if disconnected:
             return False
-        
+
         try:
             await websocket.send_text(text)
             return True
         except Exception as e:
-            error_name = type(e).__name__
-            error_msg = str(e).lower()
-            if (
-                "disconnect" in error_name.lower() 
-                or "close" in error_name.lower()
-                or "disconnect" in error_msg
-                or "close" in error_msg
-            ):
+            if _is_disconnect_error(e):
                 disconnected = True
-                logger.debug(f"WebSocket disconnected, stopping further sends: {error_name}")
+                logger.debug(f"WebSocket disconnected, stopping further sends: {type(e).__name__}")
                 return False
             raise
 
@@ -140,15 +145,8 @@ def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]
         try:
             await handler(payload)
         except Exception as e:
-            error_name = type(e).__name__
-            error_msg = str(e).lower()
-            if (
-                "disconnect" in error_name.lower() 
-                or "close" in error_name.lower()
-                or "disconnect" in error_msg
-                or "close" in error_msg
-            ):
-                logger.debug(f"WebSocket disconnected during handler: {error_name}")
+            if _is_disconnect_error(e):
+                logger.debug(f"WebSocket disconnected during handler: {type(e).__name__}")
 
     return send
 
@@ -266,20 +264,10 @@ async def invoke_graph(
             message=message, thread_id=user_uuid, success_criteria=success_criteria
         )
     except Exception as e:
-        def _is_disconnect_error(err: Exception) -> bool:
-            error_name = type(err).__name__.lower()
-            error_msg = str(err).lower()
-            return (
-                "disconnect" in error_name 
-                or "close" in error_name
-                or "disconnect" in error_msg
-                or "close" in error_msg
-            )
-        
         if _is_disconnect_error(e):
             logger.info(f"Client disconnected during processing: {type(e).__name__}")
             return
-        
+
         logger.error(f"Error invoking orchestrator: {e}", exc_info=True)
         try:
             await websocket.send_text(
@@ -294,5 +282,5 @@ async def invoke_graph(
             if _is_disconnect_error(send_err):
                 logger.debug("Could not send error message, client already disconnected")
                 return
-            
+
             logger.debug(f"Could not send error message: {type(send_err).__name__}")

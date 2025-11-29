@@ -65,6 +65,91 @@ def format_conversation(messages) -> str:
     return "\n".join(f for f in formatted if f)
 
 
+def _detect_retry_loop(state: Dict[str, Any]) -> tuple[bool, int]:
+    """Detect if we're in a retry loop. Returns (is_retry, retry_count)."""
+    messages = state.get("messages", [])
+    ai_count = sum(1 for msg in messages if isinstance(msg, AIMessage))
+    has_feedback = bool(state.get("feedback_on_work"))
+    is_retry = has_feedback and ai_count >= 3
+    return is_retry, (ai_count - 1) if is_retry else 0
+
+
+def _build_user_prompt(state: Dict[str, Any], is_retry: bool) -> str:
+    """Build the user prompt for evaluation."""
+    last_message = state["messages"][-1]
+    parts = [
+        "Recent conversation (condensed):",
+        format_conversation(state["messages"]),
+        "",
+        f"Success criteria: {state.get('success_criteria', '')}",
+        "",
+        "Final response to evaluate (from Assistant):",
+        str(last_message.content),
+        "",
+    ]
+
+    if is_retry:
+        parts.append(
+            "NOTE: This response has been retried multiple times. Be more lenient - "
+            "approve unless there are critical errors that make the response unusable."
+        )
+        parts.append("")
+
+    parts.append("Does this meet the criteria?")
+
+    if state.get("feedback_on_work"):
+        parts.append(f"\n\nPrior feedback:\n{state['feedback_on_work'][:200]}")
+
+    return "\n".join(parts)
+
+
+def _force_approval_if_needed(eval_result, is_retry: bool, retry_count: int):
+    """Mutate eval_result to force approval if stuck in retry loop."""
+    if not is_retry:
+        return
+    if eval_result.success_criteria_met:
+        return
+    if eval_result.user_input_needed:
+        return
+
+    logger.warning("   ⚠️  Forcing approval to break retry loop")
+    eval_result.success_criteria_met = True
+    eval_result.feedback = f"{eval_result.feedback} (Approved after {retry_count} retries)"
+    if eval_result.score < 60:
+        eval_result.score = 60
+
+
+def _log_result(evaluator_name: str, eval_result):
+    """Log evaluation results."""
+    status = "PASS" if eval_result.success_criteria_met else "FAIL"
+    logger.info(f"✓ {evaluator_name.upper()} EVALUATOR: Result = {status} (score: {eval_result.score}/100)")
+    logger.info("✓ Evaluator decision:")
+    logger.info(f"   - Success criteria met: {eval_result.success_criteria_met}")
+    logger.info(f"   - User input needed: {eval_result.user_input_needed}")
+    logger.info(f"   - Score: {eval_result.score}/100")
+
+    width = shutil.get_terminal_size(fallback=(100, 24)).columns
+    wrapped = textwrap.fill(
+        eval_result.feedback,
+        width=width,
+        subsequent_indent=" " * 4,
+    )
+    logger.info("   - Feedback: %s", wrapped)
+
+    if not eval_result.success_criteria_met and not eval_result.user_input_needed:
+        logger.warning("⚠️  Evaluator rejected response - agent will retry!")
+
+
+def _default_eval_result() -> Dict[str, Any]:
+    """Return default result when evaluation is skipped or fails."""
+    return {
+        "feedback_on_work": "No AI response to evaluate.",
+        "success_criteria_met": True,
+        "user_input_needed": False,
+        "score": 100,
+    }
+
+
 async def create_base_evaluator_node(
     evaluator_name: str,
     build_system_prompt: Callable[[str], str],
@@ -98,72 +183,28 @@ async def create_base_evaluator_node(
         logger.info(f"🔍 {evaluator_name.upper()} EVALUATOR: Reviewing response...")
 
         last_message = state["messages"][-1]
-
         if not isinstance(last_message, AIMessage):
             logger.warning("⚠️  Last message is not an AI message, skipping evaluation")
-            return {
-                "feedback_on_work": "No AI response to evaluate.",
-                "success_criteria_met": True,
-                "user_input_needed": False,
-                "score": 100,
-            }
+            return _default_eval_result()
 
-        # Detect retry loops
-        messages = state.get("messages", [])
-        ai_message_count = sum(1 for msg in messages if isinstance(msg, AIMessage))
-        has_feedback = bool(state.get("feedback_on_work"))
-        is_retry_loop = has_feedback and ai_message_count >= 3
-        retry_count = (ai_message_count - 1) if is_retry_loop else 0
+        is_retry, retry_count = _detect_retry_loop(state)
+        if is_retry:
+            logger.warning(f"   ⚠️  Retry loop detected ({retry_count} retries)")
 
-        # Build prompts
         resume_context = state.get("resume_context", "")
         system_message = build_system_prompt(resume_context)
-
-        user_message = (
-            "Recent conversation (condensed):\n"
-            f"{format_conversation(state['messages'])}\n\n"
-            f"Success criteria: {state.get('success_criteria','')}\n\n"
-            "Final response to evaluate (from Assistant):\n"
-            f"{last_message.content}\n\n"
-        )
-
-        if is_retry_loop:
-            user_message += (
-                "NOTE: This response has been retried multiple times. Be more lenient - "
-                "approve unless there are critical errors that make the response unusable.\n\n"
-            )
-
-        user_message += "Does this meet the criteria?"
-
-        if state.get("feedback_on_work"):
-            user_message += f"\n\nPrior feedback:\n{state['feedback_on_work'][:200]}"
+        user_message = _build_user_prompt(state, is_retry)
 
         evaluator_messages = [
             SystemMessage(content=system_message),
             HumanMessage(content=user_message),
         ]
 
-        # Get evaluation
         logger.info(f"   Calling Claude Haiku 4.5 for {evaluator_name} evaluation...")
-        if is_retry_loop:
-            logger.warning(f"   ⚠️  Retry loop detected ({retry_count} retries)")
 
         try:
             eval_result = llm_with_output.invoke(evaluator_messages)
-
-            # Force approval to break retry loops
-            should_force_approval = (
-                is_retry_loop
-                and not eval_result.success_criteria_met
-                and not eval_result.user_input_needed
-            )
-            if should_force_approval:
-                logger.warning("   ⚠️  Forcing approval to break retry loop")
-                eval_result.success_criteria_met = True
-                eval_result.feedback = f"{eval_result.feedback} (Approved after {retry_count} retries)"
-                # Ensure score is at least 60 when forcing approval
-                if eval_result.score < 60:
-                    eval_result.score = 60
+            _force_approval_if_needed(eval_result, is_retry, retry_count)
         except Exception as e:
             logger.error(f"⚠️  Evaluation failed: {e}")
             return {
@@ -173,24 +214,7 @@ async def create_base_evaluator_node(
                 "score": 100,
             }
 
-        # Log results
-        status = "PASS" if eval_result.success_criteria_met else "FAIL"
-        logger.info(f"✓ {evaluator_name.upper()} EVALUATOR: Result = {status} (score: {eval_result.score}/100)")
-        logger.info("✓ Evaluator decision:")
-        logger.info(f"   - Success criteria met: {eval_result.success_criteria_met}")
-        logger.info(f"   - User input needed: {eval_result.user_input_needed}")
-        logger.info(f"   - Score: {eval_result.score}/100")
-
-        width = shutil.get_terminal_size(fallback=(100, 24)).columns
-        wrapped = textwrap.fill(
-            eval_result.feedback,
-            width=width,
-            subsequent_indent=" " * 4,
-        )
-        logger.info("   - Feedback: %s", wrapped)
-
-        if not eval_result.success_criteria_met and not eval_result.user_input_needed:
-            logger.warning("⚠️  Evaluator rejected response - agent will retry!")
+        _log_result(evaluator_name, eval_result)
 
         return {
             "feedback_on_work": eval_result.feedback,

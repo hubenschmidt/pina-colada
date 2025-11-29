@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 from models.Organization import Organization
 from models.Account import Account
 from models.Industry import Account_Industry
+from models.OrganizationTechnology import OrganizationTechnology
 from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,8 @@ async def find_all_organizations(tenant_id: Optional[int] = None) -> List[Organi
             .options(
                 selectinload(Organization.account).selectinload(Account.industries),
                 selectinload(Organization.employee_count_range),
-                selectinload(Organization.funding_stage)
+                selectinload(Organization.funding_stage),
+                selectinload(Organization.revenue_range),
             )
             .order_by(Organization.updated_at.desc())
         )
@@ -31,14 +33,18 @@ async def find_all_organizations(tenant_id: Optional[int] = None) -> List[Organi
 
 
 async def find_organization_by_id(org_id: int) -> Optional[Organization]:
-    """Find organization by ID."""
+    """Find organization by ID with all relationships for detail view."""
     async with async_get_session() as session:
         stmt = (
             select(Organization)
             .options(
                 selectinload(Organization.account).selectinload(Account.industries),
                 selectinload(Organization.employee_count_range),
-                selectinload(Organization.funding_stage)
+                selectinload(Organization.funding_stage),
+                selectinload(Organization.revenue_range),
+                selectinload(Organization.technologies).selectinload(OrganizationTechnology.technology),
+                selectinload(Organization.funding_rounds),
+                selectinload(Organization.signals),
             )
             .where(Organization.id == org_id)
         )
@@ -70,7 +76,8 @@ async def create_organization(data: Dict[str, Any]) -> Organization:
                 .options(
                     selectinload(Organization.account).selectinload(Account.industries),
                     selectinload(Organization.employee_count_range),
-                    selectinload(Organization.funding_stage)
+                    selectinload(Organization.funding_stage),
+                    selectinload(Organization.revenue_range),
                 )
                 .where(Organization.id == org.id)
             )
@@ -147,7 +154,8 @@ async def update_organization(org_id: int, data: Dict[str, Any]) -> Optional[Org
                 .options(
                     selectinload(Organization.account).selectinload(Account.industries),
                     selectinload(Organization.employee_count_range),
-                    selectinload(Organization.funding_stage)
+                    selectinload(Organization.funding_stage),
+                    selectinload(Organization.revenue_range),
                 )
                 .where(Organization.id == org_id)
             )
@@ -181,7 +189,8 @@ async def search_organizations(query: str, tenant_id: Optional[int] = None) -> L
         stmt = select(Organization).options(
             selectinload(Organization.account).selectinload(Account.industries),
             selectinload(Organization.employee_count_range),
-            selectinload(Organization.funding_stage)
+            selectinload(Organization.funding_stage),
+            selectinload(Organization.revenue_range),
         ).where(
             func.lower(Organization.name).contains(func.lower(query))
         ).order_by(Organization.name)

@@ -32,7 +32,7 @@ export interface LeadAPI<
     sortDirection: "ASC" | "DESC",
     search?: string
   ) => Promise<PageData<T>>;
-  createLead: (lead: TInsert) => Promise<void>;
+  createLead: (lead: TInsert) => Promise<T | void>;
   updateLead: (id: string, updates: TUpdate) => Promise<void>;
   deleteLead: (id: string) => Promise<void>;
 }

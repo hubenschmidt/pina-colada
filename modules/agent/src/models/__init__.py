@@ -29,6 +29,12 @@ from models.Note import Note
 from models.SalaryRange import SalaryRange
 from models.EmployeeCountRange import EmployeeCountRange
 from models.FundingStage import FundingStage
+from models.RevenueRange import RevenueRange
+from models.Technology import Technology
+from models.OrganizationTechnology import OrganizationTechnology
+from models.FundingRound import FundingRound
+from models.CompanySignal import CompanySignal
+from models.DataProvenance import DataProvenance
 
 __all__ = [
     "Base",
@@ -55,4 +61,10 @@ __all__ = [
     "SalaryRange",
     "EmployeeCountRange",
     "FundingStage",
+    "RevenueRange",
+    "Technology",
+    "OrganizationTechnology",
+    "FundingRound",
+    "CompanySignal",
+    "DataProvenance",
 ]

@@ -18,9 +18,10 @@ const NewContactPage = () => {
     router.push("/accounts/contacts");
   };
 
-  const handleSave = async (data: Partial<Contact>) => {
-    await createContact(data);
+  const handleSave = async (data: Partial<Contact>): Promise<Contact> => {
+    const contact = await createContact(data);
     router.push("/accounts/contacts");
+    return contact;
   };
 
   return <ContactForm onSave={handleSave} onClose={handleClose} />;

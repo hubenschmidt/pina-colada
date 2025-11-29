@@ -169,7 +169,7 @@ const getJobLeadConfig = (): LeadTrackerConfig<
         return getJobs(page, limit, sortBy, sortDirection, search);
       },
       createLead: async (job) => {
-        await createJob(job);
+        return await createJob(job);
       },
       updateLead: async (id, updates) => {
         await updateJob(id, updates);

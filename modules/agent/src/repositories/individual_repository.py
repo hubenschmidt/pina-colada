@@ -26,11 +26,15 @@ async def find_all_individuals(tenant_id: Optional[int] = None) -> List[Individu
 
 
 async def find_individual_by_id(individual_id: int) -> Optional[Individual]:
-    """Find individual by ID."""
+    """Find individual by ID with all relationships for detail view."""
     async with async_get_session() as session:
         stmt = (
             select(Individual)
-            .options(selectinload(Individual.account).selectinload(Account.industries))
+            .options(
+                selectinload(Individual.account).selectinload(Account.industries),
+                selectinload(Individual.reports_to),
+                selectinload(Individual.direct_reports),
+            )
             .where(Individual.id == individual_id)
         )
         result = await session.execute(stmt)

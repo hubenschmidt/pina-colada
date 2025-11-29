@@ -13,9 +13,9 @@ INSERT INTO "FundingStage" (label, display_order) VALUES
 ('Seed', 1),
 ('Series A', 2),
 ('Series B', 3),
-('Series C+', 4),
+('Series C', 4),
 ('Pre-IPO', 5),
-('Public', 6)
+('IPO', 6)
 ON CONFLICT (label) DO NOTHING;
 
 -- Add FK column to Organization

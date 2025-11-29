@@ -14,8 +14,9 @@ const NewJobPage = () => {
   };
 
   const handleAdd = async (jobData: any) => {
-    await createJob(jobData);
+    const job = await createJob(jobData);
     router.push("/leads/jobs");
+    return job;
   };
 
   return (

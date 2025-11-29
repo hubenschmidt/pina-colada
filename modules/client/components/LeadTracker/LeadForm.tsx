@@ -9,8 +9,9 @@ import ContactSection, {
   ContactFieldConfig,
   SearchResult,
 } from "../ContactSection";
-import { searchContacts, updateJob } from "../../api";
+import { searchContacts, updateJob, createNote } from "../../api";
 import FormActions from "../FormActions";
+import NotesSection from "../NotesSection";
 import Timestamps from "../Timestamps";
 import { usePendingChanges } from "../../hooks/usePendingChanges";
 
@@ -23,7 +24,7 @@ const emptyContact = (): ContactInput => ({
 
 interface LeadFormProps<T extends BaseLead> {
   onClose: () => void;
-  onAdd?: (lead: Omit<T, "id" | "created_at" | "updated_at">) => Promise<void>;
+  onAdd?: (lead: Omit<T, "id" | "created_at" | "updated_at">) => Promise<T | void>;
   config: LeadFormConfig<T>;
   // Edit mode props
   lead?: T | null;
@@ -45,6 +46,7 @@ const LeadForm = <T extends BaseLead>({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
+  const [pendingNotes, setPendingNotes] = useState<string[]>([]);
 
   // Parse field value based on field type
   const parseFieldValue = (field: FormFieldConfig<T>, value: any): string => {
@@ -337,7 +339,15 @@ const LeadForm = <T extends BaseLead>({
       }
 
       // Add mode: create new lead
-      await onAdd(submitData);
+      const createdLead = await onAdd(submitData);
+
+      // Create pending notes after lead is created
+      if (createdLead && pendingNotes.length > 0) {
+        const leadId = parseInt(createdLead.id, 10);
+        for (const noteContent of pendingNotes) {
+          await createNote("job", leadId, noteContent);
+        }
+      }
 
       // Reset form only in add mode
       const resetData: any = {};
@@ -748,6 +758,15 @@ const LeadForm = <T extends BaseLead>({
             {config.fields.map((field) => renderField(field))}
           </div>
         )}
+      </div>
+
+      <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
+        <NotesSection
+          entityType="job"
+          entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
+          pendingNotes={!isEditMode ? pendingNotes : undefined}
+          onPendingNotesChange={!isEditMode ? setPendingNotes : undefined}
+        />
       </div>
 
       <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">
