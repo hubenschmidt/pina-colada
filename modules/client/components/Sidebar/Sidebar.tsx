@@ -134,27 +134,39 @@ export const Sidebar = () => {
 
               {/* Leads Section */}
               <div>
-                <button
-                  onClick={() => setLeadsExpanded(!leadsExpanded)}
-                  className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                >
-                  {leadsExpanded ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                  Leads
-                </button>
-                {leadsExpanded && (
-                  <div className="ml-6 mt-1 space-y-1">
-                    <Link
-                      href="/leads/jobs"
-                      className="flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                {selectedProject ? (
+                  <Link
+                    href="/leads"
+                    className="flex items-center gap-2 rounded px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
+                  >
+                    <Briefcase className="h-4 w-4" />
+                    Leads
+                  </Link>
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setLeadsExpanded(!leadsExpanded)}
+                      className="flex w-full items-center gap-2 rounded px-3 py-2 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
                     >
-                      <Briefcase className="h-4 w-4" />
-                      Jobs
-                    </Link>
-                  </div>
+                      {leadsExpanded ? (
+                        <ChevronDown className="h-4 w-4" />
+                      ) : (
+                        <ChevronRight className="h-4 w-4" />
+                      )}
+                      Leads
+                    </button>
+                    {leadsExpanded && (
+                      <div className="ml-6 mt-1 space-y-1">
+                        <Link
+                          href="/leads/jobs"
+                          className="flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100"
+                        >
+                          <Briefcase className="h-4 w-4" />
+                          Jobs
+                        </Link>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
 
