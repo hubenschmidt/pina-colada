@@ -17,7 +17,7 @@ async def find_all_individuals(tenant_id: Optional[int] = None) -> List[Individu
         stmt = (
             select(Individual)
             .options(selectinload(Individual.account).selectinload(Account.industries))
-            .order_by(Individual.last_name, Individual.first_name)
+            .order_by(Individual.updated_at.desc())
         )
         if tenant_id is not None:
             stmt = stmt.join(Account, Individual.account_id == Account.id).where(Account.tenant_id == tenant_id)
@@ -155,7 +155,7 @@ async def search_individuals(query: str, tenant_id: Optional[int] = None) -> Lis
                 (func.lower(Individual.last_name).like(search_pattern)) |
                 (func.lower(Individual.email).like(search_pattern))
             )
-            .order_by(Individual.last_name, Individual.first_name)
+            .order_by(Individual.updated_at.desc())
         )
         if tenant_id is not None:
             stmt = stmt.join(Account, Individual.account_id == Account.id).where(Account.tenant_id == tenant_id)

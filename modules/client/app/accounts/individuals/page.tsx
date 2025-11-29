@@ -10,10 +10,18 @@ import { DataTable, Column, PageData } from "../../../components/DataTable/DataT
 
 const columns: Column<Individual>[] = [
   {
-    header: "Name",
+    header: "Last Name",
+    accessor: "last_name",
     sortable: true,
-    sortKey: "name",
-    render: (ind) => `${ind.first_name} ${ind.last_name}`,
+    sortKey: "last_name",
+    render: (ind) => ind.last_name || "-",
+  },
+  {
+    header: "First Name",
+    accessor: "first_name",
+    sortable: true,
+    sortKey: "first_name",
+    render: (ind) => ind.first_name || "-",
   },
   {
     header: "Title",
@@ -21,6 +29,12 @@ const columns: Column<Individual>[] = [
     sortable: true,
     sortKey: "title",
     render: (ind) => ind.title || "-",
+  },
+  {
+    header: "Industry",
+    sortable: true,
+    sortKey: "industry",
+    render: (ind) => ind.industries?.join(", ") || "-",
   },
   {
     header: "Email",
@@ -58,8 +72,8 @@ const IndividualsPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
-  const [sortBy, setSortBy] = useState("name");
-  const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("ASC");
+  const [sortBy, setSortBy] = useState("updated_at");
+  const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC");
 
   useEffect(() => {
     const fetchIndividuals = async () => {
@@ -92,21 +106,23 @@ const IndividualsPage = () => {
     }
 
     const sorted = [...filtered].sort((a, b) => {
-      if (sortBy === "name") {
-        const aVal = `${a.first_name} ${a.last_name}`.toLowerCase();
-        const bVal = `${b.first_name} ${b.last_name}`.toLowerCase();
-        if (sortDirection === "ASC") {
-          return aVal.localeCompare(bVal);
-        }
-        return bVal.localeCompare(aVal);
+      let comparison: number;
+
+      if (sortBy === "updated_at") {
+        const aDate = new Date(a.updated_at || 0).getTime();
+        const bDate = new Date(b.updated_at || 0).getTime();
+        comparison = aDate - bDate;
+      } else if (sortBy === "industry") {
+        const aVal = (a.industries?.join(", ") || "").toLowerCase();
+        const bVal = (b.industries?.join(", ") || "").toLowerCase();
+        comparison = aVal.localeCompare(bVal);
+      } else {
+        const aVal = (a[sortBy as keyof Individual] as string || "").toLowerCase();
+        const bVal = (b[sortBy as keyof Individual] as string || "").toLowerCase();
+        comparison = aVal.localeCompare(bVal);
       }
-      
-      const aVal = (a[sortBy as keyof Individual] as string || "").toLowerCase();
-      const bVal = (b[sortBy as keyof Individual] as string || "").toLowerCase();
-      if (sortDirection === "ASC") {
-        return aVal.localeCompare(bVal);
-      }
-      return bVal.localeCompare(aVal);
+
+      return sortDirection === "ASC" ? comparison : -comparison;
     });
 
     const totalPages = Math.ceil(sorted.length / limit);

@@ -26,6 +26,9 @@ from models.Tag import Tag
 from models.Account import Account
 from models.Industry import Industry
 from models.Note import Note
+from models.SalaryRange import SalaryRange
+from models.EmployeeCountRange import EmployeeCountRange
+from models.FundingStage import FundingStage
 
 __all__ = [
     "Base",
@@ -49,4 +52,7 @@ __all__ = [
     "Account",
     "Industry",
     "Note",
+    "SalaryRange",
+    "EmployeeCountRange",
+    "FundingStage",
 ]

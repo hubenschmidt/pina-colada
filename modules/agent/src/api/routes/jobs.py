@@ -31,7 +31,7 @@ def _make_job_create_model() -> Type[BaseModel]:
         date=(Optional[str], None),
         job_url=(Optional[str], None),
         salary_range=(Optional[str], None),  # Legacy, kept for backwards compat
-        revenue_range_id=(Optional[int], None),
+        salary_range_id=(Optional[int], None),
         notes=(Optional[str], None),
         resume=(Optional[str], None),
         status=(str, "applied"),
@@ -49,7 +49,7 @@ def _make_job_update_model() -> Type[BaseModel]:
         date=(Optional[str], None),
         job_url=(Optional[str], None),
         salary_range=(Optional[str], None),  # Legacy, kept for backwards compat
-        revenue_range_id=(Optional[int], None),
+        salary_range_id=(Optional[int], None),
         notes=(Optional[str], None),
         resume=(Optional[str], None),
         status=(Optional[str], None),
@@ -68,8 +68,8 @@ JobUpdate = _make_job_update_model()
 async def get_jobs_route(
     request: Request,
     page: int = Query(1, ge=1),
-    limit: int = Query(25, ge=1, le=100),
-    order_by: str = Query("date", alias="orderBy"),
+    limit: int = Query(50, ge=1, le=100),
+    order_by: str = Query("updated_at", alias="orderBy"),
     order: str = Query("DESC", regex="^(ASC|DESC)$"),
     search: Optional[str] = Query(None),
 ):

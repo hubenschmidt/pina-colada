@@ -125,6 +125,10 @@ const ContactSection = <T extends Record<string, any>>({
   };
 
   const handleAdd = () => {
+    // Require first_name and last_name to add a contact
+    if (!newContact.first_name?.trim() || !newContact.last_name?.trim()) {
+      return;
+    }
     onAdd({ ...newContact });
     setNewContact(emptyContact());
     setShowAddForm(false);
@@ -357,7 +361,8 @@ const ContactSection = <T extends Record<string, any>>({
         <button
           type="button"
           onClick={handleAdd}
-          className="px-3 py-1 text-sm bg-lime-600 text-white rounded hover:bg-lime-700"
+          disabled={!newContact.first_name?.trim() || !newContact.last_name?.trim()}
+          className="px-3 py-1 text-sm bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
           Add
         </button>

@@ -11,6 +11,7 @@ import ContactSection, {
 } from "../ContactSection";
 import { searchContacts, updateJob } from "../../api";
 import FormActions from "../FormActions";
+import Timestamps from "../Timestamps";
 import { usePendingChanges } from "../../hooks/usePendingChanges";
 
 const emptyContact = (): ContactInput => ({
@@ -749,15 +750,24 @@ const LeadForm = <T extends BaseLead>({
         )}
       </div>
 
-      <FormActions
-        isEditMode={isEditMode}
-        isSubmitting={isSubmitting}
-        isDeleting={isDeleting}
-        hasPendingChanges={hasPendingChanges}
-        onClose={onClose}
-        onDelete={onDelete ? handleDelete : undefined}
-        cancelButtonText={config.cancelButtonText}
-      />
+      <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">
+        <FormActions
+          isEditMode={isEditMode}
+          isSubmitting={isSubmitting}
+          isDeleting={isDeleting}
+          hasPendingChanges={hasPendingChanges}
+          onClose={onClose}
+          onDelete={onDelete ? handleDelete : undefined}
+          cancelButtonText={config.cancelButtonText}
+        />
+      </div>
+
+      {isEditMode && lead && (
+        <Timestamps
+          createdAt={(lead as any).created_at}
+          updatedAt={(lead as any).updated_at}
+        />
+      )}
     </form>
   );
 

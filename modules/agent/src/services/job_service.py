@@ -95,7 +95,11 @@ async def _process_single_contact(
     # Use provided individual_id if available (e.g., from search selection)
     individual_id = contact_data.get("individual_id")
 
+    # Use existing contact_id if provided (for updates)
+    contact_id = contact_data.get("id")
+
     await get_or_create_contact(
+        contact_id=contact_id,
         individual_id=individual_id,
         organization_id=organization_id,
         first_name=first_name,
@@ -425,7 +429,7 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
         "job_title": job_data.get("job_title", ""),
         "job_url": job_data.get("job_url"),
         "salary_range": job_data.get("salary_range"),  # Legacy field
-        "revenue_range_id": job_data.get("revenue_range_id"),
+        "salary_range_id": job_data.get("salary_range_id"),
         "notes": job_data.get("notes"),
         "source": job_data.get("source", "manual"),
         "tenant_id": tenant_id,
@@ -587,7 +591,7 @@ async def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
         "job_title",
         "job_url",
         "salary_range",  # Legacy field
-        "revenue_range_id",
+        "salary_range_id",
         "notes",
         "source",
     ]

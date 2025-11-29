@@ -17,8 +17,12 @@ async def find_all_organizations(tenant_id: Optional[int] = None) -> List[Organi
     async with async_get_session() as session:
         stmt = (
             select(Organization)
-            .options(selectinload(Organization.account).selectinload(Account.industries))
-            .order_by(Organization.name)
+            .options(
+                selectinload(Organization.account).selectinload(Account.industries),
+                selectinload(Organization.employee_count_range),
+                selectinload(Organization.funding_stage)
+            )
+            .order_by(Organization.updated_at.desc())
         )
         if tenant_id is not None:
             stmt = stmt.join(Account, Organization.account_id == Account.id).where(Account.tenant_id == tenant_id)
@@ -31,7 +35,11 @@ async def find_organization_by_id(org_id: int) -> Optional[Organization]:
     async with async_get_session() as session:
         stmt = (
             select(Organization)
-            .options(selectinload(Organization.account).selectinload(Account.industries))
+            .options(
+                selectinload(Organization.account).selectinload(Account.industries),
+                selectinload(Organization.employee_count_range),
+                selectinload(Organization.funding_stage)
+            )
             .where(Organization.id == org_id)
         )
         result = await session.execute(stmt)
@@ -56,10 +64,14 @@ async def create_organization(data: Dict[str, Any]) -> Organization:
             org = Organization(**data)
             session.add(org)
             await session.commit()
-            # Re-fetch with account and industries loaded
+            # Re-fetch with relationships loaded
             stmt = (
                 select(Organization)
-                .options(selectinload(Organization.account).selectinload(Account.industries))
+                .options(
+                    selectinload(Organization.account).selectinload(Account.industries),
+                    selectinload(Organization.employee_count_range),
+                    selectinload(Organization.funding_stage)
+                )
                 .where(Organization.id == org.id)
             )
             result = await session.execute(stmt)
@@ -129,10 +141,14 @@ async def update_organization(org_id: int, data: Dict[str, Any]) -> Optional[Org
                     setattr(org, key, value)
 
             await session.commit()
-            # Re-fetch with account and industries loaded
+            # Re-fetch with relationships loaded
             stmt = (
                 select(Organization)
-                .options(selectinload(Organization.account).selectinload(Account.industries))
+                .options(
+                    selectinload(Organization.account).selectinload(Account.industries),
+                    selectinload(Organization.employee_count_range),
+                    selectinload(Organization.funding_stage)
+                )
                 .where(Organization.id == org_id)
             )
             result = await session.execute(stmt)
@@ -163,7 +179,9 @@ async def search_organizations(query: str, tenant_id: Optional[int] = None) -> L
     """Search organizations by name (case-insensitive partial match), filtered by tenant (through Account)."""
     async with async_get_session() as session:
         stmt = select(Organization).options(
-            selectinload(Organization.account).selectinload(Account.industries)
+            selectinload(Organization.account).selectinload(Account.industries),
+            selectinload(Organization.employee_count_range),
+            selectinload(Organization.funding_stage)
         ).where(
             func.lower(Organization.name).contains(func.lower(query))
         ).order_by(Organization.name)

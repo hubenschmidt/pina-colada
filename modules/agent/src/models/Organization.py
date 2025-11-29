@@ -16,7 +16,9 @@ class Organization(Base):
     name = Column(Text, nullable=False)
     website = Column(Text, nullable=True)
     phone = Column(Text, nullable=True)
-    employee_count = Column(Integer, nullable=True)
+    employee_count = Column(Integer, nullable=True)  # Legacy field
+    employee_count_range_id = Column(BigInteger, ForeignKey("EmployeeCountRange.id", ondelete="SET NULL"), nullable=True)
+    funding_stage_id = Column(BigInteger, ForeignKey("FundingStage.id", ondelete="SET NULL"), nullable=True)
     description = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -30,6 +32,8 @@ class Organization(Base):
         back_populates="organizations",
         lazy="selectin"
     )
+    employee_count_range = relationship("EmployeeCountRange")
+    funding_stage = relationship("FundingStage")
 
     __table_args__ = (
         Index('idx_organization_name_lower', func.lower(name), unique=True),

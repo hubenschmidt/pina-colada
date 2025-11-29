@@ -133,6 +133,7 @@ async def _update_contact_primary(contact_id: int, is_primary: bool) -> None:
 
 
 async def get_or_create_contact(
+    contact_id: Optional[int] = None,
     individual_id: Optional[int] = None,
     organization_id: Optional[int] = None,
     first_name: Optional[str] = None,
@@ -143,6 +144,16 @@ async def get_or_create_contact(
     is_primary: bool = False
 ) -> Contact:
     """Get or create a contact, optionally linked to individual and/or organization."""
+    # If contact_id is provided, find by ID first
+    if contact_id is not None:
+        existing = await find_contact_by_id(contact_id)
+        if existing:
+            if existing.is_primary != is_primary:
+                await _update_contact_primary(existing.id, is_primary)
+                existing.is_primary = is_primary
+            return existing
+
+    # Otherwise try to find by individual/org/name
     existing = await _find_existing_contact(individual_id, organization_id, first_name, last_name)
     if existing:
         # Update is_primary if it changed

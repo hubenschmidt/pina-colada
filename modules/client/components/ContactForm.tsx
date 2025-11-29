@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Contact } from "../api";
 import { formatPhoneNumber } from "../lib/phone";
 import FormActions from "./FormActions";
+import Timestamps from "./Timestamps";
 import { usePendingChanges } from "../hooks/usePendingChanges";
 
 interface ContactFormProps {
@@ -198,15 +199,24 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }: ContactFormProps) =
           />
         </div>
 
-        <FormActions
-          isEditMode={isEditMode}
-          isSubmitting={isSubmitting}
-          isDeleting={isDeleting}
-          hasPendingChanges={hasPendingChanges}
-          onClose={onClose}
-          onDelete={onDelete ? handleDelete : undefined}
-          variant="compact"
-        />
+        <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">
+          <FormActions
+            isEditMode={isEditMode}
+            isSubmitting={isSubmitting}
+            isDeleting={isDeleting}
+            hasPendingChanges={hasPendingChanges}
+            onClose={onClose}
+            onDelete={onDelete ? handleDelete : undefined}
+            variant="compact"
+          />
+        </div>
+
+        {isEditMode && contact && (
+          <Timestamps
+            createdAt={contact.created_at}
+            updatedAt={contact.updated_at}
+          />
+        )}
 
         {error && (
           <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">

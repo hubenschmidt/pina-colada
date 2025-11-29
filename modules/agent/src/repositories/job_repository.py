@@ -65,7 +65,7 @@ async def _load_job_with_relationships(session, job_id: int) -> Job:
         joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
         joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
         joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
-        joinedload(Job.revenue_range)
+        joinedload(Job.salary_range_ref)
     ).where(Job.id == job_id)
     result = await session.execute(stmt)
     return result.unique().scalar_one()
@@ -75,7 +75,7 @@ async def find_all_jobs(
     page: int = 1,
     page_size: int = 50,
     search: Optional[str] = None,
-    order_by: str = "date",
+    order_by: str = "updated_at",
     order: str = "DESC",
     tenant_id: Optional[int] = None
 ) -> tuple[List[Job], int]:
@@ -90,7 +90,7 @@ async def find_all_jobs(
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
-            joinedload(Job.revenue_range)
+            joinedload(Job.salary_range_ref)
         ).join(Lead).outerjoin(Account, Lead.account_id == Account.id).outerjoin(Organization, Account.id == Organization.account_id)
 
         # Filter by tenant
@@ -115,12 +115,13 @@ async def find_all_jobs(
         # Apply sorting at DB level
         sort_map = {
             "date": Lead.created_at,
+            "updated_at": Job.updated_at,
             "application_date": Lead.created_at,
             "company": Organization.name,
             "job_title": Job.job_title,
             "resume": Job.resume_date,
         }
-        sort_column = sort_map.get(order_by, Lead.created_at)
+        sort_column = sort_map.get(order_by, Job.updated_at)
         stmt = stmt.order_by(sort_column.desc() if order.upper() == "DESC" else sort_column.asc())
 
         # Apply pagination at DB level
@@ -153,7 +154,7 @@ async def find_job_by_id(job_id: int) -> Optional[Job]:
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
-            joinedload(Job.revenue_range)
+            joinedload(Job.salary_range_ref)
         ).where(Job.id == job_id)
         result = await session.execute(stmt)
         return result.unique().scalar_one_or_none()
@@ -205,7 +206,7 @@ async def create_job(data: Dict[str, Any]) -> Job:
                 notes=data.get("notes"),
                 resume_date=data.get("resume_date"),
                 salary_range=data.get("salary_range"),
-                revenue_range_id=data.get("revenue_range_id")
+                salary_range_id=data.get("salary_range_id")
             )
 
             session.add(job)
@@ -246,8 +247,8 @@ async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
                 job.resume_date = data["resume_date"]
             if "salary_range" in data:
                 job.salary_range = data["salary_range"]
-            if "revenue_range_id" in data:
-                job.revenue_range_id = data["revenue_range_id"]
+            if "salary_range_id" in data:
+                job.salary_range_id = data["salary_range_id"]
 
             # Update Lead fields if provided
             if not job.lead:
@@ -303,7 +304,7 @@ async def find_job_by_company_and_title(company: str, title: str) -> Optional[Jo
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
-            joinedload(Job.revenue_range)
+            joinedload(Job.salary_range_ref)
         ).join(Lead).outerjoin(Account, Lead.account_id == Account.id).outerjoin(Organization, Account.id == Organization.account_id).where(
             sql_func.lower(Organization.name).contains(sql_func.lower(company.strip())),
             sql_func.lower(Job.job_title).contains(sql_func.lower(title.strip()))
@@ -331,7 +332,7 @@ async def find_jobs_with_status(status_names: Optional[List[str]] = None) -> Lis
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
-            joinedload(Job.revenue_range)
+            joinedload(Job.salary_range_ref)
         ).join(Lead).join(Status).where(Lead.current_status_id.isnot(None))
 
         if status_names:

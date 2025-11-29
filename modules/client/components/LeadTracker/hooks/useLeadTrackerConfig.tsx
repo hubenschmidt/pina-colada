@@ -77,19 +77,6 @@ const getJobLeadConfig = (): LeadTrackerConfig<
       },
     },
     {
-      header: "Date",
-      accessor: "date",
-      sortable: true,
-      sortKey: "date",
-      width: "10%",
-      render: (job) =>
-        job.date ? (
-          new Date(job.date).toLocaleDateString()
-        ) : (
-          <span className="text-zinc-400">—</span>
-        ),
-    },
-    {
       header: "Notes",
       accessor: "notes",
       width: "20%",
@@ -143,6 +130,32 @@ const getJobLeadConfig = (): LeadTrackerConfig<
         </div>
       ),
     },
+    {
+      header: "Created",
+      accessor: "date",
+      sortable: true,
+      sortKey: "date",
+      width: "8%",
+      render: (job) =>
+        job.date ? (
+          new Date(job.date).toLocaleDateString()
+        ) : (
+          <span className="text-zinc-400">—</span>
+        ),
+    },
+    {
+      header: "Updated",
+      accessor: "updated_at",
+      sortable: true,
+      sortKey: "updated_at",
+      width: "8%",
+      render: (job) =>
+        job.updated_at ? (
+          new Date(job.updated_at).toLocaleDateString()
+        ) : (
+          <span className="text-zinc-400">—</span>
+        ),
+    },
   ];
 
   return {
@@ -165,9 +178,9 @@ const getJobLeadConfig = (): LeadTrackerConfig<
         await deleteJob(id);
       },
     },
-    defaultSortBy: "date",
+    defaultSortBy: "updated_at",
     defaultSortDirection: "DESC",
-    defaultPageSize: 25,
+    defaultPageSize: 50,
     searchPlaceholder: "Search by account or job title...",
     emptyMessage: "No job applications yet. Add your first one above!",
     enableSearch: true,

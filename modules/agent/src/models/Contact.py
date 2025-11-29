@@ -32,8 +32,8 @@ class Contact(Base):
     __tablename__ = "Contact"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    first_name = Column(Text, nullable=True)
-    last_name = Column(Text, nullable=True)
+    first_name = Column(Text, nullable=False)
+    last_name = Column(Text, nullable=False)
     title = Column(Text, nullable=True)
     department = Column(Text, nullable=True)
     role = Column(Text, nullable=True)

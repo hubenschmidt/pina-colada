@@ -20,8 +20,8 @@ from models.Contact import Contact
 
 
 class ContactCreate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    first_name: str
+    last_name: str
     email: Optional[str] = None
     phone: Optional[str] = None
     title: Optional[str] = None
@@ -105,7 +105,7 @@ def _contact_to_dict(contact: Contact) -> dict:
 async def get_contacts_route(request: Request):
     """Get all contacts with linked individuals and organizations."""
     async with async_get_session() as session:
-        stmt = select(Contact).order_by(Contact.last_name, Contact.first_name)
+        stmt = select(Contact).order_by(Contact.updated_at.desc())
         result = await session.execute(stmt)
         contacts = list(result.scalars().all())
         return [_contact_to_dict(c) for c in contacts]

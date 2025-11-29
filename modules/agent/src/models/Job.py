@@ -23,10 +23,10 @@ class Job(Base):
     notes = Column(Text, nullable=True)
     resume_date = Column(DateTime(timezone=True), nullable=True)
     salary_range = Column(Text, nullable=True)  # Legacy field, kept for backwards compat
-    revenue_range_id = Column(BigInteger, ForeignKey("RevenueRange.id", ondelete="SET NULL"), nullable=True)
+    salary_range_id = Column(BigInteger, ForeignKey("SalaryRange.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
     lead = relationship("Lead", back_populates="job")
-    revenue_range = relationship("RevenueRange")
+    salary_range_ref = relationship("SalaryRange")

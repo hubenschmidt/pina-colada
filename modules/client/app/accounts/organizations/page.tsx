@@ -22,6 +22,25 @@ const columns: Column<Organization>[] = [
     render: (org) => (org.industries?.length > 0 ? org.industries.join(", ") : "-"),
   },
   {
+    header: "Funding",
+    sortable: true,
+    sortKey: "funding_stage",
+    render: (org) => org.funding_stage || "-",
+  },
+  {
+    header: "Employees",
+    sortable: true,
+    sortKey: "employee_count_range",
+    render: (org) => org.employee_count_range || "-",
+  },
+  {
+    header: "Description",
+    accessor: "description",
+    sortable: true,
+    sortKey: "description",
+    render: (org) => org.description || "-",
+  },
+  {
     header: "Website",
     accessor: "website",
     sortable: true,
@@ -41,13 +60,6 @@ const columns: Column<Organization>[] = [
         "-"
       ),
   },
-  {
-    header: "Employees",
-    accessor: "employee_count",
-    sortable: true,
-    sortKey: "employee_count",
-    render: (org) => org.employee_count || "-",
-  },
 ];
 
 const OrganizationsPage = () => {
@@ -59,8 +71,8 @@ const OrganizationsPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
-  const [sortBy, setSortBy] = useState("name");
-  const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("ASC");
+  const [sortBy, setSortBy] = useState("updated_at");
+  const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC");
 
   useEffect(() => {
     const fetchOrganizations = async () => {
@@ -92,30 +104,31 @@ const OrganizationsPage = () => {
     }
 
     const sorted = [...filtered].sort((a, b) => {
-      if (sortBy === "industries") {
+      let comparison: number;
+
+      if (sortBy === "updated_at") {
+        const aDate = new Date(a.updated_at || 0).getTime();
+        const bDate = new Date(b.updated_at || 0).getTime();
+        comparison = aDate - bDate;
+      } else if (sortBy === "industries") {
         const aVal = (a.industries?.join(", ") || "").toLowerCase();
         const bVal = (b.industries?.join(", ") || "").toLowerCase();
-        if (sortDirection === "ASC") {
-          return String(aVal).localeCompare(String(bVal));
-        }
-        return String(bVal).localeCompare(String(aVal));
+        comparison = aVal.localeCompare(bVal);
+      } else if (sortBy === "funding_stage") {
+        const aVal = (a.funding_stage || "").toLowerCase();
+        const bVal = (b.funding_stage || "").toLowerCase();
+        comparison = aVal.localeCompare(bVal);
+      } else if (sortBy === "employee_count_range") {
+        const aVal = (a.employee_count_range || "").toLowerCase();
+        const bVal = (b.employee_count_range || "").toLowerCase();
+        comparison = aVal.localeCompare(bVal);
+      } else {
+        const aVal = (a[sortBy as keyof Organization] as string || "").toLowerCase();
+        const bVal = (b[sortBy as keyof Organization] as string || "").toLowerCase();
+        comparison = aVal.localeCompare(bVal);
       }
-      
-      if (sortBy === "employee_count") {
-        const aVal = a.employee_count || 0;
-        const bVal = b.employee_count || 0;
-        if (sortDirection === "ASC") {
-          return (aVal as number) - (bVal as number);
-        }
-        return (bVal as number) - (aVal as number);
-      }
-      
-      const aVal = (a[sortBy as keyof Organization] as string || "").toLowerCase();
-      const bVal = (b[sortBy as keyof Organization] as string || "").toLowerCase();
-      if (sortDirection === "ASC") {
-        return String(aVal).localeCompare(String(bVal));
-      }
-      return String(bVal).localeCompare(String(aVal));
+
+      return sortDirection === "ASC" ? comparison : -comparison;
     });
 
     const totalPages = Math.ceil(sorted.length / limit);

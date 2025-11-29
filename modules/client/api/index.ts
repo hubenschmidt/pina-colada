@@ -331,6 +331,7 @@ export type Individual = {
   linkedin_url: string | null;
   title: string | null;
   notes: string | null;
+  industries: string[];
   contacts?: Contact[];
   created_at: string | null;
   updated_at: string | null;
@@ -383,7 +384,11 @@ export type Organization = {
   website: string | null;
   phone: string | null;
   industries: string[];
-  employee_count: number | null;
+  employee_count: number | null;  // Legacy field
+  employee_count_range_id: number | null;
+  employee_count_range: string | null;  // Label from lookup
+  funding_stage_id: number | null;
+  funding_stage: string | null;  // Label from lookup
   description: string | null;
   contacts?: Contact[];
   created_at: string | null;
@@ -499,10 +504,9 @@ export const createIndustry = async (name: string): Promise<Industry> => {
   return apiPost<Industry>("/industries", { name });
 };
 
-// Revenue Range Types
-export type RevenueRange = {
+// Salary Range Types
+export type SalaryRange = {
   id: number;
-  category: string;
   label: string;
   min_value: number | null;
   max_value: number | null;
@@ -510,10 +514,40 @@ export type RevenueRange = {
 };
 
 /**
- * Get revenue ranges by category (e.g., 'salary')
+ * Get all salary ranges
  */
-export const getRevenueRanges = async (category: string): Promise<RevenueRange[]> => {
-  return apiGet<RevenueRange[]>(`/revenue-ranges?category=${encodeURIComponent(category)}`);
+export const getSalaryRanges = async (): Promise<SalaryRange[]> => {
+  return apiGet<SalaryRange[]>("/salary-ranges");
+};
+
+// Employee Count Range Types
+export type EmployeeCountRange = {
+  id: number;
+  label: string;
+  min_value: number | null;
+  max_value: number | null;
+  display_order: number;
+};
+
+/**
+ * Get all employee count ranges
+ */
+export const getEmployeeCountRanges = async (): Promise<EmployeeCountRange[]> => {
+  return apiGet<EmployeeCountRange[]>("/employee-count-ranges");
+};
+
+// Funding Stage Types
+export type FundingStage = {
+  id: number;
+  label: string;
+  display_order: number;
+};
+
+/**
+ * Get all funding stages
+ */
+export const getFundingStages = async (): Promise<FundingStage[]> => {
+  return apiGet<FundingStage[]>("/funding-stages");
 };
 
 // Standalone Contact CRUD

@@ -8,7 +8,9 @@ from api.routes.preferences import router as preferences_routes
 from api.routes.organizations import router as organizations_routes
 from api.routes.individuals import router as individuals_routes
 from api.routes.industries import router as industries_routes
-from api.routes.revenue_ranges import router as revenue_ranges_routes
+from api.routes.salary_ranges import router as salary_ranges_routes
+from api.routes.employee_count_ranges import router as employee_count_ranges_routes
+from api.routes.funding_stages import router as funding_stages_routes
 from api.routes.notes import router as notes_routes
 from api.routes.contacts import router as contacts_routes
 from api.routes.accounts import router as accounts_routes
@@ -22,7 +24,9 @@ __all__ = [
     "organizations_routes",
     "individuals_routes",
     "industries_routes",
-    "revenue_ranges_routes",
+    "salary_ranges_routes",
+    "employee_count_ranges_routes",
+    "funding_stages_routes",
     "notes_routes",
     "contacts_routes",
     "accounts_routes",

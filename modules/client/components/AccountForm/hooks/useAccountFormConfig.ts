@@ -31,10 +31,15 @@ const organizationFields: FormFieldConfig[] = [
     gridColumn: "md:col-span-1",
   },
   {
-    name: "employee_count",
+    name: "employee_count_range_id",
     label: "Employee Count",
-    type: "number",
-    min: 0,
+    type: "custom",
+    gridColumn: "md:col-span-1",
+  },
+  {
+    name: "funding_stage_id",
+    label: "Funding Stage",
+    type: "custom",
     gridColumn: "md:col-span-1",
   },
   {
@@ -110,7 +115,7 @@ const getOrganizationConfig = (): AccountFormConfig => ({
   editTitle: "Edit Organization",
   fields: organizationFields,
   sections: [
-    { name: "Details", fieldNames: ["name", "website", "phone", "employee_count", "description"] },
+    { name: "Details", fieldNames: ["name", "website", "phone", "employee_count_range_id", "funding_stage_id", "description"] },
   ],
   onValidate: (formData) => {
     if (!formData.name || String(formData.name).trim() === "") {
@@ -122,7 +127,8 @@ const getOrganizationConfig = (): AccountFormConfig => ({
     name: String(formData.name || "").trim(),
     website: formData.website ? String(formData.website).trim() : null,
     phone: formData.phone ? String(formData.phone).trim() : null,
-    employee_count: formData.employee_count ? Number(formData.employee_count) : null,
+    employee_count_range_id: formData.employee_count_range_id ? Number(formData.employee_count_range_id) : null,
+    funding_stage_id: formData.funding_stage_id ? Number(formData.funding_stage_id) : null,
     description: formData.description ? String(formData.description).trim() : null,
   }),
 });

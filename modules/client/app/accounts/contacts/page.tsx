@@ -10,10 +10,18 @@ import { DataTable, Column, PageData } from "../../../components/DataTable/DataT
 
 const columns: Column<Contact>[] = [
   {
-    header: "Name",
+    header: "Last Name",
+    accessor: "last_name",
     sortable: true,
-    sortKey: "name",
-    render: (c) => `${c.first_name} ${c.last_name}`.trim() || "-",
+    sortKey: "last_name",
+    render: (c) => c.last_name || "-",
+  },
+  {
+    header: "First Name",
+    accessor: "first_name",
+    sortable: true,
+    sortKey: "first_name",
+    render: (c) => c.first_name || "-",
   },
   {
     header: "Title",
@@ -67,8 +75,8 @@ const ContactsPage = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
-  const [sortBy, setSortBy] = useState("name");
-  const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("ASC");
+  const [sortBy, setSortBy] = useState("updated_at");
+  const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC");
 
   useEffect(() => {
     const fetchContacts = async () => {
@@ -100,20 +108,23 @@ const ContactsPage = () => {
       );
     }
 
-    const getSortValue = (contact: Contact, field: string): string => {
-      if (field === "name") {
-        return `${contact.first_name} ${contact.last_name}`.toLowerCase();
-      }
-      if (field === "account") {
-        return (contact.organizations?.map((o) => o.name).join(", ") || "").toLowerCase();
-      }
-      return (contact[field as keyof Contact] as string || "").toLowerCase();
-    };
-
     const sorted = [...filtered].sort((a, b) => {
-      const aVal = getSortValue(a, sortBy);
-      const bVal = getSortValue(b, sortBy);
-      const comparison = aVal.localeCompare(bVal);
+      let comparison: number;
+
+      if (sortBy === "updated_at") {
+        const aDate = new Date(a.updated_at || 0).getTime();
+        const bDate = new Date(b.updated_at || 0).getTime();
+        comparison = aDate - bDate;
+      } else if (sortBy === "account") {
+        const aVal = (a.organizations?.map((o) => o.name).join(", ") || "").toLowerCase();
+        const bVal = (b.organizations?.map((o) => o.name).join(", ") || "").toLowerCase();
+        comparison = aVal.localeCompare(bVal);
+      } else {
+        const aVal = (a[sortBy as keyof Contact] as string || "").toLowerCase();
+        const bVal = (b[sortBy as keyof Contact] as string || "").toLowerCase();
+        comparison = aVal.localeCompare(bVal);
+      }
+
       return sortDirection === "ASC" ? comparison : -comparison;
     });
 

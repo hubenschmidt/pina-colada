@@ -27,7 +27,9 @@ class OrganizationCreate(BaseModel):
     name: str
     website: Optional[str] = None
     phone: Optional[str] = None
-    employee_count: Optional[int] = None
+    employee_count: Optional[int] = None  # Legacy field
+    employee_count_range_id: Optional[int] = None
+    funding_stage_id: Optional[int] = None
     description: Optional[str] = None
     account_id: Optional[int] = None
     industry_ids: Optional[List[int]] = None
@@ -42,7 +44,9 @@ class OrganizationUpdate(BaseModel):
     name: Optional[str] = None
     website: Optional[str] = None
     phone: Optional[str] = None
-    employee_count: Optional[int] = None
+    employee_count: Optional[int] = None  # Legacy field
+    employee_count_range_id: Optional[int] = None
+    funding_stage_id: Optional[int] = None
     description: Optional[str] = None
     industry_ids: Optional[List[int]] = None
 
@@ -54,8 +58,8 @@ class OrganizationUpdate(BaseModel):
 
 class OrgContactCreate(BaseModel):
     individual_id: Optional[int] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    first_name: str
+    last_name: str
     title: Optional[str] = None
     department: Optional[str] = None
     role: Optional[str] = None
@@ -129,6 +133,10 @@ def _org_to_dict(org, include_contacts=False, contacts=None):
         "phone": org.phone,
         "industries": industries,
         "employee_count": org.employee_count,
+        "employee_count_range_id": org.employee_count_range_id,
+        "employee_count_range": org.employee_count_range.label if org.employee_count_range else None,
+        "funding_stage_id": org.funding_stage_id,
+        "funding_stage": org.funding_stage.label if org.funding_stage else None,
         "description": org.description,
         "created_at": org.created_at.isoformat() if org.created_at else None,
         "updated_at": org.updated_at.isoformat() if org.updated_at else None,

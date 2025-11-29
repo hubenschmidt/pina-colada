@@ -1,6 +1,6 @@
 import { CreatedJob } from "../../../types/types";
 import { LeadFormConfig } from "../types/LeadFormTypes";
-import { getRecentResumeDate, getIndustries, createIndustry, searchOrganizations, searchIndividuals, getRevenueRanges, type Industry, type Organization, type Individual, type RevenueRange } from "../../../api";
+import { getRecentResumeDate, getIndustries, createIndustry, searchOrganizations, searchIndividuals, getSalaryRanges, type Industry, type Organization, type Individual, type SalaryRange } from "../../../api";
 import { useState, useEffect, useCallback, useId } from "react";
 import { debounce } from "../../../lib/debounce";
 
@@ -304,13 +304,13 @@ const SalaryRangeSelector = ({
   value: number | null;
   onChange: (value: number | null) => void;
 }) => {
-  const [ranges, setRanges] = useState<RevenueRange[]>([]);
+  const [ranges, setRanges] = useState<SalaryRange[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const loadRanges = async () => {
       try {
-        const data = await getRevenueRanges("salary");
+        const data = await getSalaryRanges();
         setRanges(data);
       } catch (error) {
         console.error("Failed to fetch salary ranges:", error);
@@ -361,7 +361,7 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
   sections: [
     {
       name: "Job Info",
-      fieldNames: ["job_title", "date", "resume", "revenue_range_id", "job_url", "status", "notes"],
+      fieldNames: ["job_title", "date", "resume", "salary_range_id", "job_url", "status", "notes"],
     },
     {
       name: "Account Info",
@@ -433,7 +433,7 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
       ),
     },
     {
-      name: "revenue_range_id",
+      name: "salary_range_id",
       label: "Salary Range",
       type: "custom",
       renderCustom: ({ value, onChange }) => (
@@ -518,7 +518,7 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
         "date",
         "job_url",
         "salary_range",
-        "revenue_range_id",
+        "salary_range_id",
         "notes",
         "resume",
         "status",
@@ -532,11 +532,11 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
           (filtered as Record<string, unknown>)[key] = cleaned[key];
         }
       });
-      // Ensure revenue_range_id is a number or null (select elements coerce to string)
-      const rawRevenueId = filtered.revenue_range_id as unknown;
-      filtered.revenue_range_id = rawRevenueId === "" || rawRevenueId === undefined || rawRevenueId === null
+      // Ensure salary_range_id is a number or null (select elements coerce to string)
+      const rawSalaryId = filtered.salary_range_id as unknown;
+      filtered.salary_range_id = rawSalaryId === "" || rawSalaryId === undefined || rawSalaryId === null
         ? null
-        : Number(rawRevenueId);
+        : Number(rawSalaryId);
       return filtered;
     }
 
@@ -554,11 +554,11 @@ const getJobFormConfig = (): LeadFormConfig<CreatedJob> => ({
     // Add default source
     cleaned.source = "manual";
 
-    // Ensure revenue_range_id is a number or null (select elements coerce to string)
-    const rawRevenueId = cleaned.revenue_range_id as unknown;
-    cleaned.revenue_range_id = rawRevenueId === "" || rawRevenueId === undefined || rawRevenueId === null
+    // Ensure salary_range_id is a number or null (select elements coerce to string)
+    const rawSalaryId = cleaned.salary_range_id as unknown;
+    cleaned.salary_range_id = rawSalaryId === "" || rawSalaryId === undefined || rawSalaryId === null
       ? null
-      : Number(rawRevenueId);
+      : Number(rawSalaryId);
 
     return cleaned;
   },

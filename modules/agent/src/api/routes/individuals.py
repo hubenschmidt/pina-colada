@@ -57,8 +57,8 @@ class IndividualUpdate(BaseModel):
 
 
 class ContactCreate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    first_name: str
+    last_name: str
     organization_id: Optional[int] = None
     title: Optional[str] = None
     department: Optional[str] = None

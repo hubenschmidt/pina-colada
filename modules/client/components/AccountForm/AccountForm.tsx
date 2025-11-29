@@ -6,6 +6,7 @@ import ContactSection, { ContactFieldConfig } from "../ContactSection";
 import RelationshipsSection, { Relationship } from "../RelationshipsSection";
 import NotesSection from "../NotesSection";
 import FormActions from "../FormActions";
+import Timestamps from "../Timestamps";
 import {
   Contact,
   createIndividualContact,
@@ -19,7 +20,11 @@ import {
   createNote,
   getIndustries,
   createIndustry,
+  getEmployeeCountRanges,
+  getFundingStages,
   Industry,
+  EmployeeCountRange,
+  FundingStage,
 } from "../../api";
 import { SearchResult } from "../ContactSection";
 import { AccountType, FormFieldConfig } from "./types/AccountFormTypes";
@@ -31,7 +36,11 @@ interface OrganizationData {
   name: string;
   website?: string | null;
   phone?: string | null;
-  employee_count?: number | null;
+  employee_count?: number | null;  // Legacy field
+  employee_count_range_id?: number | null;
+  employee_count_range?: string | null;
+  funding_stage_id?: number | null;
+  funding_stage?: string | null;
   description?: string | null;
   contacts?: Contact[];
   relationships?: Relationship[];
@@ -233,6 +242,104 @@ const IndustrySelector = ({ value, onChange }: { value: string[]; onChange: (val
         </div>
       )}
     </div>
+  );
+};
+
+// Employee Count Range Dropdown Component
+const EmployeeCountRangeSelector = ({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (value: number | null) => void;
+}) => {
+  const [ranges, setRanges] = useState<EmployeeCountRange[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadRanges = async () => {
+      try {
+        const data = await getEmployeeCountRanges();
+        setRanges(data);
+      } catch (error) {
+        console.error("Failed to fetch employee count ranges:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadRanges();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
+        Loading...
+      </div>
+    );
+  }
+
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+      className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 ${value ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-500 dark:text-zinc-400"}`}
+    >
+      <option value="">Select employee count...</option>
+      {ranges.map((range) => (
+        <option key={range.id} value={range.id} className="text-zinc-900 dark:text-zinc-100">
+          {range.label}
+        </option>
+      ))}
+    </select>
+  );
+};
+
+// Funding Stage Dropdown Component
+const FundingStageSelector = ({
+  value,
+  onChange,
+}: {
+  value: number | null;
+  onChange: (value: number | null) => void;
+}) => {
+  const [stages, setStages] = useState<FundingStage[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadStages = async () => {
+      try {
+        const data = await getFundingStages();
+        setStages(data);
+      } catch (error) {
+        console.error("Failed to fetch funding stages:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadStages();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
+        Loading...
+      </div>
+    );
+  }
+
+  return (
+    <select
+      value={value ?? ""}
+      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
+      className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 ${value ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-500 dark:text-zinc-400"}`}
+    >
+      <option value="">Select funding stage...</option>
+      {stages.map((stage) => (
+        <option key={stage.id} value={stage.id} className="text-zinc-900 dark:text-zinc-100">
+          {stage.label}
+        </option>
+      ))}
+    </select>
   );
 };
 
@@ -723,6 +830,16 @@ const AccountForm = ({
                   handleChange,
                   field.name === "industry" ? (
                     <IndustrySelector value={selectedIndustries} onChange={setSelectedIndustries} />
+                  ) : field.name === "employee_count_range_id" ? (
+                    <EmployeeCountRangeSelector
+                      value={formData.employee_count_range_id as number | null}
+                      onChange={(val) => handleChange("employee_count_range_id", val?.toString() ?? "")}
+                    />
+                  ) : field.name === "funding_stage_id" ? (
+                    <FundingStageSelector
+                      value={formData.funding_stage_id as number | null}
+                      onChange={(val) => handleChange("funding_stage_id", val?.toString() ?? "")}
+                    />
                   ) : undefined
                 )}
                 {errors[field.name] && (
@@ -744,6 +861,16 @@ const AccountForm = ({
                 handleChange,
                 field.name === "industry" ? (
                   <IndustrySelector value={selectedIndustries} onChange={setSelectedIndustries} />
+                ) : field.name === "employee_count_range_id" ? (
+                  <EmployeeCountRangeSelector
+                    value={formData.employee_count_range_id as number | null}
+                    onChange={(val) => handleChange("employee_count_range_id", val?.toString() ?? "")}
+                  />
+                ) : field.name === "funding_stage_id" ? (
+                  <FundingStageSelector
+                    value={formData.funding_stage_id as number | null}
+                    onChange={(val) => handleChange("funding_stage_id", val?.toString() ?? "")}
+                  />
                 ) : undefined
               )}
               {errors[field.name] && (
@@ -790,15 +917,24 @@ const AccountForm = ({
           />
         </div>
 
-        <FormActions
-          isEditMode={isEditMode}
-          isSubmitting={isSubmitting}
-          isDeleting={isDeleting}
-          hasPendingChanges={hasPendingChanges}
-          onClose={onClose}
-          onDelete={onDelete ? handleDelete : undefined}
-          variant="compact"
-        />
+        <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">
+          <FormActions
+            isEditMode={isEditMode}
+            isSubmitting={isSubmitting}
+            isDeleting={isDeleting}
+            hasPendingChanges={hasPendingChanges}
+            onClose={onClose}
+            onDelete={onDelete ? handleDelete : undefined}
+            variant="compact"
+          />
+        </div>
+
+        {isEditMode && account && (
+          <Timestamps
+            createdAt={(account as any).created_at}
+            updatedAt={(account as any).updated_at}
+          />
+        )}
 
         {errors._form && (
           <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
