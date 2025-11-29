@@ -138,13 +138,16 @@ def _contact_to_dict(contact):
     }
 
 
-def _ind_to_dict(ind, include_contacts=False, contacts=None, include_research=False):
-    # Get industries from the account
-    industries = []
-    if ind.account and ind.account.industries:
-        industries = [industry.name for industry in ind.account.industries]
+def _get_industries(ind) -> list:
+    """Extract industry names from individual's account."""
+    if not ind.account or not ind.account.industries:
+        return []
+    return [industry.name for industry in ind.account.industries]
 
-    result = {
+
+def _get_base_ind_dict(ind) -> dict:
+    """Build base individual dictionary."""
+    return {
         "id": ind.id,
         "first_name": ind.first_name,
         "last_name": ind.last_name,
@@ -153,8 +156,7 @@ def _ind_to_dict(ind, include_contacts=False, contacts=None, include_research=Fa
         "linkedin_url": ind.linkedin_url,
         "title": ind.title,
         "description": ind.description,
-        "industries": industries,
-        # Contact intelligence fields
+        "industries": _get_industries(ind),
         "twitter_url": ind.twitter_url,
         "github_url": ind.github_url,
         "bio": ind.bio,
@@ -165,35 +167,47 @@ def _ind_to_dict(ind, include_contacts=False, contacts=None, include_research=Fa
         "created_at": ind.created_at.isoformat() if ind.created_at else None,
         "updated_at": ind.updated_at.isoformat() if ind.updated_at else None,
     }
+
+
+def _get_related_orgs_from_contacts(contacts) -> list:
+    """Extract unique organizations from contacts."""
+    seen_ids = set()
+    orgs = []
+    for contact in contacts:
+        for org in (contact.organizations or []):
+            if org.id not in seen_ids:
+                seen_ids.add(org.id)
+                orgs.append({"id": org.id, "name": org.name, "type": "organization"})
+    return orgs
+
+
+def _add_contacts_data(result: dict, contacts) -> None:
+    """Add contacts and relationships to result dict."""
+    result["contacts"] = [_contact_to_dict(c) for c in contacts]
+    result["relationships"] = _get_related_orgs_from_contacts(contacts)
+
+
+def _add_research_data(result: dict, ind) -> None:
+    """Add research data (reports_to, direct_reports) to result dict."""
+    if ind.reports_to:
+        result["reports_to"] = {
+            "id": ind.reports_to.id,
+            "first_name": ind.reports_to.first_name,
+            "last_name": ind.reports_to.last_name,
+        }
+    result["direct_reports"] = [
+        {"id": dr.id, "first_name": dr.first_name, "last_name": dr.last_name, "title": dr.title}
+        for dr in (ind.direct_reports or [])
+    ]
+
+
+def _ind_to_dict(ind, include_contacts=False, contacts=None, include_research=False):
+    """Convert individual to dictionary representation."""
+    result = _get_base_ind_dict(ind)
     if include_contacts and contacts is not None:
-        result["contacts"] = [_contact_to_dict(c) for c in contacts]
-        # Extract unique related organizations from contacts
-        seen_org_ids = set()
-        related_orgs = []
-        for contact in contacts:
-            for org in (contact.organizations or []):
-                if org.id not in seen_org_ids:
-                    seen_org_ids.add(org.id)
-                    related_orgs.append({"id": org.id, "name": org.name, "type": "organization"})
-        result["relationships"] = related_orgs
+        _add_contacts_data(result, contacts)
     if include_research:
-        # Include reports_to info
-        if ind.reports_to:
-            result["reports_to"] = {
-                "id": ind.reports_to.id,
-                "first_name": ind.reports_to.first_name,
-                "last_name": ind.reports_to.last_name,
-            }
-        # Include direct reports
-        result["direct_reports"] = [
-            {
-                "id": dr.id,
-                "first_name": dr.first_name,
-                "last_name": dr.last_name,
-                "title": dr.title,
-            }
-            for dr in (ind.direct_reports or [])
-        ]
+        _add_research_data(result, ind)
     return result
 
 

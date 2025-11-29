@@ -218,6 +218,18 @@ async def create_job(data: Dict[str, Any]) -> Job:
             raise
 
 
+async def _sync_account_from_org(session, job: Job, data: Dict[str, Any]) -> None:
+    """Sync account_id from organization if organization_id is provided."""
+    org_id = data.get("organization_id")
+    if not org_id:
+        return
+    org = await session.get(Organization, org_id)
+    if not org or not org.account_id:
+        return
+    job.lead.account_id = org.account_id
+    data["account_id"] = org.account_id
+
+
 async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
     """Update an existing job.
 
@@ -256,11 +268,7 @@ async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
                 return await _load_job_with_relationships(session, job.id)
 
             # Handle organization/account update
-            if "organization_id" in data and data["organization_id"] is not None:
-                org = await session.get(Organization, data["organization_id"])
-                if org and org.account_id:
-                    job.lead.account_id = org.account_id
-                    data["account_id"] = org.account_id
+            await _sync_account_from_org(session, job, data)
 
             _update_lead_status(job.lead, data)
             _update_lead_source(job.lead, data)

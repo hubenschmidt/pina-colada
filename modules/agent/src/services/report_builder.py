@@ -165,38 +165,153 @@ def _get_joined_model_and_alias(primary_entity: str, join_name: str):
     return join_config.get("target"), join_config
 
 
-def _extract_field_value(row, col: str, joined_rows: Dict[str, Any]):
-    """Extract a field value from row or joined data."""
-    if "." not in col:
-        if not hasattr(row, col):
-            return None
-        val = getattr(row, col)
-        if hasattr(val, "isoformat"):
-            return val.isoformat()
-        return val
-
-    parts = col.split(".")
-    rel_name = parts[0]
-    field_name = parts[1]
-
-    # Check joined rows first
-    if rel_name in joined_rows:
-        joined_row = joined_rows[rel_name]
-        if joined_row and hasattr(joined_row, field_name):
-            val = getattr(joined_row, field_name)
-            if hasattr(val, "isoformat"):
-                return val.isoformat()
-            return val
-        return None
-
-    # Fall back to relationship on model
-    rel_obj = getattr(row, rel_name, None)
-    if not rel_obj:
-        return None
-    val = getattr(rel_obj, field_name, None)
+def _format_value(val: Any) -> Any:
+    """Format a value, converting datetime objects to ISO format."""
     if hasattr(val, "isoformat"):
         return val.isoformat()
     return val
+
+
+def _get_direct_field(row, col: str) -> Any:
+    """Get a direct field value from a row."""
+    if not hasattr(row, col):
+        return None
+    return _format_value(getattr(row, col))
+
+
+def _get_joined_field(joined_rows: Dict[str, Any], rel_name: str, field_name: str) -> Any:
+    """Get a field value from joined rows."""
+    joined_row = joined_rows.get(rel_name)
+    if not joined_row or not hasattr(joined_row, field_name):
+        return None
+    return _format_value(getattr(joined_row, field_name))
+
+
+def _get_relationship_field(row, rel_name: str, field_name: str) -> Any:
+    """Get a field value from a model relationship."""
+    rel_obj = getattr(row, rel_name, None)
+    if not rel_obj:
+        return None
+    return _format_value(getattr(rel_obj, field_name, None))
+
+
+def _extract_field_value(row, col: str, joined_rows: Dict[str, Any]):
+    """Extract a field value from row or joined data."""
+    if "." not in col:
+        return _get_direct_field(row, col)
+
+    rel_name, field_name = col.split(".", 1)
+
+    # Check joined rows first, fall back to relationship
+    joined_val = _get_joined_field(joined_rows, rel_name, field_name)
+    if joined_val is not None:
+        return joined_val
+    return _get_relationship_field(row, rel_name, field_name)
+
+
+def _is_valid_primary_filter(f: Dict[str, Any], model) -> bool:
+    """Check if a filter is valid for the primary entity."""
+    field = f.get("field")
+    operator = f.get("operator")
+    if not field or not operator:
+        return False
+    if "." in field:
+        return False  # Join field filters handled separately
+    return hasattr(model, field)
+
+
+def _apply_primary_filters(stmt, model, filters: List[Dict[str, Any]]):
+    """Apply filters on primary entity columns."""
+    valid_filters = [f for f in filters if _is_valid_primary_filter(f, model)]
+    for f in valid_filters:
+        col = getattr(model, f["field"])
+        op_func = OPERATORS.get(f["operator"])
+        if op_func:
+            stmt = stmt.where(op_func(col, f.get("value")))
+    return stmt
+
+
+def _row_passes_join_filters(row_dict: Dict[str, Any], join_filters: List[Dict[str, Any]]) -> bool:
+    """Check if a row passes all join field filters."""
+    valid_filters = [f for f in join_filters if f.get("field") and f.get("operator")]
+    for f in valid_filters:
+        field_value = row_dict.get(f["field"])
+        op_func = PYTHON_OPERATORS.get(f["operator"])
+        if op_func and not op_func(field_value, f.get("value")):
+            return False
+    return True
+
+
+ENTITY_TYPE_MAP = {
+    "leads": "Lead",
+    "organizations": "Organization",
+    "individuals": "Individual",
+    "contacts": "Contact",
+}
+
+
+async def _fetch_polymorphic_join(session, row, target_model, join_config, join_name) -> tuple:
+    """Fetch polymorphic join for notes -> entity."""
+    if row.entity_type != join_config["entity_type"]:
+        return None, None
+    join_stmt = select(target_model).where(target_model.id == row.entity_id)
+    join_result = await session.execute(join_stmt)
+    singular_key = join_name.rstrip("s") if join_name.endswith("s") else join_name
+    return singular_key, join_result.scalar_one_or_none()
+
+
+async def _fetch_notes_join(session, row, primary_entity: str, tenant_id: int) -> tuple:
+    """Fetch notes join for entity -> notes."""
+    entity_type = ENTITY_TYPE_MAP.get(primary_entity)
+    if not entity_type:
+        return None, None
+    join_stmt = (
+        select(Note)
+        .where(
+            Note.tenant_id == tenant_id,
+            Note.entity_type == entity_type,
+            Note.entity_id == row.id,
+        )
+        .order_by(Note.created_at.desc())
+        .limit(1)
+    )
+    join_result = await session.execute(join_stmt)
+    return "note", join_result.scalar_one_or_none()
+
+
+async def _fetch_single_join(
+    session, row, join_name: str, target_model, join_config, primary_entity: str, tenant_id: int
+) -> tuple:
+    """Fetch a single join based on entity type."""
+    # Notes use polymorphic join via entity_type/entity_id
+    if primary_entity == "notes" and join_config.get("entity_type"):
+        return await _fetch_polymorphic_join(session, row, target_model, join_config, join_name)
+
+    if join_name == "notes":
+        return await _fetch_notes_join(session, row, primary_entity, tenant_id)
+
+    return None, None
+
+
+async def _fetch_joined_rows(
+    session, row, joins: List[str], primary_entity: str, tenant_id: int
+) -> Dict[str, Any]:
+    """Fetch all joined data for a row."""
+    joined_rows = {}
+    valid_joins = [
+        (name, *_get_joined_model_and_alias(primary_entity, name))
+        for name in joins
+    ]
+    valid_joins = [(name, model, config) for name, model, config in valid_joins if model]
+
+    for join_name, target_model, join_config in valid_joins:
+        key, value = await _fetch_single_join(
+            session, row, join_name, target_model, join_config, primary_entity, tenant_id
+        )
+        if key:
+            joined_rows[key] = value
+
+    return joined_rows
 
 
 async def execute_custom_query(
@@ -233,21 +348,7 @@ async def execute_custom_query(
             stmt = stmt.options(selectinload(Individual.account))
 
         # Apply filters on primary entity
-        if filters:
-            for f in filters:
-                field = f.get("field")
-                operator = f.get("operator")
-                value = f.get("value")
-                if not field or not operator:
-                    continue
-                if "." in field:
-                    continue  # Skip join field filters for now
-                if not hasattr(model, field):
-                    continue
-                col = getattr(model, field)
-                op_func = OPERATORS.get(operator)
-                if op_func:
-                    stmt = stmt.where(op_func(col, value))
+        stmt = _apply_primary_filters(stmt, model, filters or [])
 
         # Get total count before pagination
         count_stmt = select(func.count()).select_from(stmt.subquery())
@@ -261,65 +362,14 @@ async def execute_custom_query(
         # Fetch joined data for each row
         data = []
         for row in rows:
-            joined_rows = {}
-
-            # Handle entity joins (e.g., notes -> leads)
-            for join_name in joins:
-                target_model, join_config = _get_joined_model_and_alias(primary_entity, join_name)
-                if not target_model:
-                    continue
-
-                # Notes use polymorphic join via entity_type/entity_id
-                if primary_entity == "notes" and join_config.get("entity_type"):
-                    if row.entity_type == join_config["entity_type"]:
-                        join_stmt = select(target_model).where(target_model.id == row.entity_id)
-                        join_result = await session.execute(join_stmt)
-                        # Store with singular key to match field prefix (e.g., "organization" not "organizations")
-                        singular_key = join_name.rstrip("s") if join_name.endswith("s") else join_name
-                        joined_rows[singular_key] = join_result.scalar_one_or_none()
-                # Other entities joining to notes
-                elif join_name == "notes":
-                    entity_type_map = {
-                        "leads": "Lead",
-                        "organizations": "Organization",
-                        "individuals": "Individual",
-                        "contacts": "Contact",
-                    }
-                    entity_type = entity_type_map.get(primary_entity)
-                    if entity_type:
-                        join_stmt = (
-                            select(Note)
-                            .where(
-                                Note.tenant_id == tenant_id,
-                                Note.entity_type == entity_type,
-                                Note.entity_id == row.id,
-                            )
-                            .order_by(Note.created_at.desc())
-                            .limit(1)
-                        )
-                        join_result = await session.execute(join_stmt)
-                        joined_rows["note"] = join_result.scalar_one_or_none()
-
-            row_dict = {}
-            for col in columns:
-                row_dict[col] = _extract_field_value(row, col, joined_rows)
+            joined_rows = await _fetch_joined_rows(
+                session, row, joins, primary_entity, tenant_id
+            )
+            row_dict = {col: _extract_field_value(row, col, joined_rows) for col in columns}
 
             # Apply join field filters (post-fetch filtering)
             join_filters = [f for f in (filters or []) if "." in f.get("field", "")]
-            passes_filters = True
-            for f in join_filters:
-                field = f.get("field")
-                operator = f.get("operator")
-                filter_value = f.get("value")
-                if not field or not operator:
-                    continue
-                field_value = row_dict.get(field)
-                op_func = PYTHON_OPERATORS.get(operator)
-                if op_func and not op_func(field_value, filter_value):
-                    passes_filters = False
-                    break
-
-            if passes_filters:
+            if _row_passes_join_filters(row_dict, join_filters):
                 data.append(row_dict)
 
         return {"data": data, "total": len(data), "limit": limit, "offset": offset}
@@ -460,6 +510,43 @@ async def get_contact_coverage_report(tenant_id: int) -> Dict[str, Any]:
         }
 
 
+def _format_person_name(first: Optional[str], last: Optional[str]) -> Optional[str]:
+    """Format a person's name from first and last name fields."""
+    first = first or ""
+    last = last or ""
+    name = f"{first} {last}".strip()
+    return name or None
+
+
+# Entity name extractors for polymorphic note lookups
+ENTITY_NAME_EXTRACTORS = {
+    "Organization": lambda entity: entity.name if entity else None,
+    "Individual": lambda entity: _format_person_name(entity.first_name, entity.last_name) if entity else None,
+    "Contact": lambda entity: _format_person_name(
+        getattr(entity, "first_name", ""), getattr(entity, "last_name", "")
+    ) if entity else None,
+    "Lead": lambda entity: entity.title if entity else None,
+}
+
+ENTITY_MODEL_MAP = {
+    "Organization": Organization,
+    "Individual": Individual,
+    "Contact": Contact,
+    "Lead": Lead,
+}
+
+
+async def _get_entity_name_for_note(session, note) -> Optional[str]:
+    """Get the entity name for a note using dict dispatch."""
+    model = ENTITY_MODEL_MAP.get(note.entity_type)
+    if not model:
+        return None
+    result = await session.execute(select(model).where(model.id == note.entity_id))
+    entity = result.scalar_one_or_none()
+    extractor = ENTITY_NAME_EXTRACTORS.get(note.entity_type, lambda e: None)
+    return extractor(entity)
+
+
 async def get_notes_activity_report(tenant_id: int) -> Dict[str, Any]:
     """Generate notes activity canned report."""
     async with async_get_session() as session:
@@ -489,35 +576,7 @@ async def get_notes_activity_report(tenant_id: int) -> Dict[str, Any]:
         # Get recent 10 notes with entity names
         recent_notes = []
         for note in notes[:10]:
-            entity_name = None
-            if note.entity_type == "Organization":
-                org_result = await session.execute(
-                    select(Organization).where(Organization.id == note.entity_id)
-                )
-                org = org_result.scalar_one_or_none()
-                entity_name = org.name if org else None
-            elif note.entity_type == "Individual":
-                ind_result = await session.execute(
-                    select(Individual).where(Individual.id == note.entity_id)
-                )
-                ind = ind_result.scalar_one_or_none()
-                entity_name = f"{ind.first_name} {ind.last_name}".strip() if ind else None
-            elif note.entity_type == "Contact":
-                contact_result = await session.execute(
-                    select(Contact).where(Contact.id == note.entity_id)
-                )
-                contact = contact_result.scalar_one_or_none()
-                if contact:
-                    first = getattr(contact, "first_name", "") or ""
-                    last = getattr(contact, "last_name", "") or ""
-                    entity_name = f"{first} {last}".strip() or None
-            elif note.entity_type == "Lead":
-                lead_result = await session.execute(
-                    select(Lead).where(Lead.id == note.entity_id)
-                )
-                lead = lead_result.scalar_one_or_none()
-                entity_name = lead.title if lead else None
-
+            entity_name = await _get_entity_name_for_note(session, note)
             recent_notes.append({
                 "id": note.id,
                 "entity_type": note.entity_type,

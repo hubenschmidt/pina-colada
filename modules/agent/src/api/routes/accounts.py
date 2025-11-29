@@ -13,23 +13,18 @@ from models.Account import Account
 router = APIRouter(prefix="/accounts", tags=["accounts"])
 
 
+def _get_account_type_and_entity_id(account) -> tuple:
+    """Determine account type and entity ID from linked records."""
+    if account.organizations:
+        return "organization", account.organizations[0].id
+    if account.individuals:
+        return "individual", account.individuals[0].id
+    return "unknown", account.id
+
+
 def _account_to_dict(account):
     """Convert account to dict with type info."""
-    # Determine type based on linked records
-    has_org = bool(account.organizations)
-    has_ind = bool(account.individuals)
-
-    if has_org:
-        account_type = "organization"
-        # Get the org's ID for linking
-        entity_id = account.organizations[0].id if account.organizations else account.id
-    elif has_ind:
-        account_type = "individual"
-        entity_id = account.individuals[0].id if account.individuals else account.id
-    else:
-        account_type = "unknown"
-        entity_id = account.id
-
+    account_type, entity_id = _get_account_type_and_entity_id(account)
     return {
         "id": entity_id,
         "account_id": account.id,

@@ -2,9 +2,50 @@
 
 from datetime import datetime, date
 from typing import Any, Dict, Optional
-from sqlalchemy.orm import RelationshipProperty
 from sqlalchemy.orm.exc import DetachedInstanceError
 from sqlalchemy.inspection import inspect
+
+
+def _serialize_value(value: Any) -> Any:
+    """Serialize a single value, handling datetime types."""
+    if isinstance(value, (datetime, date)) and value:
+        return value.isoformat()
+    return value
+
+
+def _serialize_columns(model: Any, mapper) -> Dict[str, Any]:
+    """Extract and serialize column values from a model."""
+    return {
+        column.key: _serialize_value(getattr(model, column.key))
+        for column in mapper.columns
+    }
+
+
+def _serialize_relationship(
+    rel_value: Any,
+    max_depth: int,
+    current_depth: int,
+    seen: set
+) -> Any:
+    """Serialize a relationship value (single or list)."""
+    if rel_value is None:
+        return None
+
+    if isinstance(rel_value, list):
+        return [
+            model_to_dict(item, True, max_depth, current_depth + 1, seen.copy())
+            for item in rel_value
+        ]
+
+    return model_to_dict(rel_value, True, max_depth, current_depth + 1, seen.copy())
+
+
+def _get_relationship_value(model: Any, key: str) -> tuple:
+    """Safely get a relationship value, handling detached instances."""
+    try:
+        return True, getattr(model, key, None)
+    except DetachedInstanceError:
+        return False, None
 
 
 def model_to_dict(
@@ -14,74 +55,28 @@ def model_to_dict(
     _current_depth: int = 0,
     _seen: Optional[set] = None
 ) -> Dict[str, Any]:
-    """
-    Convert a SQLAlchemy ORM model to a dictionary.
-
-    Args:
-        model: SQLAlchemy model instance
-        include_relationships: If True, include related objects as nested dicts
-        max_depth: Maximum depth for nested relationships (default 3)
-        _current_depth: Internal counter for current depth
-        _seen: Internal set to track visited objects and prevent cycles
-
-    Returns:
-        Dictionary representation of the model
-    """
+    """Convert a SQLAlchemy ORM model to a dictionary."""
     if model is None:
         return {}
 
-    if _seen is None:
-        _seen = set()
-
+    seen = _seen if _seen is not None else set()
     model_id = id(model)
-    if model_id in _seen:
+    if model_id in seen:
         return {}
-    _seen.add(model_id)
+    seen.add(model_id)
 
-    result = {}
     mapper = inspect(model.__class__)
+    result = _serialize_columns(model, mapper)
 
-    for column in mapper.columns:
-        value = getattr(model, column.key)
-        result[column.key] = value.isoformat() if isinstance(value, (datetime, date)) and value else value
+    if not include_relationships or _current_depth >= max_depth:
+        return result
 
-    if include_relationships and _current_depth < max_depth:
-        def process_relationship(relationship):
-            try:
-                rel_value = getattr(model, relationship.key, None)
-            except DetachedInstanceError:
-                # Relationship not loaded and session is closed - skip it
-                return
-            
-            if rel_value is None:
-                result[relationship.key] = None
-                return
-            
-            if isinstance(rel_value, list):
-                # One-to-many or many-to-many relationship
-                result[relationship.key] = [
-                    model_to_dict(
-                        item,
-                        include_relationships=True,
-                        max_depth=max_depth,
-                        _current_depth=_current_depth + 1,
-                        _seen=_seen.copy()
-                    )
-                    for item in rel_value
-                ]
-                return
-            
-            # Many-to-one or one-to-one relationship
-            result[relationship.key] = model_to_dict(
-                rel_value,
-                include_relationships=True,
-                max_depth=max_depth,
-                _current_depth=_current_depth + 1,
-                _seen=_seen.copy()
+    for relationship in mapper.relationships:
+        loaded, rel_value = _get_relationship_value(model, relationship.key)
+        if loaded:
+            result[relationship.key] = _serialize_relationship(
+                rel_value, max_depth, _current_depth, seen
             )
-        
-        for relationship in mapper.relationships:
-            process_relationship(relationship)
 
     return result
 

@@ -144,23 +144,23 @@ async def get_or_create_contact(
     is_primary: bool = False
 ) -> Contact:
     """Get or create a contact, optionally linked to individual and/or organization."""
+
+    async def _sync_primary_status(contact: Contact) -> Contact:
+        if contact.is_primary != is_primary:
+            await _update_contact_primary(contact.id, is_primary)
+            contact.is_primary = is_primary
+        return contact
+
     # If contact_id is provided, find by ID first
     if contact_id is not None:
         existing = await find_contact_by_id(contact_id)
         if existing:
-            if existing.is_primary != is_primary:
-                await _update_contact_primary(existing.id, is_primary)
-                existing.is_primary = is_primary
-            return existing
+            return await _sync_primary_status(existing)
 
     # Otherwise try to find by individual/org/name
     existing = await _find_existing_contact(individual_id, organization_id, first_name, last_name)
     if existing:
-        # Update is_primary if it changed
-        if existing.is_primary != is_primary:
-            await _update_contact_primary(existing.id, is_primary)
-            existing.is_primary = is_primary
-        return existing
+        return await _sync_primary_status(existing)
 
     async with async_get_session() as session:
         try:

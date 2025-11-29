@@ -350,95 +350,92 @@ def get_data_source_info() -> str:
         return f"Unable to get data source information: {e}"
 
 
+def _try_extract_title(query_lower: str, keyword: str) -> Optional[str]:
+    """Try to extract a title after a specific keyword."""
+    if keyword not in query_lower:
+        return None
+    parts = query_lower.split(keyword)
+    if len(parts) <= 1:
+        return None
+    potential_title = parts[-1].strip().strip('"').strip("'").strip()
+    return potential_title or None
+
+
+def _extract_title_after_keyword(query_lower: str, keywords: list) -> Optional[str]:
+    """Extract job title that follows a keyword."""
+    for kw in keywords:
+        title = _try_extract_title(query_lower, kw)
+        if title:
+            return title
+    return None
+
+
 def _parse_tool_input(query: str) -> tuple:
     """Parse tool input string into company and job_title parameters."""
-    # LangChain Tool passes a single string, so we need to parse it
-    # Try to extract company and job_title from the query
-    query_lower = query.lower().strip()
-
-    # If it's empty, return empty strings
     if not query:
         return "", ""
 
-    # Try to detect if it's asking for a specific job title
-    # Common patterns: "Software Engineer", "jobs with Software Engineer", "include Software Engineer"
+    query_lower = query.lower().strip()
     title_keywords = ["title", "role", "position", "job"]
     company_keywords = ["company", "at", "for"]
 
-    # Simple heuristic: if query contains title-related words, treat as job_title
-    # Otherwise, check if it looks like a company name or job title
+    # Try to extract title after keywords
     if any(kw in query_lower for kw in title_keywords):
-        # Extract the job title part
-        for kw in title_keywords:
-            if kw in query_lower:
-                parts = query_lower.split(kw)
-                if len(parts) > 1:
-                    potential_title = parts[-1].strip().strip('"').strip("'").strip()
-                    if potential_title:
-                        return "", potential_title
+        extracted = _extract_title_after_keyword(query_lower, title_keywords)
+        if extracted:
+            return "", extracted
 
-    # If it's a short phrase without keywords, assume it's a job title
-    if len(query.split()) <= 5 and not any(
-        kw in query_lower for kw in company_keywords
-    ):
+    # Short phrase without company keywords -> assume job title
+    is_short = len(query.split()) <= 5
+    has_company_keyword = any(kw in query_lower for kw in company_keywords)
+    if is_short and not has_company_keyword:
         return "", query.strip()
 
-    # Default: treat as job_title
     return "", query.strip()
+
+
+def _parse_query_input(query) -> tuple:
+    """Parse query input into (company, job_title) tuple."""
+    if isinstance(query, dict):
+        return query.get("company", ""), query.get("job_title", "")
+    if isinstance(query, str) and query:
+        return _parse_tool_input(query)
+    return "", ""
+
+
+def _route_job_check(tracker, company: str, job_title: str, applied_jobs: list, jobs_details: list) -> str:
+    """Route to appropriate handler based on query parameters."""
+    if not applied_jobs:
+        return _handle_no_applications(tracker)
+    if company and job_title:
+        return _handle_specific_job_check(tracker, company, job_title)
+    if company:
+        return _handle_company_filter(tracker, company, jobs_details)
+    if job_title:
+        return _handle_job_title_filter(tracker, job_title, jobs_details)
+    return _handle_list_all(tracker, applied_jobs, jobs_details)
 
 
 def check_applied_jobs(query: str = "") -> str:
     """
     Check if a specific job has been applied to, or list all applied jobs.
 
-    This function accepts a query string that can contain:
-    - A job title (e.g., "Software Engineer")
-    - A company name (e.g., "Google")
-    - Both (e.g., "Google Software Engineer")
-    - Empty string to list all jobs
-
     Args:
-        query: Search query string (optional)
+        query: Search query string (optional) - can be job title, company, or both
 
     Returns:
         Status message about applied jobs
     """
     try:
-        # Parse the input - handle both string and dict formats
-        company = ""
-        job_title = ""
-
-        if isinstance(query, dict):
-            company = query.get("company", "")
-            job_title = query.get("job_title", "")
-        if isinstance(query, str) and query:
-            company, job_title = _parse_tool_input(query)
-
-        logger.info(
-            f"check_applied_jobs called with query='{query}', parsed as company='{company}', job_title='{job_title}'"
-        )
+        company, job_title = _parse_query_input(query)
+        logger.info(f"check_applied_jobs: query='{query}', company='{company}', job_title='{job_title}'")
 
         tracker = get_applied_jobs_tracker()
         applied_jobs = tracker["fetch_applied_jobs"](refresh=True)
         jobs_details = tracker["get_jobs_details"](refresh=True)
+        logger.info(f"Applied: {len(applied_jobs)}, Details: {len(jobs_details)}")
 
-        logger.info(
-            f"Total applied_jobs count: {len(applied_jobs)}, Total jobs_details count: {len(jobs_details)}"
-        )
-
-        if not applied_jobs:
-            return _handle_no_applications(tracker)
-
-        if company and job_title:
-            return _handle_specific_job_check(tracker, company, job_title)
-
-        if company:
-            return _handle_company_filter(tracker, company, jobs_details)
-
-        if job_title:
-            return _handle_job_title_filter(tracker, job_title, jobs_details)
-
-        return _handle_list_all(tracker, applied_jobs, jobs_details)
+        return _route_job_check(tracker, company, job_title, applied_jobs, jobs_details)
 
     except Exception as e:
         logger.error(f"Failed to check applied jobs: {e}")
@@ -572,46 +569,36 @@ def _title_matches(search_title: str, applied_title: str) -> bool:
     return False
 
 
+def _is_valid_applied_job(job: Dict[str, str]) -> bool:
+    """Check if job has valid status and required fields."""
+    status = job.get("status", "").lower()
+    has_valid_status = status in ["applied", "do_not_apply"]
+    has_required_fields = bool(job.get("company")) and bool(job.get("title"))
+    return has_valid_status and has_required_fields
+
+
+def _job_matches_criteria(job: Dict[str, str], company: str, title: str) -> bool:
+    """Check if a single job matches the search criteria."""
+    company_match = _company_matches(company, job.get("company", ""))
+    title_match = _title_matches(title, job.get("title", ""))
+    if company_match and title_match:
+        logger.info(
+            f"Filtering out job: {company} - {title} "
+            f"(matches {job.get('company')} - {job.get('title')}, status={job.get('status')})"
+        )
+        return True
+    return False
+
+
 def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
     """Check if a job matches any applied or do_not_apply job (strict matching)."""
-    if not company and not title:
-        return False
-
-    # Require both company AND title to match (strict)
+    # Require both company AND title for strict matching
     if not company or not title:
-        logger.debug(
-            f"Skipping match check - missing company or title: company={bool(company)}, title={bool(title)}"
-        )
+        logger.debug(f"Skipping match check - company={bool(company)}, title={bool(title)}")
         return False
 
-    def _check_job_match(applied_job: Dict[str, str]) -> bool:
-        # Check jobs with status 'applied' or 'do_not_apply'
-        job_status = applied_job.get("status", "").lower()
-        if job_status not in ["applied", "do_not_apply"]:
-            return False
-
-        applied_company = applied_job.get("company", "")
-        applied_title = applied_job.get("title", "")
-
-        if not applied_company or not applied_title:
-            return False
-
-        company_match = _company_matches(company, applied_company)
-        title_match = _title_matches(title, applied_title)
-
-        if company_match and title_match:
-            logger.info(
-                f"Filtering out job: {company} - {title} (matches {applied_company} - {applied_title}, status={job_status})"
-            )
-            return True
-
-        return False
-
-    for applied_job in jobs_details:
-        if _check_job_match(applied_job):
-            return True
-
-    return False
+    valid_jobs = [j for j in jobs_details if _is_valid_applied_job(j)]
+    return any(_job_matches_criteria(j, company, title) for j in valid_jobs)
 
 
 def _extract_company_from_line(line: str) -> str:
@@ -716,12 +703,46 @@ def _filter_job_results(raw_results: str, tracker, jobs_details: list) -> str:
     return "\n".join(filtered_lines)
 
 
+VALID_JOB_STATUSES = ["applied", "interviewing", "rejected", "offer", "accepted", "do_not_apply"]
+
+
+def _try_update_existing_job(company: str, job_title: str, status: str, job_url: str, notes: str) -> Optional[str]:
+    """Try to update an existing job. Returns success message or None if not found."""
+    updated = update_job_by_company(
+        company=company,
+        job_title=job_title,
+        status=status,
+        lead_status_id=None,
+        job_url=job_url or None,
+        notes=notes or None,
+    )
+    if updated:
+        logger.info(f"Updated existing job: {company} - {job_title} to status {status}")
+        return f"Successfully marked {company} - {job_title} as {status}"
+    return None
+
+
+def _create_new_job(company: str, job_title: str, status: str, job_url: str, notes: str) -> str:
+    """Create a new job entry. Returns success/failure message."""
+    logger.info(f"Creating new job: {company} - {job_title} with status {status}")
+    new_job = add_job(
+        company=company,
+        job_title=job_title,
+        status=status,
+        job_url=job_url or "",
+        notes=notes or "",
+        source="agent",
+    )
+    if not new_job:
+        return f"Failed to create job entry for {company} - {job_title}"
+    return f"Successfully marked {company} - {job_title} as {status}"
+
+
 def update_job_status(
     company: str, job_title: str, status: str, job_url: str = "", notes: str = ""
 ) -> str:
     """
-    Update the status of a job application. Use this when the user says they applied
-    to a company, or wants to mark a job as 'do not apply'.
+    Update the status of a job application.
 
     Args:
         company: The company name (fuzzy matching supported)
@@ -729,56 +750,16 @@ def update_job_status(
         status: The status to set (applied, interviewing, rejected, offer, accepted, do_not_apply)
         job_url: Optional URL for the job posting
         notes: Optional notes about the application
-
-    Returns:
-        Confirmation message
     """
-    # Validate status
-    valid_statuses = [
-        "applied",
-        "interviewing",
-        "rejected",
-        "offer",
-        "accepted",
-        "do_not_apply",
-    ]
-    if status.lower() not in valid_statuses:
-        return f"Invalid status '{status}'. Valid statuses are: {', '.join(valid_statuses)}"
+    status_lower = status.lower()
+    if status_lower not in VALID_JOB_STATUSES:
+        return f"Invalid status '{status}'. Valid: {', '.join(VALID_JOB_STATUSES)}"
 
     try:
-        # Try to find and update existing job (including leads)
-        updated_job = update_job_by_company(
-            company=company,
-            job_title=job_title,
-            status=status.lower(),
-            lead_status_id=None,  # Clear lead_status when status changes
-            job_url=job_url if job_url else None,
-            notes=notes if notes else None,
-        )
-
-        if updated_job:
-            logger.info(
-                f"Updated existing job: {company} - {job_title} to status {status}"
-            )
-            return f"Successfully marked {company} - {job_title} as {status}"
-
-        # If not found, create new entry
-        logger.info(
-            f"No existing job found, creating new: {company} - {job_title} with status {status}"
-        )
-        new_job = add_job(
-            company=company,
-            job_title=job_title,
-            status=status.lower(),
-            job_url=job_url if job_url else "",
-            notes=notes if notes else "",
-            source="agent",
-        )
-
-        if not new_job:
-            return f"Failed to create job entry for {company} - {job_title}"
-        return f"Successfully marked {company} - {job_title} as {status}"
-
+        result = _try_update_existing_job(company, job_title, status_lower, job_url, notes)
+        if result:
+            return result
+        return _create_new_job(company, job_title, status_lower, job_url, notes)
     except Exception as e:
         logger.error(f"Failed to update job status: {e}")
         logger.error(traceback.format_exc())
