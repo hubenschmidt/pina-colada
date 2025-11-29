@@ -3,14 +3,16 @@
 from typing import Optional, List
 from fastapi import APIRouter, Request, Query, HTTPException
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import select, delete as sql_delete
 
 from lib.error_logging import log_errors
 from lib.auth import require_auth
 from lib.validators import validate_phone
 from lib.db import async_get_session
 from repositories.contact_repository import search_contacts_and_individuals, delete_contact
-from models.Contact import Contact
+from models.Contact import Contact, ContactIndividual, ContactOrganization
+from models.Individual import Individual
+from models.Organization import Organization
 
 
 class ContactCreate(BaseModel):
@@ -139,10 +141,6 @@ async def get_contact_route(request: Request, contact_id: int):
 @require_auth
 async def create_contact_route(request: Request, data: ContactCreate):
     """Create a new contact with optional individual/organization links."""
-    from models.Contact import ContactIndividual, ContactOrganization
-    from models.Individual import Individual
-    from models.Organization import Organization
-
     async with async_get_session() as session:
         # Create the contact
         contact = Contact(
@@ -185,9 +183,6 @@ async def create_contact_route(request: Request, data: ContactCreate):
 @require_auth
 async def update_contact_route(request: Request, contact_id: int, data: ContactUpdate):
     """Update an existing contact."""
-    from models.Contact import ContactIndividual, ContactOrganization
-    from sqlalchemy import delete as sql_delete
-
     async with async_get_session() as session:
         stmt = select(Contact).where(Contact.id == contact_id)
         result = await session.execute(stmt)

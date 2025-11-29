@@ -4,7 +4,7 @@ import logging
 from typing import Any, Dict, List, Optional
 from io import BytesIO
 
-from sqlalchemy import select, func, and_, or_, text
+from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
 from models.Organization import Organization
