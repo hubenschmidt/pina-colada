@@ -113,9 +113,9 @@ const CustomReportsPage = () => {
     {
       header: "Scope",
       render: (report) =>
-        report.project_ids && report.project_ids.length > 0 ? (
+        report.query_definition?.primary_entity === "leads" && selectedProject ? (
           <Badge variant="light" color="lime">
-            {report.project_names?.[0] || "Project"}
+            {selectedProject.name}
           </Badge>
         ) : (
           <Badge variant="light" color="gray">
