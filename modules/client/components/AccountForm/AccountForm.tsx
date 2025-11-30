@@ -6,6 +6,7 @@ import RelationshipsSection, { Relationship } from "../RelationshipsSection/Rela
 import NotesSection from "../NotesSection/NotesSection";
 import TasksSection from "../TasksSection/TasksSection";
 import CommentsSection from "../CommentsSection/CommentsSection";
+import DocumentsSection from "../DocumentsSection/DocumentsSection";
 import FormActions from "../FormActions/FormActions";
 import Timestamps from "../Timestamps/Timestamps";
 import {
@@ -22,6 +23,7 @@ import {
   createTask,
   getIndustries,
   TaskInput,
+  linkDocumentToEntity,
 } from "../../api";
 import { useProjectContext } from "../../context/projectContext";
 import { SearchResult } from "../ContactSection/ContactSection";
@@ -61,6 +63,7 @@ const AccountForm = ({
   const [pendingNotes, setPendingNotes] = useState<string[]>([]);
   const [pendingTasks, setPendingTasks] = useState<TaskInput[]>([]);
   const [pendingComments, setPendingComments] = useState<string[]>([]);
+  const [pendingDocumentIds, setPendingDocumentIds] = useState<number[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [pendingRelationships, setPendingRelationships] = useState<Relationship[]>([]);
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
@@ -82,6 +85,7 @@ const AccountForm = ({
       setPendingNotes([]);
       setPendingTasks([]);
       setPendingComments([]);
+      setPendingDocumentIds([]);
       setPendingRelationships([]);
       setErrors({});
       setIsDeleting(false);
@@ -222,6 +226,17 @@ const AccountForm = ({
     }
   };
 
+  const linkPendingDocuments = async (entityId: number) => {
+    const entityType = isOrganization ? "Organization" : "Individual";
+    for (const documentId of pendingDocumentIds) {
+      try {
+        await linkDocumentToEntity(documentId, entityType, entityId);
+      } catch (err) {
+        console.error("Failed to link document:", err);
+      }
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
@@ -259,6 +274,7 @@ const AccountForm = ({
       await createRelationshipContacts(created.id);
       await createPendingNotes(created.id);
       await createPendingTasks(created.id);
+      await linkPendingDocuments(created.id);
       onClose();
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : `Failed to ${isEditMode ? "update" : "create"}`;
@@ -565,6 +581,15 @@ const AccountForm = ({
             entityId={isEditMode ? account?.id ?? null : null}
             pendingTasks={!isEditMode ? pendingTasks : undefined}
             onPendingTasksChange={!isEditMode ? setPendingTasks : undefined}
+          />
+        </div>
+
+        <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
+          <DocumentsSection
+            entityType={isOrganization ? "Organization" : "Individual"}
+            entityId={isEditMode ? account?.id ?? null : null}
+            pendingDocumentIds={!isEditMode ? pendingDocumentIds : undefined}
+            onPendingDocumentIdsChange={!isEditMode ? setPendingDocumentIds : undefined}
           />
         </div>
 

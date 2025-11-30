@@ -126,6 +126,7 @@ const DocumentDetailPage = () => {
       Individual: `/accounts/individuals/${entityId}`,
       Project: `/projects/${entityId}`,
       Contact: `/accounts/contacts/${entityId}`,
+      Lead: `/leads/jobs/${entityId}`,
     };
     return typeMap[entityType] || "#";
   };

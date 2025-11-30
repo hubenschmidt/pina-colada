@@ -10,11 +10,12 @@ import ContactSection, {
   ContactFieldConfig,
   SearchResult,
 } from "../ContactSection/ContactSection";
-import { searchContacts, updateJob, createNote, createTask, TaskInput } from "../../api";
+import { searchContacts, updateJob, createNote, createTask, TaskInput, linkDocumentToEntity } from "../../api";
 import FormActions from "../FormActions/FormActions";
 import NotesSection from "../NotesSection/NotesSection";
 import TasksSection from "../TasksSection/TasksSection";
 import CommentsSection from "../CommentsSection/CommentsSection";
+import DocumentsSection from "../DocumentsSection/DocumentsSection";
 import Timestamps from "../Timestamps/Timestamps";
 import { usePendingChanges } from "../../hooks/usePendingChanges";
 import { ProjectContext } from "../../context/projectContext";
@@ -55,6 +56,7 @@ const LeadForm = <T extends BaseLead>({
   const [pendingNotes, setPendingNotes] = useState<string[]>([]);
   const [pendingTasks, setPendingTasks] = useState<TaskInput[]>([]);
   const [pendingComments, setPendingComments] = useState<string[]>([]);
+  const [pendingDocumentIds, setPendingDocumentIds] = useState<number[]>([]);
 
   // Parse field value based on field type
   const parseFieldValue = (field: FormFieldConfig<T>, value: any): any => {
@@ -389,6 +391,9 @@ const LeadForm = <T extends BaseLead>({
         }
         if (pendingTasks.length > 0) {
           await createPendingTasks(leadId);
+        }
+        if (pendingDocumentIds.length > 0) {
+          await linkPendingDocuments(leadId);
         }
       }
 
@@ -797,6 +802,15 @@ const LeadForm = <T extends BaseLead>({
           entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
           pendingTasks={!isEditMode ? pendingTasks : undefined}
           onPendingTasksChange={!isEditMode ? setPendingTasks : undefined}
+        />
+      </div>
+
+      <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
+        <DocumentsSection
+          entityType="Lead"
+          entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
+          pendingDocumentIds={!isEditMode ? pendingDocumentIds : undefined}
+          onPendingDocumentIdsChange={!isEditMode ? setPendingDocumentIds : undefined}
         />
       </div>
 

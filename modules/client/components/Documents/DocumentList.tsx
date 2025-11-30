@@ -151,6 +151,7 @@ export const DocumentList = ({
       Individual: `/accounts/individuals/${entityId}`,
       Project: `/projects/${entityId}`,
       Contact: `/accounts/contacts/${entityId}`,
+      Lead: `/leads/jobs/${entityId}`,
     };
     return typeMap[entityType] || "#";
   };
@@ -206,7 +207,7 @@ export const DocumentList = ({
                 color="blue"
                 style={{ cursor: "pointer" }}
               >
-                {entity.entity_type}
+                {entity.entity_type} #{entity.entity_id}
               </Badge>
             </Anchor>
           ))}
