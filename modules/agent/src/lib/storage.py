@@ -32,6 +32,10 @@ class StorageBackend(ABC):
     def get_url(self, path: str, expires_in: int = 3600) -> str:
         """Get download URL (signed for R2, file:// for local)."""
 
+    @abstractmethod
+    async def exists(self, path: str) -> bool:
+        """Check if file exists."""
+
 
 class LocalStorage(StorageBackend):
     """Filesystem storage for local development."""
@@ -58,6 +62,9 @@ class LocalStorage(StorageBackend):
 
     def get_url(self, path: str, expires_in: int = 3600) -> str:
         return f"file://{(self.base_path / path).absolute()}"
+
+    async def exists(self, path: str) -> bool:
+        return (self.base_path / path).exists()
 
 
 class R2Storage(StorageBackend):
@@ -100,6 +107,13 @@ class R2Storage(StorageBackend):
             Params={"Bucket": self.bucket, "Key": path},
             ExpiresIn=expires_in,
         )
+
+    async def exists(self, path: str) -> bool:
+        try:
+            self.client.head_object(Bucket=self.bucket, Key=path)
+            return True
+        except self.client.exceptions.ClientError:
+            return False
 
 
 def get_storage() -> StorageBackend:

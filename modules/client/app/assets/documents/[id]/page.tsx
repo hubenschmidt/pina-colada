@@ -31,7 +31,7 @@ import {
 import {
   getDocument,
   deleteDocument,
-  getDocumentDownloadUrl,
+  downloadDocument,
   Document,
 } from "../../../../api";
 
@@ -65,8 +65,7 @@ const DocumentDetailPage = () => {
   const handleDownload = async () => {
     if (!document) return;
     try {
-      const { url } = await getDocumentDownloadUrl(document.id);
-      window.open(url, "_blank");
+      await downloadDocument(document.id, document.filename);
     } catch (err) {
       console.error("Download failed:", err);
     }

@@ -22,6 +22,10 @@ uv run python scripts/apply_migrations.py || echo "⚠️  Could not apply migra
 echo "ℹ️  Running database seeders..."
 uv run python scripts/run_seeders.py || echo "⚠️  Could not run seeders"
 
+# Upload seed document files to storage
+echo "ℹ️  Uploading seed document files..."
+uv run python scripts/seed_documents.py || echo "⚠️  Could not upload seed documents"
+
 # Start LangGraph dev API (2024) - already has hot-reload built-in
 # Quiet LangGraph runtime queue stats by setting log level
 export LOG_LEVEL=WARNING

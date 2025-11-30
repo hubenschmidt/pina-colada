@@ -4,7 +4,7 @@ import navReducer, { NavState } from "../reducers/navReducer";
 
 const initialState: NavState = {
   agentOpen: false,
-  sidebarCollapsed: true,
+  sidebarCollapsed: false,
 };
 
 export const NavContext = createContext<{

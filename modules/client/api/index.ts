@@ -1685,8 +1685,29 @@ export const deleteDocument = async (id: number): Promise<void> => {
   await apiDelete(`/assets/documents/${id}`);
 };
 
-export const getDocumentDownloadUrl = async (id: number): Promise<{ url: string }> => {
-  return apiGet<{ url: string }>(`/assets/documents/${id}/download`);
+export const downloadDocument = async (id: number, filename: string): Promise<void> => {
+  const apiUrl = env("NEXT_PUBLIC_API_URL");
+  const { headers } = await fetchBearerToken();
+
+  const response = await fetch(`${apiUrl}/assets/documents/${id}/download`, {
+    headers,
+  });
+
+  if (!response.ok) {
+    const text = await response.text();
+    console.error("Download error:", response.status, text);
+    throw new Error(`Download failed: ${response.status}`);
+  }
+
+  const blob = await response.blob();
+  const url = window.URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  window.URL.revokeObjectURL(url);
 };
 
 export const linkDocumentToEntity = async (

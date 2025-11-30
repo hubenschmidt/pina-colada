@@ -21,7 +21,7 @@ import { Download, Trash2, MoreVertical, FileText, Link2, Building2, User, Folde
 import {
   getDocuments,
   deleteDocument,
-  getDocumentDownloadUrl,
+  downloadDocument,
   getTags,
   Document,
 } from "../../api";
@@ -78,8 +78,7 @@ export const DocumentList = ({
 
   const handleDownload = async (doc: Document) => {
     try {
-      const { url } = await getDocumentDownloadUrl(doc.id);
-      window.open(url, "_blank");
+      await downloadDocument(doc.id, doc.filename);
     } catch (err) {
       console.error("Download failed:", err);
     }
@@ -195,6 +194,8 @@ export const DocumentList = ({
                         href={`/assets/documents/${doc.id}`}
                         size="sm"
                         fw={500}
+                        underline="hover"
+                        className="hover:font-semibold transition-all"
                       >
                         {doc.filename}
                       </Anchor>
