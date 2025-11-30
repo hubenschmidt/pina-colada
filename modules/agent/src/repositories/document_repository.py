@@ -10,6 +10,7 @@ from models.Document import Document
 from models.EntityAsset import EntityAsset
 from models.Tag import Tag, EntityTag
 from lib.db import async_get_session
+from sqlalchemy import or_
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +23,10 @@ async def find_documents_by_tenant(
     page_size: int = 50,
     order_by: str = "updated_at",
     order: str = "DESC",
+    search: Optional[str] = None,
+    tags: Optional[List[str]] = None,
 ) -> tuple[List[Document], int]:
-    """Find documents for a tenant with pagination and sorting, optionally filtered by entity."""
+    """Find documents for a tenant with pagination and sorting, optionally filtered by entity, tags, and search."""
     async with async_get_session() as session:
         # Base query
         base_stmt = select(Document).where(Document.tenant_id == tenant_id)
@@ -40,6 +43,26 @@ async def find_documents_by_tenant(
                         EntityAsset.c.entity_id == entity_id,
                     )
                 )
+            )
+
+        # Filter by tags if provided
+        if tags and len(tags) > 0:
+            base_stmt = (
+                base_stmt.join(EntityTag, EntityTag.c.entity_id == Document.id)
+                .join(Tag, Tag.id == EntityTag.c.tag_id)
+                .where(
+                    and_(
+                        EntityTag.c.entity_type == "Asset",
+                        Tag.name.in_(tags),
+                    )
+                )
+            )
+
+        # Apply search filter (filename)
+        if search and search.strip():
+            search_lower = search.strip().lower()
+            base_stmt = base_stmt.where(
+                func.lower(Document.filename).contains(search_lower)
             )
 
         # Count total
@@ -59,6 +82,9 @@ async def find_documents_by_tenant(
         stmt = base_stmt.offset(offset).limit(page_size)
         
         result = await session.execute(stmt)
+        # Use unique() if we have joins (tags or entity filtering with joins) that might create duplicates
+        if tags or (entity_type and entity_id):
+            return list(result.unique().scalars().all()), total
         return list(result.scalars().all()), total
 
 

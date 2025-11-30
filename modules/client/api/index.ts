@@ -1653,6 +1653,7 @@ export const getDocuments = async (
   limit: number = 50,
   orderBy: string = "updated_at",
   order: "ASC" | "DESC" = "DESC",
+  search?: string,
   tags?: string[],
   entityType?: string,
   entityId?: number
@@ -1663,6 +1664,7 @@ export const getDocuments = async (
     orderBy,
     order,
   });
+  if (search && search.trim()) params.append("search", search.trim());
   if (tags && tags.length > 0) params.append("tags", tags.join(","));
   if (entityType) params.append("entity_type", entityType);
   if (entityId) params.append("entity_id", entityId.toString());

@@ -79,13 +79,16 @@ async def list_documents_route(
     order: str = Query("DESC", regex="^(ASC|DESC)$"),
     entity_type: Optional[str] = None,
     entity_id: Optional[int] = None,
+    search: Optional[str] = Query(None),
+    tags: Optional[str] = Query(None),
 ):
-    """List documents for the tenant with pagination and sorting, optionally filtered by entity."""
+    """List documents for the tenant with pagination and sorting, optionally filtered by entity, tags, and search."""
     tenant_id = request.state.tenant_id
 
     normalized_type = _normalize_entity_type(entity_type) if entity_type else None
+    tag_list = tags.split(",") if tags else None
     documents, total = await find_documents_by_tenant(
-        tenant_id, normalized_type, entity_id, page, limit, order_by, order
+        tenant_id, normalized_type, entity_id, page, limit, order_by, order, search, tag_list
     )
 
     result = []
