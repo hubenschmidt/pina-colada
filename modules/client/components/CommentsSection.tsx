@@ -270,9 +270,16 @@ const CommentsSection = ({
         </div>
 
         {/* Content */}
-        <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap break-words mb-2">
+        <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap break-words">
           {comment.content}
         </p>
+
+        {/* Edited indicator */}
+        {comment.updated_at && comment.created_at && comment.updated_at !== comment.created_at && (
+          <span className="text-xs text-zinc-400 dark:text-zinc-500 italic">
+            (edited)
+          </span>
+        )}
 
         {/* Actions */}
         <div className="flex items-center gap-3 text-xs">
@@ -327,29 +334,29 @@ const CommentsSection = ({
 
         {/* Reply input */}
         {isReplying && (
-          <div className="ml-11 mt-3 flex gap-2">
+          <div className="ml-11 mt-3 space-y-2">
             <textarea
               value={replyContent}
               onChange={(e) => setReplyContent(e.target.value)}
               onKeyDown={(e) => handleKeyDown(e, () => handleAddReply(comment.id))}
-              className="flex-1 px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none"
+              className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none"
               rows={2}
               placeholder="Write a reply..."
               autoFocus
             />
-            <div className="flex flex-col gap-1">
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => handleAddReply(comment.id)}
                 disabled={!replyContent.trim()}
-                className="px-3 py-1 text-xs bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-40 transition-colors"
+                className="px-3 py-1.5 text-xs bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-40 transition-colors"
               >
                 Reply
               </button>
               <button
                 type="button"
                 onClick={cancelReplying}
-                className="px-3 py-1 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+                className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
               >
                 Cancel
               </button>
@@ -456,12 +463,12 @@ const CommentsSection = ({
         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-lime-600 flex items-center justify-center text-white text-xs font-medium">
           You
         </div>
-        <div className="flex-1 flex gap-2">
+        <div className="flex-1 space-y-2">
           <textarea
             value={newCommentContent}
             onChange={(e) => setNewCommentContent(e.target.value)}
             onKeyDown={(e) => handleKeyDown(e, handleAddComment)}
-            className="flex-1 px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none"
+            className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 focus:border-transparent bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none"
             rows={2}
             placeholder="Write a comment..."
           />
@@ -469,7 +476,7 @@ const CommentsSection = ({
             type="button"
             onClick={handleAddComment}
             disabled={!newCommentContent.trim()}
-            className="flex-shrink-0 self-end px-4 py-2 bg-lime-600 text-white text-sm rounded-lg hover:bg-lime-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-1.5 bg-lime-600 text-white text-sm rounded-lg hover:bg-lime-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             Post
           </button>

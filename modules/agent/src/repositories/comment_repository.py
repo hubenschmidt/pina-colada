@@ -82,8 +82,14 @@ async def update_comment(comment_id: int, tenant_id: int, data: Dict[str, Any]) 
                 if hasattr(comment, key):
                     setattr(comment, key, value)
             await session.commit()
-            await session.refresh(comment)
-            return comment
+            # Eager load the creator relationship
+            stmt = (
+                select(Comment)
+                .options(joinedload(Comment.creator))
+                .where(Comment.id == comment_id)
+            )
+            result = await session.execute(stmt)
+            return result.unique().scalar_one()
         except Exception as e:
             await session.rollback()
             logger.error(f"Failed to update comment: {e}")
