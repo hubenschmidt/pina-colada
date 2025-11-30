@@ -12,9 +12,16 @@ import {
   Group,
   Paper,
   ActionIcon,
+  Modal,
 } from "@mantine/core";
-import { Upload, X, FileText } from "lucide-react";
-import { uploadDocument, getTags, Document } from "../../api";
+import { Upload, X, FileText, AlertTriangle } from "lucide-react";
+import {
+  uploadDocument,
+  getTags,
+  Document,
+  checkDocumentFilename,
+  createDocumentVersion,
+} from "../../api";
 
 type DocumentUploadProps = {
   onUploadComplete?: (document: Document) => void;
@@ -43,6 +50,8 @@ export const DocumentUpload = ({
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [versionModalOpen, setVersionModalOpen] = useState(false);
+  const [existingDocument, setExistingDocument] = useState<Document | null>(null);
 
   const loadTags = useCallback(async () => {
     try {
@@ -76,9 +85,36 @@ export const DocumentUpload = ({
   const handleUpload = async () => {
     if (!file) return;
 
+    setError(null);
+
+    // Check for existing filename if entity context is provided
+    if (entityType && entityId) {
+      try {
+        const { exists, document: existing } = await checkDocumentFilename(
+          file.name,
+          entityType,
+          entityId
+        );
+        if (exists && existing) {
+          setExistingDocument(existing);
+          setVersionModalOpen(true);
+          return;
+        }
+      } catch {
+        // If check fails, proceed with upload anyway
+      }
+    }
+
+    await performUpload();
+  };
+
+  const performUpload = async (asVersion = false) => {
+    if (!file) return;
+
     setUploading(true);
     setProgress(0);
     setError(null);
+    setVersionModalOpen(false);
 
     try {
       // Simulate progress since axios doesn't expose it easily for FormData
@@ -86,13 +122,21 @@ export const DocumentUpload = ({
         setProgress((prev) => Math.min(prev + 10, 90));
       }, 100);
 
-      const document = await uploadDocument(
-        file,
-        tags.length > 0 ? tags : undefined,
-        entityType,
-        entityId,
-        description || undefined
-      );
+      let document: Document;
+
+      if (asVersion && existingDocument) {
+        // Create as new version
+        document = await createDocumentVersion(existingDocument.id, file);
+      } else {
+        // Create as new document
+        document = await uploadDocument(
+          file,
+          tags.length > 0 ? tags : undefined,
+          entityType,
+          entityId,
+          description || undefined
+        );
+      }
 
       clearInterval(progressInterval);
       setProgress(100);
@@ -101,6 +145,7 @@ export const DocumentUpload = ({
       setFile(null);
       setTags([]);
       setDescription("");
+      setExistingDocument(null);
 
       onUploadComplete?.(document);
     } catch (err) {
@@ -125,8 +170,46 @@ export const DocumentUpload = ({
   };
 
   return (
-    <Stack gap="md">
-      {!file ? (
+    <>
+      {/* Version Confirmation Modal */}
+      <Modal
+        opened={versionModalOpen}
+        onClose={() => setVersionModalOpen(false)}
+        title={
+          <Group gap="xs">
+            <AlertTriangle className="h-5 w-5 text-yellow-500" />
+            <Text fw={600}>File Already Exists</Text>
+          </Group>
+        }
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            A file named &quot;{file?.name}&quot; already exists on this entity
+            (currently at version {existingDocument?.version_number}).
+          </Text>
+          <Text size="sm" c="dimmed">
+            Would you like to create a new version of this document?
+          </Text>
+          <Group justify="flex-end" gap="sm">
+            <Button
+              variant="subtle"
+              onClick={() => {
+                setVersionModalOpen(false);
+                setExistingDocument(null);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button color="lime" onClick={() => performUpload(true)}>
+              Create New Version
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
+
+      <Stack gap="md">
+        {!file ? (
         <Paper
           {...getRootProps()}
           p="xl"
@@ -215,6 +298,7 @@ export const DocumentUpload = ({
           </Stack>
         </Paper>
       )}
-    </Stack>
+      </Stack>
+    </>
   );
 };

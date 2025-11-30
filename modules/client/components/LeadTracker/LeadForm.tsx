@@ -347,6 +347,12 @@ const LeadForm = <T extends BaseLead>({
     }
   };
 
+  const linkPendingDocuments = async (leadId: number) => {
+    for (const documentId of pendingDocumentIds) {
+      await linkDocumentToEntity(documentId, "Lead", leadId);
+    }
+  };
+
   const getFieldDefaultValue = (field: FormFieldConfig<T>): any => {
     if (field.defaultValue !== undefined) return field.defaultValue;
     if (field.type === "date") return new Date().toISOString().split("T")[0];

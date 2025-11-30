@@ -7,6 +7,7 @@ from sqlalchemy import select, and_, delete, insert, func
 from sqlalchemy.orm import joinedload
 
 from models.Document import Document
+from models.Asset import Asset
 from models.EntityAsset import EntityAsset
 from models.Tag import Tag, EntityTag
 from lib.db import async_get_session
@@ -25,24 +26,28 @@ async def find_documents_by_tenant(
     order: str = "DESC",
     search: Optional[str] = None,
     tags: Optional[List[str]] = None,
+    current_versions_only: bool = True,
 ) -> tuple[List[Document], int]:
     """Find documents for a tenant with pagination and sorting, optionally filtered by entity, tags, and search."""
     async with async_get_session() as session:
-        # Base query
+        # Base query - filter by current versions by default
         base_stmt = select(Document).where(Document.tenant_id == tenant_id)
+        if current_versions_only:
+            base_stmt = base_stmt.where(Document.is_current_version == True)
 
         if entity_type and entity_id:
             # Join with EntityAsset to filter by entity
+            conditions = [
+                Document.tenant_id == tenant_id,
+                EntityAsset.c.entity_type == entity_type,
+                EntityAsset.c.entity_id == entity_id,
+            ]
+            if current_versions_only:
+                conditions.append(Document.is_current_version == True)
             base_stmt = (
                 select(Document)
                 .join(EntityAsset, EntityAsset.c.asset_id == Document.id)
-                .where(
-                    and_(
-                        Document.tenant_id == tenant_id,
-                        EntityAsset.c.entity_type == entity_type,
-                        EntityAsset.c.entity_id == entity_id,
-                    )
-                )
+                .where(and_(*conditions))
             )
 
         # Filter by tags if provided
@@ -202,14 +207,57 @@ async def unlink_document_from_entity(
 
 
 async def get_document_entities(document_id: int) -> List[Dict[str, Any]]:
-    """Get all entities linked to a document."""
+    """Get all entities linked to a document with their names."""
+    from models.Organization import Organization
+    from models.Individual import Individual
+    from models.Project import Project
+    from models.Contact import Contact
+    from models.Lead import Lead
+
     async with async_get_session() as session:
         stmt = select(EntityAsset).where(EntityAsset.c.asset_id == document_id)
         result = await session.execute(stmt)
-        return [
-            {"entity_type": row.entity_type, "entity_id": row.entity_id}
-            for row in result.fetchall()
-        ]
+        rows = result.fetchall()
+
+        entities = []
+        for row in rows:
+            entity_name = None
+            entity_type = row.entity_type
+            entity_id = row.entity_id
+
+            # Fetch entity name based on type
+            if entity_type == "Organization":
+                name_stmt = select(Organization.name).where(Organization.id == entity_id)
+                name_result = await session.execute(name_stmt)
+                entity_name = name_result.scalar()
+            elif entity_type == "Individual":
+                name_stmt = select(Individual.first_name, Individual.last_name).where(Individual.id == entity_id)
+                name_result = await session.execute(name_stmt)
+                name_row = name_result.first()
+                if name_row:
+                    entity_name = f"{name_row[0]} {name_row[1]}"
+            elif entity_type == "Project":
+                name_stmt = select(Project.name).where(Project.id == entity_id)
+                name_result = await session.execute(name_stmt)
+                entity_name = name_result.scalar()
+            elif entity_type == "Contact":
+                name_stmt = select(Contact.first_name, Contact.last_name).where(Contact.id == entity_id)
+                name_result = await session.execute(name_stmt)
+                name_row = name_result.first()
+                if name_row:
+                    entity_name = f"{name_row[0]} {name_row[1]}"
+            elif entity_type == "Lead":
+                name_stmt = select(Lead.title).where(Lead.id == entity_id)
+                name_result = await session.execute(name_stmt)
+                entity_name = name_result.scalar()
+
+            entities.append({
+                "entity_type": entity_type,
+                "entity_id": entity_id,
+                "entity_name": entity_name or f"{entity_type} #{entity_id}",
+            })
+
+        return entities
 
 
 async def get_document_tags(document_id: int) -> List[str]:
@@ -228,3 +276,252 @@ async def get_document_tags(document_id: int) -> List[str]:
         )
         result = await session.execute(stmt)
         return [row[0] for row in result.fetchall()]
+
+
+async def find_document_versions(document_id: int, tenant_id: int) -> List[Document]:
+    """Get all versions of a document (including itself).
+
+    Returns versions ordered by version_number descending (newest first).
+    Works whether document_id is the parent or a child version.
+    """
+    async with async_get_session() as session:
+        # First, find the root document (parent_id is NULL)
+        doc_stmt = select(Document).where(
+            and_(Document.id == document_id, Document.tenant_id == tenant_id)
+        )
+        result = await session.execute(doc_stmt)
+        document = result.scalar_one_or_none()
+        if not document:
+            return []
+
+        # Get the root document ID
+        root_id = document.parent_id if document.parent_id else document.id
+
+        # Get all versions: root + all children
+        stmt = (
+            select(Document)
+            .where(
+                and_(
+                    Document.tenant_id == tenant_id,
+                    or_(
+                        Document.id == root_id,
+                        Document.parent_id == root_id,
+                    ),
+                )
+            )
+            .order_by(Document.version_number.desc())
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+
+async def get_version_count(document_id: int, tenant_id: int) -> int:
+    """Get the count of all versions for a document."""
+    async with async_get_session() as session:
+        # First, find the document
+        doc_stmt = select(Document).where(
+            and_(Document.id == document_id, Document.tenant_id == tenant_id)
+        )
+        result = await session.execute(doc_stmt)
+        document = result.scalar_one_or_none()
+        if not document:
+            return 0
+
+        # Get the root document ID
+        root_id = document.parent_id if document.parent_id else document.id
+
+        # Count all versions
+        count_stmt = select(func.count()).select_from(Document).where(
+            and_(
+                Document.tenant_id == tenant_id,
+                or_(
+                    Document.id == root_id,
+                    Document.parent_id == root_id,
+                ),
+            )
+        )
+        result = await session.execute(count_stmt)
+        return result.scalar() or 0
+
+
+async def find_existing_document_by_filename(
+    tenant_id: int, filename: str, entity_type: str, entity_id: int
+) -> Optional[Document]:
+    """Check if a document with the same filename exists on an entity.
+
+    Returns the current version of the document if found.
+    """
+    async with async_get_session() as session:
+        stmt = (
+            select(Document)
+            .join(EntityAsset, EntityAsset.c.asset_id == Document.id)
+            .where(
+                and_(
+                    Document.tenant_id == tenant_id,
+                    Document.filename == filename,
+                    Document.is_current_version == True,
+                    EntityAsset.c.entity_type == entity_type,
+                    EntityAsset.c.entity_id == entity_id,
+                )
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+
+async def create_new_version(
+    parent_id: int, tenant_id: int, user_id: int, storage_path: str,
+    file_size: int, content_type: str
+) -> Optional[Document]:
+    """Create a new version of an existing document.
+
+    1. Finds the parent document
+    2. Marks the current version as not current
+    3. Creates a new version with incremented version_number
+    4. Copies entity links from parent to new version
+    """
+    async with async_get_session() as session:
+        try:
+            # Find the root document
+            root_stmt = select(Document).where(
+                and_(Document.id == parent_id, Document.tenant_id == tenant_id)
+            )
+            result = await session.execute(root_stmt)
+            root_doc = result.scalar_one_or_none()
+            if not root_doc:
+                return None
+
+            # Get actual root ID (in case parent_id is already a child)
+            actual_root_id = root_doc.parent_id if root_doc.parent_id else root_doc.id
+
+            # Get max version number
+            max_version_stmt = (
+                select(func.max(Document.version_number))
+                .where(
+                    and_(
+                        Document.tenant_id == tenant_id,
+                        or_(
+                            Document.id == actual_root_id,
+                            Document.parent_id == actual_root_id,
+                        ),
+                    )
+                )
+            )
+            result = await session.execute(max_version_stmt)
+            max_version = result.scalar() or 1
+
+            # Mark all versions as not current (use Asset table directly for inheritance)
+            from sqlalchemy import update
+            update_stmt = (
+                update(Asset)
+                .where(
+                    and_(
+                        Asset.tenant_id == tenant_id,
+                        or_(
+                            Asset.id == actual_root_id,
+                            Asset.parent_id == actual_root_id,
+                        ),
+                    )
+                )
+                .values(is_current_version=False)
+            )
+            await session.execute(update_stmt)
+
+            # Get root document for metadata
+            root_stmt = select(Document).where(Document.id == actual_root_id)
+            result = await session.execute(root_stmt)
+            root_doc = result.scalar_one()
+
+            # Create new version
+            new_version = Document(
+                asset_type="document",
+                tenant_id=tenant_id,
+                user_id=user_id,
+                filename=root_doc.filename,
+                content_type=content_type,
+                description=root_doc.description,
+                storage_path=storage_path,
+                file_size=file_size,
+                parent_id=actual_root_id,
+                version_number=max_version + 1,
+                is_current_version=True,
+            )
+            session.add(new_version)
+            await session.flush()
+
+            # Copy entity links from root to new version
+            entities_stmt = select(EntityAsset).where(
+                EntityAsset.c.asset_id == actual_root_id
+            )
+            result = await session.execute(entities_stmt)
+            entities = result.fetchall()
+
+            for entity in entities:
+                link_stmt = insert(EntityAsset).values(
+                    asset_id=new_version.id,
+                    entity_type=entity.entity_type,
+                    entity_id=entity.entity_id,
+                )
+                await session.execute(link_stmt)
+
+            await session.commit()
+            await session.refresh(new_version)
+            return new_version
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to create new version: {e}")
+            raise
+
+
+async def set_current_version(document_id: int, tenant_id: int) -> Optional[Document]:
+    """Set a specific version as the current version.
+
+    Marks all other versions as not current.
+    """
+    async with async_get_session() as session:
+        try:
+            # Find the document
+            doc_stmt = select(Document).where(
+                and_(Document.id == document_id, Document.tenant_id == tenant_id)
+            )
+            result = await session.execute(doc_stmt)
+            document = result.scalar_one_or_none()
+            if not document:
+                return None
+
+            # Get root ID
+            root_id = document.parent_id if document.parent_id else document.id
+
+            # Mark all versions as not current (use Asset table directly for inheritance)
+            from sqlalchemy import update
+            update_stmt = (
+                update(Asset)
+                .where(
+                    and_(
+                        Asset.tenant_id == tenant_id,
+                        or_(
+                            Asset.id == root_id,
+                            Asset.parent_id == root_id,
+                        ),
+                    )
+                )
+                .values(is_current_version=False)
+            )
+            await session.execute(update_stmt)
+
+            # Mark this version as current
+            set_current_stmt = (
+                update(Asset)
+                .where(Asset.id == document_id)
+                .values(is_current_version=True)
+            )
+            await session.execute(set_current_stmt)
+            await session.commit()
+            await session.refresh(document)
+            return document
+
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to set current version: {e}")
+            raise

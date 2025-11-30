@@ -10,12 +10,12 @@ import {
   PanelLeft,
   Building2,
   Briefcase,
-  DollarSign,
   BarChart3,
   Wrench,
   FolderKanban,
   Lightbulb,
   Handshake,
+  DollarSign,
   PenLine,
   User,
   FileText,
@@ -71,18 +71,9 @@ export const Sidebar = () => {
           {!sidebarCollapsed && (
             <nav className="p-4 space-y-2">
               {/* Projects Section */}
-              <div className="mb-4">
-                <button
-                  onClick={() => router.push("/projects")}
-                  className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-                    pathname === "/projects" ? "font-bold" : "font-normal"
-                  }`}
-                >
-                  <FolderKanban className="h-4 w-4 text-lime-600 dark:text-lime-400" />
-                  Projects
-                </button>
+              <div>
                 {projects.filter((p) => p.status !== "Inactive").length > 0 && (
-                  <div className="mt-2 px-3">
+                  <div className="mb-4 px-3">
                     <Select
                       size="xs"
                       placeholder="Select project..."
@@ -104,6 +95,15 @@ export const Sidebar = () => {
                     />
                   </div>
                 )}
+                <button
+                  onClick={() => router.push("/projects")}
+                  className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                    pathname === "/projects" ? "font-bold" : "font-normal"
+                  }`}
+                >
+                  <FolderKanban className="h-4 w-4 text-lime-600 dark:text-lime-400" />
+                  Projects
+                </button>
               </div>
 
               {/* Accounts Section */}

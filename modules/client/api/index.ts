@@ -1638,9 +1638,13 @@ export type Document = {
   file_size: number;
   storage_path: string;
   tags: string[];
-  entities: { entity_type: string; entity_id: number }[];
+  entities: { entity_type: string; entity_id: number; entity_name: string }[];
   created_at: string | null;
   updated_at: string | null;
+  parent_id: number | null;
+  version_number: number;
+  is_current_version: boolean;
+  version_count: number | null;
 };
 
 export type Tag = {
@@ -1752,4 +1756,49 @@ export const unlinkDocumentFromEntity = async (
 
 export const getTags = async (): Promise<Tag[]> => {
   return apiGet<Tag[]>("/tags");
+};
+
+// ============== Document Version API ==============
+
+export type CheckFilenameResponse = {
+  exists: boolean;
+  document: Document | null;
+};
+
+export type DocumentVersionsResponse = {
+  versions: Document[];
+};
+
+export const checkDocumentFilename = async (
+  filename: string,
+  entityType: string,
+  entityId: number
+): Promise<CheckFilenameResponse> => {
+  const params = new URLSearchParams({
+    filename,
+    entity_type: entityType,
+    entity_id: entityId.toString(),
+  });
+  return apiGet<CheckFilenameResponse>(`/assets/documents/check-filename?${params}`);
+};
+
+export const getDocumentVersions = async (
+  documentId: number
+): Promise<DocumentVersionsResponse> => {
+  return apiGet<DocumentVersionsResponse>(`/assets/documents/${documentId}/versions`);
+};
+
+export const createDocumentVersion = async (
+  documentId: number,
+  file: File
+): Promise<Document> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  return apiPost<Document>(`/assets/documents/${documentId}/versions`, formData);
+};
+
+export const setCurrentDocumentVersion = async (
+  documentId: number
+): Promise<Document> => {
+  return apiPatch<Document>(`/assets/documents/${documentId}/set-current`, {});
 };

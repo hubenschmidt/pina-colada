@@ -23,9 +23,6 @@ import {
   MoreVertical,
   FileText,
   Link2,
-  Building2,
-  User,
-  FolderKanban,
 } from "lucide-react";
 import {
   getDocuments,
@@ -156,14 +153,15 @@ export const DocumentList = ({
     return typeMap[entityType] || "#";
   };
 
-  const getEntityIcon = (entityType: string) => {
-    const iconMap: Record<string, React.ReactNode> = {
-      Organization: <Building2 className="h-3 w-3" />,
-      Individual: <User className="h-3 w-3" />,
-      Project: <FolderKanban className="h-3 w-3" />,
-      Contact: <User className="h-3 w-3" />,
+  const getEntityColor = (entityType: string): string => {
+    const colorMap: Record<string, string> = {
+      Organization: "blue",
+      Individual: "green",
+      Project: "violet",
+      Contact: "cyan",
+      Lead: "orange",
     };
-    return iconMap[entityType] || <Link2 className="h-3 w-3" />;
+    return colorMap[entityType] || "gray";
   };
 
   const columns: Column<Document>[] = [
@@ -176,9 +174,14 @@ export const DocumentList = ({
         <Group gap="xs">
           <FileText className="h-4 w-4 text-lime-600" />
           <div>
-            <Text size="sm" fw={500}>
-              {doc.filename}
-            </Text>
+            <Group gap="xs">
+              <Text size="sm" fw={500}>
+                {doc.filename}
+              </Text>
+              <Badge size="xs" variant="light" color="gray">
+                v{doc.version_number}
+              </Badge>
+            </Group>
             {doc.description && (
               <Text size="xs" c="dimmed" lineClamp={1}>
                 {doc.description}
@@ -204,10 +207,10 @@ export const DocumentList = ({
               <Badge
                 size="sm"
                 variant="light"
-                color="blue"
+                color={getEntityColor(entity.entity_type)}
                 style={{ cursor: "pointer" }}
               >
-                {entity.entity_type} #{entity.entity_id}
+                {entity.entity_name}
               </Badge>
             </Anchor>
           ))}

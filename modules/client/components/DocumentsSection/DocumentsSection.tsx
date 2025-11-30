@@ -242,16 +242,21 @@ const DocumentsSection = ({
       className="p-3 border border-zinc-200 dark:border-zinc-700 rounded flex items-center justify-between"
     >
       <div className="flex-1 min-w-0">
-        <Link
-          href={`/assets/documents/${doc.id}`}
-          className="text-sm font-medium text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300 hover:underline"
-          onClick={(e) => {
-            e.stopPropagation();
-            router.push(`/assets/documents/${doc.id}`);
-          }}
-        >
-          {doc.filename}
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href={`/assets/documents/${doc.id}`}
+            className="text-sm font-medium text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300 hover:underline"
+            onClick={(e) => {
+              e.stopPropagation();
+              router.push(`/assets/documents/${doc.id}`);
+            }}
+          >
+            {doc.filename}
+          </Link>
+          <span className="text-xs px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400 rounded">
+            v{doc.version_number}
+          </span>
+        </div>
         <div className="flex items-center gap-2 mt-1">
           <span className="text-xs text-zinc-500">
             {formatFileSize(doc.file_size)}

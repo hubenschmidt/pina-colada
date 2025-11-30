@@ -19,6 +19,11 @@ from repositories.document_repository import (
     unlink_document_from_entity,
     get_document_entities,
     get_document_tags,
+    find_document_versions,
+    get_version_count,
+    find_existing_document_by_filename,
+    create_new_version,
+    set_current_version,
 )
 
 
@@ -48,7 +53,7 @@ class EntityLink(BaseModel):
     entity_id: int
 
 
-def _document_to_dict(document, entities=None, tags=None) -> dict:
+def _document_to_dict(document, entities=None, tags=None, version_count=None) -> dict:
     """Convert Document model to dictionary."""
     return {
         "id": document.id,
@@ -62,6 +67,10 @@ def _document_to_dict(document, entities=None, tags=None) -> dict:
         "updated_at": document.updated_at.isoformat() if document.updated_at else None,
         "entities": entities or [],
         "tags": tags or [],
+        "parent_id": document.parent_id,
+        "version_number": document.version_number,
+        "is_current_version": document.is_current_version,
+        "version_count": version_count,
     }
 
 
@@ -106,6 +115,38 @@ async def list_documents_route(
         "total": total,
         "pageSize": limit,
     }
+
+
+@router.get("/check-filename")
+@require_auth
+@log_errors
+async def check_filename_route(
+    request: Request,
+    filename: str = Query(...),
+    entity_type: str = Query(...),
+    entity_id: int = Query(...),
+):
+    """Check if a filename already exists on an entity.
+
+    Returns the existing document if found, for version creation.
+    """
+    tenant_id = request.state.tenant_id
+    normalized_type = _normalize_entity_type(entity_type)
+
+    existing = await find_existing_document_by_filename(
+        tenant_id, filename, normalized_type, entity_id
+    )
+
+    if existing:
+        entities = await get_document_entities(existing.id)
+        tags = await get_document_tags(existing.id)
+        version_count = await get_version_count(existing.id, tenant_id)
+        return {
+            "exists": True,
+            "document": _document_to_dict(existing, entities, tags, version_count),
+        }
+
+    return {"exists": False, "document": None}
 
 
 @router.get("/{document_id}")
@@ -296,3 +337,93 @@ async def unlink_document_route(
     entities = await get_document_entities(document_id)
     tags = await get_document_tags(document_id)
     return _document_to_dict(document, entities, tags)
+
+
+# ============== Version Endpoints ==============
+
+
+@router.get("/{document_id}/versions")
+@require_auth
+@log_errors
+async def get_document_versions_route(request: Request, document_id: int):
+    """Get all versions of a document."""
+    tenant_id = request.state.tenant_id
+
+    versions = await find_document_versions(document_id, tenant_id)
+    if not versions:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    result = []
+    for doc in versions:
+        entities = await get_document_entities(doc.id)
+        tags = await get_document_tags(doc.id)
+        result.append(_document_to_dict(doc, entities, tags))
+
+    return {"versions": result}
+
+
+@router.post("/{document_id}/versions")
+@require_auth
+@log_errors
+async def create_document_version_route(
+    request: Request,
+    document_id: int,
+    file: UploadFile = File(...),
+):
+    """Create a new version of an existing document."""
+    tenant_id = request.state.tenant_id
+    user_id = getattr(request.state, "user_id", None)
+
+    # Verify parent document exists
+    parent_doc = await find_document_by_id(document_id, tenant_id)
+    if not parent_doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Read and validate file
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="File exceeds 10MB limit")
+
+    # Generate storage path
+    storage = get_storage()
+    import time
+    temp_id = int(time.time() * 1000)
+    storage_path = f"{tenant_id}/{temp_id}/{file.filename}"
+
+    # Upload to storage
+    await storage.upload(storage_path, content, file.content_type or "application/octet-stream")
+
+    # Create new version
+    new_version = await create_new_version(
+        parent_id=document_id,
+        tenant_id=tenant_id,
+        user_id=user_id,
+        storage_path=storage_path,
+        file_size=len(content),
+        content_type=file.content_type or "application/octet-stream",
+    )
+
+    if not new_version:
+        raise HTTPException(status_code=500, detail="Failed to create version")
+
+    entities = await get_document_entities(new_version.id)
+    tags = await get_document_tags(new_version.id)
+    version_count = await get_version_count(new_version.id, tenant_id)
+    return _document_to_dict(new_version, entities, tags, version_count)
+
+
+@router.patch("/{document_id}/set-current")
+@require_auth
+@log_errors
+async def set_current_version_route(request: Request, document_id: int):
+    """Set a specific version as the current version."""
+    tenant_id = request.state.tenant_id
+
+    document = await set_current_version(document_id, tenant_id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    entities = await get_document_entities(document_id)
+    tags = await get_document_tags(document_id)
+    version_count = await get_version_count(document_id, tenant_id)
+    return _document_to_dict(document, entities, tags, version_count)
