@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useNavContext } from "../context/navContext";
 import { useUser } from "@auth0/nextjs-auth0";
 import HeaderAuthed from "./HeaderAuthed";
+import NotificationBell from "./NotificationBell";
 import { Menu, Button } from "@mantine/core";
 import { ChevronDown, Settings, LogOut } from "lucide-react";
 
@@ -116,36 +117,39 @@ const Header = () => {
           </nav>
           {/* Login/Account Menu */}
           {user ? (
-            <Menu shadow="md" width={200}>
-              <Menu.Target>
-                <Button
-                  variant="subtle"
-                  color="blue"
-                  size="sm"
-                  rightSection={<ChevronDown size={14} />}
-                >
-                  Account
-                </Button>
-              </Menu.Target>
-              <Menu.Dropdown>
-                <Menu.Item
-                  leftSection={<Settings size={16} />}
-                  component={Link}
-                  href="/settings"
-                >
-                  Settings
-                </Menu.Item>
-                <Menu.Divider />
-                <Menu.Item
-                  leftSection={<LogOut size={16} />}
-                  component="a"
-                  href="/auth/logout"
-                  color="red"
-                >
-                  Logout
-                </Menu.Item>
-              </Menu.Dropdown>
-            </Menu>
+            <div className="flex items-center gap-2">
+              <NotificationBell />
+              <Menu shadow="md" width={200}>
+                <Menu.Target>
+                  <Button
+                    variant="subtle"
+                    color="blue"
+                    size="sm"
+                    rightSection={<ChevronDown size={14} />}
+                  >
+                    Account
+                  </Button>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item
+                    leftSection={<Settings size={16} />}
+                    component={Link}
+                    href="/settings"
+                  >
+                    Settings
+                  </Menu.Item>
+                  <Menu.Divider />
+                  <Menu.Item
+                    leftSection={<LogOut size={16} />}
+                    component="a"
+                    href="/auth/logout"
+                    color="red"
+                  >
+                    Logout
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            </div>
           ) : (
             <Link
               href="/login"

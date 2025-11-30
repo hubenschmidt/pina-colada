@@ -1570,3 +1570,54 @@ export const updateComment = async (
 export const deleteComment = async (commentId: number): Promise<void> => {
   await apiDelete(`/comments/${commentId}`);
 };
+
+// ==============================================
+// Notification Types and API
+// ==============================================
+
+export type NotificationComment = {
+  id: number | null;
+  content: string;
+  created_by_name: string | null;
+  created_at: string | null;
+};
+
+export type NotificationEntity = {
+  type: string | null;
+  id: number | null;
+  display_name: string | null;
+  url: string | null;
+};
+
+export type Notification = {
+  id: number;
+  type: "direct_reply" | "thread_activity";
+  is_read: boolean;
+  created_at: string | null;
+  comment: NotificationComment | null;
+  entity: NotificationEntity | null;
+};
+
+export type NotificationsResponse = {
+  notifications: Notification[];
+  unread_count: number;
+};
+
+export const getNotificationCount = async (): Promise<{ unread_count: number }> => {
+  return apiGet<{ unread_count: number }>("/notifications/count");
+};
+
+export const getNotifications = async (limit: number = 20): Promise<NotificationsResponse> => {
+  return apiGet<NotificationsResponse>(`/notifications?limit=${limit}`);
+};
+
+export const markNotificationsRead = async (notificationIds: number[]): Promise<void> => {
+  await apiPost("/notifications/mark-read", { notification_ids: notificationIds });
+};
+
+export const markEntityNotificationsRead = async (
+  entityType: string,
+  entityId: number
+): Promise<void> => {
+  await apiPost("/notifications/mark-entity-read", { entity_type: entityType, entity_id: entityId });
+};

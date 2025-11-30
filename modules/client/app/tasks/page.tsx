@@ -31,7 +31,7 @@ const TasksPage = () => {
   const [data, setData] = useState<TasksPageData | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(50);
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDirection, setSortDirection] = useState<SortDir>("DESC");
   const [searchQuery, setSearchQuery] = useState("");

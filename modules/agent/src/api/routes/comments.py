@@ -12,6 +12,7 @@ from repositories.comment_repository import (
     update_comment,
     delete_comment,
 )
+from services.notification_service import create_comment_notifications
 
 
 # Normalize commentable_type to PascalCase for consistency with database
@@ -116,6 +117,15 @@ async def create_comment_route(request: Request, data: CommentCreate):
     }
 
     comment = await create_comment(comment_data)
+
+    # Create notifications for relevant users (async, fire-and-forget)
+    try:
+        await create_comment_notifications(comment)
+    except Exception as e:
+        # Log but don't fail the comment creation
+        import logging
+        logging.getLogger(__name__).error(f"Failed to create notifications: {e}")
+
     return _comment_to_dict(comment)
 
 

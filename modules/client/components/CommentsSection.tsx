@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Send, Check, X, MessageCircle, Reply, ChevronDown, ChevronUp } from "lucide-react";
+import { Send, Check, X, MessageCircle, Reply, ChevronDown, ChevronUp, Share2 } from "lucide-react";
 import { Comment, getComments, createComment, updateComment, deleteComment } from "../api";
 
 interface CommentsSectionProps {
@@ -32,12 +32,28 @@ const CommentsSection = ({
   const [replyContent, setReplyContent] = useState("");
   const [collapsedThreads, setCollapsedThreads] = useState<Set<number>>(new Set());
   const [error, setError] = useState<string | null>(null);
+  const [copiedCommentId, setCopiedCommentId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!isCreateMode && entityId) {
       fetchComments();
     }
   }, [entityType, entityId, isCreateMode]);
+
+  // Scroll to comment if URL has hash
+  useEffect(() => {
+    if (comments.length > 0 && window.location.hash) {
+      const commentId = window.location.hash.replace("#comment-", "");
+      const element = document.getElementById(`comment-${commentId}`);
+      if (element) {
+        element.scrollIntoView({ behavior: "smooth", block: "center" });
+        element.classList.add("bg-lime-100", "dark:bg-lime-900/30");
+        setTimeout(() => {
+          element.classList.remove("bg-lime-100", "dark:bg-lime-900/30");
+        }, 2000);
+      }
+    }
+  }, [comments]);
 
   const fetchComments = async () => {
     if (!entityId) return;
@@ -282,7 +298,7 @@ const CommentsSection = ({
         )}
 
         {/* Actions */}
-        <div className="flex items-center gap-3 text-xs">
+        <div className="flex items-center gap-3 text-xs mt-2">
           {!isReply && (
             <button
               type="button"
@@ -307,6 +323,20 @@ const CommentsSection = ({
           >
             Delete
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              const url = `${window.location.origin}${window.location.pathname}#comment-${comment.id}`;
+              navigator.clipboard.writeText(url);
+              setCopiedCommentId(comment.id);
+              setTimeout(() => setCopiedCommentId(null), 2000);
+            }}
+            className="flex items-center gap-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+            title="Copy link to clipboard"
+          >
+            <Share2 size={12} />
+            {copiedCommentId === comment.id ? "Copied!" : "Share"}
+          </button>
         </div>
       </div>
     );
@@ -319,7 +349,7 @@ const CommentsSection = ({
     const isReplying = replyingToId === comment.id;
 
     return (
-      <div key={comment.id} className="group">
+      <div key={comment.id} id={`comment-${comment.id}`} className="group">
         {/* Main comment */}
         <div className="flex gap-3">
           {/* Avatar */}
@@ -390,7 +420,7 @@ const CommentsSection = ({
             {!isCollapsed && (
               <div className="space-y-3 border-l-2 border-zinc-200 dark:border-zinc-700 pl-4">
                 {replies.map((reply) => (
-                  <div key={reply.id} className="flex gap-3">
+                  <div key={reply.id} id={`comment-${reply.id}`} className="flex gap-3">
                     {/* Reply avatar (smaller) */}
                     <div
                       className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium ${getAvatarColor(reply.created_by_name, reply.created_by_email)}`}

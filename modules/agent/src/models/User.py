@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, func, Index, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, Boolean, func, Index, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import relationship
 from models import Base
 
@@ -21,6 +21,7 @@ class User(Base):
     last_name = Column(Text, nullable=True)
     avatar_url = Column(Text, nullable=True)
     status = Column(Text, nullable=False, default='active')
+    is_system_user = Column(Boolean, default=False)
     last_login_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

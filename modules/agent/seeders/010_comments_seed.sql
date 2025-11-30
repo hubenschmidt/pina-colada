@@ -38,29 +38,55 @@ BEGIN
         SELECT id INTO v_user_id_william FROM "User" WHERE tenant_id = v_tenant_id LIMIT 1;
     END IF;
 
-    -- Account comments (3 comments per account, alternating between users)
+    -- Individual comments (3 comments per individual, alternating between users)
     INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, created_at, updated_at)
     SELECT
         v_tenant_id,
-        'Account',
-        a.id,
+        'Individual',
+        i.id,
         CASE (s.comment_num % 5)
-            WHEN 0 THEN 'Account created. Initial research completed. Ready for outreach and engagement.'
-            WHEN 1 THEN 'Account activity: Multiple touchpoints this month. Engagement increasing steadily.'
-            WHEN 2 THEN 'Account health: Green. All key contacts responsive. Good relationship momentum building.'
-            WHEN 3 THEN 'Strategic account - high potential value. Prioritizing for Q1 2025 initiatives.'
-            WHEN 4 THEN 'Recent interaction: Decision maker expressed strong interest. Following up next week.'
+            WHEN 0 THEN 'Contact created. Initial research completed. Ready for outreach and engagement.'
+            WHEN 1 THEN 'Contact activity: Multiple touchpoints this month. Engagement increasing steadily.'
+            WHEN 2 THEN 'Contact health: Green. Responsive and engaged. Good relationship momentum building.'
+            WHEN 3 THEN 'Key contact - high potential value. Prioritizing for Q1 2025 initiatives.'
+            WHEN 4 THEN 'Recent interaction: Expressed strong interest. Following up next week.'
         END,
         CASE WHEN s.comment_num % 2 = 0 THEN v_user_id_william ELSE v_user_id_jennifer END,
         NOW() - (s.comment_num || ' days')::INTERVAL,
         NOW() - (s.comment_num || ' days')::INTERVAL
-    FROM "Account" a
+    FROM "Individual" i
+    JOIN "Account" a ON i.account_id = a.id
     CROSS JOIN generate_series(1, 3) AS s(comment_num)
-    WHERE a.id IS NOT NULL AND a.tenant_id = v_tenant_id;
-    
+    WHERE i.id IS NOT NULL AND a.tenant_id = v_tenant_id;
+
     GET DIAGNOSTICS v_account_count = ROW_COUNT;
     v_comments_inserted := v_comments_inserted + v_account_count;
-    RAISE NOTICE 'Added % comments for Accounts', v_account_count;
+    RAISE NOTICE 'Added % comments for Individuals', v_account_count;
+
+    -- Organization comments (3 comments per organization, alternating between users)
+    INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, created_at, updated_at)
+    SELECT
+        v_tenant_id,
+        'Organization',
+        o.id,
+        CASE (s.comment_num % 5)
+            WHEN 0 THEN 'Company profile created. Initial research completed. Ready for outreach.'
+            WHEN 1 THEN 'Company activity: Multiple touchpoints this month. Engagement increasing.'
+            WHEN 2 THEN 'Company health: Green. Key contacts responsive. Good momentum building.'
+            WHEN 3 THEN 'Strategic company - high potential value. Prioritizing for Q1 2025.'
+            WHEN 4 THEN 'Recent interaction: Decision maker expressed interest. Following up.'
+        END,
+        CASE WHEN s.comment_num % 2 = 0 THEN v_user_id_william ELSE v_user_id_jennifer END,
+        NOW() - (s.comment_num || ' days')::INTERVAL,
+        NOW() - (s.comment_num || ' days')::INTERVAL
+    FROM "Organization" o
+    JOIN "Account" a ON o.account_id = a.id
+    CROSS JOIN generate_series(1, 3) AS s(comment_num)
+    WHERE o.id IS NOT NULL AND a.tenant_id = v_tenant_id;
+
+    GET DIAGNOSTICS v_account_count = ROW_COUNT;
+    v_comments_inserted := v_comments_inserted + v_account_count;
+    RAISE NOTICE 'Added % comments for Organizations', v_account_count;
 
     -- Lead comments (Jobs, Opportunities, Partnerships) - 4 comments per lead, alternating between users
     INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, created_at, updated_at)
@@ -159,11 +185,13 @@ END $$;
 -- Show counts for verification
 SELECT
     (SELECT COUNT(*) FROM "Comment") as total_comments,
-    (SELECT COUNT(*) FROM "Comment" WHERE commentable_type = 'Account') as account_comments,
+    (SELECT COUNT(*) FROM "Comment" WHERE commentable_type = 'Individual') as individual_comments,
+    (SELECT COUNT(*) FROM "Comment" WHERE commentable_type = 'Organization') as organization_comments,
     (SELECT COUNT(*) FROM "Comment" WHERE commentable_type = 'Lead') as lead_comments,
     (SELECT COUNT(*) FROM "Comment" WHERE commentable_type = 'Deal') as deal_comments,
     (SELECT COUNT(*) FROM "Comment" WHERE commentable_type = 'Task') as task_comments,
-    (SELECT COUNT(DISTINCT commentable_id) FROM "Comment" WHERE commentable_type = 'Account') as accounts_with_comments,
+    (SELECT COUNT(DISTINCT commentable_id) FROM "Comment" WHERE commentable_type = 'Individual') as individuals_with_comments,
+    (SELECT COUNT(DISTINCT commentable_id) FROM "Comment" WHERE commentable_type = 'Organization') as organizations_with_comments,
     (SELECT COUNT(DISTINCT commentable_id) FROM "Comment" WHERE commentable_type = 'Lead') as leads_with_comments,
     (SELECT COUNT(DISTINCT commentable_id) FROM "Comment" WHERE commentable_type = 'Deal') as deals_with_comments,
     (SELECT COUNT(DISTINCT commentable_id) FROM "Comment" WHERE commentable_type = 'Task') as tasks_with_comments;

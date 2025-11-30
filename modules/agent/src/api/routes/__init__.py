@@ -23,6 +23,7 @@ from api.routes.opportunities import router as opportunities_routes
 from api.routes.partnerships import router as partnerships_routes
 from api.routes.tasks import router as tasks_routes
 from api.routes.comments import router as comments_routes
+from api.routes.notifications import router as notifications_routes
 
 __all__ = [
     "jobs_routes",
@@ -48,5 +49,6 @@ __all__ = [
     "partnerships_routes",
     "tasks_routes",
     "comments_routes",
+    "notifications_routes",
 ]
 

@@ -38,6 +38,7 @@ from models.CompanySignal import CompanySignal
 from models.DataProvenance import DataProvenance
 from models.SavedReport import SavedReport
 from models.LeadProject import LeadProject
+from models.CommentNotification import CommentNotification
 
 __all__ = [
     "Base",
@@ -73,4 +74,5 @@ __all__ = [
     "DataProvenance",
     "SavedReport",
     "LeadProject",
+    "CommentNotification",
 ]
