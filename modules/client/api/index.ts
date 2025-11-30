@@ -1649,16 +1649,24 @@ export type Tag = {
 };
 
 export const getDocuments = async (
+  page: number = 1,
+  limit: number = 50,
+  orderBy: string = "updated_at",
+  order: "ASC" | "DESC" = "DESC",
   tags?: string[],
   entityType?: string,
   entityId?: number
-): Promise<Document[]> => {
-  const params = new URLSearchParams();
+): Promise<PageData<Document>> => {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    orderBy,
+    order,
+  });
   if (tags && tags.length > 0) params.append("tags", tags.join(","));
   if (entityType) params.append("entity_type", entityType);
   if (entityId) params.append("entity_id", entityId.toString());
-  const query = params.toString() ? `?${params}` : "";
-  return apiGet<Document[]>(`/assets/documents${query}`);
+  return apiGet<PageData<Document>>(`/assets/documents?${params}`);
 };
 
 export const getDocument = async (id: number): Promise<Document> => {

@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Request, HTTPException, UploadFile, File, Form, Query
 from fastapi.responses import RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -73,14 +73,20 @@ router = APIRouter(prefix="/assets/documents", tags=["documents"])
 @log_errors
 async def list_documents_route(
     request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    order_by: str = Query("updated_at", alias="orderBy"),
+    order: str = Query("DESC", regex="^(ASC|DESC)$"),
     entity_type: Optional[str] = None,
     entity_id: Optional[int] = None,
 ):
-    """List all documents for the tenant, optionally filtered by entity."""
+    """List documents for the tenant with pagination and sorting, optionally filtered by entity."""
     tenant_id = request.state.tenant_id
 
     normalized_type = _normalize_entity_type(entity_type) if entity_type else None
-    documents = await find_documents_by_tenant(tenant_id, normalized_type, entity_id)
+    documents, total = await find_documents_by_tenant(
+        tenant_id, normalized_type, entity_id, page, limit, order_by, order
+    )
 
     result = []
     for doc in documents:
@@ -88,7 +94,15 @@ async def list_documents_route(
         tags = await get_document_tags(doc.id)
         result.append(_document_to_dict(doc, entities, tags))
 
-    return result
+    total_pages = (total + limit - 1) // limit if limit > 0 else 1
+    
+    return {
+        "items": result,
+        "currentPage": page,
+        "totalPages": total_pages,
+        "total": total,
+        "pageSize": limit,
+    }
 
 
 @router.get("/{document_id}")

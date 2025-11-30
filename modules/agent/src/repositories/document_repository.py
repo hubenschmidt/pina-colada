@@ -3,7 +3,7 @@
 import logging
 from typing import List, Optional, Dict, Any
 
-from sqlalchemy import select, and_, delete, insert
+from sqlalchemy import select, and_, delete, insert, func
 from sqlalchemy.orm import joinedload
 
 from models.Document import Document
@@ -18,14 +18,19 @@ async def find_documents_by_tenant(
     tenant_id: int,
     entity_type: Optional[str] = None,
     entity_id: Optional[int] = None,
-) -> List[Document]:
-    """Find all documents for a tenant, optionally filtered by entity."""
+    page: int = 1,
+    page_size: int = 50,
+    order_by: str = "updated_at",
+    order: str = "DESC",
+) -> tuple[List[Document], int]:
+    """Find documents for a tenant with pagination and sorting, optionally filtered by entity."""
     async with async_get_session() as session:
-        stmt = select(Document).where(Document.tenant_id == tenant_id)
+        # Base query
+        base_stmt = select(Document).where(Document.tenant_id == tenant_id)
 
         if entity_type and entity_id:
             # Join with EntityAsset to filter by entity
-            stmt = (
+            base_stmt = (
                 select(Document)
                 .join(EntityAsset, EntityAsset.c.asset_id == Document.id)
                 .where(
@@ -37,9 +42,24 @@ async def find_documents_by_tenant(
                 )
             )
 
-        stmt = stmt.order_by(Document.created_at.desc())
+        # Count total
+        count_stmt = select(func.count()).select_from(base_stmt.alias())
+        count_result = await session.execute(count_stmt)
+        total = count_result.scalar() or 0
+
+        # Apply sorting
+        sort_column = getattr(Document, order_by, Document.updated_at)
+        if order.upper() == "ASC":
+            base_stmt = base_stmt.order_by(sort_column.asc())
+        else:
+            base_stmt = base_stmt.order_by(sort_column.desc())
+
+        # Apply pagination
+        offset = (page - 1) * page_size
+        stmt = base_stmt.offset(offset).limit(page_size)
+        
         result = await session.execute(stmt)
-        return list(result.scalars().all())
+        return list(result.scalars().all()), total
 
 
 async def find_document_by_id(document_id: int, tenant_id: int) -> Optional[Document]:
