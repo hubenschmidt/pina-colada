@@ -10,9 +10,10 @@ import ContactSection, {
   ContactFieldConfig,
   SearchResult,
 } from "../ContactSection";
-import { searchContacts, updateJob, createNote } from "../../api";
+import { searchContacts, updateJob, createNote, createTask, TaskInput } from "../../api";
 import FormActions from "../FormActions";
 import NotesSection from "../NotesSection";
+import TasksSection from "../TasksSection";
 import Timestamps from "../Timestamps";
 import { usePendingChanges } from "../../hooks/usePendingChanges";
 import { ProjectContext } from "../../context/projectContext";
@@ -51,6 +52,7 @@ const LeadForm = <T extends BaseLead>({
   const [isDeleting, setIsDeleting] = useState(false);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [pendingNotes, setPendingNotes] = useState<string[]>([]);
+  const [pendingTasks, setPendingTasks] = useState<TaskInput[]>([]);
 
   // Parse field value based on field type
   const parseFieldValue = (field: FormFieldConfig<T>, value: any): any => {
@@ -331,6 +333,16 @@ const LeadForm = <T extends BaseLead>({
     }
   };
 
+  const createPendingTasks = async (leadId: number) => {
+    for (const taskData of pendingTasks) {
+      await createTask({
+        ...taskData,
+        taskable_type: "Lead",
+        taskable_id: leadId,
+      });
+    }
+  };
+
   const getFieldDefaultValue = (field: FormFieldConfig<T>): any => {
     if (field.defaultValue !== undefined) return field.defaultValue;
     if (field.type === "date") return new Date().toISOString().split("T")[0];
@@ -368,8 +380,14 @@ const LeadForm = <T extends BaseLead>({
       }
 
       const createdLead = await onAdd(submitData);
-      if (createdLead && pendingNotes.length > 0) {
-        await createPendingNotes(parseInt(createdLead.id, 10));
+      if (createdLead) {
+        const leadId = parseInt(createdLead.id, 10);
+        if (pendingNotes.length > 0) {
+          await createPendingNotes(leadId);
+        }
+        if (pendingTasks.length > 0) {
+          await createPendingTasks(leadId);
+        }
       }
 
       resetForm();
@@ -768,6 +786,15 @@ const LeadForm = <T extends BaseLead>({
           entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
           pendingNotes={!isEditMode ? pendingNotes : undefined}
           onPendingNotesChange={!isEditMode ? setPendingNotes : undefined}
+        />
+      </div>
+
+      <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
+        <TasksSection
+          entityType="Lead"
+          entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
+          pendingTasks={!isEditMode ? pendingTasks : undefined}
+          onPendingTasksChange={!isEditMode ? setPendingTasks : undefined}
         />
       </div>
 

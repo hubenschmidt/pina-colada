@@ -1405,3 +1405,110 @@ export const getPartnerships = async (
   }
   return apiGet<PageData<CreatedPartnership>>(`/partnerships?${params}`);
 };
+
+// ==============================================
+// Task Types and API
+// ==============================================
+
+export type TaskStatus = {
+  id: number;
+  name: string;
+};
+
+export type TaskEntity = {
+  type: string | null;
+  id: number | null;
+  display_name: string | null;
+  url: string | null;
+};
+
+export type TaskComplexity = 1 | 2 | 3 | 5 | 8 | 13 | 21;
+
+export type Task = {
+  id: number;
+  title: string;
+  description: string | null;
+  start_date: string | null;
+  due_date: string | null;
+  estimated_hours: number | null;
+  actual_hours: number | null;
+  complexity: TaskComplexity | null;
+  sort_order: number | null;
+  completed_at: string | null;
+  assigned_to_individual_id: number | null;
+  status: TaskStatus | null;
+  priority: TaskStatus | null;
+  entity: TaskEntity;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type TasksPageData = PageData<Task> & {
+  scope: {
+    type: string;
+    project_id?: number;
+  };
+};
+
+export type TaskInput = {
+  title: string;
+  description?: string | null;
+  taskable_type?: string | null;
+  taskable_id?: number | null;
+  current_status_id?: number | null;
+  priority_id?: number | null;
+  start_date?: string | null;
+  due_date?: string | null;
+  estimated_hours?: number | null;
+  actual_hours?: number | null;
+  complexity?: TaskComplexity | null;
+  sort_order?: number | null;
+  assigned_to_individual_id?: number | null;
+};
+
+export const getTasksByEntity = async (
+  entityType: string,
+  entityId: number
+): Promise<{ items: Task[] }> => {
+  return apiGet<{ items: Task[] }>(`/tasks/entity/${entityType}/${entityId}`);
+};
+
+export const getTasks = async (
+  page: number = 1,
+  limit: number = 20,
+  orderBy: string = "created_at",
+  order: "ASC" | "DESC" = "DESC",
+  scope: "project" | "global" = "global",
+  projectId?: number | null
+): Promise<TasksPageData> => {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    orderBy,
+    order,
+    scope,
+  });
+  if (projectId) {
+    params.append("projectId", projectId.toString());
+  }
+  return apiGet<TasksPageData>(`/tasks?${params}`);
+};
+
+export const getTask = async (id: number): Promise<Task> => {
+  return apiGet<Task>(`/tasks/${id}`);
+};
+
+export const createTask = async (data: TaskInput): Promise<Task> => {
+  return apiPost<Task>("/tasks", data);
+};
+
+export const updateTask = async (
+  id: number,
+  data: Partial<TaskInput>
+): Promise<Task> => {
+  return apiPut<Task>(`/tasks/${id}`, data);
+};
+
+export const deleteTask = async (id: number): Promise<void> => {
+  await apiDelete(`/tasks/${id}`);
+};
