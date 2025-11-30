@@ -4,6 +4,7 @@ import logging
 from typing import List, Optional, Dict, Any
 
 from sqlalchemy import select, and_
+from sqlalchemy.orm import joinedload
 
 from models.Comment import Comment
 from lib.db import async_get_session
@@ -18,6 +19,7 @@ async def find_comments_by_entity(
     async with async_get_session() as session:
         stmt = (
             select(Comment)
+            .options(joinedload(Comment.creator))
             .where(
                 and_(
                     Comment.tenant_id == tenant_id,
@@ -28,17 +30,19 @@ async def find_comments_by_entity(
             .order_by(Comment.created_at.asc())
         )
         result = await session.execute(stmt)
-        return list(result.scalars().all())
+        return list(result.unique().scalars().all())
 
 
 async def find_comment_by_id(comment_id: int, tenant_id: int) -> Optional[Comment]:
     """Find a comment by ID within a tenant."""
     async with async_get_session() as session:
-        stmt = select(Comment).where(
-            and_(Comment.id == comment_id, Comment.tenant_id == tenant_id)
+        stmt = (
+            select(Comment)
+            .options(joinedload(Comment.creator))
+            .where(and_(Comment.id == comment_id, Comment.tenant_id == tenant_id))
         )
         result = await session.execute(stmt)
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
 
 
 async def create_comment(data: Dict[str, Any]) -> Comment:
@@ -49,7 +53,14 @@ async def create_comment(data: Dict[str, Any]) -> Comment:
             session.add(comment)
             await session.commit()
             await session.refresh(comment)
-            return comment
+            # Eager load the creator relationship
+            stmt = (
+                select(Comment)
+                .options(joinedload(Comment.creator))
+                .where(Comment.id == comment.id)
+            )
+            result = await session.execute(stmt)
+            return result.unique().scalar_one()
         except Exception as e:
             await session.rollback()
             logger.error(f"Failed to create comment: {e}")

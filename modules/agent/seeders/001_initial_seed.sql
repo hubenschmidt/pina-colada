@@ -103,6 +103,62 @@ BEGIN
     ON CONFLICT ((LOWER(name))) DO NOTHING;
 
     RAISE NOTICE 'Default tenant and user created successfully. Tenant ID: %', v_tenant_id;
+
+    -- ==============================
+    -- Create Second User: Jennifer Lev
+    -- ==============================
+    -- Create Account for Jennifer
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at)
+    VALUES (v_tenant_id, 'Jennifer Lev', NOW(), NOW())
+    RETURNING id INTO v_account_id;
+
+    -- Create Individual for Jennifer
+    SELECT id INTO v_individual_id FROM "Individual" WHERE LOWER(email) = LOWER('jennifervlev@gmail.com') LIMIT 1;
+
+    IF v_individual_id IS NULL THEN
+        INSERT INTO "Individual" (account_id, first_name, last_name, email, created_at, updated_at)
+        VALUES (v_account_id, 'Jennifer', 'Lev', 'jennifervlev@gmail.com', NOW(), NOW())
+        RETURNING id INTO v_individual_id;
+    ELSE
+        UPDATE "Individual"
+        SET account_id = v_account_id,
+            first_name = 'Jennifer',
+            last_name = 'Lev',
+            updated_at = NOW()
+        WHERE id = v_individual_id;
+    END IF;
+
+    -- Create or update User for Jennifer
+    SELECT id INTO v_user_id FROM "User" WHERE email = 'jennifervlev@gmail.com' LIMIT 1;
+
+    IF v_user_id IS NULL THEN
+        INSERT INTO "User" (tenant_id, individual_id, email, first_name, last_name, status, created_at, updated_at)
+        VALUES (v_tenant_id, v_individual_id, 'jennifervlev@gmail.com', 'Jennifer', 'Lev', 'active', NOW(), NOW())
+        RETURNING id INTO v_user_id;
+    ELSE
+        UPDATE "User"
+        SET tenant_id = v_tenant_id,
+            individual_id = v_individual_id,
+            first_name = 'Jennifer',
+            last_name = 'Lev',
+            updated_at = NOW()
+        WHERE id = v_user_id;
+    END IF;
+
+    -- Create member role if it doesn't exist
+    SELECT id INTO v_role_id FROM "Role" WHERE tenant_id = v_tenant_id AND name = 'member' LIMIT 1;
+    IF v_role_id IS NULL THEN
+        INSERT INTO "Role" (tenant_id, name, description)
+        VALUES (v_tenant_id, 'member', 'Standard team member access')
+        RETURNING id INTO v_role_id;
+    END IF;
+
+    -- Assign member role to Jennifer
+    INSERT INTO "UserRole" (user_id, role_id, created_at)
+    VALUES (v_user_id, v_role_id, NOW())
+    ON CONFLICT DO NOTHING;
+
+    RAISE NOTICE 'Second user Jennifer Lev created successfully. User ID: %', v_user_id;
 END $$;
 
 -- ==============================

@@ -169,6 +169,8 @@ const CommentsSection = ({
             </p>
             <div className="flex items-center justify-between mt-2">
               <span className="text-xs text-zinc-500">
+                {comment.created_by_name || comment.created_by_email || "Unknown"}
+                {" · "}
                 {formatDate(comment.created_at)}
               </span>
               <div className="flex gap-1">

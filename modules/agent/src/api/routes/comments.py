@@ -40,6 +40,15 @@ class CommentUpdate(BaseModel):
 
 def _comment_to_dict(comment) -> dict:
     """Convert Comment model to dictionary."""
+    creator = comment.creator
+    created_by_name = None
+    created_by_email = None
+    if creator:
+        first = creator.first_name or ""
+        last = creator.last_name or ""
+        created_by_name = f"{first} {last}".strip() or None
+        created_by_email = creator.email
+
     return {
         "id": comment.id,
         "tenant_id": comment.tenant_id,
@@ -47,6 +56,8 @@ def _comment_to_dict(comment) -> dict:
         "commentable_id": comment.commentable_id,
         "content": comment.content,
         "created_by": comment.created_by,
+        "created_by_name": created_by_name,
+        "created_by_email": created_by_email,
         "created_at": comment.created_at.isoformat() if comment.created_at else None,
         "updated_at": comment.updated_at.isoformat() if comment.updated_at else None,
     }
