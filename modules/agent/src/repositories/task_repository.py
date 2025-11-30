@@ -9,6 +9,8 @@ from models.Project import Project
 from models.Deal import Deal
 from models.Lead import Lead
 from models.Account import Account
+from models.Individual import Individual
+from models.Organization import Organization
 from models.LeadProject import LeadProject
 from models.AccountProject import AccountProject
 from models.Status import Status
@@ -198,6 +200,37 @@ async def get_entity_display_name(entity_type: str, entity_id: int) -> Optional[
         }
         result = await session.execute(stmt_map[entity_type])
         return result.scalar_one_or_none()
+
+
+async def get_lead_type(lead_id: int) -> Optional[str]:
+    """Get the type of a lead (Job, Opportunity, Partnership)."""
+    async with async_get_session() as session:
+        result = await session.execute(
+            select(Lead.type).where(Lead.id == lead_id)
+        )
+        return result.scalar_one_or_none()
+
+
+async def get_account_entity(account_id: int) -> Optional[tuple[str, int]]:
+    """Get the Individual or Organization linked to an Account. Returns (type, id) or None."""
+    async with async_get_session() as session:
+        # Check if there's an individual linked to this account
+        ind_result = await session.execute(
+            select(Individual.id).where(Individual.account_id == account_id).limit(1)
+        )
+        ind_id = ind_result.scalar_one_or_none()
+        if ind_id:
+            return ("Individual", ind_id)
+
+        # Check if there's an organization linked to this account
+        org_result = await session.execute(
+            select(Organization.id).where(Organization.account_id == account_id).limit(1)
+        )
+        org_id = org_result.scalar_one_or_none()
+        if org_id:
+            return ("Organization", org_id)
+
+        return None
 
 
 async def find_task_statuses() -> List[Status]:

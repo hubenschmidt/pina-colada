@@ -1420,6 +1420,7 @@ export type TaskEntity = {
   id: number | null;
   display_name: string | null;
   url: string | null;
+  lead_type: string | null;
 };
 
 export type TaskComplexity = 1 | 2 | 3 | 5 | 8 | 13 | 21;
@@ -1587,6 +1588,7 @@ export type NotificationEntity = {
   id: number | null;
   display_name: string | null;
   url: string | null;
+  project_id: number | null;
 };
 
 export type Notification = {

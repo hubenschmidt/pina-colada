@@ -103,6 +103,14 @@ const NotificationDropdown = ({
 
                     {/* Content */}
                     <div className="flex-1 min-w-0">
+                      {/* Entity type badge */}
+                      {notification.entity?.type && (
+                        <div className="flex justify-end mb-1">
+                          <span className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wide">
+                            {notification.entity.type}
+                          </span>
+                        </div>
+                      )}
                       {/* Label */}
                       <p className="text-sm text-zinc-900 dark:text-zinc-100">
                         {getNotificationLabel(notification)}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Stack,
   Group,
@@ -29,6 +30,7 @@ import {
   TaskComplexity,
 } from "../../../api";
 import CommentsSection from "../../../components/CommentsSection";
+import Timestamps from "../../../components/Timestamps";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 
 const COMPLEXITY_OPTIONS = [
@@ -278,12 +280,14 @@ const TaskDetailPage = () => {
           {task.entity.type && task.entity.display_name && (
             <Stack gap={4}>
               <Text size="xs" c="dimmed">
-                Linked Entity
+                Linked {task.entity.type === "Lead" && task.entity.lead_type ? task.entity.lead_type : task.entity.type}
               </Text>
               <Group gap="xs">
-                <Badge variant="light">{task.entity.type}</Badge>
+                <Badge variant="light">
+                  {task.entity.type === "Lead" && task.entity.lead_type ? task.entity.lead_type : task.entity.type}
+                </Badge>
                 {task.entity.url ? (
-                  <Anchor href={task.entity.url} size="sm">
+                  <Anchor component={Link} href={task.entity.url} size="sm">
                     {task.entity.display_name}
                   </Anchor>
                 ) : (
@@ -293,25 +297,7 @@ const TaskDetailPage = () => {
             </Stack>
           )}
 
-          <Group gap="xl">
-            <Stack gap={4}>
-              <Text size="xs" c="dimmed">
-                Created
-              </Text>
-              <Text size="sm">
-                {task.created_at ? task.created_at.slice(0, 10) : "—"}
-              </Text>
-            </Stack>
-
-            {task.completed_at && (
-              <Stack gap={4}>
-                <Text size="xs" c="dimmed">
-                  Completed
-                </Text>
-                <Text size="sm">{task.completed_at.slice(0, 10)}</Text>
-              </Stack>
-            )}
-          </Group>
+          <Timestamps createdAt={task.created_at} updatedAt={task.updated_at} />
         </Stack>
       </Card>
 

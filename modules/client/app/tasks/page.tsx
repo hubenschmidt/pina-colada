@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Stack,
   Group,
@@ -92,7 +93,7 @@ const TasksPage = () => {
               {row.entity.type}
             </Text>
             {row.entity.url ? (
-              <Anchor href={row.entity.url} size="sm">
+              <Anchor component={Link} href={row.entity.url} size="sm">
                 {row.entity.display_name}
               </Anchor>
             ) : (

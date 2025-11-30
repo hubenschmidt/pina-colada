@@ -4,9 +4,11 @@ from typing import List
 
 from fastapi import APIRouter, Request, Query
 from pydantic import BaseModel
+from sqlalchemy import text
 
 from lib.auth import require_auth
 from lib.error_logging import log_errors
+from lib.db import get_session
 from repositories.notification_repository import (
     get_unread_count as repo_get_unread_count,
     get_notifications as repo_get_notifications,
@@ -25,10 +27,84 @@ ENTITY_URL_MAP = {
 }
 
 
+def _get_entity_project_id(entity_type: str, entity_id: int) -> int | None:
+    """Get project_id for an entity. Returns first project if multiple."""
+    if not entity_type or not entity_id:
+        return None
+
+    session = get_session()
+    try:
+        # Direct project_id column
+        if entity_type == "Deal":
+            result = session.execute(
+                text('SELECT project_id FROM "Deal" WHERE id = :id'),
+                {"id": entity_id}
+            ).fetchone()
+            return result[0] if result else None
+
+        # Tasks derive project from their parent entity (taskable)
+        if entity_type == "Task":
+            result = session.execute(
+                text('SELECT taskable_type, taskable_id FROM "Task" WHERE id = :id'),
+                {"id": entity_id}
+            ).fetchone()
+            if result and result[0] and result[1]:
+                # Recursively get project from parent entity
+                return _get_entity_project_id(result[0], result[1])
+            return None
+
+        # Junction table relationships
+        if entity_type == "Lead":
+            result = session.execute(
+                text('SELECT project_id FROM "LeadProject" WHERE lead_id = :id LIMIT 1'),
+                {"id": entity_id}
+            ).fetchone()
+            return result[0] if result else None
+
+        if entity_type in ("Individual", "Organization"):
+            # Get account_id first, then lookup project
+            table = entity_type
+            result = session.execute(
+                text(f'SELECT account_id FROM "{table}" WHERE id = :id'),
+                {"id": entity_id}
+            ).fetchone()
+            if result and result[0]:
+                account_id = result[0]
+                proj_result = session.execute(
+                    text('SELECT project_id FROM "AccountProject" WHERE account_id = :id LIMIT 1'),
+                    {"id": account_id}
+                ).fetchone()
+                return proj_result[0] if proj_result else None
+
+        return None
+    finally:
+        session.close()
+
+
 def _get_entity_url(entity_type: str, entity_id: int, comment_id: int = None) -> str:
     """Get URL for an entity, optionally with comment anchor."""
-    base_path = ENTITY_URL_MAP.get(entity_type, f"/{entity_type.lower()}s")
-    url = f"{base_path}/{entity_id}"
+    # Special handling for Lead - need to lookup the lead type
+    if entity_type == "Lead":
+        session = get_session()
+        try:
+            result = session.execute(
+                text('SELECT type FROM "Lead" WHERE id = :id'),
+                {"id": entity_id}
+            ).fetchone()
+            if result and result[0]:
+                lead_type = result[0].lower() + "s"  # 'Job' -> 'jobs', 'Opportunity' -> 'opportunitys'
+                # Fix pluralization
+                if lead_type == "opportunitys":
+                    lead_type = "opportunities"
+                url = f"/leads/{lead_type}/{entity_id}"
+            else:
+                url = f"/leads/{entity_id}"
+        finally:
+            session.close()
+    else:
+        base_path = ENTITY_URL_MAP.get(entity_type, f"/{entity_type.lower()}s")
+        url = f"{base_path}/{entity_id}"
+
     if comment_id:
         url += f"#comment-{comment_id}"
     return url
@@ -73,6 +149,7 @@ def _notification_to_dict(notification) -> dict:
             "id": comment.commentable_id if comment else None,
             "display_name": _get_entity_display_name(comment) if comment else None,
             "url": _get_entity_url(comment.commentable_type, comment.commentable_id, comment.id) if comment else None,
+            "project_id": _get_entity_project_id(comment.commentable_type, comment.commentable_id) if comment else None,
         } if comment else None,
     }
 

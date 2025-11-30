@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Send, Check, X, MessageCircle, Reply, ChevronDown, ChevronUp, Share2 } from "lucide-react";
 import { Comment, getComments, createComment, updateComment, deleteComment } from "../api";
+import { useUserContext } from "../context/userContext";
 
 interface CommentsSectionProps {
   entityType: string;
@@ -22,6 +23,8 @@ const CommentsSection = ({
   pendingComments,
   onPendingCommentsChange,
 }: CommentsSectionProps) => {
+  const { userState } = useUserContext();
+  const currentUserEmail = userState.user?.email;
   const isCreateMode = entityId === null;
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -68,13 +71,24 @@ const CommentsSection = ({
     }
   };
 
-  // Organize comments into threads (top-level + replies)
+  // Organize comments into threads (top-level + all nested replies flattened)
   const organizeThreads = (): CommentThread[] => {
     const topLevel = comments.filter((c) => !c.parent_comment_id);
+
+    // Helper to find root parent of a comment
+    const findRootParent = (commentId: number): number | null => {
+      const comment = comments.find((c) => c.id === commentId);
+      if (!comment || !comment.parent_comment_id) return commentId;
+      const parent = comments.find((c) => c.id === comment.parent_comment_id);
+      if (!parent) return commentId;
+      if (!parent.parent_comment_id) return parent.id;
+      return findRootParent(parent.id);
+    };
+
     const threads: CommentThread[] = topLevel.map((comment) => ({
       comment,
       replies: comments
-        .filter((c) => c.parent_comment_id === comment.id)
+        .filter((c) => c.parent_comment_id && findRootParent(c.id) === comment.id)
         .sort((a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()),
     }));
     return threads.sort((a, b) =>
@@ -241,6 +255,7 @@ const CommentsSection = ({
   const renderCommentContent = (comment: Comment, isReply: boolean = false) => {
     const isEditing = editingCommentId === comment.id;
     const displayName = comment.created_by_name || comment.created_by_email?.split("@")[0] || "Unknown";
+    const isOwnComment = currentUserEmail && comment.created_by_email === currentUserEmail;
 
     if (isEditing) {
       return (
@@ -299,30 +314,32 @@ const CommentsSection = ({
 
         {/* Actions */}
         <div className="flex items-center gap-3 text-xs mt-2">
-          {!isReply && (
-            <button
-              type="button"
-              onClick={() => startReplying(comment.id)}
-              className="flex items-center gap-1 text-zinc-400 hover:text-lime-600 dark:hover:text-lime-400 transition-colors"
-            >
-              <Reply size={12} />
-              Reply
-            </button>
+          <button
+            type="button"
+            onClick={() => startReplying(comment.id)}
+            className="flex items-center gap-1 text-zinc-400 hover:text-lime-600 dark:hover:text-lime-400 transition-colors"
+          >
+            <Reply size={12} />
+            Reply
+          </button>
+          {isOwnComment && (
+            <>
+              <button
+                type="button"
+                onClick={() => startEditing(comment)}
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteComment(comment.id)}
+                className="text-zinc-400 hover:text-red-500 transition-colors"
+              >
+                Delete
+              </button>
+            </>
           )}
-          <button
-            type="button"
-            onClick={() => startEditing(comment)}
-            className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
-          >
-            Edit
-          </button>
-          <button
-            type="button"
-            onClick={() => handleDeleteComment(comment.id)}
-            className="text-zinc-400 hover:text-red-500 transition-colors"
-          >
-            Delete
-          </button>
           <button
             type="button"
             onClick={() => {
@@ -420,15 +437,48 @@ const CommentsSection = ({
             {!isCollapsed && (
               <div className="space-y-3 border-l-2 border-zinc-200 dark:border-zinc-700 pl-4">
                 {replies.map((reply) => (
-                  <div key={reply.id} id={`comment-${reply.id}`} className="flex gap-3">
-                    {/* Reply avatar (smaller) */}
-                    <div
-                      className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium ${getAvatarColor(reply.created_by_name, reply.created_by_email)}`}
-                    >
-                      {getInitials(reply.created_by_name, reply.created_by_email)}
-                    </div>
+                  <div key={reply.id}>
+                    <div id={`comment-${reply.id}`} className="flex gap-3">
+                      {/* Reply avatar (smaller) */}
+                      <div
+                        className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium ${getAvatarColor(reply.created_by_name, reply.created_by_email)}`}
+                      >
+                        {getInitials(reply.created_by_name, reply.created_by_email)}
+                      </div>
 
-                    {renderCommentContent(reply, true)}
+                      {renderCommentContent(reply, true)}
+                    </div>
+                    {/* Reply input for this reply */}
+                    {replyingToId === reply.id && (
+                      <div className="ml-9 mt-3 space-y-2">
+                        <textarea
+                          value={replyContent}
+                          onChange={(e) => setReplyContent(e.target.value)}
+                          onKeyDown={(e) => handleKeyDown(e, () => handleAddReply(reply.id))}
+                          className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none"
+                          rows={2}
+                          placeholder="Write a reply..."
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleAddReply(reply.id)}
+                            disabled={!replyContent.trim()}
+                            className="px-3 py-1.5 text-xs bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-40 transition-colors"
+                          >
+                            Reply
+                          </button>
+                          <button
+                            type="button"
+                            onClick={cancelReplying}
+                            className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

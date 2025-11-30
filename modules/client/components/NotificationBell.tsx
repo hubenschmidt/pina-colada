@@ -10,9 +10,11 @@ import {
   markNotificationsRead,
 } from "../api";
 import NotificationDropdown from "./NotificationDropdown";
+import { useProjectContext } from "../context/projectContext";
 
 const NotificationBell = () => {
   const router = useRouter();
+  const { projectState, selectProject } = useProjectContext();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
@@ -84,6 +86,21 @@ const NotificationBell = () => {
       } catch (err) {
         console.error("Failed to mark notification as read:", err);
       }
+    }
+
+    // Switch project scope if needed
+    const entityProjectId = notification.entity?.project_id;
+    if (entityProjectId) {
+      const currentProjectId = projectState.selectedProject?.id;
+      if (currentProjectId !== entityProjectId) {
+        const targetProject = projectState.projects.find((p) => p.id === entityProjectId);
+        if (targetProject) {
+          selectProject(targetProject);
+        }
+      }
+    } else if (projectState.selectedProject) {
+      // Entity has no project, clear project scope
+      selectProject(null);
     }
 
     // Navigate to entity
