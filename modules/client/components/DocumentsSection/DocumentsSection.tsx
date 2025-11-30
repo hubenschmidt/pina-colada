@@ -39,6 +39,7 @@ const DocumentsSection = ({
   const [searchResults, setSearchResults] = useState<Document[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unlinkConfirmId, setUnlinkConfirmId] = useState<number | null>(null);
 
   // Fetch linked documents when entityId changes (edit mode only)
   useEffect(() => {
@@ -156,18 +157,25 @@ const DocumentsSection = ({
     }
   };
 
-  const handleUnlinkDocument = async (documentId: number) => {
-    if (!entityId) return;
+  const handleUnlinkDocument = (documentId: number) => {
+    setUnlinkConfirmId(documentId);
+  };
 
-    if (!confirm("Unlink this document?")) return;
+  const confirmUnlink = async () => {
+    if (!entityId || !unlinkConfirmId) return;
 
     setError(null);
     try {
-      await unlinkDocumentFromEntity(documentId, entityType, entityId);
+      await unlinkDocumentFromEntity(unlinkConfirmId, entityType, entityId);
+      setUnlinkConfirmId(null);
       await fetchLinkedDocuments();
     } catch (err: any) {
       setError(err?.message || "Failed to unlink document");
     }
+  };
+
+  const cancelUnlink = () => {
+    setUnlinkConfirmId(null);
   };
 
   const handleDownload = async (doc: Document) => {
@@ -237,66 +245,88 @@ const DocumentsSection = ({
     "w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100";
 
   const renderDocumentCard = (doc: Document, isPending = false) => (
-    <div
-      key={doc.id}
-      className="p-3 border border-zinc-200 dark:border-zinc-700 rounded flex items-center justify-between"
-    >
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <Link
-            href={`/assets/documents/${doc.id}`}
-            className="text-sm font-medium text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300 hover:underline"
-            onClick={(e) => {
-              e.stopPropagation();
-              router.push(`/assets/documents/${doc.id}`);
-            }}
-          >
-            {doc.filename}
-          </Link>
-          <span className="text-xs px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400 rounded">
-            v{doc.version_number}
-          </span>
+    <div key={doc.id}>
+      <div className="p-3 border border-zinc-200 dark:border-zinc-700 rounded flex items-center justify-between">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <Link
+              href={`/assets/documents/${doc.id}?v=${doc.version_number}`}
+              className="text-sm font-medium text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300 hover:underline"
+              onClick={(e) => {
+                e.stopPropagation();
+                router.push(`/assets/documents/${doc.id}?v=${doc.version_number}`);
+              }}
+            >
+              {doc.filename}
+            </Link>
+            <span className="text-xs px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-400 rounded">
+              v{doc.version_number}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs text-zinc-500">
+              {formatFileSize(doc.file_size)}
+            </span>
+            <span className="text-xs text-zinc-400">•</span>
+            <span className="text-xs text-zinc-500">
+              {formatDate(doc.created_at)}
+            </span>
+            {isPending && (
+              <>
+                <span className="text-xs text-zinc-400">•</span>
+                <span className="text-xs text-zinc-500 italic">Pending</span>
+              </>
+            )}
+          </div>
         </div>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-xs text-zinc-500">
-            {formatFileSize(doc.file_size)}
-          </span>
-          <span className="text-xs text-zinc-400">•</span>
-          <span className="text-xs text-zinc-500">
-            {formatDate(doc.created_at)}
-          </span>
-          {isPending && (
-            <>
-              <span className="text-xs text-zinc-400">•</span>
-              <span className="text-xs text-zinc-500 italic">Pending</span>
-            </>
+        <div className="flex items-center gap-1 ml-2">
+          <button
+            type="button"
+            onClick={() => handleDownload(doc)}
+            className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+            title="Download"
+          >
+            <Download size={16} />
+          </button>
+          {!isPending && (
+            <button
+              type="button"
+              onClick={() =>
+                isCreateMode
+                  ? handleRemovePendingDocument(doc.id)
+                  : handleUnlinkDocument(doc.id)
+              }
+              className="p-1.5 text-zinc-400 hover:text-red-500"
+              title={isCreateMode ? "Remove" : "Unlink"}
+            >
+              <Trash2 size={16} />
+            </button>
           )}
         </div>
       </div>
-      <div className="flex items-center gap-1 ml-2">
-        <button
-          type="button"
-          onClick={() => handleDownload(doc)}
-          className="p-1.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-          title="Download"
-        >
-          <Download size={16} />
-        </button>
-        {!isPending && (
-          <button
-            type="button"
-            onClick={() =>
-              isCreateMode
-                ? handleRemovePendingDocument(doc.id)
-                : handleUnlinkDocument(doc.id)
-            }
-            className="p-1.5 text-zinc-400 hover:text-red-500"
-            title={isCreateMode ? "Remove" : "Unlink"}
-          >
-            <Trash2 size={16} />
-          </button>
-        )}
-      </div>
+      {unlinkConfirmId === doc.id && (
+        <div className="mt-1 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-sm">
+          <div className="flex items-center justify-between">
+            <span className="text-red-700 dark:text-red-400">Unlink this document?</span>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={cancelUnlink}
+                className="px-2 py-1 text-xs bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-300 dark:hover:bg-zinc-600"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmUnlink}
+                className="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+              >
+                Unlink
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 

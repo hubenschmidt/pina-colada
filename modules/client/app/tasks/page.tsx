@@ -74,6 +74,17 @@ const TasksPage = () => {
     setPage(1);
   };
 
+  const getEntityColor = (entityType: string): string => {
+    const colorMap: Record<string, string> = {
+      Organization: "blue",
+      Individual: "green",
+      Project: "violet",
+      Contact: "cyan",
+      Lead: "orange",
+    };
+    return colorMap[entityType] || "gray";
+  };
+
   const columns: Column<Task>[] = [
     {
       header: "Task",
@@ -82,24 +93,35 @@ const TasksPage = () => {
       sortKey: "title",
     },
     {
-      header: "Entity",
+      header: "Linked To",
       render: (row) => {
         if (!row.entity.type || !row.entity.display_name) {
           return <Text c="dimmed">—</Text>;
         }
-        return (
-          <Group gap="xs">
-            <Text size="xs" c="dimmed">
-              {row.entity.type}
-            </Text>
-            {row.entity.url ? (
-              <Anchor component={Link} href={row.entity.url} size="sm">
-                {row.entity.display_name}
-              </Anchor>
-            ) : (
-              <Text size="sm">{row.entity.display_name}</Text>
-            )}
-          </Group>
+        return row.entity.url ? (
+          <Anchor
+            component={Link}
+            href={row.entity.url}
+            size="sm"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Badge
+              size="sm"
+              variant="light"
+              color={getEntityColor(row.entity.type)}
+              style={{ cursor: "pointer" }}
+            >
+              {row.entity.display_name}
+            </Badge>
+          </Anchor>
+        ) : (
+          <Badge
+            size="sm"
+            variant="light"
+            color={getEntityColor(row.entity.type)}
+          >
+            {row.entity.display_name}
+          </Badge>
         );
       },
     },

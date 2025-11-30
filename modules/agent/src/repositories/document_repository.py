@@ -37,13 +37,13 @@ async def find_documents_by_tenant(
 
         if entity_type and entity_id:
             # Join with EntityAsset to filter by entity
+            # Note: Don't filter by is_current_version here - entity links point
+            # to specific versions, so we show the version that was actually linked
             conditions = [
                 Document.tenant_id == tenant_id,
                 EntityAsset.c.entity_type == entity_type,
                 EntityAsset.c.entity_id == entity_id,
             ]
-            if current_versions_only:
-                conditions.append(Document.is_current_version == True)
             base_stmt = (
                 select(Document)
                 .join(EntityAsset, EntityAsset.c.asset_id == Document.id)
@@ -449,20 +449,9 @@ async def create_new_version(
             session.add(new_version)
             await session.flush()
 
-            # Copy entity links from root to new version
-            entities_stmt = select(EntityAsset).where(
-                EntityAsset.c.asset_id == actual_root_id
-            )
-            result = await session.execute(entities_stmt)
-            entities = result.fetchall()
-
-            for entity in entities:
-                link_stmt = insert(EntityAsset).values(
-                    asset_id=new_version.id,
-                    entity_type=entity.entity_type,
-                    entity_id=entity.entity_id,
-                )
-                await session.execute(link_stmt)
+            # Note: Entity links are NOT copied to new version.
+            # Each version maintains its own entity links, so entities
+            # show the specific version that was linked to them.
 
             await session.commit()
             await session.refresh(new_version)

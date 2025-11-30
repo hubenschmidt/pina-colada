@@ -128,7 +128,7 @@ export const DocumentList = ({
   };
 
   const handleRowClick = (doc: Document) => {
-    router.push(`/assets/documents/${doc.id}`);
+    router.push(`/assets/documents/${doc.id}?v=${doc.version_number}`);
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -194,33 +194,39 @@ export const DocumentList = ({
     {
       header: "Linked To",
       accessor: "entities",
-      render: (doc) => (
-        <Group gap={4}>
-          {(doc.entities || []).map((entity, idx) => (
-            <Anchor
-              key={`${entity.entity_type}-${entity.entity_id}-${idx}`}
-              component={Link}
-              href={getEntityUrl(entity.entity_type, entity.entity_id)}
-              size="xs"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <Badge
-                size="sm"
-                variant="light"
-                color={getEntityColor(entity.entity_type)}
-                style={{ cursor: "pointer" }}
+      render: (doc) => {
+        // Filter out Lead entities to avoid clutter (documents like resumes link to many jobs)
+        const filteredEntities = (doc.entities || []).filter(
+          (e) => e.entity_type !== "Lead"
+        );
+        return (
+          <Group gap={4}>
+            {filteredEntities.map((entity, idx) => (
+              <Anchor
+                key={`${entity.entity_type}-${entity.entity_id}-${idx}`}
+                component={Link}
+                href={getEntityUrl(entity.entity_type, entity.entity_id)}
+                size="xs"
+                onClick={(e) => e.stopPropagation()}
               >
-                {entity.entity_name}
-              </Badge>
-            </Anchor>
-          ))}
-          {(!doc.entities || doc.entities.length === 0) && (
-            <Text size="xs" c="dimmed">
-              -
-            </Text>
-          )}
-        </Group>
-      ),
+                <Badge
+                  size="sm"
+                  variant="light"
+                  color={getEntityColor(entity.entity_type)}
+                  style={{ cursor: "pointer" }}
+                >
+                  {entity.entity_name}
+                </Badge>
+              </Anchor>
+            ))}
+            {filteredEntities.length === 0 && (
+              <Text size="xs" c="dimmed">
+                -
+              </Text>
+            )}
+          </Group>
+        );
+      },
     },
     {
       header: "Size",

@@ -17,6 +17,8 @@ import {
   Divider,
   ActionIcon,
   Checkbox,
+  SimpleGrid,
+  TextInput,
 } from "@mantine/core";
 import { DataTable, type Column } from "../../../../components/DataTable/DataTable";
 import {
@@ -32,6 +34,7 @@ import {
   HardDrive,
   History,
   Check,
+  Search,
 } from "lucide-react";
 import {
   getDocument,
@@ -57,6 +60,17 @@ const DocumentDetailPage = () => {
   const [versionsLoading, setVersionsLoading] = useState(false);
   const [versionPage, setVersionPage] = useState(1);
   const [versionPageSize, setVersionPageSize] = useState(10);
+
+  // Linked entities state
+  const [entitySearch, setEntitySearch] = useState("");
+  const [entityPage, setEntityPage] = useState(1);
+  const [entityPageSize, setEntityPageSize] = useState(10);
+  const [entitySortBy, setEntitySortBy] = useState<string>("entity_type");
+  const [entitySortDir, setEntitySortDir] = useState<"ASC" | "DESC">("ASC");
+
+  // Sorting state for version history
+  const [versionSortBy, setVersionSortBy] = useState<string>("version_number");
+  const [versionSortDir, setVersionSortDir] = useState<"ASC" | "DESC">("DESC");
 
   const loadDocument = useCallback(async () => {
     if (!documentId) return;
@@ -194,6 +208,57 @@ const DocumentDetailPage = () => {
     return colorMap[entityType] || "gray";
   };
 
+  // Combine entities from all versions with version info
+  type EntityWithVersion = {
+    entity_type: string;
+    entity_id: number;
+    entity_name: string;
+    version_number: number;
+    version_id: number;
+  };
+
+  const allEntities: EntityWithVersion[] = versions.flatMap((v) =>
+    (v.entities || []).map((e) => ({
+      ...e,
+      version_number: v.version_number,
+      version_id: v.id,
+    }))
+  );
+
+  // Filter and sort entities client-side
+  const filteredEntities = allEntities.filter((e) => {
+    if (!entitySearch.trim()) return true;
+    const search = entitySearch.toLowerCase();
+    return (
+      e.entity_name.toLowerCase().includes(search) ||
+      e.entity_type.toLowerCase().includes(search)
+    );
+  });
+
+  const sortedEntities = [...filteredEntities].sort((a, b) => {
+    const key = entitySortBy as keyof typeof a;
+    if (key === "version_number") {
+      const cmp = (a.version_number || 0) - (b.version_number || 0);
+      return entitySortDir === "ASC" ? cmp : -cmp;
+    }
+    const aVal = String(a[key] || "").toLowerCase();
+    const bVal = String(b[key] || "").toLowerCase();
+    const cmp = aVal.localeCompare(bVal);
+    return entitySortDir === "ASC" ? cmp : -cmp;
+  });
+
+  // Sort versions client-side
+  const sortedVersions = [...versions].sort((a, b) => {
+    const key = versionSortBy as keyof Document;
+    let cmp = 0;
+    if (key === "version_number") {
+      cmp = (a.version_number || 0) - (b.version_number || 0);
+    } else if (key === "created_at") {
+      cmp = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
+    }
+    return versionSortDir === "ASC" ? cmp : -cmp;
+  });
+
   if (loading) {
     return (
       <Center mih={400}>
@@ -233,6 +298,9 @@ const DocumentDetailPage = () => {
             Back
           </Button>
           <Title order={2}>{document.filename}</Title>
+          <Badge size="lg" variant="light" color="gray">
+            v{document.version_number}
+          </Badge>
         </Group>
         <Group gap="sm">
           <Button
@@ -301,110 +369,199 @@ const DocumentDetailPage = () => {
             )}
           </Group>
 
-          {(document.entities || []).length > 0 && (
-            <Group gap="xs">
-              <Text size="sm" c="dimmed">
-                Linked To:
-              </Text>
-              {document.entities.map((entity, idx) => (
-                <Anchor
-                  key={`${entity.entity_type}-${entity.entity_id}-${idx}`}
-                  component={Link}
-                  href={getEntityUrl(entity.entity_type, entity.entity_id)}
-                  size="sm"
-                >
-                  <Badge
-                    size="sm"
-                    variant="light"
-                    color={getEntityColor(entity.entity_type)}
-                    style={{ cursor: "pointer" }}
-                  >
-                    {entity.entity_name}
-                  </Badge>
-                </Anchor>
-              ))}
-            </Group>
-          )}
         </Stack>
       </Paper>
 
-      {versions.length > 1 && (
-        <Paper p="lg" withBorder>
-          <Group gap="xs" mb="md">
-            <History className="h-4 w-4 text-zinc-400" />
-            <Text size="sm" c="dimmed">
-              Version History
-            </Text>
-          </Group>
-          {versionsLoading ? (
-            <Center mih={100}>
-              <Loader size="sm" color="lime" />
-            </Center>
-          ) : (
-            <DataTable
-              data={{
-                items: versions,
-                currentPage: versionPage,
-                totalPages: Math.ceil(versions.length / versionPageSize),
-                total: versions.length,
-                pageSize: versionPageSize,
-              }}
-              columns={[
-                {
-                  header: "Version",
-                  accessor: "version_number",
-                  render: (v) => <Text size="sm">v{v.version_number}</Text>,
-                },
-                {
-                  header: "Uploaded",
-                  accessor: "created_at",
-                  render: (v) => <Text size="sm">{formatDate(v.created_at)}</Text>,
-                },
-                {
-                  header: "Size",
-                  accessor: "file_size",
-                  render: (v) => <Text size="sm">{formatFileSize(v.file_size)}</Text>,
-                },
-                {
-                  header: "Current",
-                  width: 80,
-                  render: (v) => (
-                    <Checkbox
-                      checked={v.is_current_version}
-                      onChange={() => !v.is_current_version && handleSetCurrentVersion(v.id)}
-                      disabled={v.is_current_version}
-                      color="lime"
-                    />
-                  ),
-                },
-                {
-                  header: "Download",
-                  width: 80,
-                  render: (v) => (
-                    <ActionIcon
-                      variant="subtle"
-                      color="gray"
-                      size="sm"
-                      onClick={() => handleDownloadVersion(v)}
-                      title="Download this version"
-                    >
-                      <Download className="h-3.5 w-3.5" />
-                    </ActionIcon>
-                  ),
-                },
-              ] as Column<Document>[]}
-              onPageChange={setVersionPage}
-              pageValue={versionPage}
-              onPageSizeChange={(size) => {
-                setVersionPageSize(size);
-                setVersionPage(1);
-              }}
-              pageSizeValue={versionPageSize}
-              rowKey={(v) => v.id}
-              emptyText="No versions found"
-            />
+      {/* Linked Entities and Version History side by side */}
+      {(allEntities.length > 0 || versions.length > 1) && (
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+          {/* Linked Entities */}
+          {allEntities.length > 0 && (
+            <Paper p="lg" withBorder>
+              <Group gap="xs" mb="md">
+                <Link2 className="h-4 w-4 text-zinc-400" />
+                <Text size="sm" c="dimmed">
+                  Linked To ({allEntities.length})
+                </Text>
+              </Group>
+              <TextInput
+                placeholder="Search entities..."
+                value={entitySearch}
+                onChange={(e) => {
+                  setEntitySearch(e.target.value);
+                  setEntityPage(1);
+                }}
+                leftSection={<Search className="h-4 w-4" />}
+                size="sm"
+                mb="sm"
+              />
+              <DataTable
+                data={{
+                  items: sortedEntities.map((e, idx) => ({ ...e, _idx: idx })),
+                  currentPage: entityPage,
+                  totalPages: Math.ceil(sortedEntities.length / entityPageSize),
+                  total: sortedEntities.length,
+                  pageSize: entityPageSize,
+                }}
+                columns={[
+                  {
+                    header: "Type",
+                    width: 120,
+                    sortable: true,
+                    sortKey: "entity_type",
+                    render: (e) => (
+                      <Badge size="sm" variant="light" color={getEntityColor(e.entity_type)}>
+                        {e.entity_type}
+                      </Badge>
+                    ),
+                  },
+                  {
+                    header: "Name",
+                    sortable: true,
+                    sortKey: "entity_name",
+                    render: (e) => (
+                      <Anchor component={Link} href={getEntityUrl(e.entity_type, e.entity_id)} size="sm">
+                        {e.entity_name}
+                      </Anchor>
+                    ),
+                  },
+                  {
+                    header: "Version",
+                    width: 80,
+                    sortable: true,
+                    sortKey: "version_number",
+                    render: (e) => (
+                      <Anchor
+                        component={Link}
+                        href={`/assets/documents/${e.version_id}?v=${e.version_number}`}
+                        size="sm"
+                      >
+                        v{e.version_number}
+                      </Anchor>
+                    ),
+                  },
+                ] as Column<EntityWithVersion & { _idx: number }>[]}
+                rowKey={(e) => `${e.entity_type}-${e.entity_id}-${e.version_id}-${e._idx}`}
+                onPageChange={setEntityPage}
+                pageValue={entityPage}
+                onPageSizeChange={(size) => {
+                  setEntityPageSize(size);
+                  setEntityPage(1);
+                }}
+                pageSizeValue={entityPageSize}
+                sortBy={entitySortBy}
+                sortDirection={entitySortDir}
+                onSortChange={({ sortBy, direction }) => {
+                  setEntitySortBy(sortBy);
+                  setEntitySortDir(direction);
+                }}
+                emptyText={entitySearch ? "No matching entities" : "No linked entities"}
+              />
+            </Paper>
           )}
-        </Paper>
+
+          {/* Version History */}
+          {versions.length > 1 && (
+            <Paper p="lg" withBorder>
+              <Group gap="xs" mb="md">
+                <History className="h-4 w-4 text-zinc-400" />
+                <Text size="sm" c="dimmed">
+                  Version History
+                </Text>
+              </Group>
+              {versionsLoading ? (
+                <Center mih={100}>
+                  <Loader size="sm" color="lime" />
+                </Center>
+              ) : (
+                <DataTable
+                  data={{
+                    items: sortedVersions,
+                    currentPage: versionPage,
+                    totalPages: Math.ceil(sortedVersions.length / versionPageSize),
+                    total: sortedVersions.length,
+                    pageSize: versionPageSize,
+                  }}
+                  columns={[
+                    {
+                      header: "Version",
+                      accessor: "version_number",
+                      sortable: true,
+                      sortKey: "version_number",
+                      render: (v) => (
+                        <Group gap="xs">
+                          <Text size="sm">v{v.version_number}</Text>
+                          {v.id === document.id && (
+                            <Badge size="xs" variant="outline" color="blue">
+                              Viewing
+                            </Badge>
+                          )}
+                        </Group>
+                      ),
+                    },
+                    {
+                      header: "Uploaded",
+                      accessor: "created_at",
+                      sortable: true,
+                      sortKey: "created_at",
+                      render: (v) => <Text size="sm">{formatDate(v.created_at)}</Text>,
+                    },
+                    {
+                      header: "Current",
+                      width: 70,
+                      render: (v) => (
+                        <Checkbox
+                          checked={v.is_current_version}
+                          onChange={() => !v.is_current_version && handleSetCurrentVersion(v.id)}
+                          color="lime"
+                          styles={{
+                            input: {
+                              cursor: v.is_current_version ? "default" : "pointer",
+                            },
+                          }}
+                        />
+                      ),
+                    },
+                    {
+                      header: "",
+                      width: 40,
+                      render: (v) => (
+                        <ActionIcon
+                          variant="subtle"
+                          color="gray"
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadVersion(v);
+                          }}
+                          title="Download this version"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </ActionIcon>
+                      ),
+                    },
+                  ] as Column<Document>[]}
+                  onPageChange={setVersionPage}
+                  pageValue={versionPage}
+                  onPageSizeChange={(size) => {
+                    setVersionPageSize(size);
+                    setVersionPage(1);
+                  }}
+                  pageSizeValue={versionPageSize}
+                  sortBy={versionSortBy}
+                  sortDirection={versionSortDir}
+                  onSortChange={({ sortBy, direction }) => {
+                    setVersionSortBy(sortBy);
+                    setVersionSortDir(direction);
+                  }}
+                  rowKey={(v) => v.id}
+                  onRowClick={(v) => v.id !== document.id && router.push(`/assets/documents/${v.id}?v=${v.version_number}`)}
+                  emptyText="No versions found"
+                />
+              )}
+            </Paper>
+          )}
+        </SimpleGrid>
       )}
 
       {/* Document Preview */}

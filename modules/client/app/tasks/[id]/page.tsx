@@ -165,6 +165,17 @@ const TaskDetailPage = () => {
 
   if (!task) return null;
 
+  const getEntityColor = (entityType: string): string => {
+    const colorMap: Record<string, string> = {
+      Organization: "blue",
+      Individual: "green",
+      Project: "violet",
+      Contact: "cyan",
+      Lead: "orange",
+    };
+    return colorMap[entityType] || "gray";
+  };
+
   const statusOptions = statuses.map((s) => ({
     value: s.id.toString(),
     label: s.name,
@@ -280,18 +291,28 @@ const TaskDetailPage = () => {
           {task.entity.type && task.entity.display_name && (
             <Stack gap={4}>
               <Text size="xs" c="dimmed">
-                Linked {task.entity.type === "Lead" && task.entity.lead_type ? task.entity.lead_type : task.entity.type}
+                Linked To
               </Text>
               <Group gap="xs">
-                <Badge variant="light">
-                  {task.entity.type === "Lead" && task.entity.lead_type ? task.entity.lead_type : task.entity.type}
-                </Badge>
                 {task.entity.url ? (
                   <Anchor component={Link} href={task.entity.url} size="sm">
-                    {task.entity.display_name}
+                    <Badge
+                      size="sm"
+                      variant="light"
+                      color={getEntityColor(task.entity.type)}
+                      style={{ cursor: "pointer" }}
+                    >
+                      {task.entity.display_name}
+                    </Badge>
                   </Anchor>
                 ) : (
-                  <Text size="sm">{task.entity.display_name}</Text>
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color={getEntityColor(task.entity.type)}
+                  >
+                    {task.entity.display_name}
+                  </Badge>
                 )}
               </Group>
             </Stack>
