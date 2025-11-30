@@ -1520,3 +1520,44 @@ export const updateTask = async (
 export const deleteTask = async (id: number): Promise<void> => {
   await apiDelete(`/tasks/${id}`);
 };
+
+// ==============================================
+// Comment Types and API
+// ==============================================
+
+export type Comment = {
+  id: number;
+  tenant_id: number;
+  commentable_type: string;
+  commentable_id: number;
+  content: string;
+  created_by: number | null;
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export const getComments = async (
+  commentableType: string,
+  commentableId: number
+): Promise<Comment[]> => {
+  return apiGet<Comment[]>(`/comments?commentable_type=${encodeURIComponent(commentableType)}&commentable_id=${commentableId}`);
+};
+
+export const createComment = async (
+  commentableType: string,
+  commentableId: number,
+  content: string
+): Promise<Comment> => {
+  return apiPost<Comment>("/comments", { commentable_type: commentableType, commentable_id: commentableId, content });
+};
+
+export const updateComment = async (
+  commentId: number,
+  content: string
+): Promise<Comment> => {
+  return apiPut<Comment>(`/comments/${commentId}`, { content });
+};
+
+export const deleteComment = async (commentId: number): Promise<void> => {
+  await apiDelete(`/comments/${commentId}`);
+};

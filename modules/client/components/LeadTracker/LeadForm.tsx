@@ -14,6 +14,7 @@ import { searchContacts, updateJob, createNote, createTask, TaskInput } from "..
 import FormActions from "../FormActions";
 import NotesSection from "../NotesSection";
 import TasksSection from "../TasksSection";
+import CommentsSection from "../CommentsSection";
 import Timestamps from "../Timestamps";
 import { usePendingChanges } from "../../hooks/usePendingChanges";
 import { ProjectContext } from "../../context/projectContext";
@@ -53,6 +54,7 @@ const LeadForm = <T extends BaseLead>({
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [pendingNotes, setPendingNotes] = useState<string[]>([]);
   const [pendingTasks, setPendingTasks] = useState<TaskInput[]>([]);
+  const [pendingComments, setPendingComments] = useState<string[]>([]);
 
   // Parse field value based on field type
   const parseFieldValue = (field: FormFieldConfig<T>, value: any): any => {
@@ -795,6 +797,15 @@ const LeadForm = <T extends BaseLead>({
           entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
           pendingTasks={!isEditMode ? pendingTasks : undefined}
           onPendingTasksChange={!isEditMode ? setPendingTasks : undefined}
+        />
+      </div>
+
+      <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
+        <CommentsSection
+          entityType="Lead"
+          entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
+          pendingComments={!isEditMode ? pendingComments : undefined}
+          onPendingCommentsChange={!isEditMode ? setPendingComments : undefined}
         />
       </div>
 

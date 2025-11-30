@@ -6,6 +6,7 @@ import ContactSection, { ContactFieldConfig } from "../ContactSection";
 import RelationshipsSection, { Relationship } from "../RelationshipsSection";
 import NotesSection from "../NotesSection";
 import TasksSection from "../TasksSection";
+import CommentsSection from "../CommentsSection";
 import FormActions from "../FormActions";
 import Timestamps from "../Timestamps";
 import {
@@ -582,6 +583,7 @@ const AccountForm = ({
   const [pendingDeletions, setPendingDeletions] = useState<Contact[]>([]);
   const [pendingNotes, setPendingNotes] = useState<string[]>([]);
   const [pendingTasks, setPendingTasks] = useState<TaskInput[]>([]);
+  const [pendingComments, setPendingComments] = useState<string[]>([]);
   const [relationships, setRelationships] = useState<Relationship[]>([]);
   const [pendingRelationships, setPendingRelationships] = useState<Relationship[]>([]);
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>([]);
@@ -603,6 +605,7 @@ const AccountForm = ({
       setPendingDeletions([]);
       setPendingNotes([]);
       setPendingTasks([]);
+      setPendingComments([]);
       setPendingRelationships([]);
       setErrors({});
       setIsDeleting(false);
@@ -623,6 +626,7 @@ const AccountForm = ({
     setPendingDeletions([]);
     setPendingNotes([]);
     setPendingTasks([]);
+    setPendingComments([]);
     setPendingRelationships([]);
     setErrors({});
     setIsDeleting(false);
@@ -1095,6 +1099,15 @@ const AccountForm = ({
             entityId={isEditMode ? account?.id ?? null : null}
             pendingTasks={!isEditMode ? pendingTasks : undefined}
             onPendingTasksChange={!isEditMode ? setPendingTasks : undefined}
+          />
+        </div>
+
+        <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
+          <CommentsSection
+            entityType={isOrganization ? "Organization" : "Individual"}
+            entityId={isEditMode ? account?.id ?? null : null}
+            pendingComments={!isEditMode ? pendingComments : undefined}
+            onPendingCommentsChange={!isEditMode ? setPendingComments : undefined}
           />
         </div>
 

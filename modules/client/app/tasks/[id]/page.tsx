@@ -28,6 +28,7 @@ import {
   TaskStatus,
   TaskComplexity,
 } from "../../../api";
+import CommentsSection from "../../../components/CommentsSection";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 
 const COMPLEXITY_OPTIONS = [
@@ -312,6 +313,10 @@ const TaskDetailPage = () => {
             )}
           </Group>
         </Stack>
+      </Card>
+
+      <Card withBorder p="lg">
+        <CommentsSection entityType="Task" entityId={Number(id)} />
       </Card>
     </Stack>
   );

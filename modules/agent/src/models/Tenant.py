@@ -32,6 +32,7 @@ class Tenant(Base):
     projects = relationship("Project", back_populates="tenant")
     preferences = relationship("TenantPreferences", back_populates="tenant", uselist=False, cascade="all, delete-orphan")
     notes = relationship("Note", back_populates="tenant", cascade="all, delete-orphan")
+    comments = relationship("Comment", back_populates="tenant", cascade="all, delete-orphan")
 
     __table_args__ = (
         CheckConstraint("status IN ('active', 'suspended', 'trial', 'cancelled')", name='tenant_status_check'),
