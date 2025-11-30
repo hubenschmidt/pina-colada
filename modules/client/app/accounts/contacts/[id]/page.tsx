@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Center, Stack, Loader } from "@mantine/core";
 import { usePageLoading } from "../../../../context/pageLoadingContext";
-import ContactForm from "../../../../components/ContactForm";
+import ContactForm from "../../../../components/ContactForm/ContactForm";
 import { getContact, updateContact, deleteContact, Contact } from "../../../../api";
 
 const ContactDetailPage = () => {

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 import { getContacts, Contact } from "../../../api";
 import { Stack, Center, Loader, Text } from "@mantine/core";
-import SearchHeader from "../../../components/SearchHeader";
+import SearchHeader from "../../../components/SearchHeader/SearchHeader";
 import { DataTable, Column, PageData } from "../../../components/DataTable/DataTable";
 
 const columns: Column<Contact>[] = [

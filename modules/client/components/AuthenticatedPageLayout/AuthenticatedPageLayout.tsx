@@ -2,9 +2,9 @@
 
 import Image from "next/image";
 import { useUser } from "@auth0/nextjs-auth0/client";
-import { useUserContext } from "../context/userContext";
-import Header from "./Header";
-import { Sidebar } from "./Sidebar/Sidebar";
+import { useUserContext } from "../../context/userContext";
+import Header from "../Header/Header";
+import { Sidebar } from "../Sidebar/Sidebar";
 
 const AuthenticatedPageLayout = ({
   children,

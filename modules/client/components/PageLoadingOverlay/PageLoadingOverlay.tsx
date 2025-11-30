@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { usePageLoading } from "../context/pageLoadingContext";
+import { usePageLoading } from "../../context/pageLoadingContext";
 
 // Routes that should NOT show the loading overlay
 const EXCLUDED_ROUTES = ["/", "/privacy", "/terms", "/login"];

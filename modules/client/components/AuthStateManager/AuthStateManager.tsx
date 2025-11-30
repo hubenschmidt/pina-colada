@@ -2,9 +2,9 @@
 
 import { useEffect } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
-import { useUserContext } from "../context/userContext";
-import { getMe, getUserPreferences } from "../api";
-import { SET_THEME } from "../reducers/userReducer";
+import { useUserContext } from "../../context/userContext";
+import { getMe, getUserPreferences } from "../../api";
+import { SET_THEME } from "../../reducers/userReducer";
 
 /**
  * Manages authentication state by syncing Auth0 session with backend user data

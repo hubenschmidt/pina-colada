@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ChevronLeft } from "lucide-react";
 import { checkUserTenant } from "../../api";
-import Header from "../../components/Header";
+import Header from "../../components/Header/Header";
 
 const LoginPage = () => {
   const { user, isLoading } = useUser();

@@ -15,7 +15,7 @@ import {
 import { fetchBearerToken } from "../../../lib/fetch-bearer-token";
 import { useUserContext } from "../../../context/userContext";
 import { usePageLoading } from "../../../context/pageLoadingContext";
-import Header from "../../../components/Header";
+import Header from "../../../components/Header/Header";
 import {
   SET_USER,
   SET_BEARER_TOKEN,

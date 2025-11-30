@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useUserContext } from "../context/userContext";
+import { useUserContext } from "../../context/userContext";
 
 /**
  * Applies theme class to <html> element based on user preferences

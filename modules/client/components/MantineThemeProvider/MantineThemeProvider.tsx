@@ -2,7 +2,7 @@
 
 import { MantineProvider, createTheme } from "@mantine/core";
 import { useEffect, useState } from "react";
-import { useUserContext } from "../context/userContext";
+import { useUserContext } from "../../context/userContext";
 
 const theme = createTheme({
   primaryColor: "gray",

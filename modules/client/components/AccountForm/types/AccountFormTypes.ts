@@ -1,5 +1,5 @@
 import { Contact } from "../../../api";
-import { Relationship } from "../../RelationshipsSection";
+import { Relationship } from "../../RelationshipsSection/RelationshipsSection";
 
 export type AccountType = "organization" | "individual";
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useUserContext } from "../context/userContext";
+import { useUserContext } from "../../context/userContext";
 
 const HeaderAuthed = () => {
   const { userState } = useUserContext();

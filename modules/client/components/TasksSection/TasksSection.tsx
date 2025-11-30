@@ -13,7 +13,7 @@ import {
   createTask,
   updateTask,
   deleteTask,
-} from "../api";
+} from "../../api";
 
 interface TasksSectionProps {
   entityType: string;

@@ -9,13 +9,13 @@ import { ContactInput } from "../../types/types";
 import ContactSection, {
   ContactFieldConfig,
   SearchResult,
-} from "../ContactSection";
+} from "../ContactSection/ContactSection";
 import { searchContacts, updateJob, createNote, createTask, TaskInput } from "../../api";
-import FormActions from "../FormActions";
-import NotesSection from "../NotesSection";
-import TasksSection from "../TasksSection";
-import CommentsSection from "../CommentsSection";
-import Timestamps from "../Timestamps";
+import FormActions from "../FormActions/FormActions";
+import NotesSection from "../NotesSection/NotesSection";
+import TasksSection from "../TasksSection/TasksSection";
+import CommentsSection from "../CommentsSection/CommentsSection";
+import Timestamps from "../Timestamps/Timestamps";
 import { usePendingChanges } from "../../hooks/usePendingChanges";
 import { ProjectContext } from "../../context/projectContext";
 

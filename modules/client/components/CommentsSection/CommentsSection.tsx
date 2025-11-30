@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { Send, Check, X, MessageCircle, Reply, ChevronDown, ChevronUp, Share2 } from "lucide-react";
-import { Comment, getComments, createComment, updateComment, deleteComment } from "../api";
-import { useUserContext } from "../context/userContext";
+import { Comment, getComments, createComment, updateComment, deleteComment } from "../../api";
+import { useUserContext } from "../../context/userContext";
 
 interface CommentsSectionProps {
   entityType: string;

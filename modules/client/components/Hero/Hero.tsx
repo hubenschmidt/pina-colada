@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { useNavContext } from "../context/navContext";
+import { useNavContext } from "../../context/navContext";
 
 const Hero = () => {
   const { dispatchNav } = useNavContext();

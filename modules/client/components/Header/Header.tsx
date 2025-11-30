@@ -2,10 +2,10 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useNavContext } from "../context/navContext";
+import { useNavContext } from "../../context/navContext";
 import { useUser } from "@auth0/nextjs-auth0";
-import HeaderAuthed from "./HeaderAuthed";
-import NotificationBell from "./NotificationBell";
+import HeaderAuthed from "../HeaderAuthed/HeaderAuthed";
+import NotificationBell from "../NotificationBell/NotificationBell";
 import { Menu, Button } from "@mantine/core";
 import { ChevronDown, Settings, LogOut } from "lucide-react";
 

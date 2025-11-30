@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Edit2, Check, X } from "lucide-react";
-import { Note, getNotes, createNote, updateNote, deleteNote } from "../api";
+import { Note, getNotes, createNote, updateNote, deleteNote } from "../../api";
 
 interface NotesSectionProps {
   entityType: string;

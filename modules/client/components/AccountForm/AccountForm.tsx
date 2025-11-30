@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import ContactSection, { ContactFieldConfig } from "../ContactSection";
-import RelationshipsSection, { Relationship } from "../RelationshipsSection";
-import NotesSection from "../NotesSection";
-import TasksSection from "../TasksSection";
-import CommentsSection from "../CommentsSection";
-import FormActions from "../FormActions";
-import Timestamps from "../Timestamps";
+import ContactSection, { ContactFieldConfig } from "../ContactSection/ContactSection";
+import RelationshipsSection, { Relationship } from "../RelationshipsSection/RelationshipsSection";
+import NotesSection from "../NotesSection/NotesSection";
+import TasksSection from "../TasksSection/TasksSection";
+import CommentsSection from "../CommentsSection/CommentsSection";
+import FormActions from "../FormActions/FormActions";
+import Timestamps from "../Timestamps/Timestamps";
 import {
   Contact,
   createIndividualContact,
@@ -24,7 +24,7 @@ import {
   TaskInput,
 } from "../../api";
 import { useProjectContext } from "../../context/projectContext";
-import { SearchResult } from "../ContactSection";
+import { SearchResult } from "../ContactSection/ContactSection";
 import {
   AccountFormProps,
   OrganizationData,

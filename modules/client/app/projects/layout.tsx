@@ -1,4 +1,4 @@
-import AuthenticatedPageLayout from "../../components/AuthenticatedPageLayout";
+import AuthenticatedPageLayout from "../../components/AuthenticatedPageLayout/AuthenticatedPageLayout";
 
 const ProjectsLayout = ({
   children,

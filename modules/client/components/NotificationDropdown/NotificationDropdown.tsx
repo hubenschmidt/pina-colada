@@ -1,7 +1,7 @@
 "use client";
 
 import { Reply, MessageCircle, Check } from "lucide-react";
-import { Notification } from "../api";
+import { Notification } from "../../api";
 
 interface NotificationDropdownProps {
   notifications: Notification[];

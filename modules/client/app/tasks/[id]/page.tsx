@@ -29,8 +29,8 @@ import {
   TaskStatus,
   TaskComplexity,
 } from "../../../api";
-import CommentsSection from "../../../components/CommentsSection";
-import Timestamps from "../../../components/Timestamps";
+import CommentsSection from "../../../components/CommentsSection/CommentsSection";
+import Timestamps from "../../../components/Timestamps/Timestamps";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 
 const COMPLEXITY_OPTIONS = [

@@ -8,9 +8,9 @@ import {
   getNotificationCount,
   getNotifications,
   markNotificationsRead,
-} from "../api";
-import NotificationDropdown from "./NotificationDropdown";
-import { useProjectContext } from "../context/projectContext";
+} from "../../api";
+import NotificationDropdown from "../NotificationDropdown/NotificationDropdown";
+import { useProjectContext } from "../../context/projectContext";
 
 const NotificationBell = () => {
   const router = useRouter();

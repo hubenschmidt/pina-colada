@@ -5,8 +5,8 @@
 This spec documents the tagging intelligence layer as a separate concern from the ingestion service.
 
 **Related specs:**
-- `spec/todo/asset-upload.md` - Phase 1: Client upload with tagging
-- `spec/todo/asset-api-ingest.md` - Phase 2: API ingestion (tag-agnostic)
+- `spec/todo/asset_or_ingestion/asset-upload.md` - Phase 1: Client upload with tagging
+- `spec/todo/asset_or_ingestion/asset-api-ingest.md` - Phase 2: API ingestion (tag-agnostic)
 
 ---
 
@@ -15,6 +15,8 @@ This spec documents the tagging intelligence layer as a separate concern from th
 The ingestion service accepts tags but doesn't determine them. This spec covers the intelligence layer that decides *what* tags to apply.
 
 **Goal:** Flexible tagging strategies that can evolve independently from storage/ingestion.
+
+**Note:** Assets now support many-to-many project associations via `AssetProject` junction table. Tagging remains orthogonal to project scoping—an asset can have tags regardless of which projects it belongs to.
 
 ---
 

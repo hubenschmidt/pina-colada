@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import Image from "next/image";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { usePathname, useRouter } from "next/navigation";
-import PageLoadingOverlay from "../components/PageLoadingOverlay";
+import PageLoadingOverlay from "../components/PageLoadingOverlay/PageLoadingOverlay";
 import { useUserContext } from "../context/userContext";
 
 export const RootLayoutClient = ({

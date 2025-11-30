@@ -9,7 +9,7 @@ type SectionFrameProps = {
   containerClassName?: string; // default container classes
 };
 
-import cx from "../lib/concat-classes";
+import cx from "../../lib/concat-classes";
 
 const SectionFrame = ({
   id,

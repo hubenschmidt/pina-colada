@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { usePageLoading } from "../../../../context/pageLoadingContext";
-import ContactForm from "../../../../components/ContactForm";
+import ContactForm from "../../../../components/ContactForm/ContactForm";
 import { createContact, Contact } from "../../../../api";
 import { useEffect } from "react";
 

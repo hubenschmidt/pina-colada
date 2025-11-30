@@ -1,12 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { Contact, createNote } from "../api";
-import { formatPhoneNumber } from "../lib/phone";
-import FormActions from "./FormActions";
-import NotesSection from "./NotesSection";
-import Timestamps from "./Timestamps";
-import { usePendingChanges } from "../hooks/usePendingChanges";
+import { Contact, createNote } from "../../api";
+import { formatPhoneNumber } from "../../lib/phone";
+import FormActions from "../FormActions/FormActions";
+import NotesSection from "../NotesSection/NotesSection";
+import Timestamps from "../Timestamps/Timestamps";
+import { usePendingChanges } from "../../hooks/usePendingChanges";
 
 interface ContactFormProps {
   contact?: Contact;
