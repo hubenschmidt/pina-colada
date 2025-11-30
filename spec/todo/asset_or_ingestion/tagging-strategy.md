@@ -16,7 +16,7 @@ The ingestion service accepts tags but doesn't determine them. This spec covers 
 
 **Goal:** Flexible tagging strategies that can evolve independently from storage/ingestion.
 
-**Note:** Assets now support many-to-many project associations via `AssetProject` junction table. Tagging remains orthogonal to project scoping—an asset can have tags regardless of which projects it belongs to.
+**Note:** Documents use the existing polymorphic `EntityTag` table for tagging (via `EntityTag(tag_id, 'Asset', asset_id)`) and `EntityAsset` for entity associations. A document can be tagged and linked to multiple entities (Projects, Leads, Accounts) independently.
 
 ---
 
@@ -94,7 +94,9 @@ async def suggest_tags(
 
 ## Dependencies
 
-- Asset tables from Phase 1
+- Asset/Document tables from Phase 1 (joined table inheritance)
+- EntityTag table (existing polymorphic tagging)
+- EntityAsset table (polymorphic entity linking)
 - Ingestion API from Phase 2
 - LLM integration (existing infrastructure)
 

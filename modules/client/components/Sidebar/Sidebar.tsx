@@ -22,6 +22,7 @@ import {
   Library,
   Clipboard,
   CheckSquare,
+  Files,
 } from "lucide-react";
 import { Stack, ScrollArea, Select } from "@mantine/core";
 import { useNavContext } from "../../context/navContext";
@@ -230,6 +231,17 @@ export const Sidebar = () => {
               >
                 <CheckSquare className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                 Tasks
+              </Link>
+
+              {/* Documents */}
+              <Link
+                href="/assets/documents"
+                className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 ${
+                  pathname === "/assets/documents" ? "font-bold" : "font-normal"
+                }`}
+              >
+                <Files className="h-4 w-4 text-lime-600 dark:text-lime-400" />
+                Documents
               </Link>
 
               {/* Deals - disabled for now, will implement later */}

@@ -11,13 +11,10 @@ export const ThemeApplier = () => {
 
   useEffect(() => {
     const htmlElement = document.documentElement;
+    htmlElement.classList.remove("dark");
 
     if (userState.theme === "dark") {
       htmlElement.classList.add("dark");
-    }
-
-    if (userState.theme === "light") {
-      htmlElement.classList.remove("dark");
     }
   }, [userState.theme]);
 

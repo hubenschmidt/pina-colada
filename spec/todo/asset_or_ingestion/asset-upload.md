@@ -1,10 +1,12 @@
-# Asset Upload with Tagging - Technical Specification
+# Document Upload with Tagging - Technical Specification
 
 ## Context
 
-The system needs a way to ingest user assets (documents, files) that can be tagged, linked to projects, and later queried by the agentic AI. This is Phase 1 focusing on client-side upload.
+The system needs a way to ingest user documents (PDFs, text files, etc.) that can be tagged, linked to entities (Projects, Leads, Accounts), and later queried by the agentic AI. This is Phase 1 focusing on client-side upload.
 
-**Goal:** Keep asset retrieval efficient for agent context. Tags and project associations enable precise queries so the agent only loads relevant assets, minimizing token usage.
+**Note:** We use "Document" (not "Asset") since the existing `Asset` table is for polymorphic text content. Future phases may add `Image` or other asset types.
+
+**Goal:** Keep document retrieval efficient for agent context. Tags and entity associations enable precise queries so the agent only loads relevant documents, minimizing token usage.
 
 **Phase 2** (API-driven/ETL ingest) will be documented in `spec/asset-api-ingest.md`.
 
@@ -27,21 +29,21 @@ The system needs a way to ingest user assets (documents, files) that can be tagg
 
 ### Agent Access: On-demand via tool
 
-- Agent calls `get_user_assets(tags, project_ids)` during conversation
-- Tool returns asset content for context injection
+- Agent calls `get_user_documents(tags, entity_type, entity_ids)` during conversation
+- Tool returns document content for context injection
 - Text extraction for PDFs/documents
 
-### Tagging: Normalized junction table
+### Tagging: Reuse existing EntityTag
 
-- `Tag` table scoped to tenant
-- `AssetTag` junction enables many-to-many
-- Efficient "find all assets with tag X" queries via indexed FK lookup
+- Existing `Tag` and `EntityTag` tables are polymorphic
+- Documents tagged via `EntityTag(tag_id, 'Document', document_id)`
+- Consistent with how other entities are tagged
 
-### Project Association: Many-to-Many
+### Entity Association: Polymorphic
 
-- `AssetProject` junction table (follows existing pattern: LeadProject, AccountProject)
-- Assets can belong to multiple projects
-- Enables project-scoped asset queries
+- `EntityDocument` junction table (follows existing `EntityTag` pattern)
+- Documents can be linked to any entity type (Project, Lead, Account, etc.)
+- Single table enables flexible associations without creating N junction tables
 
 ---
 
@@ -62,50 +64,63 @@ R2_BUCKET_NAME=pina-colada-assets
 
 ## Database Schema
 
-### Migration
+### Migration (041_asset_refactor.sql)
 
 ```sql
--- Tag table (tenant-scoped)
-CREATE TABLE "Tag" (
-  id BIGSERIAL PRIMARY KEY,
-  tenant_id BIGINT NOT NULL REFERENCES "Tenant"(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-CREATE UNIQUE INDEX idx_tag_tenant_name ON "Tag"(tenant_id, LOWER(name));
+-- Refactor Asset to be base table for joined table inheritance
+-- Drop old polymorphic columns, add common asset fields
 
--- Asset table (metadata only, no file data)
+-- 1. Drop old Asset structure (backup data if needed)
+DROP TABLE IF EXISTS "Asset" CASCADE;
+
+-- 2. Create new Asset base table
 CREATE TABLE "Asset" (
   id BIGSERIAL PRIMARY KEY,
+  asset_type TEXT NOT NULL,  -- 'document', 'image' (discriminator)
   tenant_id BIGINT NOT NULL REFERENCES "Tenant"(id) ON DELETE CASCADE,
   user_id BIGINT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
   filename TEXT NOT NULL,
-  content_type TEXT NOT NULL,
-  storage_path TEXT NOT NULL,  -- path in storage backend
-  file_size BIGINT NOT NULL,
+  content_type TEXT NOT NULL,  -- MIME type
   description TEXT,
   created_at TIMESTAMPTZ DEFAULT now(),
   updated_at TIMESTAMPTZ DEFAULT now()
 );
-CREATE INDEX idx_asset_user ON "Asset"(user_id);
 CREATE INDEX idx_asset_tenant ON "Asset"(tenant_id);
+CREATE INDEX idx_asset_user ON "Asset"(user_id);
+CREATE INDEX idx_asset_type ON "Asset"(asset_type);
 
--- AssetTag junction table
-CREATE TABLE "AssetTag" (
-  asset_id BIGINT NOT NULL REFERENCES "Asset"(id) ON DELETE CASCADE,
-  tag_id BIGINT NOT NULL REFERENCES "Tag"(id) ON DELETE CASCADE,
-  PRIMARY KEY (asset_id, tag_id)
+-- 3. Create Document extension table (joined inheritance)
+CREATE TABLE "Document" (
+  id BIGINT PRIMARY KEY REFERENCES "Asset"(id) ON DELETE CASCADE,
+  storage_path TEXT NOT NULL,  -- path in storage backend
+  file_size BIGINT NOT NULL
 );
-CREATE INDEX idx_assettag_tag ON "AssetTag"(tag_id);
 
--- AssetProject junction table
-CREATE TABLE "AssetProject" (
+-- 4. EntityAsset polymorphic junction (links assets to any entity)
+CREATE TABLE "EntityAsset" (
   asset_id BIGINT NOT NULL REFERENCES "Asset"(id) ON DELETE CASCADE,
-  project_id BIGINT NOT NULL REFERENCES "Project"(id) ON DELETE CASCADE,
+  entity_type TEXT NOT NULL,  -- 'Project', 'Lead', 'Account', etc.
+  entity_id BIGINT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT now(),
-  PRIMARY KEY (asset_id, project_id)
+  PRIMARY KEY (asset_id, entity_type, entity_id)
 );
-CREATE INDEX idx_assetproject_project ON "AssetProject"(project_id);
+CREATE INDEX idx_entityasset_entity ON "EntityAsset"(entity_type, entity_id);
+CREATE INDEX idx_entityasset_asset ON "EntityAsset"(asset_id);
+
+-- Tagging uses existing EntityTag table:
+-- INSERT INTO "EntityTag"(tag_id, entity_type, entity_id) VALUES (?, 'Asset', asset_id);
+```
+
+**Future Image table would be:**
+```sql
+CREATE TABLE "Image" (
+  id BIGINT PRIMARY KEY REFERENCES "Asset"(id) ON DELETE CASCADE,
+  storage_path TEXT NOT NULL,
+  file_size BIGINT NOT NULL,
+  width INT,
+  height INT,
+  thumbnail_path TEXT
+);
 ```
 
 ---
@@ -214,108 +229,102 @@ def get_storage() -> StorageBackend:
 
 ---
 
-### 2. SQLAlchemy Models
+### 2. SQLAlchemy Models (Joined Table Inheritance)
 
-#### `models/Tag.py`
-
-```python
-class Tag(Base):
-    __tablename__ = "Tag"
-
-    id = Column(BigInteger, primary_key=True)
-    tenant_id = Column(BigInteger, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=False)
-    name = Column(Text, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-
-    tenant = relationship("Tenant")
-    assets = relationship("Asset", secondary="AssetTag", back_populates="tags")
-```
-
-#### `models/Asset.py`
+#### `models/Asset.py` (Base class)
 
 ```python
 class Asset(Base):
+    """Base asset class using joined table inheritance."""
     __tablename__ = "Asset"
 
     id = Column(BigInteger, primary_key=True)
+    asset_type = Column(Text, nullable=False)  # discriminator
     tenant_id = Column(BigInteger, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=False)
     user_id = Column(BigInteger, ForeignKey("User.id", ondelete="CASCADE"), nullable=False)
     filename = Column(Text, nullable=False)
     content_type = Column(Text, nullable=False)
-    storage_path = Column(Text, nullable=False)
-    file_size = Column(BigInteger, nullable=False)
     description = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
     tenant = relationship("Tenant")
     user = relationship("User")
-    tags = relationship("Tag", secondary="AssetTag", back_populates="assets")
-    projects = relationship("Project", secondary="AssetProject", back_populates="assets")
+
+    __mapper_args__ = {
+        "polymorphic_on": asset_type,
+        "polymorphic_identity": "asset",
+    }
 ```
 
-#### `models/AssetTag.py`
+#### `models/Document.py` (Extends Asset)
 
 ```python
-class AssetTag(Base):
-    __tablename__ = "AssetTag"
+class Document(Asset):
+    """Document asset - files stored in external storage."""
+    __tablename__ = "Document"
 
-    asset_id = Column(BigInteger, ForeignKey("Asset.id", ondelete="CASCADE"), primary_key=True)
-    tag_id = Column(BigInteger, ForeignKey("Tag.id", ondelete="CASCADE"), primary_key=True)
+    id = Column(BigInteger, ForeignKey("Asset.id", ondelete="CASCADE"), primary_key=True)
+    storage_path = Column(Text, nullable=False)
+    file_size = Column(BigInteger, nullable=False)
+
+    __mapper_args__ = {
+        "polymorphic_identity": "document",
+    }
 ```
 
-#### `models/AssetProject.py`
+#### `models/EntityAsset.py`
 
 ```python
-class AssetProject(Base):
-    __tablename__ = "AssetProject"
-
-    asset_id = Column(BigInteger, ForeignKey("Asset.id", ondelete="CASCADE"), primary_key=True)
-    project_id = Column(BigInteger, ForeignKey("Project.id", ondelete="CASCADE"), primary_key=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+# Polymorphic join table for linking any asset to any entity
+EntityAsset = Table(
+    "EntityAsset",
+    Base.metadata,
+    Column("asset_id", BigInteger, ForeignKey("Asset.id", ondelete="CASCADE"), primary_key=True),
+    Column("entity_type", Text, primary_key=True),  # 'Project', 'Lead', 'Account'
+    Column("entity_id", BigInteger, primary_key=True),
+    Column("created_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
+)
 ```
 
 ---
 
-### 3. API Routes (`api/routes/assets.py`)
+### 3. API Routes (`api/routes/documents.py`)
 
-#### Upload Asset
+#### Upload Document
 
 ```python
-@router.post("/assets")
+@router.post("/documents")
 @require_auth
-async def upload_asset(
+async def upload_document(
     file: UploadFile,
     tags: str = Form(""),  # comma-separated
-    project_ids: str = Form(""),  # comma-separated
+    entity_type: str = Form(None),  # 'Project', 'Lead', etc.
+    entity_id: int = Form(None),
     description: str = Form(""),
     session: AsyncSession = Depends(async_get_session),
     user: User = Depends(get_current_user),
     storage: StorageBackend = Depends(get_storage),
 ):
     """
-    Upload file with tags and project associations.
+    Upload file with tags and optional entity association.
 
     - Validates file size (<10MB)
     - Uploads to storage backend
-    - Creates/reuses tags within tenant
-    - Links to projects via junction table
+    - Creates/reuses tags within tenant (via EntityTag)
+    - Links to entity via polymorphic EntityDocument table
     """
-    # Validate size
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
         raise HTTPException(400, "File exceeds 10MB limit")
 
-    # Generate storage path
-    asset_id = generate_snowflake_id()
-    storage_path = f"{user.tenant_id}/{asset_id}/{file.filename}"
+    document_id = generate_snowflake_id()
+    storage_path = f"{user.tenant_id}/{document_id}/{file.filename}"
 
-    # Upload to storage
     await storage.upload(storage_path, content, file.content_type)
 
-    # Create asset record
-    asset = Asset(
-        id=asset_id,
+    document = Document(
+        id=document_id,
         tenant_id=user.tenant_id,
         user_id=user.id,
         filename=file.filename,
@@ -324,36 +333,36 @@ async def upload_asset(
         file_size=len(content),
         description=description,
     )
-    session.add(asset)
-
-    # Handle tags and projects...
+    session.add(document)
+    # Handle tags via EntityTag, entity link via EntityDocument...
 ```
 
-#### List Assets
+#### List Documents
 
 ```python
-@router.get("/assets")
+@router.get("/documents")
 @require_auth
-async def list_assets(
+async def list_documents(
     tags: str = Query(""),  # comma-separated filter
-    project_id: int = Query(None),  # filter by project
+    entity_type: str = Query(None),  # filter by entity type
+    entity_id: int = Query(None),  # filter by entity id
     session: AsyncSession = Depends(async_get_session),
     user: User = Depends(get_current_user),
 ):
     """
-    List user's assets with optional tag/project filter.
+    List user's documents with optional tag/entity filter.
 
     Returns metadata only (no file content).
     """
 ```
 
-#### Get Asset (Download)
+#### Download Document
 
 ```python
-@router.get("/assets/{asset_id}/download")
+@router.get("/documents/{document_id}/download")
 @require_auth
-async def download_asset(
-    asset_id: int,
+async def download_document(
+    document_id: int,
     session: AsyncSession = Depends(async_get_session),
     user: User = Depends(get_current_user),
     storage: StorageBackend = Depends(get_storage),
@@ -361,61 +370,75 @@ async def download_asset(
     """Return presigned URL (R2) or stream file (local)."""
 ```
 
-#### Delete Asset
+#### Delete Document
 
 ```python
-@router.delete("/assets/{asset_id}")
+@router.delete("/documents/{document_id}")
 @require_auth
-async def delete_asset(
-    asset_id: int,
+async def delete_document(
+    document_id: int,
     session: AsyncSession = Depends(async_get_session),
     user: User = Depends(get_current_user),
     storage: StorageBackend = Depends(get_storage),
 ):
-    """Delete asset from storage and database."""
+    """Delete document from storage and database."""
 ```
 
-#### Update Asset Projects
+#### Link/Unlink Document
 
 ```python
-@router.patch("/assets/{asset_id}/projects")
+@router.post("/documents/{document_id}/link")
 @require_auth
-async def update_asset_projects(
-    asset_id: int,
-    project_ids: list[int],
+async def link_document_to_entity(
+    document_id: int,
+    entity_type: str,
+    entity_id: int,
     session: AsyncSession = Depends(async_get_session),
     user: User = Depends(get_current_user),
 ):
-    """Replace asset's project associations."""
+    """Link document to an entity (Project, Lead, Account, etc.)."""
+
+@router.delete("/documents/{document_id}/link")
+@require_auth
+async def unlink_document_from_entity(
+    document_id: int,
+    entity_type: str,
+    entity_id: int,
+    session: AsyncSession = Depends(async_get_session),
+    user: User = Depends(get_current_user),
+):
+    """Remove document link from an entity."""
 ```
 
 ---
 
 ### 4. Agent Tool
 
-#### `tools/asset_tools.py`
+#### `tools/document_tools.py`
 
 ```python
 @tool
-async def get_user_assets(
+async def get_user_documents(
     tags: list[str] = None,
-    project_ids: list[int] = None,
+    entity_type: str = None,  # 'Project', 'Lead', 'Account'
+    entity_ids: list[int] = None,
     user_id: int,
     tenant_id: int,
 ) -> str:
     """
-    Query user assets by tags and/or projects for agent context.
+    Query user documents by tags and/or entity associations for agent context.
 
     Args:
-        tags: List of tag names to filter by (AND logic)
-        project_ids: List of project IDs to filter by (OR logic)
+        tags: List of tag names to filter by (AND logic, via EntityTag)
+        entity_type: Entity type to filter by (e.g., 'Project')
+        entity_ids: List of entity IDs to filter by (OR logic within type)
         user_id: Current user ID
         tenant_id: Current tenant ID
 
     Returns:
-        Concatenated asset content (text extracted from files)
+        Concatenated document content (text extracted from files)
     """
-    # Query assets matching filters
+    # Query documents matching filters via EntityDocument/EntityTag joins
     # Download from storage
     # Extract text from PDFs/docs
     # Return formatted content for agent context
@@ -435,13 +458,14 @@ async def get_user_assets(
 ```typescript
 interface AssetUploadProps {
   onUploadComplete?: (asset: Asset) => void;
-  defaultProjectIds?: number[];
+  entityType?: string;  // 'Project', 'Lead', etc.
+  entityId?: number;
 }
 
 // Features:
 // - Drag-and-drop file input
 // - Tag selector with autocomplete
-// - Project selector (multi-select)
+// - Auto-links to entity if provided
 // - Upload progress indicator
 // - File size validation (client-side)
 ```
@@ -451,16 +475,36 @@ interface AssetUploadProps {
 ```typescript
 interface AssetListProps {
   filterTags?: string[];
-  filterProjectId?: number;
+  entityType?: string;
+  entityId?: number;
 }
 
 // Features:
 // - Table/grid view of assets
 // - Tag filter chips
-// - Project filter dropdown
 // - Download/delete actions
-// - Tag/project editing inline
+// - Link/unlink to entities
 ```
+
+---
+
+### 6. Frontend Integration Points
+
+#### Entity Forms
+- **LeadForm**: Add "Attachments" section to upload/view documents linked to the Lead
+- **AccountForm**: Add "Attachments" section to upload/view documents linked to the Account
+
+#### Sidebar Navigation
+```
+Assets (new top-level tab)
+└── Documents (child tab - list all documents, filter by tags/entities)
+└── Images (future - child tab for image assets)
+```
+
+#### Component Placement
+- `app/assets/page.tsx` - Main assets page with Documents tab
+- `app/assets/documents/page.tsx` - Documents list view
+- Reusable `<DocumentAttachments entityType="Lead" entityId={id} />` component for forms
 
 ---
 
@@ -469,14 +513,24 @@ interface AssetListProps {
 ### Upload Flow
 
 ```
-Client (file + tags + project_ids)
-  → POST /assets (multipart)
+Client (file + tags + entity_type + entity_id)
+  → POST /documents (multipart)
   → Validate size < 10MB
   → Upload to storage backend (local or R2)
-  → Create Asset record with storage_path
-  → Get/create tags in tenant, link via AssetTag
-  → Link to projects via AssetProject
-  → Return asset metadata
+  → Create Document record with storage_path
+  → Get/create tags, link via EntityTag('Document', document_id)
+  → Link to entity via EntityDocument (if provided)
+  → Return document metadata
+```
+
+### Link Document to Multiple Entities
+
+```
+Document uploaded to Project "Q4 Campaign"
+  → POST /documents/123/link {entity_type: "Lead", entity_id: 456}
+  → Now document visible on both Project and Lead views
+  → POST /documents/123/link {entity_type: "Account", entity_id: 789}
+  → Same document now linked to Project, Lead, and Account
 ```
 
 ### Agent Query Flow
@@ -484,12 +538,16 @@ Client (file + tags + project_ids)
 ```
 User: "Use my resume to write a cover letter"
   → Agent detects need for resume
-  → Calls get_user_assets(tags=["resume"])
-  → Tool queries Asset + AssetTag + Tag
+  → Calls get_user_documents(tags=["resume"])
+  → Tool queries Document + EntityTag
   → Downloads file from storage backend
   → Extracts text from file
   → Returns content to agent context
   → Agent uses content for response
+
+User: "What documents do we have for Acme Corp?"
+  → Calls get_user_documents(entity_type="Account", entity_ids=[123])
+  → Returns all documents linked to that Account
 ```
 
 ---
@@ -499,35 +557,33 @@ User: "Use my resume to write a cover letter"
 ```
 modules/agent/
 ├── migrations/
-│   └── versions/
-│       └── xxxx_add_asset_tables.py
+│   └── 041_document_storage.sql
 ├── src/
 │   ├── lib/
 │   │   └── storage.py
 │   ├── models/
-│   │   ├── Asset.py
-│   │   ├── Tag.py
-│   │   ├── AssetTag.py
-│   │   └── AssetProject.py
+│   │   ├── Document.py      # renamed from Asset to avoid confusion
+│   │   ├── EntityDocument.py  # polymorphic junction (like EntityTag)
+│   │   └── ... (existing Tag.py with EntityTag already exists)
 │   ├── api/routes/
-│   │   └── assets.py
+│   │   └── documents.py
 │   └── agent/tools/
-│       └── asset_tools.py
+│       └── document_tools.py
 
 modules/client/
-├── components/assets/
-│   ├── AssetUpload.tsx
-│   ├── AssetList.tsx
+├── components/documents/
+│   ├── DocumentUpload.tsx
+│   ├── DocumentList.tsx
 │   └── TagInput.tsx
-├── app/assets/
+├── app/documents/
 │   └── page.tsx
 └── lib/api/
-    └── assets.ts
+    └── documents.ts
 
 storage/           # gitignored, local dev only
-└── assets/
+└── documents/
     └── {tenant_id}/
-        └── {asset_id}/
+        └── {document_id}/
             └── {filename}
 ```
 
@@ -538,8 +594,8 @@ storage/           # gitignored, local dev only
 - **File size:** 10MB max
 - **Supported types:** PDF, TXT, MD, DOC/DOCX (Phase 1)
 - **Tag names:** Lowercase, alphanumeric + hyphens
-- **Tags per asset:** No hard limit, recommend < 10
-- **Storage cleanup:** Delete from storage when Asset record deleted
+- **Tags per document:** No hard limit, recommend < 10
+- **Storage cleanup:** Delete from storage when Document record deleted
 
 ---
 

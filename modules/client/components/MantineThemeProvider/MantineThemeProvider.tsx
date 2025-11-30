@@ -13,7 +13,7 @@ export const MantineThemeProvider = ({ children }: { children: React.ReactNode }
   const [colorScheme, setColorScheme] = useState<"light" | "dark">("light");
 
   useEffect(() => {
-    setColorScheme(userState.theme === "dark" ? "dark" : "light");
+    setColorScheme(userState.theme === "light" ? "light" : "dark");
   }, [userState.theme]);
 
   return (

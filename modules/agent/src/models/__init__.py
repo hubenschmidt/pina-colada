@@ -22,6 +22,8 @@ from models.Opportunity import Opportunity
 from models.Partnership import Partnership
 from models.Task import Task
 from models.Asset import Asset
+from models.Document import Document
+from models.EntityAsset import EntityAsset
 from models.Tag import Tag
 from models.AccountProject import AccountProject
 from models.Account import Account
@@ -58,6 +60,8 @@ __all__ = [
     "Partnership",
     "Task",
     "Asset",
+    "Document",
+    "EntityAsset",
     "Tag",
     "AccountProject",
     "Account",

@@ -275,7 +275,7 @@ export const getUserPreferences = async (): Promise<UserPreferencesResponse> => 
  * Update current user's theme preference
  */
 export const updateUserPreferences = async (
-  theme: "light" | "dark" | null
+  theme: "light" | "dark" | "cyberpunk" | null
 ): Promise<UserPreferencesResponse> => {
   return apiPatch<UserPreferencesResponse>("/preferences/user", { theme });
 };
@@ -291,7 +291,7 @@ export const getTenantPreferences = async (): Promise<TenantPreferencesResponse>
  * Update tenant theme preference (Admin/SuperAdmin only)
  */
 export const updateTenantPreferences = async (
-  theme: "light" | "dark"
+  theme: "light" | "dark" | "cyberpunk"
 ): Promise<TenantPreferencesResponse> => {
   return apiPatch<TenantPreferencesResponse>("/preferences/tenant", { theme });
 };
@@ -1622,4 +1622,89 @@ export const markEntityNotificationsRead = async (
   entityId: number
 ): Promise<void> => {
   await apiPost("/notifications/mark-entity-read", { entity_type: entityType, entity_id: entityId });
+};
+
+// ==============================================
+// Document Types and API
+// ==============================================
+
+export type Document = {
+  id: number;
+  tenant_id: number;
+  user_id: number;
+  filename: string;
+  content_type: string;
+  description: string | null;
+  file_size: number;
+  storage_path: string;
+  tags: string[];
+  entities: { entity_type: string; entity_id: number }[];
+  created_at: string | null;
+  updated_at: string | null;
+};
+
+export type Tag = {
+  id: number;
+  name: string;
+};
+
+export const getDocuments = async (
+  tags?: string[],
+  entityType?: string,
+  entityId?: number
+): Promise<Document[]> => {
+  const params = new URLSearchParams();
+  if (tags && tags.length > 0) params.append("tags", tags.join(","));
+  if (entityType) params.append("entity_type", entityType);
+  if (entityId) params.append("entity_id", entityId.toString());
+  const query = params.toString() ? `?${params}` : "";
+  return apiGet<Document[]>(`/assets/documents${query}`);
+};
+
+export const getDocument = async (id: number): Promise<Document> => {
+  return apiGet<Document>(`/assets/documents/${id}`);
+};
+
+export const uploadDocument = async (
+  file: File,
+  tags?: string[],
+  entityType?: string,
+  entityId?: number,
+  description?: string
+): Promise<Document> => {
+  const formData = new FormData();
+  formData.append("file", file);
+  if (tags && tags.length > 0) formData.append("tags", tags.join(","));
+  if (entityType) formData.append("entity_type", entityType);
+  if (entityId) formData.append("entity_id", entityId.toString());
+  if (description) formData.append("description", description);
+  return apiPost<Document>("/assets/documents", formData);
+};
+
+export const deleteDocument = async (id: number): Promise<void> => {
+  await apiDelete(`/assets/documents/${id}`);
+};
+
+export const getDocumentDownloadUrl = async (id: number): Promise<{ url: string }> => {
+  return apiGet<{ url: string }>(`/assets/documents/${id}/download`);
+};
+
+export const linkDocumentToEntity = async (
+  documentId: number,
+  entityType: string,
+  entityId: number
+): Promise<void> => {
+  await apiPost(`/assets/documents/${documentId}/link`, { entity_type: entityType, entity_id: entityId });
+};
+
+export const unlinkDocumentFromEntity = async (
+  documentId: number,
+  entityType: string,
+  entityId: number
+): Promise<void> => {
+  await apiDelete(`/assets/documents/${documentId}/link?entity_type=${entityType}&entity_id=${entityId}`);
+};
+
+export const getTags = async (): Promise<Tag[]> => {
+  return apiGet<Tag[]>("/tags");
 };

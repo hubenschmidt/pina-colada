@@ -31,6 +31,7 @@ class User(Base):
     individual = relationship("Individual", back_populates="user")
     user_roles = relationship("UserRole", back_populates="user")
     preferences = relationship("UserPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    assets = relationship("Asset", back_populates="user", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint('tenant_id', 'email', name='user_tenant_email_unique'),
