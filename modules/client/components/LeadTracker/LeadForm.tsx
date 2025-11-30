@@ -800,15 +800,6 @@ const LeadForm = <T extends BaseLead>({
         />
       </div>
 
-      <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
-        <CommentsSection
-          entityType="Lead"
-          entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
-          pendingComments={!isEditMode ? pendingComments : undefined}
-          onPendingCommentsChange={!isEditMode ? setPendingComments : undefined}
-        />
-      </div>
-
       <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">
         <FormActions
           isEditMode={isEditMode}
@@ -852,6 +843,16 @@ const LeadForm = <T extends BaseLead>({
           {errors._form}
         </div>
       )}
+
+      {/* Comments Section - below the form */}
+      <div className="border-t border-zinc-200 dark:border-zinc-700 pt-6 mt-6">
+        <CommentsSection
+          entityType="Lead"
+          entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
+          pendingComments={!isEditMode ? pendingComments : undefined}
+          onPendingCommentsChange={!isEditMode ? setPendingComments : undefined}
+        />
+      </div>
     </div>
   );
 };

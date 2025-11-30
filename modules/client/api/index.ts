@@ -1534,6 +1534,7 @@ export type Comment = {
   created_by: number | null;
   created_by_name: string | null;
   created_by_email: string | null;
+  parent_comment_id: number | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -1548,9 +1549,15 @@ export const getComments = async (
 export const createComment = async (
   commentableType: string,
   commentableId: number,
-  content: string
+  content: string,
+  parentCommentId?: number | null
 ): Promise<Comment> => {
-  return apiPost<Comment>("/comments", { commentable_type: commentableType, commentable_id: commentableId, content });
+  return apiPost<Comment>("/comments", {
+    commentable_type: commentableType,
+    commentable_id: commentableId,
+    content,
+    parent_comment_id: parentCommentId ?? null,
+  });
 };
 
 export const updateComment = async (

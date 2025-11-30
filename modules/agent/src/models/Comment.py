@@ -17,12 +17,14 @@ class Comment(Base):
     commentable_id = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
     created_by = Column(Integer, ForeignKey("User.id", ondelete="SET NULL"), nullable=True)
+    parent_comment_id = Column(Integer, ForeignKey("Comment.id", ondelete="CASCADE"), nullable=True)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
     tenant = relationship("Tenant", back_populates="comments")
     creator = relationship("User", foreign_keys=[created_by])
+    parent = relationship("Comment", remote_side=[id], backref="replies")
 
     def __repr__(self):
         return f"<Comment(id={self.id}, commentable_type={self.commentable_type}, commentable_id={self.commentable_id})>"

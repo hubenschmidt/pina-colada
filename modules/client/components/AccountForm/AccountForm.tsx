@@ -1102,15 +1102,6 @@ const AccountForm = ({
           />
         </div>
 
-        <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
-          <CommentsSection
-            entityType={isOrganization ? "Organization" : "Individual"}
-            entityId={isEditMode ? account?.id ?? null : null}
-            pendingComments={!isEditMode ? pendingComments : undefined}
-            onPendingCommentsChange={!isEditMode ? setPendingComments : undefined}
-          />
-        </div>
-
         <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">
           <FormActions
             isEditMode={isEditMode}
@@ -1136,6 +1127,16 @@ const AccountForm = ({
           </div>
         )}
       </form>
+
+      {/* Comments Section - below the form */}
+      <div className="border-t border-zinc-200 dark:border-zinc-700 pt-6 mt-6">
+        <CommentsSection
+          entityType={isOrganization ? "Organization" : "Individual"}
+          entityId={isEditMode ? account?.id ?? null : null}
+          pendingComments={!isEditMode ? pendingComments : undefined}
+          onPendingCommentsChange={!isEditMode ? setPendingComments : undefined}
+        />
+      </div>
     </div>
   );
 };

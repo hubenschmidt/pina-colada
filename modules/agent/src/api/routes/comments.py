@@ -32,6 +32,7 @@ class CommentCreate(BaseModel):
     commentable_type: str
     commentable_id: int
     content: str
+    parent_comment_id: int | None = None
 
 
 class CommentUpdate(BaseModel):
@@ -58,6 +59,7 @@ def _comment_to_dict(comment) -> dict:
         "created_by": comment.created_by,
         "created_by_name": created_by_name,
         "created_by_email": created_by_email,
+        "parent_comment_id": comment.parent_comment_id,
         "created_at": comment.created_at.isoformat() if comment.created_at else None,
         "updated_at": comment.updated_at.isoformat() if comment.updated_at else None,
     }
@@ -110,6 +112,7 @@ async def create_comment_route(request: Request, data: CommentCreate):
         "commentable_id": data.commentable_id,
         "content": data.content,
         "created_by": user_id,
+        "parent_comment_id": data.parent_comment_id,
     }
 
     comment = await create_comment(comment_data)
