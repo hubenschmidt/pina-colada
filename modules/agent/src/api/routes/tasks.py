@@ -16,6 +16,8 @@ from services.task_service import (
     update_task as update_task_service,
     delete_task as delete_task_service,
     resolve_entity_display,
+    get_task_statuses,
+    get_task_priorities,
 )
 
 
@@ -137,6 +139,24 @@ def _to_paged_response(count: int, page: int, limit: int, items: List, scope: Op
 
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
+
+
+@router.get("/statuses")
+@require_auth
+@log_errors
+async def get_task_statuses_route(request: Request):
+    """Get all task statuses."""
+    statuses = await get_task_statuses()
+    return [{"id": s.id, "name": s.name} for s in statuses]
+
+
+@router.get("/priorities")
+@require_auth
+@log_errors
+async def get_task_priorities_route(request: Request):
+    """Get all task priorities."""
+    priorities = await get_task_priorities()
+    return [{"id": p.id, "name": p.name} for p in priorities]
 
 
 @router.get("")

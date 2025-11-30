@@ -11,6 +11,8 @@ from repositories.task_repository import (
     update_task as update_task_repo,
     delete_task as delete_task_repo,
     get_entity_display_name,
+    find_task_statuses,
+    find_task_priorities,
 )
 
 logger = logging.getLogger(__name__)
@@ -85,6 +87,16 @@ async def delete_task(task_id: str) -> bool:
 async def get_tasks_by_entity(entity_type: str, entity_id: int) -> List[Any]:
     """Get all tasks for a specific entity."""
     return await find_tasks_by_entity(entity_type, entity_id)
+
+
+async def get_task_statuses() -> List[Any]:
+    """Get all task statuses."""
+    return await find_task_statuses()
+
+
+async def get_task_priorities() -> List[Any]:
+    """Get all task priorities."""
+    return await find_task_priorities()
 
 
 async def resolve_entity_display(taskable_type: Optional[str], taskable_id: Optional[int]) -> Dict[str, Any]:

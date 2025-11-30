@@ -11,6 +11,7 @@ from models.Lead import Lead
 from models.Account import Account
 from models.LeadProject import LeadProject
 from models.AccountProject import AccountProject
+from models.Status import Status
 from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)
@@ -197,3 +198,27 @@ async def get_entity_display_name(entity_type: str, entity_id: int) -> Optional[
         }
         result = await session.execute(stmt_map[entity_type])
         return result.scalar_one_or_none()
+
+
+async def find_task_statuses() -> List[Status]:
+    """Find all task statuses."""
+    async with async_get_session() as session:
+        stmt = (
+            select(Status)
+            .where(Status.category == "task_status")
+            .order_by(Status.id)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+
+async def find_task_priorities() -> List[Status]:
+    """Find all task priorities."""
+    async with async_get_session() as session:
+        stmt = (
+            select(Status)
+            .where(Status.category == "task_priority")
+            .order_by(Status.id)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())

@@ -1498,6 +1498,14 @@ export const getTask = async (id: number): Promise<Task> => {
   return apiGet<Task>(`/tasks/${id}`);
 };
 
+export const getTaskStatuses = async (): Promise<TaskStatus[]> => {
+  return apiGet<TaskStatus[]>("/tasks/statuses");
+};
+
+export const getTaskPriorities = async (): Promise<TaskStatus[]> => {
+  return apiGet<TaskStatus[]>("/tasks/priorities");
+};
+
 export const createTask = async (data: TaskInput): Promise<Task> => {
   return apiPost<Task>("/tasks", data);
 };
