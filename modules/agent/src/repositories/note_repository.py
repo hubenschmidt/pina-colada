@@ -3,6 +3,7 @@
 import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy import select, and_
+from sqlalchemy.orm import joinedload
 from models.Note import Note
 from lib.db import async_get_session
 
@@ -16,6 +17,7 @@ async def find_notes_by_entity(
     async with async_get_session() as session:
         stmt = (
             select(Note)
+            .options(joinedload(Note.creator))
             .where(
                 and_(
                     Note.tenant_id == tenant_id,
@@ -26,17 +28,19 @@ async def find_notes_by_entity(
             .order_by(Note.created_at.desc())
         )
         result = await session.execute(stmt)
-        return list(result.scalars().all())
+        return list(result.unique().scalars().all())
 
 
 async def find_note_by_id(note_id: int, tenant_id: int) -> Optional[Note]:
     """Find a note by ID within a tenant."""
     async with async_get_session() as session:
-        stmt = select(Note).where(
-            and_(Note.id == note_id, Note.tenant_id == tenant_id)
+        stmt = (
+            select(Note)
+            .options(joinedload(Note.creator))
+            .where(and_(Note.id == note_id, Note.tenant_id == tenant_id))
         )
         result = await session.execute(stmt)
-        return result.scalar_one_or_none()
+        return result.unique().scalar_one_or_none()
 
 
 async def create_note(data: Dict[str, Any]) -> Note:
@@ -47,7 +51,14 @@ async def create_note(data: Dict[str, Any]) -> Note:
             session.add(note)
             await session.commit()
             await session.refresh(note)
-            return note
+            # Eager load the creator relationship
+            stmt = (
+                select(Note)
+                .options(joinedload(Note.creator))
+                .where(Note.id == note.id)
+            )
+            result = await session.execute(stmt)
+            return result.unique().scalar_one()
         except Exception as e:
             await session.rollback()
             logger.error(f"Failed to create note: {e}")
@@ -69,8 +80,14 @@ async def update_note(note_id: int, tenant_id: int, data: Dict[str, Any]) -> Opt
                 if hasattr(note, key):
                     setattr(note, key, value)
             await session.commit()
-            await session.refresh(note)
-            return note
+            # Eager load the creator relationship
+            stmt = (
+                select(Note)
+                .options(joinedload(Note.creator))
+                .where(Note.id == note_id)
+            )
+            result = await session.execute(stmt)
+            return result.unique().scalar_one()
         except Exception as e:
             await session.rollback()
             logger.error(f"Failed to update note: {e}")

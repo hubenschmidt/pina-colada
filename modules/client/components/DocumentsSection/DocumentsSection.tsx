@@ -251,7 +251,7 @@ const DocumentsSection = ({
           <div className="flex items-center gap-2">
             <Link
               href={`/assets/documents/${doc.id}?v=${doc.version_number}`}
-              className="text-sm font-medium text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300 hover:underline"
+              className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline"
               onClick={(e) => {
                 e.stopPropagation();
                 router.push(`/assets/documents/${doc.id}?v=${doc.version_number}`);

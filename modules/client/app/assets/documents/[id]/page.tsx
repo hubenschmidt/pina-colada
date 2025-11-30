@@ -373,7 +373,7 @@ const DocumentDetailPage = () => {
       </Paper>
 
       {/* Linked Entities and Version History side by side */}
-      {(allEntities.length > 0 || versions.length > 1) && (
+      {(allEntities.length > 0 || versions.length > 0) && (
         <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
           {/* Linked Entities */}
           {allEntities.length > 0 && (
@@ -461,7 +461,7 @@ const DocumentDetailPage = () => {
           )}
 
           {/* Version History */}
-          {versions.length > 1 && (
+          {versions.length > 0 && (
             <Paper p="lg" withBorder>
               <Group gap="xs" mb="md">
                 <History className="h-4 w-4 text-zinc-400" />

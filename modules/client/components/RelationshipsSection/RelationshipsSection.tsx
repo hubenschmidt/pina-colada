@@ -187,16 +187,26 @@ const RelationshipsSection = ({
 
       <div className="space-y-2">
         {relationships.map((rel, index) => {
-          const content = (
-            <>
+          const relUrl = `/accounts/${
+            rel.type === "organization" ? "organizations" : "individuals"
+          }/${rel.id}`;
+
+          return (
+            <div
+              key={`${rel.type}-${rel.id}`}
+              className="flex items-center gap-2 p-3 border border-zinc-200 dark:border-zinc-700 rounded"
+            >
               {rel.type === "organization" ? (
                 <Building2 size={16} className="text-zinc-500" />
               ) : (
                 <User size={16} className="text-zinc-500" />
               )}
-              <span className="text-sm text-zinc-900 dark:text-zinc-100">
+              <Link
+                href={relUrl}
+                className="text-sm text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline"
+              >
                 {rel.name}
-              </span>
+              </Link>
               <span className="text-xs text-zinc-500 dark:text-zinc-400 ml-auto capitalize">
                 {rel.type}
               </span>
@@ -214,29 +224,6 @@ const RelationshipsSection = ({
                   <X size={16} />
                 </button>
               )}
-            </>
-          );
-
-          if (readOnly) {
-            return (
-              <Link
-                key={`${rel.type}-${rel.id}`}
-                href={`/accounts/${
-                  rel.type === "organization" ? "organizations" : "individuals"
-                }/${rel.id}`}
-                className="flex items-center gap-2 p-3 border border-zinc-200 dark:border-zinc-700 rounded hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors"
-              >
-                {content}
-              </Link>
-            );
-          }
-
-          return (
-            <div
-              key={`${rel.type}-${rel.id}`}
-              className="flex items-center gap-2 p-3 border border-zinc-200 dark:border-zinc-700 rounded"
-            >
-              {content}
             </div>
           );
         })}

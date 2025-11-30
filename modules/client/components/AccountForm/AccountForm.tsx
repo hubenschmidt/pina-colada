@@ -441,6 +441,7 @@ const AccountForm = ({
 
   const displayContacts: PendingContact[] = isEditMode
     ? contacts.map((c) => ({
+        id: c.id,
         first_name: (c as unknown as Record<string, string>).first_name || "",
         last_name: (c as unknown as Record<string, string>).last_name || "",
         email: c.email || "",

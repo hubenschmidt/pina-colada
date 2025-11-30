@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Plus, Trash2, Edit2, Check, X } from "lucide-react";
 import { Note, getNotes, createNote, updateNote, deleteNote } from "../../api";
 
@@ -168,9 +169,24 @@ const NotesSection = ({
               {note.content}
             </p>
             <div className="flex items-center justify-between mt-2">
-              <span className="text-xs text-zinc-500">
-                {formatDate(note.created_at)}
-              </span>
+              <div className="flex items-center gap-2 text-xs text-zinc-500">
+                {note.created_by_name && (
+                  <>
+                    {note.individual_id ? (
+                      <Link
+                        href={`/accounts/individuals/${note.individual_id}`}
+                        className="text-zinc-700 dark:text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline"
+                      >
+                        {note.created_by_name}
+                      </Link>
+                    ) : (
+                      <span>{note.created_by_name}</span>
+                    )}
+                    <span>·</span>
+                  </>
+                )}
+                <span>{formatDate(note.created_at)}</span>
+              </div>
               <div className="flex gap-1">
                 <button
                   type="button"

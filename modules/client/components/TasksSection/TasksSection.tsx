@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Plus, Trash2, Edit2, Check, X } from "lucide-react";
 import {
   Task,
@@ -292,9 +293,12 @@ const TasksSection = ({
           <>
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1">
-                <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <Link
+                  href={`/tasks/${task.id}`}
+                  className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline"
+                >
                   {task.title}
-                </p>
+                </Link>
                 {task.description && (
                   <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                     {task.description}

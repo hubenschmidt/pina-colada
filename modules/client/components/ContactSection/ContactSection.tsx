@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Plus, Trash2, Pencil, Star } from "lucide-react";
 import { formatPhoneNumber } from "../../lib/phone";
 
@@ -244,9 +245,18 @@ const ContactSection = <T extends Record<string, any>>({
         <div>
           <div className="flex items-center gap-2">
             {displayName && (
-              <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                {displayName}
-              </span>
+              contact.id ? (
+                <Link
+                  href={`/accounts/contacts/${contact.id}`}
+                  className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline"
+                >
+                  {displayName}
+                </Link>
+              ) : (
+                <span className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                  {displayName}
+                </span>
+              )
             )}
             {contact.title && (
               <span className="text-sm text-zinc-500 dark:text-zinc-400">

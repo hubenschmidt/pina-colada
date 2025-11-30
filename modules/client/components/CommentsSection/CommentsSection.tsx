@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Send, Check, X, MessageCircle, Reply, ChevronDown, ChevronUp, Share2 } from "lucide-react";
 import { Comment, getComments, createComment, updateComment, deleteComment } from "../../api";
 import { useUserContext } from "../../context/userContext";
@@ -283,9 +284,18 @@ const CommentsSection = ({
       <div className="flex-1 min-w-0">
         {/* Header: name and time */}
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            {displayName}
-          </span>
+          {comment.individual_id ? (
+            <Link
+              href={`/accounts/individuals/${comment.individual_id}`}
+              className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline"
+            >
+              {displayName}
+            </Link>
+          ) : (
+            <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+              {displayName}
+            </span>
+          )}
           <span className="text-xs text-zinc-400 dark:text-zinc-500">
             {formatRelativeTime(comment.created_at)}
           </span>

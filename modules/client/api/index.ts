@@ -713,6 +713,9 @@ export type Note = {
   entity_id: number;
   content: string;
   created_by: number | null;
+  created_by_name: string | null;
+  created_by_email: string | null;
+  individual_id: number | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -1535,6 +1538,7 @@ export type Comment = {
   created_by: number | null;
   created_by_name: string | null;
   created_by_email: string | null;
+  individual_id: number | null;
   parent_comment_id: number | null;
   created_at: string | null;
   updated_at: string | null;
