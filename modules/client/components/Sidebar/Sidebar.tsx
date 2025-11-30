@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -29,15 +28,19 @@ import { useNavContext } from "../../context/navContext";
 import { useProjectContext } from "../../context/projectContext";
 
 export const Sidebar = () => {
-  const [leadsExpanded, setLeadsExpanded] = useState(false);
-  const [accountsExpanded, setAccountsExpanded] = useState(false);
-  const [reportsExpanded, setReportsExpanded] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { navState, dispatchNav } = useNavContext();
-  const { sidebarCollapsed } = navState;
+  const { sidebarCollapsed, sidebarSections } = navState;
   const { projectState, selectProject } = useProjectContext();
   const { projects, selectedProject } = projectState;
+
+  const toggleSection = (section: "accounts" | "leads" | "reports") => {
+    dispatchNav({
+      type: "SET_SIDEBAR_SECTION_EXPANDED",
+      payload: { section, expanded: !sidebarSections[section] },
+    });
+  };
 
   return (
     <aside
@@ -109,7 +112,7 @@ export const Sidebar = () => {
               {/* Accounts Section */}
               <div>
                 <button
-                  onClick={() => setAccountsExpanded(!accountsExpanded)}
+                  onClick={() => toggleSection("accounts")}
                   className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
                     pathname?.startsWith("/accounts")
                       ? "font-bold"
@@ -119,14 +122,14 @@ export const Sidebar = () => {
                   <Library className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                   Accounts
                   <span className="ml-auto">
-                    {accountsExpanded ? (
+                    {sidebarSections.accounts ? (
                       <ChevronDown className="h-4 w-4" />
                     ) : (
                       <ChevronRight className="h-4 w-4" />
                     )}
                   </span>
                 </button>
-                {accountsExpanded && (
+                {sidebarSections.accounts && (
                   <div className="ml-6 mt-1 space-y-1">
                     <Link
                       href="/accounts/organizations"
@@ -168,7 +171,7 @@ export const Sidebar = () => {
               {/* Leads Section */}
               <div>
                 <button
-                  onClick={() => setLeadsExpanded(!leadsExpanded)}
+                  onClick={() => toggleSection("leads")}
                   className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
                     pathname?.startsWith("/leads") ? "font-bold" : "font-normal"
                   }`}
@@ -176,14 +179,14 @@ export const Sidebar = () => {
                   <Briefcase className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                   Leads
                   <span className="ml-auto">
-                    {leadsExpanded ? (
+                    {sidebarSections.leads ? (
                       <ChevronDown className="h-4 w-4" />
                     ) : (
                       <ChevronRight className="h-4 w-4" />
                     )}
                   </span>
                 </button>
-                {leadsExpanded && (
+                {sidebarSections.leads && (
                   <div className="ml-6 mt-1 space-y-1">
                     <Link
                       href="/leads/jobs"
@@ -260,7 +263,7 @@ export const Sidebar = () => {
               {/* Reports Section */}
               <div>
                 <button
-                  onClick={() => setReportsExpanded(!reportsExpanded)}
+                  onClick={() => toggleSection("reports")}
                   className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
                     pathname?.startsWith("/reports")
                       ? "font-bold"
@@ -270,14 +273,14 @@ export const Sidebar = () => {
                   <BarChart3 className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                   Reports
                   <span className="ml-auto">
-                    {reportsExpanded ? (
+                    {sidebarSections.reports ? (
                       <ChevronDown className="h-4 w-4" />
                     ) : (
                       <ChevronRight className="h-4 w-4" />
                     )}
                   </span>
                 </button>
-                {reportsExpanded && (
+                {sidebarSections.reports && (
                   <div className="ml-6 mt-1 space-y-1">
                     <Link
                       href="/reports/canned"

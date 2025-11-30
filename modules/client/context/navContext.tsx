@@ -5,6 +5,11 @@ import navReducer, { NavState } from "../reducers/navReducer";
 const initialState: NavState = {
   agentOpen: false,
   sidebarCollapsed: false,
+  sidebarSections: {
+    accounts: true,
+    leads: true,
+    reports: true,
+  },
 };
 
 export const NavContext = createContext<{
