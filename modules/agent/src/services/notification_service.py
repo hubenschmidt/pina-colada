@@ -47,11 +47,8 @@ async def create_comment_notifications(comment: Comment) -> None:
         exclude_user_id=comment.created_by,
     )
 
-    for user_id in participants:
-        # Skip if already notified via direct_reply
-        if user_id in notified_users:
-            continue
-
+    unnotified_participants = [uid for uid in participants if uid not in notified_users]
+    for user_id in unnotified_participants:
         await create_notification(
             tenant_id=comment.tenant_id,
             user_id=user_id,

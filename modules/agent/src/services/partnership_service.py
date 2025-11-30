@@ -28,10 +28,13 @@ async def _resolve_individual_account(data: Dict[str, Any], tenant_id: Optional[
     parts = account_name.strip().split(", ")
     if len(parts) == 2:
         last_name, first_name = parts
-    else:
-        parts = account_name.strip().split(" ", 1)
-        first_name = parts[0]
-        last_name = parts[1] if len(parts) > 1 else ""
+        individual = await get_or_create_individual(first_name, last_name, tenant_id)
+        if not individual.account_id:
+            raise HTTPException(status_code=400, detail=f"Individual {account_name} has no account")
+        return individual.account_id, account_name
+    parts = account_name.strip().split(" ", 1)
+    first_name = parts[0]
+    last_name = parts[1] if len(parts) > 1 else ""
     individual = await get_or_create_individual(first_name, last_name, tenant_id)
     if not individual.account_id:
         raise HTTPException(status_code=400, detail=f"Individual {account_name} has no account")

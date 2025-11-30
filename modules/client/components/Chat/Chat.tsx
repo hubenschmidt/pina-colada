@@ -308,7 +308,6 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
   );
 
   const listRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const [hasSentContext, setHasSentContext] = useState(false);
   const toolsDropdownRef = useRef<HTMLDivElement | null>(null);
   const demoDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -370,12 +369,6 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
         document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [demoDropdownOpen]);
-
-
-  // autofocus textarea on mount
-  useEffect(() => {
-    inputRef.current?.focus({ preventScroll: true });
-  }, []);
 
   const onSubmit: React.FormEventHandler<HTMLFormElement> = (e) => {
     e.preventDefault();
@@ -591,7 +584,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
               </div>
             )}
             <textarea
-              ref={inputRef}
+              autoFocus
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}

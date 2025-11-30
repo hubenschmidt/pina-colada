@@ -6,6 +6,7 @@ from sqlalchemy import select, func as sql_func, or_
 from sqlalchemy.orm import joinedload
 from models.Job import Job
 from models.Lead import Lead
+from models.LeadProject import LeadProject
 from models.Status import Status
 from models.Organization import Organization
 from models.Individual import Individual
@@ -81,8 +82,6 @@ async def find_all_jobs(
     project_id: Optional[int] = None
 ) -> tuple[List[Job], int]:
     """Find jobs with pagination, filtering, and sorting at database level."""
-    from models.LeadProject import LeadProject
-
     async with async_get_session() as session:
         # Base query with relationships
         stmt = select(Job).options(
@@ -209,7 +208,6 @@ async def create_job(data: Dict[str, Any]) -> Job:
             await session.flush()  # Get the lead.id
 
             # Handle project_ids (many-to-many) - insert directly into junction table
-            from models.LeadProject import LeadProject
             project_ids = data.get("project_ids") or []
             for pid in project_ids:
                 lead_project = LeadProject(lead_id=lead.id, project_id=pid)

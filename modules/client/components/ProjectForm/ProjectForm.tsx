@@ -48,10 +48,9 @@ const ProjectForm = ({
         end_date: endDate || null,
       };
 
-      if (isEdit && onUpdate) {
-        await onUpdate(data);
-      } else if (onAdd) {
-        await onAdd(data);
+      const handler = isEdit && onUpdate ? onUpdate : onAdd;
+      if (handler) {
+        await handler(data);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to save project");

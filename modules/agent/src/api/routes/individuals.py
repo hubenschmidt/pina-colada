@@ -3,9 +3,16 @@
 from typing import Optional, List
 from fastapi import APIRouter, Request, Query, HTTPException
 from pydantic import BaseModel, field_validator
+from sqlalchemy import select, delete, func, or_, update
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 from lib.validators import validate_phone
+from lib.db import async_get_session
+from models.Account import Account
+from models.Industry import Account_Industry
+from models.AccountProject import AccountProject
+from models.Contact import Contact, ContactIndividual, ContactOrganization
+from models.Individual import Individual
 from repositories.individual_repository import (
     find_all_individuals,
     find_individual_by_id,
@@ -269,10 +276,6 @@ async def _check_duplicate_individual(
     phone: str | None,
 ) -> bool:
     """Check if an individual with same name and (email, linkedin, or phone) already exists."""
-    from lib.db import async_get_session
-    from sqlalchemy import select, func, or_
-    from models.Individual import Individual
-
     if not email and not linkedin_url and not phone:
         return False
 
@@ -300,11 +303,6 @@ async def _check_duplicate_individual(
 @require_auth
 async def create_individual_route(request: Request, data: IndividualCreate):
     """Create a new individual with an associated Account."""
-    from lib.db import async_get_session
-    from models.Account import Account
-    from models.Industry import Account_Industry
-    from models.AccountProject import AccountProject
-
     tenant_id = getattr(request.state, "tenant_id", None)
     ind_data = data.model_dump(exclude_none=True)
     industry_ids = ind_data.pop("industry_ids", None)
@@ -363,11 +361,6 @@ async def create_individual_route(request: Request, data: IndividualCreate):
 @require_auth
 async def update_individual_route(request: Request, individual_id: int, data: IndividualUpdate):
     """Update an existing individual."""
-    from lib.db import async_get_session
-    from models.Industry import Account_Industry
-    from models.AccountProject import AccountProject
-    from sqlalchemy import delete
-
     ind_data = data.model_dump(exclude_unset=True)
     industry_ids = ind_data.pop("industry_ids", None)
     project_ids = ind_data.pop("project_ids", None)
@@ -446,10 +439,6 @@ async def get_individual_contacts_route(request: Request, individual_id: int):
 @require_auth
 async def create_individual_contact_route(request: Request, individual_id: int, data: ContactCreate):
     """Create a new contact linked to an individual, optionally linked to an organization."""
-    from lib.db import async_get_session
-    from sqlalchemy import select
-    from models.Contact import Contact, ContactIndividual, ContactOrganization
-
     individual = await find_individual_by_id(individual_id)
     if not individual:
         raise HTTPException(status_code=404, detail="Individual not found")
@@ -497,10 +486,6 @@ async def create_individual_contact_route(request: Request, individual_id: int, 
 @require_auth
 async def update_individual_contact_route(request: Request, individual_id: int, contact_id: int, data: ContactUpdate):
     """Update a contact for an individual."""
-    from lib.db import async_get_session
-    from sqlalchemy import select
-    from models.Contact import Contact, ContactIndividual
-
     async with async_get_session() as session:
         # Verify contact exists and is linked to this individual
         stmt = select(ContactIndividual).where(
@@ -533,7 +518,6 @@ async def update_individual_contact_route(request: Request, individual_id: int, 
             contact.phone = data.phone
         if data.is_primary:
             # Unset all other contacts for this individual first
-            from sqlalchemy import update
             stmt = select(ContactIndividual.contact_id).where(
                 ContactIndividual.individual_id == individual_id,
                 ContactIndividual.contact_id != contact_id
@@ -564,10 +548,6 @@ async def update_individual_contact_route(request: Request, individual_id: int, 
 @require_auth
 async def delete_individual_contact_route(request: Request, individual_id: int, contact_id: int):
     """Delete a contact for an individual."""
-    from lib.db import async_get_session
-    from sqlalchemy import select
-    from models.Contact import ContactIndividual
-
     async with async_get_session() as session:
         # Verify contact is linked to this individual
         stmt = select(ContactIndividual).where(

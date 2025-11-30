@@ -4,9 +4,16 @@ from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Request, Query, HTTPException
 from pydantic import BaseModel, field_validator
+from sqlalchemy import select, delete, update
+from sqlalchemy.exc import IntegrityError
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 from lib.validators import validate_phone
+from lib.db import async_get_session
+from models.Account import Account
+from models.Industry import Account_Industry
+from models.AccountProject import AccountProject
+from models.Contact import Contact, ContactOrganization
 from repositories.organization_repository import (
     find_all_organizations,
     find_organization_by_id,
@@ -16,6 +23,23 @@ from repositories.organization_repository import (
     search_organizations,
 )
 from repositories.contact_repository import find_contacts_by_organization, delete_contact
+from repositories.technology_repository import (
+    find_organization_technologies,
+    add_organization_technology,
+    remove_organization_technology,
+)
+from repositories.funding_round_repository import (
+    find_funding_rounds_by_org,
+    create_funding_round,
+    delete_funding_round,
+    find_funding_round_by_id,
+)
+from repositories.company_signal_repository import (
+    find_signals_by_org,
+    create_signal,
+    delete_signal,
+    find_signal_by_id,
+)
 
 
 class OrganizationCreate(BaseModel):
@@ -297,12 +321,6 @@ async def get_organization_route(request: Request, org_id: int):
 @require_auth
 async def create_organization_route(request: Request, data: OrganizationCreate):
     """Create a new organization with an associated Account."""
-    from lib.db import async_get_session
-    from models.Account import Account
-    from models.Industry import Account_Industry
-    from models.AccountProject import AccountProject
-    from sqlalchemy.exc import IntegrityError
-
     tenant_id = getattr(request.state, "tenant_id", None)
     org_data = data.model_dump(exclude_none=True)
     industry_ids = org_data.pop("industry_ids", None)
@@ -348,11 +366,6 @@ async def create_organization_route(request: Request, data: OrganizationCreate):
 @require_auth
 async def update_organization_route(request: Request, org_id: int, data: OrganizationUpdate):
     """Update an existing organization."""
-    from lib.db import async_get_session
-    from models.Industry import Account_Industry
-    from models.AccountProject import AccountProject
-    from sqlalchemy import delete
-
     org_data = data.model_dump(exclude_unset=True)
     industry_ids = org_data.pop("industry_ids", None)
     project_ids = org_data.pop("project_ids", None)
@@ -427,10 +440,6 @@ async def get_organization_contacts_route(request: Request, org_id: int):
 @require_auth
 async def create_organization_contact_route(request: Request, org_id: int, data: OrgContactCreate):
     """Add a contact to an organization. Can link to an existing individual or be standalone."""
-    from lib.db import async_get_session
-    from sqlalchemy import select
-    from models.Contact import Contact, ContactOrganization
-
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -469,10 +478,6 @@ async def create_organization_contact_route(request: Request, org_id: int, data:
 @require_auth
 async def update_organization_contact_route(request: Request, org_id: int, contact_id: int, data: OrgContactUpdate):
     """Update a contact for an organization."""
-    from lib.db import async_get_session
-    from sqlalchemy import select
-    from models.Contact import Contact, ContactOrganization
-
     async with async_get_session() as session:
         # Verify contact exists and is linked to this organization
         stmt = select(ContactOrganization).where(
@@ -505,7 +510,6 @@ async def update_organization_contact_route(request: Request, org_id: int, conta
             contact.phone = data.phone
         if data.is_primary:
             # Unset all other contacts for this org first
-            from sqlalchemy import update
             stmt = select(ContactOrganization.contact_id).where(
                 ContactOrganization.organization_id == org_id,
                 ContactOrganization.contact_id != contact_id
@@ -536,10 +540,6 @@ async def update_organization_contact_route(request: Request, org_id: int, conta
 @require_auth
 async def delete_organization_contact_route(request: Request, org_id: int, contact_id: int):
     """Remove a contact from an organization (deletes the contact entirely)."""
-    from lib.db import async_get_session
-    from sqlalchemy import select
-    from models.Contact import ContactOrganization
-
     async with async_get_session() as session:
         # Verify contact is linked to this organization
         stmt = select(ContactOrganization).where(
@@ -572,7 +572,6 @@ class OrgTechnologyCreate(BaseModel):
 @require_auth
 async def get_organization_technologies_route(request: Request, org_id: int):
     """Get all technologies for an organization."""
-    from repositories.technology_repository import find_organization_technologies
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -585,7 +584,6 @@ async def get_organization_technologies_route(request: Request, org_id: int):
 @require_auth
 async def add_organization_technology_route(request: Request, org_id: int, data: OrgTechnologyCreate):
     """Add a technology to an organization."""
-    from repositories.technology_repository import add_organization_technology
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -603,7 +601,6 @@ async def add_organization_technology_route(request: Request, org_id: int, data:
 @require_auth
 async def remove_organization_technology_route(request: Request, org_id: int, technology_id: int):
     """Remove a technology from an organization."""
-    from repositories.technology_repository import remove_organization_technology
     success = await remove_organization_technology(org_id, technology_id)
     if not success:
         raise HTTPException(status_code=404, detail="Technology not found for this organization")
@@ -627,7 +624,6 @@ class FundingRoundCreate(BaseModel):
 @require_auth
 async def get_organization_funding_rounds_route(request: Request, org_id: int):
     """Get all funding rounds for an organization."""
-    from repositories.funding_round_repository import find_funding_rounds_by_org
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -640,7 +636,6 @@ async def get_organization_funding_rounds_route(request: Request, org_id: int):
 @require_auth
 async def create_organization_funding_round_route(request: Request, org_id: int, data: FundingRoundCreate):
     """Create a funding round for an organization."""
-    from repositories.funding_round_repository import create_funding_round
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -660,7 +655,6 @@ async def create_organization_funding_round_route(request: Request, org_id: int,
 @require_auth
 async def delete_organization_funding_round_route(request: Request, org_id: int, round_id: int):
     """Delete a funding round."""
-    from repositories.funding_round_repository import delete_funding_round, find_funding_round_by_id
     funding_round = await find_funding_round_by_id(round_id)
     if not funding_round or funding_round.organization_id != org_id:
         raise HTTPException(status_code=404, detail="Funding round not found")
@@ -693,7 +687,6 @@ async def get_organization_signals_route(
     limit: int = Query(20, le=100)
 ):
     """Get signals for an organization."""
-    from repositories.company_signal_repository import find_signals_by_org
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -706,7 +699,6 @@ async def get_organization_signals_route(
 @require_auth
 async def create_organization_signal_route(request: Request, org_id: int, data: SignalCreate):
     """Create a signal for an organization."""
-    from repositories.company_signal_repository import create_signal
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
@@ -729,7 +721,6 @@ async def create_organization_signal_route(request: Request, org_id: int, data: 
 @require_auth
 async def delete_organization_signal_route(request: Request, org_id: int, signal_id: int):
     """Delete a signal."""
-    from repositories.company_signal_repository import delete_signal, find_signal_by_id
     signal = await find_signal_by_id(signal_id)
     if not signal or signal.organization_id != org_id:
         raise HTTPException(status_code=404, detail="Signal not found")

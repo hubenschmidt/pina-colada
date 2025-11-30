@@ -1,5 +1,6 @@
 """Repository layer for company signal data access."""
 
+from datetime import date
 from typing import List, Optional
 from sqlalchemy import select
 from models.CompanySignal import CompanySignal
@@ -43,7 +44,6 @@ async def create_signal(
     relevance_score: Optional[float] = None
 ) -> CompanySignal:
     """Create a new company signal."""
-    from datetime import date
     async with async_get_session() as session:
         signal = CompanySignal(
             organization_id=org_id,

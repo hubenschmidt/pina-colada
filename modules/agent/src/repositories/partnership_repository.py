@@ -6,6 +6,7 @@ from sqlalchemy import select, func as sql_func, or_
 from sqlalchemy.orm import joinedload
 from models.Partnership import Partnership
 from models.Lead import Lead
+from models.LeadProject import LeadProject
 from models.Status import Status
 from models.Organization import Organization
 from models.Individual import Individual
@@ -42,8 +43,6 @@ async def find_all_partnerships(
     project_id: Optional[int] = None
 ) -> tuple[List[Partnership], int]:
     """Find partnerships with pagination, filtering, and sorting."""
-    from models.LeadProject import LeadProject
-
     async with async_get_session() as session:
         stmt = select(Partnership).options(
             joinedload(Partnership.lead).joinedload(Lead.current_status),
@@ -144,7 +143,6 @@ async def create_partnership(data: Dict[str, Any]) -> Partnership:
             session.add(lead)
             await session.flush()
 
-            from models.LeadProject import LeadProject
             project_ids = data.get("project_ids") or []
             for pid in project_ids:
                 lead_project = LeadProject(lead_id=lead.id, project_id=pid)

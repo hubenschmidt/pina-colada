@@ -6,6 +6,7 @@ from sqlalchemy import select, func as sql_func, or_
 from sqlalchemy.orm import joinedload
 from models.Opportunity import Opportunity
 from models.Lead import Lead
+from models.LeadProject import LeadProject
 from models.Status import Status
 from models.Organization import Organization
 from models.Individual import Individual
@@ -42,8 +43,6 @@ async def find_all_opportunities(
     project_id: Optional[int] = None
 ) -> tuple[List[Opportunity], int]:
     """Find opportunities with pagination, filtering, and sorting."""
-    from models.LeadProject import LeadProject
-
     async with async_get_session() as session:
         stmt = select(Opportunity).options(
             joinedload(Opportunity.lead).joinedload(Lead.current_status),
@@ -144,7 +143,6 @@ async def create_opportunity(data: Dict[str, Any]) -> Opportunity:
             session.add(lead)
             await session.flush()
 
-            from models.LeadProject import LeadProject
             project_ids = data.get("project_ids") or []
             for pid in project_ids:
                 lead_project = LeadProject(lead_id=lead.id, project_id=pid)

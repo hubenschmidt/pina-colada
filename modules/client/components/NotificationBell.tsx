@@ -90,16 +90,16 @@ const NotificationBell = () => {
 
     // Switch project scope if needed
     const entityProjectId = notification.entity?.project_id;
-    if (entityProjectId) {
-      const currentProjectId = projectState.selectedProject?.id;
-      if (currentProjectId !== entityProjectId) {
-        const targetProject = projectState.projects.find((p) => p.id === entityProjectId);
-        if (targetProject) {
-          selectProject(targetProject);
-        }
-      }
-    } else if (projectState.selectedProject) {
-      // Entity has no project, clear project scope
+    const currentProjectId = projectState.selectedProject?.id;
+    const needsProjectSwitch = entityProjectId && currentProjectId !== entityProjectId;
+    const targetProject = needsProjectSwitch
+      ? projectState.projects.find((p) => p.id === entityProjectId)
+      : null;
+
+    if (targetProject) {
+      selectProject(targetProject);
+    }
+    if (!entityProjectId && projectState.selectedProject) {
       selectProject(null);
     }
 

@@ -1,5 +1,6 @@
 """Repository layer for funding round data access."""
 
+from datetime import date
 from typing import List, Optional
 from sqlalchemy import select
 from models.FundingRound import FundingRound
@@ -33,7 +34,6 @@ async def create_funding_round(
     source_url: Optional[str] = None
 ) -> FundingRound:
     """Create a new funding round."""
-    from datetime import date
     async with async_get_session() as session:
         funding_round = FundingRound(
             organization_id=org_id,

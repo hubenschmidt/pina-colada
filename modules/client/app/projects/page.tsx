@@ -86,19 +86,17 @@ const ProjectsPage = () => {
       );
     }
 
-    const sorted = [...filtered].sort((a, b) => {
-      let comparison: number;
-
+    const getComparison = (a: Project, b: Project): number => {
       if (sortBy === "updated_at") {
-        const aDate = new Date(a.updated_at || 0).getTime();
-        const bDate = new Date(b.updated_at || 0).getTime();
-        comparison = aDate - bDate;
-      } else {
-        const aVal = (a[sortBy as keyof Project] as string || "").toLowerCase();
-        const bVal = (b[sortBy as keyof Project] as string || "").toLowerCase();
-        comparison = aVal.localeCompare(bVal);
+        return new Date(a.updated_at || 0).getTime() - new Date(b.updated_at || 0).getTime();
       }
+      const aVal = (a[sortBy as keyof Project] as string || "").toLowerCase();
+      const bVal = (b[sortBy as keyof Project] as string || "").toLowerCase();
+      return aVal.localeCompare(bVal);
+    };
 
+    const sorted = [...filtered].sort((a, b) => {
+      const comparison = getComparison(a, b);
       return sortDirection === "ASC" ? comparison : -comparison;
     });
 

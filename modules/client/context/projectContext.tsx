@@ -46,11 +46,10 @@ export const ProjectProvider = ({
 
   const selectProject = (project: Project | null) => {
     dispatchProject({ type: SET_SELECTED_PROJECT, payload: project });
-    if (project) {
-      localStorage.setItem("selectedProjectId", String(project.id));
-    } else {
-      localStorage.removeItem("selectedProjectId");
-    }
+    const storageAction = project
+      ? () => localStorage.setItem("selectedProjectId", String(project.id))
+      : () => localStorage.removeItem("selectedProjectId");
+    storageAction();
   };
 
   useEffect(() => {

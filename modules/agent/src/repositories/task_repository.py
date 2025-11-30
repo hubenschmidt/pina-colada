@@ -122,7 +122,7 @@ async def create_task(data: Dict[str, Any]) -> Task:
             task = Task(**data)
             session.add(task)
             await session.commit()
-            await session.refresh(task, ["current_status", "priority"])
+            await session.refresh(task, ["current_status", "priority", "created_at", "updated_at"])
             return task
         except Exception as e:
             await session.rollback()
@@ -143,7 +143,7 @@ async def update_task(task_id: int, data: Dict[str, Any]) -> Optional[Task]:
                 if hasattr(task, key):
                     setattr(task, key, value)
             await session.commit()
-            await session.refresh(task, ["current_status", "priority"])
+            await session.refresh(task, ["current_status", "priority", "created_at", "updated_at"])
             return task
         except Exception as e:
             await session.rollback()

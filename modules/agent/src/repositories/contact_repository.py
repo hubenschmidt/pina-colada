@@ -2,9 +2,9 @@
 
 import logging
 from typing import List, Optional, Dict, Any
-from sqlalchemy import select
+from sqlalchemy import select, or_, func
 from sqlalchemy.orm import selectinload
-from models.Contact import Contact
+from models.Contact import Contact, ContactIndividual, ContactOrganization
 from models.Individual import Individual
 from lib.db import async_get_session
 
@@ -13,8 +13,6 @@ logger = logging.getLogger(__name__)
 
 async def _find_contact_by_individual_only(session, individual_id: int) -> Optional[Contact]:
     """Find contact linked to individual without organization filter."""
-    from models.Contact import ContactIndividual
-
     stmt = (
         select(Contact)
         .join(ContactIndividual, Contact.id == ContactIndividual.contact_id)
@@ -26,8 +24,6 @@ async def _find_contact_by_individual_only(session, individual_id: int) -> Optio
 
 async def _find_contact_by_individual_and_org(session, individual_id: int, organization_id: int) -> Optional[Contact]:
     """Find contact linked to both individual and organization."""
-    from models.Contact import ContactIndividual, ContactOrganization
-
     stmt = (
         select(Contact)
         .join(ContactIndividual, Contact.id == ContactIndividual.contact_id)
@@ -66,8 +62,6 @@ async def create_contact(data: Dict[str, Any]) -> Contact:
 
 def _maybe_add_org_link(session, contact_id: int, organization_id: Optional[int], is_primary: bool) -> None:
     """Add organization link if organization_id is provided."""
-    from models.Contact import ContactOrganization
-
     if organization_id is None:
         return
     org_link = ContactOrganization(
@@ -80,8 +74,6 @@ def _maybe_add_org_link(session, contact_id: int, organization_id: Optional[int]
 
 def _maybe_add_individual_link(session, contact_id: int, individual_id: Optional[int]) -> None:
     """Add individual link if individual_id is provided."""
-    from models.Contact import ContactIndividual
-
     if individual_id is None:
         return
     ind_link = ContactIndividual(contact_id=contact_id, individual_id=individual_id)
@@ -92,8 +84,6 @@ async def find_contact_by_org_and_name(
     organization_id: int, first_name: str, last_name: str
 ) -> Optional[Contact]:
     """Find contact by organization and name."""
-    from models.Contact import ContactOrganization
-
     async with async_get_session() as session:
         stmt = (
             select(Contact)
@@ -189,7 +179,6 @@ async def get_or_create_contact(
 
 async def find_contacts_by_individual(individual_id: int) -> List[Contact]:
     """Find all contacts linked to an individual."""
-    from models.Contact import ContactIndividual
     async with async_get_session() as session:
         stmt = (
             select(Contact)
@@ -204,7 +193,6 @@ async def find_contacts_by_individual(individual_id: int) -> List[Contact]:
 
 async def find_contacts_by_organization(organization_id: int) -> List[Contact]:
     """Find all contacts linked to an organization."""
-    from models.Contact import ContactOrganization
     async with async_get_session() as session:
         stmt = (
             select(Contact)
@@ -298,8 +286,6 @@ async def search_contacts_and_individuals(query: str, tenant_id: Optional[int] =
     Search both Individuals and existing Contacts.
     Returns unified results - Contacts first, then Individuals.
     """
-    from sqlalchemy import or_, func
-
     async with async_get_session() as session:
         search_pattern = f"%{query}%"
 

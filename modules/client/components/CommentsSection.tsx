@@ -194,11 +194,8 @@ const CommentsSection = ({
   const toggleThread = (commentId: number) => {
     setCollapsedThreads((prev) => {
       const next = new Set(prev);
-      if (next.has(commentId)) {
-        next.delete(commentId);
-      } else {
-        next.add(commentId);
-      }
+      const action = next.has(commentId) ? "delete" : "add";
+      next[action](commentId);
       return next;
     });
   };
@@ -220,17 +217,11 @@ const CommentsSection = ({
   };
 
   const getInitials = (name: string | null, email: string | null) => {
-    if (name) {
-      const parts = name.trim().split(" ");
-      if (parts.length >= 2) {
-        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-      }
-      return name.slice(0, 2).toUpperCase();
-    }
-    if (email) {
-      return email.slice(0, 2).toUpperCase();
-    }
-    return "??";
+    if (!name && !email) return "??";
+    if (!name) return email!.slice(0, 2).toUpperCase();
+    const parts = name.trim().split(" ");
+    if (parts.length < 2) return name.slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
   };
 
   const getAvatarColor = (name: string | null, email: string | null) => {

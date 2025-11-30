@@ -81,33 +81,36 @@ def _get_entity_project_id(entity_type: str, entity_id: int) -> int | None:
         session.close()
 
 
+def _get_lead_url(entity_id: int) -> str:
+    """Get URL for a Lead entity by looking up its type."""
+    session = get_session()
+    try:
+        result = session.execute(
+            text('SELECT type FROM "Lead" WHERE id = :id'),
+            {"id": entity_id}
+        ).fetchone()
+        if not result or not result[0]:
+            return f"/leads/{entity_id}"
+        lead_type = result[0].lower() + "s"  # 'Job' -> 'jobs', 'Opportunity' -> 'opportunitys'
+        # Fix pluralization
+        if lead_type == "opportunitys":
+            lead_type = "opportunities"
+        return f"/leads/{lead_type}/{entity_id}"
+    finally:
+        session.close()
+
+
 def _get_entity_url(entity_type: str, entity_id: int, comment_id: int = None) -> str:
     """Get URL for an entity, optionally with comment anchor."""
-    # Special handling for Lead - need to lookup the lead type
     if entity_type == "Lead":
-        session = get_session()
-        try:
-            result = session.execute(
-                text('SELECT type FROM "Lead" WHERE id = :id'),
-                {"id": entity_id}
-            ).fetchone()
-            if result and result[0]:
-                lead_type = result[0].lower() + "s"  # 'Job' -> 'jobs', 'Opportunity' -> 'opportunitys'
-                # Fix pluralization
-                if lead_type == "opportunitys":
-                    lead_type = "opportunities"
-                url = f"/leads/{lead_type}/{entity_id}"
-            else:
-                url = f"/leads/{entity_id}"
-        finally:
-            session.close()
+        url = _get_lead_url(entity_id)
     else:
         base_path = ENTITY_URL_MAP.get(entity_type, f"/{entity_type.lower()}s")
         url = f"{base_path}/{entity_id}"
 
-    if comment_id:
-        url += f"#comment-{comment_id}"
-    return url
+    if not comment_id:
+        return url
+    return f"{url}#comment-{comment_id}"
 
 
 def _get_entity_display_name(comment) -> str:

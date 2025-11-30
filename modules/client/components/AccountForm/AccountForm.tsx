@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect, useId } from "react";
-import { ExternalLink } from "lucide-react";
+import { useState, useEffect } from "react";
 import ContactSection, { ContactFieldConfig } from "../ContactSection";
 import RelationshipsSection, { Relationship } from "../RelationshipsSection";
 import NotesSection from "../NotesSection";
@@ -22,547 +21,25 @@ import {
   createNote,
   createTask,
   getIndustries,
-  createIndustry,
-  getEmployeeCountRanges,
-  getFundingStages,
-  getRevenueRanges,
-  Industry,
-  EmployeeCountRange,
-  FundingStage,
-  RevenueRange,
   TaskInput,
 } from "../../api";
 import { useProjectContext } from "../../context/projectContext";
 import { SearchResult } from "../ContactSection";
-import { AccountType, FormFieldConfig } from "./types/AccountFormTypes";
+import {
+  AccountFormProps,
+  OrganizationData,
+  IndividualData,
+  PendingContact,
+  emptyPendingContact,
+} from "./types/AccountFormTypes";
 import { useAccountFormConfig } from "./hooks/useAccountFormConfig";
 import { usePendingChanges } from "../../hooks/usePendingChanges";
-
-interface OrganizationData {
-  id?: number;
-  name: string;
-  website?: string | null;
-  phone?: string | null;
-  employee_count?: number | null;  // Legacy field
-  employee_count_range_id?: number | null;
-  employee_count_range?: string | null;
-  funding_stage_id?: number | null;
-  funding_stage?: string | null;
-  description?: string | null;
-  contacts?: Contact[];
-  relationships?: Relationship[];
-  industries?: string[];
-  project_ids?: number[];
-  projects?: { id: number; name: string }[];
-}
-
-interface IndividualData {
-  id?: number;
-  first_name: string;
-  last_name: string;
-  email?: string | null;
-  phone?: string | null;
-  linkedin_url?: string | null;
-  title?: string | null;
-  notes?: string | null;
-  contacts?: Contact[];
-  relationships?: Relationship[];
-  industries?: string[];
-  project_ids?: number[];
-  projects?: { id: number; name: string }[];
-}
-
-interface AccountFormProps {
-  type: AccountType;
-  onClose: () => void;
-  onAdd?: (data: OrganizationData | IndividualData) => Promise<{ id: number }>;
-  account?: OrganizationData | IndividualData | null;
-  onUpdate?: (id: number, data: Partial<OrganizationData | IndividualData>) => Promise<void>;
-  onDelete?: (id: number) => Promise<void>;
-}
-
-interface PendingContact {
-  individual_id?: number;
-  first_name: string;
-  last_name: string;
-  email: string;
-  phone: string;
-  title?: string | null;
-  notes?: string | null;
-  is_primary?: boolean;
-}
-
-const emptyPendingContact = (): PendingContact => ({
-  first_name: "",
-  last_name: "",
-  email: "",
-  phone: "",
-});
-
-const inputClasses =
-  "w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100";
-
-// Industry Multi-Select Dropdown Component
-const IndustrySelector = ({ value, onChange }: { value: string[]; onChange: (value: string[]) => void }) => {
-  const [industries, setIndustries] = useState<Industry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedIndustries, setSelectedIndustries] = useState<string[]>(value || []);
-  const [isOpen, setIsOpen] = useState(false);
-  const [showNewInput, setShowNewInput] = useState(false);
-  const [newIndustry, setNewIndustry] = useState("");
-  const dropdownId = useId();
-
-  useEffect(() => {
-    const loadIndustries = async () => {
-      try {
-        const data = await getIndustries();
-        setIndustries(data.sort((a, b) => a.name.localeCompare(b.name)));
-      } catch (error) {
-        console.error("Failed to fetch industries:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadIndustries();
-  }, []);
-
-  useEffect(() => {
-    setSelectedIndustries(Array.isArray(value) ? value : value ? [value] : []);
-  }, [value]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const dropdown = document.getElementById(dropdownId);
-      if (dropdown && !dropdown.contains(event.target as Node)) {
-        setIsOpen(false);
-        setShowNewInput(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [dropdownId]);
-
-  const handleToggleIndustry = (industryName: string) => {
-    const updated = selectedIndustries.includes(industryName)
-      ? selectedIndustries.filter((i) => i !== industryName)
-      : [...selectedIndustries, industryName];
-    setSelectedIndustries(updated);
-    onChange(updated);
-  };
-
-  const handleAddNew = async () => {
-    if (!newIndustry.trim()) return;
-    try {
-      const created = await createIndustry(newIndustry.trim());
-      setIndustries((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-      const updated = [...selectedIndustries, created.name];
-      setSelectedIndustries(updated);
-      onChange(updated);
-      setShowNewInput(false);
-      setNewIndustry("");
-    } catch (error) {
-      console.error("Failed to create industry:", error);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
-        Loading industries...
-      </div>
-    );
-  }
-
-  const displayText = selectedIndustries.length > 0
-    ? selectedIndustries.join(", ")
-    : "Select industries...";
-
-  return (
-    <div className="relative" id={dropdownId}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-left flex justify-between items-center"
-      >
-        <span className={selectedIndustries.length === 0 ? "text-zinc-500 dark:text-zinc-400" : ""}>
-          {displayText}
-        </span>
-        <svg className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg max-h-60 overflow-y-auto">
-          {industries.map((industry) => {
-            const isSelected = selectedIndustries.includes(industry.name);
-            return (
-              <label
-                key={industry.id}
-                className="flex items-center px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => handleToggleIndustry(industry.name)}
-                  className="w-4 h-4 text-lime-500 border-zinc-300 dark:border-zinc-600 rounded focus:ring-lime-500 bg-white dark:bg-zinc-700"
-                />
-                <span className="ml-2 text-zinc-900 dark:text-zinc-100">{industry.name}</span>
-              </label>
-            );
-          })}
-          <div className="border-t border-zinc-200 dark:border-zinc-700">
-            {!showNewInput ? (
-              <button
-                type="button"
-                onClick={() => setShowNewInput(true)}
-                className="w-full px-3 py-2 text-left text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-              >
-                + Add New Industry
-              </button>
-            ) : (
-              <div className="p-2 flex gap-2">
-                <input
-                  type="text"
-                  value={newIndustry}
-                  onChange={(e) => setNewIndustry(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddNew();
-                      return;
-                    }
-                    if (e.key === "Escape") {
-                      setShowNewInput(false);
-                      setNewIndustry("");
-                    }
-                  }}
-                  placeholder="New industry..."
-                  className="flex-1 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={handleAddNew}
-                  className="px-2 py-1 text-sm bg-lime-500 text-white rounded hover:bg-lime-600"
-                >
-                  Add
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-// Employee Count Range Dropdown Component
-const EmployeeCountRangeSelector = ({
-  value,
-  onChange,
-}: {
-  value: number | null;
-  onChange: (value: number | null) => void;
-}) => {
-  const [ranges, setRanges] = useState<EmployeeCountRange[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadRanges = async () => {
-      try {
-        const data = await getEmployeeCountRanges();
-        setRanges(data);
-      } catch (error) {
-        console.error("Failed to fetch employee count ranges:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadRanges();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
-        Loading...
-      </div>
-    );
-  }
-
-  return (
-    <select
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 ${value ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-500 dark:text-zinc-400"}`}
-    >
-      <option value="">Select employee count...</option>
-      {ranges.map((range) => (
-        <option key={range.id} value={range.id} className="text-zinc-900 dark:text-zinc-100">
-          {range.label}
-        </option>
-      ))}
-    </select>
-  );
-};
-
-// Funding Stage Dropdown Component
-const FundingStageSelector = ({
-  value,
-  onChange,
-}: {
-  value: number | null;
-  onChange: (value: number | null) => void;
-}) => {
-  const [stages, setStages] = useState<FundingStage[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadStages = async () => {
-      try {
-        const data = await getFundingStages();
-        setStages(data);
-      } catch (error) {
-        console.error("Failed to fetch funding stages:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadStages();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
-        Loading...
-      </div>
-    );
-  }
-
-  return (
-    <select
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 ${value ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-500 dark:text-zinc-400"}`}
-    >
-      <option value="">Select funding stage...</option>
-      {stages.map((stage) => (
-        <option key={stage.id} value={stage.id} className="text-zinc-900 dark:text-zinc-100">
-          {stage.label}
-        </option>
-      ))}
-    </select>
-  );
-};
-
-// Revenue Range Dropdown Component
-const RevenueRangeSelector = ({
-  value,
-  onChange,
-}: {
-  value: number | null;
-  onChange: (value: number | null) => void;
-}) => {
-  const [ranges, setRanges] = useState<RevenueRange[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const loadRanges = async () => {
-      try {
-        const data = await getRevenueRanges();
-        setRanges(data);
-      } catch (error) {
-        console.error("Failed to fetch revenue ranges:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadRanges();
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
-        Loading...
-      </div>
-    );
-  }
-
-  return (
-    <select
-      value={value ?? ""}
-      onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 ${value ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-500 dark:text-zinc-400"}`}
-    >
-      <option value="">Select revenue range...</option>
-      {ranges.map((range) => (
-        <option key={range.id} value={range.id} className="text-zinc-900 dark:text-zinc-100">
-          {range.label}
-        </option>
-      ))}
-    </select>
-  );
-};
-
-// Project Multi-Select Dropdown Component
-const ProjectSelector = ({
-  value,
-  onChange,
-  projects,
-}: {
-  value: number[];
-  onChange: (value: number[]) => void;
-  projects: { id: number; name: string }[];
-}) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const dropdownId = useId();
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const dropdown = document.getElementById(dropdownId);
-      if (dropdown && !dropdown.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [dropdownId]);
-
-  const handleToggleProject = (projectId: number) => {
-    const updated = value.includes(projectId)
-      ? value.filter((id) => id !== projectId)
-      : [...value, projectId];
-    onChange(updated);
-  };
-
-  const displayText = value.length > 0
-    ? projects.filter((p) => value.includes(p.id)).map((p) => p.name).join(", ")
-    : "Select projects...";
-
-  return (
-    <div className="relative" id={dropdownId}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-left flex justify-between items-center"
-      >
-        <span className={value.length === 0 ? "text-zinc-500 dark:text-zinc-400" : ""}>
-          {displayText}
-        </span>
-        <svg className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg max-h-60 overflow-y-auto">
-          {projects.map((project) => {
-            const isSelected = value.includes(project.id);
-            return (
-              <label
-                key={project.id}
-                className="flex items-center px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => handleToggleProject(project.id)}
-                  className="w-4 h-4 text-lime-500 border-zinc-300 dark:border-zinc-600 rounded focus:ring-lime-500 bg-white dark:bg-zinc-700"
-                />
-                <span className="ml-2 text-zinc-900 dark:text-zinc-100">{project.name}</span>
-              </label>
-            );
-          })}
-          {projects.length === 0 && (
-            <div className="px-3 py-2 text-zinc-500 dark:text-zinc-400">No projects available</div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-};
-
-const renderField = (
-  field: FormFieldConfig,
-  value: string | number,
-  onChange: (name: string, value: string) => void,
-  customRender?: React.ReactNode
-) => {
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
-    const newValue = field.onChange ? field.onChange(e.target.value) : e.target.value;
-    onChange(field.name, newValue);
-  };
-
-  if (field.type === "custom" && customRender) {
-    return customRender;
-  }
-
-  if (field.type === "textarea") {
-    return (
-      <textarea
-        value={value || ""}
-        onChange={handleChange}
-        className={inputClasses}
-        rows={field.rows || 3}
-        placeholder={field.placeholder}
-      />
-    );
-  }
-
-  if (field.type === "select" && field.options) {
-    return (
-      <select value={value || ""} onChange={handleChange} className={inputClasses}>
-        <option value="">Select...</option>
-        {field.options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-    );
-  }
-
-  const isUrlField = field.name.endsWith("_url") || field.name === "website";
-  const hasUrl = isUrlField && value && String(value).trim();
-
-  if (hasUrl) {
-    const url = String(value).startsWith("http") ? String(value) : `https://${value}`;
-    return (
-      <div>
-        <input
-          type={field.type === "tel" ? "tel" : field.type}
-          value={value || ""}
-          onChange={handleChange}
-          className={inputClasses}
-          placeholder={field.placeholder}
-          required={field.required}
-          min={field.min}
-          max={field.max}
-        />
-        <a
-          href={url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 mt-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
-        >
-          {String(value)}
-          <ExternalLink size={14} />
-        </a>
-      </div>
-    );
-  }
-
-  return (
-    <input
-      type={field.type === "tel" ? "tel" : field.type}
-      value={value || ""}
-      onChange={handleChange}
-      className={inputClasses}
-      placeholder={field.placeholder}
-      required={field.required}
-      min={field.min}
-      max={field.max}
-    />
-  );
-};
+import IndustrySelector from "./IndustrySelector";
+import EmployeeCountRangeSelector from "./EmployeeCountRangeSelector";
+import FundingStageSelector from "./FundingStageSelector";
+import RevenueRangeSelector from "./RevenueRangeSelector";
+import ProjectSelector from "./ProjectSelector";
+import { renderField } from "./utils/renderField";
 
 const AccountForm = ({
   type,
@@ -597,7 +74,6 @@ const AccountForm = ({
       setFormData({ ...account });
       setContacts(account.contacts || []);
       setSelectedIndustries(account.industries || []);
-      // Load project IDs from projects array or project_ids
       const projectIds = account.projects?.map((p) => p.id) || account.project_ids || [];
       setSelectedProjectIds(projectIds);
       setRelationships(account.relationships || []);
@@ -620,7 +96,6 @@ const AccountForm = ({
     setContacts([]);
     setRelationships([]);
     setSelectedIndustries([]);
-    // Default to currently selected project for new accounts
     setSelectedProjectIds(projectState.selectedProject ? [projectState.selectedProject.id] : []);
     setPendingContacts([]);
     setPendingDeletions([]);
@@ -638,11 +113,9 @@ const AccountForm = ({
     pendingDeletions,
   });
 
-  // Check if projects have changed
   const originalProjectIds = account?.projects?.map((p) => p.id).sort() || [];
   const currentProjectIds = [...selectedProjectIds].sort();
   const projectsChanged = JSON.stringify(originalProjectIds) !== JSON.stringify(currentProjectIds);
-
   const hasPendingChanges = formDataHasChanges || projectsChanged;
 
   const handleChange = (field: string, value: string) => {
@@ -700,14 +173,18 @@ const AccountForm = ({
   const createRelationshipContacts = async (entityId: number) => {
     for (const rel of pendingRelationships) {
       try {
-        if (isOrganization && rel.type === "individual") {
+        const shouldCreateOrgContact = isOrganization && rel.type === "individual";
+        const shouldCreateIndContact = !isOrganization && rel.type === "organization";
+
+        if (shouldCreateOrgContact) {
           await createOrganizationContact(entityId, {
             individual_id: rel.id,
             first_name: rel.name.split(" ")[0] || "",
             last_name: rel.name.split(" ").slice(1).join(" ") || "",
             is_primary: false,
           });
-        } else if (!isOrganization && rel.type === "organization") {
+        }
+        if (shouldCreateIndContact) {
           await createIndividualContact(entityId, {
             organization_id: rel.id,
             is_primary: false,
@@ -846,7 +323,6 @@ const AccountForm = ({
     const contact = contacts[index];
     if (!contact) return;
 
-    // Defer deletion until save
     setPendingDeletions([...pendingDeletions, contact]);
     setContacts(contacts.filter((_, i) => i !== index));
   };
@@ -882,11 +358,9 @@ const AccountForm = ({
     if (!contact) return;
 
     try {
-      // Update the selected contact to be primary
       const updateContact = isOrganization ? updateOrganizationContact : updateIndividualContact;
       await updateContact(account.id, contact.id, { is_primary: true });
 
-      // Update local state - set selected as primary, others as not
       setContacts(contacts.map((c, i) => ({
         ...c,
         is_primary: i === index,
@@ -960,8 +434,72 @@ const AccountForm = ({
       }))
     : pendingContacts;
 
-  // Check if we have paired fields (for 2-column grid layout)
   const hasPairedFields = config.fields.some((f) => f.gridColumn === "md:col-span-1");
+
+  const getCustomRenderer = (fieldName: string) => {
+    if (fieldName === "industry") {
+      return <IndustrySelector value={selectedIndustries} onChange={setSelectedIndustries} />;
+    }
+    if (fieldName === "employee_count_range_id") {
+      return (
+        <EmployeeCountRangeSelector
+          value={formData.employee_count_range_id as number | null}
+          onChange={(val) => handleChange("employee_count_range_id", val?.toString() ?? "")}
+        />
+      );
+    }
+    if (fieldName === "funding_stage_id") {
+      return (
+        <FundingStageSelector
+          value={formData.funding_stage_id as number | null}
+          onChange={(val) => handleChange("funding_stage_id", val?.toString() ?? "")}
+        />
+      );
+    }
+    if (fieldName === "revenue_range_id") {
+      return (
+        <RevenueRangeSelector
+          value={formData.revenue_range_id as number | null}
+          onChange={(val) => handleChange("revenue_range_id", val?.toString() ?? "")}
+        />
+      );
+    }
+    return undefined;
+  };
+
+  const renderFormFields = () => {
+    if (hasPairedFields) {
+      return (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {config.fields.map((field) => (
+            <div key={field.name} className={field.gridColumn === "md:col-span-1" ? "" : "md:col-span-2"}>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                {field.label}
+                {field.required && <span className="text-red-500"> *</span>}
+              </label>
+              {renderField(field, formData[field.name] as string | number, handleChange, getCustomRenderer(field.name))}
+              {errors[field.name] && (
+                <p className="mt-1 text-sm text-red-500">{errors[field.name]}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    return config.fields.map((field) => (
+      <div key={field.name}>
+        <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+          {field.label}
+          {field.required && <span className="text-red-500"> *</span>}
+        </label>
+        {renderField(field, formData[field.name] as string | number, handleChange, getCustomRenderer(field.name))}
+        {errors[field.name] && (
+          <p className="mt-1 text-sm text-red-500">{errors[field.name]}</p>
+        )}
+      </div>
+    ));
+  };
 
   return (
     <div>
@@ -970,79 +508,7 @@ const AccountForm = ({
       </h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
-        {hasPairedFields ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {config.fields.map((field) => (
-              <div key={field.name} className={field.gridColumn === "md:col-span-1" ? "" : "md:col-span-2"}>
-                <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                  {field.label}
-                  {field.required && <span className="text-red-500"> *</span>}
-                </label>
-                {renderField(
-                  field,
-                  formData[field.name] as string | number,
-                  handleChange,
-                  field.name === "industry" ? (
-                    <IndustrySelector value={selectedIndustries} onChange={setSelectedIndustries} />
-                  ) : field.name === "employee_count_range_id" ? (
-                    <EmployeeCountRangeSelector
-                      value={formData.employee_count_range_id as number | null}
-                      onChange={(val) => handleChange("employee_count_range_id", val?.toString() ?? "")}
-                    />
-                  ) : field.name === "funding_stage_id" ? (
-                    <FundingStageSelector
-                      value={formData.funding_stage_id as number | null}
-                      onChange={(val) => handleChange("funding_stage_id", val?.toString() ?? "")}
-                    />
-                  ) : field.name === "revenue_range_id" ? (
-                    <RevenueRangeSelector
-                      value={formData.revenue_range_id as number | null}
-                      onChange={(val) => handleChange("revenue_range_id", val?.toString() ?? "")}
-                    />
-                  ) : undefined
-                )}
-                {errors[field.name] && (
-                  <p className="mt-1 text-sm text-red-500">{errors[field.name]}</p>
-                )}
-              </div>
-            ))}
-          </div>
-        ) : (
-          config.fields.map((field) => (
-            <div key={field.name}>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                {field.label}
-                {field.required && <span className="text-red-500"> *</span>}
-              </label>
-              {renderField(
-                field,
-                formData[field.name] as string | number,
-                handleChange,
-                field.name === "industry" ? (
-                  <IndustrySelector value={selectedIndustries} onChange={setSelectedIndustries} />
-                ) : field.name === "employee_count_range_id" ? (
-                  <EmployeeCountRangeSelector
-                    value={formData.employee_count_range_id as number | null}
-                    onChange={(val) => handleChange("employee_count_range_id", val?.toString() ?? "")}
-                  />
-                ) : field.name === "funding_stage_id" ? (
-                  <FundingStageSelector
-                    value={formData.funding_stage_id as number | null}
-                    onChange={(val) => handleChange("funding_stage_id", val?.toString() ?? "")}
-                  />
-                ) : field.name === "revenue_range_id" ? (
-                  <RevenueRangeSelector
-                    value={formData.revenue_range_id as number | null}
-                    onChange={(val) => handleChange("revenue_range_id", val?.toString() ?? "")}
-                  />
-                ) : undefined
-              )}
-              {errors[field.name] && (
-                <p className="mt-1 text-sm text-red-500">{errors[field.name]}</p>
-              )}
-            </div>
-          ))
-        )}
+        {renderFormFields()}
 
         {/* Project Assignment */}
         <div className="mt-4">
