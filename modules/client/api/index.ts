@@ -1710,6 +1710,20 @@ export const downloadDocument = async (id: number, filename: string): Promise<vo
   window.URL.revokeObjectURL(url);
 };
 
+export const getDocumentPreviewUrl = async (id: number): Promise<string> => {
+  const apiUrl = env("NEXT_PUBLIC_API_URL");
+  const { headers } = await fetchBearerToken();
+
+  const response = await fetch(`${apiUrl}/assets/documents/${id}/download`, {
+    headers,
+  });
+
+  if (!response.ok) throw new Error("Failed to load preview");
+
+  const blob = await response.blob();
+  return window.URL.createObjectURL(blob);
+};
+
 export const linkDocumentToEntity = async (
   documentId: number,
   entityType: string,

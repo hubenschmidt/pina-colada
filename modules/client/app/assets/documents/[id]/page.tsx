@@ -32,6 +32,7 @@ import {
   getDocument,
   deleteDocument,
   downloadDocument,
+  getDocumentPreviewUrl,
   Document,
 } from "../../../../api";
 
@@ -43,6 +44,8 @@ const DocumentDetailPage = () => {
   const [document, setDocument] = useState<Document | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
 
   const loadDocument = useCallback(async () => {
     if (!documentId) return;
@@ -61,6 +64,29 @@ const DocumentDetailPage = () => {
   useEffect(() => {
     loadDocument();
   }, [loadDocument]);
+
+  useEffect(() => {
+    if (!document) return;
+
+    const canPreview = ["application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp"].includes(
+      document.content_type
+    );
+    if (!canPreview) return;
+
+    let url: string | null = null;
+    setPreviewLoading(true);
+    getDocumentPreviewUrl(document.id)
+      .then((blobUrl) => {
+        url = blobUrl;
+        setPreviewUrl(blobUrl);
+      })
+      .catch(() => setPreviewUrl(null))
+      .finally(() => setPreviewLoading(false));
+
+    return () => {
+      if (url) window.URL.revokeObjectURL(url);
+    };
+  }, [document?.id, document?.content_type]);
 
   const handleDownload = async () => {
     if (!document) return;
@@ -185,7 +211,7 @@ const DocumentDetailPage = () => {
             </>
           )}
 
-          <Group gap="xl">
+          <Group gap="xl" wrap="wrap">
             <Group gap="xs">
               <HardDrive className="h-4 w-4 text-zinc-400" />
               <Text size="sm" c="dimmed">Size:</Text>
@@ -201,49 +227,74 @@ const DocumentDetailPage = () => {
               <Text size="sm" c="dimmed">Uploaded:</Text>
               <Text size="sm">{formatDate(document.created_at)}</Text>
             </Group>
+            {(document.tags || []).length > 0 && (
+              <Group gap="xs">
+                <Text size="sm" c="dimmed">Tags:</Text>
+                {document.tags.map((tag) => (
+                  <Badge key={tag} size="sm" variant="light" color="lime">
+                    {tag}
+                  </Badge>
+                ))}
+              </Group>
+            )}
           </Group>
 
-          {(document.tags || []).length > 0 && (
-            <>
-              <Divider />
-              <div>
-                <Text size="sm" c="dimmed" mb="xs">Tags</Text>
-                <Group gap="xs">
-                  {document.tags.map((tag) => (
-                    <Badge key={tag} size="sm" variant="light" color="lime">
-                      {tag}
-                    </Badge>
-                  ))}
-                </Group>
-              </div>
-            </>
-          )}
-
           {(document.entities || []).length > 0 && (
-            <>
-              <Divider />
-              <div>
-                <Text size="sm" c="dimmed" mb="xs">Linked To</Text>
-                <Stack gap="xs">
-                  {document.entities.map((entity, idx) => (
-                    <Anchor
-                      key={`${entity.entity_type}-${entity.entity_id}-${idx}`}
-                      component={Link}
-                      href={getEntityUrl(entity.entity_type, entity.entity_id)}
-                    >
-                      <Group gap="xs">
-                        {getEntityIcon(entity.entity_type)}
-                        <Text size="sm">
-                          {entity.entity_type} #{entity.entity_id}
-                        </Text>
-                      </Group>
-                    </Anchor>
-                  ))}
-                </Stack>
-              </div>
-            </>
+            <Group gap="xs">
+              <Text size="sm" c="dimmed">Linked To:</Text>
+              {document.entities.map((entity, idx) => (
+                <Anchor
+                  key={`${entity.entity_type}-${entity.entity_id}-${idx}`}
+                  component={Link}
+                  href={getEntityUrl(entity.entity_type, entity.entity_id)}
+                  size="sm"
+                >
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color="blue"
+                    style={{ cursor: "pointer" }}
+                  >
+                    {entity.entity_type} #{entity.entity_id}
+                  </Badge>
+                </Anchor>
+              ))}
+            </Group>
           )}
         </Stack>
+      </Paper>
+
+      {/* Document Preview */}
+      <Paper p="lg" withBorder>
+        <Text size="sm" c="dimmed" mb="md">Preview</Text>
+        {previewLoading ? (
+          <Center mih={400}>
+            <Loader size="md" color="lime" />
+          </Center>
+        ) : previewUrl ? (
+          document.content_type === "application/pdf" ? (
+            <iframe
+              src={previewUrl}
+              className="w-full h-[600px] border-0 rounded"
+              title={document.filename}
+            />
+          ) : document.content_type.startsWith("image/") ? (
+            <img
+              src={previewUrl}
+              alt={document.filename}
+              className="max-w-full h-auto rounded"
+            />
+          ) : null
+        ) : (
+          <Center mih={200}>
+            <Stack align="center" gap="sm">
+              <FileText className="h-12 w-12 text-zinc-400" />
+              <Text size="sm" c="dimmed">
+                Preview not available for this file type
+              </Text>
+            </Stack>
+          </Center>
+        )}
       </Paper>
     </Stack>
   );

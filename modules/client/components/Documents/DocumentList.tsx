@@ -17,7 +17,16 @@ import {
   Paper,
   Anchor,
 } from "@mantine/core";
-import { Download, Trash2, MoreVertical, FileText, Link2, Building2, User, FolderKanban } from "lucide-react";
+import {
+  Download,
+  Trash2,
+  MoreVertical,
+  FileText,
+  Link2,
+  Building2,
+  User,
+  FolderKanban,
+} from "lucide-react";
 import {
   getDocuments,
   deleteDocument,
@@ -31,6 +40,7 @@ type DocumentListProps = {
   entityType?: string;
   entityId?: number;
   onDocumentDeleted?: (id: number) => void;
+  headerRight?: React.ReactNode;
 };
 
 export const DocumentList = ({
@@ -38,11 +48,14 @@ export const DocumentList = ({
   entityType,
   entityId,
   onDocumentDeleted,
+  headerRight,
 }: DocumentListProps) => {
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filterTags, setFilterTags] = useState<string[]>(externalFilterTags || []);
+  const [filterTags, setFilterTags] = useState<string[]>(
+    externalFilterTags || []
+  );
   const [availableTags, setAvailableTags] = useState<string[]>([]);
 
   const loadDocuments = useCallback(async () => {
@@ -150,14 +163,18 @@ export const DocumentList = ({
 
   return (
     <Stack gap="md">
-      <TagsInput
-        placeholder="Filter by tags..."
-        value={filterTags}
-        onChange={setFilterTags}
-        data={availableTags}
-        clearable
-        size="sm"
-      />
+      <Group gap="md">
+        <TagsInput
+          placeholder="Filter by tags..."
+          value={filterTags}
+          onChange={setFilterTags}
+          data={availableTags}
+          clearable
+          size="sm"
+          style={{ flex: 1 }}
+        />
+        {headerRight}
+      </Group>
 
       {documents.length === 0 ? (
         <Paper p="xl" withBorder>
@@ -213,14 +230,16 @@ export const DocumentList = ({
                       <Anchor
                         key={`${entity.entity_type}-${entity.entity_id}-${idx}`}
                         component={Link}
-                        href={getEntityUrl(entity.entity_type, entity.entity_id)}
+                        href={getEntityUrl(
+                          entity.entity_type,
+                          entity.entity_id
+                        )}
                         size="xs"
                       >
                         <Badge
                           size="sm"
                           variant="light"
                           color="blue"
-                          leftSection={getEntityIcon(entity.entity_type)}
                           style={{ cursor: "pointer" }}
                         >
                           {entity.entity_type}
@@ -228,7 +247,9 @@ export const DocumentList = ({
                       </Anchor>
                     ))}
                     {(!doc.entities || doc.entities.length === 0) && (
-                      <Text size="xs" c="dimmed">-</Text>
+                      <Text size="xs" c="dimmed">
+                        -
+                      </Text>
                     )}
                   </Group>
                 </Table.Td>
