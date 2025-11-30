@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text, DateTime, BigInteger, Boolean, ForeignKey, func
+from sqlalchemy import Column, Text, DateTime, BigInteger, Boolean, ForeignKey, func, CheckConstraint
 from sqlalchemy.orm import relationship
 from models import Base
 
@@ -56,4 +56,11 @@ class Contact(Base):
         secondary="ContactOrganization",
         back_populates="contacts",
         lazy="selectin"
+    )
+
+    __table_args__ = (
+        CheckConstraint(
+            "phone IS NULL OR phone ~ '^\\+1-\\d{3}-\\d{3}-\\d{4}$'",
+            name="contact_phone_format_check"
+        ),
     )

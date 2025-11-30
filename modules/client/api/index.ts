@@ -1137,17 +1137,37 @@ export const exportCustomReport = async (query: ReportQueryRequest): Promise<Blo
 
 // Saved Reports CRUD
 
+export interface SavedReportsPage {
+  items: SavedReport[];
+  total: number;
+  currentPage: number;
+  totalPages: number;
+  pageSize: number;
+}
+
 export const getSavedReports = async (
   projectId?: number | null,
-  includeGlobal: boolean = true
-): Promise<SavedReport[]> => {
+  includeGlobal: boolean = true,
+  page: number = 1,
+  limit: number = 50,
+  sortBy: string = "updated_at",
+  order: "ASC" | "DESC" = "DESC",
+  search?: string
+): Promise<SavedReportsPage> => {
   const params = new URLSearchParams();
   if (projectId !== undefined && projectId !== null) {
     params.append("project_id", projectId.toString());
   }
   params.append("include_global", includeGlobal.toString());
+  params.append("page", page.toString());
+  params.append("limit", limit.toString());
+  params.append("sort_by", sortBy);
+  params.append("order", order);
+  if (search) {
+    params.append("q", search);
+  }
   const query = params.toString() ? `?${params}` : "";
-  return apiGet<SavedReport[]>(`/reports/saved${query}`);
+  return apiGet<SavedReportsPage>(`/reports/saved${query}`);
 };
 
 export const getSavedReport = async (id: number): Promise<SavedReport> => {
@@ -1256,4 +1276,132 @@ export const getProjectLeads = async (projectId: number): Promise<ProjectLead[]>
 
 export const getProjectDeals = async (projectId: number): Promise<ProjectDeal[]> => {
   return apiGet<ProjectDeal[]>(`/projects/${projectId}/deals`);
+};
+
+// Opportunity types and API functions
+export type CreatedOpportunity = {
+  id: string;
+  account: string;
+  account_type: "Organization" | "Individual";
+  title: string;
+  opportunity_name: string;
+  estimated_value: number | null;
+  probability: number | null;
+  expected_close_date: string | null;
+  notes: string | null;
+  status: string;
+  source: string;
+  created_at: string;
+  updated_at: string;
+  contacts: ContactInput[];
+  industry: string[];
+  project_ids: number[];
+};
+
+export const createOpportunity = async (
+  data: Partial<CreatedOpportunity>
+): Promise<CreatedOpportunity> => {
+  return apiPost<CreatedOpportunity>("/opportunities", data);
+};
+
+export const getOpportunity = async (id: string): Promise<CreatedOpportunity> => {
+  return apiGet<CreatedOpportunity>(`/opportunities/${id}`);
+};
+
+export const updateOpportunity = async (
+  id: string,
+  data: Partial<CreatedOpportunity>
+): Promise<CreatedOpportunity> => {
+  return apiPut<CreatedOpportunity>(`/opportunities/${id}`, data);
+};
+
+export const deleteOpportunity = async (id: string): Promise<void> => {
+  await apiDelete(`/opportunities/${id}`);
+};
+
+export const getOpportunities = async (
+  page: number = 1,
+  limit: number = 50,
+  orderBy: string = "updated_at",
+  order: "ASC" | "DESC" = "DESC",
+  search?: string,
+  projectId?: number | null
+): Promise<PageData<CreatedOpportunity>> => {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    orderBy,
+    order,
+  });
+  if (search && search.trim()) {
+    params.append("search", search.trim());
+  }
+  if (projectId) {
+    params.append("projectId", projectId.toString());
+  }
+  return apiGet<PageData<CreatedOpportunity>>(`/opportunities?${params}`);
+};
+
+// Partnership types and API functions
+export type CreatedPartnership = {
+  id: string;
+  account: string;
+  account_type: "Organization" | "Individual";
+  title: string;
+  partnership_name: string;
+  partnership_type: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  notes: string | null;
+  status: string;
+  source: string;
+  created_at: string;
+  updated_at: string;
+  contacts: ContactInput[];
+  industry: string[];
+  project_ids: number[];
+};
+
+export const createPartnership = async (
+  data: Partial<CreatedPartnership>
+): Promise<CreatedPartnership> => {
+  return apiPost<CreatedPartnership>("/partnerships", data);
+};
+
+export const getPartnership = async (id: string): Promise<CreatedPartnership> => {
+  return apiGet<CreatedPartnership>(`/partnerships/${id}`);
+};
+
+export const updatePartnership = async (
+  id: string,
+  data: Partial<CreatedPartnership>
+): Promise<CreatedPartnership> => {
+  return apiPut<CreatedPartnership>(`/partnerships/${id}`, data);
+};
+
+export const deletePartnership = async (id: string): Promise<void> => {
+  await apiDelete(`/partnerships/${id}`);
+};
+
+export const getPartnerships = async (
+  page: number = 1,
+  limit: number = 50,
+  orderBy: string = "updated_at",
+  order: "ASC" | "DESC" = "DESC",
+  search?: string,
+  projectId?: number | null
+): Promise<PageData<CreatedPartnership>> => {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    orderBy,
+    order,
+  });
+  if (search && search.trim()) {
+    params.append("search", search.trim());
+  }
+  if (projectId) {
+    params.append("projectId", projectId.toString());
+  }
+  return apiGet<PageData<CreatedPartnership>>(`/partnerships?${params}`);
 };

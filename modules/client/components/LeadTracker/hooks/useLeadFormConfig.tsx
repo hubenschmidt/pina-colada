@@ -1,11 +1,12 @@
 import { CreatedJob } from "../../../types/types";
+import { CreatedOpportunity, CreatedPartnership } from "../../../api";
 import { LeadFormConfig } from "../types/LeadFormTypes";
 import { getRecentResumeDate, getIndustries, createIndustry, searchOrganizations, searchIndividuals, getSalaryRanges, getProjects, type Industry, type Organization, type Individual, type SalaryRange, type Project } from "../../../api";
 import { useState, useEffect, useCallback, useId, useContext } from "react";
 import { debounce } from "../../../lib/debounce";
 import { ProjectContext } from "../../../context/projectContext";
 
-type LeadType = "job";
+type LeadType = "job" | "opportunity" | "partnership";
 
 // Type guard for Organization vs Individual
 const isOrganization = (item: Organization | Individual): item is Organization =>
@@ -715,11 +716,366 @@ const getJobFormConfig = (selectedProjectId?: number | null): LeadFormConfig<Cre
   },
 });
 
+const OPPORTUNITY_STATUS_OPTIONS = [
+  "Qualifying",
+  "Discovery",
+  "Proposal",
+  "Negotiation",
+  "Closed Won",
+  "Closed Lost",
+];
+
+const getOpportunityFormConfig = (selectedProjectId?: number | null): LeadFormConfig<CreatedOpportunity> => ({
+  title: "Add New Opportunity",
+  submitButtonText: "Add",
+  sections: [
+    {
+      name: "Opportunity Info",
+      fieldNames: ["project_ids", "title", "opportunity_name", "estimated_value", "probability", "expected_close_date", "status", "notes"],
+    },
+    {
+      name: "Account Info",
+      fieldNames: ["account", "account_type", "industry"],
+    },
+    {
+      name: "Contact",
+      fieldNames: [],
+    },
+  ],
+  fields: [
+    {
+      name: "project_ids",
+      label: "Projects",
+      type: "custom",
+      defaultValue: selectedProjectId ? [selectedProjectId] : [],
+      renderCustom: ({ value, onChange }) => (
+        <ProjectSelector
+          value={value || []}
+          onChange={onChange}
+          defaultProjectIds={selectedProjectId ? [selectedProjectId] : []}
+        />
+      ),
+    },
+    {
+      name: "title",
+      label: "Title",
+      type: "text",
+      required: true,
+      placeholder: "e.g., Acme Corp - Website Redesign",
+    },
+    {
+      name: "opportunity_name",
+      label: "Opportunity Name",
+      type: "text",
+      required: true,
+      placeholder: "e.g., Website Redesign Project",
+    },
+    {
+      name: "estimated_value",
+      label: "Estimated Value ($)",
+      type: "number",
+      placeholder: "e.g., 50000",
+    },
+    {
+      name: "probability",
+      label: "Probability (%)",
+      type: "number",
+      placeholder: "e.g., 75",
+      min: 0,
+      max: 100,
+      step: 1,
+    },
+    {
+      name: "expected_close_date",
+      label: "Expected Close Date",
+      type: "date",
+    },
+    {
+      name: "status",
+      label: "Status",
+      type: "select",
+      defaultValue: "Qualifying",
+      options: OPPORTUNITY_STATUS_OPTIONS.map((status) => ({
+        label: status,
+        value: status,
+      })),
+    },
+    {
+      name: "notes",
+      label: "Notes",
+      type: "textarea",
+      placeholder: "Additional notes about this opportunity...",
+      gridColumn: "md:col-span-2",
+      rows: 3,
+    },
+    {
+      name: "account",
+      label: "Organization",
+      type: "custom",
+      required: true,
+      gridColumn: "md:col-span-1",
+      renderCustom: ({ value, onChange, formData, isEditMode }) => (
+        <AccountSelector
+          value={value}
+          onChange={onChange}
+          accountType={formData?.account_type || "Organization"}
+          readOnly={isEditMode}
+        />
+      ),
+    },
+    {
+      name: "account_type",
+      label: "Account Type",
+      type: "select",
+      required: false,
+      defaultValue: "Organization",
+      gridColumn: "md:col-span-1",
+      options: [
+        { label: "Organization", value: "Organization" },
+        { label: "Individual", value: "Individual" },
+      ],
+    },
+    {
+      name: "industry",
+      label: "Industry",
+      type: "custom",
+      defaultValue: [],
+      gridColumn: "md:col-span-1",
+      renderCustom: ({ value, onChange }) => (
+        <IndustrySelector value={value || []} onChange={onChange} />
+      ),
+    },
+  ],
+  onBeforeSubmit: (formData) => {
+    const cleaned = { ...formData };
+    if (!cleaned.industry || (Array.isArray(cleaned.industry) && cleaned.industry.length === 0)) {
+      cleaned.industry = null;
+    }
+    if (!cleaned.contacts || (Array.isArray(cleaned.contacts) && cleaned.contacts.length === 0)) {
+      delete cleaned.contacts;
+    }
+    cleaned.source = "manual";
+    return cleaned;
+  },
+  onValidate: (formData) => {
+    const errors: { [key: string]: string } = {};
+    const accountType = formData.account_type || "Organization";
+
+    if (accountType === "Individual") {
+      if (!formData.individual_first_name || formData.individual_first_name.trim() === "") {
+        errors.individual_first_name = "First Name is required";
+      }
+      if (!formData.individual_last_name || formData.individual_last_name.trim() === "") {
+        errors.individual_last_name = "Last Name is required";
+      }
+      return errors;
+    }
+
+    if (!formData.account || formData.account.trim() === "") {
+      errors.account = "Organization is required";
+    }
+
+    if (!formData.title) {
+      errors.title = "Title is required";
+    }
+
+    if (!formData.opportunity_name) {
+      errors.opportunity_name = "Opportunity Name is required";
+    }
+
+    return Object.keys(errors).length > 0 ? errors : null;
+  },
+});
+
+const PARTNERSHIP_TYPE_OPTIONS = [
+  "Strategic",
+  "Referral",
+  "Technology",
+  "Channel",
+  "Joint Venture",
+  "Other",
+];
+
+const PARTNERSHIP_STATUS_OPTIONS = [
+  "Exploring",
+  "Negotiating",
+  "Active",
+  "On Hold",
+  "Ended",
+];
+
+const getPartnershipFormConfig = (selectedProjectId?: number | null): LeadFormConfig<CreatedPartnership> => ({
+  title: "Add New Partnership",
+  submitButtonText: "Add",
+  sections: [
+    {
+      name: "Partnership Info",
+      fieldNames: ["project_ids", "title", "partnership_name", "partnership_type", "start_date", "end_date", "status", "notes"],
+    },
+    {
+      name: "Account Info",
+      fieldNames: ["account", "account_type", "industry"],
+    },
+    {
+      name: "Contact",
+      fieldNames: [],
+    },
+  ],
+  fields: [
+    {
+      name: "project_ids",
+      label: "Projects",
+      type: "custom",
+      defaultValue: selectedProjectId ? [selectedProjectId] : [],
+      renderCustom: ({ value, onChange }) => (
+        <ProjectSelector
+          value={value || []}
+          onChange={onChange}
+          defaultProjectIds={selectedProjectId ? [selectedProjectId] : []}
+        />
+      ),
+    },
+    {
+      name: "title",
+      label: "Title",
+      type: "text",
+      required: true,
+      placeholder: "e.g., Acme Corp - Technology Partnership",
+    },
+    {
+      name: "partnership_name",
+      label: "Partnership Name",
+      type: "text",
+      required: true,
+      placeholder: "e.g., Cloud Infrastructure Partnership",
+    },
+    {
+      name: "partnership_type",
+      label: "Partnership Type",
+      type: "select",
+      defaultValue: "",
+      options: [
+        { label: "Select type...", value: "" },
+        ...PARTNERSHIP_TYPE_OPTIONS.map((type) => ({
+          label: type,
+          value: type,
+        })),
+      ],
+    },
+    {
+      name: "start_date",
+      label: "Start Date",
+      type: "date",
+    },
+    {
+      name: "end_date",
+      label: "End Date",
+      type: "date",
+    },
+    {
+      name: "status",
+      label: "Status",
+      type: "select",
+      defaultValue: "Exploring",
+      options: PARTNERSHIP_STATUS_OPTIONS.map((status) => ({
+        label: status,
+        value: status,
+      })),
+    },
+    {
+      name: "notes",
+      label: "Notes",
+      type: "textarea",
+      placeholder: "Additional notes about this partnership...",
+      gridColumn: "md:col-span-2",
+      rows: 3,
+    },
+    {
+      name: "account",
+      label: "Organization",
+      type: "custom",
+      required: true,
+      gridColumn: "md:col-span-1",
+      renderCustom: ({ value, onChange, formData, isEditMode }) => (
+        <AccountSelector
+          value={value}
+          onChange={onChange}
+          accountType={formData?.account_type || "Organization"}
+          readOnly={isEditMode}
+        />
+      ),
+    },
+    {
+      name: "account_type",
+      label: "Account Type",
+      type: "select",
+      required: false,
+      defaultValue: "Organization",
+      gridColumn: "md:col-span-1",
+      options: [
+        { label: "Organization", value: "Organization" },
+        { label: "Individual", value: "Individual" },
+      ],
+    },
+    {
+      name: "industry",
+      label: "Industry",
+      type: "custom",
+      defaultValue: [],
+      gridColumn: "md:col-span-1",
+      renderCustom: ({ value, onChange }) => (
+        <IndustrySelector value={value || []} onChange={onChange} />
+      ),
+    },
+  ],
+  onBeforeSubmit: (formData) => {
+    const cleaned = { ...formData };
+    if (!cleaned.industry || (Array.isArray(cleaned.industry) && cleaned.industry.length === 0)) {
+      cleaned.industry = null;
+    }
+    if (!cleaned.contacts || (Array.isArray(cleaned.contacts) && cleaned.contacts.length === 0)) {
+      delete cleaned.contacts;
+    }
+    cleaned.source = "manual";
+    return cleaned;
+  },
+  onValidate: (formData) => {
+    const errors: { [key: string]: string } = {};
+    const accountType = formData.account_type || "Organization";
+
+    if (accountType === "Individual") {
+      if (!formData.individual_first_name || formData.individual_first_name.trim() === "") {
+        errors.individual_first_name = "First Name is required";
+      }
+      if (!formData.individual_last_name || formData.individual_last_name.trim() === "") {
+        errors.individual_last_name = "Last Name is required";
+      }
+      return errors;
+    }
+
+    if (!formData.account || formData.account.trim() === "") {
+      errors.account = "Organization is required";
+    }
+
+    if (!formData.title) {
+      errors.title = "Title is required";
+    }
+
+    if (!formData.partnership_name) {
+      errors.partnership_name = "Partnership Name is required";
+    }
+
+    return Object.keys(errors).length > 0 ? errors : null;
+  },
+});
+
 export const useLeadFormConfig = (type: LeadType): LeadFormConfig<any> => {
   const { projectState } = useContext(ProjectContext);
   const selectedProjectId = projectState.selectedProject?.id || null;
 
   if (type === "job") return getJobFormConfig(selectedProjectId);
+  if (type === "opportunity") return getOpportunityFormConfig(selectedProjectId);
+  if (type === "partnership") return getPartnershipFormConfig(selectedProjectId);
   throw new Error(`Unknown lead type: ${type}`);
 };
 

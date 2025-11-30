@@ -1,12 +1,23 @@
 "use client";
 
-import Link from "next/link";
-import { Stack, Card, Text, SimpleGrid, Badge, Group } from "@mantine/core";
-import { BarChart3, Building2, Users, StickyNote, FolderKanban } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Stack, Text, Badge, Group } from "@mantine/core";
+import { BarChart3, Building2, Users, StickyNote, FolderKanban, LucideIcon } from "lucide-react";
 import { useProjectContext } from "../../../context/projectContext";
+import { DataTable, type PageData, type Column } from "../../../components/DataTable/DataTable";
 
-const cannedReports = [
+interface CannedReport {
+  id: string;
+  title: string;
+  description: string;
+  href: string;
+  icon: LucideIcon;
+  projectFiltered: boolean;
+}
+
+const cannedReports: CannedReport[] = [
   {
+    id: "lead-pipeline",
     title: "Lead Pipeline",
     description: "Lead counts by status, conversion rates, and source analysis",
     href: "/reports/canned/lead-pipeline",
@@ -14,6 +25,7 @@ const cannedReports = [
     projectFiltered: true,
   },
   {
+    id: "account-overview",
     title: "Account Overview",
     description: "Organization and individual counts, industry and geographic distribution",
     href: "/reports/canned/account-overview",
@@ -21,6 +33,7 @@ const cannedReports = [
     projectFiltered: false,
   },
   {
+    id: "contact-coverage",
     title: "Contact Coverage",
     description: "Contact density per organization, decision-maker ratios, coverage gaps",
     href: "/reports/canned/contact-coverage",
@@ -28,6 +41,7 @@ const cannedReports = [
     projectFiltered: false,
   },
   {
+    id: "notes-activity",
     title: "Notes Activity",
     description: "Notes distribution by entity type, recent activity, and coverage metrics",
     href: "/reports/canned/notes-activity",
@@ -37,8 +51,60 @@ const cannedReports = [
 ];
 
 const CannedReportsPage = () => {
+  const router = useRouter();
   const { projectState } = useProjectContext();
   const { selectedProject } = projectState;
+
+  const data: PageData<CannedReport> = {
+    items: cannedReports,
+    currentPage: 1,
+    totalPages: 1,
+    total: cannedReports.length,
+    pageSize: cannedReports.length,
+  };
+
+  const columns: Column<CannedReport>[] = [
+    {
+      header: "",
+      width: 50,
+      render: (report) => {
+        const Icon = report.icon;
+        return <Icon className="h-5 w-5 text-lime-600 dark:text-lime-400" />;
+      },
+    },
+    {
+      header: "Name",
+      render: (report) => (
+        <Text fw={500}>{report.title}</Text>
+      ),
+    },
+    {
+      header: "Description",
+      render: (report) => (
+        <Text c="dimmed" size="sm">
+          {report.description}
+        </Text>
+      ),
+    },
+    {
+      header: "Scope",
+      width: 100,
+      render: (report) =>
+        report.projectFiltered ? (
+          <Badge size="sm" variant="light" color={selectedProject ? "lime" : "gray"}>
+            {selectedProject ? "Project" : "Global"}
+          </Badge>
+        ) : (
+          <Badge size="sm" variant="light" color="gray">
+            Global
+          </Badge>
+        ),
+    },
+  ];
+
+  const handleRowClick = (report: CannedReport) => {
+    router.push(report.href);
+  };
 
   return (
     <Stack gap="lg">
@@ -63,36 +129,13 @@ const CannedReportsPage = () => {
           : " Select a project to see project-specific data in supported reports."}
       </Text>
 
-      <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="lg">
-        {cannedReports.map((report) => (
-          <Link key={report.href} href={report.href}>
-            <Card
-              shadow="sm"
-              padding="lg"
-              radius="md"
-              withBorder
-              className="hover:border-lime-500 dark:hover:border-lime-400 transition-colors cursor-pointer h-full"
-            >
-              <Stack gap="sm">
-                <Group justify="space-between">
-                  <report.icon className="h-8 w-8 text-lime-600 dark:text-lime-400" />
-                  {report.projectFiltered && (
-                    <Badge size="xs" variant="light" color={selectedProject ? "lime" : "gray"}>
-                      {selectedProject ? "Project" : "Global"}
-                    </Badge>
-                  )}
-                </Group>
-                <Text fw={600} size="lg">
-                  {report.title}
-                </Text>
-                <Text c="dimmed" size="sm">
-                  {report.description}
-                </Text>
-              </Stack>
-            </Card>
-          </Link>
-        ))}
-      </SimpleGrid>
+      <DataTable
+        data={data}
+        columns={columns}
+        onRowClick={handleRowClick}
+        rowKey={(report) => report.id}
+        emptyText="No canned reports available"
+      />
     </Stack>
   );
 };

@@ -3,7 +3,7 @@
 import logging
 from typing import List, Optional, Dict, Any
 
-from sqlalchemy import select, delete, or_, exists
+from sqlalchemy import select, delete, or_, exists, func
 from sqlalchemy.orm import selectinload
 
 from models.SavedReport import SavedReport
@@ -16,24 +16,29 @@ logger = logging.getLogger(__name__)
 async def find_all_saved_reports(
     tenant_id: int,
     project_id: Optional[int] = None,
-    include_global: bool = True
-) -> List[SavedReport]:
-    """Find all saved reports for a tenant, optionally filtered by project.
+    include_global: bool = True,
+    search: Optional[str] = None,
+    page: int = 1,
+    limit: int = 50,
+    sort_by: str = "updated_at",
+    sort_direction: str = "DESC"
+) -> Dict[str, Any]:
+    """Find all saved reports for a tenant with pagination and search.
 
     Args:
         tenant_id: Tenant ID for scoping
         project_id: If provided, filter to reports that include this project
         include_global: If True, also include global reports (no projects assigned)
+        search: Optional search string for name/description
+        page: Page number (1-indexed)
+        limit: Items per page
+        sort_by: Column to sort by
+        sort_direction: ASC or DESC
     """
     async with async_get_session() as session:
-        stmt = (
-            select(SavedReport)
-            .options(selectinload(SavedReport.creator), selectinload(SavedReport.projects))
-            .where(SavedReport.tenant_id == tenant_id)
-        )
+        base_stmt = select(SavedReport).where(SavedReport.tenant_id == tenant_id)
 
         if project_id is not None:
-            # Subquery to check if report has this project
             has_project = (
                 select(SavedReportProject.saved_report_id)
                 .where(
@@ -42,7 +47,6 @@ async def find_all_saved_reports(
                 )
                 .exists()
             )
-            # Subquery to check if report has no projects (global)
             is_global = ~(
                 select(SavedReportProject.saved_report_id)
                 .where(SavedReportProject.saved_report_id == SavedReport.id)
@@ -50,14 +54,50 @@ async def find_all_saved_reports(
             )
 
             if include_global:
-                stmt = stmt.where(or_(has_project, is_global))
+                base_stmt = base_stmt.where(or_(has_project, is_global))
             else:
-                stmt = stmt.where(has_project)
-        # else: No project filter - return all reports (both global and project-specific)
+                base_stmt = base_stmt.where(has_project)
 
-        stmt = stmt.order_by(SavedReport.updated_at.desc())
+        if search:
+            search_filter = or_(
+                SavedReport.name.ilike(f"%{search}%"),
+                SavedReport.description.ilike(f"%{search}%")
+            )
+            base_stmt = base_stmt.where(search_filter)
+
+        # Count total
+        count_stmt = select(func.count()).select_from(base_stmt.subquery())
+        total_result = await session.execute(count_stmt)
+        total = total_result.scalar() or 0
+
+        # Apply sorting
+        sort_column = getattr(SavedReport, sort_by, SavedReport.updated_at)
+        if sort_direction.upper() == "ASC":
+            base_stmt = base_stmt.order_by(sort_column.asc())
+        else:
+            base_stmt = base_stmt.order_by(sort_column.desc())
+
+        # Apply pagination
+        offset = (page - 1) * limit
+        stmt = (
+            base_stmt
+            .options(selectinload(SavedReport.creator), selectinload(SavedReport.projects))
+            .offset(offset)
+            .limit(limit)
+        )
+
         result = await session.execute(stmt)
-        return list(result.scalars().all())
+        items = list(result.scalars().all())
+
+        total_pages = (total + limit - 1) // limit if limit > 0 else 1
+
+        return {
+            "items": items,
+            "total": total,
+            "page": page,
+            "limit": limit,
+            "total_pages": total_pages
+        }
 
 
 async def find_saved_report_by_id(report_id: int, tenant_id: int) -> Optional[SavedReport]:

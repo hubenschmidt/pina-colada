@@ -2,7 +2,7 @@
 
 from typing import Optional, List, Any, Literal
 
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from io import BytesIO
@@ -236,17 +236,42 @@ async def export_custom_report(request: Request, query: ReportQueryRequest):
 async def list_saved_reports(
     request: Request,
     project_id: Optional[int] = None,
-    include_global: bool = True
+    include_global: bool = True,
+    q: Optional[str] = None,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    sort_by: str = Query("updated_at"),
+    order: str = Query("DESC", pattern="^(ASC|DESC)$")
 ):
-    """List saved reports for the tenant.
+    """List saved reports for the tenant with pagination and search.
 
     Args:
         project_id: Filter by project ID. If None, only global reports are returned.
         include_global: If True, also include global reports (project_id IS NULL).
+        q: Search string for name/description
+        page: Page number (1-indexed)
+        limit: Items per page
+        sort_by: Column to sort by
+        order: ASC or DESC
     """
     tenant_id = request.state.tenant_id
-    reports = await find_all_saved_reports(tenant_id, project_id, include_global)
-    return [_saved_report_to_dict(r) for r in reports]
+    result = await find_all_saved_reports(
+        tenant_id,
+        project_id,
+        include_global,
+        search=q,
+        page=page,
+        limit=limit,
+        sort_by=sort_by,
+        sort_direction=order
+    )
+    return {
+        "items": [_saved_report_to_dict(r) for r in result["items"]],
+        "total": result["total"],
+        "currentPage": result["page"],
+        "totalPages": result["total_pages"],
+        "pageSize": result["limit"]
+    }
 
 
 @router.post("/saved")

@@ -102,10 +102,9 @@ async def find_all_jobs(
             stmt = stmt.where(Lead.tenant_id == tenant_id)
 
         # Filter by project (via many-to-many junction table)
-        # Require a specific project to be selected - return empty if none selected
-        if project_id is None:
-            return [], 0
-        stmt = stmt.join(LeadProject, Lead.id == LeadProject.lead_id).where(LeadProject.project_id == project_id)
+        # If project_id is provided, filter by that project; otherwise return all jobs
+        if project_id is not None:
+            stmt = stmt.join(LeadProject, Lead.id == LeadProject.lead_id).where(LeadProject.project_id == project_id)
 
         # Apply search filter at DB level
         if search and search.strip():

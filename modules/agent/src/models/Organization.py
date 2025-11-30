@@ -1,6 +1,6 @@
 """Organization model for companies."""
 
-from sqlalchemy import Column, Text, Integer, DateTime, BigInteger, ForeignKey, func, Index
+from sqlalchemy import Column, Text, Integer, DateTime, BigInteger, ForeignKey, func, Index, CheckConstraint
 from sqlalchemy.orm import relationship
 
 from models import Base
@@ -51,4 +51,12 @@ class Organization(Base):
 
     __table_args__ = (
         Index('idx_organization_name_lower', func.lower(name), unique=True),
+        CheckConstraint(
+            "phone IS NULL OR phone ~ '^\\+1-\\d{3}-\\d{3}-\\d{4}$'",
+            name="organization_phone_format_check"
+        ),
+        CheckConstraint(
+            "founding_year IS NULL OR (founding_year >= 1800 AND founding_year <= EXTRACT(YEAR FROM NOW()))",
+            name="organization_founding_year_check"
+        ),
     )

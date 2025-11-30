@@ -16,7 +16,9 @@ import {
   Button,
   Box,
   Text,
+  Badge,
 } from "@mantine/core";
+import { FolderKanban } from "lucide-react";
 
 interface LeadTrackerProps<T extends BaseLead> {
   config: LeadTrackerConfig<T>;
@@ -128,11 +130,24 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
     );
   }
 
+  const selectedProject = projectState.selectedProject;
+
   return (
     <Stack gap="lg">
-      <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-        {config.entityName} Tracker
-      </h1>
+      <Group justify="space-between">
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+          {config.entityNamePlural}
+        </h1>
+        {selectedProject ? (
+          <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
+            {selectedProject.name}
+          </Badge>
+        ) : (
+          <Badge variant="light" color="gray">
+            Global
+          </Badge>
+        )}
+      </Group>
 
       {/* Search bar and Add button */}
       {enableSearch && (
@@ -175,7 +190,7 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
                   return;
                 }
               }}
-              variant="default"
+              color="lime"
             >
               New {config.entityName}
             </Button>

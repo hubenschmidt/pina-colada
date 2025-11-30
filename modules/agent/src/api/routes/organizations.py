@@ -1,5 +1,6 @@
 """Routes for organizations API endpoints."""
 
+from datetime import datetime
 from typing import Optional, List
 from fastapi import APIRouter, Request, Query, HTTPException
 from pydantic import BaseModel, field_validator
@@ -43,6 +44,16 @@ class OrganizationCreate(BaseModel):
     def validate_phone_format(cls, v):
         return validate_phone(v)
 
+    @field_validator("founding_year")
+    @classmethod
+    def validate_founding_year(cls, v):
+        if v is None:
+            return v
+        current_year = datetime.now().year
+        if v < 1800 or v > current_year:
+            raise ValueError(f"founding_year must be between 1800 and {current_year}")
+        return v
+
 
 class OrganizationUpdate(BaseModel):
     name: Optional[str] = None
@@ -68,6 +79,16 @@ class OrganizationUpdate(BaseModel):
     @classmethod
     def validate_phone_format(cls, v):
         return validate_phone(v)
+
+    @field_validator("founding_year")
+    @classmethod
+    def validate_founding_year(cls, v):
+        if v is None:
+            return v
+        current_year = datetime.now().year
+        if v < 1800 or v > current_year:
+            raise ValueError(f"founding_year must be between 1800 and {current_year}")
+        return v
 
 
 class OrgContactCreate(BaseModel):

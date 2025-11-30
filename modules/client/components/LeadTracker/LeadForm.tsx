@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ExternalLink } from "lucide-react";
+import { useState, useEffect, useContext } from "react";
+import { ExternalLink, FolderKanban } from "lucide-react";
+import { Badge, Group } from "@mantine/core";
 import { BaseLead } from "./types/LeadTrackerTypes";
 import { LeadFormConfig, FormFieldConfig } from "./types/LeadFormTypes";
 import { ContactInput } from "../../types/types";
@@ -14,6 +15,7 @@ import FormActions from "../FormActions";
 import NotesSection from "../NotesSection";
 import Timestamps from "../Timestamps";
 import { usePendingChanges } from "../../hooks/usePendingChanges";
+import { ProjectContext } from "../../context/projectContext";
 
 const emptyContact = (): ContactInput => ({
   first_name: "",
@@ -40,6 +42,8 @@ const LeadForm = <T extends BaseLead>({
   onUpdate,
   onDelete,
 }: LeadFormProps<T>) => {
+  const { projectState } = useContext(ProjectContext);
+  const selectedProject = projectState.selectedProject;
   const isEditMode = !!lead;
   const [formData, setFormData] = useState<any>({});
   const [contacts, setContacts] = useState<ContactInput[]>([]);
@@ -790,9 +794,20 @@ const LeadForm = <T extends BaseLead>({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">
-        {isEditMode ? config.title.replace("Add New", "Edit") : config.title}
-      </h1>
+      <Group justify="space-between" mb="md">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          {isEditMode ? config.title.replace("Add New", "Edit") : config.title}
+        </h1>
+        {selectedProject ? (
+          <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
+            {selectedProject.name}
+          </Badge>
+        ) : (
+          <Badge variant="light" color="gray">
+            Global
+          </Badge>
+        )}
+      </Group>
       {formContent}
       {errors._form && (
         <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">

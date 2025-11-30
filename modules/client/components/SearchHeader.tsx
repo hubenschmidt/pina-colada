@@ -74,7 +74,7 @@ const SearchHeader = ({
             },
           }}
         />
-        <Button onClick={onAdd} variant="default">
+        <Button onClick={onAdd} color="lime">
           {buttonLabel}
         </Button>
       </Group>
