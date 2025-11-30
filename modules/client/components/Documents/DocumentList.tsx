@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   Stack,
   Text,
@@ -13,8 +15,9 @@ import {
   Loader,
   Center,
   Paper,
+  Anchor,
 } from "@mantine/core";
-import { Download, Trash2, MoreVertical, FileText, Link2 } from "lucide-react";
+import { Download, Trash2, MoreVertical, FileText, Link2, Building2, User, FolderKanban } from "lucide-react";
 import {
   getDocuments,
   deleteDocument,
@@ -105,6 +108,26 @@ export const DocumentList = ({
     return new Date(dateStr).toLocaleDateString();
   };
 
+  const getEntityUrl = (entityType: string, entityId: number): string => {
+    const typeMap: Record<string, string> = {
+      Organization: `/accounts/organizations/${entityId}`,
+      Individual: `/accounts/individuals/${entityId}`,
+      Project: `/projects/${entityId}`,
+      Contact: `/accounts/contacts/${entityId}`,
+    };
+    return typeMap[entityType] || "#";
+  };
+
+  const getEntityIcon = (entityType: string) => {
+    const iconMap: Record<string, React.ReactNode> = {
+      Organization: <Building2 className="h-3 w-3" />,
+      Individual: <User className="h-3 w-3" />,
+      Project: <FolderKanban className="h-3 w-3" />,
+      Contact: <User className="h-3 w-3" />,
+    };
+    return iconMap[entityType] || <Link2 className="h-3 w-3" />;
+  };
+
   if (loading) {
     return (
       <Center mih={200}>
@@ -153,6 +176,7 @@ export const DocumentList = ({
           <Table.Thead>
             <Table.Tr>
               <Table.Th>Name</Table.Th>
+              <Table.Th>Linked To</Table.Th>
               <Table.Th>Size</Table.Th>
               <Table.Th>Tags</Table.Th>
               <Table.Th>Uploaded</Table.Th>
@@ -166,15 +190,45 @@ export const DocumentList = ({
                   <Group gap="xs">
                     <FileText className="h-4 w-4 text-lime-600" />
                     <div>
-                      <Text size="sm" fw={500}>
+                      <Anchor
+                        component={Link}
+                        href={`/assets/documents/${doc.id}`}
+                        size="sm"
+                        fw={500}
+                      >
                         {doc.filename}
-                      </Text>
+                      </Anchor>
                       {doc.description && (
                         <Text size="xs" c="dimmed" lineClamp={1}>
                           {doc.description}
                         </Text>
                       )}
                     </div>
+                  </Group>
+                </Table.Td>
+                <Table.Td>
+                  <Group gap={4}>
+                    {(doc.entities || []).map((entity, idx) => (
+                      <Anchor
+                        key={`${entity.entity_type}-${entity.entity_id}-${idx}`}
+                        component={Link}
+                        href={getEntityUrl(entity.entity_type, entity.entity_id)}
+                        size="xs"
+                      >
+                        <Badge
+                          size="sm"
+                          variant="light"
+                          color="blue"
+                          leftSection={getEntityIcon(entity.entity_type)}
+                          style={{ cursor: "pointer" }}
+                        >
+                          {entity.entity_type}
+                        </Badge>
+                      </Anchor>
+                    ))}
+                    {(!doc.entities || doc.entities.length === 0) && (
+                      <Text size="xs" c="dimmed">-</Text>
+                    )}
                   </Group>
                 </Table.Td>
                 <Table.Td>

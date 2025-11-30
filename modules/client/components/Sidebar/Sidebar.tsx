@@ -29,9 +29,9 @@ import { useNavContext } from "../../context/navContext";
 import { useProjectContext } from "../../context/projectContext";
 
 export const Sidebar = () => {
-  const [leadsExpanded, setLeadsExpanded] = useState(true);
-  const [accountsExpanded, setAccountsExpanded] = useState(true);
-  const [reportsExpanded, setReportsExpanded] = useState(true);
+  const [leadsExpanded, setLeadsExpanded] = useState(false);
+  const [accountsExpanded, setAccountsExpanded] = useState(false);
+  const [reportsExpanded, setReportsExpanded] = useState(false);
   const pathname = usePathname();
   const router = useRouter();
   const { navState, dispatchNav } = useNavContext();
@@ -223,26 +223,26 @@ export const Sidebar = () => {
               </div>
 
               {/* Tasks */}
-              <Link
-                href="/tasks"
-                className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 ${
+              <button
+                onClick={() => router.push("/tasks")}
+                className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
                   pathname === "/tasks" ? "font-bold" : "font-normal"
                 }`}
               >
                 <CheckSquare className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                 Tasks
-              </Link>
+              </button>
 
               {/* Documents */}
-              <Link
-                href="/assets/documents"
-                className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 ${
+              <button
+                onClick={() => router.push("/assets/documents")}
+                className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
                   pathname === "/assets/documents" ? "font-bold" : "font-normal"
                 }`}
               >
                 <Files className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                 Documents
-              </Link>
+              </button>
 
               {/* Deals - disabled for now, will implement later */}
               {/* {selectedProject && (
