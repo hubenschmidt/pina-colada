@@ -15,10 +15,12 @@ export interface CreatedJob {
   account_type: 'Organization' | 'Individual' | null;
   job_title: string;
   date: string;
+  formatted_date?: string;
   status: 'Lead' | 'Applied' | 'Interviewing' | 'Rejected' | 'Offer' | 'Accepted' | 'Do Not Apply';
   job_url: string | null;
   description: string | null;
   resume: string | null;
+  formatted_resume_date?: string;
   salary_range: string | null;  // Display label from SalaryRange
   salary_range_id: number | null;  // FK to SalaryRange
   industry: string[] | null;
@@ -26,7 +28,9 @@ export interface CreatedJob {
   lead_status_id: string | null;
   contacts?: ContactInput[];
   created_at: string;
+  formatted_created_at?: string;
   updated_at: string;
+  formatted_updated_at?: string;
 }
 
 // ==============================================

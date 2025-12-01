@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 from lib.auth import require_auth
 from lib.db import async_get_session
 from lib.error_logging import log_errors
+from lib.date_utils import get_common_timezones, is_valid_timezone
 from models.User import User
 from models.UserPreferences import UserPreferences
 from models.TenantPreferences import TenantPreferences
@@ -19,6 +20,7 @@ router = APIRouter(prefix="/preferences", tags=["preferences"])
 class UpdateUserPreferencesRequest(BaseModel):
     """Model for updating user preferences."""
     theme: str | None = None
+    timezone: str | None = None
 
 
 class UpdateTenantPreferencesRequest(BaseModel):
@@ -41,6 +43,12 @@ def user_has_admin_role(user: User) -> bool:
         return False
     role_names = [ur.role.name for ur in user.user_roles]
     return "Admin" in role_names or "SuperAdmin" in role_names
+
+
+@router.get("/timezones")
+async def get_timezones():
+    """Get list of common timezones for dropdown selection."""
+    return get_common_timezones()
 
 
 @router.get("/user")
@@ -78,9 +86,11 @@ async def get_user_preferences(request: Request):
 
         # Extract values while still in session
         user_theme = user.preferences.theme
+        user_timezone = user.preferences.timezone or "America/New_York"
 
     return {
         "theme": user_theme,
+        "timezone": user_timezone,
         "effective_theme": effective_theme,
         "can_edit_tenant": can_edit_tenant
     }
@@ -90,12 +100,16 @@ async def get_user_preferences(request: Request):
 @log_errors
 @require_auth
 async def update_user_preferences(request: Request, body: UpdateUserPreferencesRequest):
-    """Update current user's theme preference."""
+    """Update current user's preferences (theme and/or timezone)."""
     user_id = request.state.user_id
     theme = body.theme
+    tz = body.timezone
 
-    if theme not in ["light", "dark", None]:
+    if theme is not None and theme not in ["light", "dark"]:
         raise HTTPException(status_code=400, detail="Invalid theme value")
+
+    if tz is not None and not is_valid_timezone(tz):
+        raise HTTPException(status_code=400, detail="Invalid timezone value")
 
     async with async_get_session() as session:
         result = await session.execute(
@@ -115,16 +129,22 @@ async def update_user_preferences(request: Request, body: UpdateUserPreferencesR
             user.preferences = UserPreferences(user_id=user.id)
             session.add(user.preferences)
 
-        user.preferences.theme = theme
+        if theme is not None:
+            user.preferences.theme = theme
+        if tz is not None:
+            user.preferences.timezone = tz
+
         await session.commit()
         await session.refresh(user, ["preferences"])
 
         # Resolve values while in session
         user_theme = user.preferences.theme
+        user_timezone = user.preferences.timezone or "America/New_York"
         effective_theme = resolve_theme(user)
 
     return {
         "theme": user_theme,
+        "timezone": user_timezone,
         "effective_theme": effective_theme
     }
 

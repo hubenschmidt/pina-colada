@@ -2,9 +2,9 @@
 
 import logging
 from typing import List, Optional, Dict, Any
-from datetime import datetime
 from lib.serialization import model_to_dict
 from lib.decorators import handle_http_exceptions
+from lib.date_utils import format_date, format_datetime, format_display_date
 from services.opportunity_service import (
     get_opportunities_paginated,
     create_opportunity as create_opportunity_service,
@@ -37,21 +37,6 @@ def _extract_company_info(organizations: list, individuals: list) -> tuple[str, 
         last_name = ind.get("last_name", "")
         return f"{last_name}, {first_name}".strip(", "), "Individual"
     return "", "Organization"
-
-
-def _format_date(value) -> str:
-    """Format datetime to ISO string, truncated to date."""
-    if not value:
-        return ""
-    date_str = value.isoformat() if isinstance(value, datetime) else str(value)
-    return date_str[:10] if date_str else ""
-
-
-def _format_datetime(value) -> str:
-    """Format datetime to full ISO string."""
-    if not value:
-        return ""
-    return value.isoformat() if isinstance(value, datetime) else str(value)
 
 
 def _get_account_contacts(opp) -> list:
@@ -121,9 +106,11 @@ def _opportunity_to_list_dict(opp) -> Dict[str, Any]:
         "opportunity_name": opp_dict.get("opportunity_name", ""),
         "estimated_value": float(opp_dict.get("estimated_value")) if opp_dict.get("estimated_value") else None,
         "probability": float(opp_dict.get("probability")) if opp_dict.get("probability") else None,
-        "expected_close_date": _format_date(opp_dict.get("expected_close_date")),
+        "expected_close_date": format_date(opp_dict.get("expected_close_date")),
+        "formatted_expected_close_date": format_display_date(opp_dict.get("expected_close_date")),
         "status": status,
-        "updated_at": opp_dict.get("updated_at", ""),
+        "updated_at": format_datetime(opp_dict.get("updated_at")),
+        "formatted_updated_at": format_display_date(opp_dict.get("updated_at")),
     }
 
 
@@ -158,12 +145,13 @@ def _opportunity_to_response_dict(opp) -> Dict[str, Any]:
         "opportunity_name": opp_dict.get("opportunity_name", ""),
         "estimated_value": float(opp_dict.get("estimated_value")) if opp_dict.get("estimated_value") else None,
         "probability": float(opp_dict.get("probability")) if opp_dict.get("probability") else None,
-        "expected_close_date": _format_date(opp_dict.get("expected_close_date")),
+        "expected_close_date": format_date(opp_dict.get("expected_close_date")),
+        "formatted_expected_close_date": format_display_date(opp_dict.get("expected_close_date")),
         "description": opp_dict.get("description"),
         "status": status,
         "source": lead.get("source", "manual"),
-        "created_at": _format_datetime(created_at),
-        "updated_at": opp_dict.get("updated_at", ""),
+        "created_at": format_datetime(created_at),
+        "updated_at": format_datetime(opp_dict.get("updated_at")),
         "contacts": contacts,
         "industry": _get_industries(opp),
         "project_ids": project_ids,

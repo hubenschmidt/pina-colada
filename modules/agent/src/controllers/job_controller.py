@@ -2,9 +2,9 @@
 
 import logging
 from typing import List, Optional, Dict, Any
-from datetime import datetime
 from lib.serialization import model_to_dict
 from lib.decorators import handle_http_exceptions
+from lib.date_utils import format_date, format_datetime, format_display_date
 from services.job_service import (
     get_jobs_paginated,
     create_job as create_job_service,
@@ -40,21 +40,6 @@ def _extract_company_info(organizations: list, individuals: list) -> tuple[str, 
         last_name = ind.get("last_name", "")
         return f"{last_name}, {first_name}".strip(", "), "Individual"
     return "", "Organization"
-
-
-def _format_date(value) -> str:
-    """Format datetime to ISO string, truncated to date."""
-    if not value:
-        return ""
-    date_str = value.isoformat() if isinstance(value, datetime) else str(value)
-    return date_str[:10] if date_str else ""
-
-
-def _format_datetime(value) -> str:
-    """Format datetime to full ISO string."""
-    if not value:
-        return ""
-    return value.isoformat() if isinstance(value, datetime) else str(value)
 
 
 def _get_account_contacts(job) -> list:
@@ -157,10 +142,13 @@ def _job_to_list_response(job) -> Dict[str, Any]:
         "job_title": job.job_title or "",
         "status": status,
         "description": job.description,
-        "resume": _format_datetime(job.resume_date),
+        "resume": format_datetime(job.resume_date),
+        "formatted_resume_date": format_display_date(job.resume_date),
         "job_url": job.job_url,
-        "created_at": _format_datetime(created_at),
-        "updated_at": _format_datetime(job.updated_at),
+        "created_at": format_datetime(created_at),
+        "formatted_created_at": format_display_date(created_at),
+        "updated_at": format_datetime(job.updated_at),
+        "formatted_updated_at": format_display_date(job.updated_at),
     }
 
 
@@ -179,16 +167,18 @@ def _job_to_detail_response(job) -> Dict[str, Any]:
         "account": company,
         "account_type": company_type,
         "job_title": job.job_title or "",
-        "date": _format_date(created_at),
+        "date": format_date(created_at),
+        "formatted_date": format_display_date(created_at),
         "status": status,
         "job_url": job.job_url,
         "salary_range": salary_range,
         "salary_range_id": salary_range_id,
         "description": job.description,
-        "resume": _format_datetime(job.resume_date),
+        "resume": format_datetime(job.resume_date),
+        "formatted_resume_date": format_display_date(job.resume_date),
         "source": job.lead.source if job.lead else "manual",
-        "created_at": _format_datetime(created_at),
-        "updated_at": _format_datetime(job.updated_at),
+        "created_at": format_datetime(created_at),
+        "updated_at": format_datetime(job.updated_at),
         "contacts": contacts,
         "industry": industry,
         "project_ids": project_ids,

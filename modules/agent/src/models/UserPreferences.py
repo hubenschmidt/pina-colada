@@ -6,13 +6,14 @@ from models import Base
 
 
 class UserPreferences(Base):
-    """UserPreferences SQLAlchemy model (theme settings for individual user)."""
+    """UserPreferences SQLAlchemy model (theme and locale settings for individual user)."""
 
     __tablename__ = "UserPreferences"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey("User.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)
     theme = Column(Text, nullable=True)
+    timezone = Column(Text, nullable=True, default="America/New_York")
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

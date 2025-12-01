@@ -31,9 +31,6 @@ type LeadType = "job" | "opportunity" | "partnership";
 
 const EmptyCell = () => <span className="text-zinc-400">—</span>;
 
-const renderDate = (value: string | null | undefined) =>
-  value ? new Date(value).toLocaleDateString() : <EmptyCell />;
-
 const JOB_STATUS_COLORS: Record<string, string> = {
   Lead: "bg-blue-100 text-blue-800 border-blue-300",
   Applied: "bg-green-100 text-green-800 border-green-300",
@@ -129,7 +126,7 @@ const getJobLeadConfig = (selectedProjectId: number | null): LeadTrackerConfig<
       sortable: true,
       sortKey: "resume",
       width: "10%",
-      render: (job) => renderDate(job.resume),
+      render: (job) => job.formatted_resume_date || <EmptyCell />,
     },
     {
       header: "URL",
@@ -152,11 +149,11 @@ const getJobLeadConfig = (selectedProjectId: number | null): LeadTrackerConfig<
     },
     {
       header: "Created",
-      accessor: "date",
+      accessor: "created_at",
       sortable: true,
-      sortKey: "date",
+      sortKey: "created_at",
       width: "8%",
-      render: (job) => renderDate(job.date),
+      render: (job) => job.formatted_created_at || <EmptyCell />,
     },
     {
       header: "Updated",
@@ -164,7 +161,7 @@ const getJobLeadConfig = (selectedProjectId: number | null): LeadTrackerConfig<
       sortable: true,
       sortKey: "updated_at",
       width: "8%",
-      render: (job) => renderDate(job.updated_at),
+      render: (job) => job.formatted_updated_at || <EmptyCell />,
     },
   ];
 
@@ -269,7 +266,7 @@ const getOpportunityLeadConfig = (selectedProjectId: number | null): LeadTracker
       sortable: true,
       sortKey: "expected_close_date",
       width: "10%",
-      render: (opp) => renderDate(opp.expected_close_date),
+      render: (opp) => opp.formatted_expected_close_date || <EmptyCell />,
     },
     {
       header: "Updated",
@@ -277,7 +274,7 @@ const getOpportunityLeadConfig = (selectedProjectId: number | null): LeadTracker
       sortable: true,
       sortKey: "updated_at",
       width: "10%",
-      render: (opp) => renderDate(opp.updated_at),
+      render: (opp) => opp.formatted_updated_at || <EmptyCell />,
     },
   ];
 
@@ -369,7 +366,7 @@ const getPartnershipLeadConfig = (selectedProjectId: number | null): LeadTracker
       sortable: true,
       sortKey: "start_date",
       width: "10%",
-      render: (partner) => renderDate(partner.start_date),
+      render: (partner) => partner.formatted_start_date || <EmptyCell />,
     },
     {
       header: "End Date",
@@ -377,7 +374,7 @@ const getPartnershipLeadConfig = (selectedProjectId: number | null): LeadTracker
       sortable: true,
       sortKey: "end_date",
       width: "10%",
-      render: (partner) => renderDate(partner.end_date),
+      render: (partner) => partner.formatted_end_date || <EmptyCell />,
     },
     {
       header: "Updated",
@@ -385,7 +382,7 @@ const getPartnershipLeadConfig = (selectedProjectId: number | null): LeadTracker
       sortable: true,
       sortKey: "updated_at",
       width: "10%",
-      render: (partner) => renderDate(partner.updated_at),
+      render: (partner) => partner.formatted_updated_at || <EmptyCell />,
     },
   ];
 

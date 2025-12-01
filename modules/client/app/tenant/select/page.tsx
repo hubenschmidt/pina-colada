@@ -21,7 +21,7 @@ import {
   SET_BEARER_TOKEN,
   SET_TENANT_NAME,
 } from "../../../reducers/userReducer";
-import { createTenant } from "../../../api";
+import { createTenant, getTimezones, updateUserPreferences, TimezoneOption } from "../../../api";
 
 const TenantSelectPage = () => {
   const { user, isLoading: userLoading } = useUser();
@@ -31,6 +31,8 @@ const TenantSelectPage = () => {
   const [loading, setLoading] = useState(false);
   const [tenantName, setTenantName] = useState("");
   const [plan, setPlan] = useState("free");
+  const [timezone, setTimezone] = useState("America/New_York");
+  const [timezoneOptions, setTimezoneOptions] = useState<TimezoneOption[]>([]);
   const [error, setError] = useState("");
 
   // Update page loading state
@@ -76,6 +78,13 @@ const TenantSelectPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user, userLoading]);
 
+  // Fetch timezone options
+  useEffect(() => {
+    getTimezones()
+      .then((options) => setTimezoneOptions(options))
+      .catch((err) => console.error("Failed to fetch timezones:", err));
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -94,7 +103,10 @@ const TenantSelectPage = () => {
           payload: newTenant.name,
         });
 
-        router.push("/chat");
+        // Save user's timezone preference
+        return updateUserPreferences({ timezone }).then(() => {
+          router.push("/chat");
+        });
       })
       .catch((error: any) => {
         console.error("Error creating tenant:", error);
@@ -143,6 +155,15 @@ const TenantSelectPage = () => {
               // { value: 'enterprise', label: 'Enterprise (Coming Soon)', disabled: true },
             ]}
             disabled={loading}
+            mb="md"
+          />
+          <Select
+            label="Timezone"
+            value={timezone}
+            onChange={(value) => setTimezone(value || "America/New_York")}
+            data={timezoneOptions}
+            disabled={loading}
+            searchable
             mb="md"
           />
           {error && (

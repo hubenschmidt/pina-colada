@@ -61,7 +61,9 @@ const LeadForm = <T extends BaseLead>({
   // Parse field value based on field type
   const parseFieldValue = (field: FormFieldConfig<T>, value: any): any => {
     if (field.type === "date" && value) {
-      return new Date(value).toISOString().split("T")[0];
+      // Extract date portion directly without timezone conversion
+      // Handles both "2025-11-29T21:43:00" and "2025-11-29 21:43" formats
+      return String(value).split(/[T ]/)[0];
     }
     // Preserve arrays as-is (e.g., project_ids)
     if (Array.isArray(value)) {

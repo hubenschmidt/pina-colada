@@ -6,6 +6,7 @@ from datetime import datetime
 from fastapi import HTTPException
 from lib.serialization import model_to_dict
 from lib.validators import validate_phone
+from lib.date_utils import parse_date_input
 from repositories.job_repository import (
     find_all_jobs,
     create_job as create_job_repo,
@@ -117,10 +118,7 @@ def _parse_resume_date(resume_str: str | None) -> tuple[bool, datetime | None]:
         return False, None
     if resume_str == "":
         return True, None
-    try:
-        return True, datetime.fromisoformat(resume_str.replace("Z", "+00:00"))
-    except (ValueError, TypeError):
-        return True, None
+    return True, parse_date_input(resume_str)
 
 
 def _normalize_identifier(company: str, title: str) -> str:
@@ -422,13 +420,7 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
     account_id, account_name = await resolve_account(job_data, tenant_id)
 
     # Parse resume date
-    resume_str = job_data.get("resume")
-    resume_obj = None
-    if resume_str:
-        try:
-            resume_obj = datetime.fromisoformat(resume_str.replace("Z", "+00:00"))
-        except (ValueError, TypeError):
-            pass
+    resume_obj = parse_date_input(job_data.get("resume"))
 
     # Resolve deal_id
     deal_id = job_data.get("deal_id")

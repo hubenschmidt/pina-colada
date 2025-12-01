@@ -264,12 +264,25 @@ export const createTenant = async (
 // Preferences Types
 export type UserPreferencesResponse = {
   theme: string | null;
+  timezone: string;
   effective_theme: string;
   can_edit_tenant: boolean;
 };
 
 export type TenantPreferencesResponse = {
   theme: string;
+};
+
+export type TimezoneOption = {
+  value: string;
+  label: string;
+};
+
+/**
+ * Get list of common timezones for dropdown
+ */
+export const getTimezones = async (): Promise<TimezoneOption[]> => {
+  return apiGet<TimezoneOption[]>("/preferences/timezones");
 };
 
 /**
@@ -281,12 +294,13 @@ export const getUserPreferences =
   };
 
 /**
- * Update current user's theme preference
+ * Update current user's preferences (theme and/or timezone)
  */
-export const updateUserPreferences = async (
-  theme: "light" | "dark" | "cyberpunk" | null
-): Promise<UserPreferencesResponse> => {
-  return apiPatch<UserPreferencesResponse>("/preferences/user", { theme });
+export const updateUserPreferences = async (updates: {
+  theme?: "light" | "dark" | "cyberpunk" | null;
+  timezone?: string;
+}): Promise<UserPreferencesResponse> => {
+  return apiPatch<UserPreferencesResponse>("/preferences/user", updates);
 };
 
 /**
@@ -1458,11 +1472,13 @@ export type CreatedOpportunity = {
   estimated_value: number | null;
   probability: number | null;
   expected_close_date: string | null;
+  formatted_expected_close_date?: string;
   description: string | null;
   status: string;
   source: string;
   created_at: string;
   updated_at: string;
+  formatted_updated_at?: string;
   contacts: ContactInput[];
   industry: string[];
   project_ids: number[];
@@ -1523,12 +1539,15 @@ export type CreatedPartnership = {
   partnership_name: string;
   partnership_type: string | null;
   start_date: string | null;
+  formatted_start_date?: string;
   end_date: string | null;
+  formatted_end_date?: string;
   description: string | null;
   status: string;
   source: string;
   created_at: string;
   updated_at: string;
+  formatted_updated_at?: string;
   contacts: ContactInput[];
   industry: string[];
   project_ids: number[];

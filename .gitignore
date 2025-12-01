@@ -65,3 +65,8 @@ Thumbs.db
 
 # Local document storage (dev only)
 storage/
+
+# ETL scripts with credentials (one-time migration)
+**/etl.py
+**/import_prod*.py
+**/exports/

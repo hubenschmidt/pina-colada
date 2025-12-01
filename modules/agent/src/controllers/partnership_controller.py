@@ -2,9 +2,9 @@
 
 import logging
 from typing import List, Optional, Dict, Any
-from datetime import datetime
 from lib.serialization import model_to_dict
 from lib.decorators import handle_http_exceptions
+from lib.date_utils import format_date, format_datetime, format_display_date
 from services.partnership_service import (
     get_partnerships_paginated,
     create_partnership as create_partnership_service,
@@ -37,21 +37,6 @@ def _extract_company_info(organizations: list, individuals: list) -> tuple[str, 
         last_name = ind.get("last_name", "")
         return f"{last_name}, {first_name}".strip(", "), "Individual"
     return "", "Organization"
-
-
-def _format_date(value) -> str:
-    """Format datetime to ISO string, truncated to date."""
-    if not value:
-        return ""
-    date_str = value.isoformat() if isinstance(value, datetime) else str(value)
-    return date_str[:10] if date_str else ""
-
-
-def _format_datetime(value) -> str:
-    """Format datetime to full ISO string."""
-    if not value:
-        return ""
-    return value.isoformat() if isinstance(value, datetime) else str(value)
 
 
 def _get_account_contacts(partnership) -> list:
@@ -121,9 +106,12 @@ def _partnership_to_list_dict(partnership) -> Dict[str, Any]:
         "partnership_name": p_dict.get("partnership_name", ""),
         "partnership_type": p_dict.get("partnership_type"),
         "status": status,
-        "start_date": _format_date(p_dict.get("start_date")),
-        "end_date": _format_date(p_dict.get("end_date")),
-        "updated_at": p_dict.get("updated_at", ""),
+        "start_date": format_date(p_dict.get("start_date")),
+        "formatted_start_date": format_display_date(p_dict.get("start_date")),
+        "end_date": format_date(p_dict.get("end_date")),
+        "formatted_end_date": format_display_date(p_dict.get("end_date")),
+        "updated_at": format_datetime(p_dict.get("updated_at")),
+        "formatted_updated_at": format_display_date(p_dict.get("updated_at")),
     }
 
 
@@ -157,13 +145,15 @@ def _partnership_to_response_dict(partnership) -> Dict[str, Any]:
         "title": lead.get("title", ""),
         "partnership_name": p_dict.get("partnership_name", ""),
         "partnership_type": p_dict.get("partnership_type"),
-        "start_date": _format_date(p_dict.get("start_date")),
-        "end_date": _format_date(p_dict.get("end_date")),
+        "start_date": format_date(p_dict.get("start_date")),
+        "formatted_start_date": format_display_date(p_dict.get("start_date")),
+        "end_date": format_date(p_dict.get("end_date")),
+        "formatted_end_date": format_display_date(p_dict.get("end_date")),
         "description": p_dict.get("description"),
         "status": status,
         "source": lead.get("source", "manual"),
-        "created_at": _format_datetime(created_at),
-        "updated_at": p_dict.get("updated_at", ""),
+        "created_at": format_datetime(created_at),
+        "updated_at": format_datetime(p_dict.get("updated_at")),
         "contacts": contacts,
         "industry": _get_industries(partnership),
         "project_ids": project_ids,
