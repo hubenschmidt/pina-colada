@@ -255,3 +255,95 @@ async def find_task_priorities() -> List[Status]:
         )
         result = await session.execute(stmt)
         return list(result.scalars().all())
+
+
+async def batch_get_entity_display_names(entities: List[Tuple[str, int]]) -> Dict[Tuple[str, int], Optional[str]]:
+    """Batch fetch display names for multiple entities. Returns dict mapping (type, id) -> name."""
+    if not entities:
+        return {}
+    
+    async with async_get_session() as session:
+        result_map: Dict[Tuple[str, int], Optional[str]] = {}
+        
+        # Group by entity type
+        by_type: Dict[str, List[int]] = {}
+        for entity_type, entity_id in entities:
+            if entity_type not in ("Project", "Deal", "Lead", "Account"):
+                result_map[(entity_type, entity_id)] = None
+                continue
+            if entity_type not in by_type:
+                by_type[entity_type] = []
+            by_type[entity_type].append(entity_id)
+        
+        # Batch fetch by type
+        if "Project" in by_type:
+            stmt = select(Project.id, Project.name).where(Project.id.in_(by_type["Project"]))
+            result = await session.execute(stmt)
+            for row in result.fetchall():
+                result_map[("Project", row[0])] = row[1]
+        
+        if "Deal" in by_type:
+            stmt = select(Deal.id, Deal.name).where(Deal.id.in_(by_type["Deal"]))
+            result = await session.execute(stmt)
+            for row in result.fetchall():
+                result_map[("Deal", row[0])] = row[1]
+        
+        if "Lead" in by_type:
+            stmt = select(Lead.id, Lead.title).where(Lead.id.in_(by_type["Lead"]))
+            result = await session.execute(stmt)
+            for row in result.fetchall():
+                result_map[("Lead", row[0])] = row[1]
+        
+        if "Account" in by_type:
+            stmt = select(Account.id, Account.name).where(Account.id.in_(by_type["Account"]))
+            result = await session.execute(stmt)
+            for row in result.fetchall():
+                result_map[("Account", row[0])] = row[1]
+        
+        # Set None for any entities not found
+        for entity_type, entity_id in entities:
+            if (entity_type, entity_id) not in result_map:
+                result_map[(entity_type, entity_id)] = None
+        
+        return result_map
+
+
+async def batch_get_lead_types(lead_ids: List[int]) -> Dict[int, Optional[str]]:
+    """Batch fetch lead types for multiple leads. Returns dict mapping lead_id -> type."""
+    if not lead_ids:
+        return {}
+    
+    async with async_get_session() as session:
+        stmt = select(Lead.id, Lead.type).where(Lead.id.in_(lead_ids))
+        result = await session.execute(stmt)
+        return {row[0]: row[1] for row in result.fetchall()}
+
+
+async def batch_get_account_entities(account_ids: List[int]) -> Dict[int, Optional[Tuple[str, int]]]:
+    """Batch fetch Individual/Organization for multiple accounts. Returns dict mapping account_id -> (type, id) or None."""
+    if not account_ids:
+        return {}
+    
+    async with async_get_session() as session:
+        result_map: Dict[int, Optional[Tuple[str, int]]] = {}
+        
+        # Batch fetch individuals
+        ind_stmt = select(Individual.id, Individual.account_id).where(Individual.account_id.in_(account_ids))
+        ind_result = await session.execute(ind_stmt)
+        for row in ind_result.fetchall():
+            result_map[row[1]] = ("Individual", row[0])
+        
+        # Batch fetch organizations (only for accounts not already found as individuals)
+        remaining_account_ids = [aid for aid in account_ids if aid not in result_map]
+        if remaining_account_ids:
+            org_stmt = select(Organization.id, Organization.account_id).where(Organization.account_id.in_(remaining_account_ids))
+            org_result = await session.execute(org_stmt)
+            for row in org_result.fetchall():
+                result_map[row[1]] = ("Organization", row[0])
+        
+        # Set None for accounts not found
+        for account_id in account_ids:
+            if account_id not in result_map:
+                result_map[account_id] = None
+        
+        return result_map

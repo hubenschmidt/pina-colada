@@ -128,7 +128,7 @@ def _opportunity_to_response_dict(opp) -> Dict[str, Any]:
         "estimated_value": float(opp_dict.get("estimated_value")) if opp_dict.get("estimated_value") else None,
         "probability": float(opp_dict.get("probability")) if opp_dict.get("probability") else None,
         "expected_close_date": _format_date(opp_dict.get("expected_close_date")),
-        "notes": opp_dict.get("notes"),
+        "description": opp_dict.get("description"),
         "status": status,
         "source": lead.get("source", "manual"),
         "created_at": _format_datetime(created_at),

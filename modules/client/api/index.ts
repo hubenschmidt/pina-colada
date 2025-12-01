@@ -44,12 +44,20 @@ const apiRequest = async <T>(
       // Handle Pydantic validation errors (422) which return detail as array
       const message = Array.isArray(errorData.detail)
         ? errorData.detail
-            .map((e: { loc?: string[]; msg?: string }) =>
-              `${e.loc?.slice(1).join(".") || "field"}: ${e.msg || "invalid"}`
+            .map(
+              (e: { loc?: string[]; msg?: string }) =>
+                `${e.loc?.slice(1).join(".") || "field"}: ${e.msg || "invalid"}`
             )
             .join("; ")
-        : errorData.detail || errorData.error || error.message || "Request failed";
-      console.error("API Error:", { status: error.response?.status, message, data: errorData });
+        : errorData.detail ||
+          errorData.error ||
+          error.message ||
+          "Request failed";
+      console.error("API Error:", {
+        status: error.response?.status,
+        message,
+        data: errorData,
+      });
       const errorObj = new Error(message);
       (errorObj as any).response = error.response;
       (errorObj as any).errorData = errorData;
@@ -267,9 +275,10 @@ export type TenantPreferencesResponse = {
 /**
  * Get current user's preferences
  */
-export const getUserPreferences = async (): Promise<UserPreferencesResponse> => {
-  return apiGet<UserPreferencesResponse>("/preferences/user");
-};
+export const getUserPreferences =
+  async (): Promise<UserPreferencesResponse> => {
+    return apiGet<UserPreferencesResponse>("/preferences/user");
+  };
 
 /**
  * Update current user's theme preference
@@ -283,9 +292,10 @@ export const updateUserPreferences = async (
 /**
  * Get tenant preferences (Admin/SuperAdmin only)
  */
-export const getTenantPreferences = async (): Promise<TenantPreferencesResponse> => {
-  return apiGet<TenantPreferencesResponse>("/preferences/tenant");
-};
+export const getTenantPreferences =
+  async (): Promise<TenantPreferencesResponse> => {
+    return apiGet<TenantPreferencesResponse>("/preferences/tenant");
+  };
 
 /**
  * Update tenant theme preference (Admin/SuperAdmin only)
@@ -388,11 +398,11 @@ export type Organization = {
   website: string | null;
   phone: string | null;
   industries: string[];
-  employee_count: number | null;  // Legacy field
+  employee_count: number | null; // Legacy field
   employee_count_range_id: number | null;
-  employee_count_range: string | null;  // Label from lookup
+  employee_count_range: string | null; // Label from lookup
   funding_stage_id: number | null;
-  funding_stage: string | null;  // Label from lookup
+  funding_stage: string | null; // Label from lookup
   description: string | null;
   contacts?: Contact[];
   created_at: string | null;
@@ -400,10 +410,24 @@ export type Organization = {
 };
 
 /**
- * Get all organizations for the current tenant
+ * Get all organizations for the current tenant with pagination, sorting, and search
  */
-export const getOrganizations = async (): Promise<Organization[]> => {
-  return apiGet<Organization[]>("/organizations");
+export const getOrganizations = async (
+  page: number = 1,
+  limit: number = 50,
+  orderBy: string = "updated_at",
+  order: "ASC" | "DESC" = "DESC",
+  search?: string
+): Promise<PageData<Organization>> => {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    orderBy,
+    order,
+  });
+  if (search && search.trim()) params.append("search", search.trim());
+  const query = params.toString() ? `?${params}` : "";
+  return apiGet<PageData<Organization>>(`/organizations${query}`);
 };
 
 /**
@@ -417,7 +441,9 @@ export const getOrganization = async (id: number): Promise<Organization> => {
  * Create a new organization
  */
 export const createOrganization = async (
-  data: Partial<Omit<Organization, "id" | "created_at" | "updated_at" | "industries">>
+  data: Partial<
+    Omit<Organization, "id" | "created_at" | "updated_at" | "industries">
+  >
 ): Promise<Organization> => {
   return apiPost<Organization>("/organizations", data);
 };
@@ -427,7 +453,9 @@ export const createOrganization = async (
  */
 export const updateOrganization = async (
   id: number,
-  data: Partial<Omit<Organization, "id" | "created_at" | "updated_at" | "industries">>
+  data: Partial<
+    Omit<Organization, "id" | "created_at" | "updated_at" | "industries">
+  >
 ): Promise<Organization> => {
   return apiPut<Organization>(`/organizations/${id}`, data);
 };
@@ -442,15 +470,23 @@ export const deleteOrganization = async (id: number): Promise<void> => {
 /**
  * Search organizations by name
  */
-export const searchOrganizations = async (query: string): Promise<Organization[]> => {
-  return apiGet<Organization[]>(`/organizations/search?q=${encodeURIComponent(query)}`);
+export const searchOrganizations = async (
+  query: string
+): Promise<Organization[]> => {
+  return apiGet<Organization[]>(
+    `/organizations/search?q=${encodeURIComponent(query)}`
+  );
 };
 
 /**
  * Search individuals by name or email
  */
-export const searchIndividuals = async (query: string): Promise<Individual[]> => {
-  return apiGet<Individual[]>(`/individuals/search?q=${encodeURIComponent(query)}`);
+export const searchIndividuals = async (
+  query: string
+): Promise<Individual[]> => {
+  return apiGet<Individual[]>(
+    `/individuals/search?q=${encodeURIComponent(query)}`
+  );
 };
 
 // Account Search Types
@@ -464,8 +500,12 @@ export type AccountSearchResult = {
 /**
  * Search accounts by name
  */
-export const searchAccounts = async (query: string): Promise<AccountSearchResult[]> => {
-  return apiGet<AccountSearchResult[]>(`/accounts/search?q=${encodeURIComponent(query)}`);
+export const searchAccounts = async (
+  query: string
+): Promise<AccountSearchResult[]> => {
+  return apiGet<AccountSearchResult[]>(
+    `/accounts/search?q=${encodeURIComponent(query)}`
+  );
 };
 
 // Contact Search Types
@@ -484,8 +524,12 @@ export type ContactSearchResult = {
  * Search contacts and individuals by name or email.
  * Returns results that can be linked as contacts via individual_id.
  */
-export const searchContacts = async (query: string): Promise<ContactSearchResult[]> => {
-  return apiGet<ContactSearchResult[]>(`/contacts/search?q=${encodeURIComponent(query)}`);
+export const searchContacts = async (
+  query: string
+): Promise<ContactSearchResult[]> => {
+  return apiGet<ContactSearchResult[]>(
+    `/contacts/search?q=${encodeURIComponent(query)}`
+  );
 };
 
 // Industry Types
@@ -537,7 +581,9 @@ export type EmployeeCountRange = {
 /**
  * Get all employee count ranges
  */
-export const getEmployeeCountRanges = async (): Promise<EmployeeCountRange[]> => {
+export const getEmployeeCountRanges = async (): Promise<
+  EmployeeCountRange[]
+> => {
   return apiGet<EmployeeCountRange[]>("/employee-count-ranges");
 };
 
@@ -614,7 +660,9 @@ export const deleteContact = async (id: number): Promise<void> => {
 /**
  * Get contacts for an individual
  */
-export const getIndividualContacts = async (individualId: number): Promise<Contact[]> => {
+export const getIndividualContacts = async (
+  individualId: number
+): Promise<Contact[]> => {
   return apiGet<Contact[]>(`/individuals/${individualId}/contacts`);
 };
 
@@ -623,7 +671,9 @@ export const getIndividualContacts = async (individualId: number): Promise<Conta
  */
 export const createIndividualContact = async (
   individualId: number,
-  data: Partial<Omit<Contact, "id" | "individual_id" | "created_at" | "updated_at">> & { organization_id?: number }
+  data: Partial<
+    Omit<Contact, "id" | "individual_id" | "created_at" | "updated_at">
+  > & { organization_id?: number }
 ): Promise<Contact> => {
   return apiPost<Contact>(`/individuals/${individualId}/contacts`, data);
 };
@@ -634,9 +684,14 @@ export const createIndividualContact = async (
 export const updateIndividualContact = async (
   individualId: number,
   contactId: number,
-  data: Partial<Omit<Contact, "id" | "individual_id" | "created_at" | "updated_at">>
+  data: Partial<
+    Omit<Contact, "id" | "individual_id" | "created_at" | "updated_at">
+  >
 ): Promise<Contact> => {
-  return apiPut<Contact>(`/individuals/${individualId}/contacts/${contactId}`, data);
+  return apiPut<Contact>(
+    `/individuals/${individualId}/contacts/${contactId}`,
+    data
+  );
 };
 
 /**
@@ -654,7 +709,9 @@ export const deleteIndividualContact = async (
 /**
  * Get contacts for an organization
  */
-export const getOrganizationContacts = async (orgId: number): Promise<Contact[]> => {
+export const getOrganizationContacts = async (
+  orgId: number
+): Promise<Contact[]> => {
   return apiGet<Contact[]>(`/organizations/${orgId}/contacts`);
 };
 
@@ -690,7 +747,12 @@ export const createOrganizationContact = async (
 export const updateOrganizationContact = async (
   orgId: number,
   contactId: number,
-  data: Partial<Omit<Contact, "id" | "individual_id" | "organization_id" | "created_at" | "updated_at">>
+  data: Partial<
+    Omit<
+      Contact,
+      "id" | "individual_id" | "organization_id" | "created_at" | "updated_at"
+    >
+  >
 ): Promise<Contact> => {
   return apiPut<Contact>(`/organizations/${orgId}/contacts/${contactId}`, data);
 };
@@ -727,7 +789,9 @@ export const getNotes = async (
   entityType: string,
   entityId: number
 ): Promise<Note[]> => {
-  return apiGet<Note[]>(`/notes?entity_type=${encodeURIComponent(entityType)}&entity_id=${entityId}`);
+  return apiGet<Note[]>(
+    `/notes?entity_type=${encodeURIComponent(entityType)}&entity_id=${entityId}`
+  );
 };
 
 /**
@@ -738,7 +802,11 @@ export const createNote = async (
   entityId: number,
   content: string
 ): Promise<Note> => {
-  return apiPost<Note>("/notes", { entity_type: entityType, entity_id: entityId, content });
+  return apiPost<Note>("/notes", {
+    entity_type: entityType,
+    entity_id: entityId,
+    content,
+  });
 };
 
 /**
@@ -800,7 +868,9 @@ export type OrganizationTechnology = {
 /**
  * Get all technologies
  */
-export const getTechnologies = async (category?: string): Promise<Technology[]> => {
+export const getTechnologies = async (
+  category?: string
+): Promise<Technology[]> => {
   const params = category ? `?category=${encodeURIComponent(category)}` : "";
   return apiGet<Technology[]>(`/technologies${params}`);
 };
@@ -808,15 +878,23 @@ export const getTechnologies = async (category?: string): Promise<Technology[]> 
 /**
  * Create a new technology
  */
-export const createTechnology = async (data: { name: string; category: string; vendor?: string }): Promise<Technology> => {
+export const createTechnology = async (data: {
+  name: string;
+  category: string;
+  vendor?: string;
+}): Promise<Technology> => {
   return apiPost<Technology>("/technologies", data);
 };
 
 /**
  * Get technologies for an organization
  */
-export const getOrganizationTechnologies = async (orgId: number): Promise<{ technologies: OrganizationTechnology[] }> => {
-  return apiGet<{ technologies: OrganizationTechnology[] }>(`/organizations/${orgId}/technologies`);
+export const getOrganizationTechnologies = async (
+  orgId: number
+): Promise<{ technologies: OrganizationTechnology[] }> => {
+  return apiGet<{ technologies: OrganizationTechnology[] }>(
+    `/organizations/${orgId}/technologies`
+  );
 };
 
 /**
@@ -826,13 +904,19 @@ export const addOrganizationTechnology = async (
   orgId: number,
   data: { technology_id: number; source?: string; confidence?: number }
 ): Promise<{ organization_technology: OrganizationTechnology }> => {
-  return apiPost<{ organization_technology: OrganizationTechnology }>(`/organizations/${orgId}/technologies`, data);
+  return apiPost<{ organization_technology: OrganizationTechnology }>(
+    `/organizations/${orgId}/technologies`,
+    data
+  );
 };
 
 /**
  * Remove a technology from an organization
  */
-export const removeOrganizationTechnology = async (orgId: number, technologyId: number): Promise<void> => {
+export const removeOrganizationTechnology = async (
+  orgId: number,
+  technologyId: number
+): Promise<void> => {
   await apiDelete(`/organizations/${orgId}/technologies/${technologyId}`);
 };
 
@@ -854,8 +938,12 @@ export type FundingRound = {
 /**
  * Get funding rounds for an organization
  */
-export const getOrganizationFundingRounds = async (orgId: number): Promise<{ funding_rounds: FundingRound[] }> => {
-  return apiGet<{ funding_rounds: FundingRound[] }>(`/organizations/${orgId}/funding-rounds`);
+export const getOrganizationFundingRounds = async (
+  orgId: number
+): Promise<{ funding_rounds: FundingRound[] }> => {
+  return apiGet<{ funding_rounds: FundingRound[] }>(
+    `/organizations/${orgId}/funding-rounds`
+  );
 };
 
 /**
@@ -871,13 +959,19 @@ export const createOrganizationFundingRound = async (
     source_url?: string;
   }
 ): Promise<{ funding_round: FundingRound }> => {
-  return apiPost<{ funding_round: FundingRound }>(`/organizations/${orgId}/funding-rounds`, data);
+  return apiPost<{ funding_round: FundingRound }>(
+    `/organizations/${orgId}/funding-rounds`,
+    data
+  );
 };
 
 /**
  * Delete a funding round
  */
-export const deleteOrganizationFundingRound = async (orgId: number, roundId: number): Promise<void> => {
+export const deleteOrganizationFundingRound = async (
+  orgId: number,
+  roundId: number
+): Promise<void> => {
   await apiDelete(`/organizations/${orgId}/funding-rounds/${roundId}`);
 };
 
@@ -910,7 +1004,9 @@ export const getOrganizationSignals = async (
   if (options?.signal_type) params.append("signal_type", options.signal_type);
   if (options?.limit) params.append("limit", options.limit.toString());
   const query = params.toString() ? `?${params}` : "";
-  return apiGet<{ signals: CompanySignal[] }>(`/organizations/${orgId}/signals${query}`);
+  return apiGet<{ signals: CompanySignal[] }>(
+    `/organizations/${orgId}/signals${query}`
+  );
 };
 
 /**
@@ -929,13 +1025,19 @@ export const createOrganizationSignal = async (
     relevance_score?: number;
   }
 ): Promise<{ signal: CompanySignal }> => {
-  return apiPost<{ signal: CompanySignal }>(`/organizations/${orgId}/signals`, data);
+  return apiPost<{ signal: CompanySignal }>(
+    `/organizations/${orgId}/signals`,
+    data
+  );
 };
 
 /**
  * Delete a signal
  */
-export const deleteOrganizationSignal = async (orgId: number, signalId: number): Promise<void> => {
+export const deleteOrganizationSignal = async (
+  orgId: number,
+  signalId: number
+): Promise<void> => {
   await apiDelete(`/organizations/${orgId}/signals/${signalId}`);
 };
 
@@ -971,7 +1073,12 @@ export type IndividualWithResearch = Individual & {
   is_decision_maker: boolean | null;
   reports_to_id: number | null;
   reports_to?: { id: number; first_name: string; last_name: string };
-  direct_reports?: { id: number; first_name: string; last_name: string; title: string | null }[];
+  direct_reports?: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    title: string | null;
+  }[];
 };
 
 // ==============================================
@@ -980,7 +1087,18 @@ export type IndividualWithResearch = Individual & {
 
 export type ReportFilter = {
   field: string;
-  operator: "eq" | "neq" | "gt" | "gte" | "lt" | "lte" | "contains" | "starts_with" | "is_null" | "is_not_null" | "in";
+  operator:
+    | "eq"
+    | "neq"
+    | "gt"
+    | "gte"
+    | "lt"
+    | "lte"
+    | "contains"
+    | "starts_with"
+    | "is_null"
+    | "is_not_null"
+    | "in";
   value?: any;
 };
 
@@ -991,7 +1109,12 @@ export type ReportAggregation = {
 };
 
 export type ReportQueryRequest = {
-  primary_entity: "organizations" | "individuals" | "contacts" | "leads" | "notes";
+  primary_entity:
+    | "organizations"
+    | "individuals"
+    | "contacts"
+    | "leads"
+    | "notes";
   columns: string[];
   joins?: string[];
   filters?: ReportFilter[];
@@ -999,7 +1122,7 @@ export type ReportQueryRequest = {
   aggregations?: ReportAggregation[];
   limit?: number;
   offset?: number;
-  project_id?: number | null;  // Filter data by project scope
+  project_id?: number | null; // Filter data by project scope
 };
 
 export type ReportQueryResult = {
@@ -1043,7 +1166,11 @@ export type ContactCoverageReport = {
   organizations_with_zero_contacts: number;
   decision_maker_count: number;
   decision_maker_ratio: number;
-  coverage_by_org: { organization_id: number; organization_name: string; contact_count: number }[];
+  coverage_by_org: {
+    organization_id: number;
+    organization_name: string;
+    contact_count: number;
+  }[];
 };
 
 export type AvailableJoin = {
@@ -1074,13 +1201,15 @@ export const getLeadPipelineReport = async (
   return apiGet<LeadPipelineReport>(`/reports/canned/lead-pipeline${query}`);
 };
 
-export const getAccountOverviewReport = async (): Promise<AccountOverviewReport> => {
-  return apiGet<AccountOverviewReport>("/reports/canned/account-overview");
-};
+export const getAccountOverviewReport =
+  async (): Promise<AccountOverviewReport> => {
+    return apiGet<AccountOverviewReport>("/reports/canned/account-overview");
+  };
 
-export const getContactCoverageReport = async (): Promise<ContactCoverageReport> => {
-  return apiGet<ContactCoverageReport>("/reports/canned/contact-coverage");
-};
+export const getContactCoverageReport =
+  async (): Promise<ContactCoverageReport> => {
+    return apiGet<ContactCoverageReport>("/reports/canned/contact-coverage");
+  };
 
 export type NotesActivityReport = {
   total_notes: number;
@@ -1109,7 +1238,9 @@ export const getNotesActivityReport = async (
 
 // Custom Reports - Fields
 
-export const getEntityFields = async (entity: string): Promise<EntityFields> => {
+export const getEntityFields = async (
+  entity: string
+): Promise<EntityFields> => {
   return apiGet<EntityFields>(`/reports/fields/${entity}`);
 };
 
@@ -1127,7 +1258,9 @@ export const runCustomReport = async (
   return apiPost<ReportQueryResult>("/reports/custom/run", query);
 };
 
-export const exportCustomReport = async (query: ReportQueryRequest): Promise<Blob> => {
+export const exportCustomReport = async (
+  query: ReportQueryRequest
+): Promise<Blob> => {
   const client = axios.create();
   const authHeaders = await fetchBearerToken();
   const apiUrl = env("NEXT_PUBLIC_API_URL");
@@ -1273,11 +1406,15 @@ export type ProjectDeal = {
   created_at: string | null;
 };
 
-export const getProjectLeads = async (projectId: number): Promise<ProjectLead[]> => {
+export const getProjectLeads = async (
+  projectId: number
+): Promise<ProjectLead[]> => {
   return apiGet<ProjectLead[]>(`/projects/${projectId}/leads`);
 };
 
-export const getProjectDeals = async (projectId: number): Promise<ProjectDeal[]> => {
+export const getProjectDeals = async (
+  projectId: number
+): Promise<ProjectDeal[]> => {
   return apiGet<ProjectDeal[]>(`/projects/${projectId}/deals`);
 };
 
@@ -1291,7 +1428,7 @@ export type CreatedOpportunity = {
   estimated_value: number | null;
   probability: number | null;
   expected_close_date: string | null;
-  notes: string | null;
+  description: string | null;
   status: string;
   source: string;
   created_at: string;
@@ -1307,7 +1444,9 @@ export const createOpportunity = async (
   return apiPost<CreatedOpportunity>("/opportunities", data);
 };
 
-export const getOpportunity = async (id: string): Promise<CreatedOpportunity> => {
+export const getOpportunity = async (
+  id: string
+): Promise<CreatedOpportunity> => {
   return apiGet<CreatedOpportunity>(`/opportunities/${id}`);
 };
 
@@ -1355,7 +1494,7 @@ export type CreatedPartnership = {
   partnership_type: string | null;
   start_date: string | null;
   end_date: string | null;
-  notes: string | null;
+  description: string | null;
   status: string;
   source: string;
   created_at: string;
@@ -1371,7 +1510,9 @@ export const createPartnership = async (
   return apiPost<CreatedPartnership>("/partnerships", data);
 };
 
-export const getPartnership = async (id: string): Promise<CreatedPartnership> => {
+export const getPartnership = async (
+  id: string
+): Promise<CreatedPartnership> => {
   return apiGet<CreatedPartnership>(`/partnerships/${id}`);
 };
 
@@ -1548,7 +1689,11 @@ export const getComments = async (
   commentableType: string,
   commentableId: number
 ): Promise<Comment[]> => {
-  return apiGet<Comment[]>(`/comments?commentable_type=${encodeURIComponent(commentableType)}&commentable_id=${commentableId}`);
+  return apiGet<Comment[]>(
+    `/comments?commentable_type=${encodeURIComponent(
+      commentableType
+    )}&commentable_id=${commentableId}`
+  );
 };
 
 export const createComment = async (
@@ -1609,23 +1754,34 @@ export type NotificationsResponse = {
   unread_count: number;
 };
 
-export const getNotificationCount = async (): Promise<{ unread_count: number }> => {
+export const getNotificationCount = async (): Promise<{
+  unread_count: number;
+}> => {
   return apiGet<{ unread_count: number }>("/notifications/count");
 };
 
-export const getNotifications = async (limit: number = 20): Promise<NotificationsResponse> => {
+export const getNotifications = async (
+  limit: number = 20
+): Promise<NotificationsResponse> => {
   return apiGet<NotificationsResponse>(`/notifications?limit=${limit}`);
 };
 
-export const markNotificationsRead = async (notificationIds: number[]): Promise<void> => {
-  await apiPost("/notifications/mark-read", { notification_ids: notificationIds });
+export const markNotificationsRead = async (
+  notificationIds: number[]
+): Promise<void> => {
+  await apiPost("/notifications/mark-read", {
+    notification_ids: notificationIds,
+  });
 };
 
 export const markEntityNotificationsRead = async (
   entityType: string,
   entityId: number
 ): Promise<void> => {
-  await apiPost("/notifications/mark-entity-read", { entity_type: entityType, entity_id: entityId });
+  await apiPost("/notifications/mark-entity-read", {
+    entity_type: entityType,
+    entity_id: entityId,
+  });
 };
 
 // ==============================================
@@ -1703,7 +1859,10 @@ export const deleteDocument = async (id: number): Promise<void> => {
   await apiDelete(`/assets/documents/${id}`);
 };
 
-export const downloadDocument = async (id: number, filename: string): Promise<void> => {
+export const downloadDocument = async (
+  id: number,
+  filename: string
+): Promise<void> => {
   const apiUrl = env("NEXT_PUBLIC_API_URL");
   const { headers } = await fetchBearerToken();
 
@@ -1747,7 +1906,10 @@ export const linkDocumentToEntity = async (
   entityType: string,
   entityId: number
 ): Promise<void> => {
-  await apiPost(`/assets/documents/${documentId}/link`, { entity_type: entityType, entity_id: entityId });
+  await apiPost(`/assets/documents/${documentId}/link`, {
+    entity_type: entityType,
+    entity_id: entityId,
+  });
 };
 
 export const unlinkDocumentFromEntity = async (
@@ -1755,7 +1917,9 @@ export const unlinkDocumentFromEntity = async (
   entityType: string,
   entityId: number
 ): Promise<void> => {
-  await apiDelete(`/assets/documents/${documentId}/link?entity_type=${entityType}&entity_id=${entityId}`);
+  await apiDelete(
+    `/assets/documents/${documentId}/link?entity_type=${entityType}&entity_id=${entityId}`
+  );
 };
 
 export const getTags = async (): Promise<Tag[]> => {
@@ -1783,13 +1947,17 @@ export const checkDocumentFilename = async (
     entity_type: entityType,
     entity_id: entityId.toString(),
   });
-  return apiGet<CheckFilenameResponse>(`/assets/documents/check-filename?${params}`);
+  return apiGet<CheckFilenameResponse>(
+    `/assets/documents/check-filename?${params}`
+  );
 };
 
 export const getDocumentVersions = async (
   documentId: number
 ): Promise<DocumentVersionsResponse> => {
-  return apiGet<DocumentVersionsResponse>(`/assets/documents/${documentId}/versions`);
+  return apiGet<DocumentVersionsResponse>(
+    `/assets/documents/${documentId}/versions`
+  );
 };
 
 export const createDocumentVersion = async (
@@ -1798,7 +1966,10 @@ export const createDocumentVersion = async (
 ): Promise<Document> => {
   const formData = new FormData();
   formData.append("file", file);
-  return apiPost<Document>(`/assets/documents/${documentId}/versions`, formData);
+  return apiPost<Document>(
+    `/assets/documents/${documentId}/versions`,
+    formData
+  );
 };
 
 export const setCurrentDocumentVersion = async (

@@ -43,7 +43,14 @@ const TasksPage = () => {
     setLoading(true);
     try {
       const projectId = selectedProject?.id;
-      const result = await getTasks(page, pageSize, sortBy, sortDirection, scope, projectId);
+      const result = await getTasks(
+        page,
+        pageSize,
+        sortBy,
+        sortDirection,
+        scope,
+        projectId
+      );
       setData(result);
     } catch (error) {
       console.error("Failed to fetch tasks:", error);
@@ -149,7 +156,11 @@ const TasksPage = () => {
           Urgent: "red",
         };
         return (
-          <Badge size="sm" variant="outline" color={colorMap[row.priority.name] || "gray"}>
+          <Badge
+            size="sm"
+            variant="outline"
+            color={colorMap[row.priority.name] || "gray"}
+          >
             {row.priority.name}
           </Badge>
         );
@@ -169,6 +180,12 @@ const TasksPage = () => {
       sortable: true,
       sortKey: "created_at",
     },
+    {
+      header: "Updated",
+      accessor: (row) => (row.updated_at ? row.updated_at.slice(0, 10) : "—"),
+      sortable: true,
+      sortKey: "updated_at",
+    },
   ];
 
   if (loading && !data) {
@@ -185,9 +202,15 @@ const TasksPage = () => {
   return (
     <Stack gap="lg">
       <Group justify="space-between">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Tasks</h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+          Tasks
+        </h1>
         {selectedProject ? (
-          <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
+          <Badge
+            variant="light"
+            color="lime"
+            leftSection={<FolderKanban className="h-3 w-3" />}
+          >
             {selectedProject.name}
           </Badge>
         ) : (

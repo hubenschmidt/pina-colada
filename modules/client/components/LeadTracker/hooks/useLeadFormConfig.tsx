@@ -472,7 +472,7 @@ const getJobFormConfig = (selectedProjectId?: number | null): LeadFormConfig<Cre
   sections: [
     {
       name: "Job Info",
-      fieldNames: ["project_ids", "job_title", "date", "resume", "salary_range_id", "job_url", "status", "notes"],
+      fieldNames: ["project_ids", "job_title", "date", "resume", "salary_range_id", "job_url", "status", "description"],
     },
     {
       name: "Account Info",
@@ -560,6 +560,7 @@ const getJobFormConfig = (selectedProjectId?: number | null): LeadFormConfig<Cre
       name: "salary_range_id",
       label: "Salary Range",
       type: "custom",
+      gridColumn: "md:col-span-1",
       renderCustom: ({ value, onChange }) => (
         <SalaryRangeSelector value={value} onChange={onChange} />
       ),
@@ -569,7 +570,7 @@ const getJobFormConfig = (selectedProjectId?: number | null): LeadFormConfig<Cre
       label: "Job URL",
       type: "text",
       placeholder: "linkedin.com/jobs/...",
-      gridColumn: "md:col-span-2",
+      gridColumn: "md:col-span-1",
     },
     {
       name: "status",
@@ -582,10 +583,10 @@ const getJobFormConfig = (selectedProjectId?: number | null): LeadFormConfig<Cre
       })),
     },
     {
-      name: "notes",
-      label: "Notes",
+      name: "description",
+      label: "Description",
       type: "textarea",
-      placeholder: "Additional notes about this application...",
+      placeholder: "Description of this job opportunity...",
       gridColumn: "md:col-span-2",
       rows: 3,
     },
@@ -643,7 +644,7 @@ const getJobFormConfig = (selectedProjectId?: number | null): LeadFormConfig<Cre
         "job_url",
         "salary_range",
         "salary_range_id",
-        "notes",
+        "description",
         "resume",
         "status",
         "source",
@@ -731,7 +732,7 @@ const getOpportunityFormConfig = (selectedProjectId?: number | null): LeadFormCo
   sections: [
     {
       name: "Opportunity Info",
-      fieldNames: ["project_ids", "title", "opportunity_name", "estimated_value", "probability", "expected_close_date", "status", "notes"],
+      fieldNames: ["project_ids", "title", "opportunity_name", "estimated_value", "probability", "expected_close_date", "status", "description"],
     },
     {
       name: "Account Info",
@@ -801,10 +802,10 @@ const getOpportunityFormConfig = (selectedProjectId?: number | null): LeadFormCo
       })),
     },
     {
-      name: "notes",
-      label: "Notes",
+      name: "description",
+      label: "Description",
       type: "textarea",
-      placeholder: "Additional notes about this opportunity...",
+      placeholder: "Description of this opportunity...",
       gridColumn: "md:col-span-2",
       rows: 3,
     },
@@ -910,7 +911,7 @@ const getPartnershipFormConfig = (selectedProjectId?: number | null): LeadFormCo
   sections: [
     {
       name: "Partnership Info",
-      fieldNames: ["project_ids", "title", "partnership_name", "partnership_type", "start_date", "end_date", "status", "notes"],
+      fieldNames: ["project_ids", "title", "partnership_name", "partnership_type", "start_date", "end_date", "status", "description"],
     },
     {
       name: "Account Info",
@@ -983,10 +984,10 @@ const getPartnershipFormConfig = (selectedProjectId?: number | null): LeadFormCo
       })),
     },
     {
-      name: "notes",
-      label: "Notes",
+      name: "description",
+      label: "Description",
       type: "textarea",
-      placeholder: "Additional notes about this partnership...",
+      placeholder: "Description of this partnership...",
       gridColumn: "md:col-span-2",
       rows: 3,
     },

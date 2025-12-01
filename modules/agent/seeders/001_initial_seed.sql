@@ -445,7 +445,7 @@ BEGIN
         RETURNING id INTO lead_id;
 
         -- Create Opportunity record
-        INSERT INTO "Opportunity" (id, opportunity_name, estimated_value, probability, expected_close_date, notes, created_at, updated_at)
+        INSERT INTO "Opportunity" (id, opportunity_name, estimated_value, probability, expected_close_date, description, created_at, updated_at)
         VALUES (
             lead_id,
             'Product Strategy Consulting - Q1 2026',
@@ -475,7 +475,7 @@ BEGIN
         RETURNING id INTO lead_id;
 
         -- Create Partnership record
-        INSERT INTO "Partnership" (id, partnership_type, partnership_name, start_date, notes, created_at, updated_at)
+        INSERT INTO "Partnership" (id, partnership_type, partnership_name, start_date, description, created_at, updated_at)
         VALUES (
             lead_id,
             'Technical',
@@ -504,7 +504,7 @@ BEGIN
         RETURNING id INTO lead_id;
 
         -- Create Opportunity record
-        INSERT INTO "Opportunity" (id, opportunity_name, estimated_value, probability, expected_close_date, notes, created_at, updated_at)
+        INSERT INTO "Opportunity" (id, opportunity_name, estimated_value, probability, expected_close_date, description, created_at, updated_at)
         VALUES (
             lead_id,
             'Data Analytics Strategy - Q2 2026',
@@ -534,7 +534,7 @@ BEGIN
         RETURNING id INTO lead_id;
 
         -- Create Partnership record
-        INSERT INTO "Partnership" (id, partnership_type, partnership_name, start_date, notes, created_at, updated_at)
+        INSERT INTO "Partnership" (id, partnership_type, partnership_name, start_date, description, created_at, updated_at)
         VALUES (
             lead_id,
             'Strategic',

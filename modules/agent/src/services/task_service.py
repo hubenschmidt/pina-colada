@@ -15,6 +15,9 @@ from repositories.task_repository import (
     find_task_priorities,
     get_lead_type,
     get_account_entity,
+    batch_get_entity_display_names,
+    batch_get_lead_types,
+    batch_get_account_entities,
 )
 
 logger = logging.getLogger(__name__)
@@ -157,3 +160,86 @@ async def resolve_entity_display(taskable_type: Optional[str], taskable_id: Opti
         "url": url,
         "lead_type": lead_type,
     }
+
+
+async def batch_resolve_entity_display(tasks: List[Any]) -> Dict[Tuple[str, int], Dict[str, Any]]:
+    """Batch resolve entity display info for multiple tasks. Returns dict mapping (type, id) -> entity_info."""
+    if not tasks:
+        return {}
+    
+    # Collect unique entity pairs
+    entity_pairs: List[Tuple[str, int]] = []
+    for task in tasks:
+        if task.taskable_type and task.taskable_id:
+            pair = (task.taskable_type, task.taskable_id)
+            if pair not in entity_pairs:
+                entity_pairs.append(pair)
+    
+    if not entity_pairs:
+        return {}
+    
+    # Batch fetch display names
+    display_names = await batch_get_entity_display_names(entity_pairs)
+    
+    # Collect lead IDs and account IDs for URL building
+    lead_ids: List[int] = []
+    account_ids: List[int] = []
+    for entity_type, entity_id in entity_pairs:
+        if entity_type == "Lead":
+            lead_ids.append(entity_id)
+        elif entity_type == "Account":
+            account_ids.append(entity_id)
+    
+    # Batch fetch lead types and account entities
+    lead_types = await batch_get_lead_types(lead_ids) if lead_ids else {}
+    account_entities = await batch_get_account_entities(account_ids) if account_ids else {}
+    
+    # Build result map
+    result_map: Dict[Tuple[str, int], Dict[str, Any]] = {}
+    empty_result = {
+        "type": None,
+        "id": None,
+        "display_name": None,
+        "url": None,
+        "lead_type": None,
+    }
+    
+    url_map = {
+        "Project": lambda tid: f"/projects/{tid}",
+        "Deal": lambda tid: f"/deals/{tid}",
+        "Individual": lambda tid: f"/accounts/individuals/{tid}",
+        "Organization": lambda tid: f"/accounts/organizations/{tid}",
+    }
+    
+    for entity_type, entity_id in entity_pairs:
+        display_name = display_names.get((entity_type, entity_id))
+        
+        # Build URL
+        url = None
+        lead_type = None
+        
+        if entity_type in url_map:
+            url = url_map[entity_type](entity_id)
+        elif entity_type == "Lead":
+            lead_type = lead_types.get(entity_id)
+            if lead_type:
+                lead_type_plural = "opportunities" if lead_type == "Opportunity" else lead_type.lower() + "s"
+                url = f"/leads/{lead_type_plural}/{entity_id}"
+        elif entity_type == "Account":
+            account_entity = account_entities.get(entity_id)
+            if account_entity:
+                acc_entity_type, acc_entity_id = account_entity
+                entity_path_map = {"Individual": "individuals", "Organization": "organizations"}
+                path = entity_path_map.get(acc_entity_type)
+                if path:
+                    url = f"/accounts/{path}/{acc_entity_id}"
+        
+        result_map[(entity_type, entity_id)] = {
+            "type": entity_type,
+            "id": entity_id,
+            "display_name": display_name,
+            "url": url,
+            "lead_type": lead_type,
+        }
+    
+    return result_map

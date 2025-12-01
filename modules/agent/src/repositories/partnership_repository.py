@@ -132,7 +132,7 @@ async def create_partnership(data: Dict[str, Any]) -> Partnership:
                 "deal_id": deal_id,
                 "type": "Partnership",
                 "title": title,
-                "description": data.get("notes"),
+                "description": data.get("description"),
                 "source": data.get("source", "manual"),
                 "current_status_id": status_id,
                 "account_id": account_id,
@@ -154,7 +154,7 @@ async def create_partnership(data: Dict[str, Any]) -> Partnership:
                 partnership_type=data.get("partnership_type"),
                 start_date=data.get("start_date"),
                 end_date=data.get("end_date"),
-                notes=data.get("notes"),
+                description=data.get("description"),
             )
 
             session.add(partnership)
@@ -188,10 +188,10 @@ async def update_partnership(partnership_id: int, data: Dict[str, Any]) -> Optio
                 partnership.start_date = data["start_date"]
             if "end_date" in data:
                 partnership.end_date = data["end_date"]
-            if "notes" in data:
-                partnership.notes = data["notes"]
+            if "description" in data:
+                partnership.description = data["description"]
                 if partnership.lead:
-                    partnership.lead.description = data["notes"]
+                    partnership.lead.description = data["description"]
 
             if partnership.lead:
                 if "title" in data and data["title"] is not None:

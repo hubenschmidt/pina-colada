@@ -225,7 +225,29 @@ def _signal_to_dict(s):
     }
 
 
+def _org_to_list_dict(org) -> dict:
+    """Convert Organization model to dictionary - optimized for list/table view.
+    
+    Only returns fields needed for table columns:
+    Name, Industry, Funding, Employees, Description, Website
+    """
+    industries = []
+    if org.account and org.account.industries:
+        industries = [ind.name for ind in org.account.industries]
+    
+    return {
+        "id": org.id,
+        "name": org.name,
+        "website": org.website,
+        "industries": industries,
+        "employee_count_range": org.employee_count_range.label if org.employee_count_range else None,
+        "funding_stage": org.funding_stage.label if org.funding_stage else None,
+        "description": org.description,
+    }
+
+
 def _org_to_dict(org, include_contacts=False, contacts=None, include_research=False):
+    """Convert Organization model to dictionary - full detail view."""
     # Get industries from the account
     industries = []
     if org.account and org.account.industries:
@@ -285,11 +307,35 @@ def _org_to_dict(org, include_contacts=False, contacts=None, include_research=Fa
 @router.get("")
 @log_errors
 @require_auth
-async def get_organizations_route(request: Request):
-    """Get all organizations for the current tenant."""
+async def get_organizations_route(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    order_by: str = Query("updated_at", alias="orderBy"),
+    order: str = Query("DESC", regex="^(ASC|DESC)$"),
+    search: Optional[str] = Query(None),
+):
+    """Get organizations for the current tenant with pagination, sorting, and search."""
     tenant_id = getattr(request.state, "tenant_id", None)
-    organizations = await find_all_organizations(tenant_id=tenant_id)
-    return [_org_to_dict(org) for org in organizations]
+    organizations, total = await find_all_organizations(
+        tenant_id=tenant_id,
+        page=page,
+        page_size=limit,
+        order_by=order_by,
+        order=order,
+        search=search,
+    )
+    
+    items = [_org_to_list_dict(org) for org in organizations]
+    total_pages = (total + limit - 1) // limit if limit > 0 else 1
+    
+    return {
+        "items": items,
+        "currentPage": page,
+        "totalPages": total_pages,
+        "total": total,
+        "pageSize": limit,
+    }
 
 
 @router.get("/search")

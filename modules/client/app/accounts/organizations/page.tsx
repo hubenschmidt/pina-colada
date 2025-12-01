@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 import { getOrganizations, Organization } from "../../../api";
 import { Stack, Center, Loader, Text } from "@mantine/core";
 import SearchHeader from "../../../components/SearchHeader/SearchHeader";
 import { DataTable, Column, PageData } from "../../../components/DataTable/DataTable";
+
+type SortDir = "ASC" | "DESC";
 
 const columns: Column<Organization>[] = [
   {
@@ -65,90 +67,47 @@ const columns: Column<Organization>[] = [
 const OrganizationsPage = () => {
   const router = useRouter();
   const { dispatchPageLoading } = usePageLoading();
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [data, setData] = useState<PageData<Organization> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(50);
   const [sortBy, setSortBy] = useState("updated_at");
-  const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC");
+  const [sortDirection, setSortDirection] = useState<SortDir>("DESC");
+
+  const fetchOrganizations = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await getOrganizations(page, limit, sortBy, sortDirection, searchQuery || undefined);
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load organizations");
+    } finally {
+      setLoading(false);
+      dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+    }
+  }, [page, limit, sortBy, sortDirection, searchQuery, dispatchPageLoading]);
 
   useEffect(() => {
-    const fetchOrganizations = async () => {
-      try {
-        const data = await getOrganizations();
-        setOrganizations(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load organizations");
-      } finally {
-        setLoading(false);
-        dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
-      }
-    };
-
-    fetchOrganizations();
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
   }, [dispatchPageLoading]);
 
-  const filteredAndSortedData = useMemo((): PageData<Organization> => {
-    let filtered = organizations;
+  useEffect(() => {
+    fetchOrganizations();
+  }, [fetchOrganizations]);
 
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = organizations.filter(
-        (org) =>
-          org.name?.toLowerCase().includes(query) ||
-          org.website?.toLowerCase().includes(query) ||
-          org.industries?.some((ind) => ind.toLowerCase().includes(query))
-      );
-    }
-
-    const sorted = [...filtered].sort((a, b) => {
-      let comparison: number;
-
-      if (sortBy === "updated_at") {
-        const aDate = new Date(a.updated_at || 0).getTime();
-        const bDate = new Date(b.updated_at || 0).getTime();
-        comparison = aDate - bDate;
-      } else if (sortBy === "industries") {
-        const aVal = (a.industries?.join(", ") || "").toLowerCase();
-        const bVal = (b.industries?.join(", ") || "").toLowerCase();
-        comparison = aVal.localeCompare(bVal);
-      } else if (sortBy === "funding_stage") {
-        const aVal = (a.funding_stage || "").toLowerCase();
-        const bVal = (b.funding_stage || "").toLowerCase();
-        comparison = aVal.localeCompare(bVal);
-      } else if (sortBy === "employee_count_range") {
-        const aVal = (a.employee_count_range || "").toLowerCase();
-        const bVal = (b.employee_count_range || "").toLowerCase();
-        comparison = aVal.localeCompare(bVal);
-      } else {
-        const aVal = (a[sortBy as keyof Organization] as string || "").toLowerCase();
-        const bVal = (b[sortBy as keyof Organization] as string || "").toLowerCase();
-        comparison = aVal.localeCompare(bVal);
-      }
-
-      return sortDirection === "ASC" ? comparison : -comparison;
-    });
-
-    const totalPages = Math.ceil(sorted.length / limit);
-    const startIndex = (page - 1) * limit;
-    const items = sorted.slice(startIndex, startIndex + limit);
-
-    return {
-      items,
-      currentPage: page,
-      totalPages,
-      total: sorted.length,
-      pageSize: limit,
-    };
-  }, [organizations, searchQuery, sortBy, sortDirection, page, limit]);
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    setPage(1);
+  };
 
   const handleRowClick = (org: Organization) => {
     router.push(`/accounts/organizations/${org.id}`);
   };
 
-  if (loading) {
+  if (loading && !data) {
     return (
       <Center mih={400}>
         <Stack align="center" gap="md">
@@ -159,7 +118,7 @@ const OrganizationsPage = () => {
     );
   }
 
-  if (error) {
+  if (error && !data) {
     return (
       <Stack gap="lg">
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
@@ -179,15 +138,12 @@ const OrganizationsPage = () => {
       <SearchHeader
         placeholder="Search organizations..."
         buttonLabel="New Organization"
-        onSearch={(query) => {
-          setSearchQuery(query);
-          setPage(1);
-        }}
+        onSearch={handleSearchChange}
         onAdd={() => router.push("/accounts/organizations/new")}
       />
 
       <DataTable
-        data={filteredAndSortedData}
+        data={data || { items: [], currentPage: 1, totalPages: 1, total: 0, pageSize: limit }}
         columns={columns}
         onPageChange={setPage}
         pageValue={page}

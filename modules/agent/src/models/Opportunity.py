@@ -21,7 +21,7 @@ class Opportunity(Base):
     estimated_value = Column(Numeric(18, 2), nullable=True)
     probability = Column(SmallInteger, nullable=True)
     expected_close_date = Column(Date, nullable=True)
-    notes = Column(Text, nullable=True)
+    description = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

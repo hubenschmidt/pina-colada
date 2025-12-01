@@ -28,7 +28,7 @@ class OpportunityCreate(BaseModel):
     estimated_value: Optional[float] = None
     probability: Optional[int] = Field(default=None, ge=0, le=100)
     expected_close_date: Optional[str] = None
-    notes: Optional[str] = None
+    description: Optional[str] = None
     status: str = "Qualifying"
     source: str = "manual"
     project_ids: Optional[List[int]] = None
@@ -43,7 +43,7 @@ class OpportunityUpdate(BaseModel):
     estimated_value: Optional[float] = None
     probability: Optional[int] = Field(default=None, ge=0, le=100)
     expected_close_date: Optional[str] = None
-    notes: Optional[str] = None
+    description: Optional[str] = None
     status: Optional[str] = None
     source: Optional[str] = None
     project_ids: Optional[List[int]] = None

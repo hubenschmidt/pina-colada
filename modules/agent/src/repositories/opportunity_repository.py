@@ -132,7 +132,7 @@ async def create_opportunity(data: Dict[str, Any]) -> Opportunity:
                 "deal_id": deal_id,
                 "type": "Opportunity",
                 "title": title,
-                "description": data.get("notes"),
+                "description": data.get("description"),
                 "source": data.get("source", "manual"),
                 "current_status_id": status_id,
                 "account_id": account_id,
@@ -154,7 +154,7 @@ async def create_opportunity(data: Dict[str, Any]) -> Opportunity:
                 estimated_value=data.get("estimated_value"),
                 probability=data.get("probability"),
                 expected_close_date=data.get("expected_close_date"),
-                notes=data.get("notes"),
+                description=data.get("description"),
             )
 
             session.add(opp)
@@ -188,10 +188,10 @@ async def update_opportunity(opp_id: int, data: Dict[str, Any]) -> Optional[Oppo
                 opp.probability = data["probability"]
             if "expected_close_date" in data:
                 opp.expected_close_date = data["expected_close_date"]
-            if "notes" in data:
-                opp.notes = data["notes"]
+            if "description" in data:
+                opp.description = data["description"]
                 if opp.lead:
-                    opp.lead.description = data["notes"]
+                    opp.lead.description = data["description"]
 
             if opp.lead:
                 if "title" in data and data["title"] is not None:

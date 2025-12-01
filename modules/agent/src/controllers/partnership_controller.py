@@ -128,7 +128,7 @@ def _partnership_to_response_dict(partnership) -> Dict[str, Any]:
         "partnership_type": p_dict.get("partnership_type"),
         "start_date": _format_date(p_dict.get("start_date")),
         "end_date": _format_date(p_dict.get("end_date")),
-        "notes": p_dict.get("notes"),
+        "description": p_dict.get("description"),
         "status": status,
         "source": lead.get("source", "manual"),
         "created_at": _format_datetime(created_at),

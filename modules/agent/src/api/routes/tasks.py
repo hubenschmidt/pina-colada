@@ -16,6 +16,7 @@ from services.task_service import (
     update_task as update_task_service,
     delete_task as delete_task_service,
     resolve_entity_display,
+    batch_resolve_entity_display,
     get_task_statuses,
     get_task_priorities,
 )
@@ -93,10 +94,49 @@ def _format_decimal(value) -> Optional[float]:
     return float(value)
 
 
-async def _task_to_dict(task, entity_info: Optional[dict] = None) -> dict:
-    """Convert Task model to dictionary."""
+async def _task_to_list_dict(task, entity_info: Optional[dict] = None) -> dict:
+    """Convert Task model to dictionary - optimized for list/table view.
+    
+    Only returns fields needed for table columns:
+    Task, Linked To, Status, Priority, Due Date, Created, Updated
+    """
     if entity_info is None:
-        entity_info = await resolve_entity_display(task.taskable_type, task.taskable_id)
+        entity_info = {
+            "type": None,
+            "id": None,
+            "display_name": None,
+            "url": None,
+            "lead_type": None,
+        }
+
+    return {
+        "id": task.id,
+        "title": task.title,
+        "due_date": _format_date(task.due_date),
+        "status": {
+            "id": task.current_status.id,
+            "name": task.current_status.name,
+        } if task.current_status else None,
+        "priority": {
+            "id": task.priority.id,
+            "name": task.priority.name,
+        } if task.priority else None,
+        "entity": entity_info,
+        "created_at": _format_datetime(task.created_at),
+        "updated_at": _format_datetime(task.updated_at),
+    }
+
+
+async def _task_to_dict(task, entity_info: Optional[dict] = None) -> dict:
+    """Convert Task model to dictionary - full detail view."""
+    if entity_info is None:
+        entity_info = {
+            "type": None,
+            "id": None,
+            "display_name": None,
+            "url": None,
+            "lead_type": None,
+        }
 
     return {
         "id": task.id,
@@ -192,11 +232,15 @@ async def get_tasks_route(
         order=order,
     )
 
-    # Convert tasks to response format
+    # Batch resolve entity display info for all tasks
+    entity_info_map = await batch_resolve_entity_display(tasks)
+
+    # Convert tasks to response format (slimmed down for list view)
     items = []
     for task in tasks:
-        entity_info = await resolve_entity_display(task.taskable_type, task.taskable_id)
-        items.append(await _task_to_dict(task, entity_info))
+        key = (task.taskable_type, task.taskable_id) if task.taskable_type and task.taskable_id else None
+        entity_info = entity_info_map.get(key) if key else None
+        items.append(await _task_to_list_dict(task, entity_info))
 
     # Build scope info
     scope_info = {"type": scope}
@@ -216,7 +260,12 @@ async def get_tasks_by_entity_route(
 ):
     """Get all tasks for a specific entity."""
     tasks = await get_tasks_by_entity(entity_type, entity_id)
-    items = [await _task_to_dict(task) for task in tasks]
+    entity_info_map = await batch_resolve_entity_display(tasks)
+    items = []
+    for task in tasks:
+        key = (task.taskable_type, task.taskable_id) if task.taskable_type and task.taskable_id else None
+        entity_info = entity_info_map.get(key) if key else None
+        items.append(await _task_to_list_dict(task, entity_info))
     return {"items": items}
 
 

@@ -17,7 +17,7 @@ export interface CreatedJob {
   date: string;
   status: 'Lead' | 'Applied' | 'Interviewing' | 'Rejected' | 'Offer' | 'Accepted' | 'Do Not Apply';
   job_url: string | null;
-  notes: string | null;
+  description: string | null;
   resume: string | null;
   salary_range: string | null;  // Display label from SalaryRange
   salary_range_id: number | null;  // FK to SalaryRange

@@ -175,6 +175,19 @@ async def link_document_to_entity(
     """Link a document to an entity via EntityAsset."""
     async with async_get_session() as session:
         try:
+            # Check if link already exists
+            existing_stmt = select(func.count()).select_from(EntityAsset).where(
+                and_(
+                    EntityAsset.c.asset_id == document_id,
+                    EntityAsset.c.entity_type == entity_type,
+                    EntityAsset.c.entity_id == entity_id,
+                )
+            )
+            result = await session.execute(existing_stmt)
+            count = result.scalar() or 0
+            if count > 0:
+                return True  # Already linked
+
             stmt = insert(EntityAsset).values(
                 asset_id=document_id,
                 entity_type=entity_type,

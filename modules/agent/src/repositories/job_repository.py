@@ -2,7 +2,7 @@
 import logging
 from typing import Dict, Any, List, Optional
 
-from sqlalchemy import select, func as sql_func, or_
+from sqlalchemy import select, func as sql_func, or_, delete
 from sqlalchemy.orm import joinedload
 from models.Job import Job
 from models.Lead import Lead
@@ -18,12 +18,12 @@ from lib.db import async_get_session
 logger = logging.getLogger(__name__)
 
 
-def _update_job_notes(job: Job, notes: str) -> None:
-    """Update job notes and lead description."""
-    job.notes = notes
+def _update_job_description(job: Job, description: str) -> None:
+    """Update job description and lead description."""
+    job.description = description
     if not job.lead:
         return
-    job.lead.description = notes
+    job.lead.description = description
 
 
 def _update_lead_status(lead: Lead, data: Dict[str, Any]) -> None:
@@ -81,18 +81,19 @@ async def find_all_jobs(
     tenant_id: Optional[int] = None,
     project_id: Optional[int] = None
 ) -> tuple[List[Job], int]:
-    """Find jobs with pagination, filtering, and sorting at database level."""
+    """Find jobs with pagination, filtering, and sorting at database level.
+    
+    Optimized for list view - only loads essential relationships:
+    - Lead status (for status display)
+    - Account organizations/individuals (for company name)
+    - Salary range (for salary display)
+    """
     async with async_get_session() as session:
-        # Base query with relationships
+        # Base query with minimal relationships needed for list view
         stmt = select(Job).options(
             joinedload(Job.lead).joinedload(Lead.current_status),
-            joinedload(Job.lead).joinedload(Lead.tenant),
-            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
-            joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
-            joinedload(Job.lead).joinedload(Lead.projects),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals),
             joinedload(Job.salary_range_ref)
         ).join(Lead).outerjoin(Account, Lead.account_id == Account.id).outerjoin(Organization, Account.id == Organization.account_id)
 
@@ -196,7 +197,7 @@ async def create_job(data: Dict[str, Any]) -> Job:
                 "deal_id": deal_id,
                 "type": "Job",
                 "title": title,
-                "description": data.get("notes"),
+                "description": data.get("description"),
                 "source": data.get("source", "manual"),
                 "current_status_id": status_id,
                 "account_id": account_id,
@@ -218,7 +219,7 @@ async def create_job(data: Dict[str, Any]) -> Job:
                 id=lead.id,
                 job_title=data.get("job_title", ""),
                 job_url=data.get("job_url"),
-                notes=data.get("notes"),
+                description=data.get("description"),
                 resume_date=data.get("resume_date"),
                 salary_range=data.get("salary_range"),
                 salary_range_id=data.get("salary_range_id")
@@ -268,8 +269,8 @@ async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
                 job.job_title = data["job_title"]
             if "job_url" in data:
                 job.job_url = data["job_url"]
-            if "notes" in data:
-                _update_job_notes(job, data["notes"])
+            if "description" in data:
+                _update_job_description(job, data["description"])
             if "resume_date" in data:
                 job.resume_date = data["resume_date"]
             if "salary_range" in data:
@@ -291,8 +292,6 @@ async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
 
             # Update project_ids if provided (many-to-many)
             if "project_ids" in data:
-                from models.LeadProject import LeadProject
-                from sqlalchemy import delete
                 # Delete existing links
                 await session.execute(
                     delete(LeadProject).where(LeadProject.lead_id == job.lead.id)

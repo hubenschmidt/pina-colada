@@ -97,7 +97,9 @@ def _get_salary_info(job, job_dict: dict) -> tuple[Optional[str], Optional[int]]
     """Get salary range and ID from job."""
     if job.salary_range_ref:
         return job.salary_range_ref.label, job.salary_range_ref.id
-    return job_dict.get("salary_range"), None
+    if job_dict:
+        return job_dict.get("salary_range"), None
+    return job.salary_range, None
 
 
 def _get_industries(job) -> list:
@@ -107,48 +109,88 @@ def _get_industries(job) -> list:
     return [ind.name for ind in job.lead.account.industries]
 
 
-def _job_to_response_dict(job) -> Dict[str, Any]:
-    """Convert job ORM to response dictionary."""
-    job_dict = model_to_dict(job, include_relationships=True)
+def _extract_company_from_orm(job) -> tuple[str, str]:
+    """Extract company name and type directly from ORM."""
+    if not job.lead or not job.lead.account:
+        return "", "Organization"
+    
+    if job.lead.account.organizations:
+        return job.lead.account.organizations[0].name, "Organization"
+    
+    if job.lead.account.individuals:
+        ind = job.lead.account.individuals[0]
+        first_name = ind.first_name or ""
+        last_name = ind.last_name or ""
+        company = f"{last_name}, {first_name}".strip(", ")
+        return company, "Individual"
+    
+    return "", "Organization"
 
-    lead = job_dict.get("lead") or {}
-    account = lead.get("account") or {}
-    company, company_type = _extract_company_info(
-        account.get("organizations") or [],
-        account.get("individuals") or [],
-    )
 
-    contacts = [_build_contact_dict(c) for c in _get_account_contacts(job)]
+def _get_status_name(job) -> str:
+    """Get status name from job lead."""
+    if not job.lead or not job.lead.current_status:
+        return "Applied"
+    return job.lead.current_status.name
 
-    status = "Applied"
-    if job.lead and job.lead.current_status:
-        status = job.lead.current_status.name
 
-    created_at = job_dict.get("created_at", "")
-    salary_range, salary_range_id = _get_salary_info(job, job_dict)
+def _get_project_ids(job) -> list:
+    """Get project IDs from job lead."""
+    if not job.lead or not job.lead.projects:
+        return []
+    return [p.id for p in job.lead.projects]
 
-    # Get project IDs from many-to-many relationship
-    project_ids = []
-    if job.lead and job.lead.projects:
-        project_ids = [p.id for p in job.lead.projects]
+
+def _job_to_list_response(job) -> Dict[str, Any]:
+    """Convert job ORM to response dictionary - optimized for list/table view.
+
+    Only returns fields needed for table columns:
+    Account, Job Title, Status, Description, Resume, URL, Created, Updated
+    """
+    company, _ = _extract_company_from_orm(job)
+    status = _get_status_name(job)
+    created_at = job.lead.created_at if job.lead else None
 
     return {
-        "id": str(job_dict.get("id", "")),
+        "id": str(job.id),
+        "account": company,
+        "job_title": job.job_title or "",
+        "status": status,
+        "description": job.description,
+        "resume": _format_datetime(job.resume_date),
+        "job_url": job.job_url,
+        "created_at": _format_datetime(created_at),
+        "updated_at": _format_datetime(job.updated_at),
+    }
+
+
+def _job_to_detail_response(job) -> Dict[str, Any]:
+    """Convert job ORM to full response dictionary - for detail/edit views."""
+    company, company_type = _extract_company_from_orm(job)
+    status = _get_status_name(job)
+    created_at = job.lead.created_at if job.lead else None
+    salary_range, salary_range_id = _get_salary_info(job, {})
+    project_ids = _get_project_ids(job)
+    contacts = [_contact_to_dict(c) for c in _get_account_contacts(job)]
+    industry = _get_industries(job)
+
+    return {
+        "id": str(job.id),
         "account": company,
         "account_type": company_type,
-        "job_title": job_dict.get("job_title", ""),
+        "job_title": job.job_title or "",
         "date": _format_date(created_at),
         "status": status,
-        "job_url": job_dict.get("job_url"),
+        "job_url": job.job_url,
         "salary_range": salary_range,
         "salary_range_id": salary_range_id,
-        "notes": job_dict.get("notes"),
-        "resume": _format_datetime(job_dict.get("resume_date")),
-        "source": job_dict.get("source", "manual"),
+        "description": job.description,
+        "resume": _format_datetime(job.resume_date),
+        "source": job.lead.source if job.lead else "manual",
         "created_at": _format_datetime(created_at),
-        "updated_at": job_dict.get("updated_at", ""),
+        "updated_at": _format_datetime(job.updated_at),
         "contacts": contacts,
-        "industry": _get_industries(job),
+        "industry": industry,
         "project_ids": project_ids,
     }
 
@@ -161,7 +203,7 @@ async def get_jobs(
     paginated_jobs, total_count = await get_jobs_paginated(
         page, limit, order_by, order, search, tenant_id, project_id
     )
-    items = [_job_to_response_dict(job) for job in paginated_jobs]
+    items = [_job_to_list_response(job) for job in paginated_jobs]
     return _to_paged_response(total_count, page, limit, items)
 
 
@@ -169,21 +211,21 @@ async def get_jobs(
 async def create_job(job_data: Dict[str, Any]) -> Dict[str, Any]:
     """Create a new job."""
     created = await create_job_service(job_data)
-    return _job_to_response_dict(created)
+    return _job_to_detail_response(created)
 
 
 @handle_http_exceptions
 async def get_job(job_id: str) -> Dict[str, Any]:
     """Get a job by ID."""
     job = await get_job_service(job_id)
-    return _job_to_response_dict(job)
+    return _job_to_detail_response(job)
 
 
 @handle_http_exceptions
 async def update_job(job_id: str, job_data: Dict[str, Any]) -> Dict[str, Any]:
     """Update a job."""
     updated = await update_job_service(job_id, job_data)
-    return _job_to_response_dict(updated)
+    return _job_to_detail_response(updated)
 
 
 @handle_http_exceptions
@@ -211,7 +253,7 @@ async def get_leads(statuses: Optional[str] = None) -> List[Dict[str, Any]]:
 
     items = []
     for job in jobs:
-        job_dict = _job_to_response_dict(job)
+        job_dict = _job_to_detail_response(job)
         if job.lead and job.lead.current_status:
             job_dict["lead_status"] = model_to_dict(
                 job.lead.current_status, include_relationships=False
@@ -226,7 +268,7 @@ async def mark_lead_as_applied(job_id: str) -> Dict[str, Any]:
     """Mark a lead as applied."""
     update_data: Dict[str, Any] = {"status": "applied"}
     updated = await update_job_service(job_id, update_data)
-    return _job_to_response_dict(updated)
+    return _job_to_detail_response(updated)
 
 
 @handle_http_exceptions
@@ -234,7 +276,7 @@ async def mark_lead_as_do_not_apply(job_id: str) -> Dict[str, Any]:
     """Mark a lead as do not apply."""
     update_data: Dict[str, Any] = {"status": "do_not_apply"}
     updated = await update_job_service(job_id, update_data)
-    return _job_to_response_dict(updated)
+    return _job_to_detail_response(updated)
 
 
 @handle_http_exceptions
