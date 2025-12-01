@@ -171,6 +171,7 @@ uv.lock
 .langgraph_api/
 
 # ETL scripts
-**/ETL/load
-**/ETL/exports
-**/exports_transformed/
+**/ETL/load/**
+!**/ETL/load/.gitkeep
+**/ETL/exports/**
+!**/ETL/exports/.gitkeep
