@@ -235,8 +235,11 @@ def reset_database(skip_confirmation: bool = False):
         # Run migrations
         _run_migrations(migrations_dir, cursor, conn)
 
-        # Run seeders
-        _run_seeders(seeders_dir, cursor, conn)
+        # Run seeders (skip if RUN_SEEDERS explicitly set to false)
+        if os.getenv("RUN_SEEDERS", "").lower() == "false":
+            print("\n⏭️  Skipping seeders (RUN_SEEDERS=false)")
+        else:
+            _run_seeders(seeders_dir, cursor, conn)
 
         cursor.close()
         conn.close()
