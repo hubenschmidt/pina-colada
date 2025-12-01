@@ -122,21 +122,15 @@ export const DocumentUpload = ({
         setProgress((prev) => Math.min(prev + 10, 90));
       }, 100);
 
-      let document: Document;
-
-      if (asVersion && existingDocument) {
-        // Create as new version
-        document = await createDocumentVersion(existingDocument.id, file);
-      } else {
-        // Create as new document
-        document = await uploadDocument(
-          file,
-          tags.length > 0 ? tags : undefined,
-          entityType,
-          entityId,
-          description || undefined
-        );
-      }
+      const document = asVersion && existingDocument
+        ? await createDocumentVersion(existingDocument.id, file)
+        : await uploadDocument(
+            file,
+            tags.length > 0 ? tags : undefined,
+            entityType,
+            entityId,
+            description || undefined
+          );
 
       clearInterval(progressInterval);
       setProgress(100);

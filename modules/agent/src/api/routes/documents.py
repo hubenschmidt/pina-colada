@@ -228,23 +228,21 @@ async def download_document_route(request: Request, document_id: int):
         raise HTTPException(status_code=404, detail="Document not found")
 
     storage = get_storage()
-
-    # For R2, redirect to presigned URL
-    # For local, stream the file
     url = storage.get_url(document.storage_path)
-    if url.startswith("file://"):
-        # Local storage - stream the file
-        content = await storage.download(document.storage_path)
-        return StreamingResponse(
-            iter([content]),
-            media_type=document.content_type,
-            headers={
-                "Content-Disposition": f'attachment; filename="{document.filename}"'
-            },
-        )
-    else:
-        # R2 - redirect to presigned URL
+
+    # R2 - redirect to presigned URL
+    if not url.startswith("file://"):
         return RedirectResponse(url=url)
+
+    # Local storage - stream the file
+    content = await storage.download(document.storage_path)
+    return StreamingResponse(
+        iter([content]),
+        media_type=document.content_type,
+        headers={
+            "Content-Disposition": f'attachment; filename="{document.filename}"'
+        },
+    )
 
 
 @router.put("/{document_id}")

@@ -8,6 +8,8 @@ from fastapi import HTTPException, Request
 from jose import jwt, JWTError
 import requests
 
+from services.auth_service import get_or_create_user
+
 logger = logging.getLogger(__name__)
 # Cache for JWKS
 _jwks_cache: Optional[dict] = None
@@ -138,8 +140,6 @@ def require_auth(func: Callable):
 
         request.state.auth0_sub = claims.get("sub")
         request.state.email = _get_email_from_claims(claims)
-
-        from services.auth_service import get_or_create_user
 
         user = await get_or_create_user(claims.get("sub"), request.state.email)
         request.state.user = user

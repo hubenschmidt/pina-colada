@@ -234,11 +234,11 @@ const DocumentsSection = ({
   const [pendingDocuments, setPendingDocuments] = useState<Document[]>([]);
 
   useEffect(() => {
-    if (isCreateMode && pendingDocumentIds && pendingDocumentIds.length > 0) {
-      getPendingDocuments().then(setPendingDocuments);
-    } else {
+    if (!isCreateMode || !pendingDocumentIds || pendingDocumentIds.length === 0) {
       setPendingDocuments([]);
+      return;
     }
+    getPendingDocuments().then(setPendingDocuments);
   }, [isCreateMode, pendingDocumentIds]);
 
   const inputClasses =

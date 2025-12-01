@@ -61,22 +61,22 @@ def _get_entity_project_id(entity_type: str, entity_id: int) -> int | None:
             ).fetchone()
             return result[0] if result else None
 
-        if entity_type in ("Individual", "Organization"):
-            # Get account_id first, then lookup project
-            table = entity_type
-            result = session.execute(
-                text(f'SELECT account_id FROM "{table}" WHERE id = :id'),
-                {"id": entity_id}
-            ).fetchone()
-            if result and result[0]:
-                account_id = result[0]
-                proj_result = session.execute(
-                    text('SELECT project_id FROM "AccountProject" WHERE account_id = :id LIMIT 1'),
-                    {"id": account_id}
-                ).fetchone()
-                return proj_result[0] if proj_result else None
+        if entity_type not in ("Individual", "Organization"):
+            return None
 
-        return None
+        # Get account_id first, then lookup project
+        result = session.execute(
+            text(f'SELECT account_id FROM "{entity_type}" WHERE id = :id'),
+            {"id": entity_id}
+        ).fetchone()
+        if not result or not result[0]:
+            return None
+
+        proj_result = session.execute(
+            text('SELECT project_id FROM "AccountProject" WHERE account_id = :id LIMIT 1'),
+            {"id": result[0]}
+        ).fetchone()
+        return proj_result[0] if proj_result else None
     finally:
         session.close()
 

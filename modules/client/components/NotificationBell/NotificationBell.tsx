@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useId } from "react";
 import { useRouter } from "next/navigation";
 import { Inbox } from "lucide-react";
 import {
@@ -19,7 +19,7 @@ const NotificationBell = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const bellRef = useRef<HTMLDivElement>(null);
+  const dropdownId = useId();
 
   // Poll for unread count every 30 seconds
   useEffect(() => {
@@ -40,7 +40,8 @@ const NotificationBell = () => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (bellRef.current && !bellRef.current.contains(event.target as Node)) {
+      const dropdown = document.getElementById(dropdownId);
+      if (dropdown && !dropdown.contains(event.target as Node)) {
         setIsOpen(false);
       }
     };
@@ -52,7 +53,7 @@ const NotificationBell = () => {
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [isOpen]);
+  }, [isOpen, dropdownId]);
 
   const handleOpen = async () => {
     if (isOpen) {
@@ -125,7 +126,7 @@ const NotificationBell = () => {
   };
 
   return (
-    <div ref={bellRef} className="relative mt-1">
+    <div id={dropdownId} className="relative mt-1">
       <button
         onClick={handleOpen}
         className="relative p-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"

@@ -3,10 +3,15 @@
 import logging
 from typing import List, Optional, Dict, Any
 
-from sqlalchemy import select, and_, delete, insert, func
+from sqlalchemy import select, and_, delete, insert, func, update
 from sqlalchemy.orm import joinedload
 
 from models.Document import Document
+from models.Organization import Organization
+from models.Individual import Individual
+from models.Project import Project
+from models.Contact import Contact
+from models.Lead import Lead
 from models.Asset import Asset
 from models.EntityAsset import EntityAsset
 from models.Tag import Tag, EntityTag
@@ -206,14 +211,34 @@ async def unlink_document_from_entity(
             raise
 
 
+async def _get_entity_name(session, entity_type: str, entity_id: int) -> Optional[str]:
+    """Get entity name by type and id."""
+    name_queries = {
+        "Organization": lambda eid: select(Organization.name).where(Organization.id == eid),
+        "Project": lambda eid: select(Project.name).where(Project.id == eid),
+        "Lead": lambda eid: select(Lead.title).where(Lead.id == eid),
+    }
+    composite_name_queries = {
+        "Individual": lambda eid: select(Individual.first_name, Individual.last_name).where(Individual.id == eid),
+        "Contact": lambda eid: select(Contact.first_name, Contact.last_name).where(Contact.id == eid),
+    }
+
+    if entity_type in name_queries:
+        result = await session.execute(name_queries[entity_type](entity_id))
+        return result.scalar()
+
+    if entity_type in composite_name_queries:
+        result = await session.execute(composite_name_queries[entity_type](entity_id))
+        row = result.first()
+        if not row:
+            return None
+        return f"{row[0]} {row[1]}"
+
+    return None
+
+
 async def get_document_entities(document_id: int) -> List[Dict[str, Any]]:
     """Get all entities linked to a document with their names."""
-    from models.Organization import Organization
-    from models.Individual import Individual
-    from models.Project import Project
-    from models.Contact import Contact
-    from models.Lead import Lead
-
     async with async_get_session() as session:
         stmt = select(EntityAsset).where(EntityAsset.c.asset_id == document_id)
         result = await session.execute(stmt)
@@ -221,35 +246,9 @@ async def get_document_entities(document_id: int) -> List[Dict[str, Any]]:
 
         entities = []
         for row in rows:
-            entity_name = None
             entity_type = row.entity_type
             entity_id = row.entity_id
-
-            # Fetch entity name based on type
-            if entity_type == "Organization":
-                name_stmt = select(Organization.name).where(Organization.id == entity_id)
-                name_result = await session.execute(name_stmt)
-                entity_name = name_result.scalar()
-            elif entity_type == "Individual":
-                name_stmt = select(Individual.first_name, Individual.last_name).where(Individual.id == entity_id)
-                name_result = await session.execute(name_stmt)
-                name_row = name_result.first()
-                if name_row:
-                    entity_name = f"{name_row[0]} {name_row[1]}"
-            elif entity_type == "Project":
-                name_stmt = select(Project.name).where(Project.id == entity_id)
-                name_result = await session.execute(name_stmt)
-                entity_name = name_result.scalar()
-            elif entity_type == "Contact":
-                name_stmt = select(Contact.first_name, Contact.last_name).where(Contact.id == entity_id)
-                name_result = await session.execute(name_stmt)
-                name_row = name_result.first()
-                if name_row:
-                    entity_name = f"{name_row[0]} {name_row[1]}"
-            elif entity_type == "Lead":
-                name_stmt = select(Lead.title).where(Lead.id == entity_id)
-                name_result = await session.execute(name_stmt)
-                entity_name = name_result.scalar()
+            entity_name = await _get_entity_name(session, entity_type, entity_id)
 
             entities.append({
                 "entity_type": entity_type,
@@ -411,7 +410,6 @@ async def create_new_version(
             max_version = result.scalar() or 1
 
             # Mark all versions as not current (use Asset table directly for inheritance)
-            from sqlalchemy import update
             update_stmt = (
                 update(Asset)
                 .where(
@@ -483,7 +481,6 @@ async def set_current_version(document_id: int, tenant_id: int) -> Optional[Docu
             root_id = document.parent_id if document.parent_id else document.id
 
             # Mark all versions as not current (use Asset table directly for inheritance)
-            from sqlalchemy import update
             update_stmt = (
                 update(Asset)
                 .where(

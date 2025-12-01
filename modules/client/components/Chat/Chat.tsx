@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useState } from "react";
 import { useWs, ChatMsg } from "../../hooks/useWs";
 import styles from "./Chat.module.css";
 import { Copy, Check, Download, ChevronDown } from "lucide-react";
@@ -307,10 +307,10 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
     `${API_URL}/mocks/401k-rollover/`
   );
 
-  const listRef = useRef<HTMLDivElement | null>(null);
+  const listId = useId();
   const [hasSentContext, setHasSentContext] = useState(false);
-  const toolsDropdownRef = useRef<HTMLDivElement | null>(null);
-  const demoDropdownRef = useRef<HTMLDivElement | null>(null);
+  const toolsDropdownId = useId();
+  const demoDropdownId = useId();
 
   // Notify parent of connection state changes
   useEffect(() => {
@@ -329,18 +329,16 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
 
   // scroll the message list, not the page
   useEffect(() => {
-    const el = listRef.current;
+    const el = document.getElementById(listId);
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, listId]);
 
   // Close tools dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        toolsDropdownRef.current &&
-        !toolsDropdownRef.current.contains(event.target as Node)
-      ) {
+      const dropdown = document.getElementById(toolsDropdownId);
+      if (dropdown && !dropdown.contains(event.target as Node)) {
         setToolsDropdownOpen(false);
       }
     };
@@ -350,15 +348,13 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
       return () =>
         document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [toolsDropdownOpen]);
+  }, [toolsDropdownOpen, toolsDropdownId]);
 
   // Close demo dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        demoDropdownRef.current &&
-        !demoDropdownRef.current.contains(event.target as Node)
-      ) {
+      const dropdown = document.getElementById(demoDropdownId);
+      if (dropdown && !dropdown.contains(event.target as Node)) {
         setDemoDropdownOpen(false);
       }
     };
@@ -368,7 +364,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
       return () =>
         document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [demoDropdownOpen]);
+  }, [demoDropdownOpen, demoDropdownId]);
 
   const onSubmit: React.FormEventHandler<HTMLFormElement> = (e) => {
     e.preventDefault();
@@ -465,7 +461,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
             <b className={styles.title}>Chat</b>
           </div>
           <div className={styles.headerRight}>
-            <div className={styles.toolsDropdown} ref={toolsDropdownRef}>
+            <div className={styles.toolsDropdown} id={toolsDropdownId}>
               <button
                 type="button"
                 className={styles.toolsButton}
@@ -502,7 +498,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
         <main className={styles.chatPanel}>
           {/* message list */}
           <section
-            ref={listRef}
+            id={listId}
             className={styles.msgList}
             onWheel={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
