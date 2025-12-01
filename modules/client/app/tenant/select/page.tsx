@@ -10,6 +10,8 @@ import {
   Paper,
   Text,
   Select,
+  Center,
+  Loader,
 } from "@mantine/core";
 import { useUserContext } from "../../../context/userContext";
 import { usePageLoading } from "../../../context/pageLoadingContext";
@@ -48,6 +50,15 @@ const TenantSelectPage = () => {
       .then((options) => setTimezoneOptions(options))
       .catch((err) => console.error("Failed to fetch timezones:", err));
   }, []);
+
+  // Show loader while checking auth or if not authenticated (redirecting to login)
+  if (userLoading || !isAuthed) {
+    return (
+      <Center mih="100vh">
+        <Loader size="lg" color="lime" />
+      </Center>
+    );
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

@@ -11,18 +11,21 @@ import { SET_THEME, SET_LOADING } from "../../reducers/userReducer";
  * Runs on app load to restore auth state after page refresh
  */
 export const AuthStateManager = () => {
-  const { user: auth0User, isLoading } = useUser();
+  const { user: auth0User, isLoading: auth0Loading } = useUser();
   const { userState, dispatchUser } = useUserContext();
-
-  // Sync Auth0 loading state to context
-  useEffect(() => {
-    dispatchUser({ type: SET_LOADING, payload: isLoading });
-  }, [isLoading, dispatchUser]);
 
   useEffect(() => {
     const restoreAuthState = async () => {
-      if (isLoading) return;
-      if (!auth0User) return;
+      // Still waiting for Auth0 to check session
+      if (auth0Loading) return;
+
+      // No Auth0 user - not authenticated, done loading
+      if (!auth0User) {
+        dispatchUser({ type: SET_LOADING, payload: false });
+        return;
+      }
+
+      // Already restored auth state
       if (userState.isAuthed) return;
 
       try {
@@ -68,11 +71,14 @@ export const AuthStateManager = () => {
           type: "SET_AUTHED",
           payload: true,
         });
+      } finally {
+        // Done loading - either authed or errored
+        dispatchUser({ type: SET_LOADING, payload: false });
       }
     };
 
     restoreAuthState();
-  }, [auth0User, isLoading, userState.isAuthed, dispatchUser]);
+  }, [auth0User, auth0Loading, userState.isAuthed, dispatchUser]);
 
-  return null; // This component doesn't render anything
+  return null;
 };

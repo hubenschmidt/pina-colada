@@ -336,13 +336,10 @@ const DocumentsSection = ({
         <input
           type="text"
           value={searchQuery}
-          onChange={(e) => {
-            const query = e.target.value;
-            setSearchQuery(query);
-            handleSearchDocuments(query);
-          }}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSearchDocuments(searchQuery)}
           className={inputClasses}
-          placeholder="Search documents by name..."
+          placeholder="Search documents... (Enter to search)"
           autoFocus
         />
         {isSearching && (

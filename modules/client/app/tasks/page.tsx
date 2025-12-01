@@ -1,12 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Stack,
   Group,
-  TextInput,
   Button,
   Badge,
   Anchor,
@@ -15,7 +14,8 @@ import {
   Center,
   Loader,
 } from "@mantine/core";
-import { Search, X, FolderKanban } from "lucide-react";
+import { FolderKanban } from "lucide-react";
+import { SearchBox } from "../../components/SearchBox";
 import { DataTable, Column } from "../../components/DataTable/DataTable";
 import { getTasks, Task, TasksPageData } from "../../api";
 import { useProjectContext } from "../../context/projectContext";
@@ -35,9 +35,7 @@ const TasksPage = () => {
   const [pageSize, setPageSize] = useState(50);
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDirection, setSortDirection] = useState<SortDir>("DESC");
-  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const scope = selectedProject ? "project" : "global";
 
@@ -74,25 +72,8 @@ const TasksPage = () => {
     setPage(1);
   }, [selectedProject?.id]);
 
-  const handleSearchChange = (value: string) => {
-    setSearchInput(value);
-
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-
-    debounceTimer.current = setTimeout(() => {
-      setSearchQuery(value);
-      setPage(1);
-    }, 300);
-  };
-
-  const handleClearSearch = () => {
-    setSearchInput("");
-    if (debounceTimer.current) {
-      clearTimeout(debounceTimer.current);
-    }
-    setSearchQuery("");
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
     setPage(1);
   };
 
@@ -237,31 +218,17 @@ const TasksPage = () => {
 
       <Stack gap="xs">
         <Group gap="md">
-          <TextInput
-            placeholder="Search tasks..."
-            value={searchInput}
-            onChange={(e) => handleSearchChange(e.target.value)}
-            leftSection={<Search size={20} />}
-            rightSection={
-              searchInput ? (
-                <button
-                  onClick={handleClearSearch}
-                  className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-400"
-                  aria-label="Clear search"
-                >
-                  <X size={18} />
-                </button>
-              ) : null
-            }
-            style={{ flex: 1 }}
+          <SearchBox
+            placeholder="Search tasks... (Enter to search)"
+            onSearch={handleSearch}
           />
           <Button onClick={() => router.push("/tasks/new")} color="lime">
             New Task
           </Button>
         </Group>
-        {searchInput && (
+        {searchQuery && (
           <Text size="sm" c="dimmed">
-            Showing results for "{searchInput}"
+            Showing results for &quot;{searchQuery}&quot;
           </Text>
         )}
       </Stack>

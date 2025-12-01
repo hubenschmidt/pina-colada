@@ -11,12 +11,11 @@ import {
   ActionIcon,
   Menu,
   TagsInput,
-  TextInput,
   Loader,
   Center,
   Anchor,
 } from "@mantine/core";
-import { Search, X } from "lucide-react";
+import { SearchBox } from "../SearchBox";
 import {
   Download,
   Trash2,
@@ -57,7 +56,7 @@ export const DocumentList = ({
     externalFilterTags || []
   );
   const [availableTags, setAvailableTags] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
   const [deleteConfirm, setDeleteConfirm] = useState<Document | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -144,6 +143,11 @@ export const DocumentList = ({
 
   const handleRowClick = (doc: Document) => {
     router.push(`/assets/documents/${doc.id}?v=${doc.version_number}`);
+  };
+
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
+    setPage(1);
   };
 
   const formatFileSize = (bytes: number): string => {
@@ -348,30 +352,9 @@ export const DocumentList = ({
   return (
     <Stack gap="md">
       <Group gap="md">
-        <TextInput
-          placeholder="Search documents by name..."
-          value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            setPage(1);
-          }}
-          leftSection={<Search className="h-4 w-4" />}
-          rightSection={
-            searchQuery ? (
-              <ActionIcon
-                size="sm"
-                variant="subtle"
-                onClick={() => {
-                  setSearchQuery("");
-                  setPage(1);
-                }}
-              >
-                <X className="h-4 w-4" />
-              </ActionIcon>
-            ) : null
-          }
-          size="sm"
-          style={{ flex: 1 }}
+        <SearchBox
+          placeholder="Search documents... (Enter to search)"
+          onSearch={handleSearch}
         />
         <TagsInput
           placeholder="Filter by tags..."

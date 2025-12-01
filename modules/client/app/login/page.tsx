@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronRight, ChevronLeft } from "lucide-react";
+import { ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
 import { useUserContext } from "../../context/userContext";
 import Header from "../../components/Header/Header";
 
@@ -23,8 +23,14 @@ const LoginPage = () => {
     router.push("/tenant/select");
   }, [isLoading, isAuthed, tenantName, router]);
 
-  // Show nothing while loading or redirecting
-  if (isLoading || user) return null;
+  // Show loader while checking auth or redirecting after auth
+  if (isLoading || isAuthed) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-lime-500" />
+      </div>
+    );
+  }
 
   // Unauthenticated: show login UI
   return (

@@ -3,7 +3,7 @@
 import { useEffect, useState, useContext } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, type PageData } from "../DataTable/DataTable";
-import { Search, X } from "lucide-react";
+import { SearchBox } from "../SearchBox";
 import { LeadTrackerConfig, BaseLead } from "./types/LeadTrackerTypes";
 import { ProjectContext } from "../../context/projectContext";
 import {
@@ -12,7 +12,6 @@ import {
   Loader,
   Alert,
   Group,
-  TextInput,
   Button,
   Box,
   Text,
@@ -94,13 +93,8 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
     }
   };
 
-  const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    setPage(1);
-  };
-
-  const handleClearSearch = () => {
-    setSearchQuery("");
+  const handleSearch = (query: string) => {
+    setSearchQuery(query);
     setPage(1);
   };
 
@@ -153,35 +147,12 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
       {enableSearch && (
         <Stack gap="xs">
           <Group gap="md">
-            <TextInput
+            <SearchBox
               placeholder={
                 config.searchPlaceholder ||
-                `Search ${config.entityNamePlural.toLowerCase()}...`
+                `Search ${config.entityNamePlural.toLowerCase()}... (Enter to search)`
               }
-              value={searchQuery}
-              onChange={(e) => handleSearchChange(e.target.value)}
-              leftSection={<Search size={20} />}
-              rightSection={
-                searchQuery && (
-                  <button
-                    onClick={handleClearSearch}
-                    className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-400"
-                    aria-label="Clear search"
-                  >
-                    <X size={18} />
-                  </button>
-                )
-              }
-              style={{ flex: 1 }}
-              styles={{
-                input: {
-                  transition: "background-color 0.2s ease",
-                  "&:hover": {
-                    backgroundColor: "var(--input-background)",
-                    filter: "brightness(0.97)",
-                  },
-                },
-              }}
+              onSearch={handleSearch}
             />
             <Button
               onClick={() => {
@@ -197,7 +168,7 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
           </Group>
           {searchQuery && (
             <Text size="sm" c="dimmed">
-              Showing results for "{searchQuery}"
+              Showing results for &quot;{searchQuery}&quot;
             </Text>
           )}
         </Stack>
