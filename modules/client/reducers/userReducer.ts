@@ -3,6 +3,7 @@ export const SET_TENANT_NAME = "SET_TENANT_NAME";
 export const SET_BEARER_TOKEN = "SET_BEARER_TOKEN";
 export const SET_AUTHED = "SET_AUTHED";
 export const SET_THEME = "SET_THEME";
+export const SET_LOADING = "SET_LOADING";
 export const CLEAR_USER = "CLEAR_USER";
 
 export interface UserState {
@@ -10,6 +11,7 @@ export interface UserState {
   tenantName: string | null;
   bearerToken: string | null;
   isAuthed: boolean;
+  isLoading: boolean;
   theme: "light" | "dark" | "cyberpunk";
   canEditTenantTheme: boolean;
 }
@@ -30,6 +32,8 @@ export default (initialState: UserState) => {
         return setAuthed(state, action.payload);
       case SET_THEME:
         return setTheme(state, action.payload);
+      case SET_LOADING:
+        return setLoading(state, action.payload);
       case CLEAR_USER:
         return clearUser(state);
       default:
@@ -66,22 +70,24 @@ const setAuthed = (state: UserState, payload: string): UserState => {
   };
 };
 
-const setTheme = (state: UserState, payload: { theme: "light" | "dark" | "cyberpunk"; canEditTenant: boolean }): UserState => {
-  return {
-    ...state,
-    theme: payload.theme,
-    canEditTenantTheme: payload.canEditTenant,
-  };
-};
+const setTheme = (state: UserState, payload: { theme: "light" | "dark" | "cyberpunk"; canEditTenant: boolean }): UserState => ({
+  ...state,
+  theme: payload.theme,
+  canEditTenantTheme: payload.canEditTenant,
+});
 
-const clearUser = (state: UserState): UserState => {
-  return {
-    ...state,
-    user: null,
-    tenantName: null,
-    bearerToken: null,
-    isAuthed: false,
-    theme: "light",
-    canEditTenantTheme: false,
-  };
-};
+const setLoading = (state: UserState, payload: boolean): UserState => ({
+  ...state,
+  isLoading: payload,
+});
+
+const clearUser = (state: UserState): UserState => ({
+  ...state,
+  user: null,
+  tenantName: null,
+  bearerToken: null,
+  isAuthed: false,
+  isLoading: false,
+  theme: "light",
+  canEditTenantTheme: false,
+});

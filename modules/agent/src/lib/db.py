@@ -129,6 +129,9 @@ def get_async_engine():
         _async_engine = create_async_engine(
             conn_string,
             pool_pre_ping=True,
+            pool_size=5,  # Minimal pool - pgbouncer handles actual pooling
+            max_overflow=0,  # Don't exceed pool_size with pgbouncer
+            pool_timeout=30,  # Fail after 30s instead of hanging forever
             echo=False,  # Disable SQL query logging
             future=True,
             connect_args={

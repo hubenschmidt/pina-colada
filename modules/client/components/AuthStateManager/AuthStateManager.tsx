@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../../context/userContext";
 import { getMe, getUserPreferences } from "../../api";
-import { SET_THEME } from "../../reducers/userReducer";
+import { SET_THEME, SET_LOADING } from "../../reducers/userReducer";
 
 /**
  * Manages authentication state by syncing Auth0 session with backend user data
@@ -13,6 +13,11 @@ import { SET_THEME } from "../../reducers/userReducer";
 export const AuthStateManager = () => {
   const { user: auth0User, isLoading } = useUser();
   const { userState, dispatchUser } = useUserContext();
+
+  // Sync Auth0 loading state to context
+  useEffect(() => {
+    dispatchUser({ type: SET_LOADING, payload: isLoading });
+  }, [isLoading, dispatchUser]);
 
   useEffect(() => {
     const restoreAuthState = async () => {

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useId } from "react";
-import { getIndustries, createIndustry, Industry } from "../../api";
+import { useLookupsContext } from "../../context/lookupsContext";
+import { getIndustries, createIndustry } from "../../api";
+import { fetchOnce } from "../../lib/lookup-cache";
 
 interface IndustrySelectorProps {
   value: string[];
@@ -9,27 +11,21 @@ interface IndustrySelectorProps {
 }
 
 const IndustrySelector = ({ value, onChange }: IndustrySelectorProps) => {
-  const [industries, setIndustries] = useState<Industry[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { lookupsState, dispatchLookups } = useLookupsContext();
+  const { industries, loaded } = lookupsState;
+
+  useEffect(() => {
+    if (loaded.industries) return;
+    fetchOnce("industries", getIndustries).then((data) => {
+      dispatchLookups({ type: "SET_INDUSTRIES", payload: data });
+    });
+  }, [loaded.industries, dispatchLookups]);
+
   const [selectedIndustries, setSelectedIndustries] = useState<string[]>(value || []);
   const [isOpen, setIsOpen] = useState(false);
   const [showNewInput, setShowNewInput] = useState(false);
   const [newIndustry, setNewIndustry] = useState("");
   const dropdownId = useId();
-
-  useEffect(() => {
-    const loadIndustries = async () => {
-      try {
-        const data = await getIndustries();
-        setIndustries(data.sort((a, b) => a.name.localeCompare(b.name)));
-      } catch (error) {
-        console.error("Failed to fetch industries:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadIndustries();
-  }, []);
 
   useEffect(() => {
     setSelectedIndustries(Array.isArray(value) ? value : value ? [value] : []);
@@ -59,7 +55,7 @@ const IndustrySelector = ({ value, onChange }: IndustrySelectorProps) => {
     if (!newIndustry.trim()) return;
     try {
       const created = await createIndustry(newIndustry.trim());
-      setIndustries((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
+      dispatchLookups({ type: "ADD_INDUSTRY", payload: created });
       const updated = [...selectedIndustries, created.name];
       setSelectedIndustries(updated);
       onChange(updated);
@@ -70,7 +66,7 @@ const IndustrySelector = ({ value, onChange }: IndustrySelectorProps) => {
     }
   };
 
-  if (loading) {
+  if (!loaded.industries) {
     return (
       <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
         Loading industries...

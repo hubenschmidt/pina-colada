@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useId } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { Inbox } from "lucide-react";
 import {
   Notification,
@@ -14,6 +14,7 @@ import { useProjectContext } from "../../context/projectContext";
 
 const NotificationBell = () => {
   const router = useRouter();
+  const pathname = usePathname();
   const { projectState, selectProject } = useProjectContext();
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -21,7 +22,7 @@ const NotificationBell = () => {
   const [isLoading, setIsLoading] = useState(false);
   const dropdownId = useId();
 
-  // Poll for unread count every 30 seconds
+  // Fetch unread count on route change
   useEffect(() => {
     const fetchCount = async () => {
       try {
@@ -33,9 +34,7 @@ const NotificationBell = () => {
     };
 
     fetchCount();
-    const interval = setInterval(fetchCount, 30000);
-    return () => clearInterval(interval);
-  }, []);
+  }, [pathname]);
 
   // Close dropdown when clicking outside
   useEffect(() => {

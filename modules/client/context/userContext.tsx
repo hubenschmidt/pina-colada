@@ -7,6 +7,7 @@ const initialState: UserState = {
   tenantName: null,
   bearerToken: null,
   isAuthed: false,
+  isLoading: true,
   theme: "light",
   canEditTenantTheme: false,
 };

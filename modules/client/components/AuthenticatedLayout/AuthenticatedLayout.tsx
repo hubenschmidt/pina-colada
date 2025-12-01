@@ -1,7 +1,6 @@
 "use client";
 
 import Image from "next/image";
-import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../../context/userContext";
 import { Sidebar } from "../Sidebar/Sidebar";
 
@@ -10,10 +9,10 @@ export const AuthenticatedLayout = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const { isLoading } = useUser();
   const { userState } = useUserContext();
+  const { isLoading, isAuthed } = userState;
 
-  if (isLoading || !userState.isAuthed) {
+  if (isLoading || !isAuthed) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <Image src="/icon.png" alt="Loading" width={200} height={200} />

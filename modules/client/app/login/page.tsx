@@ -1,49 +1,30 @@
 "use client";
 
-import { useUser } from "@auth0/nextjs-auth0/client";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronRight, ChevronLeft } from "lucide-react";
-import { checkUserTenant } from "../../api";
+import { useUserContext } from "../../context/userContext";
 import Header from "../../components/Header/Header";
 
 const LoginPage = () => {
-  const { user, isLoading } = useUser();
+  const { userState } = useUserContext();
+  const { user, isLoading, isAuthed, tenantName } = userState;
   const router = useRouter();
-  const [checkingTenant, setCheckingTenant] = useState(false);
 
-  // If already authenticated, check for tenant and redirect
+  // If already authenticated, redirect appropriately
   useEffect(() => {
-    if (!isLoading && user) {
-      setCheckingTenant(true);
+    if (isLoading) return;
+    if (!isAuthed) return;
 
-      checkUserTenant(user)
-        .then((tenant) => {
-          if (tenant && tenant.id) {
-            router.push("/chat");
-            return;
-          }
-          router.push("/tenant/select");
-        })
-        .catch((error) => {
-          // On error (404 or no tenant), default to tenant selection
-          router.push("/tenant/select");
-        })
-        .finally(() => {
-          setCheckingTenant(false);
-        });
+    if (tenantName) {
+      router.push("/chat");
+      return;
     }
-  }, [user, isLoading, router]);
+    router.push("/tenant/select");
+  }, [isLoading, isAuthed, tenantName, router]);
 
-  // Show loading state while checking auth or tenant
-  if (isLoading || checkingTenant) {
-    return null;
-  }
-
-  // Already authenticated (should be redirecting)
-  if (user) {
-    return null;
-  }
+  // Show nothing while loading or redirecting
+  if (isLoading || user) return null;
 
   // Unauthenticated: show login UI
   return (

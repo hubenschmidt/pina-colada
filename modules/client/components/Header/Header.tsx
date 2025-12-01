@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useNavContext } from "../../context/navContext";
-import { useUser } from "@auth0/nextjs-auth0";
+import { useUserContext } from "../../context/userContext";
 import HeaderAuthed from "../HeaderAuthed/HeaderAuthed";
 import NotificationBell from "../NotificationBell/NotificationBell";
 import { Menu, Button } from "@mantine/core";
@@ -11,7 +11,8 @@ import { ChevronDown, Settings, LogOut } from "lucide-react";
 
 const Header = () => {
   const { dispatchNav } = useNavContext();
-  const { user, isLoading } = useUser();
+  const { userState } = useUserContext();
+  const { user, isLoading } = userState;
   const pathname = usePathname();
   const isTenantSelectPage = pathname === "/tenant/select";
 

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useUser } from "@auth0/nextjs-auth0/client";
 import {
   Container,
   Title,
@@ -12,21 +11,16 @@ import {
   Text,
   Select,
 } from "@mantine/core";
-import { fetchBearerToken } from "../../../lib/fetch-bearer-token";
 import { useUserContext } from "../../../context/userContext";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 import Header from "../../../components/Header/Header";
-import {
-  SET_USER,
-  SET_BEARER_TOKEN,
-  SET_TENANT_NAME,
-} from "../../../reducers/userReducer";
+import { SET_TENANT_NAME } from "../../../reducers/userReducer";
 import { createTenant, getTimezones, updateUserPreferences, TimezoneOption } from "../../../api";
 
 const TenantSelectPage = () => {
-  const { user, isLoading: userLoading } = useUser();
   const router = useRouter();
   const { userState, dispatchUser } = useUserContext();
+  const { isLoading: userLoading, isAuthed } = userState;
   const { dispatchPageLoading } = usePageLoading();
   const [loading, setLoading] = useState(false);
   const [tenantName, setTenantName] = useState("");
@@ -40,43 +34,13 @@ const TenantSelectPage = () => {
     dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: userLoading });
   }, [userLoading, dispatchPageLoading]);
 
+  // Redirect to login if not authenticated
   useEffect(() => {
-    if (!userLoading && !user) {
+    if (userLoading) return;
+    if (!isAuthed) {
       router.push("/auth/login");
-      return;
     }
-
-    if (!user) return;
-
-    const initializeAuth = () => {
-      // Store Auth0 user and fetch bearer token
-      if (!userState.user) {
-        dispatchUser({
-          type: SET_USER,
-          payload: user,
-        });
-      }
-
-      if (!userState.bearerToken) {
-        fetchBearerToken()
-          .then((bearerTokenData) => {
-            dispatchUser({
-              type: SET_BEARER_TOKEN,
-              payload: bearerTokenData.headers.Authorization.replace(
-                "Bearer ",
-                ""
-              ),
-            });
-          })
-          .catch((error) => {
-            console.error("Error initializing auth:", error);
-          });
-      }
-    };
-
-    initializeAuth();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user, userLoading]);
+  }, [userLoading, isAuthed, router]);
 
   // Fetch timezone options
   useEffect(() => {

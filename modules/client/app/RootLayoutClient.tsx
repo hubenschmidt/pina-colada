@@ -2,7 +2,6 @@
 
 import { useEffect } from "react";
 import Image from "next/image";
-import { useUser } from "@auth0/nextjs-auth0/client";
 import { usePathname, useRouter } from "next/navigation";
 import PageLoadingOverlay from "../components/PageLoadingOverlay/PageLoadingOverlay";
 import { useUserContext } from "../context/userContext";
@@ -12,19 +11,19 @@ export const RootLayoutClient = ({
 }: {
   children: React.ReactNode;
 }) => {
-  const { user, isLoading } = useUser();
   const pathname = usePathname();
   const router = useRouter();
   const { userState } = useUserContext();
+  const { user, isLoading, isAuthed, tenantName } = userState;
 
   // Centralized route protection and redirects
   useEffect(() => {
     if (isLoading) return;
-    if (!userState.isAuthed) return;
+    if (!isAuthed) return;
 
     // Redirect authenticated users from home to appropriate page
     if (pathname === "/") {
-      if (userState.tenantName) {
+      if (tenantName) {
         router.push("/chat");
         return;
       }
@@ -33,7 +32,7 @@ export const RootLayoutClient = ({
     }
 
     // Redirect from tenant/select to chat if already has tenant
-    if (pathname === "/tenant/select" && userState.tenantName) {
+    if (pathname === "/tenant/select" && tenantName) {
       router.push("/chat");
       return;
     }
@@ -44,10 +43,10 @@ export const RootLayoutClient = ({
       pathname.startsWith(route)
     );
 
-    if (isProtectedRoute && !userState.tenantName) {
+    if (isProtectedRoute && !tenantName) {
       router.push("/tenant/select");
     }
-  }, [userState.isAuthed, userState.tenantName, pathname, router, isLoading]);
+  }, [isAuthed, tenantName, pathname, router, isLoading]);
 
   // Show loading while auth is loading or authenticated user is on "/" (about to redirect)
   const isRedirecting = pathname === "/" && user;
@@ -55,7 +54,7 @@ export const RootLayoutClient = ({
   if (isLoading || isRedirecting) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Image src="/icon.png" alt="Loading" width={200} height={200} />
+        <Image src="/icon.png" alt="Loading" width={200} height={200} priority />
       </div>
     );
   }

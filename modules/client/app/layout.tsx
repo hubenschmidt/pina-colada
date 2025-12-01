@@ -5,6 +5,7 @@ import { NavProvider } from "../context/navContext";
 import { UserProvider } from "../context/userContext";
 import { PageLoadingProvider } from "../context/pageLoadingContext";
 import { ProjectProvider } from "../context/projectContext";
+import { LookupsProvider } from "../context/lookupsContext";
 import { PublicEnvScript } from "next-runtime-env";
 import { Auth0Provider } from "@auth0/nextjs-auth0/client";
 import { AuthStateManager } from "../components/AuthStateManager/AuthStateManager";
@@ -31,9 +32,11 @@ export default ({ children }: Readonly<{ children: React.ReactNode }>) => {
             <MantineThemeProvider>
               <NavProvider>
                 <ProjectProvider>
-                  <PageLoadingProvider>
-                    <RootLayoutClient>{children}</RootLayoutClient>
-                  </PageLoadingProvider>
+                  <LookupsProvider>
+                    <PageLoadingProvider>
+                      <RootLayoutClient>{children}</RootLayoutClient>
+                    </PageLoadingProvider>
+                  </LookupsProvider>
                 </ProjectProvider>
               </NavProvider>
             </MantineThemeProvider>

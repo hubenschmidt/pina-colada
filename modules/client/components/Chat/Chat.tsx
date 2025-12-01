@@ -291,12 +291,15 @@ type ChatProps = {
 };
 
 const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
-  // Log the WebSocket URL on mount for debugging
-  useEffect(() => {
-    console.log("WebSocket URL:", WS_URL);
-  }, []);
-
-  const { isOpen, isThinking, tokenUsage, messages, sendMessage, sendControl, reset } = useWs(WS_URL);
+  const {
+    isOpen,
+    isThinking,
+    tokenUsage,
+    messages,
+    sendMessage,
+    sendControl,
+    reset,
+  } = useWs(WS_URL);
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
@@ -574,7 +577,8 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
                     {" / "}
                     {tokenUsage.cumulative.total >= 1000
                       ? `${(tokenUsage.cumulative.total / 1000).toFixed(1)}k`
-                      : tokenUsage.cumulative.total} tokens
+                      : tokenUsage.cumulative.total}{" "}
+                    tokens
                   </span>
                 )}
               </div>

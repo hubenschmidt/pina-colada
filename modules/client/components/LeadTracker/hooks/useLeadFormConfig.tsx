@@ -1,10 +1,13 @@
 import { CreatedJob } from "../../../types/types";
 import { CreatedOpportunity, CreatedPartnership } from "../../../api";
 import { LeadFormConfig } from "../types/LeadFormTypes";
-import { getRecentResumeDate, getIndustries, createIndustry, searchOrganizations, searchIndividuals, getSalaryRanges, getProjects, type Industry, type Organization, type Individual, type SalaryRange, type Project } from "../../../api";
+import { getRecentResumeDate, searchOrganizations, searchIndividuals, getProjects, getSalaryRanges, type Organization, type Individual } from "../../../api";
 import { useState, useEffect, useCallback, useId, useContext } from "react";
 import { debounce } from "../../../lib/debounce";
 import { ProjectContext } from "../../../context/projectContext";
+import { useLookupsContext } from "../../../context/lookupsContext";
+import { fetchOnce } from "../../../lib/lookup-cache";
+import IndustrySelector from "../../AccountForm/IndustrySelector";
 
 type LeadType = "job" | "opportunity" | "partnership";
 
@@ -143,161 +146,6 @@ const AccountSelector = ({
   );
 };
 
-// Industry Multi-Select Dropdown Component
-const IndustrySelector = ({ value, onChange }: { value: string[]; onChange: (value: string[]) => void }) => {
-  const [industries, setIndustries] = useState<Industry[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedIndustries, setSelectedIndustries] = useState<string[]>(value || []);
-  const [isOpen, setIsOpen] = useState(false);
-  const [showNewInput, setShowNewInput] = useState(false);
-  const [newIndustry, setNewIndustry] = useState("");
-  const dropdownId = useId();
-
-  useEffect(() => {
-    const loadIndustries = async () => {
-      try {
-        const data = await getIndustries();
-        setIndustries(data.sort((a, b) => a.name.localeCompare(b.name)));
-      } catch (error) {
-        console.error("Failed to fetch industries:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadIndustries();
-  }, []);
-
-  useEffect(() => {
-    setSelectedIndustries(Array.isArray(value) ? value : value ? [value] : []);
-  }, [value]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const dropdown = document.getElementById(dropdownId);
-      if (dropdown && !dropdown.contains(event.target as Node)) {
-        setIsOpen(false);
-        setShowNewInput(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [dropdownId]);
-
-  const handleToggleIndustry = (industryName: string) => {
-    const updated = selectedIndustries.includes(industryName)
-      ? selectedIndustries.filter((i) => i !== industryName)
-      : [...selectedIndustries, industryName];
-    setSelectedIndustries(updated);
-    onChange(updated);
-  };
-
-  const handleAddNew = async () => {
-    if (newIndustry.trim()) {
-      try {
-        const created = await createIndustry(newIndustry.trim());
-        setIndustries((prev) => [...prev, created].sort((a, b) => a.name.localeCompare(b.name)));
-        const updated = [...selectedIndustries, created.name];
-        setSelectedIndustries(updated);
-        onChange(updated);
-        setShowNewInput(false);
-        setNewIndustry("");
-      } catch (error) {
-        console.error("Failed to create industry:", error);
-      }
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
-        Loading industries...
-      </div>
-    );
-  }
-
-  const displayText = selectedIndustries.length > 0
-    ? selectedIndustries.join(", ")
-    : "Select industries...";
-
-  return (
-    <div className="relative" id={dropdownId}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-left flex justify-between items-center"
-      >
-        <span className={selectedIndustries.length === 0 ? "text-zinc-500 dark:text-zinc-400" : ""}>
-          {displayText}
-        </span>
-        <svg className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
-      {isOpen && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg max-h-60 overflow-y-auto">
-          {industries.map((industry) => {
-            const isSelected = selectedIndustries.includes(industry.name);
-            return (
-              <label
-                key={industry.id}
-                className="flex items-center px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"
-              >
-                <input
-                  type="checkbox"
-                  checked={isSelected}
-                  onChange={() => handleToggleIndustry(industry.name)}
-                  className="w-4 h-4 text-lime-500 border-zinc-300 dark:border-zinc-600 rounded focus:ring-lime-500 bg-white dark:bg-zinc-700"
-                />
-                <span className="ml-2 text-zinc-900 dark:text-zinc-100">{industry.name}</span>
-              </label>
-            );
-          })}
-          <div className="border-t border-zinc-200 dark:border-zinc-700">
-            {!showNewInput ? (
-              <button
-                type="button"
-                onClick={() => setShowNewInput(true)}
-                className="w-full px-3 py-2 text-left text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-              >
-                + Add New Industry
-              </button>
-            ) : (
-              <div className="p-2 flex gap-2">
-                <input
-                  type="text"
-                  value={newIndustry}
-                  onChange={(e) => setNewIndustry(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAddNew();
-                      return;
-                    }
-                    if (e.key === "Escape") {
-                      setShowNewInput(false);
-                      setNewIndustry("");
-                    }
-                  }}
-                  placeholder="New industry..."
-                  className="flex-1 px-2 py-1 text-sm border border-zinc-300 dark:border-zinc-600 rounded bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={handleAddNew}
-                  className="px-2 py-1 text-sm bg-lime-500 text-white rounded hover:bg-lime-600"
-                >
-                  Add
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
 // Project Multi-Select Component
 const ProjectSelector = ({
   value,
@@ -308,32 +156,25 @@ const ProjectSelector = ({
   onChange: (value: number[]) => void;
   defaultProjectIds?: number[];
 }) => {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { lookupsState, dispatchLookups } = useLookupsContext();
+  const { projects, loaded } = lookupsState;
   const [isOpen, setIsOpen] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const dropdownId = useId();
 
   useEffect(() => {
-    const loadProjects = async () => {
-      try {
-        const data = await getProjects();
-        setProjects(data);
-      } catch (error) {
-        console.error("Failed to fetch projects:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadProjects();
-  }, []);
+    if (loaded.projects) return;
+    fetchOnce("projects", getProjects).then((data) => {
+      dispatchLookups({ type: "SET_PROJECTS", payload: data });
+    });
+  }, [loaded.projects, dispatchLookups]);
 
   useEffect(() => {
-    if (!initialized && !loading && defaultProjectIds?.length && (!value || value.length === 0)) {
+    if (!initialized && loaded.projects && defaultProjectIds?.length && (!value || value.length === 0)) {
       onChange(defaultProjectIds);
       setInitialized(true);
     }
-  }, [loading, defaultProjectIds, value, onChange, initialized]);
+  }, [loaded.projects, defaultProjectIds, value, onChange, initialized]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -353,7 +194,7 @@ const ProjectSelector = ({
     onChange(updated);
   };
 
-  if (loading) {
+  if (!loaded.projects) {
     return (
       <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
         Loading...
@@ -415,24 +256,17 @@ const SalaryRangeSelector = ({
   value: number | null;
   onChange: (value: number | null) => void;
 }) => {
-  const [ranges, setRanges] = useState<SalaryRange[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { lookupsState, dispatchLookups } = useLookupsContext();
+  const { salaryRanges, loaded } = lookupsState;
 
   useEffect(() => {
-    const loadRanges = async () => {
-      try {
-        const data = await getSalaryRanges();
-        setRanges(data);
-      } catch (error) {
-        console.error("Failed to fetch salary ranges:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadRanges();
-  }, []);
+    if (loaded.salaryRanges) return;
+    fetchOnce("salaryRanges", getSalaryRanges).then((data) => {
+      dispatchLookups({ type: "SET_SALARY_RANGES", payload: data });
+    });
+  }, [loaded.salaryRanges, dispatchLookups]);
 
-  if (loading) {
+  if (!loaded.salaryRanges) {
     return (
       <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
         Loading...
@@ -447,7 +281,7 @@ const SalaryRangeSelector = ({
       className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
     >
       <option value="">Select salary range...</option>
-      {ranges.map((range) => (
+      {salaryRanges.map((range) => (
         <option key={range.id} value={range.id}>
           {range.label}
         </option>
