@@ -177,7 +177,7 @@ Each tier requires `ENVIRONMENT` variable set appropriately:
 | Staging | `staging` |
 | Production | `production` |
 
-This enables the `reset_test_db.py` safety checks and conditional pipeline logic.
+This enables conditional pipeline logic and environment-specific behavior.
 
 ---
 
