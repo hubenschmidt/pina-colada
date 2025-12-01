@@ -1,0 +1,2 @@
+id,tenant_id,name,description,owner_user_id,status,current_status_id,start_date,end_date,created_at,updated_at
+1,1,Job Search 2025,Job search project for 2025,1,active,1,2025-01-01,,2025-12-01T00:00:00Z,2025-12-01T00:00:00Z
