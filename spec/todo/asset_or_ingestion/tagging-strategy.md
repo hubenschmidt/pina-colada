@@ -5,8 +5,8 @@
 This spec documents the tagging intelligence layer as a separate concern from the ingestion service.
 
 **Related specs:**
-- `spec/todo/asset-upload.md` - Phase 1: Client upload with tagging
-- `spec/todo/asset-api-ingest.md` - Phase 2: API ingestion (tag-agnostic)
+- `spec/todo/asset_or_ingestion/asset-upload.md` - Phase 1: Client upload with tagging
+- `spec/todo/asset_or_ingestion/asset-api-ingest.md` - Phase 2: API ingestion (tag-agnostic)
 
 ---
 
@@ -15,6 +15,8 @@ This spec documents the tagging intelligence layer as a separate concern from th
 The ingestion service accepts tags but doesn't determine them. This spec covers the intelligence layer that decides *what* tags to apply.
 
 **Goal:** Flexible tagging strategies that can evolve independently from storage/ingestion.
+
+**Note:** Documents use the existing polymorphic `EntityTag` table for tagging (via `EntityTag(tag_id, 'Asset', asset_id)`) and `EntityAsset` for entity associations. A document can be tagged and linked to multiple entities (Projects, Leads, Accounts) independently.
 
 ---
 
@@ -92,7 +94,9 @@ async def suggest_tags(
 
 ## Dependencies
 
-- Asset tables from Phase 1
+- Asset/Document tables from Phase 1 (joined table inheritance)
+- EntityTag table (existing polymorphic tagging)
+- EntityAsset table (polymorphic entity linking)
 - Ingestion API from Phase 2
 - LLM integration (existing infrastructure)
 

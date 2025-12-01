@@ -5,6 +5,7 @@ from typing import List, Optional, Dict, Any
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from models.Lead import Lead
+from models.LeadProject import LeadProject
 from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)
@@ -38,12 +39,30 @@ async def find_lead_by_id(lead_id: int) -> Optional[Lead]:
         return result.unique().scalar_one_or_none()
 
 
-async def create_lead(data: Dict[str, Any]) -> Lead:
-    """Create a new lead."""
+async def create_lead(data: Dict[str, Any], project_ids: List[int]) -> Lead:
+    """Create a new lead with required project associations.
+
+    Args:
+        data: Lead field data
+        project_ids: List of project IDs to associate (required, must have at least one)
+
+    Raises:
+        ValueError: If project_ids is empty
+    """
+    if not project_ids:
+        raise ValueError("Lead must be associated with at least one project")
+
     async with async_get_session() as session:
         try:
             lead = Lead(**data)
             session.add(lead)
+            await session.flush()  # Get the lead ID
+
+            # Create project associations
+            for project_id in project_ids:
+                link = LeadProject(lead_id=lead.id, project_id=project_id)
+                session.add(link)
+
             await session.commit()
             await session.refresh(lead)
             return lead

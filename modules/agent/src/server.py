@@ -9,13 +9,14 @@ __all__ = ["app"]
 
 import json
 import logging
+import os
 from datetime import datetime
 import time
 from fastapi import FastAPI, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
 from agent.graph import invoke_graph
 from agent.util.logging_config import configure_logging
-from api.routes import jobs_routes, leads_routes, auth_routes, users_routes, preferences_routes
+from api.routes import jobs_routes, leads_routes, auth_routes, users_routes, preferences_routes, organizations_routes, individuals_routes, industries_routes, salary_ranges_routes, employee_count_ranges_routes, funding_stages_routes, notes_routes, contacts_routes, accounts_routes, revenue_ranges_routes, technologies_routes, provenance_routes, reports_routes, projects_routes, opportunities_routes, partnerships_routes, tasks_routes, comments_routes, notifications_routes, documents_routes, tags_routes
 from api.routes.mocks.k401_rollover import router as mock_401k_router
 from uuid import uuid4
 import uvicorn
@@ -36,6 +37,9 @@ app.add_middleware(
         "wss://api.pinacolada.co",  # production domain
         "https://pinacolada.co",  # production domain
         "https://www.pinacolada.co",  # www version
+        "wss://test.api.pinacolada.co",  # test domain
+        "https://test.pinacolada.co",  # test domain
+        "https://www.test.pinacolada.co",  # test www version
         "http://localhost:3000",  # Local development
         "http://localhost:3001",  # Local development (alternate port)
     ],
@@ -50,6 +54,27 @@ app.include_router(leads_routes)
 app.include_router(auth_routes)
 app.include_router(users_routes)
 app.include_router(preferences_routes)
+app.include_router(organizations_routes)
+app.include_router(individuals_routes)
+app.include_router(industries_routes)
+app.include_router(salary_ranges_routes)
+app.include_router(employee_count_ranges_routes)
+app.include_router(funding_stages_routes)
+app.include_router(notes_routes)
+app.include_router(contacts_routes)
+app.include_router(accounts_routes)
+app.include_router(revenue_ranges_routes)
+app.include_router(technologies_routes)
+app.include_router(provenance_routes)
+app.include_router(reports_routes)
+app.include_router(projects_routes)
+app.include_router(opportunities_routes)
+app.include_router(partnerships_routes)
+app.include_router(tasks_routes)
+app.include_router(comments_routes)
+app.include_router(notifications_routes)
+app.include_router(documents_routes)
+app.include_router(tags_routes)
 app.include_router(mock_401k_router)
 
 
@@ -64,6 +89,11 @@ async def health_check():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+@app.get("/version")
+async def version():
+    return {"build_id": os.getenv("BUILD_ID", "local")}
 
 
 # -----------------------------------------------------------------------------

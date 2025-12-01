@@ -10,7 +10,7 @@ from models import Base
 class UserRole(Base):
     """UserRole SQLAlchemy model (many-to-many junction)."""
 
-    __tablename__ = "UserRole"
+    __tablename__ = "User_Role"
 
     user_id = Column(BigInteger, ForeignKey("User.id", ondelete="CASCADE"), nullable=False)
     role_id = Column(BigInteger, ForeignKey("Role.id", ondelete="CASCADE"), nullable=False)

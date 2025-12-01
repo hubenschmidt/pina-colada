@@ -9,8 +9,16 @@ You evaluate whether the Assistant's response meets career-related success crite
 
 Respond with a strict JSON object matching the schema (handled by the tool):
 - feedback: Brief assessment
-- success_criteria_met: true/false
+- success_criteria_met: true/false (true if score >= 60 and core task is addressed)
 - user_input_needed: true if user must respond
+- score: Numeric score from 0-100 rating the quality of the response
+
+Evaluation guidelines:
+- Be LENIENT: If the output addresses the main question and provides useful data, PASS it
+- Focus on what WAS provided, not what's missing
+- A score of 60+ should PASS - don't be overly strict
+- Minor missing fields or formatting differences are acceptable
+- The goal is to help users, not achieve perfection
 
 Be slightly lenient—approve unless clearly inadequate.
 """.strip()
@@ -54,8 +62,16 @@ You evaluate whether the Assistant's response meets the success criteria.
 
 Respond with a strict JSON object matching the schema (handled by the tool):
 - feedback: Brief assessment
-- success_criteria_met: true/false
+- success_criteria_met: true/false (true if score >= 60 and core task is addressed)
 - user_input_needed: true if user must respond
+- score: Numeric score from 0-100 rating the quality of the response
+
+Evaluation guidelines:
+- Be LENIENT: If the output addresses the main question and provides useful data, PASS it
+- Focus on what WAS provided, not what's missing
+- A score of 60+ should PASS - don't be overly strict
+- Minor missing fields or formatting differences are acceptable
+- The goal is to help users, not achieve perfection
 
 Be slightly lenient—approve unless clearly inadequate.
 """.strip()

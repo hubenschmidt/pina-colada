@@ -4,7 +4,12 @@ import navReducer, { NavState } from "../reducers/navReducer";
 
 const initialState: NavState = {
   agentOpen: false,
-  sidebarCollapsed: true,
+  sidebarCollapsed: false,
+  sidebarSections: {
+    accounts: true,
+    leads: true,
+    reports: true,
+  },
 };
 
 export const NavContext = createContext<{

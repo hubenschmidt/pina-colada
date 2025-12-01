@@ -1,7 +1,7 @@
 """Routes for jobs API endpoints."""
 
-from typing import Optional, Type
-from fastapi import APIRouter, Query, HTTPException, Request
+from typing import Optional, List, Type
+from fastapi import APIRouter, Query, Request
 from pydantic import BaseModel, create_model
 from lib.auth import require_auth
 from lib.error_logging import log_errors
@@ -21,15 +21,22 @@ def _make_job_create_model() -> Type[BaseModel]:
     """Create JobCreate model functionally."""
     return create_model(
         "JobCreate",
-        company=(str, ...),
+        account_type=(str, "Organization"),
+        account=(Optional[str], None),
+        contact_name=(Optional[str], None),
+        contacts=(Optional[List[dict]], None),
+        industry=(Optional[List[str]], None),
+        industry_ids=(Optional[List[int]], None),
         job_title=(str, ...),
         date=(Optional[str], None),
         job_url=(Optional[str], None),
-        salary_range=(Optional[str], None),
-        notes=(Optional[str], None),
+        salary_range=(Optional[str], None),  # Legacy, kept for backwards compat
+        salary_range_id=(Optional[int], None),
+        description=(Optional[str], None),
         resume=(Optional[str], None),
         status=(str, "applied"),
         source=(str, "manual"),
+        project_ids=(Optional[List[int]], None),
     )
 
 
@@ -37,16 +44,19 @@ def _make_job_update_model() -> Type[BaseModel]:
     """Create JobUpdate model functionally."""
     return create_model(
         "JobUpdate",
-        company=(Optional[str], None),
+        account=(Optional[str], None),
+        contacts=(Optional[List[dict]], None),
         job_title=(Optional[str], None),
         date=(Optional[str], None),
         job_url=(Optional[str], None),
-        salary_range=(Optional[str], None),
-        notes=(Optional[str], None),
+        salary_range=(Optional[str], None),  # Legacy, kept for backwards compat
+        salary_range_id=(Optional[int], None),
+        description=(Optional[str], None),
         resume=(Optional[str], None),
         status=(Optional[str], None),
         source=(Optional[str], None),
         lead_status_id=(Optional[str], None),
+        project_ids=(Optional[List[int]], None),
     )
 
 
@@ -60,13 +70,15 @@ JobUpdate = _make_job_update_model()
 async def get_jobs_route(
     request: Request,
     page: int = Query(1, ge=1),
-    limit: int = Query(25, ge=1, le=100),
-    order_by: str = Query("date", alias="orderBy"),
+    limit: int = Query(50, ge=1, le=100),
+    order_by: str = Query("updated_at", alias="orderBy"),
     order: str = Query("DESC", regex="^(ASC|DESC)$"),
     search: Optional[str] = Query(None),
+    project_id: Optional[int] = Query(None, alias="projectId"),
 ):
     """Get all jobs with pagination."""
-    return await get_jobs(page, limit, order_by, order, search)
+    tenant_id = getattr(request.state, "tenant_id", None)
+    return await get_jobs(page, limit, order_by, order, search, tenant_id, project_id)
 
 
 @router.post("")
@@ -74,7 +86,9 @@ async def get_jobs_route(
 @require_auth
 async def create_job_route(request: Request, job_data: JobCreate):
     """Create a new job."""
-    return await create_job(job_data.dict())
+    data = job_data.dict()
+    data["tenant_id"] = getattr(request.state, "tenant_id", None)
+    return await create_job(data)
 
 
 @router.get("/recent-resume-date")

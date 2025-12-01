@@ -60,7 +60,7 @@ CREATE TABLE IF NOT EXISTS "Deal" (
   current_status_id   BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,
   value_amount        NUMERIC(18,2),
   value_currency      TEXT DEFAULT 'USD',
-  probability         NUMERIC(5,2),
+  probability         SMALLINT CHECK (probability >= 0 AND probability <= 100),
   expected_close_date DATE,
   close_date          DATE,
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -205,15 +205,6 @@ CREATE TABLE IF NOT EXISTS "Task_Priority" (
 -- STEP 4: Junction Tables
 -- ==============================
 
-CREATE TABLE IF NOT EXISTS "Lead_Contact" (
-  lead_id       BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
-  contact_id    BIGINT NOT NULL REFERENCES "Contact"(id) ON DELETE CASCADE,
-  role_on_lead  TEXT,
-  is_primary    BOOLEAN NOT NULL DEFAULT FALSE,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
-  PRIMARY KEY (lead_id, contact_id)
-);
-
 CREATE TABLE IF NOT EXISTS "Lead_Organization" (
   lead_id         BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
   organization_id BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
@@ -301,7 +292,7 @@ CREATE TABLE IF NOT EXISTS "Opportunity" (
   organization_id       BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
   opportunity_name      TEXT NOT NULL,
   estimated_value       NUMERIC(18,2),
-  probability           NUMERIC(5,2),
+  probability           SMALLINT CHECK (probability >= 0 AND probability <= 100),
   expected_close_date   DATE,
   notes                 TEXT,
   created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),

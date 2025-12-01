@@ -3,6 +3,8 @@
 from typing import Optional, Dict, Any
 from sqlalchemy import select
 from models.User import User
+from models.Individual import Individual
+from models.Account import Account
 from lib.db import async_get_session
 
 
@@ -23,10 +25,29 @@ async def find_user_by_id(user_id: int) -> Optional[User]:
 
 
 async def create_user(data: Dict[str, Any]) -> User:
-    """Create a new user."""
+    """Create a new user with associated Individual and Account."""
     async with async_get_session() as session:
+        # Create Account for the Individual
+        account = Account(name=data.get("email", "User Account"))
+        session.add(account)
+        await session.flush()
+
+        # Create Individual profile
+        email = data.get("email", "")
+        individual = Individual(
+            account_id=account.id,
+            first_name=data.get("first_name", ""),
+            last_name=data.get("last_name", ""),
+            email=email,
+        )
+        session.add(individual)
+        await session.flush()
+
+        # Create User linked to Individual
         user = User(**data)
+        user.individual_id = individual.id
         session.add(user)
+
         await session.commit()
         await session.refresh(user)
         return user

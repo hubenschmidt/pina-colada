@@ -8,6 +8,8 @@ from fastapi import HTTPException, Request
 from jose import jwt, JWTError
 import requests
 
+from services.auth_service import get_or_create_user
+
 logger = logging.getLogger(__name__)
 # Cache for JWKS
 _jwks_cache: Optional[dict] = None
@@ -77,63 +79,73 @@ def verify_token(token: str) -> dict:
         raise HTTPException(status_code=401, detail=f"Invalid token: {str(e)}")
 
 
+def _extract_token(auth_header: Optional[str]) -> str:
+    """Extract and validate token from Authorization header."""
+    if not auth_header:
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+
+    if not auth_header.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401, detail="Invalid Authorization header format"
+        )
+
+    token = auth_header.split(" ")[1].strip()
+    if not token:
+        raise HTTPException(status_code=401, detail="Token is empty")
+
+    token_parts = token.split(".")
+    if len(token_parts) != 3:
+        detail = "Unauthorized"
+        if os.getenv("ENVIRONMENT") == "development":
+            detail = f"Invalid token format. Expected JWT format (3 parts), got {len(token_parts)} parts"
+        raise HTTPException(status_code=401, detail=detail)
+
+    return token
+
+
+def _get_email_from_claims(claims: dict) -> Optional[str]:
+    """Extract email from standard or namespaced claim."""
+    email = claims.get("email")
+    if email:
+        return email
+
+    auth0_domain = os.getenv("AUTH0_DOMAIN")
+    if not auth0_domain:
+        return None
+
+    return claims.get(f"https://{auth0_domain}/email")
+
+
+def _get_tenant_id(request: Request, claims: dict, user) -> Optional[int]:
+    """Get tenant ID from header, claim, or user."""
+    tenant_id = request.headers.get("X-Tenant-Id")
+    if tenant_id:
+        return int(tenant_id)
+
+    namespace = os.getenv("AUTH0_NAMESPACE", "https://pinacolada.co")
+    claim_tenant = claims.get(f"{namespace}/tenant_id")
+    if claim_tenant:
+        return int(claim_tenant)
+
+    return user.tenant_id if user.tenant_id else None
+
+
 def require_auth(func: Callable):
     """Decorator to protect routes with JWT authentication."""
 
     @wraps(func)
     async def wrapper(request: Request, *args, **kwargs):
-        auth_header = request.headers.get("Authorization")
-        if not auth_header:
-            raise HTTPException(status_code=401, detail="Missing Authorization header")
-
-        if not auth_header.startswith("Bearer "):
-            raise HTTPException(
-                status_code=401, detail="Invalid Authorization header format"
-            )
-
-        token = auth_header.split(" ")[1].strip()
-        if not token:
-            raise HTTPException(status_code=401, detail="Token is empty")
-
-        # Basic JWT format validation (should have 3 parts separated by dots)
-        token_parts = token.split(".")
-        if len(token_parts) != 3:
-            detail = "Unauthorized"
-            if os.getenv("ENVIRONMENT") == "development":
-                detail = f"Invalid token format. Expected JWT format (3 parts), got {len(token_parts)} parts"
-            raise HTTPException(status_code=401, detail=detail)
-
+        token = _extract_token(request.headers.get("Authorization"))
         claims = verify_token(token)
 
-        # Attach user info to request state
         request.state.auth0_sub = claims.get("sub")
+        request.state.email = _get_email_from_claims(claims)
 
-        # Get email from standard claim or namespaced custom claim (Auth0 action adds it)
-        email = claims.get("email")
-        if not email:
-            auth0_domain = os.getenv("AUTH0_DOMAIN")
-            email = claims.get(f"https://{auth0_domain}/email") if auth0_domain else None
-
-        request.state.email = email
-
-        # Load user from database
-        from services.auth_service import get_or_create_user
-
-        user = await get_or_create_user(claims.get("sub"), email)
+        user = await get_or_create_user(claims.get("sub"), request.state.email)
         request.state.user = user
         request.state.user_id = user.id
+        request.state.tenant_id = _get_tenant_id(request, claims, user)
 
-        # Get tenant from header or custom claim
-        tenant_id = request.headers.get("X-Tenant-Id")
-        if not tenant_id:
-            namespace = os.getenv("AUTH0_NAMESPACE", "https://pinacolada.co")
-            tenant_id = claims.get(f"{namespace}/tenant_id")
-
-        if tenant_id:
-            request.state.tenant_id = int(tenant_id)
-            return await func(request, *args, **kwargs)
-
-        request.state.tenant_id = user.tenant_id if user.tenant_id else None
         return await func(request, *args, **kwargs)
 
     return wrapper

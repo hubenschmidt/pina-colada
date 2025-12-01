@@ -361,14 +361,10 @@ def main():
 
     # Try Docker path first
     docker_migrations_dir = Path("/app/migrations")
-    if docker_migrations_dir.exists():
-        migrations_dir = docker_migrations_dir
-        print(f"\n✓ Running in Docker container")
-    else:
-        # Local development path - migrations are in modules/agent/migrations/
-        agent_dir = script_dir.parent
-        migrations_dir = agent_dir / "migrations"
-        print(f"\n✓ Running in local development")
+    agent_dir = script_dir.parent
+    in_docker = docker_migrations_dir.exists()
+    migrations_dir = docker_migrations_dir if in_docker else agent_dir / "migrations"
+    print(f"\n✓ Running in {'Docker container' if in_docker else 'local development'}")
 
     print(f"Migrations directory: {migrations_dir}")
 

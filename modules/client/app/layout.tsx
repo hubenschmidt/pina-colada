@@ -4,12 +4,13 @@ import "./globals.css";
 import { NavProvider } from "../context/navContext";
 import { UserProvider } from "../context/userContext";
 import { PageLoadingProvider } from "../context/pageLoadingContext";
+import { ProjectProvider } from "../context/projectContext";
 import { PublicEnvScript } from "next-runtime-env";
 import { Auth0Provider } from "@auth0/nextjs-auth0/client";
-import { AuthStateManager } from "../components/AuthStateManager";
+import { AuthStateManager } from "../components/AuthStateManager/AuthStateManager";
 import { RootLayoutClient } from "./RootLayoutClient";
-import { ThemeApplier } from "../components/ThemeApplier";
-import { MantineThemeProvider } from "../components/MantineThemeProvider";
+import { ThemeApplier } from "../components/ThemeApplier/ThemeApplier";
+import { MantineThemeProvider } from "../components/MantineThemeProvider/MantineThemeProvider";
 
 export const metadata: Metadata = {
   title: "PinaColada.co",
@@ -29,9 +30,11 @@ export default ({ children }: Readonly<{ children: React.ReactNode }>) => {
             <ThemeApplier />
             <MantineThemeProvider>
               <NavProvider>
-                <PageLoadingProvider>
-                  <RootLayoutClient>{children}</RootLayoutClient>
-                </PageLoadingProvider>
+                <ProjectProvider>
+                  <PageLoadingProvider>
+                    <RootLayoutClient>{children}</RootLayoutClient>
+                  </PageLoadingProvider>
+                </ProjectProvider>
               </NavProvider>
             </MantineThemeProvider>
           </UserProvider>

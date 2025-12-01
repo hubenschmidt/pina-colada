@@ -1,4 +1,4 @@
-from sqlalchemy import Column, String, Text, DateTime, Boolean, BigInteger, func
+from sqlalchemy import Column, Text, DateTime, Boolean, BigInteger, func
 from sqlalchemy.orm import relationship
 from models import Base
 
@@ -23,5 +23,6 @@ class Status(Base):
     # Relationships
     leads = relationship("Lead", back_populates="current_status", foreign_keys="Lead.current_status_id")
     deals = relationship("Deal", back_populates="current_status")
+    projects = relationship("Project", back_populates="current_status")
     tasks_status = relationship("Task", back_populates="current_status", foreign_keys="Task.current_status_id")
     tasks_priority = relationship("Task", back_populates="priority", foreign_keys="Task.priority_id")

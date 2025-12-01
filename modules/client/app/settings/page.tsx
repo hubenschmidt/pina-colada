@@ -12,17 +12,22 @@ import {
   Text,
   Loader,
   Center,
+  Select,
 } from "@mantine/core";
 import {
   getUserPreferences,
   updateUserPreferences,
   getTenantPreferences,
   updateTenantPreferences,
+  getTimezones,
+  TimezoneOption,
 } from "../../api";
 
 const SettingsPage = () => {
   const { userState, dispatchUser } = useUserContext();
   const [userTheme, setUserTheme] = useState<string | null>(null);
+  const [userTimezone, setUserTimezone] = useState<string>("America/New_York");
+  const [timezoneOptions, setTimezoneOptions] = useState<TimezoneOption[]>([]);
   const [tenantTheme, setTenantTheme] = useState<string>("light");
   const [loading, setLoading] = useState(true);
 
@@ -31,8 +36,13 @@ const SettingsPage = () => {
       if (!userState.isAuthed) return;
 
       try {
-        const userPrefs = await getUserPreferences();
+        const [userPrefs, tzOptions] = await Promise.all([
+          getUserPreferences(),
+          getTimezones(),
+        ]);
         setUserTheme(userPrefs.theme);
+        setUserTimezone(userPrefs.timezone);
+        setTimezoneOptions(tzOptions);
 
         if (userState.canEditTenantTheme) {
           const tenantPrefs = await getTenantPreferences();
@@ -51,7 +61,7 @@ const SettingsPage = () => {
   const updateUserTheme = (newTheme: "light" | "dark" | null) => {
     if (!userState.isAuthed) return;
 
-    updateUserPreferences(newTheme)
+    updateUserPreferences({ theme: newTheme })
       .then((data) => {
         setUserTheme(newTheme);
         dispatchUser({
@@ -64,6 +74,18 @@ const SettingsPage = () => {
       })
       .catch((error) => {
         console.error("Failed to update user theme:", error);
+      });
+  };
+
+  const updateTimezone = (newTimezone: string) => {
+    if (!userState.isAuthed) return;
+
+    updateUserPreferences({ timezone: newTimezone })
+      .then(() => {
+        setUserTimezone(newTimezone);
+      })
+      .catch((error) => {
+        console.error("Failed to update timezone:", error);
       });
   };
 
@@ -129,6 +151,19 @@ const SettingsPage = () => {
               <Radio value="dark" label="Dark" />
             </Stack>
           </Radio.Group>
+        </Stack>
+
+        <Stack gap="md">
+          <Title order={2} size="h3">
+            Timezone
+          </Title>
+          <Select
+            value={userTimezone}
+            onChange={(value) => value && updateTimezone(value)}
+            data={timezoneOptions}
+            searchable
+            maw={400}
+          />
         </Stack>
 
         {userState.canEditTenantTheme && (

@@ -2,6 +2,10 @@
 FROM python:3.12-slim
 WORKDIR /app
 
+# Build args for version tracking
+ARG BUILD_ID=local
+ENV BUILD_ID=${BUILD_ID}
+
 # Install OS dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \

@@ -63,20 +63,35 @@ def _get_recent_context(messages, limit: int = 4) -> str:
     recent = []
     count = 0
 
-    for msg in reversed(messages):
-        if count >= limit:
-            break
+    def should_process():
+        return count < limit
 
+    def process_human_message(msg):
+        nonlocal count
+        if not should_process():
+            return
+        content = msg.content if isinstance(msg.content, str) else ""
+        recent.append(f"User: {content}")
+        count += 1
+
+    def process_ai_message(msg):
+        nonlocal count
+        if not should_process():
+            return
+        content = msg.content if isinstance(msg.content, str) else ""
+        # Truncate long AI responses
+        truncated = content[:200] + "..." if len(content) > 200 else content
+        recent.append(f"Assistant: {truncated}")
+        count += 1
+
+    for msg in reversed(messages):
+        if not should_process():
+            return "\n".join(reversed(recent))
+        
         if isinstance(msg, HumanMessage):
-            content = msg.content if isinstance(msg.content, str) else ""
-            recent.append(f"User: {content}")
-            count += 1
-        elif isinstance(msg, AIMessage) and msg.content:
-            content = msg.content if isinstance(msg.content, str) else ""
-            # Truncate long AI responses
-            truncated = content[:200] + "..." if len(content) > 200 else content
-            recent.append(f"Assistant: {truncated}")
-            count += 1
+            process_human_message(msg)
+        if isinstance(msg, AIMessage) and msg.content:
+            process_ai_message(msg)
 
     return "\n".join(reversed(recent))
 

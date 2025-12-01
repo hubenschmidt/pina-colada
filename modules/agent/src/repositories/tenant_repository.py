@@ -6,6 +6,9 @@ from models.Tenant import Tenant
 from models.Role import Role
 from models.UserRole import UserRole
 from models.User import User
+from models.Organization import Organization
+from models.Account import Account
+from models.Individual import Individual
 from lib.db import async_get_session
 
 
@@ -118,9 +121,22 @@ async def find_or_create_tenant_with_user(
 async def _create_new_tenant_with_user(
     session, user_id: int, tenant_name: str, slug: str, plan: str
 ) -> Tuple[Tenant, Role]:
-    """Create new tenant and assign user as owner."""
+    """Create new tenant with default Organization and assign user as owner."""
     tenant = Tenant(name=tenant_name, slug=slug, plan=plan)
     session.add(tenant)
+    await session.flush()
+
+    # Create Account for the default Organization (with tenant_id)
+    org_account = Account(name=tenant_name, tenant_id=tenant.id)
+    session.add(org_account)
+    await session.flush()
+
+    # Create default Organization for the Tenant
+    organization = Organization(
+        account_id=org_account.id,
+        name=tenant_name,
+    )
+    session.add(organization)
     await session.flush()
 
     owner_role = Role(
@@ -142,6 +158,20 @@ async def _create_new_tenant_with_user(
         return (tenant, owner_role)
 
     user.tenant_id = tenant.id
+
+    # Also update the user's Individual's Account to belong to this tenant
+    if not user.individual_id:
+        await session.commit()
+        await session.refresh(tenant)
+        await session.refresh(owner_role)
+        return (tenant, owner_role)
+
+    individual = await session.get(Individual, user.individual_id)
+    if individual and individual.account_id:
+        ind_account = await session.get(Account, individual.account_id)
+        if ind_account:
+            ind_account.tenant_id = tenant.id
+
     await session.commit()
     await session.refresh(tenant)
     await session.refresh(owner_role)

@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { DataTable, type PageData } from "../DataTable";
+import { useEffect, useState, useContext } from "react";
+import { useRouter } from "next/navigation";
+import { DataTable, type PageData } from "../DataTable/DataTable";
 import { Search, X } from "lucide-react";
-import { LeadTrackerConfig, BaseLead } from "./LeadTrackerConfig";
+import { LeadTrackerConfig, BaseLead } from "./types/LeadTrackerTypes";
+import { ProjectContext } from "../../context/projectContext";
 import {
   Stack,
   Center,
@@ -14,28 +16,31 @@ import {
   Button,
   Box,
   Text,
+  Badge,
 } from "@mantine/core";
+import { FolderKanban } from "lucide-react";
 
 interface LeadTrackerProps<T extends BaseLead> {
   config: LeadTrackerConfig<T>;
 }
 
 const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
-  const [isFormOpen, setIsFormOpen] = useState(false);
+  const router = useRouter();
+  const { projectState } = useContext(ProjectContext);
+  const selectedProjectId = projectState.selectedProject?.id ?? null;
+
   const [data, setData] = useState<PageData<T> | null>(null);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(config.defaultPageSize || 25);
+  const [limit, setLimit] = useState(config.defaultPageSize || 50);
   const [sortBy, setSortBy] = useState<string>(
     config.defaultSortBy || "created_at"
   );
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">(
     config.defaultSortDirection || "DESC"
   );
-  const [selectedLead, setSelectedLead] = useState<T | null>(null);
-  const [modalOpened, setModalOpened] = useState(false);
   const [showLoadingBar, setShowLoadingBar] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -52,7 +57,7 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
     setError(null);
 
     config.api
-      .getLeads(page, limit, sortBy, sortDirection, searchQuery || undefined)
+      .getLeads(page, limit, sortBy, sortDirection, searchQuery || undefined, selectedProjectId)
       .then((pageData) => {
         setData(pageData);
       })
@@ -71,61 +76,22 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
 
   useEffect(() => {
     loadLeads(true);
-  }, []);
+  }, [selectedProjectId]);
 
   useEffect(() => {
     if (data !== null && !loading) {
       const prevPage = data.currentPage || 1;
-      const prevLimit = data.pageSize || 25;
+      const prevLimit = data.pageSize || 50;
       const isPagination = page !== prevPage || limit !== prevLimit;
       loadLeads(false, isPagination);
     }
   }, [page, limit, sortBy, sortDirection, searchQuery]);
 
-  const handleAddLead = async (
-    leadData: Omit<T, "id" | "created_at" | "updated_at">
-  ) => {
-    return config.api
-      .createLead(leadData)
-      .then(() => {
-        loadLeads(false);
-        setIsFormOpen(false);
-      })
-      .catch((err) => {
-        console.error(`Error creating ${config.entityName}:`, err);
-      });
-  };
-
-  const handleUpdateLead = async (id: string, updates: Partial<T>) => {
-    return config.api
-      .updateLead(id, updates)
-      .then(() => {
-        loadLeads(false);
-      })
-      .catch((err) => {
-        console.error(`Error updating ${config.entityName}:`, err);
-      });
-  };
-
-  const handleDeleteLead = async (id: string) => {
-    return config.api
-      .deleteLead(id)
-      .then(() => {
-        loadLeads(false);
-      })
-      .catch((err) => {
-        console.error(`Error deleting ${config.entityName}:`, err);
-      });
-  };
-
   const handleRowClick = (lead: T) => {
-    setSelectedLead(lead);
-    setModalOpened(true);
-  };
-
-  const handleModalClose = () => {
-    setModalOpened(false);
-    setSelectedLead(null);
+    if (config.detailPagePath) {
+      router.push(`${config.detailPagePath}/${lead.id}`);
+      return;
+    }
   };
 
   const handleSearchChange = (value: string) => {
@@ -164,21 +130,24 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
     );
   }
 
-  const FormComponent = config.FormComponent;
-  const EditModalComponent = config.EditModalComponent;
+  const selectedProject = projectState.selectedProject;
 
   return (
     <Stack gap="lg">
-      <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-        {config.entityName} Tracker
-      </h1>
-
-      {/* Lead form */}
-      <FormComponent
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onAdd={handleAddLead}
-      />
+      <Group justify="space-between">
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+          {config.entityNamePlural}
+        </h1>
+        {selectedProject ? (
+          <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
+            {selectedProject.name}
+          </Badge>
+        ) : (
+          <Badge variant="light" color="gray">
+            Global
+          </Badge>
+        )}
+      </Group>
 
       {/* Search bar and Add button */}
       {enableSearch && (
@@ -214,8 +183,16 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
                 },
               }}
             />
-            <Button onClick={() => setIsFormOpen(true)} variant="default">
-              Add {config.entityName}
+            <Button
+              onClick={() => {
+                if (config.newPagePath) {
+                  router.push(config.newPagePath);
+                  return;
+                }
+              }}
+              color="lime"
+            >
+              New {config.entityName}
             </Button>
           </Group>
           {searchQuery && (
@@ -270,15 +247,6 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
           }
         />
       </Box>
-
-      {/* Edit Modal */}
-      <EditModalComponent
-        lead={selectedLead}
-        opened={modalOpened}
-        onClose={handleModalClose}
-        onUpdate={handleUpdateLead}
-        onDelete={handleDeleteLead}
-      />
     </Stack>
   );
 };

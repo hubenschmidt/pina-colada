@@ -1,12 +1,9 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useId, useState } from "react";
 import { useWs, ChatMsg } from "../../hooks/useWs";
 import styles from "./Chat.module.css";
-import { Copy, Check, Download, Briefcase, ChevronDown } from "lucide-react";
-import LeadPanel from "../LeadTracker/LeadPanel";
-import { usePanelConfig } from "../config";
-// import { extractAndSaveJobLeads } from "../../lib/job-lead-extractor";
+import { Copy, Check, Download, ChevronDown } from "lucide-react";
 import { env } from "next-runtime-env";
-import { Box, Stack } from "@mantine/core";
+import { Box } from "@mantine/core";
 
 // ---------- User context (testing-only; no consent prompts) ----------
 
@@ -303,8 +300,6 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
-  const [leadsPanelOpen, setLeadsPanelOpen] = useState(false);
-  const [leadsCount, setLeadsCount] = useState(0);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
   const [demoDropdownOpen, setDemoDropdownOpen] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
@@ -312,11 +307,10 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
     `${API_URL}/mocks/401k-rollover/`
   );
 
-  const listRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLTextAreaElement | null>(null);
-  const sentCtxRef = useRef(false);
-  const toolsDropdownRef = useRef<HTMLDivElement | null>(null);
-  const demoDropdownRef = useRef<HTMLDivElement | null>(null);
+  const listId = useId();
+  const [hasSentContext, setHasSentContext] = useState(false);
+  const toolsDropdownId = useId();
+  const demoDropdownId = useId();
 
   // Notify parent of connection state changes
   useEffect(() => {
@@ -325,28 +319,26 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
 
   // --- Send rich user context as soon as WS opens (testing-only) ---
   useEffect(() => {
-    if (!isOpen || sentCtxRef.current) return;
+    if (!isOpen || hasSentContext) return;
     (async () => {
       const ctx = await buildInitialContext();
       sendControl({ type: "user_context", ctx }); // single, silent send
-      sentCtxRef.current = true;
+      setHasSentContext(true);
     })();
-  }, [isOpen, sendControl]);
+  }, [isOpen, hasSentContext, sendControl]);
 
   // scroll the message list, not the page
   useEffect(() => {
-    const el = listRef.current;
+    const el = document.getElementById(listId);
     if (!el) return;
     el.scrollTop = el.scrollHeight;
-  }, [messages]);
+  }, [messages, listId]);
 
   // Close tools dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        toolsDropdownRef.current &&
-        !toolsDropdownRef.current.contains(event.target as Node)
-      ) {
+      const dropdown = document.getElementById(toolsDropdownId);
+      if (dropdown && !dropdown.contains(event.target as Node)) {
         setToolsDropdownOpen(false);
       }
     };
@@ -356,15 +348,13 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
       return () =>
         document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [toolsDropdownOpen]);
+  }, [toolsDropdownOpen, toolsDropdownId]);
 
   // Close demo dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        demoDropdownRef.current &&
-        !demoDropdownRef.current.contains(event.target as Node)
-      ) {
+      const dropdown = document.getElementById(demoDropdownId);
+      if (dropdown && !dropdown.contains(event.target as Node)) {
         setDemoDropdownOpen(false);
       }
     };
@@ -374,13 +364,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
       return () =>
         document.removeEventListener("mousedown", handleClickOutside);
     }
-  }, [demoDropdownOpen]);
-
-
-  // autofocus textarea on mount
-  useEffect(() => {
-    inputRef.current?.focus({ preventScroll: true });
-  }, []);
+  }, [demoDropdownOpen, demoDropdownId]);
 
   const onSubmit: React.FormEventHandler<HTMLFormElement> = (e) => {
     e.preventDefault();
@@ -477,7 +461,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
             <b className={styles.title}>Chat</b>
           </div>
           <div className={styles.headerRight}>
-            <div className={styles.toolsDropdown} ref={toolsDropdownRef}>
+            <div className={styles.toolsDropdown} id={toolsDropdownId}>
               <button
                 type="button"
                 className={styles.toolsButton}
@@ -495,89 +479,9 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
                   <div className="px-4 py-3 text-sm text-zinc-500 italic">
                     Big things coming!
                   </div>
-                  {/* <button
-                    type="button"
-                    className={styles.toolsMenuItem}
-                    onClick={() => {
-                      setLeadsPanelOpen(true);
-                      setToolsDropdownOpen(false);
-                    }}
-                    title="View job leads"
-                  >
-                    <Briefcase size={16} />
-                    <span>Leads</span>
-                    {leadsCount > 0 && (
-                      <span className={styles.leadsBadge}>{leadsCount}</span>
-                    )}
-                  </button> */}
                 </div>
               )}
             </div>
-            {/* Demo dropdown disabled - not using demos */}
-            {/* <div className={styles.toolsDropdown} ref={demoDropdownRef}>
-              <button
-                type="button"
-                className={styles.toolsButton}
-                onClick={() => setDemoDropdownOpen(!demoDropdownOpen)}
-                title="Demo"
-              >
-                <span>Demo</span>
-                <ChevronDown
-                  size={16}
-                  className={demoDropdownOpen ? styles.chevronOpen : ""}
-                />
-              </button>
-              {demoDropdownOpen && (
-                <div className={styles.toolsMenu}>
-                  <button
-                    type="button"
-                    className={styles.toolsMenuItem}
-                    onClick={() => {
-                      setIsDemoMode(true);
-                      setDemoDropdownOpen(false);
-                      const mockUrl = `${API_URL}/mocks/401k-rollover/`;
-                      // Send demo context to agent
-                      sendControl({
-                        type: "demo_context",
-                        demo_url: mockUrl,
-                        demo_type: "401k_rollover_browser",
-                        message: `User has opened the 401k Browser Automation Demo. The mock 401k provider site is loaded at ${mockUrl}. Demo credentials: username='demo', password='demo123'.`,
-                      });
-                      // Send initial demo guidance message
-                      sendMessage(
-                        `Complete a 401k rollover on the mock provider site at ${mockUrl}. Login with username 'demo' and password 'demo123'. Navigate through the site, initiate a rollover, fill in the rollover form with test data, and complete the process. Use Playwright browser tools to automate this flow. Take a screenshot at the end showing the confirmation page.`
-                      );
-                    }}
-                    title="Browser Automation Demo"
-                  >
-                    <span>Browser Automation</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.toolsMenuItem}
-                    onClick={() => {
-                      setIsDemoMode(true);
-                      setDemoDropdownOpen(false);
-                      const mockUrl = `${API_URL}/mocks/401k-rollover/`;
-                      // Send demo context for static scraping
-                      sendControl({
-                        type: "demo_context",
-                        demo_url: mockUrl,
-                        demo_type: "401k_rollover_static",
-                        message: `User has opened the 401k Static Scraping Demo. The mock 401k provider site is loaded at ${mockUrl}.`,
-                      });
-                      // Send scraping task
-                      sendMessage(
-                        `Analyze and scrape the 401k provider site using ONLY static scraping tools (scrape_static_page, analyze_page_structure). Do NOT use browser automation. Extract all available information from the pages: login page structure, form fields, and any data you can gather without JavaScript execution. Show the difference between what static scraping can and cannot accomplish on this site.`
-                      );
-                    }}
-                    title="Static Scraping Demo"
-                  >
-                    <span>Static Scraping</span>
-                  </button>
-                </div>
-              )}
-            </div> */}
             <button
               type="button"
               className={styles.exportButton}
@@ -594,7 +498,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
         <main className={styles.chatPanel}>
           {/* message list */}
           <section
-            ref={listRef}
+            id={listId}
             className={styles.msgList}
             onWheel={(e) => e.stopPropagation()}
             onTouchMove={(e) => e.stopPropagation()}
@@ -676,7 +580,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
               </div>
             )}
             <textarea
-              ref={inputRef}
+              autoFocus
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
@@ -706,17 +610,6 @@ const Chat = ({ variant = "embedded", onConnectionChange }: ChatProps) => {
           </form>
         </main>
       </section>
-
-      {/* Job Leads Panel */}
-      <LeadPanel
-        isOpen={leadsPanelOpen}
-        onClose={() => setLeadsPanelOpen(false)}
-        onLeadsChange={() => {
-          // Reset leads count when panel changes
-          setLeadsCount(0);
-        }}
-        config={usePanelConfig("job")}
-      />
     </Box>
   );
 };

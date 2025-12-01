@@ -1,6 +1,6 @@
 import Image from "next/image";
-import BandBg from "../../components/BandBg";
-import Header from "../../components/Header";
+import BandBg from "../../components/BandBg/BandBg";
+import Header from "../../components/Header/Header";
 
 export const metadata = { title: "About — PinaColada.co" };
 

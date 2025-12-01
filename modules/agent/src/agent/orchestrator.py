@@ -26,6 +26,7 @@ class State(TypedDict):
     feedback_on_work: Optional[str]
     success_criteria_met: bool
     user_input_needed: bool
+    score: Optional[int]  # Numeric score from 0-100 rating response quality
     resume_name: str
     resume_context: str
     route_to_agent: Optional[str]
@@ -73,35 +74,42 @@ def _build_resume_context_concise(resume_text: str, summary: str) -> str:
     return " | ".join(context_parts)
 
 
+def _get_tool_call_ids(msg: Any) -> set:
+    """Extract tool call IDs from a message."""
+    if not isinstance(msg, AIMessage):
+        return set()
+    if not hasattr(msg, 'tool_calls') or not msg.tool_calls:
+        return set()
+    return {tc.get('id') for tc in msg.tool_calls}
+
+
+def _find_pending_tool_calls(messages: List[Any]) -> set:
+    """Find tool_call_ids that don't have responses."""
+    pending = set()
+    for msg in messages:
+        pending.update(_get_tool_call_ids(msg))
+        if isinstance(msg, ToolMessage):
+            pending.discard(msg.tool_call_id)
+    return pending
+
+
+def _is_orphaned_tool_call(msg: Any, pending_ids: set) -> bool:
+    """Check if a message contains an orphaned tool call."""
+    call_ids = _get_tool_call_ids(msg)
+    return bool(call_ids & pending_ids)
+
+
 def _ensure_tool_pairs_intact(messages: List[Any]) -> List[Any]:
-    """Ensure tool_call messages are followed by their tool responses"""
+    """Ensure tool_call messages are followed by their tool responses."""
     if not messages:
         return messages
 
-    # Find all tool_call_ids that need responses
-    pending_tool_calls = set()
-    for msg in messages:
-        if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
-            for tc in msg.tool_calls:
-                pending_tool_calls.add(tc.get('id'))
-        elif isinstance(msg, ToolMessage):
-            pending_tool_calls.discard(msg.tool_call_id)
+    pending = _find_pending_tool_calls(messages)
+    if not pending:
+        return messages
 
-    # If there are pending tool calls without responses, remove them
-    if pending_tool_calls:
-        logger.warning(f"Removing {len(pending_tool_calls)} orphaned tool calls")
-        result = []
-        for msg in messages:
-            if isinstance(msg, AIMessage) and hasattr(msg, 'tool_calls') and msg.tool_calls:
-                # Check if any tool calls are orphaned
-                orphaned = any(tc.get('id') in pending_tool_calls for tc in msg.tool_calls)
-                if orphaned:
-                    # Skip this message or convert to regular message
-                    continue
-            result.append(msg)
-        return result
-
-    return messages
+    logger.warning(f"Removing {len(pending)} orphaned tool calls")
+    return [msg for msg in messages if not _is_orphaned_tool_call(msg, pending)]
 
 
 def _trim_messages(messages: List[Any], max_tokens: int = 8000) -> List[Any]:
@@ -306,6 +314,7 @@ async def create_orchestrator(
             "feedback_on_work": None,
             "success_criteria_met": False,
             "user_input_needed": False,
+            "score": None,
             "resume_name": "William Hubenschmidt",
             "resume_context": resume_context,
             "route_to_agent": None,

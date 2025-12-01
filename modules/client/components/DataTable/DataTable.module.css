@@ -1,0 +1,20 @@
+.paginationControl {
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+}
+
+.paginationControl:hover {
+  background-color: var(--hover-background);
+}
+
+.paginationControl[data-active] {
+  background-color: var(--surface);
+  border: 2px solid #a1a1aa;
+  font-weight: 600;
+}
+
+.paginationControl[data-active]:hover {
+  background-color: var(--surface);
+  border: 2px solid #a1a1aa;
+}

@@ -3,7 +3,7 @@
 import re
 from typing import Dict, Any, List
 from models.User import User
-from repositories.user_repository import find_user_by_auth0_sub, create_user
+from repositories.user_repository import find_user_by_auth0_sub, find_user_by_email, create_user, update_user
 from repositories.tenant_repository import (
     find_or_create_tenant_with_user,
     get_user_tenants_with_roles,
@@ -17,6 +17,12 @@ async def get_or_create_user(auth0_sub: str, email: str) -> User:
     user = await find_user_by_auth0_sub(auth0_sub)
     if user:
         return user
+
+    # Check if user exists by email (e.g., seeded user without auth0_sub)
+    user = await find_user_by_email(email)
+    if user:
+        # Update with auth0_sub
+        return await update_user(user.id, {"auth0_sub": auth0_sub})
 
     # First login - create user without tenant
     data: Dict[str, Any] = {"auth0_sub": auth0_sub, "email": email, "status": "active"}

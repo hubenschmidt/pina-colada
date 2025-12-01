@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, func, Index, UniqueConstraint, CheckConstraint
+from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, Boolean, func, Index, UniqueConstraint, CheckConstraint
 from sqlalchemy.orm import relationship
 from models import Base
 
@@ -14,20 +14,24 @@ class User(Base):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = Column(BigInteger, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=True)
+    individual_id = Column(BigInteger, ForeignKey("Individual.id", ondelete="SET NULL"), nullable=True)
     auth0_sub = Column(Text, unique=True, nullable=True)
     email = Column(Text, nullable=False)
     first_name = Column(Text, nullable=True)
     last_name = Column(Text, nullable=True)
     avatar_url = Column(Text, nullable=True)
     status = Column(Text, nullable=False, default='active')
+    is_system_user = Column(Boolean, default=False)
     last_login_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
     tenant = relationship("Tenant", back_populates="users")
+    individual = relationship("Individual", back_populates="user")
     user_roles = relationship("UserRole", back_populates="user")
     preferences = relationship("UserPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan")
+    assets = relationship("Asset", back_populates="user", cascade="all, delete-orphan")
 
     __table_args__ = (
         UniqueConstraint('tenant_id', 'email', name='user_tenant_email_unique'),

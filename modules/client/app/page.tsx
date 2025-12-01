@@ -1,14 +1,14 @@
 "use client";
 import React, { useEffect } from "react";
 import Link from "next/link";
-import SectionFrame from "../components/SectionFrame";
+import SectionFrame from "../components/SectionFrame/SectionFrame";
 import { CheckCircle2, ChevronRight } from "lucide-react";
-import { Card, SectionTitle, CardLink } from "../components/ui";
-import Hero from "../components/Hero";
-import BandBg from "../components/BandBg";
+import { Card, SectionTitle, CardLink } from "../components/ui/ui";
+import Hero from "../components/Hero/Hero";
+import BandBg from "../components/BandBg/BandBg";
 import Chat from "../components/Chat/Chat";
 import { useNavContext } from "../context/navContext";
-import Header from "../components/Header";
+import Header from "../components/Header/Header";
 
 const Home = () => {
   const { navState } = useNavContext();

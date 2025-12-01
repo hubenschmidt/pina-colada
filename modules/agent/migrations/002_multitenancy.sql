@@ -51,8 +51,8 @@ CREATE TABLE IF NOT EXISTS "Role" (
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- UserRole junction table (users can have multiple roles)
-CREATE TABLE IF NOT EXISTS "UserRole" (
+-- User_Role junction table (users can have multiple roles)
+CREATE TABLE IF NOT EXISTS "User_Role" (
   user_id         BIGINT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
   role_id         BIGINT NOT NULL REFERENCES "Role"(id) ON DELETE CASCADE,
   created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -136,7 +136,7 @@ CREATE UNIQUE INDEX idx_individual_email_lower_tenant ON "Individual"(tenant_id,
 -- Enable RLS on tenant-scoped tables
 ALTER TABLE "Tenant" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "User" ENABLE ROW LEVEL SECURITY;
-ALTER TABLE "UserRole" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "User_Role" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "Deal" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "Organization" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "Individual" ENABLE ROW LEVEL SECURITY;

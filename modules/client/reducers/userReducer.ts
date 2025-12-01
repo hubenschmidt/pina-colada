@@ -10,7 +10,7 @@ export interface UserState {
   tenantName: string | null;
   bearerToken: string | null;
   isAuthed: boolean;
-  theme: "light" | "dark";
+  theme: "light" | "dark" | "cyberpunk";
   canEditTenantTheme: boolean;
 }
 
@@ -66,7 +66,7 @@ const setAuthed = (state: UserState, payload: string): UserState => {
   };
 };
 
-const setTheme = (state: UserState, payload: { theme: "light" | "dark"; canEditTenant: boolean }): UserState => {
+const setTheme = (state: UserState, payload: { theme: "light" | "dark" | "cyberpunk"; canEditTenant: boolean }): UserState => {
   return {
     ...state,
     theme: payload.theme,

@@ -176,26 +176,21 @@ def run_seeders():
             try:
                 if cursor.description:  # Check if there are results
                     results = cursor.fetchall()
-                    if results:
-                        # Format results nicely
-                        if len(results) == 1 and len(results[0]) == 1:
-                            # Single value (e.g., COUNT(*))
-                            result_summary = f"{results[0][0]} rows"
-                        else:
-                            # Multiple columns - show summary
-                            result_summary = ", ".join(
-                                f"{cursor.description[i][0]}: {val}"
-                                for i, val in enumerate(results[0])
-                            )
+                    is_single_value = results and len(results) == 1 and len(results[0]) == 1
+                    if is_single_value:
+                        result_summary = f"{results[0][0]} rows"
+                    if results and not is_single_value:
+                        result_summary = ", ".join(
+                            f"{cursor.description[i][0]}: {val}"
+                            for i, val in enumerate(results[0])
+                        )
             except:
                 pass
 
             _record_seeder(cursor, conn, seeder_file.name)
 
-            if result_summary:
-                print(f"✓ Seeder {seeder_file.name} completed ({result_summary})")
-            else:
-                print(f"✓ Seeder {seeder_file.name} completed ({rows_affected} rows affected)")
+            summary = result_summary or f"{rows_affected} rows affected"
+            print(f"✓ Seeder {seeder_file.name} completed ({summary})")
 
         cursor.close()
         conn.close()

@@ -75,6 +75,28 @@ def _clear_cache() -> None:
     _jobs_details_cache = []
 
 
+def _is_valid_applied_record(job_data: Dict[str, str]) -> bool:
+    """Check if job data is valid and has applied status."""
+    if not job_data.get("title"):
+        return False
+    return job_data.get("status", "").lower() == "applied"
+
+
+def _process_job_records(records: list) -> tuple:
+    """Process job records into applied_jobs set and jobs_details list."""
+    applied_jobs = set()
+    jobs_details = []
+
+    for record in records:
+        job_data = _map_db_record_to_job(record)
+        if _is_valid_applied_record(job_data):
+            identifier = _normalize_job_identifier(job_data["company"], job_data["title"])
+            applied_jobs.add(identifier)
+            jobs_details.append(job_data)
+
+    return applied_jobs, jobs_details
+
+
 def fetch_applied_jobs(refresh: bool = False) -> Set[str]:
     """Fetch list of companies/job titles from applied jobs table."""
     global _applied_jobs_cache, _jobs_details_cache
@@ -88,40 +110,12 @@ def fetch_applied_jobs(refresh: bool = False) -> Set[str]:
         return set()
 
     try:
-        # Filter by status='applied' only
         response = client.table("Job").select("*").eq("status", "applied").execute()
-        records = response.data
+        logger.info(f"✓ Found {len(response.data)} rows in Job table with status='applied'")
 
-        logger.info(f"✓ Found {len(records)} rows in Job table with status='applied'")
+        applied_jobs, jobs_details = _process_job_records(response.data)
 
-        applied_jobs = set()
-        jobs_details = []
-
-        def _process_record(record: Dict[str, Any]) -> Optional[Dict[str, str]]:
-            job_data = _map_db_record_to_job(record)
-            if not job_data["title"]:
-                return None
-            # Double-check status (should already be filtered by query, but be safe)
-            if job_data.get("status", "").lower() != "applied":
-                return None
-            return job_data
-
-        def _add_job(job_data: Dict[str, str]) -> None:
-            identifier = _normalize_job_identifier(
-                job_data["company"], job_data["title"]
-            )
-            applied_jobs.add(identifier)
-            jobs_details.append(job_data)
-
-        for record in records:
-            job_data = _process_record(record)
-            if job_data:
-                _add_job(job_data)
-
-        logger.info(
-            f"✓ Loaded {len(applied_jobs)} applied jobs (status='applied') from Supabase"
-        )
-        logger.info(f"✓ Total job details: {len(jobs_details)}")
+        logger.info(f"✓ Loaded {len(applied_jobs)} applied jobs from Supabase")
         _applied_jobs_cache = applied_jobs
         _jobs_details_cache = jobs_details
         return applied_jobs

@@ -18,15 +18,15 @@ class Job(Base):
     __tablename__ = "Job"
 
     id = Column(BigInteger, ForeignKey("Lead.id", ondelete="CASCADE"), primary_key=True)
-    organization_id = Column(BigInteger, ForeignKey("Organization.id", ondelete="CASCADE"), nullable=False)
     job_title = Column(Text, nullable=False)
     job_url = Column(Text, nullable=True)
-    notes = Column(Text, nullable=True)
+    description = Column(Text, nullable=True)
     resume_date = Column(DateTime(timezone=True), nullable=True)
-    salary_range = Column(Text, nullable=True)
+    salary_range = Column(Text, nullable=True)  # Legacy field, kept for backwards compat
+    salary_range_id = Column(BigInteger, ForeignKey("Salary_Range.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
     lead = relationship("Lead", back_populates="job")
-    organization = relationship("Organization", back_populates="jobs")
+    salary_range_ref = relationship("SalaryRange")
