@@ -8,7 +8,7 @@ from models import Base
 class TenantPreferences(Base):
     """TenantPreferences SQLAlchemy model (theme settings for entire tenant)."""
 
-    __tablename__ = "TenantPreferences"
+    __tablename__ = "Tenant_Preferences"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = Column(BigInteger, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)

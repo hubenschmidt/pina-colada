@@ -9,7 +9,7 @@ from models import Base
 
 
 class CommentNotification(Base):
-    __tablename__ = "CommentNotification"
+    __tablename__ = "Comment_Notification"
 
     id = Column(Integer, primary_key=True)
     tenant_id = Column(Integer, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=False)

@@ -11,7 +11,7 @@ class AccountProject(Base):
 
     Used for reporting purposes only - does not affect scope/filtering.
     """
-    __tablename__ = "AccountProject"
+    __tablename__ = "Account_Project"
 
     account_id = Column(
         BigInteger,

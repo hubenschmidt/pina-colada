@@ -7,7 +7,7 @@ from models import Base
 
 class ContactIndividual(Base):
     """Junction table for Contact-Individual many-to-many relationship."""
-    __tablename__ = "ContactIndividual"
+    __tablename__ = "Contact_Individual"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     contact_id = Column(BigInteger, ForeignKey("Contact.id", ondelete="CASCADE"), nullable=False)
@@ -17,7 +17,7 @@ class ContactIndividual(Base):
 
 class ContactOrganization(Base):
     """Junction table for Contact-Organization many-to-many relationship."""
-    __tablename__ = "ContactOrganization"
+    __tablename__ = "Contact_Organization"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     contact_id = Column(BigInteger, ForeignKey("Contact.id", ondelete="CASCADE"), nullable=False)
@@ -47,13 +47,13 @@ class Contact(Base):
     # Many-to-many relationships via junction tables
     individuals = relationship(
         "Individual",
-        secondary="ContactIndividual",
+        secondary="Contact_Individual",
         back_populates="contacts",
         lazy="selectin"
     )
     organizations = relationship(
         "Organization",
-        secondary="ContactOrganization",
+        secondary="Contact_Organization",
         back_populates="contacts",
         lazy="selectin"
     )

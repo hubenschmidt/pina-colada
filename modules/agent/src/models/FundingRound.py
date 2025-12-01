@@ -9,7 +9,7 @@ from models import Base
 class FundingRound(Base):
     """FundingRound SQLAlchemy model."""
 
-    __tablename__ = "FundingRound"
+    __tablename__ = "Funding_Round"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     organization_id = Column(BigInteger, ForeignKey("Organization.id", ondelete="CASCADE"), nullable=False)

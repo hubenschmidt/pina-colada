@@ -21,4 +21,4 @@ class Account(Base):
     individuals = relationship("Individual", back_populates="account")
     leads = relationship("Lead", back_populates="account")
     industries = relationship("Industry", secondary=Account_Industry, back_populates="accounts")
-    projects = relationship("Project", secondary="AccountProject", backref="accounts")
+    projects = relationship("Project", secondary="Account_Project", backref="accounts")

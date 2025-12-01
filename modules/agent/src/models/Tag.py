@@ -4,7 +4,7 @@ from models import Base
 
 # Polymorphic join table for tagging any entity
 EntityTag = Table(
-    "EntityTag",
+    "Entity_Tag",
     Base.metadata,
     Column("tag_id", BigInteger, ForeignKey("Tag.id", ondelete="CASCADE"), primary_key=True),
     Column("entity_type", Text, primary_key=True),

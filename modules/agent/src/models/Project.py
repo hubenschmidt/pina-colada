@@ -28,7 +28,7 @@ class Project(Base):
     tenant = relationship("Tenant", back_populates="projects")
     current_status = relationship("Status", back_populates="projects")
     deals = relationship("Deal", back_populates="project")
-    leads = relationship("Lead", secondary="LeadProject", back_populates="projects")
+    leads = relationship("Lead", secondary="Lead_Project", back_populates="projects")
 
     __table_args__ = (
         Index('idx_project_tenant_id', 'tenant_id'),

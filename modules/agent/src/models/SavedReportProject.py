@@ -9,11 +9,11 @@ from models import Base
 class SavedReportProject(Base):
     """Junction table linking SavedReport to Project (many-to-many)."""
 
-    __tablename__ = "SavedReportProject"
+    __tablename__ = "Saved_Report_Project"
 
     saved_report_id = Column(
         BigInteger,
-        ForeignKey("SavedReport.id", ondelete="CASCADE"),
+        ForeignKey("Saved_Report.id", ondelete="CASCADE"),
         primary_key=True
     )
     project_id = Column(

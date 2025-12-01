@@ -56,7 +56,7 @@ def _get_entity_project_id(entity_type: str, entity_id: int) -> int | None:
         # Junction table relationships
         if entity_type == "Lead":
             result = session.execute(
-                text('SELECT project_id FROM "LeadProject" WHERE lead_id = :id LIMIT 1'),
+                text('SELECT project_id FROM "Lead_Project" WHERE lead_id = :id LIMIT 1'),
                 {"id": entity_id}
             ).fetchone()
             return result[0] if result else None
@@ -73,7 +73,7 @@ def _get_entity_project_id(entity_type: str, entity_id: int) -> int | None:
             return None
 
         proj_result = session.execute(
-            text('SELECT project_id FROM "AccountProject" WHERE account_id = :id LIMIT 1'),
+            text('SELECT project_id FROM "Account_Project" WHERE account_id = :id LIMIT 1'),
             {"id": result[0]}
         ).fetchone()
         return proj_result[0] if proj_result else None

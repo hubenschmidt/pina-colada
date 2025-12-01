@@ -9,7 +9,7 @@ from models import Base
 class CompanySignal(Base):
     """CompanySignal SQLAlchemy model."""
 
-    __tablename__ = "CompanySignal"
+    __tablename__ = "Company_Signal"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     organization_id = Column(BigInteger, ForeignKey("Organization.id", ondelete="CASCADE"), nullable=False)

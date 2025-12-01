@@ -36,7 +36,7 @@ class Individual(Base):
     account = relationship("Account", back_populates="individuals")
     contacts = relationship(
         "Contact",
-        secondary="ContactIndividual",
+        secondary="Contact_Individual",
         back_populates="individuals",
         lazy="selectin"
     )

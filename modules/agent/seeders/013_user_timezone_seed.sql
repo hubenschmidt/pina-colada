@@ -10,7 +10,7 @@ BEGIN
     -- Set timezone for William Hubenschmidt (America/New_York)
     SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
     IF v_user_id IS NOT NULL THEN
-        INSERT INTO "UserPreferences" (user_id, timezone, created_at, updated_at)
+        INSERT INTO "User_Preferences" (user_id, timezone, created_at, updated_at)
         VALUES (v_user_id, 'America/New_York', NOW(), NOW())
         ON CONFLICT (user_id) DO UPDATE SET timezone = 'America/New_York', updated_at = NOW()
         RETURNING id INTO v_prefs_id;
@@ -20,7 +20,7 @@ BEGIN
     -- Set timezone for Jennifer Lev (America/New_York)
     SELECT id INTO v_user_id FROM "User" WHERE email = 'jennifervlev@gmail.com' LIMIT 1;
     IF v_user_id IS NOT NULL THEN
-        INSERT INTO "UserPreferences" (user_id, timezone, created_at, updated_at)
+        INSERT INTO "User_Preferences" (user_id, timezone, created_at, updated_at)
         VALUES (v_user_id, 'America/New_York', NOW(), NOW())
         ON CONFLICT (user_id) DO UPDATE SET timezone = 'America/New_York', updated_at = NOW()
         RETURNING id INTO v_prefs_id;
@@ -30,7 +30,7 @@ BEGIN
     -- Set timezone for AI Agent users (UTC) - all system users
     FOR v_user_id IN SELECT id FROM "User" WHERE is_system_user = TRUE
     LOOP
-        INSERT INTO "UserPreferences" (user_id, timezone, created_at, updated_at)
+        INSERT INTO "User_Preferences" (user_id, timezone, created_at, updated_at)
         VALUES (v_user_id, 'UTC', NOW(), NOW())
         ON CONFLICT (user_id) DO UPDATE SET timezone = 'UTC', updated_at = NOW()
         RETURNING id INTO v_prefs_id;

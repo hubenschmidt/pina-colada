@@ -8,7 +8,7 @@ from models import Base
 class RevenueRange(Base):
     """RevenueRange SQLAlchemy model."""
 
-    __tablename__ = "RevenueRange"
+    __tablename__ = "Revenue_Range"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     label = Column(Text, nullable=False, unique=True)

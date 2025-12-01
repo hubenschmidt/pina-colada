@@ -10,7 +10,7 @@ from models import Base
 class DataProvenance(Base):
     """DataProvenance SQLAlchemy model."""
 
-    __tablename__ = "DataProvenance"
+    __tablename__ = "Data_Provenance"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     entity_type = Column(Text, nullable=False)     # 'Organization', 'Individual'

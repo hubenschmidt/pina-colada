@@ -8,7 +8,7 @@ from models import Base
 class FundingStage(Base):
     """Lookup table for funding stages (e.g., Seed, Series A)."""
 
-    __tablename__ = "FundingStage"
+    __tablename__ = "Funding_Stage"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     label = Column(Text, nullable=False, unique=True)

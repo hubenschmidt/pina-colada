@@ -9,7 +9,7 @@ from models import Base
 class OrganizationTechnology(Base):
     """OrganizationTechnology SQLAlchemy model (junction table)."""
 
-    __tablename__ = "OrganizationTechnology"
+    __tablename__ = "Organization_Technology"
 
     organization_id = Column(BigInteger, ForeignKey("Organization.id", ondelete="CASCADE"), primary_key=True)
     technology_id = Column(BigInteger, ForeignKey("Technology.id", ondelete="CASCADE"), primary_key=True)

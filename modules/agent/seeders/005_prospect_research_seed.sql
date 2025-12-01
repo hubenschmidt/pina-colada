@@ -62,9 +62,9 @@ DECLARE
 BEGIN
     -- TechVentures Inc - VC firm (51-500 employees, established)
     SELECT id INTO v_org_id FROM "Organization" WHERE LOWER(name) = LOWER('TechVentures Inc') LIMIT 1;
-    SELECT id INTO v_revenue_range_id FROM "RevenueRange" WHERE label = '$100M - $500M' LIMIT 1;
-    SELECT id INTO v_employee_count_id FROM "EmployeeCountRange" WHERE label = '51-500' LIMIT 1;
-    SELECT id INTO v_funding_stage_id FROM "FundingStage" WHERE label = 'Series C' LIMIT 1;
+    SELECT id INTO v_revenue_range_id FROM "Revenue_Range" WHERE label = '$100M - $500M' LIMIT 1;
+    SELECT id INTO v_employee_count_id FROM "Employee_Count_Range" WHERE label = '51-500' LIMIT 1;
+    SELECT id INTO v_funding_stage_id FROM "Funding_Stage" WHERE label = 'Series C' LIMIT 1;
     IF v_org_id IS NOT NULL THEN
         UPDATE "Organization" SET
             revenue_range_id = v_revenue_range_id,
@@ -82,9 +82,9 @@ BEGIN
 
     -- CloudScale Systems - Enterprise SaaS (501-1500 employees, Series B)
     SELECT id INTO v_org_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudScale Systems') LIMIT 1;
-    SELECT id INTO v_revenue_range_id FROM "RevenueRange" WHERE label = '$50M - $100M' LIMIT 1;
-    SELECT id INTO v_employee_count_id FROM "EmployeeCountRange" WHERE label = '501-1500' LIMIT 1;
-    SELECT id INTO v_funding_stage_id FROM "FundingStage" WHERE label = 'Series B' LIMIT 1;
+    SELECT id INTO v_revenue_range_id FROM "Revenue_Range" WHERE label = '$50M - $100M' LIMIT 1;
+    SELECT id INTO v_employee_count_id FROM "Employee_Count_Range" WHERE label = '501-1500' LIMIT 1;
+    SELECT id INTO v_funding_stage_id FROM "Funding_Stage" WHERE label = 'Series B' LIMIT 1;
     IF v_org_id IS NOT NULL THEN
         UPDATE "Organization" SET
             revenue_range_id = v_revenue_range_id,
@@ -102,9 +102,9 @@ BEGIN
 
     -- DataFlow Analytics - Growth stage startup (51-500 employees, Series A)
     SELECT id INTO v_org_id FROM "Organization" WHERE LOWER(name) = LOWER('DataFlow Analytics') LIMIT 1;
-    SELECT id INTO v_revenue_range_id FROM "RevenueRange" WHERE label = '$10M - $50M' LIMIT 1;
-    SELECT id INTO v_employee_count_id FROM "EmployeeCountRange" WHERE label = '51-500' LIMIT 1;
-    SELECT id INTO v_funding_stage_id FROM "FundingStage" WHERE label = 'Series A' LIMIT 1;
+    SELECT id INTO v_revenue_range_id FROM "Revenue_Range" WHERE label = '$10M - $50M' LIMIT 1;
+    SELECT id INTO v_employee_count_id FROM "Employee_Count_Range" WHERE label = '51-500' LIMIT 1;
+    SELECT id INTO v_funding_stage_id FROM "Funding_Stage" WHERE label = 'Series A' LIMIT 1;
     IF v_org_id IS NOT NULL THEN
         UPDATE "Organization" SET
             revenue_range_id = v_revenue_range_id,
@@ -122,9 +122,9 @@ BEGIN
 
     -- SecureNet Solutions - Established security company (51-500 employees, Series B)
     SELECT id INTO v_org_id FROM "Organization" WHERE LOWER(name) = LOWER('SecureNet Solutions') LIMIT 1;
-    SELECT id INTO v_revenue_range_id FROM "RevenueRange" WHERE label = '$50M - $100M' LIMIT 1;
-    SELECT id INTO v_employee_count_id FROM "EmployeeCountRange" WHERE label = '51-500' LIMIT 1;
-    SELECT id INTO v_funding_stage_id FROM "FundingStage" WHERE label = 'Series B' LIMIT 1;
+    SELECT id INTO v_revenue_range_id FROM "Revenue_Range" WHERE label = '$50M - $100M' LIMIT 1;
+    SELECT id INTO v_employee_count_id FROM "Employee_Count_Range" WHERE label = '51-500' LIMIT 1;
+    SELECT id INTO v_funding_stage_id FROM "Funding_Stage" WHERE label = 'Series B' LIMIT 1;
     IF v_org_id IS NOT NULL THEN
         UPDATE "Organization" SET
             revenue_range_id = v_revenue_range_id,
@@ -142,9 +142,9 @@ BEGIN
 
     -- InnovateLab - Early stage consulting (11-50 employees, Seed)
     SELECT id INTO v_org_id FROM "Organization" WHERE LOWER(name) = LOWER('InnovateLab') LIMIT 1;
-    SELECT id INTO v_revenue_range_id FROM "RevenueRange" WHERE label = '$1M - $10M' LIMIT 1;
-    SELECT id INTO v_employee_count_id FROM "EmployeeCountRange" WHERE label = '11-50' LIMIT 1;
-    SELECT id INTO v_funding_stage_id FROM "FundingStage" WHERE label = 'Seed' LIMIT 1;
+    SELECT id INTO v_revenue_range_id FROM "Revenue_Range" WHERE label = '$1M - $10M' LIMIT 1;
+    SELECT id INTO v_employee_count_id FROM "Employee_Count_Range" WHERE label = '11-50' LIMIT 1;
+    SELECT id INTO v_funding_stage_id FROM "Funding_Stage" WHERE label = 'Seed' LIMIT 1;
     IF v_org_id IS NOT NULL THEN
         UPDATE "Organization" SET
             revenue_range_id = v_revenue_range_id,
@@ -162,9 +162,9 @@ BEGIN
     -- Also seed some orgs from 001_initial_seed.sql
     -- Acme Corp - mid-size, Series A
     SELECT id INTO v_org_id FROM "Organization" WHERE LOWER(name) = LOWER('Acme Corp') LIMIT 1;
-    SELECT id INTO v_revenue_range_id FROM "RevenueRange" WHERE label = '$10M - $50M' LIMIT 1;
-    SELECT id INTO v_employee_count_id FROM "EmployeeCountRange" WHERE label = '51-500' LIMIT 1;
-    SELECT id INTO v_funding_stage_id FROM "FundingStage" WHERE label = 'Series A' LIMIT 1;
+    SELECT id INTO v_revenue_range_id FROM "Revenue_Range" WHERE label = '$10M - $50M' LIMIT 1;
+    SELECT id INTO v_employee_count_id FROM "Employee_Count_Range" WHERE label = '51-500' LIMIT 1;
+    SELECT id INTO v_funding_stage_id FROM "Funding_Stage" WHERE label = 'Series A' LIMIT 1;
     IF v_org_id IS NOT NULL THEN
         UPDATE "Organization" SET
             revenue_range_id = v_revenue_range_id,
@@ -180,9 +180,9 @@ BEGIN
 
     -- TechStartup Inc - early stage
     SELECT id INTO v_org_id FROM "Organization" WHERE LOWER(name) = LOWER('TechStartup Inc') LIMIT 1;
-    SELECT id INTO v_revenue_range_id FROM "RevenueRange" WHERE label = '$1M - $10M' LIMIT 1;
-    SELECT id INTO v_employee_count_id FROM "EmployeeCountRange" WHERE label = '11-50' LIMIT 1;
-    SELECT id INTO v_funding_stage_id FROM "FundingStage" WHERE label = 'Seed' LIMIT 1;
+    SELECT id INTO v_revenue_range_id FROM "Revenue_Range" WHERE label = '$1M - $10M' LIMIT 1;
+    SELECT id INTO v_employee_count_id FROM "Employee_Count_Range" WHERE label = '11-50' LIMIT 1;
+    SELECT id INTO v_funding_stage_id FROM "Funding_Stage" WHERE label = 'Seed' LIMIT 1;
     IF v_org_id IS NOT NULL THEN
         UPDATE "Organization" SET
             revenue_range_id = v_revenue_range_id,
@@ -198,9 +198,9 @@ BEGIN
 
     -- DataSystems Ltd - established
     SELECT id INTO v_org_id FROM "Organization" WHERE LOWER(name) = LOWER('DataSystems Ltd') LIMIT 1;
-    SELECT id INTO v_revenue_range_id FROM "RevenueRange" WHERE label = '$50M - $100M' LIMIT 1;
-    SELECT id INTO v_employee_count_id FROM "EmployeeCountRange" WHERE label = '501-1500' LIMIT 1;
-    SELECT id INTO v_funding_stage_id FROM "FundingStage" WHERE label = 'Series C' LIMIT 1;
+    SELECT id INTO v_revenue_range_id FROM "Revenue_Range" WHERE label = '$50M - $100M' LIMIT 1;
+    SELECT id INTO v_employee_count_id FROM "Employee_Count_Range" WHERE label = '501-1500' LIMIT 1;
+    SELECT id INTO v_funding_stage_id FROM "Funding_Stage" WHERE label = 'Series C' LIMIT 1;
     IF v_org_id IS NOT NULL THEN
         UPDATE "Organization" SET
             revenue_range_id = v_revenue_range_id,
@@ -216,9 +216,9 @@ BEGIN
 
     -- CloudWorks - growth
     SELECT id INTO v_org_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudWorks') LIMIT 1;
-    SELECT id INTO v_revenue_range_id FROM "RevenueRange" WHERE label = '$10M - $50M' LIMIT 1;
-    SELECT id INTO v_employee_count_id FROM "EmployeeCountRange" WHERE label = '51-500' LIMIT 1;
-    SELECT id INTO v_funding_stage_id FROM "FundingStage" WHERE label = 'Series B' LIMIT 1;
+    SELECT id INTO v_revenue_range_id FROM "Revenue_Range" WHERE label = '$10M - $50M' LIMIT 1;
+    SELECT id INTO v_employee_count_id FROM "Employee_Count_Range" WHERE label = '51-500' LIMIT 1;
+    SELECT id INTO v_funding_stage_id FROM "Funding_Stage" WHERE label = 'Series B' LIMIT 1;
     IF v_org_id IS NOT NULL THEN
         UPDATE "Organization" SET
             revenue_range_id = v_revenue_range_id,
@@ -234,9 +234,9 @@ BEGIN
 
     -- AI Innovations - early stage AI startup
     SELECT id INTO v_org_id FROM "Organization" WHERE LOWER(name) = LOWER('AI Innovations') LIMIT 1;
-    SELECT id INTO v_revenue_range_id FROM "RevenueRange" WHERE label = '$1M - $10M' LIMIT 1;
-    SELECT id INTO v_employee_count_id FROM "EmployeeCountRange" WHERE label = '1-10' LIMIT 1;
-    SELECT id INTO v_funding_stage_id FROM "FundingStage" WHERE label = 'Pre-seed' LIMIT 1;
+    SELECT id INTO v_revenue_range_id FROM "Revenue_Range" WHERE label = '$1M - $10M' LIMIT 1;
+    SELECT id INTO v_employee_count_id FROM "Employee_Count_Range" WHERE label = '1-10' LIMIT 1;
+    SELECT id INTO v_funding_stage_id FROM "Funding_Stage" WHERE label = 'Pre-seed' LIMIT 1;
     IF v_org_id IS NOT NULL THEN
         UPDATE "Organization" SET
             revenue_range_id = v_revenue_range_id,
@@ -265,83 +265,83 @@ BEGIN
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudScale Systems') LIMIT 1;
     IF org_id IS NOT NULL THEN
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'AWS' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.95) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.95) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Kubernetes' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.90) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.90) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'PostgreSQL' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.85) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.85) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Terraform' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.80) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.80) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Slack' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.95) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.95) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'GitHub' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.90) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.90) ON CONFLICT DO NOTHING;
     END IF;
 
     -- DataFlow Analytics tech stack
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('DataFlow Analytics') LIMIT 1;
     IF org_id IS NOT NULL THEN
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Google Cloud' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.95) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.95) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Snowflake' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.90) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.90) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Amplitude' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.85) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.85) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'HubSpot CRM' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.90) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.90) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Stripe' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.95) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.95) ON CONFLICT DO NOTHING;
     END IF;
 
     -- SecureNet Solutions tech stack
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('SecureNet Solutions') LIMIT 1;
     IF org_id IS NOT NULL THEN
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Azure' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.95) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.95) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Okta' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.95) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.95) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'CrowdStrike' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.85) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'agent', 0.85) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Salesforce' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.90) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.90) ON CONFLICT DO NOTHING;
     END IF;
 
     -- TechVentures Inc tech stack (lighter, they're a VC)
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('TechVentures Inc') LIMIT 1;
     IF org_id IS NOT NULL THEN
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Salesforce' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.95) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.95) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Slack' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.95) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.95) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Zoom' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.90) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.90) ON CONFLICT DO NOTHING;
     END IF;
 
     -- InnovateLab tech stack
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('InnovateLab') LIMIT 1;
     IF org_id IS NOT NULL THEN
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'HubSpot CRM' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.90) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.90) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Slack' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.95) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.95) ON CONFLICT DO NOTHING;
 
         SELECT id INTO tech_id FROM "Technology" WHERE name = 'Google Analytics' LIMIT 1;
-        INSERT INTO "OrganizationTechnology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.95) ON CONFLICT DO NOTHING;
+        INSERT INTO "Organization_Technology" (organization_id, technology_id, source, confidence) VALUES (org_id, tech_id, 'builtwith', 0.95) ON CONFLICT DO NOTHING;
     END IF;
 
     RAISE NOTICE 'Organization tech stacks added successfully';
@@ -357,7 +357,7 @@ BEGIN
     -- CloudScale Systems funding history
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudScale Systems') LIMIT 1;
     IF org_id IS NOT NULL THEN
-        INSERT INTO "FundingRound" (organization_id, round_type, amount, announced_date, lead_investor, source_url)
+        INSERT INTO "Funding_Round" (organization_id, round_type, amount, announced_date, lead_investor, source_url)
         VALUES
             (org_id, 'Seed', 300000000, '2018-06-15', 'Y Combinator', 'https://techcrunch.com/2018/06/15/cloudscale-seed'),
             (org_id, 'Series A', 1500000000, '2020-03-20', 'Andreessen Horowitz', 'https://techcrunch.com/2020/03/20/cloudscale-series-a'),
@@ -367,7 +367,7 @@ BEGIN
     -- DataFlow Analytics funding history
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('DataFlow Analytics') LIMIT 1;
     IF org_id IS NOT NULL THEN
-        INSERT INTO "FundingRound" (organization_id, round_type, amount, announced_date, lead_investor, source_url)
+        INSERT INTO "Funding_Round" (organization_id, round_type, amount, announced_date, lead_investor, source_url)
         VALUES
             (org_id, 'Pre-Seed', 50000000, '2020-02-01', 'Angel Investors', NULL),
             (org_id, 'Seed', 250000000, '2021-05-15', 'First Round Capital', 'https://techcrunch.com/2021/05/15/dataflow-seed'),
@@ -377,7 +377,7 @@ BEGIN
     -- SecureNet Solutions funding history
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('SecureNet Solutions') LIMIT 1;
     IF org_id IS NOT NULL THEN
-        INSERT INTO "FundingRound" (organization_id, round_type, amount, announced_date, lead_investor, source_url)
+        INSERT INTO "Funding_Round" (organization_id, round_type, amount, announced_date, lead_investor, source_url)
         VALUES
             (org_id, 'Seed', 400000000, '2016-09-01', 'Cybersecurity Angels', NULL),
             (org_id, 'Series A', 2000000000, '2018-11-15', 'Insight Partners', 'https://techcrunch.com/2018/11/15/securenet-series-a'),
@@ -387,7 +387,7 @@ BEGIN
     -- InnovateLab (bootstrapped + small seed)
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('InnovateLab') LIMIT 1;
     IF org_id IS NOT NULL THEN
-        INSERT INTO "FundingRound" (organization_id, round_type, amount, announced_date, lead_investor, source_url)
+        INSERT INTO "Funding_Round" (organization_id, round_type, amount, announced_date, lead_investor, source_url)
         VALUES
             (org_id, 'Seed', 100000000, '2022-01-15', 'TechVentures Inc', NULL);
     END IF;
@@ -405,7 +405,7 @@ BEGIN
     -- CloudScale Systems signals
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudScale Systems') LIMIT 1;
     IF org_id IS NOT NULL THEN
-        INSERT INTO "CompanySignal" (organization_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
+        INSERT INTO "Company_Signal" (organization_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
         VALUES
             (org_id, 'hiring', 'CloudScale expanding engineering team by 50%', 'CloudScale Systems announced plans to hire 100 new engineers across their Seattle and Austin offices.', '2024-11-15', 'linkedin', 'https://linkedin.com/posts/cloudscale-hiring', 'positive', 0.85),
             (org_id, 'expansion', 'CloudScale opens new Austin office', 'CloudScale Systems opened a new engineering hub in Austin, TX to tap into local tech talent.', '2024-10-01', 'news', 'https://techcrunch.com/2024/10/01/cloudscale-austin', 'positive', 0.75),
@@ -415,7 +415,7 @@ BEGIN
     -- DataFlow Analytics signals
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('DataFlow Analytics') LIMIT 1;
     IF org_id IS NOT NULL THEN
-        INSERT INTO "CompanySignal" (organization_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
+        INSERT INTO "Company_Signal" (organization_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
         VALUES
             (org_id, 'hiring', 'DataFlow hiring senior data scientists', 'DataFlow Analytics seeking experienced data scientists for their ML team.', '2024-11-10', 'linkedin', 'https://linkedin.com/jobs/dataflow', 'positive', 0.80),
             (org_id, 'partnership', 'DataFlow partners with Snowflake', 'Strategic partnership announced to improve data integration capabilities.', '2024-08-15', 'news', 'https://prnewswire.com/dataflow-snowflake', 'positive', 0.85),
@@ -425,7 +425,7 @@ BEGIN
     -- SecureNet Solutions signals
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('SecureNet Solutions') LIMIT 1;
     IF org_id IS NOT NULL THEN
-        INSERT INTO "CompanySignal" (organization_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
+        INSERT INTO "Company_Signal" (organization_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
         VALUES
             (org_id, 'leadership_change', 'SecureNet appoints new CRO', 'Former Palo Alto Networks executive joins as Chief Revenue Officer.', '2024-10-15', 'linkedin', 'https://linkedin.com/posts/securenet-cro', 'positive', 0.75),
             (org_id, 'hiring', 'SecureNet building out sales team', 'Aggressive enterprise sales hiring in Q4 2024.', '2024-11-01', 'linkedin', NULL, 'positive', 0.70),
@@ -435,7 +435,7 @@ BEGIN
     -- TechVentures Inc signals
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('TechVentures Inc') LIMIT 1;
     IF org_id IS NOT NULL THEN
-        INSERT INTO "CompanySignal" (organization_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
+        INSERT INTO "Company_Signal" (organization_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
         VALUES
             (org_id, 'news', 'TechVentures closes $500M Fund III', 'New fund focused on early-stage AI and infrastructure startups.', '2024-06-01', 'news', 'https://techcrunch.com/2024/06/01/techventures-fund-iii', 'positive', 0.80);
     END IF;
@@ -589,9 +589,9 @@ END $$;
 -- ==============================
 SELECT
   (SELECT COUNT(*) FROM "Technology") as technologies,
-  (SELECT COUNT(*) FROM "OrganizationTechnology") as org_tech_links,
-  (SELECT COUNT(*) FROM "FundingRound") as funding_rounds,
-  (SELECT COUNT(*) FROM "CompanySignal") as company_signals,
+  (SELECT COUNT(*) FROM "Organization_Technology") as org_tech_links,
+  (SELECT COUNT(*) FROM "Funding_Round") as funding_rounds,
+  (SELECT COUNT(*) FROM "Company_Signal") as company_signals,
   (SELECT COUNT(*) FROM "Organization" WHERE revenue_range_id IS NOT NULL) as orgs_with_revenue,
   (SELECT COUNT(*) FROM "Organization" WHERE employee_count_range_id IS NOT NULL) as orgs_with_employees,
   (SELECT COUNT(*) FROM "Organization" WHERE funding_stage_id IS NOT NULL) as orgs_with_funding_stage,

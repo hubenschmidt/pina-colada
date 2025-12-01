@@ -26,13 +26,13 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Lisa', 'Park', 'Executive Assistant', NULL, 'Assistant', 'lisa.park@alexconsulting.com', '+1-415-555-0301', TRUE, 'Primary contact for scheduling meetings with Alex', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_alex_id, NOW());
+        INSERT INTO "Contact_Individual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_alex_id, NOW());
 
         -- A referral partner
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Tom', 'Mitchell', 'Business Development', NULL, 'Referral Partner', 'tom.m@referralnetwork.com', '+1-415-555-0302', FALSE, 'Refers consulting clients to Alex', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_alex_id, NOW());
+        INSERT INTO "Contact_Individual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_alex_id, NOW());
     END IF;
 
     -- Maria Garcia's contacts
@@ -41,7 +41,7 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Rachel', 'Adams', 'Talent Agent', NULL, 'Agent', 'rachel@creativetalent.com', '+1-650-555-0303', TRUE, 'Handles contract negotiations for Maria', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_maria_id, NOW());
+        INSERT INTO "Contact_Individual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_maria_id, NOW());
     END IF;
 
     -- James Wilson's contacts
@@ -50,13 +50,13 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Patricia', 'Lee', 'Startup Advisor', NULL, 'Co-Advisor', 'patricia@advisors.co', '+1-510-555-0304', FALSE, 'Co-advises with James on fintech startups', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_james_id, NOW());
+        INSERT INTO "Contact_Individual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_james_id, NOW());
 
         -- His administrative contact
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Kevin', 'Nguyen', 'Office Manager', NULL, 'Administrative', 'kevin@advisors.co', '+1-510-555-0305', TRUE, 'Manages James office schedule and logistics', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_james_id, NOW());
+        INSERT INTO "Contact_Individual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_james_id, NOW());
     END IF;
 
     RAISE NOTICE 'Individual contacts created successfully';
@@ -86,12 +86,12 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Brian', 'Cooper', 'Managing Director', 'Investments', 'Executive', 'brian.c@techventures.example.com', '+1-415-555-0110', FALSE, 'Oversees all portfolio companies', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_techventures_id, FALSE, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_techventures_id, FALSE, NOW());
 
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Nina', 'Patel', 'Operations Manager', 'Operations', 'Operations', 'nina.p@techventures.example.com', '+1-415-555-0111', FALSE, 'Handles logistics and event planning', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_techventures_id, FALSE, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_techventures_id, FALSE, NOW());
     END IF;
 
     -- Additional DataFlow contacts
@@ -99,12 +99,12 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Marcus', 'Chen', 'Lead Data Scientist', 'Engineering', 'Technical Contact', 'marcus.c@dataflow.example.com', '+1-650-555-0210', FALSE, 'Technical expert for data pipeline questions', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_dataflow_id, FALSE, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_dataflow_id, FALSE, NOW());
 
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Stephanie', 'Wright', 'Sales Director', 'Sales', 'Sales Contact', 'stephanie.w@dataflow.example.com', '+1-650-555-0211', FALSE, 'For partnership and sales discussions', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_dataflow_id, FALSE, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_dataflow_id, FALSE, NOW());
     END IF;
 
     -- Additional SecureNet contacts
@@ -112,7 +112,7 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Andrew', 'Martinez', 'Head of Sales', 'Sales', 'Decision Maker', 'andrew.m@securenet.example.com', '+1-408-555-0210', FALSE, 'Handles enterprise sales', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_securenet_id, FALSE, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_securenet_id, FALSE, NOW());
     END IF;
 
     -- Additional InnovateLab contacts
@@ -120,12 +120,12 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Diana', 'Ross', 'Senior Consultant', 'Consulting', 'Technical Contact', 'diana.r@innovatelab.example.com', '+1-510-555-0210', FALSE, 'Specialist in product-market fit', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_innovatelab_id, FALSE, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_innovatelab_id, FALSE, NOW());
 
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Chris', 'Anderson', 'Founder & CEO', 'Executive', 'Decision Maker', 'chris.a@innovatelab.example.com', '+1-510-555-0211', FALSE, 'Final decision maker for large engagements', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_innovatelab_id, FALSE, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_innovatelab_id, FALSE, NOW());
     END IF;
 
     RAISE NOTICE 'Additional organization contacts created successfully';
@@ -162,8 +162,8 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('James', 'Wilson', 'Venture Partner', 'Investments', 'Advisor', 'james.wilson@advisors.co', '+1-510-555-0203', FALSE, 'Advisor to TechVentures, helps evaluate portfolio companies', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_james_id, NOW());
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_techventures_id, FALSE, NOW());
+        INSERT INTO "Contact_Individual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_james_id, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_techventures_id, FALSE, NOW());
     END IF;
 
     -- Alex Thompson consults for CloudScale (as a Contact linked to both)
@@ -171,8 +171,8 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Alex', 'Thompson', 'Strategy Consultant', 'Executive', 'Consultant', 'alex.thompson@gmail.com', '+1-415-555-0201', FALSE, 'External consultant for cloud strategy', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_alex_id, NOW());
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_cloudscale_id, FALSE, NOW());
+        INSERT INTO "Contact_Individual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_alex_id, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_cloudscale_id, FALSE, NOW());
     END IF;
 
     -- James Wilson is on InnovateLab's advisory board
@@ -180,8 +180,8 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('James', 'Wilson', 'Board Advisor', 'Advisory Board', 'Board Member', 'james.wilson@advisors.co', '+1-510-555-0203', FALSE, 'Member of InnovateLab advisory board since 2023', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_james_id, NOW());
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_innovatelab_id, FALSE, NOW());
+        INSERT INTO "Contact_Individual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_james_id, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_innovatelab_id, FALSE, NOW());
     END IF;
 
     -- Maria Garcia does design work for DataFlow
@@ -189,8 +189,8 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Maria', 'Garcia', 'Contract Designer', 'Product', 'Contractor', 'maria.garcia@designstudio.com', '+1-650-555-0202', FALSE, 'Contracted for dashboard redesign project Q1 2025', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactIndividual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_maria_id, NOW());
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_dataflow_id, FALSE, NOW());
+        INSERT INTO "Contact_Individual" (contact_id, individual_id, created_at) VALUES (contact_id, ind_maria_id, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_dataflow_id, FALSE, NOW());
     END IF;
 
     RAISE NOTICE 'Organization-Individual relationships created successfully';
@@ -217,8 +217,8 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Ryan', 'Foster', 'IT Consultant', 'External', 'Consultant', 'ryan.foster@itconsulting.com', '+1-408-555-0400', FALSE, 'Provides IT consulting to multiple companies in our network', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_cloudscale_id, FALSE, NOW());
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_securenet_id, FALSE, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_cloudscale_id, FALSE, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_securenet_id, FALSE, NOW());
     END IF;
 
     -- PR agency contact who represents both DataFlow and CloudScale
@@ -226,8 +226,8 @@ BEGIN
         INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
         VALUES ('Jennifer', 'Blake', 'Account Director', 'PR', 'Agency Contact', 'jennifer.b@techpr.com', '+1-415-555-0401', FALSE, 'PR agency contact, handles both CloudScale and DataFlow accounts', NOW(), NOW())
         RETURNING id INTO contact_id;
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_cloudscale_id, FALSE, NOW());
-        INSERT INTO "ContactOrganization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_dataflow_id, FALSE, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_cloudscale_id, FALSE, NOW());
+        INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_dataflow_id, FALSE, NOW());
     END IF;
 
     RAISE NOTICE 'Shared multi-org contacts created successfully';
@@ -238,7 +238,7 @@ END $$;
 -- ==============================
 SELECT
   (SELECT COUNT(*) FROM "Contact") as total_contacts,
-  (SELECT COUNT(*) FROM "ContactOrganization") as org_contact_links,
-  (SELECT COUNT(*) FROM "ContactIndividual") as individual_contact_links,
-  (SELECT COUNT(DISTINCT contact_id) FROM "ContactOrganization" co
-   WHERE EXISTS (SELECT 1 FROM "ContactOrganization" co2 WHERE co2.contact_id = co.contact_id AND co2.organization_id != co.organization_id)) as multi_org_contacts;
+  (SELECT COUNT(*) FROM "Contact_Organization") as org_contact_links,
+  (SELECT COUNT(*) FROM "Contact_Individual") as individual_contact_links,
+  (SELECT COUNT(DISTINCT contact_id) FROM "Contact_Organization" co
+   WHERE EXISTS (SELECT 1 FROM "Contact_Organization" co2 WHERE co2.contact_id = co.contact_id AND co2.organization_id != co.organization_id)) as multi_org_contacts;

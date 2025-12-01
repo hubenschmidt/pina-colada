@@ -8,7 +8,7 @@ from models import Base
 class UserPreferences(Base):
     """UserPreferences SQLAlchemy model (theme and locale settings for individual user)."""
 
-    __tablename__ = "UserPreferences"
+    __tablename__ = "User_Preferences"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(BigInteger, ForeignKey("User.id", ondelete="CASCADE"), nullable=False, unique=True, index=True)

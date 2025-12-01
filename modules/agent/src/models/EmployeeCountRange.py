@@ -8,7 +8,7 @@ from models import Base
 class EmployeeCountRange(Base):
     """Lookup table for employee count brackets (e.g., 1-10, 11-50)."""
 
-    __tablename__ = "EmployeeCountRange"
+    __tablename__ = "Employee_Count_Range"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     label = Column(Text, nullable=False, unique=True)

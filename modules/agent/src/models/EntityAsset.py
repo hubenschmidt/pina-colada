@@ -7,7 +7,7 @@ from models import Base
 
 # Polymorphic join table for linking any asset to any entity
 EntityAsset = Table(
-    "EntityAsset",
+    "Entity_Asset",
     Base.metadata,
     Column("asset_id", BigInteger, ForeignKey("Asset.id", ondelete="CASCADE"), primary_key=True),
     Column("entity_type", Text, primary_key=True),  # 'Project', 'Lead', 'Account', etc.

@@ -30,7 +30,7 @@ class Lead(Base):
     account = relationship("Account", back_populates="leads")
     deal = relationship("Deal", back_populates="leads")
     current_status = relationship("Status", back_populates="leads", foreign_keys=[current_status_id])
-    projects = relationship("Project", secondary="LeadProject", back_populates="leads")
+    projects = relationship("Project", secondary="Lead_Project", back_populates="leads")
 
     # Joined table inheritance relationships
     job = relationship("Job", back_populates="lead", uselist=False)

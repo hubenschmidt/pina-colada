@@ -15,7 +15,7 @@ class SavedReport(Base):
     One or more projects = project-specific report (visible when any of those projects is selected)
     """
 
-    __tablename__ = "SavedReport"
+    __tablename__ = "Saved_Report"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     tenant_id = Column(BigInteger, ForeignKey("Tenant.id", ondelete="CASCADE"), nullable=False)
@@ -29,4 +29,4 @@ class SavedReport(Base):
     # Relationships
     tenant = relationship("Tenant")
     creator = relationship("Individual")
-    projects = relationship("Project", secondary="SavedReportProject", backref="saved_reports")
+    projects = relationship("Project", secondary="Saved_Report_Project", backref="saved_reports")

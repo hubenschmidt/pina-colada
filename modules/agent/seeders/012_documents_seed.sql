@@ -55,14 +55,14 @@ BEGIN
         VALUES (v_doc_id, v_tenant_id || '/seed/company_proposal.pdf', 742);
 
         IF v_entity_id IS NOT NULL THEN
-            INSERT INTO "EntityAsset" (asset_id, entity_type, entity_id)
+            INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
             VALUES (v_doc_id, 'Organization', v_entity_id)
             ON CONFLICT DO NOTHING;
             RAISE NOTICE 'Linked company_proposal.pdf to Acme Corp';
         END IF;
 
         FOR v_tag_id IN SELECT id FROM "Tag" WHERE name IN ('proposal', 'sales', '2025') LOOP
-            INSERT INTO "EntityTag" (tag_id, entity_type, entity_id)
+            INSERT INTO "Entity_Tag" (tag_id, entity_type, entity_id)
             VALUES (v_tag_id, 'Asset', v_doc_id)
             ON CONFLICT DO NOTHING;
         END LOOP;
@@ -84,14 +84,14 @@ BEGIN
         VALUES (v_doc_id, v_tenant_id || '/seed/meeting_notes.pdf', 807);
 
         IF v_entity_id IS NOT NULL THEN
-            INSERT INTO "EntityAsset" (asset_id, entity_type, entity_id)
+            INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
             VALUES (v_doc_id, 'Project', v_entity_id)
             ON CONFLICT DO NOTHING;
             RAISE NOTICE 'Linked meeting_notes.pdf to Job Search 2025';
         END IF;
 
         FOR v_tag_id IN SELECT id FROM "Tag" WHERE name IN ('meeting', 'notes', 'internal') LOOP
-            INSERT INTO "EntityTag" (tag_id, entity_type, entity_id)
+            INSERT INTO "Entity_Tag" (tag_id, entity_type, entity_id)
             VALUES (v_tag_id, 'Asset', v_doc_id)
             ON CONFLICT DO NOTHING;
         END LOOP;
@@ -115,14 +115,14 @@ BEGIN
         VALUES (v_doc_id, v_tenant_id || '/seed/contract_draft.pdf', 828);
 
         IF v_entity_id IS NOT NULL THEN
-            INSERT INTO "EntityAsset" (asset_id, entity_type, entity_id)
+            INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
             VALUES (v_doc_id, 'Organization', v_entity_id)
             ON CONFLICT DO NOTHING;
             RAISE NOTICE 'Linked contract_draft.pdf to CloudScale Systems';
         END IF;
 
         FOR v_tag_id IN SELECT id FROM "Tag" WHERE name IN ('contract', 'legal', 'draft') LOOP
-            INSERT INTO "EntityTag" (tag_id, entity_type, entity_id)
+            INSERT INTO "Entity_Tag" (tag_id, entity_type, entity_id)
             VALUES (v_tag_id, 'Asset', v_doc_id)
             ON CONFLICT DO NOTHING;
         END LOOP;
@@ -144,14 +144,14 @@ BEGIN
         VALUES (v_doc_id, v_tenant_id || '/seed/product_spec.pdf', 834);
 
         IF v_entity_id IS NOT NULL THEN
-            INSERT INTO "EntityAsset" (asset_id, entity_type, entity_id)
+            INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
             VALUES (v_doc_id, 'Project', v_entity_id)
             ON CONFLICT DO NOTHING;
             RAISE NOTICE 'Linked product_spec.pdf to Consulting Pipeline';
         END IF;
 
         FOR v_tag_id IN SELECT id FROM "Tag" WHERE name IN ('spec', 'technical', 'product') LOOP
-            INSERT INTO "EntityTag" (tag_id, entity_type, entity_id)
+            INSERT INTO "Entity_Tag" (tag_id, entity_type, entity_id)
             VALUES (v_tag_id, 'Asset', v_doc_id)
             ON CONFLICT DO NOTHING;
         END LOOP;
@@ -175,14 +175,14 @@ BEGIN
         VALUES (v_doc_id, v_tenant_id || '/seed/invoice_sample.pdf', 784);
 
         IF v_entity_id IS NOT NULL THEN
-            INSERT INTO "EntityAsset" (asset_id, entity_type, entity_id)
+            INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
             VALUES (v_doc_id, 'Organization', v_entity_id)
             ON CONFLICT DO NOTHING;
             RAISE NOTICE 'Linked invoice_sample.pdf to TechVentures Inc';
         END IF;
 
         FOR v_tag_id IN SELECT id FROM "Tag" WHERE name IN ('invoice', 'finance', 'template') LOOP
-            INSERT INTO "EntityTag" (tag_id, entity_type, entity_id)
+            INSERT INTO "Entity_Tag" (tag_id, entity_type, entity_id)
             VALUES (v_tag_id, 'Asset', v_doc_id)
             ON CONFLICT DO NOTHING;
         END LOOP;
@@ -208,7 +208,7 @@ BEGIN
         VALUES (v_doc_id, v_tenant_id || '/seed/individual_resume.pdf', 950);
 
         IF v_entity_id IS NOT NULL THEN
-            INSERT INTO "EntityAsset" (asset_id, entity_type, entity_id)
+            INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
             VALUES (v_doc_id, 'Individual', v_entity_id)
             ON CONFLICT DO NOTHING;
             RAISE NOTICE 'Linked individual_resume.pdf to William Hubenschmidt (ID: %)', v_entity_id;
@@ -217,7 +217,7 @@ BEGIN
         END IF;
 
         FOR v_tag_id IN SELECT id FROM "Tag" WHERE name IN ('resume', 'candidate', 'hiring') LOOP
-            INSERT INTO "EntityTag" (tag_id, entity_type, entity_id)
+            INSERT INTO "Entity_Tag" (tag_id, entity_type, entity_id)
             VALUES (v_tag_id, 'Asset', v_doc_id)
             ON CONFLICT DO NOTHING;
         END LOOP;
@@ -229,5 +229,5 @@ END $$;
 -- Summary
 SELECT
     (SELECT COUNT(*) FROM "Asset" WHERE asset_type = 'document') as documents,
-    (SELECT COUNT(*) FROM "EntityAsset") as entity_links,
-    (SELECT COUNT(*) FROM "EntityTag" WHERE entity_type = 'Asset') as tag_links;
+    (SELECT COUNT(*) FROM "Entity_Asset") as entity_links,
+    (SELECT COUNT(*) FROM "Entity_Tag" WHERE entity_type = 'Asset') as tag_links;

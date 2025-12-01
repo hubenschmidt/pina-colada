@@ -7,7 +7,7 @@ from models import Base
 class SalaryRange(Base):
     """SalaryRange SQLAlchemy model."""
 
-    __tablename__ = "SalaryRange"
+    __tablename__ = "Salary_Range"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     label = Column(Text, nullable=False, unique=True)

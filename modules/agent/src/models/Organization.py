@@ -17,15 +17,15 @@ class Organization(Base):
     website = Column(Text, nullable=True)
     phone = Column(Text, nullable=True)
     employee_count = Column(Integer, nullable=True)  # Legacy field
-    employee_count_range_id = Column(BigInteger, ForeignKey("EmployeeCountRange.id", ondelete="SET NULL"), nullable=True)
-    funding_stage_id = Column(BigInteger, ForeignKey("FundingStage.id", ondelete="SET NULL"), nullable=True)
+    employee_count_range_id = Column(BigInteger, ForeignKey("Employee_Count_Range.id", ondelete="SET NULL"), nullable=True)
+    funding_stage_id = Column(BigInteger, ForeignKey("Funding_Stage.id", ondelete="SET NULL"), nullable=True)
     description = Column(Text, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Firmographic columns
-    revenue_range_id = Column(BigInteger, ForeignKey("RevenueRange.id", ondelete="SET NULL"), nullable=True)
+    revenue_range_id = Column(BigInteger, ForeignKey("Revenue_Range.id", ondelete="SET NULL"), nullable=True)
     founding_year = Column(Integer, nullable=True)
     headquarters_city = Column(Text, nullable=True)
     headquarters_state = Column(Text, nullable=True)
@@ -38,7 +38,7 @@ class Organization(Base):
     account = relationship("Account", back_populates="organizations")
     contacts = relationship(
         "Contact",
-        secondary="ContactOrganization",
+        secondary="Contact_Organization",
         back_populates="organizations",
         lazy="selectin"
     )

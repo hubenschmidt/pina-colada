@@ -2,7 +2,7 @@
 -- Creates various saved report definitions to showcase functionality
 
 -- 1. Notes with Contacts
-INSERT INTO "SavedReport" (tenant_id, name, description, query_definition, created_at, updated_at)
+INSERT INTO "Saved_Report" (tenant_id, name, description, query_definition, created_at, updated_at)
 SELECT
     t.id,
     'Notes with Contacts',
@@ -24,7 +24,7 @@ FROM "Tenant" t WHERE t.slug = 'pinacolada'
 ON CONFLICT DO NOTHING;
 
 -- 2. Notes with Organizations
-INSERT INTO "SavedReport" (tenant_id, name, description, query_definition, created_at, updated_at)
+INSERT INTO "Saved_Report" (tenant_id, name, description, query_definition, created_at, updated_at)
 SELECT
     t.id,
     'Notes with Organizations',
@@ -46,7 +46,7 @@ FROM "Tenant" t WHERE t.slug = 'pinacolada'
 ON CONFLICT DO NOTHING;
 
 -- 3. Notes with Individuals
-INSERT INTO "SavedReport" (tenant_id, name, description, query_definition, created_at, updated_at)
+INSERT INTO "Saved_Report" (tenant_id, name, description, query_definition, created_at, updated_at)
 SELECT
     t.id,
     'Notes with Individuals',
@@ -68,7 +68,7 @@ FROM "Tenant" t WHERE t.slug = 'pinacolada'
 ON CONFLICT DO NOTHING;
 
 -- 4. Organizations Overview
-INSERT INTO "SavedReport" (tenant_id, name, description, query_definition, created_at, updated_at)
+INSERT INTO "Saved_Report" (tenant_id, name, description, query_definition, created_at, updated_at)
 SELECT
     t.id,
     'Organizations Overview',
@@ -87,7 +87,7 @@ FROM "Tenant" t WHERE t.slug = 'pinacolada'
 ON CONFLICT DO NOTHING;
 
 -- 5. Organizations with Notes
-INSERT INTO "SavedReport" (tenant_id, name, description, query_definition, created_at, updated_at)
+INSERT INTO "Saved_Report" (tenant_id, name, description, query_definition, created_at, updated_at)
 SELECT
     t.id,
     'Organizations with Notes',
@@ -108,7 +108,7 @@ FROM "Tenant" t WHERE t.slug = 'pinacolada'
 ON CONFLICT DO NOTHING;
 
 -- 6. All Leads
-INSERT INTO "SavedReport" (tenant_id, name, description, query_definition, created_at, updated_at)
+INSERT INTO "Saved_Report" (tenant_id, name, description, query_definition, created_at, updated_at)
 SELECT
     t.id,
     'All Leads',
@@ -127,7 +127,7 @@ FROM "Tenant" t WHERE t.slug = 'pinacolada'
 ON CONFLICT DO NOTHING;
 
 -- 7. Leads with Notes
-INSERT INTO "SavedReport" (tenant_id, name, description, query_definition, created_at, updated_at)
+INSERT INTO "Saved_Report" (tenant_id, name, description, query_definition, created_at, updated_at)
 SELECT
     t.id,
     'Leads with Notes',
@@ -148,7 +148,7 @@ FROM "Tenant" t WHERE t.slug = 'pinacolada'
 ON CONFLICT DO NOTHING;
 
 -- 8. Decision Makers
-INSERT INTO "SavedReport" (tenant_id, name, description, query_definition, created_at, updated_at)
+INSERT INTO "Saved_Report" (tenant_id, name, description, query_definition, created_at, updated_at)
 SELECT
     t.id,
     'Decision Makers',
@@ -169,7 +169,7 @@ FROM "Tenant" t WHERE t.slug = 'pinacolada'
 ON CONFLICT DO NOTHING;
 
 -- 9. Contacts Directory
-INSERT INTO "SavedReport" (tenant_id, name, description, query_definition, created_at, updated_at)
+INSERT INTO "Saved_Report" (tenant_id, name, description, query_definition, created_at, updated_at)
 SELECT
     t.id,
     'Contacts Directory',
@@ -188,7 +188,7 @@ FROM "Tenant" t WHERE t.slug = 'pinacolada'
 ON CONFLICT DO NOTHING;
 
 -- 10. All Notes
-INSERT INTO "SavedReport" (tenant_id, name, description, query_definition, created_at, updated_at)
+INSERT INTO "Saved_Report" (tenant_id, name, description, query_definition, created_at, updated_at)
 SELECT
     t.id,
     'All Notes',
@@ -210,9 +210,9 @@ ON CONFLICT DO NOTHING;
 
 -- Return counts for seeder verification
 SELECT
-    (SELECT COUNT(*) FROM "SavedReport") as total_saved_reports,
-    (SELECT COUNT(*) FROM "SavedReport" WHERE query_definition->>'primary_entity' = 'notes') as notes_reports,
-    (SELECT COUNT(*) FROM "SavedReport" WHERE query_definition->>'primary_entity' = 'organizations') as org_reports,
-    (SELECT COUNT(*) FROM "SavedReport" WHERE query_definition->>'primary_entity' = 'leads') as lead_reports,
-    (SELECT COUNT(*) FROM "SavedReport" WHERE query_definition->>'primary_entity' = 'individuals') as individual_reports,
-    (SELECT COUNT(*) FROM "SavedReport" WHERE query_definition->>'primary_entity' = 'contacts') as contact_reports;
+    (SELECT COUNT(*) FROM "Saved_Report") as total_saved_reports,
+    (SELECT COUNT(*) FROM "Saved_Report" WHERE query_definition->>'primary_entity' = 'notes') as notes_reports,
+    (SELECT COUNT(*) FROM "Saved_Report" WHERE query_definition->>'primary_entity' = 'organizations') as org_reports,
+    (SELECT COUNT(*) FROM "Saved_Report" WHERE query_definition->>'primary_entity' = 'leads') as lead_reports,
+    (SELECT COUNT(*) FROM "Saved_Report" WHERE query_definition->>'primary_entity' = 'individuals') as individual_reports,
+    (SELECT COUNT(*) FROM "Saved_Report" WHERE query_definition->>'primary_entity' = 'contacts') as contact_reports;

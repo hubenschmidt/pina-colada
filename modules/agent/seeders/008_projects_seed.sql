@@ -65,22 +65,22 @@ BEGIN
       AND project_id IS NULL;
 
     -- Link Job-type leads to Job Search 2025
-    INSERT INTO "LeadProject" (lead_id, project_id, created_at)
+    INSERT INTO "Lead_Project" (lead_id, project_id, created_at)
     SELECT l.id, v_job_search_id, NOW()
     FROM "Lead" l
     WHERE l.type = 'Job'
       AND NOT EXISTS (
-          SELECT 1 FROM "LeadProject" lp
+          SELECT 1 FROM "Lead_Project" lp
           WHERE lp.lead_id = l.id AND lp.project_id = v_job_search_id
       );
 
     -- Link Opportunity and Partnership leads to Consulting Pipeline
-    INSERT INTO "LeadProject" (lead_id, project_id, created_at)
+    INSERT INTO "Lead_Project" (lead_id, project_id, created_at)
     SELECT l.id, v_consulting_id, NOW()
     FROM "Lead" l
     WHERE l.type IN ('Opportunity', 'Partnership')
       AND NOT EXISTS (
-          SELECT 1 FROM "LeadProject" lp
+          SELECT 1 FROM "Lead_Project" lp
           WHERE lp.lead_id = l.id AND lp.project_id = v_consulting_id
       );
 
@@ -91,5 +91,5 @@ END $$;
 SELECT
     (SELECT COUNT(*) FROM "Project") as projects,
     (SELECT COUNT(*) FROM "Deal" WHERE project_id IS NOT NULL) as deals_with_project,
-    (SELECT COUNT(*) FROM "LeadProject") as lead_project_links,
-    (SELECT COUNT(*) FROM "Lead" l WHERE NOT EXISTS (SELECT 1 FROM "LeadProject" lp WHERE lp.lead_id = l.id)) as leads_without_project;
+    (SELECT COUNT(*) FROM "Lead_Project") as lead_project_links,
+    (SELECT COUNT(*) FROM "Lead" l WHERE NOT EXISTS (SELECT 1 FROM "Lead_Project" lp WHERE lp.lead_id = l.id)) as leads_without_project;

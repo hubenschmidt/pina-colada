@@ -36,14 +36,14 @@ BEGIN
     RAISE NOTICE 'Found projects - Job Search: %, Consulting: %', v_project_id_job_search, v_project_id_consulting;
 
     -- Clear existing notifications for clean seeding
-    DELETE FROM "CommentNotification" WHERE tenant_id = v_tenant_id;
+    DELETE FROM "Comment_Notification" WHERE tenant_id = v_tenant_id;
 
     -- ===========================================
     -- NOTIFICATIONS FOR JOB SEARCH 2025 PROJECT
     -- ===========================================
 
     -- Notify William of Jennifer's comments on Leads in Job Search 2025
-    INSERT INTO "CommentNotification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
+    INSERT INTO "Comment_Notification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
     SELECT DISTINCT ON (c.id)
         v_tenant_id,
         v_user_id_william,
@@ -52,7 +52,7 @@ BEGIN
         FALSE,
         c.created_at + INTERVAL '1 minute'
     FROM "Comment" c
-    JOIN "LeadProject" lp ON c.commentable_type = 'Lead' AND c.commentable_id = lp.lead_id
+    JOIN "Lead_Project" lp ON c.commentable_type = 'Lead' AND c.commentable_id = lp.lead_id
     WHERE c.tenant_id = v_tenant_id
       AND c.created_by = v_user_id_jennifer
       AND lp.project_id = v_project_id_job_search
@@ -63,7 +63,7 @@ BEGIN
     RAISE NOTICE 'Created % notifications for Leads in Job Search 2025', v_count;
 
     -- Notify William of Jennifer's comments on Deals in Job Search 2025
-    INSERT INTO "CommentNotification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
+    INSERT INTO "Comment_Notification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
     SELECT DISTINCT ON (c.id)
         v_tenant_id,
         v_user_id_william,
@@ -87,7 +87,7 @@ BEGIN
     -- ===========================================
 
     -- Notify William of Jennifer's comments on Leads in Consulting Pipeline
-    INSERT INTO "CommentNotification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
+    INSERT INTO "Comment_Notification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
     SELECT DISTINCT ON (c.id)
         v_tenant_id,
         v_user_id_william,
@@ -96,7 +96,7 @@ BEGIN
         FALSE,
         c.created_at + INTERVAL '1 minute'
     FROM "Comment" c
-    JOIN "LeadProject" lp ON c.commentable_type = 'Lead' AND c.commentable_id = lp.lead_id
+    JOIN "Lead_Project" lp ON c.commentable_type = 'Lead' AND c.commentable_id = lp.lead_id
     WHERE c.tenant_id = v_tenant_id
       AND c.created_by = v_user_id_jennifer
       AND lp.project_id = v_project_id_consulting
@@ -107,7 +107,7 @@ BEGIN
     RAISE NOTICE 'Created % notifications for Leads in Consulting Pipeline', v_count;
 
     -- Notify William of Jennifer's comments on Deals in Consulting Pipeline
-    INSERT INTO "CommentNotification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
+    INSERT INTO "Comment_Notification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
     SELECT DISTINCT ON (c.id)
         v_tenant_id,
         v_user_id_william,
@@ -131,7 +131,7 @@ BEGIN
     -- ===========================================
 
     -- Notify William of Jennifer's comments on Tasks (Tasks are global, no project association)
-    INSERT INTO "CommentNotification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
+    INSERT INTO "Comment_Notification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
     SELECT DISTINCT ON (c.id)
         v_tenant_id,
         v_user_id_william,
@@ -150,7 +150,7 @@ BEGIN
     RAISE NOTICE 'Created % notifications for Tasks', v_count;
 
     -- Notify William of Jennifer's comments on Individuals (global)
-    INSERT INTO "CommentNotification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
+    INSERT INTO "Comment_Notification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
     SELECT DISTINCT ON (c.id)
         v_tenant_id,
         v_user_id_william,
@@ -169,7 +169,7 @@ BEGIN
     RAISE NOTICE 'Created % notifications for Individuals', v_count;
 
     -- Notify William of Jennifer's comments on Organizations (global)
-    INSERT INTO "CommentNotification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
+    INSERT INTO "Comment_Notification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
     SELECT DISTINCT ON (c.id)
         v_tenant_id,
         v_user_id_william,
@@ -192,7 +192,7 @@ BEGIN
     -- ===========================================
 
     -- Create direct_reply notifications for any reply comments where Jennifer replied to William
-    INSERT INTO "CommentNotification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
+    INSERT INTO "Comment_Notification" (tenant_id, user_id, comment_id, notification_type, is_read, created_at)
     SELECT
         v_tenant_id,
         v_user_id_william,
@@ -214,11 +214,11 @@ BEGIN
     -- MARK SOME AS READ FOR REALISTIC MIX
     -- ===========================================
 
-    UPDATE "CommentNotification"
+    UPDATE "Comment_Notification"
     SET is_read = TRUE, read_at = created_at + INTERVAL '2 hours'
     WHERE tenant_id = v_tenant_id
       AND id IN (
-          SELECT id FROM "CommentNotification"
+          SELECT id FROM "Comment_Notification"
           WHERE tenant_id = v_tenant_id
           ORDER BY RANDOM()
           LIMIT 3
@@ -239,11 +239,11 @@ SELECT
 FROM (
     SELECT
         CASE c.commentable_type
-            WHEN 'Lead' THEN (SELECT p.name FROM "LeadProject" lp JOIN "Project" p ON lp.project_id = p.id WHERE lp.lead_id = c.commentable_id LIMIT 1)
+            WHEN 'Lead' THEN (SELECT p.name FROM "Lead_Project" lp JOIN "Project" p ON lp.project_id = p.id WHERE lp.lead_id = c.commentable_id LIMIT 1)
             WHEN 'Deal' THEN (SELECT p.name FROM "Deal" d JOIN "Project" p ON d.project_id = p.id WHERE d.id = c.commentable_id)
             ELSE NULL
         END as project_scope
-    FROM "CommentNotification" cn
+    FROM "Comment_Notification" cn
     JOIN "Comment" c ON cn.comment_id = c.id
 ) sub
 GROUP BY project_scope
@@ -256,7 +256,7 @@ SELECT
     c.commentable_id as entity_id,
     COALESCE(
         CASE c.commentable_type
-            WHEN 'Lead' THEN (SELECT p.name FROM "LeadProject" lp JOIN "Project" p ON lp.project_id = p.id WHERE lp.lead_id = c.commentable_id LIMIT 1)
+            WHEN 'Lead' THEN (SELECT p.name FROM "Lead_Project" lp JOIN "Project" p ON lp.project_id = p.id WHERE lp.lead_id = c.commentable_id LIMIT 1)
             WHEN 'Deal' THEN (SELECT p.name FROM "Deal" d JOIN "Project" p ON d.project_id = p.id WHERE d.id = c.commentable_id)
             ELSE NULL
         END,
@@ -265,7 +265,7 @@ SELECT
     cn.notification_type,
     cn.is_read,
     LEFT(c.content, 50) || '...' as comment_preview
-FROM "CommentNotification" cn
+FROM "Comment_Notification" cn
 JOIN "User" u ON cn.user_id = u.id
 JOIN "Comment" c ON cn.comment_id = c.id
 ORDER BY cn.created_at DESC;
