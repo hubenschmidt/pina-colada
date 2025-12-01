@@ -1,0 +1,243 @@
+id,deal_id,type,title,description,source,current_status_id,created_at,updated_at,owner_individual_id,tenant_id,account_id
+1,1,Job,Poly AI - Senior Full Stack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,1
+2,1,Job,Crustdata - Founding Solutions Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,2
+3,1,Job,city of new york - IT Automation and Monitoring Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,3
+4,1,Job,zeta global - solutions engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,4
+5,1,Job,linda werner - technical solutions consultant,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,5
+6,1,Job,kofas northamerica insurance co. - tech solutions engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,6
+7,1,Job,Peloton - Software Engineer II,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,7
+8,1,Job,Peloton - Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,7
+9,1,Job,Consumer Edge - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,8
+10,1,Job,"ZocDoc - Senior Software Engineer, Online Booking",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,9
+11,1,Job,"Quizlet - Senior Software Engineer, Consumer Experience",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,10
+12,1,Job,"BitGo - Senior Software Engineer, Wallet Core",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,11
+14,1,Job,Vestwell - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,13
+15,1,Job,Vesto - founding engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,14
+16,1,Job,Western & Southern Financial - web engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,15
+17,1,Job,Bronx Defenders - Solutions Architect,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,16
+18,1,Job,Hudson Valley Credit Union - Solution Architect,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,17
+19,1,Job,Hudson Valley Credit Union - Sr Cloud Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,17
+20,1,Job,IBM - Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,18
+21,1,Job,"Pryon - Software Engineer, Fullstack",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,19
+22,1,Job,Nourish - Senior or Staff Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,20
+23,1,Job,Adonis.io - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,21
+24,1,Job,Harmonic - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,22
+25,1,Job,Asana - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,23
+26,1,Job,Cooperidge Consulting - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,24
+28,1,Job,April - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,26
+29,1,Job,Crosby - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,27
+30,1,Job,Better - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,28
+31,1,Job,Headspace - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,29
+32,1,Job,Harvey - Staff Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,30
+33,1,Job,Traversal - Full Stack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,31
+34,1,Job,Brex - Software Enginer II,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,32
+35,1,Job,Together AI - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,33
+36,1,Job,Neem - Founding Senior Full-Stack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,34
+38,1,Job,On Me - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,36
+39,1,Job,Cassidy - Full Stack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,37
+40,1,Job,keru.ai - Full Stack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,38
+41,1,Job,Norm.AI - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,39
+42,1,Job,Vestwell - Senior Software Engineer (AI),,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,13
+43,1,Job,Harold - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,40
+44,1,Job,Farther - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,41
+45,1,Job,"Parabola - Senior Software Engineer, Full Stack",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,42
+46,1,Job,Brisk Teaching - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,43
+48,1,Job,Stepful - Senior Full Stack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,45
+49,1,Job,Miro - Full Stack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,46
+50,1,Job,Affirma Group - Mid Level App Developer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,47
+51,1,Job,Airgoods - Software Engineer - Full Stack,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,48
+52,1,Job,Method Financial - Technical Integration Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,49
+53,1,Job,Clarion - Senior Fullstack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,50
+54,1,Job,Peregrine - Senior Fullstack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,51
+55,1,Job,Jacobsen Consulting Applications - Product Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,52
+56,1,Job,"DataKind - Sr Director, Engineering",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,53
+57,1,Job,"Friends From The City - Technical Lead, Full Stack Engineer",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,54
+58,1,Job,ContentSquare - Backend Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,55
+59,1,Job,B&H - Senior Web Project Manager,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,56
+60,1,Job,Braze - Senior Software Engineer - Fullstack,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,57
+61,1,Job,"Semgrep - Staff Full Stack Engineer, Software Composition Analysis",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,58
+62,1,Job,Replica - Software Engineer (Execution Focused),,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,59
+27,1,Job,Coast - Full Stack Engineer,,manual,5,2025-11-11 11:22:46Z,2025-11-17 23:02:48.458051Z,,1,25
+13,1,Job,Capitalize - Senior Software Engineer,,manual,5,2025-11-11 11:22:46Z,2025-11-27 00:21:08.461185Z,,1,12
+63,1,Job,Bumble - Lead Software Engineer (BFF),,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,60
+65,1,Job,Replit - Premium Support Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,62
+66,1,Job,"Navan - Staff Software Engineer, Security, Risk & Fraud",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,63
+67,1,Job,Okta - Senior Software Engineer Sessions (Auth0),,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,64
+68,1,Job,Melio - Full Stack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,65
+69,1,Job,"Xogene, LLC - AI Software Developer",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,66
+71,1,Job,New York Post - Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,68
+72,1,Job,"Inkeep - Member of the Technical Staff, TypeScript Engineer (Principal)",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,69
+73,1,Job,Amplify Education Inc. - Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,70
+74,1,Job,Siro - Full Stack Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,71
+75,1,Job,"Arc - Software Engineer, Fullstack",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,72
+76,1,Job,"Courier Health - Senior Software Engineer, Backend",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,73
+77,1,Job,Tarte - eCommerce Integration Specialist,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,74
+78,1,Job,Regrello - Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,75
+79,1,Job,Rokt - Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,76
+80,1,Job,Christine Valmy School - CRM Developer/Consultant,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,77
+81,1,Job,"Baseten - Senior Software Engineer, Core Product",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,78
+82,1,Job,"Scale GP - Senior Software Engineer, Full-Stack - Enterprise Gen AI",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,79
+83,1,Job,"Viam - Backend Software Engineer, Netcore",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,80
+84,1,Job,"Hearth - Senior Software Engineer, Backend",,manual,2,2025-11-11 11:22:46Z,2025-11-11 17:39:18Z,,1,81
+85,1,Job,DataDog - Senior Software Engineer,,manual,5,2025-11-11 11:22:46Z,2025-11-11 23:02:42Z,,1,82
+86,1,Job,LogRocket - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,83
+87,1,Job,Tennr - Backend Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,84
+88,1,Job,Peloton - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,7
+89,1,Job,Paramount - Lead Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,85
+90,1,Job,Modern Life - Software Engineer - Full Stack,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,86
+91,1,Job,Kale - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,87
+92,1,Job,Crosby - Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,27
+93,1,Job,Applied Labs - Founding Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,88
+94,1,Job,"Miter - Software Engineer, INtegrations",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,89
+95,1,Job,Etsy - Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,90
+96,1,Job,Adonis - Fullstack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,91
+97,1,Job,GlossGenius - Software Engineer - All levels,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,92
+98,1,Job,Graphite - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,93
+99,1,Job,Graphite - Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,93
+100,1,Job,Tavus - Solutions Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,94
+101,1,Job,ShiftSmart - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,95
+103,1,Job,Versana - Full-Stack Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,97
+104,1,Job,"Torch - Lead Software Engineer, Product",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,98
+106,1,Job,Superblocks - Solutions Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,99
+107,1,Job,Meridian - Founding Backend Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,100
+108,1,Job,"Axion Ray - Senior Software Engineer, CoreApp",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,101
+109,1,Job,"Axion Ray - Software Engineer, Fullstack, CoreApp",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,101
+111,1,Job,"Hudson River Trading - Experienced Software Engineer, Systems",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,103
+113,1,Job,SquareSpace - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,105
+114,1,Job,Particle Health - API/Backend Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,106
+115,1,Job,Lithos - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,107
+116,1,Job,Mirage - Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,108
+120,1,Job,Quantiphi - Software Developer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:25:31Z,,1,112
+121,1,Job,Radical AI - Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 17:35:45Z,,1,113
+122,1,Job,Workmate - Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,114
+123,1,Job,"Pave - Senior Software Engineer, Backend",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,115
+124,1,Job,MLabs - Senior Backend Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,116
+110,1,Job,Sigma Computing - Senior Software Engineer - Backend,,manual,5,2025-11-11 11:22:46Z,2025-11-17 22:57:42.36562Z,,1,102
+112,1,Job,"American Equity Investment Life Insurance Co. - Senior Application Developer, Optimizely Expert",,manual,5,2025-11-11 11:22:46Z,2025-11-17 23:01:34.499293Z,,1,104
+64,1,Job,DeepL - Senior Software Engineer API,,manual,5,2025-11-11 11:22:46Z,2025-11-17 23:02:21.454756Z,,1,61
+118,1,Job,Rockstar Games - Associate Lead Software Engineer,N,manual,5,2025-11-11 11:22:46Z,2025-11-18 00:32:24.562389Z,,1,110
+119,1,Job,MTA - Application Developer Analyst 1-5,N,manual,5,2025-11-11 11:22:46Z,2025-11-18 00:32:32.966385Z,,1,111
+102,1,Job,"Persona - Senior Software Engineer, Product",,manual,5,2025-11-11 11:22:46Z,2025-11-19 20:39:39.207408Z,,1,96
+117,1,Job,Monday.com - Solution Engineer,,manual,5,2025-11-11 11:22:46Z,2025-11-25 04:20:17.161683Z,,1,109
+105,1,Job,Capitalize - Integrations Engineer,Completed 2 rounds and technical,manual,5,2025-11-11 11:22:46Z,2025-11-27 00:21:30.762762Z,,1,12
+125,1,Job,Parker - Senior Software Engineer - Backend,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,117
+126,1,Job,Unify - Software Engineer - AI,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,118
+127,1,Job,Findigs - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,119
+130,1,Job,Spotify - Staff Backend Enginer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,122
+131,1,Job,"Materialize - Staff Full Stack Engineer, Console",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,123
+132,1,Job,Cassidy - Support Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,37
+133,1,Job,"ZocDoc - Senior Software Engineer, Appointment Management",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,9
+134,1,Job,Elite - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,124
+135,1,Job,Capgemini - Azure Data Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,125
+136,1,Job,"West Monroe Partners - Cloud Engineer, Cloud & Infrastructure",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,126
+137,1,Job,"The Weather Company - Technical Program Manager, Consumer Data",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,127
+138,1,Job,Permit Flow - Fullstack Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,128
+139,1,Job,Privy - Staff Fullstack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,129
+140,1,Job,"MongoDB - Senior Software Engineer, Deployments",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,130
+141,1,Job,Ramp - Backend Engineer Procure to Pay,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,131
+143,1,Job,"Lyft - Senior Software Engineer, AI",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,133
+144,1,Job,Northwell Health - Lead Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,134
+145,1,Job,"Octane - Staff Software Engineer, AI",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,135
+146,1,Job,Rokt - Solutions Consultant,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,76
+147,1,Job,KYD Labs - Founding Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,136
+148,1,Job,Strativ Group - Staff Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,137
+149,1,Job,Glanceable - Senior Full Stack Egnineer`,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,138
+150,1,Job,probono net - Data Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,139
+151,1,Job,Stash - Web Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,140
+152,1,Job,Mias Bakery - Project Based Computer Programmer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,141
+153,1,Job,Veritext - Product Development Specialist,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,142
+154,1,Job,"Neotecra, Inc - Solutions Architect",,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,143
+155,1,Job,Kintegral Asset Management - Python Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,144
+156,1,Job,Simons Foundation - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,145
+157,1,Job,Braze - Senior Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:22:46Z,,1,57
+158,1,Job,NYU Langone Health - Software Architect - Education IT & Analytics,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:24:31Z,,1,146
+159,1,Job,Polimorphic - Full Stack Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:25:49Z,,1,147
+161,1,Job,Adobe - Senior Full Stack Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 17:40:17Z,,1,149
+162,1,Job,Mastercard - Lead Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:25:38Z,,1,150
+163,1,Job,Kargo - Senior Javascript Software Engineer,,manual,1,2025-11-11 11:22:46Z,2025-11-11 11:25:44Z,,1,151
+164,1,Job,Evolution IQ - Solutions Engineer,,manual,5,2025-11-11 11:22:46Z,2025-11-11 17:36:40Z,,1,152
+165,1,Job,Substack - Software Engineer (Payments),,manual,5,2025-11-11 11:22:46Z,2025-11-11 17:36:54Z,,1,153
+166,1,Job,"Okta - Senior Software Engineer, Core Identity (Auth0)",,manual,1,2025-11-11 19:25:09Z,2025-11-11 19:25:09Z,,1,64
+167,1,Job,"Sage - Software Engineer, Data & Integrations",,manual,1,2025-11-11 19:30:34Z,2025-11-11 19:30:34Z,,1,154
+168,1,Job,"Firsthand - Senior Software Engineer, Web Fullstack",,manual,1,2025-11-11 19:37:33Z,2025-11-11 19:37:33Z,,1,155
+170,1,Job,"Notion - Software Engineer, Product Infrastructure",DEI heavy,manual,1,2025-11-11 19:53:48Z,2025-11-11 19:53:48Z,,1,157
+171,1,Job,Titan - Principal Software Engineer - Product/AI,,manual,1,2025-11-11 20:02:29Z,2025-11-11 20:02:29Z,,1,158
+172,1,Job,Fortify - Fullstack Engineer,,manual,1,2025-11-11 20:09:56Z,2025-11-11 20:09:56Z,,1,159
+173,1,Job,Bridge Health AI - Full Stack Product Engineer,,manual,1,2025-11-11 20:12:43Z,2025-11-11 20:12:43Z,,1,
+175,1,Job,EliseAI - Senior Software Engineer (Full Stack),,manual,1,2025-11-11 21:27:03Z,2025-11-11 21:27:03Z,,1,162
+176,1,Job,Normal Computing - Software Engineer,,manual,1,2025-11-11 22:22:38Z,2025-11-11 22:22:38Z,,1,163
+177,1,Job,Nominal - Software Engineer Fullstack,,manual,1,2025-11-11 22:33:44Z,2025-11-11 22:33:44Z,,1,164
+178,1,Job,TechTree - Backend Software Engineer,,manual,1,2025-11-11 23:12:09Z,2025-11-11 23:12:09Z,,1,165
+179,1,Job,Valon - Senior Software Engineer,,manual,1,2025-11-12 00:32:26Z,2025-11-12 00:32:26Z,,1,166
+180,1,Job,"Clay - Software Engineer, Integrations",,manual,1,2025-11-12 00:43:44Z,2025-11-12 00:43:44Z,,1,167
+181,1,Job,Altana - Senior Software Engineer,,manual,1,2025-11-12 00:57:11Z,2025-11-12 00:57:11Z,,1,168
+182,1,Job,T Rowe Price - Senior AI Software Engineer,Workday app,manual,1,2025-11-12 02:10:44Z,2025-11-12 02:10:44Z,,1,169
+183,1,Job,Accrue - Technical Product Manager / Solutions Engineer - Enterprise Integrations,,manual,1,2025-11-12 04:04:13Z,2025-11-12 04:04:13Z,,1,170
+184,1,Job,Auctor - Software Engineer,,manual,1,2025-11-12 04:08:39Z,2025-11-12 04:08:39Z,,1,171
+185,1,Job,Ridgeline - Senior Technical Consultant,,manual,1,2025-11-12 04:11:26Z,2025-11-12 04:11:26Z,,1,172
+186,1,Job,"Norm AI - Software Engineer, Platform (Senior/Staff)",,manual,1,2025-11-12 04:45:34Z,2025-11-12 04:45:34Z,,1,173
+174,1,Job,Vendelux - Senior Fullstack Engineer,,manual,5,2025-11-11 20:26:47Z,2025-11-17 23:00:54.817484Z,,1,161
+129,1,Job,OnMed - Full Stack Engineer,,manual,5,2025-11-11 11:22:46Z,2025-11-17 23:01:57.15329Z,,1,121
+128,1,Job,Didero - Lead Software Engineer,,manual,5,2025-11-11 11:22:46Z,2025-11-17 23:02:10.255297Z,,1,120
+160,1,Job,Uphold - Senior Backend Engineer (Digital Payments),Completed interview and take home coding assignment,manual,5,2025-11-11 11:22:46Z,2025-11-18 00:36:56.148172Z,,1,148
+187,1,Job,Current - Senior Full-Stack Engineer,,manual,1,2025-11-12 04:49:18Z,2025-11-12 04:49:46Z,,1,174
+188,1,Job,Hatz - Senior Software Engineer,,manual,1,2025-11-13 16:00:39Z,2025-11-13 16:00:57Z,,1,175
+189,1,Job,"Retool - Software Engineer, Workflows",,manual,1,2025-11-13 21:13:12Z,2025-11-13 21:13:12Z,,1,176
+191,1,Job,CardFlight - Senior Backend Software Engineer,remote,manual,1,2025-11-14 02:26:18Z,2025-11-14 02:26:43Z,,1,178
+192,1,Job,Knot - Senior / Staff Product Engineer,,manual,1,2025-11-14 02:37:49Z,2025-11-14 02:37:49Z,,1,179
+193,1,Job,Middesk - Software Engineer,,manual,1,2025-11-14 02:40:31Z,2025-11-14 02:40:31Z,,1,180
+194,1,Job,Plaid - Software Engineer,,manual,1,2025-11-14 19:09:16Z,2025-11-14 19:09:16Z,,1,181
+195,1,Job,Green Spark - Software Engineer,,manual,1,2025-11-14 19:22:03Z,2025-11-14 19:22:03Z,,1,182
+196,1,Job,Double Verify - Senior Software Engineer II - Rockerbox,,manual,1,2025-11-15 19:36:38Z,2025-11-15 19:36:38Z,,1,183
+169,1,Job,"WalkMe - Senior Software Engineer Backend, R&D",,manual,2,2025-11-11 19:44:16Z,2025-11-17 19:08:15.374027Z,,1,156
+214,1,Job,"Siro - Senior Software Engineer, Backend",,manual,1,2025-11-17 19:12:47.293035Z,2025-11-17 19:12:47.293035Z,,1,71
+37,1,Job,ShelfCycle - Senior Software Engineer,Completed tech interview,manual,2,2025-11-11 11:22:46Z,2025-11-25 04:20:36.404475Z,,1,35
+215,1,Job,Dealpath - Senior Software Engineer,,manual,1,2025-11-17 19:33:54.067654Z,2025-11-17 19:33:54.067654Z,,1,201
+216,1,Job,"Hebbia - Backend Engineer, Growth and Data",,manual,1,2025-11-17 20:47:51.313232Z,2025-11-17 20:47:51.313232Z,,1,202
+217,1,Job,Peregrine - Senior Software Engineer,,manual,1,2025-11-17 21:06:17.04902Z,2025-11-17 21:06:17.04902Z,,1,51
+47,1,Job,Sonar.us - Senior Software Engineer,Interviewed first round with Saudi HBS MBA,manual,5,2025-11-11 11:22:46Z,2025-11-16 18:46:21.291308Z,,1,186
+218,1,Job,Thera - Founding Engineer,You can read more about our cultural principles here: https://www.getthera.com/principles,manual,1,2025-11-17 21:15:50.37693Z,2025-11-17 21:15:50.37693Z,,1,203
+219,1,Job,Fair Square - Sr. Software Engineer,requested 180k,manual,1,2025-11-17 22:27:54.808311Z,2025-11-17 22:27:54.808311Z,,1,204
+220,1,Job,Cohere - Senior/Staff Full-Stack Engineer,"Please share any experience you have building production applications with AI. (Please note, our technical managers review these answers as a part of the screening process.)
+I architected an AI-native CRM using LangChain, LangGraph, OpenAI Agents SDK, and retrieval-augmented generation (RAG). I developed multi‑modal LLM agents for browser automation and built TuneCrook, a music discovery tool integrating Discogs and YouTube that uses AI as a curatorial assistant. I also implemented observability tracing for these AI workflows to ensure performance and reliability in production.",manual,1,2025-11-17 22:45:05.303379Z,2025-11-17 22:45:05.303379Z,,1,205
+221,1,Job,Darkroom - Fullstack Engineer,"Remote; Requested 15,000USD/month",manual,1,2025-11-17 22:50:57.568112Z,2025-11-17 22:50:57.568112Z,,1,206
+222,1,Job,Amae Health - Associate Software Engineer,,manual,1,2025-11-17 22:53:48.589064Z,2025-11-17 22:53:48.589064Z,,1,207
+197,1,Job,Mercury - Senior Full-Stack Engineer,,manual,5,2025-11-16 02:22:22Z,2025-11-17 22:56:57.947446Z,,1,184
+199,1,Job,marked as delete - test,test,manual,1,2025-11-16 21:03:41.708486Z,2025-11-16 21:04:22.347183Z,,1,
+200,1,Job,"Stripe - Backend Engineer, Link",,manual,1,2025-11-17 01:59:19.006757Z,2025-11-17 01:59:19.006757Z,,1,189
+201,1,Job,"Stripe - Full Stack Engineer, Managed Operations",,manual,1,2025-11-17 02:03:15.414025Z,2025-11-17 02:03:15.414025Z,,1,189
+223,1,Job,Amae Health - Senior/Staff Software Engineer,,manual,1,2025-11-17 22:55:03.608431Z,2025-11-17 22:55:03.608431Z,,1,207
+203,1,Job,Suno - Software Engineer,"AI music software (sorry)
+
+Why Suno?
+I am a musician and electronic music producer and I studied music at the University of Michigan prior to working in tech. The opportunity to work at the intersection of music and AI is professionally and personally meaningful to me.",manual,1,2025-11-17 02:46:13.818154Z,2025-11-17 03:01:57.605324Z,,1,191
+202,1,Job,Tatari - Senior Fullstack Engineer,,manual,1,2025-11-17 02:30:36.461694Z,2025-11-17 03:03:48.171238Z,,1,190
+204,1,Job,ts - ts,,manual,1,2025-11-17 03:51:10.701167Z,2025-11-17 03:51:10.701167Z,,1,
+205,1,Job,"Bubble - Senior Software Engineer, Backend","Briefly, tell us why you're interested in this role.
+I have over five years of experience in API integration building scalable cloud native applications, which Bubble emphasizes for empowering developers and accelerating app creation. I am particularly drawn to Bubble’s mission of democratizing software development, which fits my experience mentoring teams and designing tools that make complex systems more accessible.",manual,1,2025-11-17 03:52:51.748074Z,2025-11-17 03:52:51.748074Z,,1,193
+206,1,Job,Kombo - Senior Product Engineer,,manual,1,2025-11-17 03:53:46.917156Z,2025-11-17 03:53:46.917156Z,,1,194
+207,1,Job,Reflection AI - Member of Technical Staff - Software Engineer,,manual,1,2025-11-17 04:10:39.125204Z,2025-11-17 04:10:39.125204Z,,1,195
+208,1,Job,keru.ai - Sr. Software Engineer,,manual,1,2025-11-17 04:18:08.616317Z,2025-11-17 04:18:08.616317Z,,1,38
+209,1,Job,Akido - Senior Software Engineer,"Remote
+How many years of Javascript experience do you have? 7",manual,1,2025-11-17 04:46:43.06239Z,2025-11-17 04:46:43.06239Z,,1,196
+210,1,Job,Allwhere - Senior Fullstack Engineer,Found on Indeed,manual,1,2025-11-17 05:09:59.639587Z,2025-11-17 05:09:59.639587Z,,1,197
+211,1,Job,First Street - Software Engineer (Mid & Senior Levels),,manual,1,2025-11-17 05:31:03.554387Z,2025-11-17 05:31:03.554387Z,,1,198
+212,1,Job,Narmi - Senior Software Engineer,,manual,1,2025-11-17 06:21:32.006109Z,2025-11-17 06:21:38.992319Z,,1,199
+213,1,Job,Axio - Senior Software Engineer,"Briefly describe why you want to work at Axio and/or what makes you a great fit for this role.
+I am drawn to Axio because of its focus on cybersecurity resilience and quantitative risk management—areas that align closely with my experience building secure, data-driven systems. I have architected scalable, SOC2‑ready platforms and integrated complex APIs for enterprise clients. I bring a combination of technical depth, security‑minded development, and a track record of shipping reliable solutions that would translate directly to Axio’s mission.",manual,1,2025-11-17 06:28:14.202595Z,2025-11-17 06:28:14.202595Z,,1,200
+198,1,Job,Mercury - Senior Backend Engineer - Product,,manual,5,2025-11-16 02:26:28Z,2025-11-17 22:56:53.494236Z,,1,184
+70,1,Job,Patreon - Senior Backend Engineer,,manual,5,2025-11-11 11:22:46Z,2025-11-17 22:57:26.592881Z,,1,67
+190,1,Job,Adaptive - Senior Software Engineer (Fullstack),,manual,5,2025-11-14 02:07:34Z,2025-11-17 22:58:10.718288Z,,1,177
+225,1,Job,Profound - SWE Fullstack,,manual,1,2025-11-17 23:10:45.80284Z,2025-11-17 23:10:45.80284Z,,1,209
+226,1,Job,Profound - SWE Backend,,manual,1,2025-11-17 23:11:43.429179Z,2025-11-17 23:11:43.429179Z,,1,209
+227,1,Job,Counsel Health - Senior Software Engineer (Full Stack),,manual,1,2025-11-17 23:48:20.260661Z,2025-11-17 23:48:20.260661Z,,1,210
+224,1,Job,Softlight - Founding AI Engineer,Passed after being asked to do free labor prior to speaking to anyone,manual,1,2025-11-17 23:06:48.067016Z,2025-11-25 04:21:34.263035Z,,1,208
+229,1,Job,Copilot Money - Senior Backend Engineer (NYC),,manual,1,2025-11-18 00:18:16.8029Z,2025-11-18 00:18:16.8029Z,,1,212
+142,1,Job,"Reddit - Backend Engineer, Reddit Pro for Publishers",,manual,5,2025-11-11 11:22:46Z,2025-11-18 00:36:14.287672Z,,1,132
+228,1,Job,Magic - Software Engineer - Product,"https://magic.dev/careers/e6bfccff-afd4-464b-a434-b5d22002d8e1
+-passed after being asked to complete take home",manual,1,2025-11-18 00:01:29.664858Z,2025-11-25 04:21:04.387677Z,,1,211
+230,1,Job,"Herald - Software Engineer, AI Products",Digital Infrastructure for commercial insurance.,manual,1,2025-11-25 05:00:28.211524Z,2025-11-25 05:00:28.211524Z,,1,213
+231,1,Job,ZS - AI Engineering Lead,"login username: whubenschmidt
+https://www.builtinnyc.com/job/engineering-lead/6942993",manual,1,2025-11-30 04:06:06.073443Z,2025-11-30 04:06:06.073443Z,,1,214
+232,1,Job,"Astronomer - Senior Software Engineer, Applied AI",,manual,1,2025-11-30 04:19:51.557831Z,2025-11-30 04:19:51.557831Z,,1,215
+233,1,Job,Capsule - Engineering Manage,,manual,1,2025-11-30 04:27:27.322932Z,2025-11-30 04:27:27.322932Z,,1,216
