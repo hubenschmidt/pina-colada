@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 import { getIndividuals, Individual } from "../../../api";
@@ -32,8 +32,7 @@ const columns: Column<Individual>[] = [
   },
   {
     header: "Industry",
-    sortable: true,
-    sortKey: "industry",
+    sortable: false,
     render: (ind) => ind.industries?.join(", ") || "-",
   },
   {
@@ -66,7 +65,13 @@ const columns: Column<Individual>[] = [
 const IndividualsPage = () => {
   const router = useRouter();
   const { dispatchPageLoading } = usePageLoading();
-  const [individuals, setIndividuals] = useState<Individual[]>([]);
+  const [data, setData] = useState<PageData<Individual>>({
+    items: [],
+    currentPage: 1,
+    totalPages: 1,
+    total: 0,
+    pageSize: 50,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -75,74 +80,35 @@ const IndividualsPage = () => {
   const [sortBy, setSortBy] = useState("updated_at");
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC");
 
-  useEffect(() => {
-    const fetchIndividuals = async () => {
-      try {
-        const data = await getIndividuals();
-        setIndividuals(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load individuals");
-      } finally {
-        setLoading(false);
-        dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
-      }
-    };
-
-    fetchIndividuals();
-  }, [dispatchPageLoading]);
-
-  const filteredAndSortedData = useMemo((): PageData<Individual> => {
-    let filtered = individuals;
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = individuals.filter(
-        (ind) =>
-          ind.first_name?.toLowerCase().includes(query) ||
-          ind.last_name?.toLowerCase().includes(query) ||
-          ind.email?.toLowerCase().includes(query) ||
-          ind.title?.toLowerCase().includes(query)
+  const fetchIndividuals = useCallback(async () => {
+    try {
+      setLoading(true);
+      const result = await getIndividuals(
+        page,
+        limit,
+        sortBy,
+        sortDirection,
+        searchQuery || undefined
       );
+      setData(result);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load individuals");
+    } finally {
+      setLoading(false);
+      dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
     }
+  }, [page, limit, sortBy, sortDirection, searchQuery, dispatchPageLoading]);
 
-    const sorted = [...filtered].sort((a, b) => {
-      let comparison: number;
-
-      if (sortBy === "updated_at") {
-        const aDate = new Date(a.updated_at || 0).getTime();
-        const bDate = new Date(b.updated_at || 0).getTime();
-        comparison = aDate - bDate;
-      } else if (sortBy === "industry") {
-        const aVal = (a.industries?.join(", ") || "").toLowerCase();
-        const bVal = (b.industries?.join(", ") || "").toLowerCase();
-        comparison = aVal.localeCompare(bVal);
-      } else {
-        const aVal = (a[sortBy as keyof Individual] as string || "").toLowerCase();
-        const bVal = (b[sortBy as keyof Individual] as string || "").toLowerCase();
-        comparison = aVal.localeCompare(bVal);
-      }
-
-      return sortDirection === "ASC" ? comparison : -comparison;
-    });
-
-    const totalPages = Math.ceil(sorted.length / limit);
-    const startIndex = (page - 1) * limit;
-    const items = sorted.slice(startIndex, startIndex + limit);
-
-    return {
-      items,
-      currentPage: page,
-      totalPages,
-      total: sorted.length,
-      pageSize: limit,
-    };
-  }, [individuals, searchQuery, sortBy, sortDirection, page, limit]);
+  useEffect(() => {
+    fetchIndividuals();
+  }, [fetchIndividuals]);
 
   const handleRowClick = (ind: Individual) => {
     router.push(`/accounts/individuals/${ind.id}`);
   };
 
-  if (loading) {
+  if (loading && data.items.length === 0) {
     return (
       <Center mih={400}>
         <Stack align="center" gap="md">
@@ -181,7 +147,7 @@ const IndividualsPage = () => {
       />
 
       <DataTable
-        data={filteredAndSortedData}
+        data={data}
         columns={columns}
         onPageChange={setPage}
         pageValue={page}

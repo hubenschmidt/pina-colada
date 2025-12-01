@@ -4,12 +4,17 @@ from typing import Optional, List
 from fastapi import APIRouter, Request, Query, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select, delete as sql_delete
+from sqlalchemy.orm import selectinload
 
 from lib.error_logging import log_errors
 from lib.auth import require_auth
 from lib.validators import validate_phone
 from lib.db import async_get_session
-from repositories.contact_repository import search_contacts_and_individuals, delete_contact
+from repositories.contact_repository import (
+    search_contacts_and_individuals,
+    delete_contact,
+    find_all_contacts_paginated,
+)
 from models.Contact import Contact, ContactIndividual, ContactOrganization
 from models.Individual import Individual
 from models.Organization import Organization
@@ -95,16 +100,59 @@ def _contact_to_dict(contact: Contact) -> dict:
     }
 
 
+def _contact_to_list_dict(contact: Contact) -> dict:
+    """Convert Contact model to dict - optimized for list/table view.
+
+    Only returns fields needed for table columns:
+    Last Name, First Name, Title, Account, Email, Phone
+    """
+    organizations = [
+        {"id": org.id, "name": org.name}
+        for org in (contact.organizations or [])
+    ]
+
+    return {
+        "id": contact.id,
+        "first_name": contact.first_name or "",
+        "last_name": contact.last_name or "",
+        "title": contact.title,
+        "email": contact.email,
+        "phone": contact.phone,
+        "organizations": organizations,
+        "updated_at": contact.updated_at.isoformat() if contact.updated_at else None,
+    }
+
+
 @router.get("")
 @log_errors
 @require_auth
-async def get_contacts_route(request: Request):
-    """Get all contacts with linked individuals and organizations."""
-    async with async_get_session() as session:
-        stmt = select(Contact).order_by(Contact.updated_at.desc())
-        result = await session.execute(stmt)
-        contacts = list(result.scalars().all())
-        return [_contact_to_dict(c) for c in contacts]
+async def get_contacts_route(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    order_by: str = Query("updated_at", alias="orderBy"),
+    order: str = Query("DESC", regex="^(ASC|DESC)$"),
+    search: Optional[str] = Query(None),
+):
+    """Get contacts with pagination, sorting, and search."""
+    contacts, total = await find_all_contacts_paginated(
+        page=page,
+        page_size=limit,
+        search=search,
+        order_by=order_by,
+        order=order,
+    )
+
+    items = [_contact_to_list_dict(c) for c in contacts]
+    total_pages = (total + limit - 1) // limit if limit > 0 else 1
+
+    return {
+        "items": items,
+        "currentPage": page,
+        "totalPages": total_pages,
+        "total": total,
+        "pageSize": limit,
+    }
 
 
 @router.get("/search")

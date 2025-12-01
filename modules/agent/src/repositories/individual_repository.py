@@ -1,8 +1,8 @@
 """Repository layer for individual data access."""
 
 import logging
-from typing import List, Optional, Dict, Any
-from sqlalchemy import select, func
+from typing import List, Optional, Dict, Any, Tuple
+from sqlalchemy import select, func, or_
 from sqlalchemy.orm import selectinload
 from models.Individual import Individual
 from models.Account import Account
@@ -26,6 +26,63 @@ async def find_all_individuals(tenant_id: Optional[int] = None) -> List[Individu
             stmt = stmt.join(Account, Individual.account_id == Account.id).where(Account.tenant_id == tenant_id)
         result = await session.execute(stmt)
         return list(result.scalars().all())
+
+
+async def find_all_individuals_paginated(
+    page: int = 1,
+    page_size: int = 50,
+    search: Optional[str] = None,
+    order_by: str = "updated_at",
+    order: str = "DESC",
+    tenant_id: Optional[int] = None,
+) -> Tuple[List[Individual], int]:
+    """Find individuals with pagination, sorting, and search at DB level.
+
+    Optimized for list view - only loads industries (not projects).
+    """
+    async with async_get_session() as session:
+        stmt = (
+            select(Individual)
+            .options(selectinload(Individual.account).selectinload(Account.industries))
+            .outerjoin(Account, Individual.account_id == Account.id)
+        )
+
+        if tenant_id is not None:
+            stmt = stmt.where(Account.tenant_id == tenant_id)
+
+        if search and search.strip():
+            search_lower = search.strip().lower()
+            stmt = stmt.where(
+                or_(
+                    func.lower(Individual.first_name).contains(search_lower),
+                    func.lower(Individual.last_name).contains(search_lower),
+                    func.lower(Individual.email).contains(search_lower),
+                    func.lower(Individual.title).contains(search_lower),
+                )
+            )
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        count_result = await session.execute(count_stmt)
+        total_count = count_result.scalar() or 0
+
+        sort_map = {
+            "updated_at": Individual.updated_at,
+            "first_name": Individual.first_name,
+            "last_name": Individual.last_name,
+            "email": Individual.email,
+            "phone": Individual.phone,
+            "title": Individual.title,
+        }
+        sort_column = sort_map.get(order_by, Individual.updated_at)
+        stmt = stmt.order_by(sort_column.desc() if order.upper() == "DESC" else sort_column.asc())
+
+        offset = (page - 1) * page_size
+        stmt = stmt.limit(page_size).offset(offset)
+
+        result = await session.execute(stmt)
+        individuals = list(result.scalars().all())
+
+        return individuals, total_count
 
 
 async def find_individual_by_id(individual_id: int) -> Optional[Individual]:

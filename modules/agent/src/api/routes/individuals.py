@@ -15,6 +15,7 @@ from models.Contact import Contact, ContactIndividual, ContactOrganization
 from models.Individual import Individual
 from repositories.individual_repository import (
     find_all_individuals,
+    find_all_individuals_paginated,
     find_individual_by_id,
     create_individual,
     update_individual,
@@ -222,14 +223,70 @@ def _ind_to_dict(ind, include_contacts=False, contacts=None, include_research=Fa
     return result
 
 
+def _ind_to_list_dict(ind) -> dict:
+    """Convert individual to dictionary - optimized for list/table view.
+
+    Only returns fields needed for table columns:
+    Last Name, First Name, Title, Industry, Email, Phone
+    """
+    industries = []
+    if ind.account and ind.account.industries:
+        industries = [industry.name for industry in ind.account.industries]
+
+    return {
+        "id": ind.id,
+        "first_name": ind.first_name,
+        "last_name": ind.last_name,
+        "title": ind.title,
+        "industries": industries,
+        "email": ind.email,
+        "phone": ind.phone,
+        "updated_at": ind.updated_at.isoformat() if ind.updated_at else None,
+    }
+
+
+def _ind_to_search_dict(ind) -> dict:
+    """Convert individual to dictionary - minimal for search/autocomplete."""
+    return {
+        "id": ind.id,
+        "first_name": ind.first_name,
+        "last_name": ind.last_name,
+        "email": ind.email,
+    }
+
+
 @router.get("")
 @log_errors
 @require_auth
-async def get_individuals_route(request: Request):
-    """Get all individuals for the current tenant."""
+async def get_individuals_route(
+    request: Request,
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=100),
+    order_by: str = Query("updated_at", alias="orderBy"),
+    order: str = Query("DESC", regex="^(ASC|DESC)$"),
+    search: Optional[str] = Query(None),
+):
+    """Get individuals for the current tenant with pagination, sorting, and search."""
     tenant_id = getattr(request.state, "tenant_id", None)
-    individuals = await find_all_individuals(tenant_id=tenant_id)
-    return [_ind_to_dict(ind) for ind in individuals]
+    individuals, total = await find_all_individuals_paginated(
+        page=page,
+        page_size=limit,
+        search=search,
+        order_by=order_by,
+        order=order,
+        tenant_id=tenant_id,
+    )
+
+    items = [_ind_to_list_dict(ind) for ind in individuals]
+    total_pages = (total + limit - 1) // limit if limit > 0 else 1
+
+    return {
+        "items": items,
+        "currentPage": page,
+        "totalPages": total_pages,
+        "total": total,
+        "pageSize": limit,
+    }
 
 
 @router.get("/search")
@@ -241,7 +298,7 @@ async def search_individuals_route(request: Request, q: Optional[str] = Query(No
         return []
     tenant_id = getattr(request.state, "tenant_id", None)
     individuals = await search_individuals(q, tenant_id=tenant_id)
-    return [_ind_to_dict(ind) for ind in individuals]
+    return [_ind_to_search_dict(ind) for ind in individuals]
 
 
 @router.get("/{individual_id}")

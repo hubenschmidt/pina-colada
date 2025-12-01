@@ -1571,6 +1571,56 @@
           "response": []
         },
         {
+          "name": "Search Tasks",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tasks?search=follow up",
+              "host": ["{{base_url}}"],
+              "path": ["tasks"],
+              "query": [
+                {
+                  "key": "search",
+                  "value": "follow up"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "disabled": true
+                },
+                {
+                  "key": "limit",
+                  "value": "50",
+                  "disabled": true
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at",
+                  "disabled": true
+                },
+                {
+                  "key": "order",
+                  "value": "DESC",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Search tasks by title (case-insensitive)"
+          },
+          "response": []
+        },
+        {
           "name": "Get Task by ID",
           "request": {
             "auth": {

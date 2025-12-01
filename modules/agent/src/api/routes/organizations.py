@@ -227,14 +227,14 @@ def _signal_to_dict(s):
 
 def _org_to_list_dict(org) -> dict:
     """Convert Organization model to dictionary - optimized for list/table view.
-    
+
     Only returns fields needed for table columns:
     Name, Industry, Funding, Employees, Description, Website
     """
     industries = []
     if org.account and org.account.industries:
         industries = [ind.name for ind in org.account.industries]
-    
+
     return {
         "id": org.id,
         "name": org.name,
@@ -243,6 +243,22 @@ def _org_to_list_dict(org) -> dict:
         "employee_count_range": org.employee_count_range.label if org.employee_count_range else None,
         "funding_stage": org.funding_stage.label if org.funding_stage else None,
         "description": org.description,
+    }
+
+
+def _org_to_search_dict(org) -> dict:
+    """Convert Organization model to dictionary - minimal for search/autocomplete.
+
+    Only returns fields needed for dropdown selection.
+    """
+    industries = []
+    if org.account and org.account.industries:
+        industries = [ind.name for ind in org.account.industries]
+
+    return {
+        "id": org.id,
+        "name": org.name,
+        "industries": industries,
     }
 
 
@@ -347,7 +363,7 @@ async def search_organizations_route(request: Request, q: Optional[str] = Query(
         return []
     tenant_id = getattr(request.state, "tenant_id", None)
     organizations = await search_organizations(q, tenant_id=tenant_id)
-    return [_org_to_dict(org) for org in organizations]
+    return [_org_to_search_dict(org) for org in organizations]
 
 
 @router.get("/{org_id}")

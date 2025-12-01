@@ -342,20 +342,35 @@ export type Individual = {
   last_name: string;
   email: string | null;
   phone: string | null;
-  linkedin_url: string | null;
+  linkedin_url?: string | null;
   title: string | null;
-  notes: string | null;
+  description?: string | null;
   industries: string[];
   contacts?: Contact[];
-  created_at: string | null;
+  created_at?: string | null;
   updated_at: string | null;
 };
 
 /**
- * Get all individuals for the current tenant
+ * Get individuals for the current tenant with pagination
  */
-export const getIndividuals = async (): Promise<Individual[]> => {
-  return apiGet<Individual[]>("/individuals");
+export const getIndividuals = async (
+  page: number = 1,
+  limit: number = 50,
+  orderBy: string = "updated_at",
+  order: "ASC" | "DESC" = "DESC",
+  search?: string
+): Promise<PageData<Individual>> => {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    orderBy,
+    order,
+  });
+  if (search && search.trim()) {
+    params.append("search", search.trim());
+  }
+  return apiGet<PageData<Individual>>(`/individuals?${params}`);
 };
 
 /**
@@ -604,10 +619,25 @@ export const getFundingStages = async (): Promise<FundingStage[]> => {
 // Standalone Contact CRUD
 
 /**
- * Get all contacts
+ * Get contacts with pagination
  */
-export const getContacts = async (): Promise<Contact[]> => {
-  return apiGet<Contact[]>("/contacts");
+export const getContacts = async (
+  page: number = 1,
+  limit: number = 50,
+  orderBy: string = "updated_at",
+  order: "ASC" | "DESC" = "DESC",
+  search?: string
+): Promise<PageData<Contact>> => {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    orderBy,
+    order,
+  });
+  if (search && search.trim()) {
+    params.append("search", search.trim());
+  }
+  return apiGet<PageData<Contact>>(`/contacts?${params}`);
 };
 
 /**
@@ -1624,7 +1654,8 @@ export const getTasks = async (
   orderBy: string = "created_at",
   order: "ASC" | "DESC" = "DESC",
   scope: "project" | "global" = "global",
-  projectId?: number | null
+  projectId?: number | null,
+  search?: string
 ): Promise<TasksPageData> => {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -1635,6 +1666,9 @@ export const getTasks = async (
   });
   if (projectId) {
     params.append("projectId", projectId.toString());
+  }
+  if (search && search.trim()) {
+    params.append("search", search.trim());
   }
   return apiGet<TasksPageData>(`/tasks?${params}`);
 };

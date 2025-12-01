@@ -290,6 +290,107 @@ async def get_document_tags(document_id: int) -> List[str]:
         return [row[0] for row in result.fetchall()]
 
 
+async def get_documents_entities_batch(document_ids: List[int]) -> Dict[int, List[Dict[str, Any]]]:
+    """Get entities for multiple documents in a single query.
+
+    Returns a dict mapping document_id -> list of entity dicts.
+    """
+    if not document_ids:
+        return {}
+
+    async with async_get_session() as session:
+        # Get all entity links for all documents
+        stmt = select(EntityAsset).where(EntityAsset.c.asset_id.in_(document_ids))
+        result = await session.execute(stmt)
+        rows = result.fetchall()
+
+        # Group by document and collect unique entity lookups needed
+        doc_entities: Dict[int, List[tuple]] = {}
+        entity_lookups: Dict[tuple, str] = {}  # (type, id) -> name
+
+        for row in rows:
+            doc_id = row.asset_id
+            entity_type = row.entity_type
+            entity_id = row.entity_id
+
+            if doc_id not in doc_entities:
+                doc_entities[doc_id] = []
+            doc_entities[doc_id].append((entity_type, entity_id))
+            entity_lookups[(entity_type, entity_id)] = None
+
+        # Batch fetch entity names by type
+        for entity_type in ["Organization", "Project", "Lead", "Individual", "Contact"]:
+            type_ids = [eid for (etype, eid) in entity_lookups.keys() if etype == entity_type]
+            if not type_ids:
+                continue
+
+            if entity_type == "Organization":
+                stmt = select(Organization.id, Organization.name).where(Organization.id.in_(type_ids))
+            elif entity_type == "Project":
+                stmt = select(Project.id, Project.name).where(Project.id.in_(type_ids))
+            elif entity_type == "Lead":
+                stmt = select(Lead.id, Lead.title).where(Lead.id.in_(type_ids))
+            elif entity_type == "Individual":
+                stmt = select(Individual.id, Individual.first_name, Individual.last_name).where(Individual.id.in_(type_ids))
+            elif entity_type == "Contact":
+                stmt = select(Contact.id, Contact.first_name, Contact.last_name).where(Contact.id.in_(type_ids))
+            else:
+                continue
+
+            result = await session.execute(stmt)
+            for row in result.fetchall():
+                if entity_type in ["Individual", "Contact"]:
+                    name = f"{row[1]} {row[2]}"
+                else:
+                    name = row[1]
+                entity_lookups[(entity_type, row[0])] = name
+
+        # Build final result
+        result_dict: Dict[int, List[Dict[str, Any]]] = {doc_id: [] for doc_id in document_ids}
+        for doc_id, entities in doc_entities.items():
+            for entity_type, entity_id in entities:
+                name = entity_lookups.get((entity_type, entity_id))
+                result_dict[doc_id].append({
+                    "entity_type": entity_type,
+                    "entity_id": entity_id,
+                    "entity_name": name or f"{entity_type} #{entity_id}",
+                })
+
+        return result_dict
+
+
+async def get_documents_tags_batch(document_ids: List[int]) -> Dict[int, List[str]]:
+    """Get tags for multiple documents in a single query.
+
+    Returns a dict mapping document_id -> list of tag names.
+    """
+    if not document_ids:
+        return {}
+
+    async with async_get_session() as session:
+        stmt = (
+            select(EntityTag.c.entity_id, Tag.name)
+            .join(Tag, Tag.id == EntityTag.c.tag_id)
+            .where(
+                and_(
+                    EntityTag.c.entity_type == "Asset",
+                    EntityTag.c.entity_id.in_(document_ids),
+                )
+            )
+            .order_by(EntityTag.c.entity_id, Tag.name)
+        )
+        result = await session.execute(stmt)
+
+        # Build result dict
+        result_dict: Dict[int, List[str]] = {doc_id: [] for doc_id in document_ids}
+        for row in result.fetchall():
+            doc_id = row[0]
+            tag_name = row[1]
+            result_dict[doc_id].append(tag_name)
+
+        return result_dict
+
+
 async def find_document_versions(document_id: int, tenant_id: int) -> List[Document]:
     """Get all versions of a document (including itself).
 

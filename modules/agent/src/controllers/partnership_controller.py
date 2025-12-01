@@ -96,8 +96,39 @@ def _get_industries(partnership) -> list:
     return [ind.name for ind in partnership.lead.account.industries]
 
 
+def _partnership_to_list_dict(partnership) -> Dict[str, Any]:
+    """Convert partnership ORM to dict - optimized for list/table view.
+
+    Only returns fields needed for table columns:
+    Account, Partnership Name, Type, Status, Start Date, End Date, Updated
+    """
+    p_dict = model_to_dict(partnership, include_relationships=True)
+
+    lead = p_dict.get("lead") or {}
+    account = lead.get("account") or {}
+    company, _ = _extract_company_info(
+        account.get("organizations") or [],
+        account.get("individuals") or [],
+    )
+
+    status = "Exploring"
+    if partnership.lead and partnership.lead.current_status:
+        status = partnership.lead.current_status.name
+
+    return {
+        "id": str(p_dict.get("id", "")),
+        "account": company,
+        "partnership_name": p_dict.get("partnership_name", ""),
+        "partnership_type": p_dict.get("partnership_type"),
+        "status": status,
+        "start_date": _format_date(p_dict.get("start_date")),
+        "end_date": _format_date(p_dict.get("end_date")),
+        "updated_at": p_dict.get("updated_at", ""),
+    }
+
+
 def _partnership_to_response_dict(partnership) -> Dict[str, Any]:
-    """Convert partnership ORM to response dictionary."""
+    """Convert partnership ORM to response dictionary - full detail view."""
     p_dict = model_to_dict(partnership, include_relationships=True)
 
     lead = p_dict.get("lead") or {}
@@ -147,7 +178,7 @@ async def get_partnerships(
     paginated, total_count = await get_partnerships_paginated(
         page, limit, order_by, order, search, tenant_id, project_id
     )
-    items = [_partnership_to_response_dict(p) for p in paginated]
+    items = [_partnership_to_list_dict(p) for p in paginated]
     return _to_paged_response(total_count, page, limit, items)
 
 

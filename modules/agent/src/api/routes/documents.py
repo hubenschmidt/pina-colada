@@ -19,6 +19,8 @@ from repositories.document_repository import (
     unlink_document_from_entity,
     get_document_entities,
     get_document_tags,
+    get_documents_entities_batch,
+    get_documents_tags_batch,
     find_document_versions,
     get_version_count,
     find_existing_document_by_filename,
@@ -53,8 +55,26 @@ class EntityLink(BaseModel):
     entity_id: int
 
 
+def _document_to_list_dict(document, entities=None, tags=None) -> dict:
+    """Convert Document model to dict - optimized for list/table view.
+
+    Only returns fields needed for table columns:
+    Name (filename, version_number, description), Linked To (entities), Size (file_size), Tags, Uploaded (created_at)
+    """
+    return {
+        "id": document.id,
+        "filename": document.filename,
+        "file_size": document.file_size,
+        "description": document.description,
+        "created_at": document.created_at.isoformat() if document.created_at else None,
+        "entities": entities or [],
+        "tags": tags or [],
+        "version_number": document.version_number,
+    }
+
+
 def _document_to_dict(document, entities=None, tags=None, version_count=None) -> dict:
-    """Convert Document model to dictionary."""
+    """Convert Document model to dictionary - full detail view."""
     return {
         "id": document.id,
         "tenant_id": document.tenant_id,
@@ -100,14 +120,18 @@ async def list_documents_route(
         tenant_id, normalized_type, entity_id, page, limit, order_by, order, search, tag_list
     )
 
-    result = []
-    for doc in documents:
-        entities = await get_document_entities(doc.id)
-        tags = await get_document_tags(doc.id)
-        result.append(_document_to_dict(doc, entities, tags))
+    # Batch load entities and tags for all documents (avoids N+1 queries)
+    doc_ids = [doc.id for doc in documents]
+    entities_map = await get_documents_entities_batch(doc_ids)
+    tags_map = await get_documents_tags_batch(doc_ids)
+
+    result = [
+        _document_to_list_dict(doc, entities_map.get(doc.id, []), tags_map.get(doc.id, []))
+        for doc in documents
+    ]
 
     total_pages = (total + limit - 1) // limit if limit > 0 else 1
-    
+
     return {
         "items": result,
         "currentPage": page,

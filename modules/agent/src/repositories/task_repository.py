@@ -26,6 +26,7 @@ async def find_all_tasks(
     page_size: int = 20,
     order_by: str = "created_at",
     order: str = "DESC",
+    search: Optional[str] = None,
 ) -> Tuple[List[Task], int]:
     """Find all tasks with optional project scope filtering.
 
@@ -44,6 +45,11 @@ async def find_all_tasks(
                 selectinload(Task.priority),
             )
         )
+
+        # Apply search filter on task title only
+        if search and search.strip():
+            search_lower = search.strip().lower()
+            base_query = base_query.where(func.lower(Task.title).contains(search_lower))
 
         if project_id:
             # Get Deal IDs for this project

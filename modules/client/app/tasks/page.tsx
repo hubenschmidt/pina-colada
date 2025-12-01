@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -35,7 +35,9 @@ const TasksPage = () => {
   const [pageSize, setPageSize] = useState(50);
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDirection, setSortDirection] = useState<SortDir>("DESC");
+  const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
   const scope = selectedProject ? "project" : "global";
 
@@ -49,7 +51,8 @@ const TasksPage = () => {
         sortBy,
         sortDirection,
         scope,
-        projectId
+        projectId,
+        searchQuery || undefined
       );
       setData(result);
     } catch (error) {
@@ -57,7 +60,7 @@ const TasksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, sortBy, sortDirection, scope, selectedProject?.id]);
+  }, [page, pageSize, sortBy, sortDirection, scope, selectedProject?.id, searchQuery]);
 
   useEffect(() => {
     dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
@@ -72,11 +75,23 @@ const TasksPage = () => {
   }, [selectedProject?.id]);
 
   const handleSearchChange = (value: string) => {
-    setSearchQuery(value);
-    setPage(1);
+    setSearchInput(value);
+
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
+
+    debounceTimer.current = setTimeout(() => {
+      setSearchQuery(value);
+      setPage(1);
+    }, 300);
   };
 
   const handleClearSearch = () => {
+    setSearchInput("");
+    if (debounceTimer.current) {
+      clearTimeout(debounceTimer.current);
+    }
     setSearchQuery("");
     setPage(1);
   };
@@ -224,11 +239,11 @@ const TasksPage = () => {
         <Group gap="md">
           <TextInput
             placeholder="Search tasks..."
-            value={searchQuery}
+            value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             leftSection={<Search size={20} />}
             rightSection={
-              searchQuery ? (
+              searchInput ? (
                 <button
                   onClick={handleClearSearch}
                   className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-400"
@@ -244,9 +259,9 @@ const TasksPage = () => {
             New Task
           </Button>
         </Group>
-        {searchQuery && (
+        {searchInput && (
           <Text size="sm" c="dimmed">
-            Showing results for "{searchQuery}"
+            Showing results for "{searchInput}"
           </Text>
         )}
       </Stack>

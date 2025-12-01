@@ -96,8 +96,39 @@ def _get_industries(opp) -> list:
     return [ind.name for ind in opp.lead.account.industries]
 
 
+def _opportunity_to_list_dict(opp) -> Dict[str, Any]:
+    """Convert opportunity ORM to dict - optimized for list/table view.
+
+    Only returns fields needed for table columns:
+    Account, Opportunity Name, Status, Value, Probability, Close Date, Updated
+    """
+    opp_dict = model_to_dict(opp, include_relationships=True)
+
+    lead = opp_dict.get("lead") or {}
+    account = lead.get("account") or {}
+    company, _ = _extract_company_info(
+        account.get("organizations") or [],
+        account.get("individuals") or [],
+    )
+
+    status = "Qualifying"
+    if opp.lead and opp.lead.current_status:
+        status = opp.lead.current_status.name
+
+    return {
+        "id": str(opp_dict.get("id", "")),
+        "account": company,
+        "opportunity_name": opp_dict.get("opportunity_name", ""),
+        "estimated_value": float(opp_dict.get("estimated_value")) if opp_dict.get("estimated_value") else None,
+        "probability": float(opp_dict.get("probability")) if opp_dict.get("probability") else None,
+        "expected_close_date": _format_date(opp_dict.get("expected_close_date")),
+        "status": status,
+        "updated_at": opp_dict.get("updated_at", ""),
+    }
+
+
 def _opportunity_to_response_dict(opp) -> Dict[str, Any]:
-    """Convert opportunity ORM to response dictionary."""
+    """Convert opportunity ORM to response dictionary - full detail view."""
     opp_dict = model_to_dict(opp, include_relationships=True)
 
     lead = opp_dict.get("lead") or {}
@@ -147,7 +178,7 @@ async def get_opportunities(
     paginated, total_count = await get_opportunities_paginated(
         page, limit, order_by, order, search, tenant_id, project_id
     )
-    items = [_opportunity_to_response_dict(opp) for opp in paginated]
+    items = [_opportunity_to_list_dict(opp) for opp in paginated]
     return _to_paged_response(total_count, page, limit, items)
 
 

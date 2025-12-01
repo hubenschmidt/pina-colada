@@ -30,6 +30,7 @@ async def get_tasks_paginated(
     page_size: int = 20,
     order_by: str = "created_at",
     order: str = "DESC",
+    search: Optional[str] = None,
 ) -> Tuple[List[Any], int]:
     """Get tasks with pagination and optional project scope."""
     return await find_all_tasks(
@@ -39,6 +40,7 @@ async def get_tasks_paginated(
         page_size=page_size,
         order_by=order_by,
         order=order,
+        search=search,
     )
 
 

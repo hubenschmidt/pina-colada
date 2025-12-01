@@ -1,7 +1,7 @@
 """Repository layer for contact data access."""
 
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Tuple
 from sqlalchemy import select, or_, func
 from sqlalchemy.orm import selectinload
 from models.Contact import Contact, ContactIndividual, ContactOrganization
@@ -9,6 +9,58 @@ from models.Individual import Individual
 from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)
+
+
+async def find_all_contacts_paginated(
+    page: int = 1,
+    page_size: int = 50,
+    search: Optional[str] = None,
+    order_by: str = "updated_at",
+    order: str = "DESC",
+) -> Tuple[List[Contact], int]:
+    """Find contacts with pagination, sorting, and search at DB level.
+
+    Optimized for list view - only loads organizations for account display.
+    """
+    async with async_get_session() as session:
+        stmt = (
+            select(Contact)
+            .options(selectinload(Contact.organizations))
+        )
+
+        if search and search.strip():
+            search_lower = search.strip().lower()
+            stmt = stmt.where(
+                or_(
+                    func.lower(Contact.first_name).contains(search_lower),
+                    func.lower(Contact.last_name).contains(search_lower),
+                    func.lower(Contact.email).contains(search_lower),
+                    func.lower(Contact.title).contains(search_lower),
+                )
+            )
+
+        count_stmt = select(func.count()).select_from(stmt.subquery())
+        count_result = await session.execute(count_stmt)
+        total_count = count_result.scalar() or 0
+
+        sort_map = {
+            "updated_at": Contact.updated_at,
+            "first_name": Contact.first_name,
+            "last_name": Contact.last_name,
+            "email": Contact.email,
+            "phone": Contact.phone,
+            "title": Contact.title,
+        }
+        sort_column = sort_map.get(order_by, Contact.updated_at)
+        stmt = stmt.order_by(sort_column.desc() if order.upper() == "DESC" else sort_column.asc())
+
+        offset = (page - 1) * page_size
+        stmt = stmt.limit(page_size).offset(offset)
+
+        result = await session.execute(stmt)
+        contacts = list(result.scalars().all())
+
+        return contacts, total_count
 
 
 async def _find_contact_by_individual_only(session, individual_id: int) -> Optional[Contact]:

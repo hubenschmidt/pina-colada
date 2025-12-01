@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 import { getContacts, Contact } from "../../../api";
@@ -32,8 +32,7 @@ const columns: Column<Contact>[] = [
   },
   {
     header: "Account",
-    sortable: true,
-    sortKey: "account",
+    sortable: false,
     render: (c) =>
       c.organizations && c.organizations.length > 0
         ? c.organizations.map((o) => o.name).join(", ")
@@ -69,7 +68,13 @@ const columns: Column<Contact>[] = [
 const ContactsPage = () => {
   const router = useRouter();
   const { dispatchPageLoading } = usePageLoading();
-  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [data, setData] = useState<PageData<Contact>>({
+    items: [],
+    currentPage: 1,
+    totalPages: 1,
+    total: 0,
+    pageSize: 50,
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -78,74 +83,35 @@ const ContactsPage = () => {
   const [sortBy, setSortBy] = useState("updated_at");
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC");
 
-  useEffect(() => {
-    const fetchContacts = async () => {
-      try {
-        const data = await getContacts();
-        setContacts(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load contacts");
-      } finally {
-        setLoading(false);
-        dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
-      }
-    };
-
-    fetchContacts();
-  }, [dispatchPageLoading]);
-
-  const filteredAndSortedData = useMemo((): PageData<Contact> => {
-    let filtered = contacts;
-
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = contacts.filter(
-        (c) =>
-          c.first_name?.toLowerCase().includes(query) ||
-          c.last_name?.toLowerCase().includes(query) ||
-          c.email?.toLowerCase().includes(query) ||
-          c.title?.toLowerCase().includes(query)
+  const fetchContacts = useCallback(async () => {
+    try {
+      setLoading(true);
+      const result = await getContacts(
+        page,
+        limit,
+        sortBy,
+        sortDirection,
+        searchQuery || undefined
       );
+      setData(result);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load contacts");
+    } finally {
+      setLoading(false);
+      dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
     }
+  }, [page, limit, sortBy, sortDirection, searchQuery, dispatchPageLoading]);
 
-    const sorted = [...filtered].sort((a, b) => {
-      let comparison: number;
-
-      if (sortBy === "updated_at") {
-        const aDate = new Date(a.updated_at || 0).getTime();
-        const bDate = new Date(b.updated_at || 0).getTime();
-        comparison = aDate - bDate;
-      } else if (sortBy === "account") {
-        const aVal = (a.organizations?.map((o) => o.name).join(", ") || "").toLowerCase();
-        const bVal = (b.organizations?.map((o) => o.name).join(", ") || "").toLowerCase();
-        comparison = aVal.localeCompare(bVal);
-      } else {
-        const aVal = (a[sortBy as keyof Contact] as string || "").toLowerCase();
-        const bVal = (b[sortBy as keyof Contact] as string || "").toLowerCase();
-        comparison = aVal.localeCompare(bVal);
-      }
-
-      return sortDirection === "ASC" ? comparison : -comparison;
-    });
-
-    const totalPages = Math.ceil(sorted.length / limit);
-    const startIndex = (page - 1) * limit;
-    const items = sorted.slice(startIndex, startIndex + limit);
-
-    return {
-      items,
-      currentPage: page,
-      totalPages,
-      total: sorted.length,
-      pageSize: limit,
-    };
-  }, [contacts, searchQuery, sortBy, sortDirection, page, limit]);
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
 
   const handleRowClick = (c: Contact) => {
     router.push(`/accounts/contacts/${c.id}`);
   };
 
-  if (loading) {
+  if (loading && data.items.length === 0) {
     return (
       <Center mih={400}>
         <Stack align="center" gap="md">
@@ -184,7 +150,7 @@ const ContactsPage = () => {
       />
 
       <DataTable
-        data={filteredAndSortedData}
+        data={data}
         columns={columns}
         onPageChange={setPage}
         pageValue={page}

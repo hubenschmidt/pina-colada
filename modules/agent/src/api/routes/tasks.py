@@ -210,11 +210,13 @@ async def get_tasks_route(
     limit: int = Query(20, ge=1, le=100),
     order_by: str = Query("created_at", alias="orderBy"),
     order: str = Query("DESC"),
+    search: Optional[str] = Query(None),
 ):
     """Get all tasks with optional project scope filtering.
 
     - scope="project" + project_id: Tasks within project's entity graph
     - scope="global": All tasks in tenant
+    - search: Filter by task title (case-insensitive)
     """
     tenant_id = request.state.tenant_id
 
@@ -230,6 +232,7 @@ async def get_tasks_route(
         page_size=limit,
         order_by=order_by,
         order=order,
+        search=search,
     )
 
     # Batch resolve entity display info for all tasks
