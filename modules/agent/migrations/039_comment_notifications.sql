@@ -1,7 +1,7 @@
 -- Comment Notification System
 -- Tracks notifications for comment activity (direct replies and thread participation)
 
-CREATE TABLE IF NOT EXISTS "CommentNotification" (
+CREATE TABLE IF NOT EXISTS "Comment_Notification" (
     id SERIAL PRIMARY KEY,
     tenant_id INTEGER NOT NULL REFERENCES "Tenant"(id) ON DELETE CASCADE,
     user_id INTEGER NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
@@ -15,13 +15,13 @@ CREATE TABLE IF NOT EXISTS "CommentNotification" (
 );
 
 -- Index for fast unread count queries
-CREATE INDEX IF NOT EXISTS idx_notification_user_unread ON "CommentNotification" (user_id, is_read) WHERE is_read = FALSE;
+CREATE INDEX IF NOT EXISTS idx_notification_user_unread ON "Comment_Notification" (user_id, is_read) WHERE is_read = FALSE;
 
 -- Index for cleanup of old notifications
-CREATE INDEX IF NOT EXISTS idx_notification_created ON "CommentNotification" (created_at);
+CREATE INDEX IF NOT EXISTS idx_notification_created ON "Comment_Notification" (created_at);
 
 -- Index for tenant filtering
-CREATE INDEX IF NOT EXISTS idx_notification_tenant ON "CommentNotification" (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_notification_tenant ON "Comment_Notification" (tenant_id);
 
-COMMENT ON TABLE "CommentNotification" IS 'Tracks comment notifications for users - direct replies and thread activity';
-COMMENT ON COLUMN "CommentNotification".notification_type IS 'Type of notification: direct_reply (reply to your comment) or thread_activity (activity on entity you commented on)';
+COMMENT ON TABLE "Comment_Notification" IS 'Tracks comment notifications for users - direct replies and thread activity';
+COMMENT ON COLUMN "Comment_Notification".notification_type IS 'Type of notification: direct_reply (reply to your comment) or thread_activity (activity on entity you commented on)';

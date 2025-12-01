@@ -16,7 +16,7 @@ CREATE INDEX IF NOT EXISTS idx_technology_category ON "Technology"(category);
 -- ==============================================
 -- ORGANIZATION_TECHNOLOGY (Junction table)
 -- ==============================================
-CREATE TABLE IF NOT EXISTS "OrganizationTechnology" (
+CREATE TABLE IF NOT EXISTS "Organization_Technology" (
     organization_id BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
     technology_id   BIGINT NOT NULL REFERENCES "Technology"(id) ON DELETE CASCADE,
     detected_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -26,5 +26,5 @@ CREATE TABLE IF NOT EXISTS "OrganizationTechnology" (
     PRIMARY KEY (organization_id, technology_id)
 );
 
-CREATE INDEX IF NOT EXISTS idx_org_tech_org ON "OrganizationTechnology"(organization_id);
-CREATE INDEX IF NOT EXISTS idx_org_tech_tech ON "OrganizationTechnology"(technology_id);
+CREATE INDEX IF NOT EXISTS idx_org_tech_org ON "Organization_Technology"(organization_id);
+CREATE INDEX IF NOT EXISTS idx_org_tech_tech ON "Organization_Technology"(technology_id);

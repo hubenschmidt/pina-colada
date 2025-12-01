@@ -16,14 +16,14 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Add timezone preference to UserPreferences if not exists
+-- Add timezone preference to User_Preferences if not exists
 DO $$
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM information_schema.columns
-        WHERE table_name = 'UserPreferences' AND column_name = 'timezone'
+        WHERE table_name = 'User_Preferences' AND column_name = 'timezone'
     ) THEN
-        ALTER TABLE "UserPreferences" ADD COLUMN timezone TEXT DEFAULT 'America/New_York';
+        ALTER TABLE "User_Preferences" ADD COLUMN timezone TEXT DEFAULT 'America/New_York';
     END IF;
 END $$;
 

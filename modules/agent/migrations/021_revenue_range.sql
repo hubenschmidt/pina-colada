@@ -1,7 +1,7 @@
 -- ==============================================
 -- REVENUE RANGE (Lookup table)
 -- ==============================================
-CREATE TABLE IF NOT EXISTS "RevenueRange" (
+CREATE TABLE IF NOT EXISTS "Revenue_Range" (
     id              BIGSERIAL PRIMARY KEY,
     label           TEXT NOT NULL UNIQUE,
     min_value       BIGINT,                   -- USD, NULL = unbounded
@@ -13,11 +13,11 @@ CREATE TABLE IF NOT EXISTS "RevenueRange" (
 
 -- Trigger for updated_at
 CREATE TRIGGER update_revenue_range_updated_at
-    BEFORE UPDATE ON "RevenueRange"
+    BEFORE UPDATE ON "Revenue_Range"
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Seed data
-INSERT INTO "RevenueRange" (label, min_value, max_value, display_order) VALUES
+INSERT INTO "Revenue_Range" (label, min_value, max_value, display_order) VALUES
 ('< $1M', 0, 1000000, 0),
 ('$1M - $10M', 1000000, 10000000, 1),
 ('$10M - $50M', 10000000, 50000000, 2),

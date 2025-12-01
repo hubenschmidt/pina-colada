@@ -1,5 +1,5 @@
--- Create FundingStage lookup table
-CREATE TABLE IF NOT EXISTS "FundingStage" (
+-- Create Funding_Stage lookup table
+CREATE TABLE IF NOT EXISTS "Funding_Stage" (
   id              BIGSERIAL PRIMARY KEY,
   label           TEXT NOT NULL UNIQUE,
   display_order   INTEGER NOT NULL DEFAULT 0,
@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS "FundingStage" (
 );
 
 -- Seed funding stages
-INSERT INTO "FundingStage" (label, display_order) VALUES
+INSERT INTO "Funding_Stage" (label, display_order) VALUES
 ('Pre-seed', 0),
 ('Seed', 1),
 ('Series A', 2),
@@ -19,4 +19,4 @@ INSERT INTO "FundingStage" (label, display_order) VALUES
 ON CONFLICT (label) DO NOTHING;
 
 -- Add FK column to Organization
-ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS funding_stage_id BIGINT REFERENCES "FundingStage"(id) ON DELETE SET NULL;
+ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS funding_stage_id BIGINT REFERENCES "Funding_Stage"(id) ON DELETE SET NULL;

@@ -1,5 +1,5 @@
--- Create EmployeeCountRange lookup table
-CREATE TABLE IF NOT EXISTS "EmployeeCountRange" (
+-- Create Employee_Count_Range lookup table
+CREATE TABLE IF NOT EXISTS "Employee_Count_Range" (
   id              BIGSERIAL PRIMARY KEY,
   label           TEXT NOT NULL UNIQUE,
   min_value       INTEGER,
@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS "EmployeeCountRange" (
 );
 
 -- Seed employee count brackets
-INSERT INTO "EmployeeCountRange" (label, min_value, max_value, display_order) VALUES
+INSERT INTO "Employee_Count_Range" (label, min_value, max_value, display_order) VALUES
 ('1-10', 1, 10, 0),
 ('11-50', 11, 50, 1),
 ('51-500', 51, 500, 2),
@@ -19,4 +19,4 @@ INSERT INTO "EmployeeCountRange" (label, min_value, max_value, display_order) VA
 ON CONFLICT (label) DO NOTHING;
 
 -- Add FK column to Organization
-ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS employee_count_range_id BIGINT REFERENCES "EmployeeCountRange"(id) ON DELETE SET NULL;
+ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS employee_count_range_id BIGINT REFERENCES "Employee_Count_Range"(id) ON DELETE SET NULL;

@@ -1,8 +1,8 @@
 -- Migration: Convert Lead-Project from one-to-many to many-to-many
--- Creates LeadProject junction table
+-- Creates Lead_Project junction table
 
 -- Create junction table
-CREATE TABLE IF NOT EXISTS "LeadProject" (
+CREATE TABLE IF NOT EXISTS "Lead_Project" (
     lead_id BIGINT NOT NULL REFERENCES "Lead"(id) ON DELETE CASCADE,
     project_id BIGINT NOT NULL REFERENCES "Project"(id) ON DELETE CASCADE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -10,11 +10,11 @@ CREATE TABLE IF NOT EXISTS "LeadProject" (
 );
 
 -- Create indexes for efficient lookups
-CREATE INDEX IF NOT EXISTS idx_lead_project_lead_id ON "LeadProject"(lead_id);
-CREATE INDEX IF NOT EXISTS idx_lead_project_project_id ON "LeadProject"(project_id);
+CREATE INDEX IF NOT EXISTS idx_lead_project_lead_id ON "Lead_Project"(lead_id);
+CREATE INDEX IF NOT EXISTS idx_lead_project_project_id ON "Lead_Project"(project_id);
 
 -- Migrate existing project_id data to junction table
-INSERT INTO "LeadProject" (lead_id, project_id)
+INSERT INTO "Lead_Project" (lead_id, project_id)
 SELECT id, project_id FROM "Lead" WHERE project_id IS NOT NULL
 ON CONFLICT DO NOTHING;
 

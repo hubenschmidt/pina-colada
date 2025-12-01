@@ -1,7 +1,7 @@
 -- ==============================================
 -- FUNDING ROUND (Historical funding events)
 -- ==============================================
-CREATE TABLE IF NOT EXISTS "FundingRound" (
+CREATE TABLE IF NOT EXISTS "Funding_Round" (
     id              BIGSERIAL PRIMARY KEY,
     organization_id BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
     round_type      TEXT NOT NULL,            -- 'Pre-Seed', 'Seed', 'Series A', 'Series B', etc.
@@ -12,13 +12,13 @@ CREATE TABLE IF NOT EXISTS "FundingRound" (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_funding_round_org ON "FundingRound"(organization_id);
-CREATE INDEX IF NOT EXISTS idx_funding_round_date ON "FundingRound"(announced_date DESC);
+CREATE INDEX IF NOT EXISTS idx_funding_round_org ON "Funding_Round"(organization_id);
+CREATE INDEX IF NOT EXISTS idx_funding_round_date ON "Funding_Round"(announced_date DESC);
 
 -- ==============================================
 -- COMPANY SIGNAL (Intent signals: hiring, news, etc.)
 -- ==============================================
-CREATE TABLE IF NOT EXISTS "CompanySignal" (
+CREATE TABLE IF NOT EXISTS "Company_Signal" (
     id              BIGSERIAL PRIMARY KEY,
     organization_id BIGINT NOT NULL REFERENCES "Organization"(id) ON DELETE CASCADE,
     signal_type     TEXT NOT NULL,            -- 'hiring', 'expansion', 'product_launch', 'partnership', 'leadership_change', 'news'
@@ -32,6 +32,6 @@ CREATE TABLE IF NOT EXISTS "CompanySignal" (
     created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_company_signal_org ON "CompanySignal"(organization_id);
-CREATE INDEX IF NOT EXISTS idx_company_signal_date ON "CompanySignal"(signal_date DESC);
-CREATE INDEX IF NOT EXISTS idx_company_signal_type ON "CompanySignal"(signal_type);
+CREATE INDEX IF NOT EXISTS idx_company_signal_org ON "Company_Signal"(organization_id);
+CREATE INDEX IF NOT EXISTS idx_company_signal_date ON "Company_Signal"(signal_date DESC);
+CREATE INDEX IF NOT EXISTS idx_company_signal_type ON "Company_Signal"(signal_type);

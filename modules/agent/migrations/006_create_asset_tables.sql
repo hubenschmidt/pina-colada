@@ -1,4 +1,4 @@
--- Create Asset, Tag, and AssetTag tables
+-- Create Asset, Tag, and Asset_Tag tables
 -- Migration 006: Polymorphic content storage for AI agent context
 
 -- 1. Create Asset table
@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS "Tag" (
 
 CREATE INDEX IF NOT EXISTS ix_Tag_name ON "Tag"(name);
 
--- 3. Create AssetTag join table
-CREATE TABLE IF NOT EXISTS "AssetTag" (
+-- 3. Create Asset_Tag join table
+CREATE TABLE IF NOT EXISTS "Asset_Tag" (
     asset_id BIGINT NOT NULL,
     tag_id BIGINT NOT NULL,
     PRIMARY KEY (asset_id, tag_id),
@@ -36,4 +36,4 @@ CREATE TABLE IF NOT EXISTS "AssetTag" (
         REFERENCES "Tag"(id) ON DELETE CASCADE
 );
 
-CREATE INDEX IF NOT EXISTS ix_AssetTag_tag_id ON "AssetTag"(tag_id);
+CREATE INDEX IF NOT EXISTS ix_Asset_Tag_tag_id ON "Asset_Tag"(tag_id);

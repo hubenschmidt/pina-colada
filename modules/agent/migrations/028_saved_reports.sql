@@ -1,6 +1,6 @@
 -- Migration: Create saved_reports table for custom report definitions
 
-CREATE TABLE IF NOT EXISTS "SavedReport" (
+CREATE TABLE IF NOT EXISTS "Saved_Report" (
     id BIGSERIAL PRIMARY KEY,
     tenant_id BIGINT NOT NULL REFERENCES "Tenant"(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
@@ -11,5 +11,5 @@ CREATE TABLE IF NOT EXISTS "SavedReport" (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-CREATE INDEX idx_saved_reports_tenant ON "SavedReport"(tenant_id);
-CREATE INDEX idx_saved_reports_created_by ON "SavedReport"(created_by);
+CREATE INDEX idx_saved_reports_tenant ON "Saved_Report"(tenant_id);
+CREATE INDEX idx_saved_reports_created_by ON "Saved_Report"(created_by);

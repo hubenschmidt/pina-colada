@@ -1,7 +1,7 @@
 -- ==============================================
 -- ORGANIZATION: New firmographic columns
 -- ==============================================
-ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS revenue_range_id BIGINT REFERENCES "RevenueRange"(id) ON DELETE SET NULL;
+ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS revenue_range_id BIGINT REFERENCES "Revenue_Range"(id) ON DELETE SET NULL;
 ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS founding_year INTEGER;
 ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS headquarters_city TEXT;
 ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS headquarters_state TEXT;

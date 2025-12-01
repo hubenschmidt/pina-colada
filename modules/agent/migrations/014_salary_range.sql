@@ -1,10 +1,10 @@
 -- ==============================
--- Migration: SalaryRange Table
+-- Migration: Salary_Range Table
 -- ==============================
 -- Salary range brackets for job listings
 
--- Create SalaryRange table
-CREATE TABLE IF NOT EXISTS "SalaryRange" (
+-- Create Salary_Range table
+CREATE TABLE IF NOT EXISTS "Salary_Range" (
   id              BIGSERIAL PRIMARY KEY,
   label           TEXT NOT NULL UNIQUE,
   min_value       INTEGER,
@@ -15,18 +15,18 @@ CREATE TABLE IF NOT EXISTS "SalaryRange" (
 );
 
 -- Add trigger for updated_at
-DROP TRIGGER IF EXISTS update_salary_range_updated_at ON "SalaryRange";
+DROP TRIGGER IF EXISTS update_salary_range_updated_at ON "Salary_Range";
 CREATE TRIGGER update_salary_range_updated_at
-    BEFORE UPDATE ON "SalaryRange"
+    BEFORE UPDATE ON "Salary_Range"
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
 -- Add salary_range_id to Job table
 ALTER TABLE "Job"
-ADD COLUMN IF NOT EXISTS salary_range_id BIGINT REFERENCES "SalaryRange"(id) ON DELETE SET NULL;
+ADD COLUMN IF NOT EXISTS salary_range_id BIGINT REFERENCES "Salary_Range"(id) ON DELETE SET NULL;
 
 -- Seed salary brackets ($20k increments, starting at $100k)
-INSERT INTO "SalaryRange" (label, min_value, max_value, display_order) VALUES
+INSERT INTO "Salary_Range" (label, min_value, max_value, display_order) VALUES
 ('$100,000 - $120,000', 100000, 120000, 0),
 ('$120,000 - $140,000', 120000, 140000, 1),
 ('$140,000 - $160,000', 140000, 160000, 2),
