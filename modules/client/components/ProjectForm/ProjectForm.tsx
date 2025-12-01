@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Stack, TextInput, Textarea, Button, Group, Text, Select } from "@mantine/core";
 import { Project, ProjectInput } from "../../api";
+import { DeleteConfirmBanner } from "../DeleteConfirmBanner";
 
 type ProjectFormProps = {
   project?: Project | null;
@@ -27,6 +28,7 @@ const ProjectForm = ({
   const [endDate, setEndDate] = useState(project?.end_date || "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,9 +61,12 @@ const ProjectForm = ({
     }
   };
 
-  const handleDelete = async () => {
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
     if (!onDelete) return;
-    if (!confirm("Are you sure you want to delete this project?")) return;
 
     setDeleting(true);
     try {
@@ -69,6 +74,7 @@ const ProjectForm = ({
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete project");
       setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -83,6 +89,15 @@ const ProjectForm = ({
           <Text c="red" size="sm">
             {error}
           </Text>
+        )}
+
+        {showDeleteConfirm && project && (
+          <DeleteConfirmBanner
+            itemName={project.name}
+            onConfirm={handleDeleteConfirm}
+            onCancel={() => setShowDeleteConfirm(false)}
+            loading={deleting}
+          />
         )}
 
         <TextInput
@@ -135,9 +150,9 @@ const ProjectForm = ({
               <Button
                 color="red"
                 variant="subtle"
-                onClick={handleDelete}
+                onClick={handleDeleteClick}
                 loading={deleting}
-                disabled={saving}
+                disabled={saving || showDeleteConfirm}
               >
                 Delete
               </Button>

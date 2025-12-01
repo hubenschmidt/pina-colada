@@ -7,7 +7,9 @@ import { Stack, Center, Loader, Text, Button, Group, ActionIcon, Anchor, Badge, 
 import { Plus, Trash2, FolderKanban, Search, X } from "lucide-react";
 import { getSavedReports, deleteSavedReport, SavedReport, SavedReportsPage } from "../../../api";
 import { useProjectContext } from "../../../context/projectContext";
+import { usePageLoading } from "../../../context/pageLoadingContext";
 import { DataTable, type PageData, type Column } from "../../../components/DataTable/DataTable";
+import { DeleteConfirmBanner } from "../../../components/DeleteConfirmBanner";
 
 const CustomReportsPage = () => {
   const router = useRouter();
@@ -21,9 +23,16 @@ const CustomReportsPage = () => {
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC");
   const [searchQuery, setSearchQuery] = useState("");
   const [showLoadingBar, setShowLoadingBar] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<SavedReport | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const { projectState } = useProjectContext();
   const { selectedProject } = projectState;
+  const { dispatchPageLoading } = usePageLoading();
+
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+  }, [dispatchPageLoading]);
 
   const fetchReports = async (showFullLoading = false, showBar = false) => {
     if (showFullLoading) {
@@ -72,17 +81,28 @@ const CustomReportsPage = () => {
     }
   }, [page, limit, sortBy, sortDirection, searchQuery]);
 
-  const handleDelete = async (id: number, e: React.MouseEvent) => {
+  const handleDeleteClick = (report: SavedReport, e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!confirm("Are you sure you want to delete this report?")) {
-      return;
-    }
+    setDeleteConfirm(report);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+
+    setDeleting(true);
     try {
-      await deleteSavedReport(id);
+      await deleteSavedReport(deleteConfirm.id);
+      setDeleteConfirm(null);
       fetchReports(false, true);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete report");
+      console.error("Delete failed:", err);
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirm(null);
   };
 
   const handleRowClick = (report: SavedReport) => {
@@ -105,7 +125,7 @@ const CustomReportsPage = () => {
       sortable: true,
       sortKey: "name",
       render: (report) => (
-        <Anchor component={Link} href={`/reports/custom/${report.id}`} fw={500} c="blue" onClick={(e) => e.stopPropagation()}>
+        <Anchor component={Link} href={`/reports/custom/${report.id}`} fw={500} c="inherit" underline="hover" onClick={(e) => e.stopPropagation()}>
           {report.name}
         </Anchor>
       ),
@@ -128,7 +148,7 @@ const CustomReportsPage = () => {
       sortable: true,
       sortKey: "description",
       render: (report) => (
-        <Text c="dimmed" size="sm" lineClamp={1}>
+        <Text size="sm" lineClamp={1}>
           {report.description || "-"}
         </Text>
       ),
@@ -146,7 +166,7 @@ const CustomReportsPage = () => {
       sortable: true,
       sortKey: "updated_at",
       render: (report) => (
-        <Text size="sm" c="dimmed">
+        <Text size="sm">
           {report.updated_at ? new Date(report.updated_at).toLocaleDateString() : "-"}
         </Text>
       ),
@@ -155,7 +175,7 @@ const CustomReportsPage = () => {
       header: "",
       width: 50,
       render: (report) => (
-        <ActionIcon variant="subtle" color="red" onClick={(e) => handleDelete(report.id, e)}>
+        <ActionIcon variant="subtle" color="red" onClick={(e) => handleDeleteClick(report, e)}>
           <Trash2 className="h-4 w-4" />
         </ActionIcon>
       ),
@@ -227,6 +247,15 @@ const CustomReportsPage = () => {
           </Text>
         )}
       </Stack>
+
+      {deleteConfirm && (
+        <DeleteConfirmBanner
+          itemName={deleteConfirm.name}
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+          loading={deleting}
+        />
+      )}
 
       <Box pos="relative">
         {showLoadingBar && isRefreshing && (

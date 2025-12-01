@@ -32,6 +32,7 @@ import {
 import CommentsSection from "../../../components/CommentsSection/CommentsSection";
 import Timestamps from "../../../components/Timestamps/Timestamps";
 import { usePageLoading } from "../../../context/pageLoadingContext";
+import { DeleteConfirmBanner } from "../../../components/DeleteConfirmBanner";
 
 const COMPLEXITY_OPTIONS = [
   { value: "1", label: "1" },
@@ -55,6 +56,8 @@ const TaskDetailPage = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   // Form state
   const [title, setTitle] = useState("");
@@ -127,13 +130,19 @@ const TaskDetailPage = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm("Are you sure you want to delete this task?")) return;
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    setDeleting(true);
     try {
       await deleteTask(Number(id));
       router.push("/tasks");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to delete task");
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -200,11 +209,26 @@ const TaskDetailPage = () => {
           <Button color="lime" onClick={handleSave} loading={saving}>
             Save
           </Button>
-          <Button color="red" variant="outline" onClick={handleDelete}>
+          <Button
+            color="red"
+            variant="outline"
+            onClick={handleDeleteClick}
+            disabled={showDeleteConfirm}
+            loading={deleting}
+          >
             Delete
           </Button>
         </Group>
       </Group>
+
+      {showDeleteConfirm && (
+        <DeleteConfirmBanner
+          itemName={task.title}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setShowDeleteConfirm(false)}
+          loading={deleting}
+        />
+      )}
 
       {error && (
         <Text c="red" size="sm">

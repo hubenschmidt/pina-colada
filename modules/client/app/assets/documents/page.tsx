@@ -1,14 +1,20 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Stack, Collapse, Button } from "@mantine/core";
 import { ChevronDown, ChevronUp, Upload } from "lucide-react";
 import { DocumentUpload, DocumentList } from "../../../components/Documents";
 import { Document } from "../../../api";
+import { usePageLoading } from "../../../context/pageLoadingContext";
 
 const DocumentsPage = () => {
+  const { dispatchPageLoading } = usePageLoading();
   const [uploadOpen, setUploadOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+  }, [dispatchPageLoading]);
 
   const handleUploadComplete = useCallback((doc: Document) => {
     setUploadOpen(false);

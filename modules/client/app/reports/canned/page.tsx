@@ -1,9 +1,11 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Stack, Text, Badge, Group } from "@mantine/core";
 import { BarChart3, Building2, Users, StickyNote, FolderKanban, LucideIcon } from "lucide-react";
 import { useProjectContext } from "../../../context/projectContext";
+import { usePageLoading } from "../../../context/pageLoadingContext";
 import { DataTable, type PageData, type Column } from "../../../components/DataTable/DataTable";
 
 interface CannedReport {
@@ -54,6 +56,11 @@ const CannedReportsPage = () => {
   const router = useRouter();
   const { projectState } = useProjectContext();
   const { selectedProject } = projectState;
+  const { dispatchPageLoading } = usePageLoading();
+
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+  }, [dispatchPageLoading]);
 
   const data: PageData<CannedReport> = {
     items: cannedReports,
@@ -81,7 +88,7 @@ const CannedReportsPage = () => {
     {
       header: "Description",
       render: (report) => (
-        <Text c="dimmed" size="sm">
+        <Text size="sm">
           {report.description}
         </Text>
       ),

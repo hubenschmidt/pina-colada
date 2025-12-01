@@ -32,6 +32,7 @@ import {
   Document,
 } from "../../api";
 import { DataTable, type PageData, type Column } from "../DataTable/DataTable";
+import { DeleteConfirmBanner } from "../DeleteConfirmBanner";
 
 type DocumentListProps = {
   filterTags?: string[];
@@ -58,6 +59,8 @@ export const DocumentList = ({
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [page, setPage] = useState(1);
+  const [deleteConfirm, setDeleteConfirm] = useState<Document | null>(null);
+  const [deleting, setDeleting] = useState(false);
   const [limit, setLimit] = useState(50);
   const [sortBy, setSortBy] = useState<string>("updated_at");
   const [sortDirection, setSortDirection] = useState<"ASC" | "DESC">("DESC");
@@ -112,19 +115,31 @@ export const DocumentList = ({
     }
   };
 
-  const handleDelete = async (doc: Document, e?: React.MouseEvent) => {
+  const handleDeleteClick = (doc: Document, e?: React.MouseEvent) => {
     if (e) {
       e.stopPropagation();
     }
-    if (!confirm(`Delete "${doc.filename}"?`)) return;
+    setDeleteConfirm(doc);
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!deleteConfirm) return;
+
+    setDeleting(true);
     try {
-      await deleteDocument(doc.id);
-      onDocumentDeleted?.(doc.id);
+      await deleteDocument(deleteConfirm.id);
+      onDocumentDeleted?.(deleteConfirm.id);
+      setDeleteConfirm(null);
       loadDocuments();
     } catch (err) {
       console.error("Delete failed:", err);
+    } finally {
+      setDeleting(false);
     }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteConfirm(null);
   };
 
   const handleRowClick = (doc: Document) => {
@@ -299,7 +314,7 @@ export const DocumentList = ({
             <Menu.Item
               leftSection={<Trash2 className="h-4 w-4" />}
               color="red"
-              onClick={(e) => handleDelete(doc, e)}
+              onClick={(e) => handleDeleteClick(doc, e)}
             >
               Delete
             </Menu.Item>
@@ -372,6 +387,15 @@ export const DocumentList = ({
         />
         {headerRight}
       </Group>
+
+      {deleteConfirm && (
+        <DeleteConfirmBanner
+          itemName={deleteConfirm.filename}
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+          loading={deleting}
+        />
+      )}
 
       <DataTable
         data={data}

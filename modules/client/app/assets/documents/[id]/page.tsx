@@ -45,6 +45,7 @@ import {
   setCurrentDocumentVersion,
   Document,
 } from "../../../../api";
+import { DeleteConfirmBanner } from "../../../../components/DeleteConfirmBanner";
 
 const DocumentDetailPage = () => {
   const params = useParams();
@@ -71,6 +72,10 @@ const DocumentDetailPage = () => {
   // Sorting state for version history
   const [versionSortBy, setVersionSortBy] = useState<string>("version_number");
   const [versionSortDir, setVersionSortDir] = useState<"ASC" | "DESC">("DESC");
+
+  // Delete confirmation state
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const loadDocument = useCallback(async () => {
     if (!documentId) return;
@@ -145,15 +150,21 @@ const DocumentDetailPage = () => {
     }
   };
 
-  const handleDelete = async () => {
-    if (!document) return;
-    if (!confirm(`Delete "${document.filename}"?`)) return;
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
 
+  const handleDeleteConfirm = async () => {
+    if (!document) return;
+
+    setDeleting(true);
     try {
       await deleteDocument(document.id);
       router.push("/assets/documents");
     } catch (err) {
       console.error("Delete failed:", err);
+      setDeleting(false);
+      setShowDeleteConfirm(false);
     }
   };
 
@@ -315,12 +326,22 @@ const DocumentDetailPage = () => {
             variant="light"
             color="red"
             leftSection={<Trash2 className="h-4 w-4" />}
-            onClick={handleDelete}
+            onClick={handleDeleteClick}
+            disabled={showDeleteConfirm}
           >
             Delete
           </Button>
         </Group>
       </Group>
+
+      {showDeleteConfirm && (
+        <DeleteConfirmBanner
+          itemName={document.filename}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setShowDeleteConfirm(false)}
+          loading={deleting}
+        />
+      )}
 
       <Paper p="lg" withBorder>
         <Stack gap="md">
