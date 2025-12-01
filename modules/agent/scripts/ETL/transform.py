@@ -15,7 +15,7 @@ from pathlib import Path
 
 
 EXPORTS_DIR = Path(__file__).parent.parent / "exports"
-OUTPUT_DIR = Path(__file__).parent.parent / "exports_transformed"
+OUTPUT_DIR = Path(__file__).parent.parent / "transformed"
 
 
 def read_csv(filename: str) -> list[dict]:

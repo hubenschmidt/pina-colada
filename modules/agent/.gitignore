@@ -169,3 +169,8 @@ cython_debug/
 #.idea/
 uv.lock
 .langgraph_api/
+
+# ETL scripts
+**/ETL/load
+**/ETL/exports
+**/exports_transformed/
