@@ -173,4 +173,3 @@ uv.lock
 # ETL scripts
 **/ETL/load
 **/ETL/exports
-**/exports_transformed/
