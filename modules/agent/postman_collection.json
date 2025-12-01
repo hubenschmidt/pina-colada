@@ -163,6 +163,438 @@
       ]
     },
     {
+      "name": "Table Views - Performance Testing",
+      "description": "Endpoints optimized for table/list views. Use these to test performance.",
+      "item": [
+        {
+          "name": "Jobs Table",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/jobs?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["jobs"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "projectId",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get jobs for table view. Returns: id, account, job_title, status, description, resume, job_url, created_at, updated_at"
+          },
+          "response": []
+        },
+        {
+          "name": "Opportunities Table",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/opportunities?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["opportunities"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "projectId",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get opportunities for table view"
+          },
+          "response": []
+        },
+        {
+          "name": "Partnerships Table",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/partnerships?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["partnerships"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "projectId",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get partnerships for table view"
+          },
+          "response": []
+        },
+        {
+          "name": "Organizations Table",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/organizations?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["organizations"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get organizations for table view (Accounts > Organizations)"
+          },
+          "response": []
+        },
+        {
+          "name": "Individuals Table",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/individuals?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["individuals"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get individuals for table view (Accounts > Individuals)"
+          },
+          "response": []
+        },
+        {
+          "name": "Contacts Table",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/contacts?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["contacts"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get contacts for table view (Accounts > Contacts)"
+          },
+          "response": []
+        },
+        {
+          "name": "Tasks Table",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tasks?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["tasks"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "entity_type",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "entity_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "projectId",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get tasks for table view"
+          },
+          "response": []
+        },
+        {
+          "name": "Documents Table",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/assets/documents?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "documents"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "entity_type",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "entity_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "tags",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get documents for table view (Assets > Documents)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
       "name": "Jobs",
       "item": [
         {
@@ -239,14 +671,14 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"company\": \"Example Company\",\n  \"job_title\": \"Software Engineer\",\n  \"date\": \"2024-01-15T00:00:00Z\",\n  \"job_url\": \"https://example.com/job\",\n  \"salary_range\": \"$100k-$150k\",\n  \"notes\": \"Great opportunity\",\n  \"resume\": \"resume_v1.pdf\",\n  \"status\": \"applied\",\n  \"source\": \"manual\"\n}"
+              "raw": "{\n  \"account\": \"Example Company\",\n  \"job_title\": \"Software Engineer\",\n  \"date\": \"2024-01-15T00:00:00Z\",\n  \"job_url\": \"https://example.com/job\",\n  \"salary_range_id\": null,\n  \"description\": \"Great opportunity\",\n  \"resume\": \"resume_v1.pdf\",\n  \"status\": \"Applied\",\n  \"source\": \"manual\",\n  \"project_ids\": []\n}"
             },
             "url": {
               "raw": "{{base_url}}/jobs",
               "host": ["{{base_url}}"],
               "path": ["jobs"]
             },
-            "description": "Create a new job. Required: company, job_title. Optional: date, job_url, salary_range, notes, resume, status (default: 'applied'), source (default: 'manual')"
+            "description": "Create a new job. Required: account, job_title."
           },
           "response": []
         },
@@ -272,12 +704,12 @@
               "variable": [
                 {
                   "key": "job_id",
-                  "value": "",
-                  "description": "Job UUID"
+                  "value": "1",
+                  "description": "Job ID"
                 }
               ]
             },
-            "description": "Get a single job by its ID"
+            "description": "Get a single job by its ID (returns full detail response)"
           },
           "response": []
         },
@@ -303,7 +735,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"company\": \"Updated Company\",\n  \"job_title\": \"Senior Software Engineer\",\n  \"status\": \"interviewing\",\n  \"lead_status_id\": null\n}"
+              "raw": "{\n  \"job_title\": \"Senior Software Engineer\",\n  \"status\": \"Interviewing\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/jobs/:job_id",
@@ -312,8 +744,8 @@
               "variable": [
                 {
                   "key": "job_id",
-                  "value": "",
-                  "description": "Job UUID"
+                  "value": "1",
+                  "description": "Job ID"
                 }
               ]
             },
@@ -343,12 +775,1196 @@
               "variable": [
                 {
                   "key": "job_id",
-                  "value": "",
-                  "description": "Job UUID"
+                  "value": "1",
+                  "description": "Job ID"
                 }
               ]
             },
             "description": "Delete a job by ID"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Opportunities",
+      "item": [
+        {
+          "name": "Get All Opportunities",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/opportunities?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["opportunities"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "projectId",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all opportunities with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Opportunity by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/opportunities/:id",
+              "host": ["{{base_url}}"],
+              "path": ["opportunities", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Get a single opportunity by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Opportunity",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"Acme Corp\",\n  \"title\": \"Acme Corp - Website Redesign\",\n  \"opportunity_name\": \"Website Redesign Project\",\n  \"estimated_value\": 50000,\n  \"probability\": 75,\n  \"expected_close_date\": \"2025-03-01\",\n  \"description\": \"Redesign their corporate website\",\n  \"status\": \"Qualifying\",\n  \"project_ids\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/opportunities",
+              "host": ["{{base_url}}"],
+              "path": ["opportunities"]
+            },
+            "description": "Create a new opportunity"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Opportunity",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"probability\": 90,\n  \"status\": \"Negotiating\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/opportunities/:id",
+              "host": ["{{base_url}}"],
+              "path": ["opportunities", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Update an opportunity"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Opportunity",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/opportunities/:id",
+              "host": ["{{base_url}}"],
+              "path": ["opportunities", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Delete an opportunity"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Partnerships",
+      "item": [
+        {
+          "name": "Get All Partnerships",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/partnerships?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["partnerships"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "projectId",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all partnerships with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Partnership by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/partnerships/:id",
+              "host": ["{{base_url}}"],
+              "path": ["partnerships", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Get a single partnership by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Partnership",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"account\": \"Partner Corp\",\n  \"title\": \"Partner Corp - Strategic Alliance\",\n  \"partnership_name\": \"Strategic Alliance\",\n  \"partnership_type\": \"Strategic\",\n  \"start_date\": \"2025-01-01\",\n  \"description\": \"Joint venture partnership\",\n  \"status\": \"Exploring\",\n  \"project_ids\": []\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/partnerships",
+              "host": ["{{base_url}}"],
+              "path": ["partnerships"]
+            },
+            "description": "Create a new partnership"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Partnership",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"Active\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/partnerships/:id",
+              "host": ["{{base_url}}"],
+              "path": ["partnerships", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Update a partnership"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Partnership",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/partnerships/:id",
+              "host": ["{{base_url}}"],
+              "path": ["partnerships", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Delete a partnership"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Organizations",
+      "item": [
+        {
+          "name": "Get All Organizations",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/organizations?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["organizations"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all organizations with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Organization by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/organizations/:id",
+              "host": ["{{base_url}}"],
+              "path": ["organizations", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Get a single organization by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Organizations",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/organizations/search?q=acme",
+              "host": ["{{base_url}}"],
+              "path": ["organizations", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "acme"
+                }
+              ]
+            },
+            "description": "Search organizations by name"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Individuals",
+      "item": [
+        {
+          "name": "Get All Individuals",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/individuals?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["individuals"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all individuals with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Individual by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/individuals/:id",
+              "host": ["{{base_url}}"],
+              "path": ["individuals", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Get a single individual by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Individuals",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/individuals/search?q=john",
+              "host": ["{{base_url}}"],
+              "path": ["individuals", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "john"
+                }
+              ]
+            },
+            "description": "Search individuals by name or email"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Contacts",
+      "item": [
+        {
+          "name": "Get All Contacts",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/contacts?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["contacts"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all contacts with pagination"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Contact by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/contacts/:id",
+              "host": ["{{base_url}}"],
+              "path": ["contacts", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Get a single contact by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Search Contacts",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/contacts/search?q=smith",
+              "host": ["{{base_url}}"],
+              "path": ["contacts", "search"],
+              "query": [
+                {
+                  "key": "q",
+                  "value": "smith"
+                }
+              ]
+            },
+            "description": "Search contacts and individuals by name or email"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "item": [
+        {
+          "name": "Get All Tasks",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tasks?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["tasks"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "entity_type",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "entity_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "status",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "projectId",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all tasks with pagination and optional filters"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Task by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tasks/:id",
+              "host": ["{{base_url}}"],
+              "path": ["tasks", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Get a single task by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Task",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Follow up with client\",\n  \"description\": \"Send proposal document\",\n  \"status\": \"pending\",\n  \"priority\": \"high\",\n  \"due_date\": \"2025-01-15\",\n  \"entity_type\": \"Organization\",\n  \"entity_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tasks",
+              "host": ["{{base_url}}"],
+              "path": ["tasks"]
+            },
+            "description": "Create a new task"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Task",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"status\": \"completed\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/tasks/:id",
+              "host": ["{{base_url}}"],
+              "path": ["tasks", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Update a task"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Task",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/tasks/:id",
+              "host": ["{{base_url}}"],
+              "path": ["tasks", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Delete a task"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Documents",
+      "item": [
+        {
+          "name": "Get All Documents",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/assets/documents?page=1&limit=50&orderBy=updated_at&order=DESC",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "documents"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limit",
+                  "value": "50"
+                },
+                {
+                  "key": "orderBy",
+                  "value": "updated_at"
+                },
+                {
+                  "key": "order",
+                  "value": "DESC"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "entity_type",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "entity_id",
+                  "value": "",
+                  "disabled": true
+                },
+                {
+                  "key": "tags",
+                  "value": "",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "Get all documents with pagination and optional filters"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Document by ID",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/assets/documents/:id",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "documents", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Get a single document by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Download Document",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/assets/documents/:id/download",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "documents", ":id", "download"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Download a document file"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Document Versions",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/assets/documents/:id/versions",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "documents", ":id", "versions"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Get all versions of a document"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Document",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/assets/documents/:id",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "documents", ":id"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Delete a document"
+          },
+          "response": []
+        },
+        {
+          "name": "Link Document to Entity",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"entity_type\": \"Organization\",\n  \"entity_id\": 1\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/assets/documents/:id/link",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "documents", ":id", "link"],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Link a document to an entity"
+          },
+          "response": []
+        },
+        {
+          "name": "Unlink Document from Entity",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/assets/documents/:id/link?entity_type=Organization&entity_id=1",
+              "host": ["{{base_url}}"],
+              "path": ["assets", "documents", ":id", "link"],
+              "query": [
+                {
+                  "key": "entity_type",
+                  "value": "Organization"
+                },
+                {
+                  "key": "entity_id",
+                  "value": "1"
+                }
+              ],
+              "variable": [
+                {
+                  "key": "id",
+                  "value": "1"
+                }
+              ]
+            },
+            "description": "Unlink a document from an entity"
           },
           "response": []
         }
@@ -585,8 +2201,8 @@
               "variable": [
                 {
                   "key": "job_id",
-                  "value": "",
-                  "description": "Job UUID"
+                  "value": "1",
+                  "description": "Job ID"
                 }
               ]
             },
@@ -616,184 +2232,12 @@
               "variable": [
                 {
                   "key": "job_id",
-                  "value": "",
-                  "description": "Job UUID"
+                  "value": "1",
+                  "description": "Job ID"
                 }
               ]
             },
             "description": "Mark a lead as 'do not apply'. Sets status to 'do_not_apply' and clears lead_status_id."
-          },
-          "response": []
-        }
-      ]
-    },
-    {
-      "name": "Node Configs",
-      "item": [
-        {
-          "name": "Get All Node Configs",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{bearer_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/node-configs?nodeType=",
-              "host": ["{{base_url}}"],
-              "path": ["node-configs"],
-              "query": [
-                {
-                  "key": "nodeType",
-                  "value": "",
-                  "description": "Optional filter by node type (evaluator, worker, orchestrator)",
-                  "disabled": true
-                }
-              ]
-            },
-            "description": "Get all node configs, optionally filtered by node type"
-          },
-          "response": []
-        },
-        {
-          "name": "Get Node Config by ID",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{bearer_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "GET",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/node-configs/:config_id",
-              "host": ["{{base_url}}"],
-              "path": ["node-configs", ":config_id"],
-              "variable": [
-                {
-                  "key": "config_id",
-                  "value": "1",
-                  "description": "Config ID"
-                }
-              ]
-            },
-            "description": "Get a single node config by ID"
-          },
-          "response": []
-        },
-        {
-          "name": "Create Node Config",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{bearer_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "POST",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"node_type\": \"evaluator\",\n  \"node_name\": \"career_evaluator\",\n  \"system_prompt\": \"You evaluate whether the Assistant's response meets career-related success criteria...\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/node-configs",
-              "host": ["{{base_url}}"],
-              "path": ["node-configs"]
-            },
-            "description": "Create a new node config. Required: node_type, node_name, system_prompt"
-          },
-          "response": []
-        },
-        {
-          "name": "Update Node Config",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{bearer_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "PUT",
-            "header": [
-              {
-                "key": "Content-Type",
-                "value": "application/json"
-              }
-            ],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"system_prompt\": \"Updated system prompt...\"\n}"
-            },
-            "url": {
-              "raw": "{{base_url}}/node-configs/:config_id",
-              "host": ["{{base_url}}"],
-              "path": ["node-configs", ":config_id"],
-              "variable": [
-                {
-                  "key": "config_id",
-                  "value": "1",
-                  "description": "Config ID"
-                }
-              ]
-            },
-            "description": "Update a node config. Optional: system_prompt, is_active"
-          },
-          "response": []
-        },
-        {
-          "name": "Delete Node Config",
-          "request": {
-            "auth": {
-              "type": "bearer",
-              "bearer": [
-                {
-                  "key": "token",
-                  "value": "{{bearer_token}}",
-                  "type": "string"
-                }
-              ]
-            },
-            "method": "DELETE",
-            "header": [],
-            "url": {
-              "raw": "{{base_url}}/node-configs/:config_id",
-              "host": ["{{base_url}}"],
-              "path": ["node-configs", ":config_id"],
-              "variable": [
-                {
-                  "key": "config_id",
-                  "value": "1",
-                  "description": "Config ID"
-                }
-              ]
-            },
-            "description": "Soft delete a node config (sets is_active to false)"
           },
           "response": []
         }

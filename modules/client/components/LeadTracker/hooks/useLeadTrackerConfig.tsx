@@ -110,15 +110,15 @@ const getJobLeadConfig = (selectedProjectId: number | null): LeadTrackerConfig<
       ),
     },
     {
-      header: "Notes",
-      accessor: "notes",
+      header: "Description",
+      accessor: "description",
       width: "20%",
       render: (job) => {
-        if (!job.notes) return <EmptyCell />;
-        const isTruncated = job.notes.length > 50;
+        if (!job.description) return <EmptyCell />;
+        const isTruncated = job.description.length > 50;
         return (
-          <span title={isTruncated ? job.notes : undefined} className="text-sm">
-            {isTruncated ? `${job.notes.substring(0, 50)}...` : job.notes}
+          <span title={isTruncated ? job.description : undefined} className="text-sm">
+            {isTruncated ? `${job.description.substring(0, 50)}...` : job.description}
           </span>
         );
       },
