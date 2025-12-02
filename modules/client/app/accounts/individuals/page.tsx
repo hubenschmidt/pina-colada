@@ -7,6 +7,7 @@ import { getIndividuals, Individual } from "../../../api";
 import { Stack, Center, Loader, Text } from "@mantine/core";
 import SearchHeader from "../../../components/SearchHeader/SearchHeader";
 import { DataTable, Column, PageData } from "../../../components/DataTable/DataTable";
+import { SearchSuggestion } from "../../../components/SearchBox";
 
 const columns: Column<Individual>[] = [
   {
@@ -108,6 +109,14 @@ const IndividualsPage = () => {
     router.push(`/accounts/individuals/${ind.id}`);
   };
 
+  const fetchPreview = async (query: string): Promise<SearchSuggestion[]> => {
+    const result = await getIndividuals(1, 4, sortBy, sortDirection, query);
+    return result.items.map((ind) => {
+      const label = `${ind.first_name || ""} ${ind.last_name || ""}`.trim() || "Unknown";
+      return { label, value: label };
+    });
+  };
+
   if (loading && data.items.length === 0) {
     return (
       <Center mih={400}>
@@ -142,8 +151,12 @@ const IndividualsPage = () => {
         onSearch={(query) => {
           setSearchQuery(query);
           setPage(1);
+          if (query === "") {
+            fetchIndividuals();
+          }
         }}
         onAdd={() => router.push("/accounts/individuals/new")}
+        fetchPreview={fetchPreview}
       />
 
       <DataTable

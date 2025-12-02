@@ -7,6 +7,7 @@ import { getOrganizations, Organization } from "../../../api";
 import { Stack, Center, Loader, Text } from "@mantine/core";
 import SearchHeader from "../../../components/SearchHeader/SearchHeader";
 import { DataTable, Column, PageData } from "../../../components/DataTable/DataTable";
+import { SearchSuggestion } from "../../../components/SearchBox";
 
 type SortDir = "ASC" | "DESC";
 
@@ -101,6 +102,17 @@ const OrganizationsPage = () => {
   const handleSearchChange = (query: string) => {
     setSearchQuery(query);
     setPage(1);
+    if (query === "") {
+      fetchOrganizations();
+    }
+  };
+
+  const fetchPreview = async (query: string): Promise<SearchSuggestion[]> => {
+    const result = await getOrganizations(1, 4, sortBy, sortDirection, query);
+    return result.items.map((org) => ({
+      label: org.name,
+      value: org.name,
+    }));
   };
 
   const handleRowClick = (org: Organization) => {
@@ -140,6 +152,7 @@ const OrganizationsPage = () => {
         buttonLabel="New Organization"
         onSearch={handleSearchChange}
         onAdd={() => router.push("/accounts/organizations/new")}
+        fetchPreview={fetchPreview}
       />
 
       <DataTable

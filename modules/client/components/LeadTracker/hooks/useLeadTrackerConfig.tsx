@@ -191,6 +191,8 @@ const getJobLeadConfig = (selectedProjectId: number | null): LeadTrackerConfig<
     searchPlaceholder: "Search by account or job title...",
     emptyMessage: "No job applications yet. Add your first one above!",
     enableSearch: true,
+    getSuggestionLabel: (job) => `${job.account || "Unknown"} - ${job.job_title || "Untitled"}`,
+    getSuggestionValue: (job) => job.job_title || "",
     detailPagePath: "/leads/jobs",
     newPagePath: "/leads/jobs/new",
   };
@@ -304,6 +306,8 @@ const getOpportunityLeadConfig = (selectedProjectId: number | null): LeadTracker
     searchPlaceholder: "Search by account or opportunity name...",
     emptyMessage: "No opportunities yet. Add your first one above!",
     enableSearch: true,
+    getSuggestionLabel: (opp) => `${opp.account || "Unknown"} - ${opp.opportunity_name || "Untitled"}`,
+    getSuggestionValue: (opp) => opp.opportunity_name || "",
     detailPagePath: "/leads/opportunities",
     newPagePath: "/leads/opportunities/new",
   };
@@ -412,6 +416,8 @@ const getPartnershipLeadConfig = (selectedProjectId: number | null): LeadTracker
     searchPlaceholder: "Search by account or partnership name...",
     emptyMessage: "No partnerships yet. Add your first one above!",
     enableSearch: true,
+    getSuggestionLabel: (partner) => `${partner.account || "Unknown"} - ${partner.partnership_name || "Untitled"}`,
+    getSuggestionValue: (partner) => partner.partnership_name || "",
     detailPagePath: "/leads/partnerships",
     newPagePath: "/leads/partnerships/new",
   };

@@ -7,6 +7,7 @@ import { getContacts, Contact } from "../../../api";
 import { Stack, Center, Loader, Text } from "@mantine/core";
 import SearchHeader from "../../../components/SearchHeader/SearchHeader";
 import { DataTable, Column, PageData } from "../../../components/DataTable/DataTable";
+import { SearchSuggestion } from "../../../components/SearchBox";
 
 const columns: Column<Contact>[] = [
   {
@@ -111,6 +112,14 @@ const ContactsPage = () => {
     router.push(`/accounts/contacts/${c.id}`);
   };
 
+  const fetchPreview = async (query: string): Promise<SearchSuggestion[]> => {
+    const result = await getContacts(1, 4, sortBy, sortDirection, query);
+    return result.items.map((c) => {
+      const label = `${c.first_name || ""} ${c.last_name || ""}`.trim() || "Unknown";
+      return { label, value: label };
+    });
+  };
+
   if (loading && data.items.length === 0) {
     return (
       <Center mih={400}>
@@ -145,8 +154,12 @@ const ContactsPage = () => {
         onSearch={(query) => {
           setSearchQuery(query);
           setPage(1);
+          if (query === "") {
+            fetchContacts();
+          }
         }}
         onAdd={() => router.push("/accounts/contacts/new")}
+        fetchPreview={fetchPreview}
       />
 
       <DataTable

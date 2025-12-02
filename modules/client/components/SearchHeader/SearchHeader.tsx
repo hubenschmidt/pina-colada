@@ -1,14 +1,14 @@
 "use client";
 
-import { useState } from "react";
-import { Button, Stack, Group, Text } from "@mantine/core";
-import { SearchBox } from "../SearchBox";
+import { Button, Group } from "@mantine/core";
+import { SearchBox, SearchSuggestion } from "../SearchBox";
 
 interface SearchHeaderProps {
   placeholder?: string;
   buttonLabel: string;
   onSearch: (query: string) => void;
   onAdd: () => void;
+  fetchPreview?: (query: string) => Promise<SearchSuggestion[]>;
 }
 
 const SearchHeader = ({
@@ -16,28 +16,19 @@ const SearchHeader = ({
   buttonLabel,
   onSearch,
   onAdd,
+  fetchPreview,
 }: SearchHeaderProps) => {
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-    onSearch(query);
-  };
-
   return (
-    <Stack gap="xs">
-      <Group gap="md">
-        <SearchBox placeholder={placeholder} onSearch={handleSearch} />
-        <Button onClick={onAdd} color="lime">
-          {buttonLabel}
-        </Button>
-      </Group>
-      {searchQuery && (
-        <Text size="sm" c="dimmed">
-          Showing results for &quot;{searchQuery}&quot;
-        </Text>
-      )}
-    </Stack>
+    <Group gap="md">
+      <SearchBox
+        placeholder={placeholder}
+        onSearch={onSearch}
+        fetchPreview={fetchPreview}
+      />
+      <Button onClick={onAdd} color="lime">
+        {buttonLabel}
+      </Button>
+    </Group>
   );
 };
 

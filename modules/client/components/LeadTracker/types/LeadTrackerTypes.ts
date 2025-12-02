@@ -56,6 +56,8 @@ export interface LeadTrackerConfig<
   searchPlaceholder?: string;
   searchFields?: (keyof T)[];
   enableSearch?: boolean;
+  getSuggestionLabel?: (item: T) => string;
+  getSuggestionValue?: (item: T) => string;
   enableExport?: boolean;
   detailPagePath?: string; // If provided, navigates to detail page instead of modal
   newPagePath?: string; // If provided, navigates to new page instead of modal

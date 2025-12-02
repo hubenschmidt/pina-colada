@@ -3,7 +3,7 @@
 import { useEffect, useState, useContext } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable, type PageData } from "../DataTable/DataTable";
-import { SearchBox } from "../SearchBox";
+import { SearchBox, SearchSuggestion } from "../SearchBox";
 import { LeadTrackerConfig, BaseLead } from "./types/LeadTrackerTypes";
 import { ProjectContext } from "../../context/projectContext";
 import {
@@ -45,7 +45,7 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
 
   const enableSearch = config.enableSearch !== false;
 
-  const loadLeads = (showFullLoading = false, showBar = false) => {
+  const loadLeads = (showFullLoading = false, showBar = false, overrideSearch?: string) => {
     if (showFullLoading) {
       setLoading(true);
     }
@@ -55,8 +55,9 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
     }
     setError(null);
 
+    const search = overrideSearch !== undefined ? overrideSearch : searchQuery;
     config.api
-      .getLeads(page, limit, sortBy, sortDirection, searchQuery || undefined, selectedProjectId)
+      .getLeads(page, limit, sortBy, sortDirection, search || undefined, selectedProjectId)
       .then((pageData) => {
         setData(pageData);
       })
@@ -74,7 +75,9 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
   };
 
   useEffect(() => {
-    loadLeads(true);
+    setSearchQuery("");
+    setPage(1);
+    loadLeads(true, false, "");
   }, [selectedProjectId]);
 
   useEffect(() => {
@@ -96,6 +99,19 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
   const handleSearch = (query: string) => {
     setSearchQuery(query);
     setPage(1);
+    if (query === "") {
+      loadLeads(false, true, "");
+    }
+  };
+
+  const fetchPreview = async (query: string): Promise<SearchSuggestion[]> => {
+    if (!config.getSuggestionLabel) return [];
+    const result = await config.api.getLeads(1, 4, sortBy, sortDirection, query, selectedProjectId);
+    return result.items.map((item) => {
+      const label = config.getSuggestionLabel!(item);
+      const value = config.getSuggestionValue ? config.getSuggestionValue(item) : label;
+      return { label, value };
+    });
   };
 
   if (loading) {
@@ -145,33 +161,28 @@ const LeadTracker = <T extends BaseLead>({ config }: LeadTrackerProps<T>) => {
 
       {/* Search bar and Add button */}
       {enableSearch && (
-        <Stack gap="xs">
-          <Group gap="md">
-            <SearchBox
-              placeholder={
-                config.searchPlaceholder ||
-                `Search ${config.entityNamePlural.toLowerCase()}... (Enter to search)`
+        <Group gap="md">
+          <SearchBox
+            key={selectedProjectId ?? "global"}
+            placeholder={
+              config.searchPlaceholder ||
+              `Search ${config.entityNamePlural.toLowerCase()}... (Enter to search)`
+            }
+            onSearch={handleSearch}
+            fetchPreview={config.getSuggestionLabel ? fetchPreview : undefined}
+          />
+          <Button
+            onClick={() => {
+              if (config.newPagePath) {
+                router.push(config.newPagePath);
+                return;
               }
-              onSearch={handleSearch}
-            />
-            <Button
-              onClick={() => {
-                if (config.newPagePath) {
-                  router.push(config.newPagePath);
-                  return;
-                }
-              }}
-              color="lime"
-            >
-              New {config.entityName}
-            </Button>
-          </Group>
-          {searchQuery && (
-            <Text size="sm" c="dimmed">
-              Showing results for &quot;{searchQuery}&quot;
-            </Text>
-          )}
-        </Stack>
+            }}
+            color="lime"
+          >
+            New {config.entityName}
+          </Button>
+        </Group>
       )}
 
       {/* DataTable */}
