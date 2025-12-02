@@ -164,8 +164,10 @@ const getIndividualConfig = (): AccountListConfig<IndividualAccount> => {
     searchPlaceholder: "Search individuals...",
     emptyMessage: "No individuals yet. Add your first one above!",
     enableSearch: true,
-    getSuggestionLabel: (ind) =>
-      `${ind.first_name || ""} ${ind.last_name || ""}`.trim() || "Unknown",
+    getSuggestionLabel: (ind) => {
+      const name = `${ind.first_name || ""} ${ind.last_name || ""}`.trim() || "Unknown";
+      return ind.title ? `${name} — ${ind.title}` : name;
+    },
     getSuggestionValue: (ind) => ind.last_name || "",
     detailPagePath: "/accounts/individuals",
     newPagePath: "/accounts/individuals/new",
@@ -246,8 +248,10 @@ const getContactConfig = (): AccountListConfig<ContactAccount> => {
     searchPlaceholder: "Search contacts...",
     emptyMessage: "No contacts yet. Add your first one above!",
     enableSearch: true,
-    getSuggestionLabel: (c) =>
-      `${c.first_name || ""} ${c.last_name || ""}`.trim() || "Unknown",
+    getSuggestionLabel: (c) => {
+      const name = `${c.first_name || ""} ${c.last_name || ""}`.trim() || "Unknown";
+      return c.title ? `${name} — ${c.title}` : name;
+    },
     getSuggestionValue: (c) => c.last_name || "",
     detailPagePath: "/accounts/contacts",
     newPagePath: "/accounts/contacts/new",

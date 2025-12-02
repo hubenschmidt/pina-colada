@@ -393,6 +393,7 @@ const AccountForm = ({
       individual_id: result.individual_id,
       first_name: result.first_name,
       last_name: result.last_name,
+      title: result.title,
       email: result.email,
       phone: result.phone,
       account_name: result.account_name,

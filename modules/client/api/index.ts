@@ -543,6 +543,7 @@ export type ContactSearchResult = {
   contact_id: number | null;
   first_name: string;
   last_name: string;
+  title: string | null;
   email: string | null;
   phone: string | null;
   account_name: string | null;

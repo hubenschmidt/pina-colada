@@ -23,6 +23,7 @@ export interface SearchResult {
   contact_id?: number | null;
   first_name: string;
   last_name: string;
+  title?: string | null;
   email?: string | null;
   phone?: string | null;
   account_name?: string | null;
@@ -339,7 +340,7 @@ const ContactSection = <T extends Record<string, any>>({
                   <div className="flex justify-between items-center">
                     <span>
                       {result.first_name} {result.last_name}
-                      {result.email && <span className="text-zinc-500 text-sm ml-2">{result.email}</span>}
+                      {result.title && <span className="text-zinc-500 text-sm ml-2">— {result.title}</span>}
                     </span>
                     {result.account_name && (
                       <span className="text-xs text-zinc-400 dark:text-zinc-500 truncate max-w-[40%]">
