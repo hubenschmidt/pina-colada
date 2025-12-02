@@ -22,7 +22,7 @@ const SearchBox = ({
   onSearch,
   initialValue = "",
   fetchPreview,
-  debounceMs = 2000,
+  debounceMs = 1500,
 }: SearchBoxProps) => {
   const [input, setInput] = useState(initialValue);
   const [suggestions, setSuggestions] = useState<SearchSuggestion[]>([]);
@@ -62,7 +62,10 @@ const SearchBox = ({
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+      if (
+        containerRef.current &&
+        !containerRef.current.contains(e.target as Node)
+      ) {
         setShowSuggestions(false);
       }
     };
