@@ -189,6 +189,7 @@ async def get_contact_route(request: Request, contact_id: int):
 @require_auth
 async def create_contact_route(request: Request, data: ContactCreate):
     """Create a new contact with optional individual/organization links."""
+    user_id = getattr(request.state, "user_id", None)
     async with async_get_session() as session:
         # Create the contact
         contact = Contact(
@@ -201,6 +202,8 @@ async def create_contact_route(request: Request, data: ContactCreate):
             role=data.role,
             notes=data.notes,
             is_primary=data.is_primary,
+            created_by=user_id,
+            updated_by=user_id,
         )
         session.add(contact)
         await session.flush()
@@ -231,6 +234,7 @@ async def create_contact_route(request: Request, data: ContactCreate):
 @require_auth
 async def update_contact_route(request: Request, contact_id: int, data: ContactUpdate):
     """Update an existing contact."""
+    user_id = getattr(request.state, "user_id", None)
     async with async_get_session() as session:
         stmt = select(Contact).where(Contact.id == contact_id)
         result = await session.execute(stmt)
@@ -257,6 +261,7 @@ async def update_contact_route(request: Request, contact_id: int, data: ContactU
             contact.notes = data.notes
         if data.is_primary is not None:
             contact.is_primary = data.is_primary
+        contact.updated_by = user_id
 
         # Update individual links if provided
         if data.individual_ids is not None:

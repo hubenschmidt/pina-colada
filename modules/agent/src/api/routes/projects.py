@@ -117,6 +117,7 @@ async def get_project(request: Request, project_id: int):
 async def create_project(request: Request, body: ProjectCreate):
     """Create a new project."""
     tenant_id = getattr(request.state, "tenant_id", None)
+    user_id = getattr(request.state, "user_id", None)
 
     async with async_get_session() as session:
         project = Project(
@@ -127,6 +128,8 @@ async def create_project(request: Request, body: ProjectCreate):
             current_status_id=body.current_status_id,
             start_date=_parse_date(body.start_date),
             end_date=_parse_date(body.end_date),
+            created_by=user_id,
+            updated_by=user_id,
         )
 
         session.add(project)
@@ -142,6 +145,7 @@ async def create_project(request: Request, body: ProjectCreate):
 async def update_project(request: Request, project_id: int, body: ProjectUpdate):
     """Update a project."""
     tenant_id = getattr(request.state, "tenant_id", None)
+    user_id = getattr(request.state, "user_id", None)
 
     async with async_get_session() as session:
         stmt = select(Project).where(Project.id == project_id)
@@ -167,6 +171,7 @@ async def update_project(request: Request, project_id: int, body: ProjectUpdate)
             project.start_date = _parse_date(body.start_date)
         if body.end_date is not None:
             project.end_date = _parse_date(body.end_date)
+        project.updated_by = user_id
 
         await session.commit()
         await session.refresh(project)

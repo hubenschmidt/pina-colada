@@ -28,7 +28,6 @@ from repositories.document_repository import (
     set_current_version,
 )
 
-
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 ENTITY_TYPE_MAP = {
@@ -85,6 +84,8 @@ def _document_to_dict(document, entities=None, tags=None, version_count=None) ->
         "description": document.description,
         "created_at": document.created_at.isoformat() if document.created_at else None,
         "updated_at": document.updated_at.isoformat() if document.updated_at else None,
+        "created_by": document.created_by,
+        "updated_by": document.updated_by,
         "entities": entities or [],
         "tags": tags or [],
         "parent_id": document.parent_id,
@@ -227,6 +228,8 @@ async def upload_document_route(
         "storage_path": storage_path,
         "file_size": len(content),
         "description": description,
+        "created_by": user_id,
+        "updated_by": user_id,
     }
 
     document = await create_document(document_data)
@@ -277,8 +280,9 @@ async def update_document_route(
 ):
     """Update a document's metadata."""
     tenant_id = request.state.tenant_id
+    user_id = getattr(request.state, "user_id", None)
 
-    update_data = {}
+    update_data = {"updated_by": user_id}
     if data.description is not None:
         update_data["description"] = data.description
 

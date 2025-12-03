@@ -83,6 +83,7 @@ async def create_partnership_route(request: Request, data: PartnershipCreate):
     """Create a new partnership."""
     partner_data = data.dict()
     partner_data["tenant_id"] = getattr(request.state, "tenant_id", None)
+    partner_data["user_id"] = getattr(request.state, "user_id", None)
     return await create_partnership(partner_data)
 
 
@@ -99,7 +100,9 @@ async def get_partnership_route(request: Request, partnership_id: str):
 @require_auth
 async def update_partnership_route(request: Request, partnership_id: str, data: PartnershipUpdate):
     """Update a partnership."""
-    return await update_partnership(partnership_id, data.dict(exclude_unset=True))
+    update_data = data.dict(exclude_unset=True)
+    update_data["user_id"] = getattr(request.state, "user_id", None)
+    return await update_partnership(partnership_id, update_data)
 
 
 @router.delete("/{partnership_id}")

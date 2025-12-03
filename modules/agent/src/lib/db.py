@@ -8,8 +8,12 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from models import Base
+from lib.audit_context import register_audit_listeners
 
 logger = logging.getLogger(__name__)
+
+# Register audit listeners for automatic created_by/updated_by population
+register_audit_listeners(Base)
 
 # Module-level state
 _engine = None

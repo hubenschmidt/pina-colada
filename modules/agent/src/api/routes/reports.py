@@ -22,6 +22,7 @@ from services.report_builder import (
     get_account_overview_report,
     get_contact_coverage_report,
     get_notes_activity_report,
+    get_user_audit_report,
     get_available_fields,
     generate_excel_bytes,
 )
@@ -139,6 +140,20 @@ async def get_notes_activity(request: Request, project_id: Optional[int] = None)
     """
     tenant_id = request.state.tenant_id
     return await get_notes_activity_report(tenant_id, project_id)
+
+
+@router.get("/canned/user-audit")
+@log_errors
+@require_auth
+async def get_user_audit(request: Request, user_id: Optional[int] = None):
+    """Get user audit canned report.
+
+    Shows records created/updated by users across all tables.
+    If user_id is provided, filters to that specific user.
+    If user_id is None, returns audit data for all users.
+    """
+    tenant_id = request.state.tenant_id
+    return await get_user_audit_report(tenant_id, user_id)
 
 
 # --- Custom Report Execution ---

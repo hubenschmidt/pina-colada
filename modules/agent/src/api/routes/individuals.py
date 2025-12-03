@@ -361,9 +361,12 @@ async def _check_duplicate_individual(
 async def create_individual_route(request: Request, data: IndividualCreate):
     """Create a new individual with an associated Account."""
     tenant_id = getattr(request.state, "tenant_id", None)
+    user_id = getattr(request.state, "user_id", None)
     ind_data = data.model_dump(exclude_none=True)
     industry_ids = ind_data.pop("industry_ids", None)
     project_ids = ind_data.pop("project_ids", None)
+    ind_data["created_by"] = user_id
+    ind_data["updated_by"] = user_id
 
     # Normalize LinkedIn URL
     if "linkedin_url" in ind_data:
@@ -384,7 +387,7 @@ async def create_individual_route(request: Request, data: IndividualCreate):
     if not ind_data.get("account_id"):
         async with async_get_session() as session:
             account_name = f"{ind_data.get('first_name', '')} {ind_data.get('last_name', '')}".strip()
-            account = Account(tenant_id=tenant_id, name=account_name)
+            account = Account(tenant_id=tenant_id, name=account_name, created_by=user_id, updated_by=user_id)
             session.add(account)
             await session.flush()
 
@@ -418,9 +421,11 @@ async def create_individual_route(request: Request, data: IndividualCreate):
 @require_auth
 async def update_individual_route(request: Request, individual_id: int, data: IndividualUpdate):
     """Update an existing individual."""
+    user_id = getattr(request.state, "user_id", None)
     ind_data = data.model_dump(exclude_unset=True)
     industry_ids = ind_data.pop("industry_ids", None)
     project_ids = ind_data.pop("project_ids", None)
+    ind_data["updated_by"] = user_id
 
     # Normalize LinkedIn URL (converts empty to None)
     if "linkedin_url" in ind_data:
@@ -499,6 +504,7 @@ async def create_individual_contact_route(request: Request, individual_id: int, 
     individual = await find_individual_by_id(individual_id)
     if not individual:
         raise HTTPException(status_code=404, detail="Individual not found")
+    user_id = getattr(request.state, "user_id", None)
 
     async with async_get_session() as session:
         # Create the contact
@@ -512,6 +518,8 @@ async def create_individual_contact_route(request: Request, individual_id: int, 
             phone=data.phone,
             is_primary=data.is_primary,
             notes=data.notes,
+            created_by=user_id,
+            updated_by=user_id,
         )
         session.add(contact)
         await session.flush()
@@ -543,6 +551,7 @@ async def create_individual_contact_route(request: Request, individual_id: int, 
 @require_auth
 async def update_individual_contact_route(request: Request, individual_id: int, contact_id: int, data: ContactUpdate):
     """Update a contact for an individual."""
+    user_id = getattr(request.state, "user_id", None)
     async with async_get_session() as session:
         # Verify contact exists and is linked to this individual
         stmt = select(ContactIndividual).where(
@@ -590,6 +599,7 @@ async def update_individual_contact_route(request: Request, individual_id: int, 
             contact.is_primary = data.is_primary
         if data.notes is not None:
             contact.notes = data.notes
+        contact.updated_by = user_id
 
         await session.commit()
 

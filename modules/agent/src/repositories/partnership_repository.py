@@ -137,6 +137,8 @@ async def create_partnership(data: Dict[str, Any]) -> Partnership:
                 "current_status_id": status_id,
                 "account_id": account_id,
                 "tenant_id": tenant_id,
+                "created_by": data.get("created_by"),
+                "updated_by": data.get("updated_by"),
             }
 
             lead = Lead(**lead_data)
@@ -155,6 +157,8 @@ async def create_partnership(data: Dict[str, Any]) -> Partnership:
                 start_date=data.get("start_date"),
                 end_date=data.get("end_date"),
                 description=data.get("description"),
+                created_by=data.get("created_by"),
+                updated_by=data.get("updated_by"),
             )
 
             session.add(partnership)

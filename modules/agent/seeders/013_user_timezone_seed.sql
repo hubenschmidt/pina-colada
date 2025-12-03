@@ -39,3 +39,6 @@ BEGIN
 
     RAISE NOTICE 'User timezone preferences seeded successfully';
 END $$;
+
+-- Return count for seeder runner
+SELECT COUNT(*) AS users_with_timezone FROM "User_Preferences" WHERE timezone IS NOT NULL;

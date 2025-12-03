@@ -7,6 +7,7 @@ from io import BytesIO
 from sqlalchemy import select, func
 from sqlalchemy.orm import selectinload
 
+from models import Base
 from models.Organization import Organization
 from models.Individual import Individual
 from models.Contact import Contact
@@ -14,6 +15,15 @@ from models.Lead import Lead
 from models.Account import Account
 from models.Note import Note
 from models.LeadProject import LeadProject
+from models.Job import Job
+from models.Opportunity import Opportunity
+from models.Partnership import Partnership
+from models.Project import Project
+from models.Task import Task
+from models.Asset import Asset
+from models.Document import Document
+from models.Deal import Deal
+from models.User import User
 from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)
@@ -634,6 +644,141 @@ async def get_notes_activity_report(tenant_id: int, project_id: Optional[int] = 
             "entities_with_notes": entities_with_notes,
             "recent_notes": recent_notes,
         }
+
+
+async def get_user_audit_report(tenant_id: int, user_id: Optional[int] = None) -> Dict[str, Any]:
+    """Generate user audit report showing records created/updated by users.
+
+    If user_id is provided, filters to that specific user.
+    If user_id is None, returns audit data for all users.
+    """
+    # Dynamically discover models with audit columns
+    AUDIT_MODELS = get_audit_models()
+
+    async with async_get_session() as session:
+        # Get user info if filtering by user
+        user_info = None
+        if user_id:
+            user_result = await session.execute(
+                select(User).where(User.id == user_id)
+            )
+            user = user_result.scalar_one_or_none()
+            if user:
+                user_info = {
+                    "id": user.id,
+                    "email": user.email,
+                    "name": f"{user.first_name or ''} {user.last_name or ''}".strip() or user.email,
+                }
+
+        # Count created_by and updated_by for each model
+        by_table = []
+        total_created = 0
+        total_updated = 0
+
+        for table_name, model in AUDIT_MODELS:
+            # Count created_by
+            created_stmt = select(func.count(model.id)).where(model.created_by.isnot(None))
+            if hasattr(model, "tenant_id"):
+                created_stmt = created_stmt.where(model.tenant_id == tenant_id)
+            if user_id:
+                created_stmt = created_stmt.where(model.created_by == user_id)
+
+            created_result = await session.execute(created_stmt)
+            created_count = created_result.scalar() or 0
+
+            # Count updated_by
+            updated_stmt = select(func.count(model.id)).where(model.updated_by.isnot(None))
+            if hasattr(model, "tenant_id"):
+                updated_stmt = updated_stmt.where(model.tenant_id == tenant_id)
+            if user_id:
+                updated_stmt = updated_stmt.where(model.updated_by == user_id)
+
+            updated_result = await session.execute(updated_stmt)
+            updated_count = updated_result.scalar() or 0
+
+            if created_count > 0 or updated_count > 0:
+                by_table.append({
+                    "table": table_name,
+                    "created_count": created_count,
+                    "updated_count": updated_count,
+                })
+                total_created += created_count
+                total_updated += updated_count
+
+        # Get recent activity (last 20 records across all tables)
+        recent_activity = []
+        for table_name, model in AUDIT_MODELS:
+            if not hasattr(model, "updated_at"):
+                continue
+
+            stmt = select(model).where(model.updated_by.isnot(None))
+            if hasattr(model, "tenant_id"):
+                stmt = stmt.where(model.tenant_id == tenant_id)
+            if user_id:
+                stmt = stmt.where(model.updated_by == user_id)
+            stmt = stmt.order_by(model.updated_at.desc()).limit(5)
+
+            result = await session.execute(stmt)
+            records = result.scalars().all()
+
+            for record in records:
+                # Get display name based on model type
+                display_name = _get_record_display_name(record, table_name)
+                recent_activity.append({
+                    "table": table_name,
+                    "id": record.id,
+                    "display_name": display_name,
+                    "updated_by": record.updated_by,
+                    "updated_at": record.updated_at.isoformat() if record.updated_at else None,
+                })
+
+        # Sort by updated_at and take top 20
+        recent_activity.sort(key=lambda x: x["updated_at"] or "", reverse=True)
+        recent_activity = recent_activity[:20]
+
+        return {
+            "user": user_info,
+            "total_created": total_created,
+            "total_updated": total_updated,
+            "by_table": by_table,
+            "recent_activity": recent_activity,
+        }
+
+
+def _get_record_display_name(record, table_name: str) -> str:
+    """Get a display name for a record based on its type."""
+    if table_name in ("Individual", "Contact"):
+        first = getattr(record, "first_name", "") or ""
+        last = getattr(record, "last_name", "") or ""
+        return f"{first} {last}".strip() or f"#{record.id}"
+    elif hasattr(record, "name"):
+        return record.name or f"#{record.id}"
+    elif hasattr(record, "title"):
+        return record.title or f"#{record.id}"
+    elif hasattr(record, "filename"):
+        return record.filename or f"#{record.id}"
+    elif hasattr(record, "content"):
+        content = record.content or ""
+        return content[:50] + "..." if len(content) > 50 else content or f"#{record.id}"
+    return f"#{record.id}"
+
+
+def get_audit_models() -> list:
+    """Dynamically discover all models with created_by/updated_by columns.
+
+    Returns list of tuples: (table_name, model_class)
+    """
+    audit_models = []
+    for mapper in Base.registry.mappers:
+        model = mapper.class_
+        # Check if model has both audit columns
+        if hasattr(model, 'created_by') and hasattr(model, 'updated_by'):
+            # Use class name as table name for display
+            table_name = model.__name__
+            audit_models.append((table_name, model))
+    # Sort by table name for consistent ordering
+    audit_models.sort(key=lambda x: x[0])
+    return audit_models
 
 
 def generate_excel_bytes(data: List[Dict[str, Any]], columns: List[str]) -> bytes:

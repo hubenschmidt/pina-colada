@@ -1281,6 +1281,41 @@ export const getNotesActivityReport = async (
   return apiGet<NotesActivityReport>(`/reports/canned/notes-activity${query}`);
 };
 
+// User Audit Report
+
+export type UserAuditReport = {
+  user: {
+    id: number;
+    email: string;
+    name: string;
+  } | null;
+  total_created: number;
+  total_updated: number;
+  by_table: {
+    table: string;
+    created_count: number;
+    updated_count: number;
+  }[];
+  recent_activity: {
+    table: string;
+    id: number;
+    display_name: string;
+    updated_by: number;
+    updated_at: string | null;
+  }[];
+};
+
+export const getUserAuditReport = async (
+  userId?: number | null
+): Promise<UserAuditReport> => {
+  const params = new URLSearchParams();
+  if (userId !== undefined && userId !== null) {
+    params.append("user_id", userId.toString());
+  }
+  const query = params.toString() ? `?${params}` : "";
+  return apiGet<UserAuditReport>(`/reports/canned/user-audit${query}`);
+};
+
 // Custom Reports - Fields
 
 export const getEntityFields = async (

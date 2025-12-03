@@ -16,7 +16,7 @@ const AuthenticatedPageLayout = ({
   if (isLoading || !isAuthed) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Image src="/icon.png" alt="Loading" width={200} height={200} />
+        <Image src="/loading-icon.png" alt="Loading" width={200} height={200} unoptimized />
       </div>
     );
   }

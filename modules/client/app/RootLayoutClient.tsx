@@ -54,7 +54,7 @@ export const RootLayoutClient = ({
   if (isLoading || isRedirecting) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Image src="/icon.png" alt="Loading" width={200} height={200} priority />
+        <Image src="/loading-icon.png" alt="Loading" width={200} height={200} priority unoptimized />
       </div>
     );
   }

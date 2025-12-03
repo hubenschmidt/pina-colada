@@ -9,6 +9,7 @@ from jose import jwt, JWTError
 import requests
 
 from services.auth_service import get_or_create_user
+from lib.audit_context import set_current_user_id
 
 logger = logging.getLogger(__name__)
 # Cache for JWKS
@@ -145,6 +146,9 @@ def require_auth(func: Callable):
         request.state.user = user
         request.state.user_id = user.id
         request.state.tenant_id = _get_tenant_id(request, claims, user)
+
+        # Set user_id in context for automatic audit column population
+        set_current_user_id(user.id)
 
         return await func(request, *args, **kwargs)
 

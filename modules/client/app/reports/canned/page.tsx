@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Stack, Text, Badge, Group } from "@mantine/core";
-import { BarChart3, Building2, Users, StickyNote, FolderKanban, LucideIcon } from "lucide-react";
+import { BarChart3, Building2, Users, StickyNote, FolderKanban, LucideIcon, UserCheck } from "lucide-react";
 import { useProjectContext } from "../../../context/projectContext";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 import { DataTable, type PageData, type Column } from "../../../components/DataTable/DataTable";
@@ -49,6 +49,14 @@ const cannedReports: CannedReport[] = [
     href: "/reports/canned/notes-activity",
     icon: StickyNote,
     projectFiltered: true,
+  },
+  {
+    id: "user-audit",
+    title: "User Audit",
+    description: "Records created and updated by user across all tables",
+    href: "/reports/canned/user-audit",
+    icon: UserCheck,
+    projectFiltered: false,
   },
 ];
 

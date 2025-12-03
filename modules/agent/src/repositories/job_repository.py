@@ -202,6 +202,8 @@ async def create_job(data: Dict[str, Any]) -> Job:
                 "current_status_id": status_id,
                 "account_id": account_id,
                 "tenant_id": tenant_id,
+                "created_by": data.get("created_by"),
+                "updated_by": data.get("updated_by"),
             }
 
             lead = Lead(**lead_data)
@@ -222,7 +224,9 @@ async def create_job(data: Dict[str, Any]) -> Job:
                 description=data.get("description"),
                 resume_date=data.get("resume_date"),
                 salary_range=data.get("salary_range"),
-                salary_range_id=data.get("salary_range_id")
+                salary_range_id=data.get("salary_range_id"),
+                created_by=data.get("created_by"),
+                updated_by=data.get("updated_by"),
             )
 
             session.add(job)

@@ -73,6 +73,7 @@ async def create_opportunity_route(request: Request, data: OpportunityCreate):
     """Create a new opportunity."""
     opp_data = data.dict()
     opp_data["tenant_id"] = getattr(request.state, "tenant_id", None)
+    opp_data["user_id"] = getattr(request.state, "user_id", None)
     return await create_opportunity(opp_data)
 
 
@@ -89,7 +90,9 @@ async def get_opportunity_route(request: Request, opportunity_id: str):
 @require_auth
 async def update_opportunity_route(request: Request, opportunity_id: str, data: OpportunityUpdate):
     """Update an opportunity."""
-    return await update_opportunity(opportunity_id, data.dict(exclude_unset=True))
+    update_data = data.dict(exclude_unset=True)
+    update_data["user_id"] = getattr(request.state, "user_id", None)
+    return await update_opportunity(opportunity_id, update_data)
 
 
 @router.delete("/{opportunity_id}")

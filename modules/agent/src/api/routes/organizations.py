@@ -384,14 +384,17 @@ async def get_organization_route(request: Request, org_id: int):
 async def create_organization_route(request: Request, data: OrganizationCreate):
     """Create a new organization with an associated Account."""
     tenant_id = getattr(request.state, "tenant_id", None)
+    user_id = getattr(request.state, "user_id", None)
     org_data = data.model_dump(exclude_none=True)
     industry_ids = org_data.pop("industry_ids", None)
     project_ids = org_data.pop("project_ids", None)
+    org_data["created_by"] = user_id
+    org_data["updated_by"] = user_id
 
     # Create an Account for the Organization if not provided
     if not org_data.get("account_id"):
         async with async_get_session() as session:
-            account = Account(tenant_id=tenant_id, name=org_data.get("name", ""))
+            account = Account(tenant_id=tenant_id, name=org_data.get("name", ""), created_by=user_id, updated_by=user_id)
             session.add(account)
             await session.flush()
 
@@ -428,9 +431,11 @@ async def create_organization_route(request: Request, data: OrganizationCreate):
 @require_auth
 async def update_organization_route(request: Request, org_id: int, data: OrganizationUpdate):
     """Update an existing organization."""
+    user_id = getattr(request.state, "user_id", None)
     org_data = data.model_dump(exclude_unset=True)
     industry_ids = org_data.pop("industry_ids", None)
     project_ids = org_data.pop("project_ids", None)
+    org_data["updated_by"] = user_id
 
     org = await update_organization(org_id, org_data)
     if not org:
@@ -505,6 +510,7 @@ async def create_organization_contact_route(request: Request, org_id: int, data:
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
+    user_id = getattr(request.state, "user_id", None)
 
     async with async_get_session() as session:
         # Create the contact
@@ -518,6 +524,8 @@ async def create_organization_contact_route(request: Request, org_id: int, data:
             phone=data.phone,
             is_primary=data.is_primary,
             notes=data.notes,
+            created_by=user_id,
+            updated_by=user_id,
         )
         session.add(contact)
         await session.flush()
@@ -540,6 +548,7 @@ async def create_organization_contact_route(request: Request, org_id: int, data:
 @require_auth
 async def update_organization_contact_route(request: Request, org_id: int, contact_id: int, data: OrgContactUpdate):
     """Update a contact for an organization."""
+    user_id = getattr(request.state, "user_id", None)
     async with async_get_session() as session:
         # Verify contact exists and is linked to this organization
         stmt = select(ContactOrganization).where(
@@ -587,6 +596,7 @@ async def update_organization_contact_route(request: Request, org_id: int, conta
             contact.is_primary = data.is_primary
         if data.notes is not None:
             contact.notes = data.notes
+        contact.updated_by = user_id
 
         await session.commit()
 

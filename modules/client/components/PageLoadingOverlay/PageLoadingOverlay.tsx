@@ -21,7 +21,7 @@ const PageLoadingOverlay = ({ children }: { children: React.ReactNode }) => {
     <>
       {showOverlay && (
         <div className="flex min-h-screen items-center justify-center">
-          <Image src="/icon.png" alt="Loading" width={200} height={200} />
+          <Image src="/loading-icon.png" alt="Loading" width={200} height={200} unoptimized />
         </div>
       )}
       <div style={{ display: showOverlay ? "none" : "block" }}>{children}</div>

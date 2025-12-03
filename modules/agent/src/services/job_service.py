@@ -435,6 +435,7 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
         status = await find_status_by_name(status_name, "job")
         status_id = status.id if status else None
 
+    user_id = job_data.get("user_id")
     data: Dict[str, Any] = {
         "account_id": account_id,
         "account_name": account_name,
@@ -449,6 +450,8 @@ async def create_job(job_data: Dict[str, Any]) -> Any:
         "tenant_id": tenant_id,
         "resume_date": resume_obj,
         "project_ids": job_data.get("project_ids") or [],
+        "created_by": user_id,
+        "updated_by": user_id,
     }
 
     # Validate that at least one project is specified
@@ -601,6 +604,9 @@ async def update_job(job_id: str, job_data: Dict[str, Any]) -> Any:
         raise HTTPException(status_code=400, detail="Invalid job ID format")
 
     data: Dict[str, Any] = {}
+    user_id = job_data.get("user_id")
+    if user_id:
+        data["updated_by"] = user_id
 
     # Handle organization update
     organization_name = job_data.get("account") or job_data.get("organization_name")

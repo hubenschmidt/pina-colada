@@ -24,6 +24,8 @@ class Asset(Base):
     description = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_by = Column(BigInteger, ForeignKey("User.id", ondelete="SET NULL"), nullable=True)
+    updated_by = Column(BigInteger, ForeignKey("User.id", ondelete="SET NULL"), nullable=True)
 
     # Versioning columns
     parent_id = Column(BigInteger, ForeignKey("Asset.id", ondelete="CASCADE"), nullable=True)
@@ -32,7 +34,7 @@ class Asset(Base):
 
     # Relationships
     tenant = relationship("Tenant", back_populates="assets")
-    user = relationship("User", back_populates="assets")
+    user = relationship("User", back_populates="assets", foreign_keys=[user_id])
     parent = relationship("Asset", remote_side=[id], backref="versions")
 
     __mapper_args__ = {

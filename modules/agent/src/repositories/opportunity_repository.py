@@ -137,6 +137,8 @@ async def create_opportunity(data: Dict[str, Any]) -> Opportunity:
                 "current_status_id": status_id,
                 "account_id": account_id,
                 "tenant_id": tenant_id,
+                "created_by": data.get("created_by"),
+                "updated_by": data.get("updated_by"),
             }
 
             lead = Lead(**lead_data)
@@ -155,6 +157,8 @@ async def create_opportunity(data: Dict[str, Any]) -> Opportunity:
                 probability=data.get("probability"),
                 expected_close_date=data.get("expected_close_date"),
                 description=data.get("description"),
+                created_by=data.get("created_by"),
+                updated_by=data.get("updated_by"),
             )
 
             session.add(opp)

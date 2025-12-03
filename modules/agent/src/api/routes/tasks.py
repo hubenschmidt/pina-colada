@@ -287,6 +287,7 @@ async def get_task_route(request: Request, task_id: str):
 async def create_task_route(request: Request, data: TaskCreate):
     """Create a new task."""
     tenant_id = request.state.tenant_id
+    user_id = getattr(request.state, "user_id", None)
     task_data = {
         "tenant_id": tenant_id,
         "title": data.title,
@@ -302,6 +303,8 @@ async def create_task_route(request: Request, data: TaskCreate):
         "complexity": data.complexity,
         "sort_order": data.sort_order,
         "assigned_to_individual_id": data.assigned_to_individual_id,
+        "created_by": user_id,
+        "updated_by": user_id,
     }
 
     task = await create_task_service(task_data)
@@ -313,7 +316,9 @@ async def create_task_route(request: Request, data: TaskCreate):
 @log_errors
 async def update_task_route(request: Request, task_id: str, data: TaskUpdate):
     """Update a task."""
+    user_id = getattr(request.state, "user_id", None)
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
+    update_data["updated_by"] = user_id
 
     task = await update_task_service(task_id, update_data)
     return await _task_to_dict(task)

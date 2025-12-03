@@ -88,6 +88,7 @@ async def create_job_route(request: Request, job_data: JobCreate):
     """Create a new job."""
     data = job_data.dict()
     data["tenant_id"] = getattr(request.state, "tenant_id", None)
+    data["user_id"] = getattr(request.state, "user_id", None)
     return await create_job(data)
 
 
@@ -112,7 +113,9 @@ async def get_job_route(request: Request, job_id: str):
 @require_auth
 async def update_job_route(request: Request, job_id: str, job_data: JobUpdate):
     """Update a job."""
-    return await update_job(job_id, job_data.dict(exclude_unset=True))
+    data = job_data.dict(exclude_unset=True)
+    data["user_id"] = getattr(request.state, "user_id", None)
+    return await update_job(job_id, data)
 
 
 @router.delete("/{job_id}")

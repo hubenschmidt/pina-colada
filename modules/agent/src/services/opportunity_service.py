@@ -103,6 +103,7 @@ async def create_opportunity(data: Dict[str, Any]) -> Any:
         status = await find_status_by_name(status_name, "opportunity")
         status_id = status.id if status else None
 
+    user_id = data.get("user_id")
     create_data: Dict[str, Any] = {
         "account_id": account_id,
         "account_name": account_name,
@@ -117,6 +118,8 @@ async def create_opportunity(data: Dict[str, Any]) -> Any:
         "source": data.get("source", "manual"),
         "tenant_id": tenant_id,
         "project_ids": data.get("project_ids") or [],
+        "created_by": user_id,
+        "updated_by": user_id,
     }
 
     if not create_data["project_ids"]:
@@ -147,6 +150,9 @@ async def update_opportunity(opp_id: str, data: Dict[str, Any]) -> Any:
         raise HTTPException(status_code=400, detail="Invalid opportunity ID format")
 
     update_data: Dict[str, Any] = {}
+    user_id = data.get("user_id")
+    if user_id:
+        update_data["updated_by"] = user_id
 
     organization_name = data.get("account")
     if organization_name:

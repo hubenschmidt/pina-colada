@@ -122,8 +122,9 @@ async def create_note_route(request: Request, data: NoteCreate):
 async def update_note_route(request: Request, note_id: int, data: NoteUpdate):
     """Update a note."""
     tenant_id = request.state.tenant_id
+    user_id = getattr(request.state, "user_id", None)
 
-    note = await update_note(note_id, tenant_id, {"content": data.content})
+    note = await update_note(note_id, tenant_id, {"content": data.content, "updated_by": user_id})
     if not note:
         raise HTTPException(status_code=404, detail="Note not found")
     return _note_to_dict(note)
