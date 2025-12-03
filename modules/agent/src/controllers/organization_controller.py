@@ -6,7 +6,7 @@ from typing import List, Optional, Dict, Any
 from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
-from repositories.organization_repository import (
+from services.organization_service import (
     OrganizationCreate,
     OrganizationUpdate,
     OrgContactCreate,
@@ -14,8 +14,6 @@ from repositories.organization_repository import (
     OrgTechnologyCreate,
     FundingRoundCreate,
     SignalCreate,
-)
-from services.organization_service import (
     get_organizations_paginated,
     search_organizations as search_organizations_service,
     get_organization as get_organization_service,

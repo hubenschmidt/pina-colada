@@ -6,8 +6,9 @@ from typing import Optional, List, Dict, Any
 from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
-from repositories.task_repository import TaskCreate, TaskUpdate
 from services.task_service import (
+    TaskCreate,
+    TaskUpdate,
     get_tasks_paginated,
     get_task as get_task_service,
     get_tasks_by_entity as get_tasks_by_entity_service,

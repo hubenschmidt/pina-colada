@@ -8,7 +8,11 @@ from fastapi import HTTPException
 from repositories.data_provenance_repository import (
     find_provenance,
     create_provenance as create_provenance_repo,
+    ProvenanceCreate,
 )
+
+# Re-export Pydantic models for controllers
+__all__ = ["ProvenanceCreate"]
 
 logger = logging.getLogger(__name__)
 

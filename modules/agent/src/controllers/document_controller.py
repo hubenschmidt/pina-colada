@@ -6,8 +6,9 @@ from typing import Optional, List
 from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
-from repositories.document_repository import DocumentUpdate, EntityLink
 from services.document_service import (
+    DocumentUpdate,
+    EntityLink,
     get_documents_paginated,
     check_filename_exists,
     get_document as get_document_service,

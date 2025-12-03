@@ -8,8 +8,9 @@ from fastapi import Request
 from lib.serialization import model_to_dict
 from lib.decorators import handle_http_exceptions
 from lib.date_utils import format_date, format_datetime, format_display_date
-from repositories.job_repository import JobCreate, JobUpdate
 from services.job_service import (
+    JobCreate,
+    JobUpdate,
     get_jobs_paginated,
     create_job as create_job_service,
     get_job as get_job_service,

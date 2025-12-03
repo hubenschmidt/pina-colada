@@ -19,7 +19,19 @@ from repositories.individual_repository import (
     update_individual as update_individual_repo,
     delete_individual as delete_individual_repo,
     search_individuals as search_individuals_repo,
+    IndividualCreate,
+    IndividualUpdate,
+    IndContactCreate,
+    IndContactUpdate,
 )
+
+# Re-export Pydantic models for controllers
+__all__ = [
+    "IndividualCreate",
+    "IndividualUpdate",
+    "IndContactCreate",
+    "IndContactUpdate",
+]
 from repositories.contact_repository import find_contacts_by_individual, delete_contact
 
 logger = logging.getLogger(__name__)

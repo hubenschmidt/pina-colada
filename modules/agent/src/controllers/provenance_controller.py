@@ -6,8 +6,8 @@ from typing import Optional, Any
 from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
-from repositories.data_provenance_repository import ProvenanceCreate
 from services.provenance_service import (
+    ProvenanceCreate,
     get_provenance as get_provenance_service,
     create_provenance as create_provenance_service,
 )

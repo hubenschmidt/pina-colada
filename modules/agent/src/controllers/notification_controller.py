@@ -5,8 +5,9 @@ import logging
 from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
-from repositories.notification_repository import MarkReadRequest, MarkEntityReadRequest
 from services.notification_service import (
+    MarkReadRequest,
+    MarkEntityReadRequest,
     get_unread_count as get_unread_count_service,
     get_notifications as get_notifications_service,
     mark_as_read as mark_as_read_service,

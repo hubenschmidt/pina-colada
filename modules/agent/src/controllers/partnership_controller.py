@@ -8,8 +8,9 @@ from fastapi import Request
 from lib.serialization import model_to_dict
 from lib.decorators import handle_http_exceptions
 from lib.date_utils import format_date, format_datetime, format_display_date
-from repositories.partnership_repository import PartnershipCreate, PartnershipUpdate
 from services.partnership_service import (
+    PartnershipCreate,
+    PartnershipUpdate,
     get_partnerships_paginated,
     create_partnership as create_partnership_service,
     get_partnership as get_partnership_service,

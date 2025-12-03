@@ -14,6 +14,13 @@ from models.UserPreferences import UserPreferences
 from models.TenantPreferences import TenantPreferences
 from models.Tenant import Tenant
 from models.UserRole import UserRole
+from repositories.preferences_repository import (
+    UpdateUserPreferencesRequest,
+    UpdateTenantPreferencesRequest,
+)
+
+# Re-export Pydantic models for controllers
+__all__ = ["UpdateUserPreferencesRequest", "UpdateTenantPreferencesRequest"]
 
 logger = logging.getLogger(__name__)
 

@@ -6,8 +6,9 @@ from typing import Optional, List, Dict, Any
 from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
-from repositories.contact_repository import ContactCreate, ContactUpdate
 from services.contact_service import (
+    ContactCreate,
+    ContactUpdate,
     get_contacts_paginated,
     search_contacts as search_contacts_service,
     get_contact as get_contact_service,

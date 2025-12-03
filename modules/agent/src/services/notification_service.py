@@ -14,8 +14,13 @@ from repositories.notification_repository import (
     get_notifications as repo_get_notifications,
     mark_as_read as repo_mark_as_read,
     mark_entity_as_read as repo_mark_entity_as_read,
+    MarkReadRequest,
+    MarkEntityReadRequest,
 )
 from repositories.comment_repository import find_comment_by_id
+
+# Re-export Pydantic models for controllers
+__all__ = ["MarkReadRequest", "MarkEntityReadRequest"]
 
 logger = logging.getLogger(__name__)
 

@@ -15,7 +15,12 @@ from repositories.job_repository import (
     delete_job as delete_job_repo,
     find_all_statuses,
     find_jobs_with_status,
+    JobCreate,
+    JobUpdate,
 )
+
+# Re-export Pydantic models for controllers
+__all__ = ["JobCreate", "JobUpdate"]
 from repositories.organization_repository import get_or_create_organization
 from repositories.individual_repository import get_or_create_individual
 from repositories.contact_repository import get_or_create_contact

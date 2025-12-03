@@ -6,13 +6,11 @@ from typing import List, Optional, Dict, Any
 from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
-from repositories.individual_repository import (
+from services.individual_service import (
     IndividualCreate,
     IndividualUpdate,
     IndContactCreate,
     IndContactUpdate,
-)
-from services.individual_service import (
     get_individuals_paginated,
     search_individuals as search_individuals_service,
     get_individual as get_individual_service,

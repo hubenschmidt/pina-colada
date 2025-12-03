@@ -11,7 +11,12 @@ from repositories.note_repository import (
     create_note as create_note_repo,
     update_note as update_note_repo,
     delete_note as delete_note_repo,
+    NoteCreate,
+    NoteUpdate,
 )
+
+# Re-export Pydantic models for controllers
+__all__ = ["NoteCreate", "NoteUpdate"]
 
 logger = logging.getLogger(__name__)
 

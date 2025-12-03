@@ -6,8 +6,9 @@ from typing import List
 from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
-from repositories.project_repository import ProjectCreate, ProjectUpdate
 from services.project_service import (
+    ProjectCreate,
+    ProjectUpdate,
     get_projects as get_projects_service,
     get_project as get_project_service,
     create_project as create_project_service,

@@ -18,7 +18,12 @@ from repositories.task_repository import (
     batch_get_entity_display_names,
     batch_get_lead_types,
     batch_get_account_entities,
+    TaskCreate,
+    TaskUpdate,
 )
+
+# Re-export Pydantic models for controllers
+__all__ = ["TaskCreate", "TaskUpdate"]
 
 logger = logging.getLogger(__name__)
 

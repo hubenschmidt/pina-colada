@@ -11,8 +11,13 @@ from repositories.comment_repository import (
     create_comment as create_comment_repo,
     update_comment as update_comment_repo,
     delete_comment as delete_comment_repo,
+    CommentCreate,
+    CommentUpdate,
 )
 from services.notification_service import create_comment_notifications
+
+# Re-export Pydantic models for controllers
+__all__ = ["CommentCreate", "CommentUpdate"]
 
 logger = logging.getLogger(__name__)
 

@@ -10,7 +10,12 @@ from repositories.opportunity_repository import (
     find_opportunity_by_id,
     update_opportunity as update_opportunity_repo,
     delete_opportunity as delete_opportunity_repo,
+    OpportunityCreate,
+    OpportunityUpdate,
 )
+
+# Re-export Pydantic models for controllers
+__all__ = ["OpportunityCreate", "OpportunityUpdate"]
 from repositories.organization_repository import get_or_create_organization
 from repositories.individual_repository import get_or_create_individual
 from repositories.deal_repository import get_or_create_deal

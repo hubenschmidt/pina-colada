@@ -12,7 +12,12 @@ from repositories.contact_repository import (
     search_contacts_and_individuals,
     delete_contact as delete_contact_repo,
     find_all_contacts_paginated,
+    ContactCreate,
+    ContactUpdate,
 )
+
+# Re-export Pydantic models for controllers
+__all__ = ["ContactCreate", "ContactUpdate"]
 
 logger = logging.getLogger(__name__)
 

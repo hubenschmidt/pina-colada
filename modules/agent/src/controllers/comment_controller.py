@@ -6,8 +6,9 @@ from typing import List
 from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
-from repositories.comment_repository import CommentCreate, CommentUpdate
 from services.comment_service import (
+    CommentCreate,
+    CommentUpdate,
     get_comments_by_entity as get_comments_service,
     get_comment as get_comment_service,
     create_comment as create_comment_service,

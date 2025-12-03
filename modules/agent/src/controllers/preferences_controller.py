@@ -7,11 +7,9 @@ from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
 from lib.date_utils import get_common_timezones
-from repositories.preferences_repository import (
+from services.preferences_service import (
     UpdateUserPreferencesRequest,
     UpdateTenantPreferencesRequest,
-)
-from services.preferences_service import (
     get_user_preferences as get_user_prefs_service,
     update_user_preferences as update_user_prefs_service,
     get_tenant_preferences as get_tenant_prefs_service,

@@ -10,7 +10,12 @@ from repositories.partnership_repository import (
     find_partnership_by_id,
     update_partnership as update_partnership_repo,
     delete_partnership as delete_partnership_repo,
+    PartnershipCreate,
+    PartnershipUpdate,
 )
+
+# Re-export Pydantic models for controllers
+__all__ = ["PartnershipCreate", "PartnershipUpdate"]
 from repositories.organization_repository import get_or_create_organization
 from repositories.individual_repository import get_or_create_individual
 from repositories.deal_repository import get_or_create_deal

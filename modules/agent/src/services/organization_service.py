@@ -19,7 +19,25 @@ from repositories.organization_repository import (
     update_organization as update_organization_repo,
     delete_organization as delete_organization_repo,
     search_organizations as search_organizations_repo,
+    OrganizationCreate,
+    OrganizationUpdate,
+    OrgContactCreate,
+    OrgContactUpdate,
+    OrgTechnologyCreate,
+    FundingRoundCreate,
+    SignalCreate,
 )
+
+# Re-export Pydantic models for controllers
+__all__ = [
+    "OrganizationCreate",
+    "OrganizationUpdate",
+    "OrgContactCreate",
+    "OrgContactUpdate",
+    "OrgTechnologyCreate",
+    "FundingRoundCreate",
+    "SignalCreate",
+]
 from repositories.contact_repository import find_contacts_by_organization, delete_contact
 from repositories.technology_repository import (
     find_organization_technologies,

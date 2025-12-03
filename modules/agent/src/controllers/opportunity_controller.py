@@ -8,8 +8,9 @@ from fastapi import Request
 from lib.serialization import model_to_dict
 from lib.decorators import handle_http_exceptions
 from lib.date_utils import format_date, format_datetime, format_display_date
-from repositories.opportunity_repository import OpportunityCreate, OpportunityUpdate
 from services.opportunity_service import (
+    OpportunityCreate,
+    OpportunityUpdate,
     get_opportunities_paginated,
     create_opportunity as create_opportunity_service,
     get_opportunity as get_opportunity_service,

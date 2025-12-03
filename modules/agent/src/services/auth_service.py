@@ -9,7 +9,11 @@ from repositories.tenant_repository import (
     get_user_tenants_with_roles,
     find_role_by_tenant_and_name,
     create_user_role,
+    TenantCreate,
 )
+
+# Re-export Pydantic models for controllers
+__all__ = ["TenantCreate"]
 
 
 async def get_or_create_user(auth0_sub: str, email: str) -> User:

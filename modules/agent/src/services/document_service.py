@@ -24,7 +24,12 @@ from repositories.document_repository import (
     find_existing_document_by_filename,
     create_new_version as create_new_version_repo,
     set_current_version as set_current_version_repo,
+    DocumentUpdate,
+    EntityLink,
 )
+
+# Re-export Pydantic models for controllers
+__all__ = ["DocumentUpdate", "EntityLink"]
 
 logger = logging.getLogger(__name__)
 

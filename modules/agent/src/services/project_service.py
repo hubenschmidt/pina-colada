@@ -13,6 +13,10 @@ from models.Project import Project
 from models.Deal import Deal
 from models.Lead import Lead
 from models.LeadProject import LeadProject
+from repositories.project_repository import ProjectCreate, ProjectUpdate
+
+# Re-export Pydantic models for controllers
+__all__ = ["ProjectCreate", "ProjectUpdate"]
 
 logger = logging.getLogger(__name__)
 

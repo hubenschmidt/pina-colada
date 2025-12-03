@@ -25,6 +25,14 @@ from models.Document import Document
 from models.Deal import Deal
 from models.User import User
 from lib.db import async_get_session
+from repositories.saved_report_repository import (
+    ReportQueryRequest,
+    SavedReportCreate,
+    SavedReportUpdate,
+)
+
+# Re-export Pydantic models for controllers
+__all__ = ["ReportQueryRequest", "SavedReportCreate", "SavedReportUpdate"]
 
 logger = logging.getLogger(__name__)
 

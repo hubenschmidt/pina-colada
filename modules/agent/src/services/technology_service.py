@@ -8,7 +8,11 @@ from repositories.technology_repository import (
     find_all_technologies,
     find_technology_by_id,
     create_technology as create_technology_repo,
+    TechnologyCreate,
 )
+
+# Re-export Pydantic models for controllers
+__all__ = ["TechnologyCreate"]
 
 
 async def get_all_technologies(category: Optional[str] = None) -> List:
