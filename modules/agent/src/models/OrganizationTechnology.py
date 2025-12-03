@@ -1,6 +1,6 @@
 """OrganizationTechnology model for tech stack junction table."""
 
-from sqlalchemy import Column, Text, DateTime, BigInteger, Numeric, ForeignKey, func
+from sqlalchemy import Column, Text, DateTime, BigInteger, Numeric, ForeignKey, func, Integer
 from sqlalchemy.orm import relationship
 
 from models import Base
@@ -16,6 +16,10 @@ class OrganizationTechnology(Base):
     detected_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     source = Column(Text, nullable=True)       # 'builtwith', 'wappalyzer', 'agent', 'manual'
     confidence = Column(Numeric(3, 2), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
+    updated_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
 
     # Relationships
     organization = relationship("Organization", back_populates="technologies")

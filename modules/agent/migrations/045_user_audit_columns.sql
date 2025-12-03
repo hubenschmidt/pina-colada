@@ -5,7 +5,7 @@
 ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 ALTER TABLE "Account" ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 
--- Asset
+-- Asset (Document inherits from Asset via joined table inheritance)
 ALTER TABLE "Asset" ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 ALTER TABLE "Asset" ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 
@@ -17,36 +17,20 @@ ALTER TABLE "Contact" ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES "Use
 ALTER TABLE "Deal" ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 ALTER TABLE "Deal" ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 
--- Document (extends Asset, but has own table)
-ALTER TABLE "Document" ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
-ALTER TABLE "Document" ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
-
 -- Individual
 ALTER TABLE "Individual" ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 ALTER TABLE "Individual" ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 
--- Job (extends Lead, but has own table)
-ALTER TABLE "Job" ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
-ALTER TABLE "Job" ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
-
--- Lead
+-- Lead (Job, Opportunity, Partnership inherit from Lead via joined table inheritance)
 ALTER TABLE "Lead" ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 ALTER TABLE "Lead" ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 
 -- Note (already has created_by, only add updated_by)
 ALTER TABLE "Note" ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 
--- Opportunity (extends Lead, but has own table)
-ALTER TABLE "Opportunity" ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
-ALTER TABLE "Opportunity" ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
-
 -- Organization
 ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 ALTER TABLE "Organization" ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
-
--- Partnership (extends Lead, but has own table)
-ALTER TABLE "Partnership" ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
-ALTER TABLE "Partnership" ADD COLUMN IF NOT EXISTS updated_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
 
 -- Project
 ALTER TABLE "Project" ADD COLUMN IF NOT EXISTS created_by BIGINT REFERENCES "User"(id) ON DELETE SET NULL;
@@ -62,10 +46,7 @@ CREATE INDEX IF NOT EXISTS idx_asset_created_by ON "Asset"(created_by);
 CREATE INDEX IF NOT EXISTS idx_contact_created_by ON "Contact"(created_by);
 CREATE INDEX IF NOT EXISTS idx_deal_created_by ON "Deal"(created_by);
 CREATE INDEX IF NOT EXISTS idx_individual_created_by ON "Individual"(created_by);
-CREATE INDEX IF NOT EXISTS idx_job_created_by ON "Job"(created_by);
 CREATE INDEX IF NOT EXISTS idx_lead_created_by ON "Lead"(created_by);
-CREATE INDEX IF NOT EXISTS idx_opportunity_created_by ON "Opportunity"(created_by);
 CREATE INDEX IF NOT EXISTS idx_organization_created_by ON "Organization"(created_by);
-CREATE INDEX IF NOT EXISTS idx_partnership_created_by ON "Partnership"(created_by);
 CREATE INDEX IF NOT EXISTS idx_project_created_by ON "Project"(created_by);
 CREATE INDEX IF NOT EXISTS idx_task_created_by ON "Task"(created_by);

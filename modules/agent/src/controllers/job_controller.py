@@ -2,9 +2,13 @@
 
 import logging
 from typing import List, Optional, Dict, Any
+
+from fastapi import Request
+
 from lib.serialization import model_to_dict
 from lib.decorators import handle_http_exceptions
 from lib.date_utils import format_date, format_datetime, format_display_date
+from repositories.job_repository import JobCreate, JobUpdate
 from services.job_service import (
     get_jobs_paginated,
     create_job as create_job_service,
@@ -17,6 +21,9 @@ from services.job_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Re-export for routes
+__all__ = ["JobCreate", "JobUpdate"]
 
 
 def _to_paged_response(count: int, page: int, limit: int, items: List) -> dict:
@@ -75,6 +82,8 @@ def _build_contact_dict(contact) -> dict:
         "phone": contact.phone or "",
         "title": contact.title,
         "is_primary": contact.is_primary,
+        "created_at": contact.created_at.isoformat() if contact.created_at else None,
+        "updated_at": contact.updated_at.isoformat() if contact.updated_at else None,
     }
 
 
@@ -187,9 +196,16 @@ def _job_to_detail_response(job) -> Dict[str, Any]:
 
 @handle_http_exceptions
 async def get_jobs(
-    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None, tenant_id: Optional[int] = None, project_id: Optional[int] = None
+    request: Request,
+    page: int,
+    limit: int,
+    order_by: str,
+    order: str,
+    search: Optional[str] = None,
+    project_id: Optional[int] = None,
 ) -> dict:
     """Get all jobs with pagination."""
+    tenant_id = getattr(request.state, "tenant_id", None)
     paginated_jobs, total_count = await get_jobs_paginated(
         page, limit, order_by, order, search, tenant_id, project_id
     )
@@ -198,8 +214,11 @@ async def get_jobs(
 
 
 @handle_http_exceptions
-async def create_job(job_data: Dict[str, Any]) -> Dict[str, Any]:
+async def create_job(request: Request, data: JobCreate) -> Dict[str, Any]:
     """Create a new job."""
+    job_data = data.dict()
+    job_data["tenant_id"] = getattr(request.state, "tenant_id", None)
+    job_data["user_id"] = getattr(request.state, "user_id", None)
     created = await create_job_service(job_data)
     return _job_to_detail_response(created)
 
@@ -212,8 +231,10 @@ async def get_job(job_id: str) -> Dict[str, Any]:
 
 
 @handle_http_exceptions
-async def update_job(job_id: str, job_data: Dict[str, Any]) -> Dict[str, Any]:
+async def update_job(request: Request, job_id: str, data: JobUpdate) -> Dict[str, Any]:
     """Update a job."""
+    job_data = data.dict(exclude_unset=True)
+    job_data["user_id"] = getattr(request.state, "user_id", None)
     updated = await update_job_service(job_id, job_data)
     return _job_to_detail_response(updated)
 

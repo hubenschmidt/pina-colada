@@ -2,12 +2,27 @@
 
 import logging
 from typing import List, Optional, Dict, Any
+
+from pydantic import BaseModel
 from sqlalchemy import select, and_
 from sqlalchemy.orm import joinedload
-from models.Note import Note
+
 from lib.db import async_get_session
+from models.Note import Note
 
 logger = logging.getLogger(__name__)
+
+
+# Pydantic models
+
+class NoteCreate(BaseModel):
+    entity_type: str
+    entity_id: int
+    content: str
+
+
+class NoteUpdate(BaseModel):
+    content: str
 
 
 async def find_notes_by_entity(

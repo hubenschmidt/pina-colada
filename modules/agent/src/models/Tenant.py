@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text, DateTime, BigInteger, Integer, func, CheckConstraint
+from sqlalchemy import Column, Text, DateTime, BigInteger, Integer, ForeignKey, func, CheckConstraint
 from sqlalchemy.orm import relationship
 from models import Base
 
@@ -22,10 +22,12 @@ class Tenant(Base):
     employee_count = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
+    updated_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
 
     # Relationships
-    users = relationship("User", back_populates="tenant")
-    roles = relationship("Role", back_populates="tenant")
+    users = relationship("User", back_populates="tenant", foreign_keys="User.tenant_id")
+    roles = relationship("Role", back_populates="tenant", foreign_keys="Role.tenant_id")
     deals = relationship("Deal", back_populates="tenant")
     leads = relationship("Lead", back_populates="tenant")
     accounts = relationship("Account", back_populates="tenant")

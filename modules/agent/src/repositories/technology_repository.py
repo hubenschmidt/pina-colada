@@ -1,10 +1,21 @@
 """Repository layer for technology data access."""
 
 from typing import List, Optional
+
+from pydantic import BaseModel
 from sqlalchemy import select
-from models.Technology import Technology
-from models.OrganizationTechnology import OrganizationTechnology
+
 from lib.db import async_get_session
+from models.OrganizationTechnology import OrganizationTechnology
+from models.Technology import Technology
+
+
+# Pydantic models
+
+class TechnologyCreate(BaseModel):
+    name: str
+    category: str
+    vendor: Optional[str] = None
 
 
 async def find_all_technologies(category: Optional[str] = None) -> List[Technology]:

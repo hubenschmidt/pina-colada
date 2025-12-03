@@ -2,19 +2,55 @@
 
 import logging
 from typing import Dict, Any, List, Optional
+
+from pydantic import BaseModel
 from sqlalchemy import select, func as sql_func, or_
 from sqlalchemy.orm import joinedload
-from models.Partnership import Partnership
+
+from lib.db import async_get_session
+from models.Account import Account
+from models.Deal import Deal
+from models.Individual import Individual
 from models.Lead import Lead
 from models.LeadProject import LeadProject
-from models.Status import Status
 from models.Organization import Organization
-from models.Individual import Individual
-from models.Deal import Deal
-from models.Account import Account
-from lib.db import async_get_session
+from models.Partnership import Partnership
+from models.Status import Status
 
 logger = logging.getLogger(__name__)
+
+
+# Pydantic models
+
+class PartnershipCreate(BaseModel):
+    account_type: str = "Organization"
+    account: Optional[str] = None
+    contacts: Optional[List[dict]] = None
+    industry: Optional[List[str]] = None
+    industry_ids: Optional[List[int]] = None
+    title: str
+    partnership_name: str
+    partnership_type: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    description: Optional[str] = None
+    status: str = "Exploring"
+    source: str = "manual"
+    project_ids: Optional[List[int]] = None
+
+
+class PartnershipUpdate(BaseModel):
+    account: Optional[str] = None
+    contacts: Optional[List[dict]] = None
+    title: Optional[str] = None
+    partnership_name: Optional[str] = None
+    partnership_type: Optional[str] = None
+    start_date: Optional[str] = None
+    end_date: Optional[str] = None
+    description: Optional[str] = None
+    status: Optional[str] = None
+    source: Optional[str] = None
+    project_ids: Optional[List[int]] = None
 
 
 async def _load_partnership_with_relationships(session, partnership_id: int) -> Partnership:

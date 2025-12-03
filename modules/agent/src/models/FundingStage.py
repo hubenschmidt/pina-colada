@@ -1,6 +1,6 @@
 """FundingStage model for organization funding stages."""
 
-from sqlalchemy import Column, BigInteger, Text, Integer, DateTime
+from sqlalchemy import Column, BigInteger, Text, Integer, DateTime, ForeignKey
 from sqlalchemy.sql import func
 from models import Base
 
@@ -22,3 +22,5 @@ class FundingStage(Base):
         onupdate=func.now(),
         nullable=False,
     )
+    created_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
+    updated_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)

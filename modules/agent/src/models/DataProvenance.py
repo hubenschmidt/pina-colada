@@ -23,9 +23,12 @@ class DataProvenance(Base):
     verified_by = Column(BigInteger, ForeignKey("User.id", ondelete="SET NULL"), nullable=True)  # NULL = AI agent
     raw_value = Column(JSONB, nullable=True)       # Original value from source
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
+    updated_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
 
     # Relationships
-    verifier = relationship("User")
+    verifier = relationship("User", foreign_keys=[verified_by])
 
     __table_args__ = (
         CheckConstraint('confidence >= 0 AND confidence <= 1', name='confidence_range'),

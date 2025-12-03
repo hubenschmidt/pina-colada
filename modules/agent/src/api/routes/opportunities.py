@@ -1,52 +1,23 @@
 """Routes for opportunities API endpoints."""
 
-from typing import Optional, List
+from typing import Optional
+
 from fastapi import APIRouter, Query, Request
-from pydantic import BaseModel, Field
-from lib.auth import require_auth
-from lib.error_logging import log_errors
+
 from controllers.opportunity_controller import (
     get_opportunities,
     create_opportunity,
     get_opportunity,
     update_opportunity,
     delete_opportunity,
+    OpportunityCreate,
+    OpportunityUpdate,
 )
+from lib.auth import require_auth
+from lib.error_logging import log_errors
+
 
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
-
-
-class OpportunityCreate(BaseModel):
-    """Model for creating an opportunity."""
-    account_type: str = "Organization"
-    account: Optional[str] = None
-    contacts: Optional[List[dict]] = None
-    industry: Optional[List[str]] = None
-    industry_ids: Optional[List[int]] = None
-    title: str
-    opportunity_name: str
-    estimated_value: Optional[float] = None
-    probability: Optional[int] = Field(default=None, ge=0, le=100)
-    expected_close_date: Optional[str] = None
-    description: Optional[str] = None
-    status: str = "Qualifying"
-    source: str = "manual"
-    project_ids: Optional[List[int]] = None
-
-
-class OpportunityUpdate(BaseModel):
-    """Model for updating an opportunity."""
-    account: Optional[str] = None
-    contacts: Optional[List[dict]] = None
-    title: Optional[str] = None
-    opportunity_name: Optional[str] = None
-    estimated_value: Optional[float] = None
-    probability: Optional[int] = Field(default=None, ge=0, le=100)
-    expected_close_date: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
-    source: Optional[str] = None
-    project_ids: Optional[List[int]] = None
 
 
 @router.get("")
@@ -62,8 +33,7 @@ async def get_opportunities_route(
     project_id: Optional[int] = Query(None, alias="projectId"),
 ):
     """Get all opportunities with pagination."""
-    tenant_id = getattr(request.state, "tenant_id", None)
-    return await get_opportunities(page, limit, order_by, order, search, tenant_id, project_id)
+    return await get_opportunities(request, page, limit, order_by, order, search, project_id)
 
 
 @router.post("")
@@ -71,10 +41,7 @@ async def get_opportunities_route(
 @require_auth
 async def create_opportunity_route(request: Request, data: OpportunityCreate):
     """Create a new opportunity."""
-    opp_data = data.dict()
-    opp_data["tenant_id"] = getattr(request.state, "tenant_id", None)
-    opp_data["user_id"] = getattr(request.state, "user_id", None)
-    return await create_opportunity(opp_data)
+    return await create_opportunity(request, data)
 
 
 @router.get("/{opportunity_id}")
@@ -90,9 +57,7 @@ async def get_opportunity_route(request: Request, opportunity_id: str):
 @require_auth
 async def update_opportunity_route(request: Request, opportunity_id: str, data: OpportunityUpdate):
     """Update an opportunity."""
-    update_data = data.dict(exclude_unset=True)
-    update_data["user_id"] = getattr(request.state, "user_id", None)
-    return await update_opportunity(opportunity_id, update_data)
+    return await update_opportunity(request, opportunity_id, data)
 
 
 @router.delete("/{opportunity_id}")

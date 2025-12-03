@@ -2,9 +2,13 @@
 
 import logging
 from typing import List, Optional, Dict, Any
+
+from fastapi import Request
+
 from lib.serialization import model_to_dict
 from lib.decorators import handle_http_exceptions
 from lib.date_utils import format_date, format_datetime, format_display_date
+from repositories.opportunity_repository import OpportunityCreate, OpportunityUpdate
 from services.opportunity_service import (
     get_opportunities_paginated,
     create_opportunity as create_opportunity_service,
@@ -14,6 +18,9 @@ from services.opportunity_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Re-export for routes
+__all__ = ["OpportunityCreate", "OpportunityUpdate"]
 
 
 def _to_paged_response(count: int, page: int, limit: int, items: List) -> dict:
@@ -71,6 +78,8 @@ def _build_contact_dict(contact) -> dict:
         "phone": contact.phone or "",
         "title": contact.title,
         "is_primary": contact.is_primary,
+        "created_at": contact.created_at.isoformat() if contact.created_at else None,
+        "updated_at": contact.updated_at.isoformat() if contact.updated_at else None,
     }
 
 
@@ -160,9 +169,16 @@ def _opportunity_to_response_dict(opp) -> Dict[str, Any]:
 
 @handle_http_exceptions
 async def get_opportunities(
-    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None, tenant_id: Optional[int] = None, project_id: Optional[int] = None
+    request: Request,
+    page: int,
+    limit: int,
+    order_by: str,
+    order: str,
+    search: Optional[str] = None,
+    project_id: Optional[int] = None,
 ) -> dict:
     """Get all opportunities with pagination."""
+    tenant_id = getattr(request.state, "tenant_id", None)
     paginated, total_count = await get_opportunities_paginated(
         page, limit, order_by, order, search, tenant_id, project_id
     )
@@ -171,9 +187,12 @@ async def get_opportunities(
 
 
 @handle_http_exceptions
-async def create_opportunity(data: Dict[str, Any]) -> Dict[str, Any]:
+async def create_opportunity(request: Request, data: OpportunityCreate) -> Dict[str, Any]:
     """Create a new opportunity."""
-    created = await create_opportunity_service(data)
+    opp_data = data.dict()
+    opp_data["tenant_id"] = getattr(request.state, "tenant_id", None)
+    opp_data["user_id"] = getattr(request.state, "user_id", None)
+    created = await create_opportunity_service(opp_data)
     return _opportunity_to_response_dict(created)
 
 
@@ -185,9 +204,11 @@ async def get_opportunity(opp_id: str) -> Dict[str, Any]:
 
 
 @handle_http_exceptions
-async def update_opportunity(opp_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+async def update_opportunity(request: Request, opp_id: str, data: OpportunityUpdate) -> Dict[str, Any]:
     """Update an opportunity."""
-    updated = await update_opportunity_service(opp_id, data)
+    update_data = data.dict(exclude_unset=True)
+    update_data["user_id"] = getattr(request.state, "user_id", None)
+    updated = await update_opportunity_service(opp_id, update_data)
     return _opportunity_to_response_dict(updated)
 
 

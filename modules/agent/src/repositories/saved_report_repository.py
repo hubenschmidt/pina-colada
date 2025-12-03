@@ -1,16 +1,57 @@
 """Repository layer for saved report data access."""
 
 import logging
-from typing import List, Optional, Dict, Any
+from typing import List, Optional, Dict, Any, Literal
 
+from pydantic import BaseModel
 from sqlalchemy import select, delete, or_, exists, func
 from sqlalchemy.orm import selectinload
 
+from lib.db import async_get_session
 from models.SavedReport import SavedReport
 from models.SavedReportProject import SavedReportProject
-from lib.db import async_get_session
 
 logger = logging.getLogger(__name__)
+
+
+# Pydantic models
+
+class ReportFilter(BaseModel):
+    field: str
+    operator: Literal["eq", "neq", "gt", "gte", "lt", "lte", "contains", "starts_with", "is_null", "is_not_null", "in"]
+    value: Any = None
+
+
+class Aggregation(BaseModel):
+    function: Literal["count", "sum", "avg", "min", "max"]
+    field: str
+    alias: str
+
+
+class ReportQueryRequest(BaseModel):
+    primary_entity: Literal["organizations", "individuals", "contacts", "leads", "notes"]
+    columns: List[str]
+    joins: Optional[List[str]] = None
+    filters: Optional[List[ReportFilter]] = None
+    group_by: Optional[List[str]] = None
+    aggregations: Optional[List[Aggregation]] = None
+    limit: int = 100
+    offset: int = 0
+    project_id: Optional[int] = None  # Filter data by project scope
+
+
+class SavedReportCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    query_definition: dict
+    project_ids: Optional[List[int]] = None  # Empty/None = global report
+
+
+class SavedReportUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    query_definition: Optional[dict] = None
+    project_ids: Optional[List[int]] = None  # Empty = global, None = don't update
 
 
 async def find_all_saved_reports(

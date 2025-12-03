@@ -14,8 +14,8 @@ class Note(Base):
     entity_type = Column(String(50), nullable=False)
     entity_id = Column(Integer, nullable=False)
     content = Column(Text, nullable=False)
-    created_by = Column(Integer, ForeignKey("User.id", ondelete="SET NULL"), nullable=True)
-    updated_by = Column(Integer, ForeignKey("User.id", ondelete="SET NULL"), nullable=True)
+    created_by = Column(Integer, ForeignKey("User.id"), nullable=False)
+    updated_by = Column(Integer, ForeignKey("User.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 

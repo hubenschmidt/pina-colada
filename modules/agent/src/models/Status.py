@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text, DateTime, Boolean, BigInteger, func
+from sqlalchemy import Column, Text, DateTime, Boolean, BigInteger, ForeignKey, func
 from sqlalchemy.orm import relationship
 from models import Base
 
@@ -19,6 +19,8 @@ class Status(Base):
     is_terminal = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+    created_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
+    updated_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
 
     # Relationships
     leads = relationship("Lead", back_populates="current_status", foreign_keys="Lead.current_status_id")

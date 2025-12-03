@@ -1,9 +1,18 @@
 """Repository layer for industry data access."""
 
 from typing import List, Optional
+
+from pydantic import BaseModel
 from sqlalchemy import select
-from models.Industry import Industry
+
 from lib.db import async_get_session
+from models.Industry import Industry
+
+
+# Pydantic models
+
+class IndustryCreate(BaseModel):
+    name: str
 
 
 async def find_all_industries() -> List[Industry]:

@@ -3,22 +3,33 @@
 import logging
 from typing import List, Optional, Dict, Any
 
-from sqlalchemy import select, and_, delete, insert, func, update
+from pydantic import BaseModel
+from sqlalchemy import select, and_, delete, insert, func, update, or_
 from sqlalchemy.orm import joinedload
 
-from models.Document import Document
-from models.Organization import Organization
-from models.Individual import Individual
-from models.Project import Project
-from models.Contact import Contact
-from models.Lead import Lead
-from models.Asset import Asset
-from models.EntityAsset import EntityAsset
-from models.Tag import Tag, EntityTag
 from lib.db import async_get_session
-from sqlalchemy import or_
+from models.Asset import Asset
+from models.Contact import Contact
+from models.Document import Document
+from models.EntityAsset import EntityAsset
+from models.Individual import Individual
+from models.Lead import Lead
+from models.Organization import Organization
+from models.Project import Project
+from models.Tag import Tag, EntityTag
 
 logger = logging.getLogger(__name__)
+
+
+# Pydantic models
+
+class DocumentUpdate(BaseModel):
+    description: Optional[str] = None
+
+
+class EntityLink(BaseModel):
+    entity_type: str
+    entity_id: int
 
 
 async def find_documents_by_tenant(

@@ -2,9 +2,13 @@
 
 import logging
 from typing import List, Optional, Dict, Any
+
+from fastapi import Request
+
 from lib.serialization import model_to_dict
 from lib.decorators import handle_http_exceptions
 from lib.date_utils import format_date, format_datetime, format_display_date
+from repositories.partnership_repository import PartnershipCreate, PartnershipUpdate
 from services.partnership_service import (
     get_partnerships_paginated,
     create_partnership as create_partnership_service,
@@ -14,6 +18,9 @@ from services.partnership_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Re-export for routes
+__all__ = ["PartnershipCreate", "PartnershipUpdate"]
 
 
 def _to_paged_response(count: int, page: int, limit: int, items: List) -> dict:
@@ -71,6 +78,8 @@ def _build_contact_dict(contact) -> dict:
         "phone": contact.phone or "",
         "title": contact.title,
         "is_primary": contact.is_primary,
+        "created_at": contact.created_at.isoformat() if contact.created_at else None,
+        "updated_at": contact.updated_at.isoformat() if contact.updated_at else None,
     }
 
 
@@ -162,9 +171,16 @@ def _partnership_to_response_dict(partnership) -> Dict[str, Any]:
 
 @handle_http_exceptions
 async def get_partnerships(
-    page: int, limit: int, order_by: str, order: str, search: Optional[str] = None, tenant_id: Optional[int] = None, project_id: Optional[int] = None
+    request: Request,
+    page: int,
+    limit: int,
+    order_by: str,
+    order: str,
+    search: Optional[str] = None,
+    project_id: Optional[int] = None,
 ) -> dict:
     """Get all partnerships with pagination."""
+    tenant_id = getattr(request.state, "tenant_id", None)
     paginated, total_count = await get_partnerships_paginated(
         page, limit, order_by, order, search, tenant_id, project_id
     )
@@ -173,9 +189,12 @@ async def get_partnerships(
 
 
 @handle_http_exceptions
-async def create_partnership(data: Dict[str, Any]) -> Dict[str, Any]:
+async def create_partnership(request: Request, data: PartnershipCreate) -> Dict[str, Any]:
     """Create a new partnership."""
-    created = await create_partnership_service(data)
+    partner_data = data.dict()
+    partner_data["tenant_id"] = getattr(request.state, "tenant_id", None)
+    partner_data["user_id"] = getattr(request.state, "user_id", None)
+    created = await create_partnership_service(partner_data)
     return _partnership_to_response_dict(created)
 
 
@@ -187,9 +206,11 @@ async def get_partnership(partnership_id: str) -> Dict[str, Any]:
 
 
 @handle_http_exceptions
-async def update_partnership(partnership_id: str, data: Dict[str, Any]) -> Dict[str, Any]:
+async def update_partnership(request: Request, partnership_id: str, data: PartnershipUpdate) -> Dict[str, Any]:
     """Update a partnership."""
-    updated = await update_partnership_service(partnership_id, data)
+    update_data = data.dict(exclude_unset=True)
+    update_data["user_id"] = getattr(request.state, "user_id", None)
+    updated = await update_partnership_service(partnership_id, update_data)
     return _partnership_to_response_dict(updated)
 
 
