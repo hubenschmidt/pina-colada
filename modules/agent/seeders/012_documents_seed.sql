@@ -44,9 +44,9 @@ BEGIN
     JOIN "Account" a ON o.account_id = a.id
     WHERE LOWER(o.name) = LOWER('Acme Corp') AND a.tenant_id = v_tenant_id;
 
-    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description)
+    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
     VALUES ('document', v_tenant_id, v_user_id, 'company_proposal.pdf', 'application/pdf',
-            'Q1 2025 company proposal for Acme Corp partnership')
+            'Q1 2025 company proposal for Acme Corp partnership', v_user_id, v_user_id)
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_doc_id;
 
@@ -73,9 +73,9 @@ BEGIN
     -- ==============================
     SELECT id INTO v_entity_id FROM "Project" WHERE name = 'Job Search 2025' AND tenant_id = v_tenant_id;
 
-    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description)
+    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
     VALUES ('document', v_tenant_id, v_user_id, 'meeting_notes.pdf', 'application/pdf',
-            'Product roadmap meeting notes from January kickoff')
+            'Product roadmap meeting notes from January kickoff', v_user_id, v_user_id)
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_doc_id;
 
@@ -104,9 +104,9 @@ BEGIN
     JOIN "Account" a ON o.account_id = a.id
     WHERE LOWER(o.name) = LOWER('CloudScale Systems') AND a.tenant_id = v_tenant_id;
 
-    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description)
+    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
     VALUES ('document', v_tenant_id, v_user_id, 'contract_draft.pdf', 'application/pdf',
-            'Draft service agreement pending legal review')
+            'Draft service agreement pending legal review', v_user_id, v_user_id)
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_doc_id;
 
@@ -133,9 +133,9 @@ BEGIN
     -- ==============================
     SELECT id INTO v_entity_id FROM "Project" WHERE name = 'Consulting Pipeline' AND tenant_id = v_tenant_id;
 
-    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description)
+    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
     VALUES ('document', v_tenant_id, v_user_id, 'product_spec.pdf', 'application/pdf',
-            'Technical specification for CRM platform v2.0')
+            'Technical specification for CRM platform v2.0', v_user_id, v_user_id)
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_doc_id;
 
@@ -164,9 +164,9 @@ BEGIN
     JOIN "Account" a ON o.account_id = a.id
     WHERE LOWER(o.name) = LOWER('TechVentures Inc') AND a.tenant_id = v_tenant_id;
 
-    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description)
+    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
     VALUES ('document', v_tenant_id, v_user_id, 'invoice_sample.pdf', 'application/pdf',
-            'Sample invoice for billing reference')
+            'Sample invoice for billing reference', v_user_id, v_user_id)
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_doc_id;
 
@@ -197,9 +197,9 @@ BEGIN
       AND LOWER(i.first_name) = 'william'
       AND LOWER(i.last_name) = 'hubenschmidt';
 
-    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description)
+    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
     VALUES ('document', v_tenant_id, v_user_id, 'individual_resume.pdf', 'application/pdf',
-            'Resume for William Hubenschmidt - Senior Software Engineer')
+            'Resume for William Hubenschmidt - Senior Software Engineer', v_user_id, v_user_id)
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_doc_id;
 

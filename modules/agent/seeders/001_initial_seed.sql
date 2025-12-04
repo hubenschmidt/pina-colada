@@ -14,6 +14,7 @@ DECLARE
     v_account_id BIGINT;
     v_individual_id BIGINT;
     v_user_id BIGINT;
+    v_bootstrap_user_id BIGINT;
     v_role_id BIGINT;
 BEGIN
     -- Create Tenant
@@ -29,9 +30,20 @@ BEGIN
 
     RAISE NOTICE 'Tenant ID: %', v_tenant_id;
 
-    -- Create Account for the user's Individual (with tenant_id)
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at)
-    VALUES (v_tenant_id, 'William Hubenschmidt', NOW(), NOW())
+    -- STEP 0a: Create bootstrap User first (without individual_id) to use for created_by/updated_by
+    SELECT id INTO v_bootstrap_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
+
+    IF v_bootstrap_user_id IS NULL THEN
+        INSERT INTO "User" (tenant_id, email, first_name, last_name, status, created_at, updated_at)
+        VALUES (v_tenant_id, 'whubenschmidt@gmail.com', 'William', 'Hubenschmidt', 'active', NOW(), NOW())
+        RETURNING id INTO v_bootstrap_user_id;
+    ELSE
+        UPDATE "User" SET tenant_id = v_tenant_id WHERE id = v_bootstrap_user_id AND tenant_id IS NULL;
+    END IF;
+
+    -- Create Account for the user's Individual (with tenant_id and audit columns)
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by)
+    VALUES (v_tenant_id, 'William Hubenschmidt', NOW(), NOW(), v_bootstrap_user_id, v_bootstrap_user_id)
     RETURNING id INTO v_account_id;
 
     -- Create or update Individual for the user
@@ -39,8 +51,8 @@ BEGIN
 
     IF v_individual_id IS NULL THEN
         -- Individual doesn't exist, create new
-        INSERT INTO "Individual" (account_id, first_name, last_name, email, created_at, updated_at)
-        VALUES (v_account_id, 'William', 'Hubenschmidt', 'whubenschmidt@gmail.com', NOW(), NOW())
+        INSERT INTO "Individual" (account_id, first_name, last_name, email, created_at, updated_at, created_by, updated_by)
+        VALUES (v_account_id, 'William', 'Hubenschmidt', 'whubenschmidt@gmail.com', NOW(), NOW(), v_bootstrap_user_id, v_bootstrap_user_id)
         RETURNING id INTO v_individual_id;
     ELSE
         -- Individual exists, update with account
@@ -48,34 +60,14 @@ BEGIN
         SET account_id = v_account_id,
             first_name = 'William',
             last_name = 'Hubenschmidt',
-            updated_at = NOW()
+            updated_at = NOW(),
+            updated_by = v_bootstrap_user_id
         WHERE id = v_individual_id;
     END IF;
 
-    -- Create or update User
-    -- Use email index to find any existing user (regardless of tenant)
-    SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
-
-    IF v_user_id IS NULL THEN
-        -- User doesn't exist, create new
-        INSERT INTO "User" (tenant_id, individual_id, email, first_name, last_name, status, created_at, updated_at)
-        VALUES (v_tenant_id, v_individual_id, 'whubenschmidt@gmail.com', 'William', 'Hubenschmidt', 'active', NOW(), NOW())
-        RETURNING id INTO v_user_id;
-    ELSE
-        -- User exists, update with tenant and individual
-        UPDATE "User"
-        SET tenant_id = v_tenant_id,
-            individual_id = v_individual_id,
-            first_name = 'William',
-            last_name = 'Hubenschmidt',
-            updated_at = NOW()
-        WHERE id = v_user_id;
-    END IF;
-
-    -- Ensure tenant_id is set (safety check)
-    IF v_tenant_id IS NOT NULL THEN
-        UPDATE "User" SET tenant_id = v_tenant_id WHERE id = v_user_id AND tenant_id IS NULL;
-    END IF;
+    -- Now link the User to the Individual
+    UPDATE "User" SET individual_id = v_individual_id WHERE id = v_bootstrap_user_id;
+    v_user_id := v_bootstrap_user_id;
 
     -- Create Owner Role
     INSERT INTO "Role" (tenant_id, name, description)
@@ -94,37 +86,38 @@ BEGIN
     ON CONFLICT DO NOTHING;
 
     -- Create default Organization for the tenant
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at)
-    VALUES (v_tenant_id, 'PinaColada', NOW(), NOW())
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by)
+    VALUES (v_tenant_id, 'PinaColada', NOW(), NOW(), v_bootstrap_user_id, v_bootstrap_user_id)
     RETURNING id INTO v_account_id;
 
-    INSERT INTO "Organization" (account_id, name, created_at, updated_at)
-    VALUES (v_account_id, 'PinaColada', NOW(), NOW())
+    INSERT INTO "Organization" (account_id, name, created_at, updated_at, created_by, updated_by)
+    VALUES (v_account_id, 'PinaColada', NOW(), NOW(), v_bootstrap_user_id, v_bootstrap_user_id)
     ON CONFLICT ((LOWER(name))) DO NOTHING;
 
-    RAISE NOTICE 'Default tenant and user created successfully. Tenant ID: %', v_tenant_id;
+    RAISE NOTICE 'Default tenant and user created successfully. Tenant ID: %, User ID: %', v_tenant_id, v_user_id;
 
     -- ==============================
     -- Create Second User: Jennifer Lev
     -- ==============================
     -- Create Account for Jennifer
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at)
-    VALUES (v_tenant_id, 'Jennifer Lev', NOW(), NOW())
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by)
+    VALUES (v_tenant_id, 'Jennifer Lev', NOW(), NOW(), v_bootstrap_user_id, v_bootstrap_user_id)
     RETURNING id INTO v_account_id;
 
     -- Create Individual for Jennifer
     SELECT id INTO v_individual_id FROM "Individual" WHERE LOWER(email) = LOWER('jennifervlev@gmail.com') LIMIT 1;
 
     IF v_individual_id IS NULL THEN
-        INSERT INTO "Individual" (account_id, first_name, last_name, email, created_at, updated_at)
-        VALUES (v_account_id, 'Jennifer', 'Lev', 'jennifervlev@gmail.com', NOW(), NOW())
+        INSERT INTO "Individual" (account_id, first_name, last_name, email, created_at, updated_at, created_by, updated_by)
+        VALUES (v_account_id, 'Jennifer', 'Lev', 'jennifervlev@gmail.com', NOW(), NOW(), v_bootstrap_user_id, v_bootstrap_user_id)
         RETURNING id INTO v_individual_id;
     ELSE
         UPDATE "Individual"
         SET account_id = v_account_id,
             first_name = 'Jennifer',
             last_name = 'Lev',
-            updated_at = NOW()
+            updated_at = NOW(),
+            updated_by = v_bootstrap_user_id
         WHERE id = v_individual_id;
     END IF;
 
@@ -169,51 +162,53 @@ DECLARE
     account_id BIGINT;
     org_id BIGINT;
     v_tenant_id BIGINT;
+    v_user_id BIGINT;
     industry_id BIGINT;
 BEGIN
-    -- Get the tenant ID
+    -- Get the tenant ID and bootstrap user
     SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada';
+    SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
 
     -- TechVentures Inc
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'TechVentures Inc', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at)
-    VALUES (account_id, 'TechVentures Inc', 'https://techventures.example.com', 50, 'Early-stage technology investor', NOW(), NOW())
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by) VALUES (v_tenant_id, 'TechVentures Inc', NOW(), NOW(), v_user_id, v_user_id) RETURNING id INTO account_id;
+    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at, created_by, updated_by)
+    VALUES (account_id, 'TechVentures Inc', 'https://techventures.example.com', 50, 'Early-stage technology investor', NOW(), NOW(), v_user_id, v_user_id)
     ON CONFLICT ((LOWER(name))) DO NOTHING;
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('TechVentures Inc');
     SELECT id INTO industry_id FROM "Industry" WHERE name = 'Venture Capital';
     INSERT INTO "Account_Industry" (account_id, industry_id) VALUES (account_id, industry_id) ON CONFLICT DO NOTHING;
 
     -- CloudScale Systems
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'CloudScale Systems', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at)
-    VALUES (account_id, 'CloudScale Systems', 'https://cloudscale.example.com', 200, 'Enterprise cloud solutions provider', NOW(), NOW())
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by) VALUES (v_tenant_id, 'CloudScale Systems', NOW(), NOW(), v_user_id, v_user_id) RETURNING id INTO account_id;
+    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at, created_by, updated_by)
+    VALUES (account_id, 'CloudScale Systems', 'https://cloudscale.example.com', 200, 'Enterprise cloud solutions provider', NOW(), NOW(), v_user_id, v_user_id)
     ON CONFLICT ((LOWER(name))) DO NOTHING;
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudScale Systems');
     SELECT id INTO industry_id FROM "Industry" WHERE name = 'Cloud Infrastructure';
     INSERT INTO "Account_Industry" (account_id, industry_id) VALUES (account_id, industry_id) ON CONFLICT DO NOTHING;
 
     -- DataFlow Analytics
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'DataFlow Analytics', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at)
-    VALUES (account_id, 'DataFlow Analytics', 'https://dataflow.example.com', 75, 'Real-time data analytics platform', NOW(), NOW())
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by) VALUES (v_tenant_id, 'DataFlow Analytics', NOW(), NOW(), v_user_id, v_user_id) RETURNING id INTO account_id;
+    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at, created_by, updated_by)
+    VALUES (account_id, 'DataFlow Analytics', 'https://dataflow.example.com', 75, 'Real-time data analytics platform', NOW(), NOW(), v_user_id, v_user_id)
     ON CONFLICT ((LOWER(name))) DO NOTHING;
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('DataFlow Analytics');
     SELECT id INTO industry_id FROM "Industry" WHERE name = 'Data Analytics';
     INSERT INTO "Account_Industry" (account_id, industry_id) VALUES (account_id, industry_id) ON CONFLICT DO NOTHING;
 
     -- SecureNet Solutions
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'SecureNet Solutions', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at)
-    VALUES (account_id, 'SecureNet Solutions', 'https://securenet.example.com', 150, 'Enterprise security software', NOW(), NOW())
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by) VALUES (v_tenant_id, 'SecureNet Solutions', NOW(), NOW(), v_user_id, v_user_id) RETURNING id INTO account_id;
+    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at, created_by, updated_by)
+    VALUES (account_id, 'SecureNet Solutions', 'https://securenet.example.com', 150, 'Enterprise security software', NOW(), NOW(), v_user_id, v_user_id)
     ON CONFLICT ((LOWER(name))) DO NOTHING;
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('SecureNet Solutions');
     SELECT id INTO industry_id FROM "Industry" WHERE name = 'Cybersecurity';
     INSERT INTO "Account_Industry" (account_id, industry_id) VALUES (account_id, industry_id) ON CONFLICT DO NOTHING;
 
     -- InnovateLab
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'InnovateLab', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at)
-    VALUES (account_id, 'InnovateLab', 'https://innovatelab.example.com', 30, 'Innovation consulting for startups', NOW(), NOW())
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by) VALUES (v_tenant_id, 'InnovateLab', NOW(), NOW(), v_user_id, v_user_id) RETURNING id INTO account_id;
+    INSERT INTO "Organization" (account_id, name, website, employee_count, description, created_at, updated_at, created_by, updated_by)
+    VALUES (account_id, 'InnovateLab', 'https://innovatelab.example.com', 30, 'Innovation consulting for startups', NOW(), NOW(), v_user_id, v_user_id)
     ON CONFLICT ((LOWER(name))) DO NOTHING;
     SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('InnovateLab');
     SELECT id INTO industry_id FROM "Industry" WHERE name = 'Consulting';
@@ -230,26 +225,28 @@ DO $$
 DECLARE
     account_id BIGINT;
     v_tenant_id BIGINT;
+    v_user_id BIGINT;
 BEGIN
-    -- Get the tenant ID
+    -- Get the tenant ID and bootstrap user
     SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada';
+    SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
 
     -- Alex Thompson - Independent consultant
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Alex Thompson', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, description, created_at, updated_at)
-    VALUES (account_id, 'Alex', 'Thompson', 'alex.thompson@gmail.com', '+1-415-555-0201', 'https://linkedin.com/in/alexthompson', 'Independent Consultant', 'Met at TechCrunch Disrupt 2024. Interested in advisory roles.', NOW(), NOW())
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by) VALUES (v_tenant_id, 'Alex Thompson', NOW(), NOW(), v_user_id, v_user_id) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, description, created_at, updated_at, created_by, updated_by)
+    VALUES (account_id, 'Alex', 'Thompson', 'alex.thompson@gmail.com', '+1-415-555-0201', 'https://linkedin.com/in/alexthompson', 'Independent Consultant', 'Met at TechCrunch Disrupt 2024. Interested in advisory roles.', NOW(), NOW(), v_user_id, v_user_id)
     ON CONFLICT ((LOWER(email))) DO NOTHING;
 
     -- Maria Garcia - Freelance designer
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'Maria Garcia', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, description, created_at, updated_at)
-    VALUES (account_id, 'Maria', 'Garcia', 'maria.garcia@designstudio.com', '+1-650-555-0202', 'https://linkedin.com/in/mariagarcia', 'UX Designer', 'Freelance designer, available for contract work.', NOW(), NOW())
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by) VALUES (v_tenant_id, 'Maria Garcia', NOW(), NOW(), v_user_id, v_user_id) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, description, created_at, updated_at, created_by, updated_by)
+    VALUES (account_id, 'Maria', 'Garcia', 'maria.garcia@designstudio.com', '+1-650-555-0202', 'https://linkedin.com/in/mariagarcia', 'UX Designer', 'Freelance designer, available for contract work.', NOW(), NOW(), v_user_id, v_user_id)
     ON CONFLICT ((LOWER(email))) DO NOTHING;
 
     -- James Wilson - Mentor/Advisor
-    INSERT INTO "Account" (tenant_id, name, created_at, updated_at) VALUES (v_tenant_id, 'James Wilson', NOW(), NOW()) RETURNING id INTO account_id;
-    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, description, created_at, updated_at)
-    VALUES (account_id, 'James', 'Wilson', 'james.wilson@advisors.co', '+1-510-555-0203', 'https://linkedin.com/in/jameswilson', 'Startup Advisor', 'Former CTO, now advising early-stage startups.', NOW(), NOW())
+    INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by) VALUES (v_tenant_id, 'James Wilson', NOW(), NOW(), v_user_id, v_user_id) RETURNING id INTO account_id;
+    INSERT INTO "Individual" (account_id, first_name, last_name, email, phone, linkedin_url, title, description, created_at, updated_at, created_by, updated_by)
+    VALUES (account_id, 'James', 'Wilson', 'james.wilson@advisors.co', '+1-510-555-0203', 'https://linkedin.com/in/jameswilson', 'Startup Advisor', 'Former CTO, now advising early-stage startups.', NOW(), NOW(), v_user_id, v_user_id)
     ON CONFLICT ((LOWER(email))) DO NOTHING;
 
     RAISE NOTICE 'Individuals with Accounts created successfully';
@@ -268,7 +265,10 @@ DECLARE
     org_securenet_id BIGINT;
     org_innovatelab_id BIGINT;
     contact_id BIGINT;
+    v_user_id BIGINT;
 BEGIN
+    -- Get bootstrap user
+    SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
     -- Get Organization IDs
     SELECT id INTO org_techventures_id FROM "Organization" WHERE LOWER(name) = LOWER('TechVentures Inc') LIMIT 1;
     SELECT id INTO org_cloudscale_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudScale Systems') LIMIT 1;
@@ -278,56 +278,56 @@ BEGIN
 
     -- Sarah Chen at TechVentures
     IF org_techventures_id IS NOT NULL THEN
-        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
-        VALUES ('Sarah', 'Chen', 'Partner', 'Investments', 'Decision Maker', 'sarah.chen@techventures.example.com', '+1-415-555-0101', TRUE, 'Main contact for investment discussions', NOW(), NOW())
+        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at, created_by, updated_by)
+        VALUES ('Sarah', 'Chen', 'Partner', 'Investments', 'Decision Maker', 'sarah.chen@techventures.example.com', '+1-415-555-0101', TRUE, 'Main contact for investment discussions', NOW(), NOW(), v_user_id, v_user_id)
         RETURNING id INTO contact_id;
         INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_techventures_id, TRUE, NOW());
     END IF;
 
     -- Robert Taylor at TechVentures
     IF org_techventures_id IS NOT NULL THEN
-        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
-        VALUES ('Robert', 'Taylor', 'Associate', 'Investments', 'Influencer', 'robert.t@techventures.example.com', '+1-415-555-0106', FALSE, 'Can provide warm introductions', NOW(), NOW())
+        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at, created_by, updated_by)
+        VALUES ('Robert', 'Taylor', 'Associate', 'Investments', 'Influencer', 'robert.t@techventures.example.com', '+1-415-555-0106', FALSE, 'Can provide warm introductions', NOW(), NOW(), v_user_id, v_user_id)
         RETURNING id INTO contact_id;
         INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_techventures_id, FALSE, NOW());
     END IF;
 
     -- Michael Rodriguez at CloudScale
     IF org_cloudscale_id IS NOT NULL THEN
-        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
-        VALUES ('Michael', 'Rodriguez', 'VP of Engineering', 'Engineering', 'Decision Maker', 'michael.r@cloudscale.example.com', '+1-415-555-0102', TRUE, 'Hiring manager for engineering roles', NOW(), NOW())
+        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at, created_by, updated_by)
+        VALUES ('Michael', 'Rodriguez', 'VP of Engineering', 'Engineering', 'Decision Maker', 'michael.r@cloudscale.example.com', '+1-415-555-0102', TRUE, 'Hiring manager for engineering roles', NOW(), NOW(), v_user_id, v_user_id)
         RETURNING id INTO contact_id;
         INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_cloudscale_id, TRUE, NOW());
     END IF;
 
     -- Amanda Brown at CloudScale
     IF org_cloudscale_id IS NOT NULL THEN
-        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
-        VALUES ('Amanda', 'Brown', 'Senior Software Engineer', 'Engineering', 'Technical Contact', 'amanda.b@cloudscale.example.com', '+1-415-555-0107', FALSE, 'Can provide technical insight', NOW(), NOW())
+        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at, created_by, updated_by)
+        VALUES ('Amanda', 'Brown', 'Senior Software Engineer', 'Engineering', 'Technical Contact', 'amanda.b@cloudscale.example.com', '+1-415-555-0107', FALSE, 'Can provide technical insight', NOW(), NOW(), v_user_id, v_user_id)
         RETURNING id INTO contact_id;
         INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_cloudscale_id, FALSE, NOW());
     END IF;
 
     -- Emily Johnson at DataFlow
     IF org_dataflow_id IS NOT NULL THEN
-        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
-        VALUES ('Emily', 'Johnson', 'Head of Product', 'Product', 'Decision Maker', 'emily.j@dataflow.example.com', '+1-650-555-0103', TRUE, 'Leads product hiring', NOW(), NOW())
+        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at, created_by, updated_by)
+        VALUES ('Emily', 'Johnson', 'Head of Product', 'Product', 'Decision Maker', 'emily.j@dataflow.example.com', '+1-650-555-0103', TRUE, 'Leads product hiring', NOW(), NOW(), v_user_id, v_user_id)
         RETURNING id INTO contact_id;
         INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_dataflow_id, TRUE, NOW());
     END IF;
 
     -- David Kim at SecureNet
     IF org_securenet_id IS NOT NULL THEN
-        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
-        VALUES ('David', 'Kim', 'CTO', 'Technology', 'Decision Maker', 'david.kim@securenet.example.com', '+1-408-555-0104', TRUE, 'Technical leadership contact', NOW(), NOW())
+        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at, created_by, updated_by)
+        VALUES ('David', 'Kim', 'CTO', 'Technology', 'Decision Maker', 'david.kim@securenet.example.com', '+1-408-555-0104', TRUE, 'Technical leadership contact', NOW(), NOW(), v_user_id, v_user_id)
         RETURNING id INTO contact_id;
         INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_securenet_id, TRUE, NOW());
     END IF;
 
     -- Jessica Williams at InnovateLab
     IF org_innovatelab_id IS NOT NULL THEN
-        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
-        VALUES ('Jessica', 'Williams', 'Principal Consultant', 'Consulting', 'Champion', 'jessica.w@innovatelab.example.com', '+1-510-555-0105', TRUE, 'Strong advocate, met at conference', NOW(), NOW())
+        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at, created_by, updated_by)
+        VALUES ('Jessica', 'Williams', 'Principal Consultant', 'Consulting', 'Champion', 'jessica.w@innovatelab.example.com', '+1-510-555-0105', TRUE, 'Strong advocate, met at conference', NOW(), NOW(), v_user_id, v_user_id)
         RETURNING id INTO contact_id;
         INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_innovatelab_id, TRUE, NOW());
     END IF;
@@ -336,24 +336,24 @@ BEGIN
 
     -- Reception at TechVentures
     IF org_techventures_id IS NOT NULL THEN
-        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
-        VALUES ('Front', 'Desk', 'Reception', 'Administration', 'Gatekeeper', 'info@techventures.example.com', '+1-415-555-0100', FALSE, 'General inquiries contact', NOW(), NOW())
+        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at, created_by, updated_by)
+        VALUES ('Front', 'Desk', 'Reception', 'Administration', 'Gatekeeper', 'info@techventures.example.com', '+1-415-555-0100', FALSE, 'General inquiries contact', NOW(), NOW(), v_user_id, v_user_id)
         RETURNING id INTO contact_id;
         INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_techventures_id, FALSE, NOW());
     END IF;
 
     -- Legal department contact at CloudScale
     IF org_cloudscale_id IS NOT NULL THEN
-        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
-        VALUES ('Legal', 'Department', 'General Counsel', 'Legal', 'Legal Contact', 'legal@cloudscale.example.com', '+1-415-555-0200', FALSE, 'For contracts and agreements', NOW(), NOW())
+        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at, created_by, updated_by)
+        VALUES ('Legal', 'Department', 'General Counsel', 'Legal', 'Legal Contact', 'legal@cloudscale.example.com', '+1-415-555-0200', FALSE, 'For contracts and agreements', NOW(), NOW(), v_user_id, v_user_id)
         RETURNING id INTO contact_id;
         INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_cloudscale_id, FALSE, NOW());
     END IF;
 
     -- Support team at DataFlow
     IF org_dataflow_id IS NOT NULL THEN
-        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at)
-        VALUES ('Support', 'Team', 'Customer Support', 'Support', 'Support Contact', 'support@dataflow.example.com', '+1-650-555-0200', FALSE, 'Technical support inquiries', NOW(), NOW())
+        INSERT INTO "Contact" (first_name, last_name, title, department, role, email, phone, is_primary, notes, created_at, updated_at, created_by, updated_by)
+        VALUES ('Support', 'Team', 'Customer Support', 'Support', 'Support Contact', 'support@dataflow.example.com', '+1-650-555-0200', FALSE, 'Technical support inquiries', NOW(), NOW(), v_user_id, v_user_id)
         RETURNING id INTO contact_id;
         INSERT INTO "Contact_Organization" (contact_id, organization_id, is_primary, created_at) VALUES (contact_id, org_dataflow_id, FALSE, NOW());
     END IF;
@@ -369,18 +369,23 @@ DECLARE
     status_prospecting_id BIGINT;
     status_negotiating_id BIGINT;
     status_closed_won_id BIGINT;
+    v_user_id BIGINT;
+    v_tenant_id BIGINT;
 BEGIN
+    -- Get bootstrap user and tenant
+    SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
+    SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada' LIMIT 1;
     -- Get Status IDs
     SELECT id INTO status_prospecting_id FROM "Status" WHERE name = 'Prospecting' AND category = 'deal' LIMIT 1;
     SELECT id INTO status_negotiating_id FROM "Status" WHERE name = 'Negotiating' AND category = 'deal' LIMIT 1;
     SELECT id INTO status_closed_won_id FROM "Status" WHERE name = 'Closed Won' AND category = 'deal' LIMIT 1;
 
     -- Create Deals
-    INSERT INTO "Deal" (name, description, current_status_id, expected_close_date, created_at, updated_at)
+    INSERT INTO "Deal" (tenant_id, name, description, current_status_id, expected_close_date, created_at, updated_at, created_by, updated_by)
     VALUES
-        ('Consulting Engagement - TechVentures', 'Product strategy consulting for portfolio companies', status_negotiating_id, NOW() + INTERVAL '30 days', NOW(), NOW()),
-        ('Partnership - CloudScale', 'Technical partnership for cloud infrastructure', status_prospecting_id, NOW() + INTERVAL '60 days', NOW(), NOW()),
-        ('Business Development - SecureNet', 'Exploring collaboration opportunities', status_prospecting_id, NOW() + INTERVAL '90 days', NOW(), NOW());
+        (v_tenant_id, 'Consulting Engagement - TechVentures', 'Product strategy consulting for portfolio companies', status_negotiating_id, NOW() + INTERVAL '30 days', NOW(), NOW(), v_user_id, v_user_id),
+        (v_tenant_id, 'Partnership - CloudScale', 'Technical partnership for cloud infrastructure', status_prospecting_id, NOW() + INTERVAL '60 days', NOW(), NOW(), v_user_id, v_user_id),
+        (v_tenant_id, 'Business Development - SecureNet', 'Exploring collaboration opportunities', status_prospecting_id, NOW() + INTERVAL '90 days', NOW(), NOW(), v_user_id, v_user_id);
 
     RAISE NOTICE 'Deals created successfully';
 END $$;
@@ -410,7 +415,12 @@ DECLARE
     status_nurturing_id BIGINT;
 
     lead_id BIGINT;
+    v_user_id BIGINT;
+    v_tenant_id BIGINT;
 BEGIN
+    -- Get bootstrap user and tenant
+    SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
+    SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada' LIMIT 1;
     -- Get Deal IDs
     SELECT id INTO deal_techventures_id FROM "Deal" WHERE name = 'Consulting Engagement - TechVentures' LIMIT 1;
     SELECT id INTO deal_cloudscale_id FROM "Deal" WHERE name = 'Partnership - CloudScale' LIMIT 1;
@@ -430,8 +440,9 @@ BEGIN
 
     -- Create Opportunity Lead for TechVentures
     IF deal_techventures_id IS NOT NULL AND acc_techventures_id IS NOT NULL THEN
-        INSERT INTO "Lead" (deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at)
+        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
         VALUES (
+            v_tenant_id,
             deal_techventures_id,
             acc_techventures_id,
             'Opportunity',
@@ -440,7 +451,9 @@ BEGIN
             'referral',
             status_proposal_id,
             NOW(),
-            NOW()
+            NOW(),
+            v_user_id,
+            v_user_id
         )
         RETURNING id INTO lead_id;
 
@@ -460,8 +473,9 @@ BEGIN
 
     -- Create Partnership Lead for CloudScale
     IF deal_cloudscale_id IS NOT NULL AND acc_cloudscale_id IS NOT NULL THEN
-        INSERT INTO "Lead" (deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at)
+        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
         VALUES (
+            v_tenant_id,
             deal_cloudscale_id,
             acc_cloudscale_id,
             'Partnership',
@@ -470,7 +484,9 @@ BEGIN
             'outbound',
             status_qualified_id,
             NOW(),
-            NOW()
+            NOW(),
+            v_user_id,
+            v_user_id
         )
         RETURNING id INTO lead_id;
 
@@ -489,8 +505,9 @@ BEGIN
 
     -- Create Opportunity Lead for DataFlow
     IF deal_cloudscale_id IS NOT NULL AND acc_dataflow_id IS NOT NULL THEN
-        INSERT INTO "Lead" (deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at)
+        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
         VALUES (
+            v_tenant_id,
             deal_cloudscale_id,
             acc_dataflow_id,
             'Opportunity',
@@ -499,7 +516,9 @@ BEGIN
             'inbound',
             status_nurturing_id,
             NOW(),
-            NOW()
+            NOW(),
+            v_user_id,
+            v_user_id
         )
         RETURNING id INTO lead_id;
 
@@ -519,8 +538,9 @@ BEGIN
 
     -- Create Partnership Lead for SecureNet
     IF deal_securenet_id IS NOT NULL AND acc_securenet_id IS NOT NULL THEN
-        INSERT INTO "Lead" (deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at)
+        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
         VALUES (
+            v_tenant_id,
             deal_securenet_id,
             acc_securenet_id,
             'Partnership',
@@ -529,7 +549,9 @@ BEGIN
             'referral',
             status_qualified_id,
             NOW(),
-            NOW()
+            NOW(),
+            v_user_id,
+            v_user_id
         )
         RETURNING id INTO lead_id;
 
@@ -563,7 +585,12 @@ DECLARE
     status_in_progress_id BIGINT;
     priority_high_id BIGINT;
     priority_medium_id BIGINT;
+    v_user_id BIGINT;
+    v_tenant_id BIGINT;
 BEGIN
+    -- Get bootstrap user and tenant
+    SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
+    SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada' LIMIT 1;
     -- Get Lead IDs
     SELECT l.id INTO lead_techventures_id
     FROM "Lead" l
@@ -593,9 +620,10 @@ BEGIN
 
     -- Create Tasks for TechVentures Opportunity
     IF lead_techventures_id IS NOT NULL THEN
-        INSERT INTO "Task" (title, description, taskable_type, taskable_id, current_status_id, priority_id, due_date, created_at, updated_at)
+        INSERT INTO "Task" (tenant_id, title, description, taskable_type, taskable_id, current_status_id, priority_id, due_date, created_at, updated_at, created_by, updated_by)
         VALUES
             (
+                v_tenant_id,
                 'Prepare proposal for TechVentures',
                 'Create detailed proposal outlining consulting services, timeline, and pricing',
                 'Lead',
@@ -604,9 +632,12 @@ BEGIN
                 priority_high_id,
                 NOW() + INTERVAL '7 days',
                 NOW(),
-                NOW()
+                NOW(),
+                v_user_id,
+                v_user_id
             ),
             (
+                v_tenant_id,
                 'Schedule call with Sarah Chen',
                 'Follow-up call to discuss proposal and answer questions',
                 'Lead',
@@ -615,15 +646,18 @@ BEGIN
                 priority_high_id,
                 NOW() + INTERVAL '10 days',
                 NOW(),
-                NOW()
+                NOW(),
+                v_user_id,
+                v_user_id
             );
     END IF;
 
     -- Create Tasks for CloudScale Partnership
     IF lead_cloudscale_id IS NOT NULL THEN
-        INSERT INTO "Task" (title, description, taskable_type, taskable_id, current_status_id, priority_id, due_date, created_at, updated_at)
+        INSERT INTO "Task" (tenant_id, title, description, taskable_type, taskable_id, current_status_id, priority_id, due_date, created_at, updated_at, created_by, updated_by)
         VALUES
             (
+                v_tenant_id,
                 'Technical deep dive with CloudScale',
                 'Schedule meeting with engineering team to discuss integration architecture',
                 'Lead',
@@ -632,9 +666,12 @@ BEGIN
                 priority_medium_id,
                 NOW() + INTERVAL '14 days',
                 NOW(),
-                NOW()
+                NOW(),
+                v_user_id,
+                v_user_id
             ),
             (
+                v_tenant_id,
                 'Draft partnership agreement',
                 'Work with legal to draft initial partnership terms',
                 'Lead',
@@ -643,15 +680,18 @@ BEGIN
                 priority_medium_id,
                 NOW() + INTERVAL '30 days',
                 NOW(),
-                NOW()
+                NOW(),
+                v_user_id,
+                v_user_id
             );
     END IF;
 
     -- Create Tasks for DataFlow Opportunity
     IF lead_dataflow_id IS NOT NULL THEN
-        INSERT INTO "Task" (title, description, taskable_type, taskable_id, current_status_id, priority_id, due_date, created_at, updated_at)
+        INSERT INTO "Task" (tenant_id, title, description, taskable_type, taskable_id, current_status_id, priority_id, due_date, created_at, updated_at, created_by, updated_by)
         VALUES
             (
+                v_tenant_id,
                 'Research DataFlow business model',
                 'Understand their current analytics stack and pain points',
                 'Lead',
@@ -660,15 +700,18 @@ BEGIN
                 priority_medium_id,
                 NOW() + INTERVAL '5 days',
                 NOW(),
-                NOW()
+                NOW(),
+                v_user_id,
+                v_user_id
             );
     END IF;
 
     -- Create Tasks for SecureNet Partnership
     IF lead_securenet_id IS NOT NULL THEN
-        INSERT INTO "Task" (title, description, taskable_type, taskable_id, current_status_id, priority_id, due_date, created_at, updated_at)
+        INSERT INTO "Task" (tenant_id, title, description, taskable_type, taskable_id, current_status_id, priority_id, due_date, created_at, updated_at, created_by, updated_by)
         VALUES
             (
+                v_tenant_id,
                 'Initial call with David Kim',
                 'Exploratory conversation to understand SecureNet''s partnership goals',
                 'Lead',
@@ -677,7 +720,9 @@ BEGIN
                 priority_high_id,
                 NOW() + INTERVAL '7 days',
                 NOW(),
-                NOW()
+                NOW(),
+                v_user_id,
+                v_user_id
             );
     END IF;
 

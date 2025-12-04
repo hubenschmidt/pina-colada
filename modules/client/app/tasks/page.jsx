@@ -1,0 +1,263 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  Stack,
+  Group,
+  Button,
+  Badge,
+  Anchor,
+  Text,
+  Box,
+  Center,
+  Loader } from
+"@mantine/core";
+import { FolderKanban } from "lucide-react";
+import { SearchBox } from "../../components/SearchBox";
+import { DataTable } from "../../components/DataTable/DataTable";
+import { getTasks } from "../../api";
+import { useProjectContext } from "../../context/projectContext";
+import { usePageLoading } from "../../context/pageLoadingContext";
+
+
+
+const TasksPage = () => {
+  const router = useRouter();
+  const { projectState } = useProjectContext();
+  const { selectedProject } = projectState;
+  const { dispatchPageLoading } = usePageLoading();
+
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [sortBy, setSortBy] = useState("created_at");
+  const [sortDirection, setSortDirection] = useState("DESC");
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const scope = selectedProject ? "project" : "global";
+
+  const fetchTasks = useCallback(async () => {
+    setLoading(true);
+    try {
+      const projectId = selectedProject?.id;
+      const result = await getTasks(
+        page,
+        pageSize,
+        sortBy,
+        sortDirection,
+        scope,
+        projectId,
+        searchQuery || undefined
+      );
+      setData(result);
+    } catch (error) {
+      console.error("Failed to fetch tasks:", error);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize, sortBy, sortDirection, scope, selectedProject?.id, searchQuery]);
+
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+  }, [dispatchPageLoading]);
+
+  useEffect(() => {
+    fetchTasks();
+  }, [fetchTasks]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [selectedProject?.id]);
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    setPage(1);
+  };
+
+  const getEntityColor = (entityType) => {
+    const colorMap = {
+      Organization: "blue",
+      Individual: "green",
+      Project: "violet",
+      Contact: "cyan",
+      Lead: "orange"
+    };
+    return colorMap[entityType] || "gray";
+  };
+
+  const columns = [
+  {
+    header: "Task",
+    accessor: "title",
+    sortable: true,
+    sortKey: "title"
+  },
+  {
+    header: "Linked To",
+    render: (row) => {
+      if (!row.entity.type || !row.entity.display_name) {
+        return <Text c="dimmed">—</Text>;
+      }
+      return row.entity.url ?
+      <Anchor
+        component={Link}
+        href={row.entity.url}
+        size="sm"
+        onClick={(e) => e.stopPropagation()}>
+
+            <Badge
+          size="sm"
+          variant="light"
+          color={getEntityColor(row.entity.type)}
+          style={{ cursor: "pointer" }}>
+
+              {row.entity.display_name}
+            </Badge>
+          </Anchor> :
+
+      <Badge
+        size="sm"
+        variant="light"
+        color={getEntityColor(row.entity.type)}>
+
+            {row.entity.display_name}
+          </Badge>;
+
+    }
+  },
+  {
+    header: "Status",
+    render: (row) =>
+    row.status ?
+    <Badge size="sm" variant="light">
+            {row.status.name}
+          </Badge> :
+
+    <Text c="dimmed">—</Text>,
+
+    sortable: true,
+    sortKey: "current_status_id"
+  },
+  {
+    header: "Priority",
+    render: (row) => {
+      if (!row.priority) return <Text c="dimmed">—</Text>;
+      const colorMap = {
+        Low: "gray",
+        Medium: "blue",
+        High: "orange",
+        Urgent: "red"
+      };
+      return (
+        <Badge
+          size="sm"
+          variant="outline"
+          color={colorMap[row.priority.name] || "gray"}>
+
+            {row.priority.name}
+          </Badge>);
+
+    },
+    sortable: true,
+    sortKey: "priority_id"
+  },
+  {
+    header: "Due Date",
+    accessor: (row) => row.due_date || "—",
+    sortable: true,
+    sortKey: "due_date"
+  },
+  {
+    header: "Created",
+    accessor: (row) => row.created_at ? row.created_at.slice(0, 10) : "—",
+    sortable: true,
+    sortKey: "created_at"
+  },
+  {
+    header: "Updated",
+    accessor: (row) => row.updated_at ? row.updated_at.slice(0, 10) : "—",
+    sortable: true,
+    sortKey: "updated_at"
+  }];
+
+
+  if (loading && !data) {
+    return (
+      <Center mih={400}>
+        <Stack align="center" gap="md">
+          <Loader size="xl" color="lime" />
+          <Text c="dimmed">Loading tasks...</Text>
+        </Stack>
+      </Center>);
+
+  }
+
+  return (
+    <Stack gap="lg">
+      <Group justify="space-between">
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
+          Tasks
+        </h1>
+        {selectedProject ?
+        <Badge
+          variant="light"
+          color="lime"
+          leftSection={<FolderKanban className="h-3 w-3" />}>
+
+            {selectedProject.name}
+          </Badge> :
+
+        <Badge variant="light" color="gray">
+            Global
+          </Badge>
+        }
+      </Group>
+
+      <Stack gap="xs">
+        <Group gap="md">
+          <SearchBox
+            placeholder="Search tasks... (Enter to search)"
+            onSearch={handleSearch} />
+
+          <Button onClick={() => router.push("/tasks/new")} color="lime">
+            New Task
+          </Button>
+        </Group>
+        {searchQuery &&
+        <Text size="sm" c="dimmed">
+            Showing results for &quot;{searchQuery}&quot;
+          </Text>
+        }
+      </Stack>
+
+      <Box pos="relative">
+        <DataTable
+          data={data}
+          columns={columns}
+          rowKey={(row) => row.id}
+          pageValue={page}
+          onPageChange={setPage}
+          pageSizeValue={pageSize}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+          onSortChange={({ sortBy: newSortBy, direction }) => {
+            setSortBy(newSortBy);
+            setSortDirection(direction);
+            setPage(1);
+          }}
+          onRowClick={(task) => router.push(`/tasks/${task.id}`)}
+          emptyText="No tasks yet. Add your first one above!" />
+
+      </Box>
+    </Stack>);
+
+};
+
+export default TasksPage;

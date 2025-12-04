@@ -7,9 +7,7 @@
     "build": "next build",
     "start": "next start -p 80",
     "test": "jest --watchAll",
-    "test:ci": "jest --ci --reporters=jest-junit --coverage --passWithNoTests",
-    "generate-types": "supabase gen types typescript --project-id \"$SUPABASE_PROJECT_REF\" --schema public > lib/database.types.ts",
-    "generate-types:local": "supabase gen types typescript --local --schema public > lib/database.types.ts"
+    "test:ci": "jest --ci --reporters=jest-junit --coverage --passWithNoTests"
   },
   "dependencies": {
     "@auth0/nextjs-auth0": "^4.6.0",
@@ -23,22 +21,17 @@
     "pg": "^8.11.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
-    "react-dropzone": "^14.3.5"
+    "react-dropzone": "^14.3.5",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.1.5",
     "@testing-library/react": "^16.3.0",
-    "@types/jest": "^29.5.11",
-    "@types/node": "^20",
-    "@types/pg": "^8.10.9",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "jest": "^29.7.0",
     "jest-environment-jsdom": "^29.7.0",
     "jest-junit": "^16.0.0",
     "supabase": ">=1.8.1",
-    "tailwindcss": "^4",
-    "typescript": "^5"
+    "tailwindcss": "^4"
   }
 }
