@@ -69,9 +69,7 @@ const ProjectDetailPage = () => {
   if (error) {
     return (
       <Stack gap="lg">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-          Project
-        </h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Project</h1>
         <Text c="red">{error}</Text>
       </Stack>
     );

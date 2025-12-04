@@ -111,18 +111,16 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
           </div>
         </div>
 
-        {isEditMode &&
-          contact?.organizations &&
-          contact.organizations.length > 0 && (
-            <div>
-              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-                Account
-              </label>
-              <div className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300">
-                {contact.organizations.map((org) => org.name).join(", ")}
-              </div>
+        {isEditMode && contact?.organizations && contact.organizations.length > 0 && (
+          <div>
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+              Account
+            </label>
+            <div className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300">
+              {contact.organizations.map((org) => org.name).join(", ")}
             </div>
-          )}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -224,10 +222,7 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
         </div>
 
         {isEditMode && contact && (
-          <Timestamps
-            createdAt={contact.created_at}
-            updatedAt={contact.updated_at}
-          />
+          <Timestamps createdAt={contact.created_at} updatedAt={contact.updated_at} />
         )}
 
         {error && (

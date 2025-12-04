@@ -46,14 +46,11 @@ const NotificationDropdown = ({
     <div className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white dark:bg-zinc-900 rounded-lg shadow-lg border border-zinc-200 dark:border-zinc-700 z-50 overflow-hidden">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-100 dark:border-zinc-800">
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-          Notifications
-        </h3>
+        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Notifications</h3>
         {hasUnread && (
           <button
             onClick={onMarkAllRead}
-            className="flex items-center gap-1 text-xs text-lime-600 hover:text-lime-700 dark:text-lime-400 dark:hover:text-lime-300 transition-colors"
-          >
+            className="flex items-center gap-1 text-xs text-lime-600 hover:text-lime-700 dark:text-lime-400 dark:hover:text-lime-300 transition-colors">
             <Check size={12} />
             Mark all read
           </button>
@@ -68,13 +65,8 @@ const NotificationDropdown = ({
           </div>
         ) : notifications.length === 0 ? (
           <div className="py-8 text-center">
-            <MessageCircle
-              size={24}
-              className="mx-auto text-zinc-300 dark:text-zinc-600 mb-2"
-            />
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
-              No notifications yet
-            </p>
+            <MessageCircle size={24} className="mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">No notifications yet</p>
           </div>
         ) : (
           <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -86,11 +78,8 @@ const NotificationDropdown = ({
                     onNotificationClick(notification);
                   }}
                   className={`w-full px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors ${
-                    !notification.is_read
-                      ? "bg-lime-50/50 dark:bg-lime-900/10"
-                      : ""
-                  }`}
-                >
+                    !notification.is_read ? "bg-lime-50/50 dark:bg-lime-900/10" : ""
+                  }`}>
                   <div className="flex gap-3">
                     {/* Icon */}
                     <div className="flex-shrink-0 mt-0.5">

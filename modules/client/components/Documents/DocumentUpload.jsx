@@ -15,12 +15,7 @@ import {
   Modal,
 } from "@mantine/core";
 import { Upload, X, FileText, AlertTriangle } from "lucide-react";
-import {
-  uploadDocument,
-  getTags,
-  checkDocumentFilename,
-  createDocumentVersion,
-} from "../../api";
+import { uploadDocument, getTags, checkDocumentFilename, createDocumentVersion } from "../../api";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ACCEPTED_TYPES = {
@@ -28,9 +23,7 @@ const ACCEPTED_TYPES = {
   "text/plain": [".txt"],
   "text/markdown": [".md"],
   "application/msword": [".doc"],
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
-    ".docx",
-  ],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
 };
 
 export const DocumentUpload = ({ onUploadComplete, entityType, entityId }) => {
@@ -66,7 +59,7 @@ export const DocumentUpload = ({ onUploadComplete, entityType, entityId }) => {
       setFile(selected);
       loadTags();
     },
-    [loadTags],
+    [loadTags]
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -87,7 +80,7 @@ export const DocumentUpload = ({ onUploadComplete, entityType, entityId }) => {
         const { exists, document: existing } = await checkDocumentFilename(
           file.name,
           entityType,
-          entityId,
+          entityId
         );
         if (exists && existing) {
           setExistingDocument(existing);
@@ -124,7 +117,7 @@ export const DocumentUpload = ({ onUploadComplete, entityType, entityId }) => {
               tags.length > 0 ? tags : undefined,
               entityType,
               entityId,
-              description || undefined,
+              description || undefined
             );
 
       clearInterval(progressInterval);
@@ -170,12 +163,11 @@ export const DocumentUpload = ({ onUploadComplete, entityType, entityId }) => {
             <Text fw={600}>File Already Exists</Text>
           </Group>
         }
-        centered
-      >
+        centered>
         <Stack gap="md">
           <Text size="sm">
-            A file named &quot;{file?.name}&quot; already exists on this entity
-            (currently at version {existingDocument?.version_number}).
+            A file named &quot;{file?.name}&quot; already exists on this entity (currently at
+            version {existingDocument?.version_number}).
           </Text>
           <Text size="sm" c="dimmed">
             Would you like to create a new version of this document?
@@ -186,8 +178,7 @@ export const DocumentUpload = ({ onUploadComplete, entityType, entityId }) => {
               onClick={() => {
                 setVersionModalOpen(false);
                 setExistingDocument(null);
-              }}
-            >
+              }}>
               Cancel
             </Button>
             <Button color="lime" onClick={() => performUpload(true)}>
@@ -206,21 +197,14 @@ export const DocumentUpload = ({ onUploadComplete, entityType, entityId }) => {
             style={{
               borderStyle: "dashed",
               cursor: "pointer",
-              backgroundColor: isDragActive
-                ? "var(--mantine-color-lime-0)"
-                : undefined,
-            }}
-          >
+              backgroundColor: isDragActive ? "var(--mantine-color-lime-0)" : undefined,
+            }}>
             <input {...getInputProps()} />
             <Stack align="center" gap="sm">
-              <Upload
-                className={`h-8 w-8 ${isDragActive ? "text-lime-600" : "text-zinc-400"}`}
-              />
+              <Upload className={`h-8 w-8 ${isDragActive ? "text-lime-600" : "text-zinc-400"}`} />
 
               <Text size="sm" c="dimmed" ta="center">
-                {isDragActive
-                  ? "Drop file here..."
-                  : "Drag & drop a file, or click to select"}
+                {isDragActive ? "Drop file here..." : "Drag & drop a file, or click to select"}
               </Text>
               <Text size="xs" c="dimmed">
                 PDF, TXT, MD, DOC, DOCX (max 10MB)
@@ -266,9 +250,7 @@ export const DocumentUpload = ({ onUploadComplete, entityType, entityId }) => {
                 minRows={2}
               />
 
-              {uploading && (
-                <Progress value={progress} size="sm" color="lime" />
-              )}
+              {uploading && <Progress value={progress} size="sm" color="lime" />}
 
               {error && (
                 <Text size="sm" c="red">
@@ -277,19 +259,14 @@ export const DocumentUpload = ({ onUploadComplete, entityType, entityId }) => {
               )}
 
               <Group justify="flex-end">
-                <Button
-                  variant="subtle"
-                  onClick={handleClear}
-                  disabled={uploading}
-                >
+                <Button variant="subtle" onClick={handleClear} disabled={uploading}>
                   Cancel
                 </Button>
                 <Button
                   onClick={handleUpload}
                   loading={uploading}
                   color="lime"
-                  leftSection={<Upload className="h-4 w-4" />}
-                >
+                  leftSection={<Upload className="h-4 w-4" />}>
                   Upload
                 </Button>
               </Group>

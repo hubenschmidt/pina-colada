@@ -39,7 +39,7 @@ const getPositionOnce = () => {
     navigator.geolocation.getCurrentPosition(
       (pos) => resolve(pos),
       () => resolve(null),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 },
+      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
     );
   });
 };
@@ -92,10 +92,7 @@ const baseContext = () => {
     languages, // <- now string[]
     tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
     dnt: typeof nav.doNotTrack === "string" ? nav.doNotTrack === "1" : null,
-    gpc:
-      typeof nav.globalPrivacyControl === "boolean"
-        ? nav.globalPrivacyControl
-        : null,
+    gpc: typeof nav.globalPrivacyControl === "boolean" ? nav.globalPrivacyControl : null,
     deviceMemory: nav.deviceMemory,
     hardwareConcurrency: nav.hardwareConcurrency,
     maxTouchPoints: nav.maxTouchPoints,
@@ -106,15 +103,12 @@ const baseContext = () => {
       colorDepth: screen.colorDepth,
     },
     viewport: { w: window.innerWidth, h: window.innerHeight },
-    prefersColorScheme: window.matchMedia?.("(prefers-color-scheme: dark)")
-      .matches
+    prefersColorScheme: window.matchMedia?.("(prefers-color-scheme: dark)").matches
       ? "dark"
       : window.matchMedia?.("(prefers-color-scheme: light)").matches
         ? "light"
         : "no-preference",
-    prefersReducedMotion: !!window.matchMedia?.(
-      "(prefers-reduced-motion: reduce)",
-    ).matches,
+    prefersReducedMotion: !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches,
     connection: nav.connection
       ? {
           effectiveType: nav.connection.effectiveType,
@@ -170,7 +164,7 @@ export const renderWithLinks = (text) => {
       out.push(
         <span key={`error-${key++}`} className={styles.errorText}>
           {line}
-        </span>,
+        </span>
       );
       return;
     }
@@ -208,10 +202,9 @@ export const renderWithLinks = (text) => {
         href={url}
         target="_blank"
         rel="noopener noreferrer"
-        className={styles.link}
-      >
+        className={styles.link}>
         {label}
-      </a>,
+      </a>
     );
 
     last = offset + match.length;
@@ -247,24 +240,15 @@ const getWsUrl = () => {
 const WS_URL = getWsUrl();
 
 const Chat = ({ variant = "embedded", onConnectionChange }) => {
-  const {
-    isOpen,
-    isThinking,
-    tokenUsage,
-    messages,
-    sendMessage,
-    sendControl,
-    reset,
-  } = useWs(WS_URL);
+  const { isOpen, isThinking, tokenUsage, messages, sendMessage, sendControl, reset } =
+    useWs(WS_URL);
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState(null);
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
   const [demoDropdownOpen, setDemoDropdownOpen] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
-  const [demoIframeUrl, setDemoIframeUrl] = useState(
-    `${API_URL}/mocks/401k-rollover/`,
-  );
+  const [demoIframeUrl, setDemoIframeUrl] = useState(`${API_URL}/mocks/401k-rollover/`);
 
   const listId = useId();
   const [hasSentContext, setHasSentContext] = useState(false);
@@ -304,8 +288,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
 
     if (toolsDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [toolsDropdownOpen, toolsDropdownId]);
 
@@ -320,8 +303,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
 
     if (demoDropdownOpen) {
       document.addEventListener("mousedown", handleClickOutside);
-      return () =>
-        document.removeEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
     }
   }, [demoDropdownOpen, demoDropdownId]);
 
@@ -373,48 +355,29 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
 
   return (
     <Box
-      className={`${styles.chatRoot} ${
-        variant === "page" ? styles.chatRootPage : ""
-      } w-full ${
-        isDemoMode
-          ? "max-w-full"
-          : variant === "embedded"
-            ? "max-w-5xl"
-            : "max-w-4xl"
+      className={`${styles.chatRoot} ${variant === "page" ? styles.chatRootPage : ""} w-full ${
+        isDemoMode ? "max-w-full" : variant === "embedded" ? "max-w-5xl" : "max-w-4xl"
       } mx-auto min-h-[80svh] ${
         isDemoMode ? "flex flex-row gap-4 items-start" : "flex items-center"
-      } ${variant === "embedded" ? "px-4 py-6" : ""}`}
-    >
+      } ${variant === "embedded" ? "px-4 py-6" : ""}`}>
       {isDemoMode && (
         <div className={styles.demoIframePanel}>
           <div className={styles.demoIframeHeader}>
             <span className={styles.demoIframeTitle}>Mock 401k Provider</span>
-            <button
-              className={styles.exitDemoButton}
-              onClick={() => setIsDemoMode(false)}
-            >
+            <button className={styles.exitDemoButton} onClick={() => setIsDemoMode(false)}>
               Exit Demo
             </button>
           </div>
-          <iframe
-            src={demoIframeUrl}
-            className={styles.demoIframe}
-            title="401k Provider Demo"
-          />
+          <iframe src={demoIframeUrl} className={styles.demoIframe} title="401k Provider Demo" />
         </div>
       )}
       <section
-        className={`${styles.shellCard} ${
-          variant === "page" ? styles.shellCardFlat : ""
-        } w-full`}
-      >
+        className={`${styles.shellCard} ${variant === "page" ? styles.shellCardFlat : ""} w-full`}>
         {/* header */}
         <header className={styles.header}>
           <div className={styles.headerLeft}>
             <div
-              className={`${styles.status} ${
-                isOpen ? styles.statusOnline : styles.statusOffline
-              }`}
+              className={`${styles.status} ${isOpen ? styles.statusOnline : styles.statusOffline}`}
               title={isOpen ? "Connected" : "Disconnected"}
             />
 
@@ -426,19 +389,13 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
                 type="button"
                 className={styles.toolsButton}
                 onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}
-                title="Tools"
-              >
+                title="Tools">
                 <span>Tools</span>
-                <ChevronDown
-                  size={16}
-                  className={toolsDropdownOpen ? styles.chevronOpen : ""}
-                />
+                <ChevronDown size={16} className={toolsDropdownOpen ? styles.chevronOpen : ""} />
               </button>
               {toolsDropdownOpen && (
                 <div className={styles.toolsMenu}>
-                  <div className="px-4 py-3 text-sm text-zinc-500 italic">
-                    Big things coming!
-                  </div>
+                  <div className="px-4 py-3 text-sm text-zinc-500 italic">Big things coming!</div>
                 </div>
               )}
             </div>
@@ -447,8 +404,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
               className={styles.exportButton}
               onClick={exportChat}
               disabled={!messages.length}
-              title="Export chat to .txt file"
-            >
+              title="Export chat to .txt file">
               <Download size={16} />
             </button>
           </div>
@@ -461,45 +417,31 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
             id={listId}
             className={styles.msgList}
             onWheel={(e) => e.stopPropagation()}
-            onTouchMove={(e) => e.stopPropagation()}
-          >
+            onTouchMove={(e) => e.stopPropagation()}>
             {messages.map((m, i) => {
               const isUser = m.user === "User";
               return (
                 <div
                   key={i}
-                  className={`${styles.msgRow} ${
-                    isUser ? styles.msgRowUser : styles.msgRowBot
-                  }`}
-                >
+                  className={`${styles.msgRow} ${isUser ? styles.msgRowUser : styles.msgRowBot}`}>
                   <div
                     className={`${styles.msgContainer} ${
                       isUser ? styles.msgContainerUser : styles.msgContainerBot
-                    }`}
-                  >
+                    }`}>
                     <div
                       className={`${styles.bubble} ${
                         isUser ? styles.bubbleUser : styles.bubbleBot
-                      }`}
-                    >
-                      <div className={styles.bubbleText}>
-                        {renderWithLinks(m.msg.trim())}
-                      </div>
+                      }`}>
+                      <div className={styles.bubbleText}>{renderWithLinks(m.msg.trim())}</div>
                     </div>
                     <div
                       className={`${styles.copyButtonWrapper} ${
-                        isUser
-                          ? styles.copyButtonWrapperUser
-                          : styles.copyButtonWrapperBot
-                      }`}
-                    >
+                        isUser ? styles.copyButtonWrapperUser : styles.copyButtonWrapperBot
+                      }`}>
                       <button
-                        className={`${styles.copyButton} ${
-                          copiedIndex === i ? styles.copied : ""
-                        }`}
+                        className={`${styles.copyButton} ${copiedIndex === i ? styles.copied : ""}`}
                         onClick={() => handleCopy(m.msg.trim(), i)}
-                        title="Copy to clipboard"
-                      >
+                        title="Copy to clipboard">
                         {copiedIndex === i ? (
                           <>
                             <Check size={14} />
@@ -523,9 +465,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
             {/* Typing indicator above input */}
             {(isThinking || tokenUsage) && (
               <div className={styles.thinkingIndicator}>
-                <span className={styles.thinkingText}>
-                  {isThinking ? "thinking" : ""}
-                </span>
+                <span className={styles.thinkingText}>{isThinking ? "thinking" : ""}</span>
                 {tokenUsage && (
                   <span className={styles.tokenUsage}>
                     {tokenUsage.current.total >= 1000
@@ -554,18 +494,10 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
             />
 
             <div className={styles.actions}>
-              <button
-                type="submit"
-                className={styles.btn}
-                disabled={!isOpen || !input.trim()}
-              >
+              <button type="submit" className={styles.btn} disabled={!isOpen || !input.trim()}>
                 Send
               </button>
-              <button
-                type="button"
-                className={`${styles.btn} ${styles.btnGhost}`}
-                onClick={reset}
-              >
+              <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={reset}>
                 Reset
               </button>
             </div>

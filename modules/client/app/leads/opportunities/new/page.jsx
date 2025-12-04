@@ -10,18 +10,16 @@ const NewOpportunityPage = () => {
   const formConfig = useLeadFormConfig("opportunity");
 
   const handleClose = () => {
-    router.push("/leads");
+    router.push("/leads/opportunities");
   };
 
   const handleAdd = async (data) => {
     const opportunity = await createOpportunity(data);
-    router.push("/leads");
+    router.push("/leads/opportunities");
     return opportunity;
   };
 
-  return (
-    <LeadForm onClose={handleClose} onAdd={handleAdd} config={formConfig} />
-  );
+  return <LeadForm onClose={handleClose} onAdd={handleAdd} config={formConfig} />;
 };
 
 export default NewOpportunityPage;

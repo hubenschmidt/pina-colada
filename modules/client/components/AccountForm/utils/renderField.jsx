@@ -7,9 +7,7 @@ export const inputClasses =
 
 export const renderField = (field, value, onChange, customRender) => {
   const handleChange = (e) => {
-    const newValue = field.onChange
-      ? field.onChange(e.target.value)
-      : e.target.value;
+    const newValue = field.onChange ? field.onChange(e.target.value) : e.target.value;
     onChange(field.name, newValue);
   };
 
@@ -31,11 +29,7 @@ export const renderField = (field, value, onChange, customRender) => {
 
   if (field.type === "select" && field.options) {
     return (
-      <select
-        value={value || ""}
-        onChange={handleChange}
-        className={inputClasses}
-      >
+      <select value={value || ""} onChange={handleChange} className={inputClasses}>
         <option value="">Select...</option>
         {field.options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -50,9 +44,7 @@ export const renderField = (field, value, onChange, customRender) => {
   const hasUrl = isUrlField && value && String(value).trim();
 
   if (hasUrl) {
-    const url = String(value).startsWith("http")
-      ? String(value)
-      : `https://${value}`;
+    const url = String(value).startsWith("http") ? String(value) : `https://${value}`;
     return (
       <div>
         <input
@@ -70,8 +62,7 @@ export const renderField = (field, value, onChange, customRender) => {
           href={url}
           target="_blank"
           rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 mt-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
-        >
+          className="inline-flex items-center gap-1 mt-1 text-sm text-blue-600 dark:text-blue-400 hover:underline">
           {String(value)}
           <ExternalLink size={14} />
         </a>

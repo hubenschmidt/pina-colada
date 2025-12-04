@@ -29,7 +29,14 @@ export const AuthStateManager = () => {
       if (userState.isAuthed) return;
 
       try {
-        const response = await getMe();
+        // Fetch user data and preferences in parallel
+        const [response, prefs] = await Promise.all([
+          getMe(),
+          getUserPreferences().catch((err) => {
+            console.error("Failed to load preferences:", err);
+            return null;
+          }),
+        ]);
 
         dispatchUser({
           type: "SET_USER",
@@ -51,9 +58,7 @@ export const AuthStateManager = () => {
           payload: true,
         });
 
-        // Load user preferences (theme)
-        try {
-          const prefs = await getUserPreferences();
+        if (prefs) {
           dispatchUser({
             type: SET_THEME,
             payload: {
@@ -61,8 +66,6 @@ export const AuthStateManager = () => {
               canEditTenant: prefs.can_edit_tenant,
             },
           });
-        } catch (prefError) {
-          console.error("Failed to load preferences:", prefError);
         }
       } catch (error) {
         console.error("Failed to restore auth state:", error);

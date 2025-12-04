@@ -2,7 +2,14 @@
 
 from typing import List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+
+def empty_str_to_none(v):
+    """Convert empty strings to None for optional numeric fields."""
+    if v == "" or v is None:
+        return None
+    return v
 
 
 class OpportunityCreate(BaseModel):
@@ -22,6 +29,11 @@ class OpportunityCreate(BaseModel):
     source: str = "manual"
     project_ids: Optional[List[int]] = None
 
+    @field_validator("estimated_value", "probability", mode="before")
+    @classmethod
+    def convert_empty_to_none(cls, v):
+        return empty_str_to_none(v)
+
 
 class OpportunityUpdate(BaseModel):
     """Model for updating an opportunity."""
@@ -36,3 +48,8 @@ class OpportunityUpdate(BaseModel):
     status: Optional[str] = None
     source: Optional[str] = None
     project_ids: Optional[List[int]] = None
+
+    @field_validator("estimated_value", "probability", mode="before")
+    @classmethod
+    def convert_empty_to_none(cls, v):
+        return empty_str_to_none(v)

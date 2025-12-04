@@ -62,9 +62,7 @@ const JobDetailPage = () => {
   if (error || !job) {
     return (
       <div className="p-6">
-        <p className="text-red-600 dark:text-red-400">
-          {error || "Job not found"}
-        </p>
+        <p className="text-red-600 dark:text-red-400">{error || "Job not found"}</p>
       </div>
     );
   }

@@ -6,11 +6,7 @@ import { Center, Stack, Loader } from "@mantine/core";
 import { usePageLoading } from "../../../../context/pageLoadingContext";
 import LeadForm from "../../../../components/LeadTracker/LeadForm";
 import { useLeadFormConfig } from "../../../../components/LeadTracker/hooks/useLeadFormConfig";
-import {
-  getOpportunity,
-  updateOpportunity,
-  deleteOpportunity,
-} from "../../../../api";
+import { getOpportunity, updateOpportunity, deleteOpportunity } from "../../../../api";
 
 const OpportunityDetailPage = () => {
   const params = useParams();
@@ -29,9 +25,7 @@ const OpportunityDetailPage = () => {
         const data = await getOpportunity(id);
         setOpportunity(data);
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load opportunity",
-        );
+        setError(err instanceof Error ? err.message : "Failed to load opportunity");
       } finally {
         setLoading(false);
         dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
@@ -68,9 +62,7 @@ const OpportunityDetailPage = () => {
   if (error || !opportunity) {
     return (
       <div className="p-6">
-        <p className="text-red-600 dark:text-red-400">
-          {error || "Opportunity not found"}
-        </p>
+        <p className="text-red-600 dark:text-red-400">{error || "Opportunity not found"}</p>
       </div>
     );
   }

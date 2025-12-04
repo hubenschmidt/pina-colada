@@ -16,20 +16,14 @@ import IndustrySelector from "../../AccountForm/IndustrySelector";
 const isOrganization = (item) => "name" in item && !("first_name" in item);
 
 // Account Search/Autocomplete Component for Organizations
-const AccountSelector = ({
-  value,
-  onChange,
-  accountType = "Organization",
-  readOnly = false,
-}) => {
+const AccountSelector = ({ value, onChange, accountType = "Organization", readOnly = false }) => {
   const [query, setQuery] = useState(value || "");
   const [results, setResults] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const dropdownId = useId();
 
-  const searchFn =
-    accountType === "Organization" ? searchOrganizations : searchIndividuals;
+  const searchFn = accountType === "Organization" ? searchOrganizations : searchIndividuals;
 
   // Debounced search
   const searchDebounced = useCallback(
@@ -50,7 +44,7 @@ const AccountSelector = ({
         setLoading(false);
       }
     }, 300),
-    [searchFn],
+    [searchFn]
   );
 
   useEffect(() => {
@@ -76,9 +70,7 @@ const AccountSelector = ({
   };
 
   const handleSelect = (item) => {
-    const displayName = isOrganization(item)
-      ? item.name
-      : `${item.first_name} ${item.last_name}`;
+    const displayName = isOrganization(item) ? item.name : `${item.first_name} ${item.last_name}`;
     setQuery(displayName);
     onChange(displayName);
     setIsOpen(false);
@@ -119,21 +111,18 @@ const AccountSelector = ({
             className="animate-spin h-5 w-5 text-zinc-400"
             xmlns="http://www.w3.org/2000/svg"
             fill="none"
-            viewBox="0 0 24 24"
-          >
+            viewBox="0 0 24 24">
             <circle
               className="opacity-25"
               cx="12"
               cy="12"
               r="10"
               stroke="currentColor"
-              strokeWidth="4"
-            ></circle>
+              strokeWidth="4"></circle>
             <path
               className="opacity-75"
               fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
+              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
         </div>
       )}
@@ -144,15 +133,10 @@ const AccountSelector = ({
               key={item.id}
               type="button"
               onClick={() => handleSelect(item)}
-              className="w-full px-3 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-700"
-            >
-              <div className="text-zinc-900 dark:text-zinc-100">
-                {getDisplayName(item)}
-              </div>
+              className="w-full px-3 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-700">
+              <div className="text-zinc-900 dark:text-zinc-100">{getDisplayName(item)}</div>
               {getSubtext(item) && (
-                <div className="text-xs text-zinc-500 dark:text-zinc-400">
-                  {getSubtext(item)}
-                </div>
+                <div className="text-xs text-zinc-500 dark:text-zinc-400">{getSubtext(item)}</div>
               )}
             </button>
           ))}
@@ -160,8 +144,7 @@ const AccountSelector = ({
       )}
       {isOpen && query.length >= 2 && results.length === 0 && !loading && (
         <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg p-3 text-sm text-zinc-500 dark:text-zinc-400">
-          No existing {accountType.toLowerCase()}s found. A new one will be
-          created.
+          No existing {accountType.toLowerCase()}s found. A new one will be created.
         </div>
       )}
     </div>
@@ -221,38 +204,24 @@ const ProjectSelector = ({ value, onChange, defaultProjectIds }) => {
     );
   }
 
-  const selectedNames = projects
-    .filter((p) => value.includes(p.id))
-    .map((p) => p.name);
-  const displayText =
-    selectedNames.length > 0 ? selectedNames.join(", ") : "Select projects...";
+  const selectedNames = projects.filter((p) => value.includes(p.id)).map((p) => p.name);
+  const displayText = selectedNames.length > 0 ? selectedNames.join(", ") : "Select projects...";
 
   return (
     <div className="relative" id={dropdownId}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-left flex justify-between items-center"
-      >
-        <span
-          className={
-            selectedNames.length === 0 ? "text-zinc-500 dark:text-zinc-400" : ""
-          }
-        >
+        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-left flex justify-between items-center">
+        <span className={selectedNames.length === 0 ? "text-zinc-500 dark:text-zinc-400" : ""}>
           {displayText}
         </span>
         <svg
           className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
+          viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
       {isOpen && (
@@ -262,8 +231,7 @@ const ProjectSelector = ({ value, onChange, defaultProjectIds }) => {
             return (
               <label
                 key={project.id}
-                className="flex items-center px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"
-              >
+                className="flex items-center px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={isSelected}
@@ -271,9 +239,7 @@ const ProjectSelector = ({ value, onChange, defaultProjectIds }) => {
                   className="w-4 h-4 text-lime-500 border-zinc-300 dark:border-zinc-600 rounded focus:ring-lime-500 bg-white dark:bg-zinc-700"
                 />
 
-                <span className="ml-2 text-zinc-900 dark:text-zinc-100">
-                  {project.name}
-                </span>
+                <span className="ml-2 text-zinc-900 dark:text-zinc-100">{project.name}</span>
               </label>
             );
           })}
@@ -307,8 +273,7 @@ const SalaryRangeSelector = ({ value, onChange }) => {
     <select
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-    >
+      className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
       <option value="">Select salary range...</option>
       {salaryRanges.map((range) => (
         <option key={range.id} value={range.id}>
@@ -545,18 +510,12 @@ const getJobFormConfig = (selectedProjectId) => ({
 
     // Create mode: clean up and normalize data
     // Ensure industry is an array or null
-    if (
-      !cleaned.industry ||
-      (Array.isArray(cleaned.industry) && cleaned.industry.length === 0)
-    ) {
+    if (!cleaned.industry || (Array.isArray(cleaned.industry) && cleaned.industry.length === 0)) {
       cleaned.industry = null;
     }
 
     // Ensure contacts is an array or remove if empty
-    if (
-      !cleaned.contacts ||
-      (Array.isArray(cleaned.contacts) && cleaned.contacts.length === 0)
-    ) {
+    if (!cleaned.contacts || (Array.isArray(cleaned.contacts) && cleaned.contacts.length === 0)) {
       delete cleaned.contacts;
     }
 
@@ -579,16 +538,10 @@ const getJobFormConfig = (selectedProjectId) => ({
     // Account (Organization or Individual) is required
     if (accountType === "Individual") {
       // For Individual, require first and last name
-      if (
-        !formData.individual_first_name ||
-        formData.individual_first_name.trim() === ""
-      ) {
+      if (!formData.individual_first_name || formData.individual_first_name.trim() === "") {
         errors.individual_first_name = "First Name is required";
       }
-      if (
-        !formData.individual_last_name ||
-        formData.individual_last_name.trim() === ""
-      ) {
+      if (!formData.individual_last_name || formData.individual_last_name.trim() === "") {
         errors.individual_last_name = "Last Name is required";
       }
       return errors;
@@ -750,16 +703,10 @@ const getOpportunityFormConfig = (selectedProjectId) => ({
 
   onBeforeSubmit: (formData) => {
     const cleaned = { ...formData };
-    if (
-      !cleaned.industry ||
-      (Array.isArray(cleaned.industry) && cleaned.industry.length === 0)
-    ) {
+    if (!cleaned.industry || (Array.isArray(cleaned.industry) && cleaned.industry.length === 0)) {
       cleaned.industry = null;
     }
-    if (
-      !cleaned.contacts ||
-      (Array.isArray(cleaned.contacts) && cleaned.contacts.length === 0)
-    ) {
+    if (!cleaned.contacts || (Array.isArray(cleaned.contacts) && cleaned.contacts.length === 0)) {
       delete cleaned.contacts;
     }
     cleaned.source = "manual";
@@ -770,16 +717,10 @@ const getOpportunityFormConfig = (selectedProjectId) => ({
     const accountType = formData.account_type || "Organization";
 
     if (accountType === "Individual") {
-      if (
-        !formData.individual_first_name ||
-        formData.individual_first_name.trim() === ""
-      ) {
+      if (!formData.individual_first_name || formData.individual_first_name.trim() === "") {
         errors.individual_first_name = "First Name is required";
       }
-      if (
-        !formData.individual_last_name ||
-        formData.individual_last_name.trim() === ""
-      ) {
+      if (!formData.individual_last_name || formData.individual_last_name.trim() === "") {
         errors.individual_last_name = "Last Name is required";
       }
       return errors;
@@ -810,13 +751,7 @@ const PARTNERSHIP_TYPE_OPTIONS = [
   "Other",
 ];
 
-const PARTNERSHIP_STATUS_OPTIONS = [
-  "Exploring",
-  "Negotiating",
-  "Active",
-  "On Hold",
-  "Ended",
-];
+const PARTNERSHIP_STATUS_OPTIONS = ["Exploring", "Negotiating", "Active", "On Hold", "Ended"];
 
 const getPartnershipFormConfig = (selectedProjectId) => ({
   title: "Add New Partnership",
@@ -955,16 +890,10 @@ const getPartnershipFormConfig = (selectedProjectId) => ({
 
   onBeforeSubmit: (formData) => {
     const cleaned = { ...formData };
-    if (
-      !cleaned.industry ||
-      (Array.isArray(cleaned.industry) && cleaned.industry.length === 0)
-    ) {
+    if (!cleaned.industry || (Array.isArray(cleaned.industry) && cleaned.industry.length === 0)) {
       cleaned.industry = null;
     }
-    if (
-      !cleaned.contacts ||
-      (Array.isArray(cleaned.contacts) && cleaned.contacts.length === 0)
-    ) {
+    if (!cleaned.contacts || (Array.isArray(cleaned.contacts) && cleaned.contacts.length === 0)) {
       delete cleaned.contacts;
     }
     cleaned.source = "manual";
@@ -975,16 +904,10 @@ const getPartnershipFormConfig = (selectedProjectId) => ({
     const accountType = formData.account_type || "Organization";
 
     if (accountType === "Individual") {
-      if (
-        !formData.individual_first_name ||
-        formData.individual_first_name.trim() === ""
-      ) {
+      if (!formData.individual_first_name || formData.individual_first_name.trim() === "") {
         errors.individual_first_name = "First Name is required";
       }
-      if (
-        !formData.individual_last_name ||
-        formData.individual_last_name.trim() === ""
-      ) {
+      if (!formData.individual_last_name || formData.individual_last_name.trim() === "") {
         errors.individual_last_name = "Last Name is required";
       }
       return errors;
@@ -1011,9 +934,7 @@ export const useLeadFormConfig = (type) => {
   const selectedProjectId = projectState.selectedProject?.id || null;
 
   if (type === "job") return getJobFormConfig(selectedProjectId);
-  if (type === "opportunity")
-    return getOpportunityFormConfig(selectedProjectId);
-  if (type === "partnership")
-    return getPartnershipFormConfig(selectedProjectId);
+  if (type === "opportunity") return getOpportunityFormConfig(selectedProjectId);
+  if (type === "partnership") return getPartnershipFormConfig(selectedProjectId);
   throw new Error(`Unknown lead type: ${type}`);
 };

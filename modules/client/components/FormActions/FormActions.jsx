@@ -34,8 +34,7 @@ const FormActions = ({
           hasPendingChanges
             ? "bg-lime-600 text-white border border-lime-600 hover:bg-lime-700"
             : "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700"
-        }`}
-      >
+        }`}>
         {isEditMode ? <Save size={18} /> : <Plus size={18} />}
         {getSubmitText()}
       </button>
@@ -43,8 +42,7 @@ const FormActions = ({
       <button
         type="button"
         onClick={onClose}
-        className={`px-6 ${paddingY} bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 ${rounded} hover:bg-zinc-300 dark:hover:bg-zinc-700 font-semibold`}
-      >
+        className={`px-6 ${paddingY} bg-zinc-200 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 ${rounded} hover:bg-zinc-300 dark:hover:bg-zinc-700 font-semibold`}>
         {cancelButtonText || "Cancel"}
       </button>
 
@@ -56,8 +54,7 @@ const FormActions = ({
             isDeleting
               ? "bg-red-600 text-white hover:bg-red-700"
               : "bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50"
-          }`}
-        >
+          }`}>
           <Trash2 size={18} />
           {isDeleting ? "Confirm Delete" : "Delete"}
         </button>

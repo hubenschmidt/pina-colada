@@ -24,9 +24,7 @@ const NewReportPage = () => {
   return (
     <Stack gap="lg">
       <Group justify="space-between">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-          New Custom Report
-        </h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">New Custom Report</h1>
         {selectedProject ? (
           <Badge variant="light" color="lime">
             {selectedProject.name}

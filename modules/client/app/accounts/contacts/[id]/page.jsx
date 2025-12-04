@@ -60,9 +60,7 @@ const ContactDetailPage = () => {
   if (error || !contact) {
     return (
       <div className="p-6">
-        <p className="text-red-600 dark:text-red-400">
-          {error || "Contact not found"}
-        </p>
+        <p className="text-red-600 dark:text-red-400">{error || "Contact not found"}</p>
       </div>
     );
   }

@@ -1,16 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import {
-  Stack,
-  Center,
-  Loader,
-  Text,
-  Card,
-  SimpleGrid,
-  Table,
-  Progress,
-} from "@mantine/core";
+import { Stack, Center, Loader, Text, Card, SimpleGrid, Table, Progress } from "@mantine/core";
 import { getContactCoverageReport } from "../../../../api";
 
 const ContactCoveragePage = () => {
@@ -60,8 +51,7 @@ const ContactCoveragePage = () => {
 
   const coveragePercent =
     report.total_organizations > 0
-      ? ((report.total_organizations -
-          report.organizations_with_zero_contacts) /
+      ? ((report.total_organizations - report.organizations_with_zero_contacts) /
           report.total_organizations) *
         100
       : 0;
@@ -115,9 +105,8 @@ const ContactCoveragePage = () => {
             Coverage Rate
           </Text>
           <Text c="dimmed" size="sm" mb="xs">
-            {report.total_organizations -
-              report.organizations_with_zero_contacts}{" "}
-            of {report.total_organizations} organizations have contacts
+            {report.total_organizations - report.organizations_with_zero_contacts} of{" "}
+            {report.total_organizations} organizations have contacts
           </Text>
           <Progress value={coveragePercent} color="lime" size="lg" />
           <Text size="sm" mt="xs">
@@ -130,8 +119,7 @@ const ContactCoveragePage = () => {
             Decision Maker Ratio
           </Text>
           <Text c="dimmed" size="sm" mb="xs">
-            {report.decision_maker_count} of {report.total_contacts} contacts
-            are decision makers
+            {report.decision_maker_count} of {report.total_contacts} contacts are decision makers
           </Text>
           <Progress value={decisionMakerPercent} color="blue" size="lg" />
           <Text size="sm" mt="xs">

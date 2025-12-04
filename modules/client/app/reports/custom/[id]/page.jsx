@@ -56,17 +56,14 @@ const EditReportPage = () => {
   if (error || !report) {
     return (
       <Stack gap="lg">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-          Edit Report
-        </h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Edit Report</h1>
         <Text c="red">{error || "Report not found"}</Text>
       </Stack>
     );
   }
 
   // Only leads entity supports project filtering
-  const entitySupportsProjectFilter =
-    report.query_definition?.primary_entity === "leads";
+  const entitySupportsProjectFilter = report.query_definition?.primary_entity === "leads";
 
   return (
     <Stack gap="lg">

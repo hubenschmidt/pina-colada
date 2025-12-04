@@ -1,16 +1,11 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 
-const GREETING =
-  "Welcome! Ask me anything about our services, I would be glad to help.";
+const GREETING = "Welcome! Ask me anything about our services, I would be glad to help.";
 
 /** Apply a streaming chunk to chat state (guard-clause style). */
 const applyStreamChunk = (prev, chunk) => {
   const last = prev.at(-1);
-  const isStreamingBot = !!(
-    last &&
-    last.user === "PinaColada" &&
-    last.streaming
-  );
+  const isStreamingBot = !!(last && last.user === "PinaColada" && last.streaming);
 
   // if there isn't an active streaming bot bubble, start one
   if (!isStreamingBot) {
@@ -47,8 +42,7 @@ const applyStartOfTurn = (prev) => {
 };
 
 const parseTokenUsage = (obj) => {
-  if (!obj.on_token_usage || typeof obj.on_token_usage !== "object")
-    return null;
+  if (!obj.on_token_usage || typeof obj.on_token_usage !== "object") return null;
   const current = obj.on_token_usage;
   const cumulative = obj.on_token_cumulative || {};
   return {
@@ -100,10 +94,7 @@ const handleParsedMessage = (obj, ctx) => {
 
 const handleUiEvents = (obj, ctx) => {
   const uiKeys = Object.keys(obj).filter(
-    (k) =>
-      k.startsWith("on_ui_") &&
-      k !== "on_chat_model_stream" &&
-      k !== "on_chat_model_end",
+    (k) => k.startsWith("on_ui_") && k !== "on_chat_model_stream" && k !== "on_chat_model_end"
   );
   if (uiKeys.length === 0) return;
   const k = uiKeys[0];
@@ -156,10 +147,7 @@ export const useWs = (url) => {
         parsed = JSON.parse(event.data);
       } catch (e) {
         // Plain text from server -> bot bubble
-        setMessages((prev) => [
-          ...prev,
-          { user: "PinaColada", msg: event.data },
-        ]);
+        setMessages((prev) => [...prev, { user: "PinaColada", msg: event.data }]);
         return;
       }
 
@@ -190,7 +178,7 @@ export const useWs = (url) => {
       setIsThinking(true); // Start thinking when user sends message
       s.send(JSON.stringify({ uuid, message: t }));
     },
-    [uuid],
+    [uuid]
   );
 
   // NEW: silent JSON sender (no UI echo)
@@ -198,13 +186,9 @@ export const useWs = (url) => {
     (payload) => {
       const s = wsRef.current;
       if (!s || s.readyState !== WebSocket.OPEN) return;
-      s.send(
-        typeof payload === "string"
-          ? payload
-          : JSON.stringify({ uuid, ...(payload || {}) }),
-      );
+      s.send(typeof payload === "string" ? payload : JSON.stringify({ uuid, ...(payload || {}) }));
     },
-    [uuid],
+    [uuid]
   );
 
   const reset = useCallback(() => {

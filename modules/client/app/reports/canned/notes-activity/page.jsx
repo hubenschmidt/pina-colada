@@ -129,10 +129,7 @@ const NotesActivityPage = () => {
             Entities with Notes
           </Text>
           <Text fw={700} size="xl">
-            {Object.values(report.entities_with_notes).reduce(
-              (a, b) => a + b,
-              0,
-            )}
+            {Object.values(report.entities_with_notes).reduce((a, b) => a + b, 0)}
           </Text>
         </Card>
       </SimpleGrid>
@@ -215,23 +212,14 @@ const NotesActivityPage = () => {
             </Table.Thead>
             <Table.Tbody>
               {report.recent_notes.map((note) => {
-                const entityLink = getEntityLink(
-                  note.entity_type,
-                  note.entity_id,
-                );
-                const displayName =
-                  note.entity_name || `${note.entity_type} #${note.entity_id}`;
+                const entityLink = getEntityLink(note.entity_type, note.entity_id);
+                const displayName = note.entity_name || `${note.entity_type} #${note.entity_id}`;
                 return (
                   <Table.Tr key={note.id}>
                     <Table.Td>{note.id}</Table.Td>
                     <Table.Td>
                       {entityLink ? (
-                        <Anchor
-                          component={Link}
-                          href={entityLink}
-                          size="sm"
-                          c="blue"
-                        >
+                        <Anchor component={Link} href={entityLink} size="sm" c="blue">
                           {displayName}
                         </Anchor>
                       ) : (

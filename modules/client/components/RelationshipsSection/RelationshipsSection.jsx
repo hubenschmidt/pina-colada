@@ -56,9 +56,7 @@ const RelationshipsSection = ({
   const handleSelect = (result) => {
     if (!onAdd) return;
 
-    const name =
-      result.name ||
-      `${result.first_name || ""} ${result.last_name || ""}`.trim();
+    const name = result.name || `${result.first_name || ""} ${result.last_name || ""}`.trim();
 
     const type = result.type || searchType || "organization";
 
@@ -85,15 +83,12 @@ const RelationshipsSection = ({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Relationships
-        </span>
+        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Relationships</span>
         {canAdd && !showAddForm && (
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-1 text-sm text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300"
-          >
+            className="flex items-center gap-1 text-sm text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300">
             <Plus size={16} />
             Add Relationship
           </button>
@@ -123,23 +118,16 @@ const RelationshipsSection = ({
                     key={`${result.type}-${result.id}`}
                     type="button"
                     onClick={() => handleSelect(result)}
-                    className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 flex items-center gap-2"
-                  >
+                    className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
                     {result.type === "organization" ? (
-                      <Building2
-                        size={14}
-                        className="text-zinc-400 flex-shrink-0"
-                      />
+                      <Building2 size={14} className="text-zinc-400 flex-shrink-0" />
                     ) : (
                       <User size={14} className="text-zinc-400 flex-shrink-0" />
                     )}
                     <span className="flex-1">
-                      {result.name ||
-                        `${result.first_name || ""} ${result.last_name || ""}`.trim()}
+                      {result.name || `${result.first_name || ""} ${result.last_name || ""}`.trim()}
                     </span>
-                    <span className="text-xs text-zinc-400 capitalize">
-                      {result.type}
-                    </span>
+                    <span className="text-xs text-zinc-400 capitalize">{result.type}</span>
                   </button>
                 ))}
               </div>
@@ -157,8 +145,7 @@ const RelationshipsSection = ({
               setSearchQuery("");
               setSearchResults([]);
             }}
-            className="mt-2 px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-300 dark:hover:bg-zinc-600"
-          >
+            className="mt-2 px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-300 dark:hover:bg-zinc-600">
             Cancel
           </button>
         </div>
@@ -173,8 +160,7 @@ const RelationshipsSection = ({
           return (
             <div
               key={`${rel.type}-${rel.id}`}
-              className="flex items-center gap-2 p-3 border border-zinc-200 dark:border-zinc-700 rounded"
-            >
+              className="flex items-center gap-2 p-3 border border-zinc-200 dark:border-zinc-700 rounded">
               {rel.type === "organization" ? (
                 <Building2 size={16} className="text-zinc-500" />
               ) : (
@@ -182,8 +168,7 @@ const RelationshipsSection = ({
               )}
               <Link
                 href={relUrl}
-                className="text-sm text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline"
-              >
+                className="text-sm text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline">
                 {rel.name}
               </Link>
               <span className="text-xs text-zinc-500 dark:text-zinc-400 ml-auto capitalize">
@@ -198,8 +183,7 @@ const RelationshipsSection = ({
                     onRemove(index);
                   }}
                   className="text-zinc-400 hover:text-red-500 ml-2"
-                  title="Remove"
-                >
+                  title="Remove">
                   <X size={16} />
                 </button>
               )}
@@ -209,9 +193,7 @@ const RelationshipsSection = ({
       </div>
 
       {relationships.length === 0 && !showAddForm && (
-        <p className="text-sm text-zinc-500 dark:text-zinc-400">
-          No relationships added yet.
-        </p>
+        <p className="text-sm text-zinc-500 dark:text-zinc-400">No relationships added yet.</p>
       )}
     </div>
   );

@@ -62,8 +62,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
       setFormData({ ...account });
       setContacts(account.contacts || []);
       setSelectedIndustries(account.industries || []);
-      const projectIds =
-        account.projects?.map((p) => p.id) || account.project_ids || [];
+      const projectIds = account.projects?.map((p) => p.id) || account.project_ids || [];
       setSelectedProjectIds(projectIds);
       setRelationships(account.relationships || []);
       setPendingContacts([]);
@@ -86,9 +85,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
     setContacts([]);
     setRelationships([]);
     setSelectedIndustries([]);
-    setSelectedProjectIds(
-      projectState.selectedProject ? [projectState.selectedProject.id] : [],
-    );
+    setSelectedProjectIds(projectState.selectedProject ? [projectState.selectedProject.id] : []);
     setPendingContacts([]);
     setPendingDeletions([]);
     setPendingNotes([]);
@@ -107,8 +104,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
 
   const originalProjectIds = account?.projects?.map((p) => p.id).sort() || [];
   const currentProjectIds = [...selectedProjectIds].sort();
-  const projectsChanged =
-    JSON.stringify(originalProjectIds) !== JSON.stringify(currentProjectIds);
+  const projectsChanged = JSON.stringify(originalProjectIds) !== JSON.stringify(currentProjectIds);
   const hasPendingChanges = formDataHasChanges || projectsChanged;
 
   const handleChange = (field, value) => {
@@ -131,9 +127,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
   };
 
   const processPendingContactDeletions = async (accountId) => {
-    const deleteContact = isOrganization
-      ? deleteOrganizationContact
-      : deleteIndividualContact;
+    const deleteContact = isOrganization ? deleteOrganizationContact : deleteIndividualContact;
     for (const contact of pendingDeletions) {
       try {
         await deleteContact(accountId, contact.id);
@@ -155,9 +149,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
   });
 
   const createPendingContacts = async (entityId) => {
-    const createContact = isOrganization
-      ? createOrganizationContact
-      : createIndividualContact;
+    const createContact = isOrganization ? createOrganizationContact : createIndividualContact;
     for (const pending of pendingContacts) {
       try {
         await createContact(entityId, buildContactData(pending));
@@ -170,10 +162,8 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
   const createRelationshipContacts = async (entityId) => {
     for (const rel of pendingRelationships) {
       try {
-        const shouldCreateOrgContact =
-          isOrganization && rel.type === "individual";
-        const shouldCreateIndContact =
-          !isOrganization && rel.type === "organization";
+        const shouldCreateOrgContact = isOrganization && rel.type === "individual";
+        const shouldCreateIndContact = !isOrganization && rel.type === "organization";
 
         if (shouldCreateOrgContact) {
           await createOrganizationContact(entityId, {
@@ -273,9 +263,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
       onClose();
     } catch (err) {
       const message =
-        err instanceof Error
-          ? err.message
-          : `Failed to ${isEditMode ? "update" : "create"}`;
+        err instanceof Error ? err.message : `Failed to ${isEditMode ? "update" : "create"}`;
       setErrors({ _form: message });
     } finally {
       setIsSubmitting(false);
@@ -309,13 +297,9 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
     if (!account?.id) return;
     setErrors({});
 
-    const createContact = isOrganization
-      ? createOrganizationContact
-      : createIndividualContact;
+    const createContact = isOrganization ? createOrganizationContact : createIndividualContact;
     const contactData = {
-      individual_id: isOrganization
-        ? contact.individual_id || undefined
-        : undefined,
+      individual_id: isOrganization ? contact.individual_id || undefined : undefined,
       first_name: contact.first_name?.trim() || undefined,
       last_name: contact.last_name?.trim() || undefined,
       email: contact.email?.trim() || undefined,
@@ -327,8 +311,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
       const newContactData = await createContact(account.id, contactData);
       setContacts([...contacts, newContactData]);
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to add contact";
+      const message = err instanceof Error ? err.message : "Failed to add contact";
       setErrors({ _form: message });
     }
   };
@@ -348,18 +331,14 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
 
   const handleUpdateContact = async (index, updatedContact) => {
     if (!isEditMode) {
-      setPendingContacts(
-        pendingContacts.map((c, i) => (i === index ? updatedContact : c)),
-      );
+      setPendingContacts(pendingContacts.map((c, i) => (i === index ? updatedContact : c)));
       return;
     }
 
     const contact = contacts[index];
     if (!account?.id || !contact) return;
 
-    const updateContact = isOrganization
-      ? updateOrganizationContact
-      : updateIndividualContact;
+    const updateContact = isOrganization ? updateOrganizationContact : updateIndividualContact;
     const updateData = {
       email: updatedContact.email?.trim() || undefined,
       phone: updatedContact.phone?.trim() || undefined,
@@ -369,8 +348,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
       const updated = await updateContact(account.id, contact.id, updateData);
       setContacts(contacts.map((c, i) => (i === index ? updated : c)));
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to update contact";
+      const message = err instanceof Error ? err.message : "Failed to update contact";
       setErrors({ _form: message });
     }
   };
@@ -382,20 +360,17 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
     if (!contact) return;
 
     try {
-      const updateContact = isOrganization
-        ? updateOrganizationContact
-        : updateIndividualContact;
+      const updateContact = isOrganization ? updateOrganizationContact : updateIndividualContact;
       await updateContact(account.id, contact.id, { is_primary: true });
 
       setContacts(
         contacts.map((c, i) => ({
           ...c,
           is_primary: i === index,
-        })),
+        }))
       );
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to set primary contact";
+      const message = err instanceof Error ? err.message : "Failed to set primary contact";
       setErrors({ _form: message });
     }
   };
@@ -440,9 +415,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
     setPendingRelationships(pendingRelationships.filter((_, i) => i !== index));
   };
 
-  const displayRelationships = isEditMode
-    ? relationships
-    : pendingRelationships;
+  const displayRelationships = isEditMode ? relationships : pendingRelationships;
   const relationshipSearchType = isOrganization ? "individual" : "organization";
 
   const contactFields = [
@@ -477,26 +450,17 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
       }))
     : pendingContacts;
 
-  const hasPairedFields = config.fields.some(
-    (f) => f.gridColumn === "md:col-span-1",
-  );
+  const hasPairedFields = config.fields.some((f) => f.gridColumn === "md:col-span-1");
 
   const getCustomRenderer = (fieldName) => {
     if (fieldName === "industry") {
-      return (
-        <IndustrySelector
-          value={selectedIndustries}
-          onChange={setSelectedIndustries}
-        />
-      );
+      return <IndustrySelector value={selectedIndustries} onChange={setSelectedIndustries} />;
     }
     if (fieldName === "employee_count_range_id") {
       return (
         <EmployeeCountRangeSelector
           value={formData.employee_count_range_id}
-          onChange={(val) =>
-            handleChange("employee_count_range_id", val?.toString() ?? "")
-          }
+          onChange={(val) => handleChange("employee_count_range_id", val?.toString() ?? "")}
         />
       );
     }
@@ -504,9 +468,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
       return (
         <FundingStageSelector
           value={formData.funding_stage_id}
-          onChange={(val) =>
-            handleChange("funding_stage_id", val?.toString() ?? "")
-          }
+          onChange={(val) => handleChange("funding_stage_id", val?.toString() ?? "")}
         />
       );
     }
@@ -514,9 +476,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
       return (
         <RevenueRangeSelector
           value={formData.revenue_range_id}
-          onChange={(val) =>
-            handleChange("revenue_range_id", val?.toString() ?? "")
-          }
+          onChange={(val) => handleChange("revenue_range_id", val?.toString() ?? "")}
         />
       );
     }
@@ -530,10 +490,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
           {config.fields.map((field) => (
             <div
               key={field.name}
-              className={
-                field.gridColumn === "md:col-span-1" ? "" : "md:col-span-2"
-              }
-            >
+              className={field.gridColumn === "md:col-span-1" ? "" : "md:col-span-2"}>
               <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
                 {field.label}
                 {field.required && <span className="text-red-500"> *</span>}
@@ -542,12 +499,10 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
                 field,
                 formData[field.name],
                 handleChange,
-                getCustomRenderer(field.name),
+                getCustomRenderer(field.name)
               )}
               {errors[field.name] && (
-                <p className="mt-1 text-sm text-red-500">
-                  {errors[field.name]}
-                </p>
+                <p className="mt-1 text-sm text-red-500">{errors[field.name]}</p>
               )}
             </div>
           ))}
@@ -561,24 +516,15 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
           {field.label}
           {field.required && <span className="text-red-500"> *</span>}
         </label>
-        {renderField(
-          field,
-          formData[field.name],
-          handleChange,
-          getCustomRenderer(field.name),
-        )}
-        {errors[field.name] && (
-          <p className="mt-1 text-sm text-red-500">{errors[field.name]}</p>
-        )}
+        {renderField(field, formData[field.name], handleChange, getCustomRenderer(field.name))}
+        {errors[field.name] && <p className="mt-1 text-sm text-red-500">{errors[field.name]}</p>}
       </div>
     ));
   };
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">
-        {title}
-      </h1>
+      <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">{title}</h1>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {renderFormFields()}
@@ -646,9 +592,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
             entityType={isOrganization ? "Organization" : "Individual"}
             entityId={isEditMode ? (account?.id ?? null) : null}
             pendingDocumentIds={!isEditMode ? pendingDocumentIds : undefined}
-            onPendingDocumentIdsChange={
-              !isEditMode ? setPendingDocumentIds : undefined
-            }
+            onPendingDocumentIdsChange={!isEditMode ? setPendingDocumentIds : undefined}
           />
         </div>
 
@@ -665,10 +609,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
         </div>
 
         {isEditMode && account && (
-          <Timestamps
-            createdAt={account.created_at}
-            updatedAt={account.updated_at}
-          />
+          <Timestamps createdAt={account.created_at} updatedAt={account.updated_at} />
         )}
 
         {errors._form && (

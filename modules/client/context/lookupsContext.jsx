@@ -7,15 +7,24 @@ const initialState = {
   industries: [],
   salaryRanges: [],
   projects: [],
+  revenueRanges: [],
+  employeeCountRanges: [],
+  fundingStages: [],
   loading: {
     industries: false,
     salaryRanges: false,
     projects: false,
+    revenueRanges: false,
+    employeeCountRanges: false,
+    fundingStages: false,
   },
   loaded: {
     industries: false,
     salaryRanges: false,
     projects: false,
+    revenueRanges: false,
+    employeeCountRanges: false,
+    fundingStages: false,
   },
 };
 

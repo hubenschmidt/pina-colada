@@ -14,6 +14,7 @@ from models.LeadProject import LeadProject
 from models.Organization import Organization
 from models.Project import Project
 from models.Status import Status
+from models.Contact import Contact
 from schemas.job import JobCreate, JobUpdate
 
 __all__ = ["JobCreate", "JobUpdate"]
@@ -65,8 +66,10 @@ async def _load_job_with_relationships(session, job_id: int) -> Job:
         joinedload(Job.lead).joinedload(Lead.tenant),
         joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
         joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-        joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
-        joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
+        joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts).joinedload(Contact.organizations),
+        joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts).joinedload(Contact.individuals),
+        joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts).joinedload(Contact.organizations),
+        joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts).joinedload(Contact.individuals),
         joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
         joinedload(Job.lead).joinedload(Lead.projects),
         joinedload(Job.salary_range_ref)
@@ -163,8 +166,10 @@ async def find_job_by_id(job_id: int) -> Optional[Job]:
             joinedload(Job.lead).joinedload(Lead.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts).joinedload(Contact.organizations),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts).joinedload(Contact.individuals),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts).joinedload(Contact.organizations),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts).joinedload(Contact.individuals),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
             joinedload(Job.lead).joinedload(Lead.projects),
             joinedload(Job.salary_range_ref)
@@ -341,8 +346,10 @@ async def find_job_by_company_and_title(company: str, title: str) -> Optional[Jo
             joinedload(Job.lead).joinedload(Lead.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts).joinedload(Contact.organizations),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts).joinedload(Contact.individuals),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts).joinedload(Contact.organizations),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts).joinedload(Contact.individuals),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
             joinedload(Job.lead).joinedload(Lead.projects),
             joinedload(Job.salary_range_ref)
@@ -370,8 +377,10 @@ async def find_jobs_with_status(status_names: Optional[List[str]] = None) -> Lis
             joinedload(Job.lead).joinedload(Lead.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.tenant),
             joinedload(Job.lead).joinedload(Lead.deal).joinedload(Deal.current_status),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts),
-            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts).joinedload(Contact.organizations),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.organizations).joinedload(Organization.contacts).joinedload(Contact.individuals),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts).joinedload(Contact.organizations),
+            joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.individuals).joinedload(Individual.contacts).joinedload(Contact.individuals),
             joinedload(Job.lead).joinedload(Lead.account).joinedload(Account.industries),
             joinedload(Job.lead).joinedload(Lead.projects),
             joinedload(Job.salary_range_ref)

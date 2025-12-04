@@ -17,12 +17,7 @@ import {
 } from "@mantine/core";
 import { SearchBox } from "../SearchBox";
 import { Download, Trash2, MoreVertical, FileText, Link2 } from "lucide-react";
-import {
-  getDocuments,
-  deleteDocument,
-  downloadDocument,
-  getTags,
-} from "../../api";
+import { getDocuments, deleteDocument, downloadDocument, getTags } from "../../api";
 import { DataTable } from "../DataTable/DataTable";
 import { DeleteConfirmBanner } from "../DeleteConfirmBanner";
 
@@ -59,7 +54,7 @@ export const DocumentList = ({
         searchQuery || undefined,
         filterTags.length > 0 ? filterTags : undefined,
         entityType,
-        entityId,
+        entityId
       );
       setData(pageData);
     } catch (err) {
@@ -67,16 +62,7 @@ export const DocumentList = ({
     } finally {
       setLoading(false);
     }
-  }, [
-    page,
-    limit,
-    sortBy,
-    sortDirection,
-    searchQuery,
-    filterTags,
-    entityType,
-    entityId,
-  ]);
+  }, [page, limit, sortBy, sortDirection, searchQuery, filterTags, entityType, entityId]);
 
   const loadTags = useCallback(async () => {
     try {
@@ -207,9 +193,7 @@ export const DocumentList = ({
       accessor: "entities",
       render: (doc) => {
         // Filter out Lead entities to avoid clutter (documents like resumes link to many jobs)
-        const filteredEntities = (doc.entities || []).filter(
-          (e) => e.entity_type !== "Lead",
-        );
+        const filteredEntities = (doc.entities || []).filter((e) => e.entity_type !== "Lead");
         return (
           <Group gap={4}>
             {filteredEntities.map((entity, idx) => (
@@ -218,14 +202,12 @@ export const DocumentList = ({
                 component={Link}
                 href={getEntityUrl(entity.entity_type, entity.entity_id)}
                 size="xs"
-                onClick={(e) => e.stopPropagation()}
-              >
+                onClick={(e) => e.stopPropagation()}>
                 <Badge
                   size="sm"
                   variant="light"
                   color={getEntityColor(entity.entity_type)}
-                  style={{ cursor: "pointer" }}
-                >
+                  style={{ cursor: "pointer" }}>
                   {entity.entity_name}
                 </Badge>
               </Anchor>
@@ -285,19 +267,14 @@ export const DocumentList = ({
       render: (doc) => (
         <Menu position="bottom-end" withinPortal>
           <Menu.Target>
-            <ActionIcon
-              variant="subtle"
-              color="gray"
-              onClick={(e) => e.stopPropagation()}
-            >
+            <ActionIcon variant="subtle" color="gray" onClick={(e) => e.stopPropagation()}>
               <MoreVertical className="h-4 w-4" />
             </ActionIcon>
           </Menu.Target>
           <Menu.Dropdown>
             <Menu.Item
               leftSection={<Download className="h-4 w-4" />}
-              onClick={(e) => handleDownload(doc, e)}
-            >
+              onClick={(e) => handleDownload(doc, e)}>
               Download
             </Menu.Item>
             <Menu.Item leftSection={<Link2 className="h-4 w-4" />} disabled>
@@ -307,8 +284,7 @@ export const DocumentList = ({
             <Menu.Item
               leftSection={<Trash2 className="h-4 w-4" />}
               color="red"
-              onClick={(e) => handleDeleteClick(doc, e)}
-            >
+              onClick={(e) => handleDeleteClick(doc, e)}>
               Delete
             </Menu.Item>
           </Menu.Dropdown>
@@ -341,10 +317,7 @@ export const DocumentList = ({
   return (
     <Stack gap="md">
       <Group gap="md">
-        <SearchBox
-          placeholder="Search documents... (Enter to search)"
-          onSearch={handleSearch}
-        />
+        <SearchBox placeholder="Search documents... (Enter to search)" onSearch={handleSearch} />
 
         <TagsInput
           placeholder="Filter by tags..."

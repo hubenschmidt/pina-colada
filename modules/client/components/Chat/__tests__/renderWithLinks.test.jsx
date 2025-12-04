@@ -55,21 +55,17 @@ describe("renderWithLinks", () => {
   });
 
   it("styles error message in red", () => {
-    const text =
-      "Some text\n\nSorry, there was an error generating the response.";
+    const text = "Some text\n\nSorry, there was an error generating the response.";
     const result = renderWithLinks(text);
     const { container } = render(<>{result}</>);
 
     const errorSpan = container.querySelector(`.${mockStyles.errorText}`);
     expect(errorSpan).toBeTruthy();
-    expect(errorSpan?.textContent).toBe(
-      "Sorry, there was an error generating the response.",
-    );
+    expect(errorSpan?.textContent).toBe("Sorry, there was an error generating the response.");
   });
 
   it("adds proper spacing before error message", () => {
-    const text =
-      "Some response text\n\nSorry, there was an error generating the response.";
+    const text = "Some response text\n\nSorry, there was an error generating the response.";
     const result = renderWithLinks(text);
     const { container } = render(<>{result}</>);
 
@@ -82,8 +78,7 @@ describe("renderWithLinks", () => {
   });
 
   it("handles error message with links in preceding text", () => {
-    const text =
-      "Visit https://example.com\n\nSorry, there was an error generating the response.";
+    const text = "Visit https://example.com\n\nSorry, there was an error generating the response.";
     const result = renderWithLinks(text);
     const { container } = render(<>{result}</>);
 
@@ -92,9 +87,7 @@ describe("renderWithLinks", () => {
 
     const errorSpan = container.querySelector(`.${mockStyles.errorText}`);
     expect(errorSpan).toBeTruthy();
-    expect(errorSpan?.textContent).toBe(
-      "Sorry, there was an error generating the response.",
-    );
+    expect(errorSpan?.textContent).toBe("Sorry, there was an error generating the response.");
   });
 
   it("handles multiple links and error message", () => {
@@ -122,9 +115,7 @@ describe("renderWithLinks", () => {
 
     const errorSpan = container.querySelector(`.${mockStyles.errorText}`);
     expect(errorSpan).toBeTruthy();
-    expect(errorSpan?.textContent).toBe(
-      "Sorry, there was an error generating the response.",
-    );
+    expect(errorSpan?.textContent).toBe("Sorry, there was an error generating the response.");
   });
 
   it("handles error message in middle of text with links", () => {

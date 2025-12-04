@@ -12,11 +12,7 @@ const SearchHeader = ({
 }) => {
   return (
     <Group gap="md">
-      <SearchBox
-        placeholder={placeholder}
-        onSearch={onSearch}
-        fetchPreview={fetchPreview}
-      />
+      <SearchBox placeholder={placeholder} onSearch={onSearch} fetchPreview={fetchPreview} />
 
       <Button onClick={onAdd} color="lime">
         {buttonLabel}

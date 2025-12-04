@@ -33,16 +33,12 @@ export const GET = async () => {
     const userEmail = session.user.email;
 
     // Query backend to check if user has a tenant
-    const backendUrl =
-      process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-    const response = await fetch(
-      `${backendUrl}/users/${encodeURIComponent(userEmail)}/tenant`,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const response = await fetch(`${backendUrl}/users/${encodeURIComponent(userEmail)}/tenant`, {
+      headers: {
+        "Content-Type": "application/json",
       },
-    );
+    });
 
     if (!response.ok) {
       if (response.status === 404) {
@@ -55,9 +51,6 @@ export const GET = async () => {
     return NextResponse.json({ hasTenant: true, tenant: data });
   } catch (error) {
     console.error("Error checking user tenant:", error);
-    return NextResponse.json(
-      { error: "Failed to check tenant" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "Failed to check tenant" }, { status: 500 });
   }
 };

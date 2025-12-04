@@ -31,15 +31,9 @@ const apiRequest = async (method, path, data, config) => {
       // Handle Pydantic validation errors (422) which return detail as array
       const message = Array.isArray(errorData.detail)
         ? errorData.detail
-            .map(
-              (e) =>
-                `${e.loc?.slice(1).join(".") || "field"}: ${e.msg || "invalid"}`,
-            )
+            .map((e) => `${e.loc?.slice(1).join(".") || "field"}: ${e.msg || "invalid"}`)
             .join("; ")
-        : errorData.detail ||
-          errorData.error ||
-          error.message ||
-          "Request failed";
+        : errorData.detail || errorData.error || error.message || "Request failed";
       console.error("API Error:", {
         status: error.response?.status,
         message,
@@ -58,11 +52,9 @@ const apiPost = (path, data, config) => apiRequest("post", path, data, config);
 
 const apiPut = (path, data, config) => apiRequest("put", path, data, config);
 
-const apiPatch = (path, data, config) =>
-  apiRequest("patch", path, data, config);
+const apiPatch = (path, data, config) => apiRequest("patch", path, data, config);
 
-const apiDelete = (path, config) =>
-  apiRequest("delete", path, undefined, config);
+const apiDelete = (path, config) => apiRequest("delete", path, undefined, config);
 
 export const getJobs = async (
   page = 1,
@@ -70,7 +62,7 @@ export const getJobs = async (
   orderBy = "date",
   order = "DESC",
   search,
-  projectId,
+  projectId
 ) => {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -239,7 +231,7 @@ export const getIndividuals = async (
   limit = 50,
   orderBy = "updated_at",
   order = "DESC",
-  search,
+  search
 ) => {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -291,7 +283,7 @@ export const getOrganizations = async (
   limit = 50,
   orderBy = "updated_at",
   order = "DESC",
-  search,
+  search
 ) => {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -418,7 +410,7 @@ export const getContacts = async (
   limit = 50,
   orderBy = "updated_at",
   order = "DESC",
-  search,
+  search
 ) => {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -479,11 +471,7 @@ export const createIndividualContact = async (individualId, data) => {
 /**
  * Update a contact for an individual
  */
-export const updateIndividualContact = async (
-  individualId,
-  contactId,
-  data,
-) => {
+export const updateIndividualContact = async (individualId, contactId, data) => {
   return apiPut(`/individuals/${individualId}/contacts/${contactId}`, data);
 };
 
@@ -534,9 +522,7 @@ export const deleteOrganizationContact = async (orgId, contactId) => {
  * Get notes for an entity
  */
 export const getNotes = async (entityType, entityId) => {
-  return apiGet(
-    `/notes?entity_type=${encodeURIComponent(entityType)}&entity_id=${entityId}`,
-  );
+  return apiGet(`/notes?entity_type=${encodeURIComponent(entityType)}&entity_id=${entityId}`);
 };
 
 /**
@@ -758,7 +744,7 @@ export const getSavedReports = async (
   limit = 50,
   sortBy = "updated_at",
   order = "DESC",
-  search,
+  search
 ) => {
   const params = new URLSearchParams();
   if (projectId !== undefined && projectId !== null) {
@@ -848,7 +834,7 @@ export const getOpportunities = async (
   orderBy = "updated_at",
   order = "DESC",
   search,
-  projectId,
+  projectId
 ) => {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -889,7 +875,7 @@ export const getPartnerships = async (
   orderBy = "updated_at",
   order = "DESC",
   search,
-  projectId,
+  projectId
 ) => {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -921,7 +907,7 @@ export const getTasks = async (
   order = "DESC",
   scope = "global",
   projectId,
-  search,
+  search
 ) => {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -970,17 +956,12 @@ export const deleteTask = async (id) => {
 export const getComments = async (commentableType, commentableId) => {
   return apiGet(
     `/comments?commentable_type=${encodeURIComponent(
-      commentableType,
-    )}&commentable_id=${commentableId}`,
+      commentableType
+    )}&commentable_id=${commentableId}`
   );
 };
 
-export const createComment = async (
-  commentableType,
-  commentableId,
-  content,
-  parentCommentId,
-) => {
+export const createComment = async (commentableType, commentableId, content, parentCommentId) => {
   return apiPost("/comments", {
     commentable_type: commentableType,
     commentable_id: commentableId,
@@ -1034,7 +1015,7 @@ export const getDocuments = async (
   search,
   tags,
   entityType,
-  entityId,
+  entityId
 ) => {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -1053,13 +1034,7 @@ export const getDocument = async (id) => {
   return apiGet(`/assets/documents/${id}`);
 };
 
-export const uploadDocument = async (
-  file,
-  tags,
-  entityType,
-  entityId,
-  description,
-) => {
+export const uploadDocument = async (file, tags, entityType, entityId, description) => {
   const formData = new FormData();
   formData.append("file", file);
   if (tags && tags.length > 0) formData.append("tags", tags.join(","));
@@ -1112,24 +1087,16 @@ export const getDocumentPreviewUrl = async (id) => {
   return window.URL.createObjectURL(blob);
 };
 
-export const linkDocumentToEntity = async (
-  documentId,
-  entityType,
-  entityId,
-) => {
+export const linkDocumentToEntity = async (documentId, entityType, entityId) => {
   await apiPost(`/assets/documents/${documentId}/link`, {
     entity_type: entityType,
     entity_id: entityId,
   });
 };
 
-export const unlinkDocumentFromEntity = async (
-  documentId,
-  entityType,
-  entityId,
-) => {
+export const unlinkDocumentFromEntity = async (documentId, entityType, entityId) => {
   await apiDelete(
-    `/assets/documents/${documentId}/link?entity_type=${entityType}&entity_id=${entityId}`,
+    `/assets/documents/${documentId}/link?entity_type=${entityType}&entity_id=${entityId}`
   );
 };
 

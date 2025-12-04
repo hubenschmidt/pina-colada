@@ -63,9 +63,7 @@ const ProjectsPage = () => {
         const data = await getProjects();
         setProjects(data);
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load projects",
-        );
+        setError(err instanceof Error ? err.message : "Failed to load projects");
       } finally {
         setLoading(false);
         dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
@@ -84,16 +82,13 @@ const ProjectsPage = () => {
         (project) =>
           project.name?.toLowerCase().includes(query) ||
           project.description?.toLowerCase().includes(query) ||
-          project.status?.toLowerCase().includes(query),
+          project.status?.toLowerCase().includes(query)
       );
     }
 
     const getComparison = (a, b) => {
       if (sortBy === "updated_at") {
-        return (
-          new Date(a.updated_at || 0).getTime() -
-          new Date(b.updated_at || 0).getTime()
-        );
+        return new Date(a.updated_at || 0).getTime() - new Date(b.updated_at || 0).getTime();
       }
       const aVal = (a[sortBy] || "").toLowerCase();
       const bVal = (b[sortBy] || "").toLowerCase();
@@ -136,9 +131,7 @@ const ProjectsPage = () => {
   if (error) {
     return (
       <Stack gap="lg">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-          Projects
-        </h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Projects</h1>
         <p className="text-red-600 dark:text-red-400">{error}</p>
       </Stack>
     );
@@ -146,9 +139,7 @@ const ProjectsPage = () => {
 
   return (
     <Stack gap="lg">
-      <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-        Projects
-      </h1>
+      <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Projects</h1>
 
       <SearchHeader
         placeholder="Search projects..."
@@ -180,9 +171,7 @@ const ProjectsPage = () => {
         onRowClick={handleRowClick}
         rowKey={(project) => project.id}
         emptyText={
-          searchQuery
-            ? "No matching projects found."
-            : "No projects yet. Add your first one above!"
+          searchQuery ? "No matching projects found." : "No projects yet. Add your first one above!"
         }
       />
     </Stack>

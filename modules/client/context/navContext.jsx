@@ -23,9 +23,5 @@ export const NavProvider = ({ children }) => {
   const reducer = navReducer(initialState);
   const [navState, dispatchNav] = useReducer(reducer, initialState);
 
-  return (
-    <NavContext.Provider value={{ navState, dispatchNav }}>
-      {children}
-    </NavContext.Provider>
-  );
+  return <NavContext.Provider value={{ navState, dispatchNav }}>{children}</NavContext.Provider>;
 };

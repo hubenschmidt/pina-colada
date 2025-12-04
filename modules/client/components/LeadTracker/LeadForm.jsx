@@ -5,13 +5,7 @@ import { ExternalLink, FolderKanban } from "lucide-react";
 import { Badge, Group } from "@mantine/core";
 
 import ContactSection from "../ContactSection/ContactSection";
-import {
-  searchContacts,
-  updateJob,
-  createNote,
-  createTask,
-  linkDocumentToEntity,
-} from "../../api";
+import { searchContacts, updateJob, createNote, createTask, linkDocumentToEntity } from "../../api";
 import FormActions from "../FormActions/FormActions";
 import NotesSection from "../NotesSection/NotesSection";
 import TasksSection from "../TasksSection/TasksSection";
@@ -74,8 +68,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
 
   // Update contact with individual field value
   const updateContactWithIndividualField = (prevContacts, fieldName, value) => {
-    const newContacts =
-      prevContacts.length > 0 ? [...prevContacts] : [emptyContact()];
+    const newContacts = prevContacts.length > 0 ? [...prevContacts] : [emptyContact()];
     if (fieldName === "individual_first_name") {
       newContacts[0] = { ...newContacts[0], first_name: value };
       return newContacts;
@@ -183,10 +176,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
           const value = await field.onInit();
           setFormData((prev) => ({ ...prev, [field.name]: value }));
         } catch (error) {
-          console.error(
-            `Failed to initialize field ${String(field.name)}:`,
-            error,
-          );
+          console.error(`Failed to initialize field ${String(field.name)}:`, error);
         }
       }
     });
@@ -219,16 +209,11 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
 
       // When individual fields change and Account Type is Individual, auto-populate first contact
       if (
-        (fieldName === "individual_first_name" ||
-          fieldName === "individual_last_name") &&
+        (fieldName === "individual_first_name" || fieldName === "individual_last_name") &&
         newData.account_type === "Individual"
       ) {
         setContacts((prevContacts) =>
-          updateContactWithIndividualField(
-            prevContacts,
-            fieldName,
-            processedValue,
-          ),
+          updateContactWithIndividualField(prevContacts, fieldName, processedValue)
         );
       }
 
@@ -265,12 +250,8 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     const extractors = [
       () => (typeof err?.message === "string" ? err.message : null),
       () => (typeof err?.error === "string" ? err.error : null),
-      () =>
-        typeof err?.errorData?.detail === "string"
-          ? err.errorData.detail
-          : null,
-      () =>
-        typeof err?.errorData?.error === "string" ? err.errorData.error : null,
+      () => (typeof err?.errorData?.detail === "string" ? err.errorData.detail : null),
+      () => (typeof err?.errorData?.error === "string" ? err.errorData.error : null),
       () =>
         err?.errorData && typeof err.errorData === "object"
           ? Object.entries(err.errorData)
@@ -303,9 +284,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
       submitData.account = accountName;
     }
 
-    const validContacts = contacts.filter(
-      (c) => c.first_name.trim() && c.last_name.trim(),
-    );
+    const validContacts = contacts.filter((c) => c.first_name.trim() && c.last_name.trim());
     if (validContacts.length > 0) {
       submitData.contacts = validContacts;
     }
@@ -313,9 +292,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     delete submitData.individual_first_name;
     delete submitData.individual_last_name;
 
-    return config.onBeforeSubmit
-      ? config.onBeforeSubmit(submitData, isEditMode)
-      : submitData;
+    return config.onBeforeSubmit ? config.onBeforeSubmit(submitData, isEditMode) : submitData;
   };
 
   const createPendingNotes = async (leadId) => {
@@ -393,10 +370,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
       resetForm();
       onClose();
     } catch (error) {
-      console.error(
-        isEditMode ? "Failed to update lead:" : "Failed to add lead:",
-        error,
-      );
+      console.error(isEditMode ? "Failed to update lead:" : "Failed to add lead:", error);
       setErrors({ _form: getErrorMessage(error) });
     } finally {
       setIsSubmitting(false);
@@ -431,27 +405,21 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     const isAccountTypeField = field.name === "account_type";
 
     // In edit mode, account-related fields are read-only
-    const isAccountReadOnly =
-      isEditMode && (isAccountField || isAccountTypeField);
-    const readOnlyClasses =
-      "bg-zinc-100 dark:bg-zinc-700 cursor-not-allowed opacity-75";
+    const isAccountReadOnly = isEditMode && (isAccountField || isAccountTypeField);
+    const readOnlyClasses = "bg-zinc-100 dark:bg-zinc-700 cursor-not-allowed opacity-75";
 
     // If Individual is selected, render First Name instead of account field
     if (isAccountField && accountType === "Individual") {
       return (
         <div className={field.gridColumn || ""} key="individual_first_name">
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            First Name{" "}
-            {field.required && !isEditMode && (
-              <span className="text-red-500">*</span>
-            )}
+            First Name {field.required && !isEditMode && <span className="text-red-500">*</span>}
           </label>
           <input
             type="text"
             value={formData.individual_first_name || ""}
             onChange={(e) =>
-              !isEditMode &&
-              handleFieldChange("individual_first_name", e.target.value)
+              !isEditMode && handleFieldChange("individual_first_name", e.target.value)
             }
             readOnly={isEditMode}
             className={`w-full px-3 py-2 border ${
@@ -466,9 +434,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
           />
 
           {errors["individual_first_name"] && (
-            <p className="text-red-500 text-xs mt-1">
-              {errors["individual_first_name"]}
-            </p>
+            <p className="text-red-500 text-xs mt-1">{errors["individual_first_name"]}</p>
           )}
         </div>
       );
@@ -483,14 +449,11 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
           </label>
           <select
             value={formData.account_type || "Organization"}
-            onChange={(e) =>
-              !isEditMode && handleFieldChange("account_type", e.target.value)
-            }
+            onChange={(e) => !isEditMode && handleFieldChange("account_type", e.target.value)}
             disabled={isEditMode}
             className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
               isEditMode ? readOnlyClasses : ""
-            }`}
-          >
+            }`}>
             {field.options?.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
@@ -506,8 +469,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
             type="text"
             value={formData.individual_last_name || ""}
             onChange={(e) =>
-              !isEditMode &&
-              handleFieldChange("individual_last_name", e.target.value)
+              !isEditMode && handleFieldChange("individual_last_name", e.target.value)
             }
             readOnly={isEditMode}
             className={`w-full px-3 py-2 border ${
@@ -522,9 +484,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
           />
 
           {errors["individual_last_name"] && (
-            <p className="text-red-500 text-xs mt-1">
-              {errors["individual_last_name"]}
-            </p>
+            <p className="text-red-500 text-xs mt-1">{errors["individual_last_name"]}</p>
           )}
         </div>,
       ];
@@ -540,8 +500,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     const fieldWrapper = (content) => (
       <div className={field.gridColumn || ""} key={String(field.name)}>
         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          {field.label}{" "}
-          {field.required && <span className="text-red-500">*</span>}
+          {field.label} {field.required && <span className="text-red-500">*</span>}
         </label>
         {content}
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
@@ -552,12 +511,11 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
       return fieldWrapper(
         field.renderCustom({
           value,
-          onChange: (v) =>
-            !isAccountReadOnly && handleFieldChange(String(field.name), v),
+          onChange: (v) => !isAccountReadOnly && handleFieldChange(String(field.name), v),
           field,
           formData,
           isEditMode,
-        }),
+        })
       );
     }
 
@@ -565,15 +523,13 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
       return fieldWrapper(
         <textarea
           value={value || ""}
-          onChange={(e) =>
-            handleFieldChange(String(field.name), e.target.value)
-          }
+          onChange={(e) => handleFieldChange(String(field.name), e.target.value)}
           className={inputClasses}
           placeholder={field.placeholder}
           rows={field.rows || 3}
           required={field.required}
           disabled={field.disabled}
-        />,
+        />
       );
     }
 
@@ -582,19 +538,16 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
       return fieldWrapper(
         <select
           value={value || ""}
-          onChange={(e) =>
-            !isDisabled && handleFieldChange(String(field.name), e.target.value)
-          }
+          onChange={(e) => !isDisabled && handleFieldChange(String(field.name), e.target.value)}
           className={`${inputClasses} ${isDisabled ? readOnlyClasses : ""}`}
           required={field.required}
-          disabled={isDisabled}
-        >
+          disabled={isDisabled}>
           {field.options?.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
           ))}
-        </select>,
+        </select>
       );
     }
 
@@ -604,17 +557,13 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
           <input
             type="checkbox"
             checked={value || false}
-            onChange={(e) =>
-              handleFieldChange(String(field.name), e.target.checked)
-            }
+            onChange={(e) => handleFieldChange(String(field.name), e.target.checked)}
             className="w-4 h-4 text-lime-500 border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded focus:ring-lime-500"
             disabled={field.disabled}
           />
 
-          <span className="text-sm text-zinc-600 dark:text-zinc-400">
-            {field.placeholder}
-          </span>
-        </label>,
+          <span className="text-sm text-zinc-600 dark:text-zinc-400">{field.placeholder}</span>
+        </label>
       );
     }
 
@@ -623,17 +572,13 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     const hasUrl = isUrlField && value && String(value).trim();
 
     if (hasUrl) {
-      const url = String(value).startsWith("http")
-        ? String(value)
-        : `https://${value}`;
+      const url = String(value).startsWith("http") ? String(value) : `https://${value}`;
       return fieldWrapper(
         <div>
           <input
             type="text"
             value={value || ""}
-            onChange={(e) =>
-              handleFieldChange(String(field.name), e.target.value)
-            }
+            onChange={(e) => handleFieldChange(String(field.name), e.target.value)}
             className={inputClasses}
             placeholder={field.placeholder}
             required={field.required}
@@ -644,12 +589,11 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 mt-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
-          >
+            className="inline-flex items-center gap-1 mt-1 text-sm text-blue-600 dark:text-blue-400 hover:underline">
             {String(value)}
             <ExternalLink size={14} />
           </a>
-        </div>,
+        </div>
       );
     }
 
@@ -666,7 +610,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
         step={field.step}
         pattern={field.pattern}
         disabled={field.disabled}
-      />,
+      />
     );
   };
 
@@ -688,9 +632,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
   };
 
   const handleUpdateContact = (index, updatedContact) => {
-    const newContacts = contacts.map((c, i) =>
-      i === index ? updatedContact : c,
-    );
+    const newContacts = contacts.map((c, i) => (i === index ? updatedContact : c));
     setContacts(newContacts);
     saveContacts(newContacts);
   };
@@ -757,7 +699,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
             }
 
             const sectionFields = config.fields.filter((field) =>
-              section.fieldNames.includes(String(field.name)),
+              section.fieldNames.includes(String(field.name))
             );
 
             return (
@@ -814,9 +756,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
           entityType="Lead"
           entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
           pendingDocumentIds={!isEditMode ? pendingDocumentIds : undefined}
-          onPendingDocumentIdsChange={
-            !isEditMode ? setPendingDocumentIds : undefined
-          }
+          onPendingDocumentIdsChange={!isEditMode ? setPendingDocumentIds : undefined}
         />
       </div>
 
@@ -832,9 +772,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
         />
       </div>
 
-      {isEditMode && lead && (
-        <Timestamps createdAt={lead.created_at} updatedAt={lead.updated_at} />
-      )}
+      {isEditMode && lead && <Timestamps createdAt={lead.created_at} updatedAt={lead.updated_at} />}
     </form>
   );
 
@@ -845,11 +783,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
           {isEditMode ? config.title.replace("Add New", "Edit") : config.title}
         </h1>
         {selectedProject ? (
-          <Badge
-            variant="light"
-            color="lime"
-            leftSection={<FolderKanban className="h-3 w-3" />}
-          >
+          <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
             {selectedProject.name}
           </Badge>
         ) : (

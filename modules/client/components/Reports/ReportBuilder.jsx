@@ -17,20 +17,8 @@ import {
   Textarea,
   Anchor,
 } from "@mantine/core";
-import {
-  Plus,
-  Trash2,
-  Play,
-  Download,
-  Save,
-  Globe,
-  FolderKanban,
-} from "lucide-react";
-import {
-  getEntityFields,
-  previewCustomReport,
-  exportCustomReport,
-} from "../../api";
+import { Plus, Trash2, Play, Download, Save, Globe, FolderKanban } from "lucide-react";
+import { getEntityFields, previewCustomReport, exportCustomReport } from "../../api";
 import { useProjectContext } from "../../context/projectContext";
 
 const ENTITY_ROUTES = {
@@ -70,9 +58,7 @@ export const ReportBuilder = ({
 }) => {
   const [entity, setEntity] = useState(initialQuery?.primary_entity || "");
   const [availableFields, setAvailableFields] = useState(null);
-  const [selectedColumns, setSelectedColumns] = useState(
-    initialQuery?.columns || [],
-  );
+  const [selectedColumns, setSelectedColumns] = useState(initialQuery?.columns || []);
   const [selectedJoins, setSelectedJoins] = useState(initialQuery?.joins || []);
   const [filters, setFilters] = useState(initialQuery?.filters || []);
   const [preview, setPreview] = useState(null);
@@ -82,9 +68,7 @@ export const ReportBuilder = ({
   const [saveName, setSaveName] = useState(initialName);
   const [saveDescription, setSaveDescription] = useState(initialDescription);
   const [saving, setSaving] = useState(false);
-  const [selectedProjectIds, setSelectedProjectIds] = useState(
-    initialProjectIds.map(String),
-  );
+  const [selectedProjectIds, setSelectedProjectIds] = useState(initialProjectIds.map(String));
   const { projectState } = useProjectContext();
   const { projects, selectedProject } = projectState;
 
@@ -112,9 +96,7 @@ export const ReportBuilder = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProject?.id]);
 
-  const allFields = availableFields
-    ? [...availableFields.base, ...availableFields.joins]
-    : [];
+  const allFields = availableFields ? [...availableFields.base, ...availableFields.joins] : [];
 
   const fieldOptions = allFields.map((f) => ({ value: f, label: f }));
 
@@ -123,9 +105,7 @@ export const ReportBuilder = ({
   };
 
   const updateFilter = (index, updates) => {
-    setFilters((prev) =>
-      prev.map((f, i) => (i === index ? { ...f, ...updates } : f)),
-    );
+    setFilters((prev) => prev.map((f, i) => (i === index ? { ...f, ...updates } : f)));
   };
 
   const removeFilter = (index) => {
@@ -228,39 +208,35 @@ export const ReportBuilder = ({
       </Card>
 
       {/* Join Selection */}
-      {entity &&
-        availableFields &&
-        availableFields.available_joins.length > 0 && (
-          <Card shadow="sm" padding="lg" radius="md" withBorder>
-            <Text fw={600} mb="md">
-              2. Link Related Entities (Optional)
-            </Text>
-            <MultiSelect
-              label="Join with"
-              placeholder="Select entities to join"
-              data={availableFields.available_joins.map((j) => ({
-                value: j.name,
-                label: j.name.charAt(0).toUpperCase() + j.name.slice(1),
-              }))}
-              value={selectedJoins}
-              onChange={setSelectedJoins}
-            />
+      {entity && availableFields && availableFields.available_joins.length > 0 && (
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Text fw={600} mb="md">
+            2. Link Related Entities (Optional)
+          </Text>
+          <MultiSelect
+            label="Join with"
+            placeholder="Select entities to join"
+            data={availableFields.available_joins.map((j) => ({
+              value: j.name,
+              label: j.name.charAt(0).toUpperCase() + j.name.slice(1),
+            }))}
+            value={selectedJoins}
+            onChange={setSelectedJoins}
+          />
 
-            {selectedJoins.length > 0 && (
-              <Text c="dimmed" size="xs" mt="xs">
-                Fields from joined entities will be available in column
-                selection
-              </Text>
-            )}
-          </Card>
-        )}
+          {selectedJoins.length > 0 && (
+            <Text c="dimmed" size="xs" mt="xs">
+              Fields from joined entities will be available in column selection
+            </Text>
+          )}
+        </Card>
+      )}
 
       {/* Column Selection */}
       {entity && availableFields && (
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <Text fw={600} mb="md">
-            {availableFields.available_joins.length > 0 ? "3" : "2"}. Select
-            Columns
+            {availableFields.available_joins.length > 0 ? "3" : "2"}. Select Columns
           </Text>
           <MultiSelect
             label="Columns to include"
@@ -278,15 +254,13 @@ export const ReportBuilder = ({
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <Group justify="space-between" mb="md">
             <Text fw={600}>
-              {availableFields.available_joins.length > 0 ? "4" : "3"}. Filters
-              (Optional)
+              {availableFields.available_joins.length > 0 ? "4" : "3"}. Filters (Optional)
             </Text>
             <Button
               variant="light"
               size="xs"
               leftSection={<Plus className="h-3 w-3" />}
-              onClick={addFilter}
-            >
+              onClick={addFilter}>
               Add Filter
             </Button>
           </Group>
@@ -303,9 +277,7 @@ export const ReportBuilder = ({
                     placeholder="Field"
                     data={fieldOptions}
                     value={filter.field}
-                    onChange={(val) =>
-                      updateFilter(index, { field: val || "" })
-                    }
+                    onChange={(val) => updateFilter(index, { field: val || "" })}
                     style={{ flex: 1 }}
                   />
 
@@ -324,21 +296,12 @@ export const ReportBuilder = ({
                   <TextInput
                     placeholder="Value"
                     value={filter.value || ""}
-                    onChange={(e) =>
-                      updateFilter(index, { value: e.target.value })
-                    }
+                    onChange={(e) => updateFilter(index, { value: e.target.value })}
                     style={{ flex: 1 }}
-                    disabled={
-                      filter.operator === "is_null" ||
-                      filter.operator === "is_not_null"
-                    }
+                    disabled={filter.operator === "is_null" || filter.operator === "is_not_null"}
                   />
 
-                  <ActionIcon
-                    variant="subtle"
-                    color="red"
-                    onClick={() => removeFilter(index)}
-                  >
+                  <ActionIcon variant="subtle" color="red" onClick={() => removeFilter(index)}>
                     <Trash2 className="h-4 w-4" />
                   </ActionIcon>
                 </Group>
@@ -356,24 +319,21 @@ export const ReportBuilder = ({
               leftSection={<Play className="h-4 w-4" />}
               color="lime"
               onClick={runPreview}
-              loading={loading}
-            >
+              loading={loading}>
               Preview
             </Button>
             <Button
               leftSection={<Download className="h-4 w-4" />}
               variant="light"
               onClick={handleExport}
-              loading={loading}
-            >
+              loading={loading}>
               Export to Excel
             </Button>
             {onSave && (
               <Button
                 leftSection={<Save className="h-4 w-4" />}
                 variant="outline"
-                onClick={() => setSaveModalOpen(true)}
-              >
+                onClick={() => setSaveModalOpen(true)}>
                 Save Report
               </Button>
             )}
@@ -392,8 +352,7 @@ export const ReportBuilder = ({
       {preview && (
         <Card shadow="sm" padding="lg" radius="md" withBorder>
           <Text fw={600} mb="md">
-            Preview Results ({preview.total} total rows, showing{" "}
-            {preview.data.length})
+            Preview Results ({preview.total} total rows, showing {preview.data.length})
           </Text>
 
           {preview.data.length === 0 ? (
@@ -415,29 +374,20 @@ export const ReportBuilder = ({
                     const entityRoute = ENTITY_ROUTES[entity];
                     const entityId = row["id"];
                     const entityLink =
-                      entityRoute && entityId
-                        ? `${entityRoute}/${entityId}`
-                        : null;
+                      entityRoute && entityId ? `${entityRoute}/${entityId}` : null;
 
                     return (
                       <Table.Tr key={idx}>
                         {selectedColumns.map((col) => {
                           const value = row[col];
                           const displayValue =
-                            value !== null && value !== undefined
-                              ? String(value)
-                              : "-";
+                            value !== null && value !== undefined ? String(value) : "-";
 
                           // Make the ID column a clickable link
                           if (col === "id" && entityLink) {
                             return (
                               <Table.Td key={col}>
-                                <Anchor
-                                  component={Link}
-                                  href={entityLink}
-                                  size="sm"
-                                  c="blue"
-                                >
+                                <Anchor component={Link} href={entityLink} size="sm" c="blue">
                                   {displayValue}
                                 </Anchor>
                               </Table.Td>
@@ -457,11 +407,7 @@ export const ReportBuilder = ({
       )}
 
       {/* Save Modal */}
-      <Modal
-        opened={saveModalOpen}
-        onClose={() => setSaveModalOpen(false)}
-        title="Save Report"
-      >
+      <Modal opened={saveModalOpen} onClose={() => setSaveModalOpen(false)} title="Save Report">
         <Stack gap="md">
           <TextInput
             label="Report Name"
@@ -510,12 +456,7 @@ export const ReportBuilder = ({
             <Button variant="subtle" onClick={() => setSaveModalOpen(false)}>
               Cancel
             </Button>
-            <Button
-              color="lime"
-              onClick={handleSave}
-              loading={saving}
-              disabled={!saveName.trim()}
-            >
+            <Button color="lime" onClick={handleSave} loading={saving} disabled={!saveName.trim()}>
               Save
             </Button>
           </Group>

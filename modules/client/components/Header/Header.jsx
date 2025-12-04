@@ -21,8 +21,7 @@ const Header = () => {
   return (
     <header className="sticky top-0 z-40 bg-blue-50 dark:bg-zinc-900">
       <div
-        className={`mx-auto max-w-6xl px-4 flex items-center justify-between ${user ? "py-0.5" : "py-4"}`}
-      >
+        className={`mx-auto max-w-6xl px-4 flex items-center justify-between ${user ? "py-0.5" : "py-4"}`}>
         <div className={`flex items-center ${user ? "gap-4" : "gap-6"}`}>
           <Link href="/" className="flex items-center gap-1.5">
             <Image
@@ -34,8 +33,7 @@ const Header = () => {
             />
 
             <span
-              className={`font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 ${user ? "text-base" : "text-3xl"}`}
-            >
+              className={`font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 ${user ? "text-base" : "text-3xl"}`}>
               PinaColada
             </span>
           </Link>
@@ -49,73 +47,49 @@ const Header = () => {
                 <Link
                   href="/#agent"
                   className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
-                  onClick={() =>
-                    dispatchNav({ type: "SET_AGENT_OPEN", payload: true })
-                  }
-                >
+                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: true })}>
                   Chat with us
                 </Link>
                 <Link
                   href="/about"
                   className="text-blue-700 hover:text-blue-500"
-                  onClick={() =>
-                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                  }
-                >
+                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
                   About
                 </Link>
                 <Link
                   href="/#services"
                   className="text-blue-700 hover:text-blue-500"
-                  onClick={() =>
-                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                  }
-                >
+                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
                   Software Development
                 </Link>
                 <Link
                   href="/#ai"
                   className="text-blue-700 hover:text-blue-500"
-                  onClick={() =>
-                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                  }
-                >
+                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
                   AI
                 </Link>
                 <Link
                   href="/#approach"
                   className="text-blue-700 hover:text-blue-500"
-                  onClick={() =>
-                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                  }
-                >
+                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
                   Approach
                 </Link>
                 <Link
                   href="/#portfolio"
                   className="text-blue-700 hover:text-blue-500"
-                  onClick={() =>
-                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                  }
-                >
+                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
                   Portfolio
                 </Link>
                 <Link
                   href="/#contact"
                   className="text-blue-700 hover:text-blue-500"
-                  onClick={() =>
-                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                  }
-                >
+                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
                   Contact
                 </Link>
                 <Link
                   href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
                   className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
-                  onClick={() =>
-                    dispatchNav({ type: "SET_AGENT_OPEN", payload: false })
-                  }
-                >
+                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
                   Start a project
                 </Link>
               </>
@@ -131,17 +105,12 @@ const Header = () => {
                     variant="subtle"
                     color="blue"
                     size="sm"
-                    rightSection={<ChevronDown size={14} />}
-                  >
+                    rightSection={<ChevronDown size={14} />}>
                     Account
                   </Button>
                 </Menu.Target>
                 <Menu.Dropdown>
-                  <Menu.Item
-                    leftSection={<Settings size={16} />}
-                    component={Link}
-                    href="/settings"
-                  >
+                  <Menu.Item leftSection={<Settings size={16} />} component={Link} href="/settings">
                     Settings
                   </Menu.Item>
                   <Menu.Divider />
@@ -149,18 +118,14 @@ const Header = () => {
                     leftSection={<LogOut size={16} />}
                     component="a"
                     href="/auth/logout"
-                    color="red"
-                  >
+                    color="red">
                     Logout
                   </Menu.Item>
                 </Menu.Dropdown>
               </Menu>
             </div>
           ) : (
-            <Link
-              href="/login"
-              className="text-blue-700 hover:text-blue-500 text-sm font-semibold"
-            >
+            <Link href="/login" className="text-blue-700 hover:text-blue-500 text-sm font-semibold">
               Login
             </Link>
           )}

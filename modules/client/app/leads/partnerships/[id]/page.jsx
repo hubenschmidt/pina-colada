@@ -6,11 +6,7 @@ import { Center, Stack, Loader } from "@mantine/core";
 import { usePageLoading } from "../../../../context/pageLoadingContext";
 import LeadForm from "../../../../components/LeadTracker/LeadForm";
 import { useLeadFormConfig } from "../../../../components/LeadTracker/hooks/useLeadFormConfig";
-import {
-  getPartnership,
-  updatePartnership,
-  deletePartnership,
-} from "../../../../api";
+import { getPartnership, updatePartnership, deletePartnership } from "../../../../api";
 
 const PartnershipDetailPage = () => {
   const params = useParams();
@@ -29,9 +25,7 @@ const PartnershipDetailPage = () => {
         const data = await getPartnership(id);
         setPartnership(data);
       } catch (err) {
-        setError(
-          err instanceof Error ? err.message : "Failed to load partnership",
-        );
+        setError(err instanceof Error ? err.message : "Failed to load partnership");
       } finally {
         setLoading(false);
         dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
@@ -68,9 +62,7 @@ const PartnershipDetailPage = () => {
   if (error || !partnership) {
     return (
       <div className="p-6">
-        <p className="text-red-600 dark:text-red-400">
-          {error || "Partnership not found"}
-        </p>
+        <p className="text-red-600 dark:text-red-400">{error || "Partnership not found"}</p>
       </div>
     );
   }

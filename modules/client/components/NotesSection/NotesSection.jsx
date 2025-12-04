@@ -5,12 +5,7 @@ import Link from "next/link";
 import { Plus, Trash2, Edit2, Check, X } from "lucide-react";
 import { getNotes, createNote, updateNote, deleteNote } from "../../api";
 
-const NotesSection = ({
-  entityType,
-  entityId,
-  pendingNotes,
-  onPendingNotesChange,
-}) => {
+const NotesSection = ({ entityType, entityId, pendingNotes, onPendingNotesChange }) => {
   const isCreateMode = entityId === null;
   const [notes, setNotes] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,11 +50,7 @@ const NotesSection = ({
 
     setError(null);
     try {
-      const note = await createNote(
-        entityType,
-        entityId,
-        newNoteContent.trim(),
-      );
+      const note = await createNote(entityType, entityId, newNoteContent.trim());
       setNotes([note, ...notes]);
       setNewNoteContent("");
       setShowAddForm(false);
@@ -127,10 +118,7 @@ const NotesSection = ({
     const isEditing = editingNoteId === note.id;
 
     return (
-      <div
-        key={note.id}
-        className="p-3 border border-zinc-200 dark:border-zinc-700 rounded"
-      >
+      <div key={note.id} className="p-3 border border-zinc-200 dark:border-zinc-700 rounded">
         {isEditing ? (
           <div className="space-y-2">
             <textarea
@@ -146,16 +134,14 @@ const NotesSection = ({
                 type="button"
                 onClick={() => handleUpdateNote(note.id)}
                 className="p-1 text-lime-600 hover:text-lime-700"
-                title="Save"
-              >
+                title="Save">
                 <Check size={16} />
               </button>
               <button
                 type="button"
                 onClick={cancelEditing}
                 className="p-1 text-zinc-400 hover:text-zinc-600"
-                title="Cancel"
-              >
+                title="Cancel">
                 <X size={16} />
               </button>
             </div>
@@ -172,8 +158,7 @@ const NotesSection = ({
                     {note.individual_id ? (
                       <Link
                         href={`/accounts/individuals/${note.individual_id}`}
-                        className="text-zinc-700 dark:text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline"
-                      >
+                        className="text-zinc-700 dark:text-zinc-300 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline">
                         {note.created_by_name}
                       </Link>
                     ) : (
@@ -189,16 +174,14 @@ const NotesSection = ({
                   type="button"
                   onClick={() => startEditing(note)}
                   className="p-1 text-zinc-400 hover:text-zinc-600"
-                  title="Edit"
-                >
+                  title="Edit">
                   <Edit2 size={14} />
                 </button>
                 <button
                   type="button"
                   onClick={() => handleDeleteNote(note.id)}
                   className="p-1 text-zinc-400 hover:text-red-500"
-                  title="Delete"
-                >
+                  title="Delete">
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -212,19 +195,15 @@ const NotesSection = ({
   const renderPendingNoteCard = (content, index) => (
     <div
       key={`pending-${index}`}
-      className="p-3 border border-zinc-200 dark:border-zinc-700 rounded"
-    >
-      <p className="text-sm text-zinc-900 dark:text-zinc-100 whitespace-pre-wrap">
-        {content}
-      </p>
+      className="p-3 border border-zinc-200 dark:border-zinc-700 rounded">
+      <p className="text-sm text-zinc-900 dark:text-zinc-100 whitespace-pre-wrap">{content}</p>
       <div className="flex items-center justify-between mt-2">
         <span className="text-xs text-zinc-500 italic">Pending</span>
         <button
           type="button"
           onClick={() => handleRemovePendingNote(index)}
           className="p-1 text-zinc-400 hover:text-red-500"
-          title="Remove"
-        >
+          title="Remove">
           <Trash2 size={14} />
         </button>
       </div>
@@ -247,8 +226,7 @@ const NotesSection = ({
           type="button"
           onClick={handleAddNote}
           disabled={!newNoteContent.trim()}
-          className="px-3 py-1 text-sm bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-50"
-        >
+          className="px-3 py-1 text-sm bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-50">
           Add
         </button>
         <button
@@ -257,8 +235,7 @@ const NotesSection = ({
             setShowAddForm(false);
             setNewNoteContent("");
           }}
-          className="px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-300 dark:hover:bg-zinc-600"
-        >
+          className="px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-300 dark:hover:bg-zinc-600">
           Cancel
         </button>
       </div>
@@ -269,15 +246,12 @@ const NotesSection = ({
     <div className="space-y-2">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Notes
-        </span>
+        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Notes</span>
         {!showAddForm && (
           <button
             type="button"
             onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-1 text-sm text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300"
-          >
+            className="flex items-center gap-1 text-sm text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300">
             <Plus size={16} />
             Add Note
           </button>
@@ -303,20 +277,14 @@ const NotesSection = ({
         {notes.map((note) => renderNoteCard(note))}
 
         {/* Pending notes (create mode) */}
-        {pendingNotes?.map((content, index) =>
-          renderPendingNoteCard(content, index),
-        )}
+        {pendingNotes?.map((content, index) => renderPendingNoteCard(content, index))}
       </div>
 
       {/* Empty state */}
       {!isLoading &&
         notes.length === 0 &&
         (!pendingNotes || pendingNotes.length === 0) &&
-        !showAddForm && (
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            No notes yet.
-          </p>
-        )}
+        !showAddForm && <p className="text-sm text-zinc-500 dark:text-zinc-400">No notes yet.</p>}
     </div>
   );
 };

@@ -68,9 +68,7 @@ const UserAuditPage = () => {
   if (error) {
     return (
       <Stack gap="lg">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-          User Audit Report
-        </h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">User Audit Report</h1>
         <Text c="red">{error}</Text>
       </Stack>
     );
@@ -83,9 +81,7 @@ const UserAuditPage = () => {
   return (
     <Stack gap="lg">
       <Group justify="space-between">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-          User Audit Report
-        </h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">User Audit Report</h1>
         <Group>
           <NumberInput
             label="User ID"

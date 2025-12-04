@@ -17,9 +17,7 @@ const NewIndividualPage = () => {
     return created;
   };
 
-  return (
-    <AccountForm type="individual" onClose={handleClose} onAdd={handleAdd} />
-  );
+  return <AccountForm type="individual" onClose={handleClose} onAdd={handleAdd} />;
 };
 
 export default NewIndividualPage;

@@ -3,17 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  Stack,
-  Group,
-  Button,
-  Badge,
-  Anchor,
-  Text,
-  Box,
-  Center,
-  Loader,
-} from "@mantine/core";
+import { Stack, Group, Button, Badge, Anchor, Text, Box, Center, Loader } from "@mantine/core";
 import { FolderKanban } from "lucide-react";
 import { SearchBox } from "../../components/SearchBox";
 import { DataTable } from "../../components/DataTable/DataTable";
@@ -48,7 +38,7 @@ const TasksPage = () => {
         sortDirection,
         scope,
         projectId,
-        searchQuery || undefined,
+        searchQuery || undefined
       );
       setData(result);
     } catch (error) {
@@ -56,15 +46,7 @@ const TasksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [
-    page,
-    pageSize,
-    sortBy,
-    sortDirection,
-    scope,
-    selectedProject?.id,
-    searchQuery,
-  ]);
+  }, [page, pageSize, sortBy, sortDirection, scope, selectedProject?.id, searchQuery]);
 
   useEffect(() => {
     dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
@@ -112,23 +94,17 @@ const TasksPage = () => {
             component={Link}
             href={row.entity.url}
             size="sm"
-            onClick={(e) => e.stopPropagation()}
-          >
+            onClick={(e) => e.stopPropagation()}>
             <Badge
               size="sm"
               variant="light"
               color={getEntityColor(row.entity.type)}
-              style={{ cursor: "pointer" }}
-            >
+              style={{ cursor: "pointer" }}>
               {row.entity.display_name}
             </Badge>
           </Anchor>
         ) : (
-          <Badge
-            size="sm"
-            variant="light"
-            color={getEntityColor(row.entity.type)}
-          >
+          <Badge size="sm" variant="light" color={getEntityColor(row.entity.type)}>
             {row.entity.display_name}
           </Badge>
         );
@@ -159,11 +135,7 @@ const TasksPage = () => {
           Urgent: "red",
         };
         return (
-          <Badge
-            size="sm"
-            variant="outline"
-            color={colorMap[row.priority.name] || "gray"}
-          >
+          <Badge size="sm" variant="outline" color={colorMap[row.priority.name] || "gray"}>
             {row.priority.name}
           </Badge>
         );
@@ -205,15 +177,9 @@ const TasksPage = () => {
   return (
     <Stack gap="lg">
       <Group justify="space-between">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-          Tasks
-        </h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Tasks</h1>
         {selectedProject ? (
-          <Badge
-            variant="light"
-            color="lime"
-            leftSection={<FolderKanban className="h-3 w-3" />}
-          >
+          <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
             {selectedProject.name}
           </Badge>
         ) : (
@@ -225,10 +191,7 @@ const TasksPage = () => {
 
       <Stack gap="xs">
         <Group gap="md">
-          <SearchBox
-            placeholder="Search tasks... (Enter to search)"
-            onSearch={handleSearch}
-          />
+          <SearchBox placeholder="Search tasks... (Enter to search)" onSearch={handleSearch} />
 
           <Button onClick={() => router.push("/tasks/new")} color="lime">
             New Task

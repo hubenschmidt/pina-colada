@@ -23,9 +23,7 @@ const DocumentsPage = () => {
 
   return (
     <Stack gap="lg">
-      <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-        Documents
-      </h1>
+      <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Documents</h1>
 
       {uploadOpen && (
         <Stack gap="xs">
@@ -43,14 +41,9 @@ const DocumentsPage = () => {
             color="lime"
             leftSection={<Upload className="h-4 w-4" />}
             rightSection={
-              uploadOpen ? (
-                <ChevronUp className="h-4 w-4" />
-              ) : (
-                <ChevronDown className="h-4 w-4" />
-              )
+              uploadOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />
             }
-            onClick={() => setUploadOpen(!uploadOpen)}
-          >
+            onClick={() => setUploadOpen(!uploadOpen)}>
             Upload
           </Button>
         }

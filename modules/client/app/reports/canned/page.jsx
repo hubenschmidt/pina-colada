@@ -3,14 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Stack, Text, Badge, Group } from "@mantine/core";
-import {
-  BarChart3,
-  Building2,
-  Users,
-  StickyNote,
-  FolderKanban,
-  UserCheck,
-} from "lucide-react";
+import { BarChart3, Building2, Users, StickyNote, FolderKanban, UserCheck } from "lucide-react";
 import { useProjectContext } from "../../../context/projectContext";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 import { DataTable } from "../../../components/DataTable/DataTable";
@@ -27,8 +20,7 @@ const cannedReports = [
   {
     id: "account-overview",
     title: "Account Overview",
-    description:
-      "Organization and individual counts, industry and geographic distribution",
+    description: "Organization and individual counts, industry and geographic distribution",
     href: "/reports/canned/account-overview",
     icon: Building2,
     projectFiltered: false,
@@ -36,8 +28,7 @@ const cannedReports = [
   {
     id: "contact-coverage",
     title: "Contact Coverage",
-    description:
-      "Contact density per organization, decision-maker ratios, coverage gaps",
+    description: "Contact density per organization, decision-maker ratios, coverage gaps",
     href: "/reports/canned/contact-coverage",
     icon: Users,
     projectFiltered: false,
@@ -45,8 +36,7 @@ const cannedReports = [
   {
     id: "notes-activity",
     title: "Notes Activity",
-    description:
-      "Notes distribution by entity type, recent activity, and coverage metrics",
+    description: "Notes distribution by entity type, recent activity, and coverage metrics",
     href: "/reports/canned/notes-activity",
     icon: StickyNote,
     projectFiltered: true,
@@ -101,11 +91,7 @@ const CannedReportsPage = () => {
       width: 100,
       render: (report) =>
         report.projectFiltered ? (
-          <Badge
-            size="sm"
-            variant="light"
-            color={selectedProject ? "lime" : "gray"}
-          >
+          <Badge size="sm" variant="light" color={selectedProject ? "lime" : "gray"}>
             {selectedProject ? "Project" : "Global"}
           </Badge>
         ) : (
@@ -123,15 +109,9 @@ const CannedReportsPage = () => {
   return (
     <Stack gap="lg">
       <Group justify="space-between">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-          Canned Reports
-        </h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Canned Reports</h1>
         {selectedProject ? (
-          <Badge
-            variant="light"
-            color="lime"
-            leftSection={<FolderKanban className="h-3 w-3" />}
-          >
+          <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
             {selectedProject.name}
           </Badge>
         ) : (

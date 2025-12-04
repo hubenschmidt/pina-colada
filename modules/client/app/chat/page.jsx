@@ -15,7 +15,7 @@ const ChatPage = () => {
     (isConnected) => {
       dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: !isConnected });
     },
-    [dispatchPageLoading],
+    [dispatchPageLoading]
   );
 
   return <Chat variant="page" onConnectionChange={handleConnectionChange} />;

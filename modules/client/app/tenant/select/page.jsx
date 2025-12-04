@@ -17,11 +17,7 @@ import { useUserContext } from "../../../context/userContext";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 import Header from "../../../components/Header/Header";
 import { SET_TENANT_NAME } from "../../../reducers/userReducer";
-import {
-  createTenant,
-  getTimezones,
-  updateUserPreferences,
-} from "../../../api";
+import { createTenant, getTimezones, updateUserPreferences } from "../../../api";
 
 const TenantSelectPage = () => {
   const router = useRouter();
@@ -89,9 +85,7 @@ const TenantSelectPage = () => {
       })
       .catch((error) => {
         console.error("Error creating tenant:", error);
-        setError(
-          error.response?.data?.message || "Failed to create organization",
-        );
+        setError(error.response?.data?.message || "Failed to create organization");
       })
       .finally(() => {
         setLoading(false);
@@ -153,12 +147,7 @@ const TenantSelectPage = () => {
                 {error}
               </Text>
             )}
-            <Button
-              type="submit"
-              fullWidth
-              loading={loading}
-              disabled={!tenantName.trim()}
-            >
+            <Button type="submit" fullWidth loading={loading} disabled={!tenantName.trim()}>
               Create Organization
             </Button>
           </form>

@@ -64,8 +64,7 @@ const getJobLeadConfig = (selectedProjectId) => {
       sortable: true,
       sortKey: "account",
       width: "12%",
-      render: (job) =>
-        job.account?.trim() ? <span>{job.account}</span> : <EmptyCell />,
+      render: (job) => (job.account?.trim() ? <span>{job.account}</span> : <EmptyCell />),
     },
     {
       header: "Job Title",
@@ -82,8 +81,7 @@ const getJobLeadConfig = (selectedProjectId) => {
       width: "10%",
       render: (job) => (
         <span
-          className={`inline-block px-2 py-1 text-xs font-medium rounded border ${JOB_STATUS_COLORS[job.status] || "bg-gray-100 text-gray-800"}`}
-        >
+          className={`inline-block px-2 py-1 text-xs font-medium rounded border ${JOB_STATUS_COLORS[job.status] || "bg-gray-100 text-gray-800"}`}>
           {job.status}
         </span>
       ),
@@ -96,13 +94,8 @@ const getJobLeadConfig = (selectedProjectId) => {
         if (!job.description) return <EmptyCell />;
         const isTruncated = job.description.length > 50;
         return (
-          <span
-            title={isTruncated ? job.description : undefined}
-            className="text-sm"
-          >
-            {isTruncated
-              ? `${job.description.substring(0, 50)}...`
-              : job.description}
+          <span title={isTruncated ? job.description : undefined} className="text-sm">
+            {isTruncated ? `${job.description.substring(0, 50)}...` : job.description}
           </span>
         );
       },
@@ -126,8 +119,7 @@ const getJobLeadConfig = (selectedProjectId) => {
             target="_blank"
             rel="noopener noreferrer"
             className="p-1 text-blue-600 hover:bg-blue-50 rounded"
-            title="View job posting"
-          >
+            title="View job posting">
             <ExternalLink size={16} />
           </a>
         ) : (
@@ -159,14 +151,7 @@ const getJobLeadConfig = (selectedProjectId) => {
     columns,
     FormComponent: JobFormAdapter,
     api: {
-      getLeads: async (
-        page,
-        limit,
-        sortBy,
-        sortDirection,
-        search,
-        projectId,
-      ) => {
+      getLeads: async (page, limit, sortBy, sortDirection, search, projectId) => {
         return getJobs(page, limit, sortBy, sortDirection, search, projectId);
       },
       createLead: async (job) => {
@@ -185,8 +170,7 @@ const getJobLeadConfig = (selectedProjectId) => {
     searchPlaceholder: "Search by account or job title...",
     emptyMessage: "No job applications yet. Add your first one above!",
     enableSearch: true,
-    getSuggestionLabel: (job) =>
-      `${job.account || "Unknown"} - ${job.job_title || "Untitled"}`,
+    getSuggestionLabel: (job) => `${job.account || "Unknown"} - ${job.job_title || "Untitled"}`,
     getSuggestionValue: (job) => job.job_title || "",
     detailPagePath: "/leads/jobs",
     newPagePath: "/leads/jobs/new",
@@ -196,9 +180,7 @@ const getJobLeadConfig = (selectedProjectId) => {
 const getOpportunityLeadConfig = (selectedProjectId) => {
   const formConfig = useLeadFormConfig("opportunity");
 
-  const OpportunityFormAdapter = (props) => (
-    <LeadForm {...props} config={formConfig} />
-  );
+  const OpportunityFormAdapter = (props) => <LeadForm {...props} config={formConfig} />;
 
   const columns = [
     {
@@ -207,8 +189,7 @@ const getOpportunityLeadConfig = (selectedProjectId) => {
       sortable: true,
       sortKey: "account",
       width: "15%",
-      render: (opp) =>
-        opp.account?.trim() ? <span>{opp.account}</span> : <EmptyCell />,
+      render: (opp) => (opp.account?.trim() ? <span>{opp.account}</span> : <EmptyCell />),
     },
     {
       header: "Opportunity",
@@ -225,8 +206,7 @@ const getOpportunityLeadConfig = (selectedProjectId) => {
       width: "12%",
       render: (opp) => (
         <span
-          className={`inline-block px-2 py-1 text-xs font-medium rounded border ${OPPORTUNITY_STATUS_COLORS[opp.status] || "bg-gray-100 text-gray-800"}`}
-        >
+          className={`inline-block px-2 py-1 text-xs font-medium rounded border ${OPPORTUNITY_STATUS_COLORS[opp.status] || "bg-gray-100 text-gray-800"}`}>
           {opp.status}
         </span>
       ),
@@ -238,11 +218,7 @@ const getOpportunityLeadConfig = (selectedProjectId) => {
       sortKey: "estimated_value",
       width: "10%",
       render: (opp) =>
-        opp.estimated_value ? (
-          <span>${opp.estimated_value.toLocaleString()}</span>
-        ) : (
-          <EmptyCell />
-        ),
+        opp.estimated_value ? <span>${opp.estimated_value.toLocaleString()}</span> : <EmptyCell />,
     },
     {
       header: "Probability",
@@ -250,12 +226,7 @@ const getOpportunityLeadConfig = (selectedProjectId) => {
       sortable: true,
       sortKey: "probability",
       width: "10%",
-      render: (opp) =>
-        opp.probability !== null ? (
-          <span>{opp.probability}%</span>
-        ) : (
-          <EmptyCell />
-        ),
+      render: (opp) => (opp.probability !== null ? <span>{opp.probability}%</span> : <EmptyCell />),
     },
     {
       header: "Close Date",
@@ -282,22 +253,8 @@ const getOpportunityLeadConfig = (selectedProjectId) => {
     columns,
     FormComponent: OpportunityFormAdapter,
     api: {
-      getLeads: async (
-        page,
-        limit,
-        sortBy,
-        sortDirection,
-        search,
-        projectId,
-      ) => {
-        return getOpportunities(
-          page,
-          limit,
-          sortBy,
-          sortDirection,
-          search,
-          projectId,
-        );
+      getLeads: async (page, limit, sortBy, sortDirection, search, projectId) => {
+        return getOpportunities(page, limit, sortBy, sortDirection, search, projectId);
       },
       createLead: async (opp) => {
         return await createOpportunity(opp);
@@ -326,9 +283,7 @@ const getOpportunityLeadConfig = (selectedProjectId) => {
 const getPartnershipLeadConfig = (selectedProjectId) => {
   const formConfig = useLeadFormConfig("partnership");
 
-  const PartnershipFormAdapter = (props) => (
-    <LeadForm {...props} config={formConfig} />
-  );
+  const PartnershipFormAdapter = (props) => <LeadForm {...props} config={formConfig} />;
 
   const columns = [
     {
@@ -338,11 +293,7 @@ const getPartnershipLeadConfig = (selectedProjectId) => {
       sortKey: "account",
       width: "15%",
       render: (partner) =>
-        partner.account?.trim() ? (
-          <span>{partner.account}</span>
-        ) : (
-          <EmptyCell />
-        ),
+        partner.account?.trim() ? <span>{partner.account}</span> : <EmptyCell />,
     },
     {
       header: "Partnership",
@@ -358,11 +309,7 @@ const getPartnershipLeadConfig = (selectedProjectId) => {
       sortKey: "partnership_type",
       width: "12%",
       render: (partner) =>
-        partner.partnership_type ? (
-          <span>{partner.partnership_type}</span>
-        ) : (
-          <EmptyCell />
-        ),
+        partner.partnership_type ? <span>{partner.partnership_type}</span> : <EmptyCell />,
     },
     {
       header: "Status",
@@ -372,8 +319,7 @@ const getPartnershipLeadConfig = (selectedProjectId) => {
       width: "12%",
       render: (partner) => (
         <span
-          className={`inline-block px-2 py-1 text-xs font-medium rounded border ${PARTNERSHIP_STATUS_COLORS[partner.status] || "bg-gray-100 text-gray-800"}`}
-        >
+          className={`inline-block px-2 py-1 text-xs font-medium rounded border ${PARTNERSHIP_STATUS_COLORS[partner.status] || "bg-gray-100 text-gray-800"}`}>
           {partner.status}
         </span>
       ),
@@ -411,22 +357,8 @@ const getPartnershipLeadConfig = (selectedProjectId) => {
     columns,
     FormComponent: PartnershipFormAdapter,
     api: {
-      getLeads: async (
-        page,
-        limit,
-        sortBy,
-        sortDirection,
-        search,
-        projectId,
-      ) => {
-        return getPartnerships(
-          page,
-          limit,
-          sortBy,
-          sortDirection,
-          search,
-          projectId,
-        );
+      getLeads: async (page, limit, sortBy, sortDirection, search, projectId) => {
+        return getPartnerships(page, limit, sortBy, sortDirection, search, projectId);
       },
       createLead: async (partner) => {
         return await createPartnership(partner);
@@ -457,9 +389,7 @@ export const useLeadTrackerConfig = (type) => {
   const selectedProjectId = projectState.selectedProject?.id ?? null;
 
   if (type === "job") return getJobLeadConfig(selectedProjectId);
-  if (type === "opportunity")
-    return getOpportunityLeadConfig(selectedProjectId);
-  if (type === "partnership")
-    return getPartnershipLeadConfig(selectedProjectId);
+  if (type === "opportunity") return getOpportunityLeadConfig(selectedProjectId);
+  if (type === "partnership") return getPartnershipLeadConfig(selectedProjectId);
   throw new Error(`Unknown lead type: ${type}`);
 };

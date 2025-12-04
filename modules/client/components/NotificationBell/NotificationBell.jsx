@@ -3,11 +3,7 @@
 import { useState, useEffect, useId } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Inbox } from "lucide-react";
-import {
-  getNotificationCount,
-  getNotifications,
-  markNotificationsRead,
-} from "../../api";
+import { getNotificationCount, getNotifications, markNotificationsRead } from "../../api";
 import NotificationDropdown from "../NotificationDropdown/NotificationDropdown";
 import { useProjectContext } from "../../context/projectContext";
 
@@ -79,9 +75,7 @@ const NotificationBell = () => {
       try {
         await markNotificationsRead([notification.id]);
         setNotifications((prev) =>
-          prev.map((n) =>
-            n.id === notification.id ? { ...n, is_read: true } : n,
-          ),
+          prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n))
         );
         setUnreadCount((prev) => Math.max(0, prev - 1));
       } catch (err) {
@@ -92,8 +86,7 @@ const NotificationBell = () => {
     // Switch project scope if needed
     const entityProjectId = notification.entity?.project_id;
     const currentProjectId = projectState.selectedProject?.id;
-    const needsProjectSwitch =
-      entityProjectId && currentProjectId !== entityProjectId;
+    const needsProjectSwitch = entityProjectId && currentProjectId !== entityProjectId;
     const targetProject = needsProjectSwitch
       ? projectState.projects.find((p) => p.id === entityProjectId)
       : null;
@@ -131,8 +124,7 @@ const NotificationBell = () => {
       <button
         onClick={handleOpen}
         className="relative p-2 text-zinc-600 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
-        aria-label="Notifications"
-      >
+        aria-label="Notifications">
         <Inbox size={20} />
         {unreadCount > 0 && (
           <span className="absolute -top-0.5 -right-0.5 bg-pink-500 text-white text-[10px] font-medium rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1">

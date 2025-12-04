@@ -3,17 +3,7 @@
 import { useUserContext } from "../../context/userContext";
 import { useState, useEffect } from "react";
 import { SET_THEME } from "../../reducers/userReducer";
-import {
-  Container,
-  Stack,
-  Title,
-  Radio,
-  Paper,
-  Text,
-  Loader,
-  Center,
-  Select,
-} from "@mantine/core";
+import { Container, Stack, Title, Radio, Paper, Text, Loader, Center, Select } from "@mantine/core";
 import {
   getUserPreferences,
   updateUserPreferences,
@@ -35,10 +25,7 @@ const SettingsPage = () => {
       if (!userState.isAuthed) return;
 
       try {
-        const [userPrefs, tzOptions] = await Promise.all([
-          getUserPreferences(),
-          getTimezones(),
-        ]);
+        const [userPrefs, tzOptions] = await Promise.all([getUserPreferences(), getTimezones()]);
         setUserTheme(userPrefs.theme);
         setUserTimezone(userPrefs.timezone);
         setTimezoneOptions(tzOptions);
@@ -140,10 +127,7 @@ const SettingsPage = () => {
           </Title>
           <Radio.Group
             value={userTheme === null ? "inherit" : userTheme}
-            onChange={(value) =>
-              updateUserTheme(value === "inherit" ? null : value)
-            }
-          >
+            onChange={(value) => updateUserTheme(value === "inherit" ? null : value)}>
             <Stack gap="xs">
               <Radio value="inherit" label="Inherit from organization" />
               <Radio value="light" label="Light" />
@@ -176,10 +160,7 @@ const SettingsPage = () => {
                   This affects all users who inherit the organization theme.
                 </Text>
               </div>
-              <Radio.Group
-                value={tenantTheme}
-                onChange={(value) => updateTenantTheme(value)}
-              >
+              <Radio.Group value={tenantTheme} onChange={(value) => updateTenantTheme(value)}>
                 <Stack gap="xs">
                   <Radio value="light" label="Light" />
                   <Radio value="dark" label="Dark" />

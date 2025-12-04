@@ -26,11 +26,7 @@ const Home = () => {
         const nearTop = window.scrollY <= 2; // small tolerance
         if (nearTop && window.location.hash) {
           // remove only the hash, keep path + query
-          history.replaceState(
-            null,
-            "",
-            window.location.pathname + window.location.search,
-          );
+          history.replaceState(null, "", window.location.pathname + window.location.search);
         }
         ticking = false;
       });
@@ -65,61 +61,32 @@ const Home = () => {
               {[
                 {
                   title: "Custom Software Development",
-                  points: [
-                    "Greenfield builds",
-                    "Event-driven & real-time",
-                    "Secure by design",
-                  ],
+                  points: ["Greenfield builds", "Event-driven & real-time", "Secure by design"],
                 },
                 {
                   title: "Full-Stack Development",
-                  points: [
-                    "Next.js/React UIs",
-                    "Node & APIs",
-                    "Testing & CI/CD",
-                  ],
+                  points: ["Next.js/React UIs", "Node & APIs", "Testing & CI/CD"],
                 },
                 {
                   title: "Solutions Consulting (SMBs)",
-                  points: [
-                    "Roadmaps & audits",
-                    "Cost-effective modernization",
-                    "Buy vs. build",
-                  ],
+                  points: ["Roadmaps & audits", "Cost-effective modernization", "Buy vs. build"],
                 },
                 {
                   title: "CRM & ERP Systems",
-                  points: [
-                    "Plex, Salesforce",
-                    "Customization & extensions",
-                    "Data hygiene",
-                  ],
+                  points: ["Plex, Salesforce", "Customization & extensions", "Data hygiene"],
                 },
                 {
                   title: "Systems Integrations",
-                  points: [
-                    "ETL & streaming",
-                    "Microservices",
-                    "3rd-party APIs",
-                  ],
+                  points: ["ETL & streaming", "Microservices", "3rd-party APIs"],
                 },
                 {
                   title: "Web Development",
-                  points: [
-                    "E-commerce integration",
-                    "Marketing sites",
-                    "Dashboards & portals",
-                  ],
+                  points: ["E-commerce integration", "Marketing sites", "Dashboards & portals"],
                 },
               ].map((s) => (
-                <Card
-                  key={s.title}
-                  className="p-5 transition-shadow hover:shadow-md"
-                >
+                <Card key={s.title} className="p-5 transition-shadow hover:shadow-md">
                   <div className="mb-3 flex items-start justify-between">
-                    <h3 className="text-xl font-semibold text-blue-800">
-                      {s.title}
-                    </h3>
+                    <h3 className="text-xl font-semibold text-blue-800">{s.title}</h3>
                     <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
                   </div>
                   <ul className="space-y-1.5 text-sm text-blue-800">
@@ -162,14 +129,9 @@ const Home = () => {
                     ],
                   },
                 ].map((s) => (
-                  <Card
-                    key={s.title}
-                    className="p-5 transition-shadow hover:shadow-md"
-                  >
+                  <Card key={s.title} className="p-5 transition-shadow hover:shadow-md">
                     <div className="mb-3 flex items-start justify-between">
-                      <h3 className="text-xl font-semibold text-blue-800">
-                        {s.title}
-                      </h3>
+                      <h3 className="text-xl font-semibold text-blue-800">{s.title}</h3>
                       <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
                     </div>
                     <ul className="space-y-1.5 text-sm text-blue-800">
@@ -223,9 +185,7 @@ const Home = () => {
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 text-sm font-bold text-blue-900">
                           {s.k}
                         </span>
-                        <h3 className="text-xl font-semibold text-blue-800">
-                          {s.title}
-                        </h3>
+                        <h3 className="text-xl font-semibold text-blue-800">{s.title}</h3>
                       </div>
                     </div>
                     <ul className="space-y-1.5 text-sm text-blue-800">
@@ -271,9 +231,7 @@ const Home = () => {
             ].map((p) => (
               <CardLink key={p.k} href={p.href}>
                 <div className="flex items-center justify-between">
-                  <h3 className="text-2xl font-medium text-blue-800">
-                    {p.title}
-                  </h3>
+                  <h3 className="text-2xl font-medium text-blue-800">{p.title}</h3>
                   <span
                     className={`h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400`}
                   />
@@ -289,19 +247,15 @@ const Home = () => {
             <div className="rounded-3xl border border-blue-600/60 bg-blue-700/40 p-8 md:p-10 shadow-sm">
               <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
                 <div>
-                  <h3 className="text-xl font-semibold text-white">
-                    Have a project in mind?
-                  </h3>
+                  <h3 className="text-xl font-semibold text-white">Have a project in mind?</h3>
                   <p className="mt-1 text-sm text-blue-200">
-                    Let's connect and talk about goals for your technical
-                    domain.
+                    Let's connect and talk about goals for your technical domain.
                   </p>
                 </div>
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Link
                     href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
-                    className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
-                  >
+                    className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500">
                     Email William
                   </Link>
                 </div>
@@ -319,15 +273,13 @@ const Home = () => {
               <Link
                 href="https://github.com/hubenschmidt"
                 target="_blank"
-                className="hover:text-white"
-              >
+                className="hover:text-white">
                 GitHub
               </Link>
               <Link
                 href="https://www.linkedin.com/company/pinacoladaco"
                 target="_blank"
-                className="hover:text-white"
-              >
+                className="hover:text-white">
                 LinkedIn
               </Link>
             </div>

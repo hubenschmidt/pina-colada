@@ -19,9 +19,7 @@ const NewJobPage = () => {
     return job;
   };
 
-  return (
-    <LeadForm onClose={handleClose} onAdd={handleAdd} config={formConfig} />
-  );
+  return <LeadForm onClose={handleClose} onAdd={handleAdd} config={formConfig} />;
 };
 
 export default NewJobPage;

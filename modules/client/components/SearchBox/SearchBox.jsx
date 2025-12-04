@@ -102,8 +102,7 @@ const SearchBox = ({
             <button
               onClick={handleClear}
               className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-400"
-              aria-label="Clear search"
-            >
+              aria-label="Clear search">
               <X size={18} />
             </button>
           )
@@ -121,8 +120,7 @@ const SearchBox = ({
             right: 0,
             zIndex: 100,
             marginTop: 4,
-          }}
-        >
+          }}>
           <Stack gap={4}>
             {suggestions.map((s, i) => (
               <Text
@@ -131,8 +129,7 @@ const SearchBox = ({
                 p="xs"
                 style={{ cursor: "pointer", borderRadius: 4 }}
                 className="hover:bg-zinc-100 dark:hover:bg-zinc-800"
-                onClick={() => handleSelectSuggestion(s)}
-              >
+                onClick={() => handleSelectSuggestion(s)}>
                 {s.label}
               </Text>
             ))}

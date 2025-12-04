@@ -34,8 +34,7 @@ const ProjectSelector = ({ value, onChange, projects }) => {
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-left flex justify-between items-center"
-        >
+          className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-left flex justify-between items-center">
           <span className="text-zinc-500 dark:text-zinc-400">
             {value.length === 0
               ? "Select projects..."
@@ -45,14 +44,8 @@ const ProjectSelector = ({ value, onChange, projects }) => {
             className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
             fill="none"
             stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 9l-7 7-7-7"
-            />
+            viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
           </svg>
         </button>
         {isOpen && (
@@ -62,8 +55,7 @@ const ProjectSelector = ({ value, onChange, projects }) => {
               return (
                 <label
                   key={project.id}
-                  className="flex items-center px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"
-                >
+                  className="flex items-center px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={isSelected}
@@ -71,9 +63,7 @@ const ProjectSelector = ({ value, onChange, projects }) => {
                     className="w-4 h-4 text-lime-500 border-zinc-300 dark:border-zinc-600 rounded focus:ring-lime-500 bg-white dark:bg-zinc-700"
                   />
 
-                  <span className="ml-2 text-zinc-900 dark:text-zinc-100">
-                    {project.name}
-                  </span>
+                  <span className="ml-2 text-zinc-900 dark:text-zinc-100">{project.name}</span>
                 </label>
               );
             })}
@@ -90,20 +80,17 @@ const ProjectSelector = ({ value, onChange, projects }) => {
           {selectedProjects.map((project) => (
             <div
               key={project.id}
-              className="flex items-center gap-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-700 rounded text-sm"
-            >
+              className="flex items-center gap-1 px-2 py-1 bg-zinc-100 dark:bg-zinc-700 rounded text-sm">
               <Link
                 href={`/projects/${project.id}`}
-                className="text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline"
-              >
+                className="text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline">
                 {project.name}
               </Link>
               <button
                 type="button"
                 onClick={() => handleToggleProject(project.id)}
                 className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-                title="Remove"
-              >
+                title="Remove">
                 <X size={14} />
               </button>
             </div>

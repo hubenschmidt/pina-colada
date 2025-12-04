@@ -221,7 +221,7 @@ const DocumentDetailPage = () => {
       ...e,
       version_number: v.version_number,
       version_id: v.id,
-    })),
+    }))
   );
 
   // Filter and sort entities client-side
@@ -229,8 +229,7 @@ const DocumentDetailPage = () => {
     if (!entitySearch.trim()) return true;
     const search = entitySearch.toLowerCase();
     return (
-      e.entity_name.toLowerCase().includes(search) ||
-      e.entity_type.toLowerCase().includes(search)
+      e.entity_name.toLowerCase().includes(search) || e.entity_type.toLowerCase().includes(search)
     );
   });
 
@@ -253,9 +252,7 @@ const DocumentDetailPage = () => {
     if (key === "version_number") {
       cmp = (a.version_number || 0) - (b.version_number || 0);
     } else if (key === "created_at") {
-      cmp =
-        new Date(a.created_at || 0).getTime() -
-        new Date(b.created_at || 0).getTime();
+      cmp = new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime();
     }
     return versionSortDir === "ASC" ? cmp : -cmp;
   });
@@ -277,8 +274,7 @@ const DocumentDetailPage = () => {
         <Button
           variant="subtle"
           leftSection={<ArrowLeft className="h-4 w-4" />}
-          onClick={() => router.push("/assets/documents")}
-        >
+          onClick={() => router.push("/assets/documents")}>
           Back to Documents
         </Button>
         <Text c="red">{error || "Document not found"}</Text>
@@ -294,8 +290,7 @@ const DocumentDetailPage = () => {
             variant="subtle"
             size="sm"
             leftSection={<ArrowLeft className="h-4 w-4" />}
-            onClick={() => router.push("/assets/documents")}
-          >
+            onClick={() => router.push("/assets/documents")}>
             Back
           </Button>
           <Title order={2}>{document.filename}</Title>
@@ -308,8 +303,7 @@ const DocumentDetailPage = () => {
             variant="light"
             color="lime"
             leftSection={<Download className="h-4 w-4" />}
-            onClick={handleDownload}
-          >
+            onClick={handleDownload}>
             Download
           </Button>
           <Button
@@ -317,8 +311,7 @@ const DocumentDetailPage = () => {
             color="red"
             leftSection={<Trash2 className="h-4 w-4" />}
             onClick={handleDeleteClick}
-            disabled={showDeleteConfirm}
-          >
+            disabled={showDeleteConfirm}>
             Delete
           </Button>
         </Group>
@@ -421,11 +414,7 @@ const DocumentDetailPage = () => {
                     sortable: true,
                     sortKey: "entity_type",
                     render: (e) => (
-                      <Badge
-                        size="sm"
-                        variant="light"
-                        color={getEntityColor(e.entity_type)}
-                      >
+                      <Badge size="sm" variant="light" color={getEntityColor(e.entity_type)}>
                         {e.entity_type}
                       </Badge>
                     ),
@@ -438,8 +427,7 @@ const DocumentDetailPage = () => {
                       <Anchor
                         component={Link}
                         href={getEntityUrl(e.entity_type, e.entity_id)}
-                        size="sm"
-                      >
+                        size="sm">
                         {e.entity_name}
                       </Anchor>
                     ),
@@ -453,16 +441,13 @@ const DocumentDetailPage = () => {
                       <Anchor
                         component={Link}
                         href={`/assets/documents/${e.version_id}?v=${e.version_number}`}
-                        size="sm"
-                      >
+                        size="sm">
                         v{e.version_number}
                       </Anchor>
                     ),
                   },
                 ]}
-                rowKey={(e) =>
-                  `${e.entity_type}-${e.entity_id}-${e.version_id}-${e._idx}`
-                }
+                rowKey={(e) => `${e.entity_type}-${e.entity_id}-${e.version_id}-${e._idx}`}
                 onPageChange={setEntityPage}
                 pageValue={entityPage}
                 onPageSizeChange={(size) => {
@@ -476,9 +461,7 @@ const DocumentDetailPage = () => {
                   setEntitySortBy(sortBy);
                   setEntitySortDir(direction);
                 }}
-                emptyText={
-                  entitySearch ? "No matching entities" : "No linked entities"
-                }
+                emptyText={entitySearch ? "No matching entities" : "No linked entities"}
               />
             </Paper>
           )}
@@ -501,9 +484,7 @@ const DocumentDetailPage = () => {
                   data={{
                     items: sortedVersions,
                     currentPage: versionPage,
-                    totalPages: Math.ceil(
-                      sortedVersions.length / versionPageSize,
-                    ),
+                    totalPages: Math.ceil(sortedVersions.length / versionPageSize),
                     total: sortedVersions.length,
                     pageSize: versionPageSize,
                   }}
@@ -529,9 +510,7 @@ const DocumentDetailPage = () => {
                       accessor: "created_at",
                       sortable: true,
                       sortKey: "created_at",
-                      render: (v) => (
-                        <Text size="sm">{formatDate(v.created_at)}</Text>
-                      ),
+                      render: (v) => <Text size="sm">{formatDate(v.created_at)}</Text>,
                     },
                     {
                       header: "Current",
@@ -539,16 +518,11 @@ const DocumentDetailPage = () => {
                       render: (v) => (
                         <Checkbox
                           checked={v.is_current_version}
-                          onChange={() =>
-                            !v.is_current_version &&
-                            handleSetCurrentVersion(v.id)
-                          }
+                          onChange={() => !v.is_current_version && handleSetCurrentVersion(v.id)}
                           color="lime"
                           styles={{
                             input: {
-                              cursor: v.is_current_version
-                                ? "default"
-                                : "pointer",
+                              cursor: v.is_current_version ? "default" : "pointer",
                             },
                           }}
                         />
@@ -566,8 +540,7 @@ const DocumentDetailPage = () => {
                             e.stopPropagation();
                             handleDownloadVersion(v);
                           }}
-                          title="Download this version"
-                        >
+                          title="Download this version">
                           <Download className="h-3.5 w-3.5" />
                         </ActionIcon>
                       ),
@@ -589,9 +562,7 @@ const DocumentDetailPage = () => {
                   rowKey={(v) => v.id}
                   onRowClick={(v) =>
                     v.id !== document.id &&
-                    router.push(
-                      `/assets/documents/${v.id}?v=${v.version_number}`,
-                    )
+                    router.push(`/assets/documents/${v.id}?v=${v.version_number}`)
                   }
                   emptyText="No versions found"
                 />
@@ -618,11 +589,7 @@ const DocumentDetailPage = () => {
               title={document.filename}
             />
           ) : document.content_type.startsWith("image/") ? (
-            <img
-              src={previewUrl}
-              alt={document.filename}
-              className="max-w-full h-auto rounded"
-            />
+            <img src={previewUrl} alt={document.filename} className="max-w-full h-auto rounded" />
           ) : null
         ) : (
           <Center mih={200}>

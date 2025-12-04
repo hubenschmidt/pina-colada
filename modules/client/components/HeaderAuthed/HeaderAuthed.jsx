@@ -12,8 +12,7 @@ const HeaderAuthed = () => {
     <div className="flex items-center gap-2">
       <Link
         href="/chat"
-        className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-4 py-1.5 text-xs font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
-      >
+        className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-4 py-1.5 text-xs font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500">
         Chat
       </Link>
     </div>

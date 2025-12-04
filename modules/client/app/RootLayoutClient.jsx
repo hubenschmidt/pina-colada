@@ -35,9 +35,7 @@ export const RootLayoutClient = ({ children }) => {
 
     // Protect routes: redirect to /tenant/select if no tenantName
     const protectedRoutes = ["/chat", "/leads/jobs"];
-    const isProtectedRoute = protectedRoutes.some((route) =>
-      pathname.startsWith(route),
-    );
+    const isProtectedRoute = protectedRoutes.some((route) => pathname.startsWith(route));
 
     if (isProtectedRoute && !tenantName) {
       router.push("/tenant/select");
@@ -50,14 +48,7 @@ export const RootLayoutClient = ({ children }) => {
   if (isLoading || isRedirecting) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Image
-          src="/loading-icon.png"
-          alt="Loading"
-          width={200}
-          height={200}
-          priority
-          unoptimized
-        />
+        <Image src="/loading-icon.png" alt="Loading" width={200} height={200} priority />
       </div>
     );
   }

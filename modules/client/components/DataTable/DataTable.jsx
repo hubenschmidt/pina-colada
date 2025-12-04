@@ -1,13 +1,5 @@
 import React from "react";
-import {
-  Box,
-  Group,
-  Pagination,
-  Table,
-  Text,
-  Select,
-  UnstyledButton,
-} from "@mantine/core";
+import { Box, Group, Pagination, Table, Text, Select, UnstyledButton } from "@mantine/core";
 import { ArrowUp, ArrowDown, ChevronsUpDown } from "lucide-react";
 import styles from "./DataTable.module.css";
 
@@ -58,9 +50,7 @@ export const DataTable = ({
   };
 
   const renderHeader = (col) => {
-    const key =
-      col.sortKey ??
-      (typeof col.accessor === "string" ? col.accessor : undefined);
+    const key = col.sortKey ?? (typeof col.accessor === "string" ? col.accessor : undefined);
     const isSortable = !!(onSortChange && (col.sortable || key));
     const isActive = isSortable && sortBy === key;
 
@@ -77,14 +67,7 @@ export const DataTable = ({
           gap: 6,
           width: "100%",
         }}
-        aria-sort={
-          isActive
-            ? sortDirection === "ASC"
-              ? "ascending"
-              : "descending"
-            : "none"
-        }
-      >
+        aria-sort={isActive ? (sortDirection === "ASC" ? "ascending" : "descending") : "none"}>
         {col.header}
         {isActive ? (
           sortDirection === "ASC" ? (
@@ -142,8 +125,7 @@ export const DataTable = ({
           highlightOnHover={highlightOnHover}
           withTableBorder={withTableBorder}
           withColumnBorders={withColumnBorders}
-          style={tableStyle}
-        >
+          style={tableStyle}>
           <Table.Thead>
             <Table.Tr>
               {columns.map((col, i) => (
@@ -155,8 +137,7 @@ export const DataTable = ({
                     width: col.width,
                     border: cellBorder,
                   }}
-                  {...col.thProps}
-                >
+                  {...col.thProps}>
                   {renderHeader(col)}
                 </Table.Th>
               ))}
@@ -166,9 +147,7 @@ export const DataTable = ({
           <Table.Tbody>
             {items.map((row, idx) => {
               const key = keyOf(row, idx);
-              const selected =
-                selectedRowKey !== null &&
-                String(key) === String(selectedRowKey);
+              const selected = selectedRowKey !== null && String(key) === String(selectedRowKey);
               const handleRowClick = () => {
                 onRowClick?.(row);
                 onRowSelect?.(key, row);
@@ -191,15 +170,13 @@ export const DataTable = ({
                   style={{
                     ...(selected ? selectedRowStyle : {}),
                     cursor: hasClickHandler ? "pointer" : undefined,
-                  }}
-                >
+                  }}>
                   {columns.map((col, ci) => (
                     <Table.Td
                       key={ci}
                       visibleFrom={col.visibleFrom}
                       {...col.tdProps}
-                      style={{ border: cellBorder }}
-                    >
+                      style={{ border: cellBorder }}>
                       {getCellContent(col, row)}
                     </Table.Td>
                   ))}
@@ -213,8 +190,7 @@ export const DataTable = ({
                   colSpan={columns.length}
                   style={{
                     border: cellBorder,
-                  }}
-                >
+                  }}>
                   <Text c="dimmed" ta="center">
                     {emptyText}
                   </Text>

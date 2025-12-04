@@ -70,38 +70,23 @@ const IndustrySelector = ({ value, onChange }) => {
   }
 
   const displayText =
-    selectedIndustries.length > 0
-      ? selectedIndustries.join(", ")
-      : "Select industries...";
+    selectedIndustries.length > 0 ? selectedIndustries.join(", ") : "Select industries...";
 
   return (
     <div className="relative" id={dropdownId}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-left flex justify-between items-center"
-      >
-        <span
-          className={
-            selectedIndustries.length === 0
-              ? "text-zinc-500 dark:text-zinc-400"
-              : ""
-          }
-        >
+        className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-left flex justify-between items-center">
+        <span className={selectedIndustries.length === 0 ? "text-zinc-500 dark:text-zinc-400" : ""}>
           {displayText}
         </span>
         <svg
           className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`}
           fill="none"
           stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M19 9l-7 7-7-7"
-          />
+          viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
       {isOpen && (
@@ -111,8 +96,7 @@ const IndustrySelector = ({ value, onChange }) => {
             return (
               <label
                 key={industry.id}
-                className="flex items-center px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer"
-              >
+                className="flex items-center px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer">
                 <input
                   type="checkbox"
                   checked={isSelected}
@@ -120,9 +104,7 @@ const IndustrySelector = ({ value, onChange }) => {
                   className="w-4 h-4 text-lime-500 border-zinc-300 dark:border-zinc-600 rounded focus:ring-lime-500 bg-white dark:bg-zinc-700"
                 />
 
-                <span className="ml-2 text-zinc-900 dark:text-zinc-100">
-                  {industry.name}
-                </span>
+                <span className="ml-2 text-zinc-900 dark:text-zinc-100">{industry.name}</span>
               </label>
             );
           })}
@@ -131,8 +113,7 @@ const IndustrySelector = ({ value, onChange }) => {
               <button
                 type="button"
                 onClick={() => setShowNewInput(true)}
-                className="w-full px-3 py-2 text-left text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700"
-              >
+                className="w-full px-3 py-2 text-left text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700">
                 + Add New Industry
               </button>
             ) : (
@@ -160,8 +141,7 @@ const IndustrySelector = ({ value, onChange }) => {
                 <button
                   type="button"
                   onClick={handleAddNew}
-                  className="px-2 py-1 text-sm bg-lime-500 text-white rounded hover:bg-lime-600"
-                >
+                  className="px-2 py-1 text-sm bg-lime-500 text-white rounded hover:bg-lime-600">
                   Add
                 </button>
               </div>

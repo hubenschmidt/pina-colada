@@ -22,25 +22,9 @@ function _optionalChain(ops) {
 const cache = {};
 
 export const fetchOnce = async (key, fetcher) => {
-  if (
-    _optionalChain([
-      cache,
-      "access",
-      (_) => _[key],
-      "optionalAccess",
-      (_2) => _2.data,
-    ])
-  )
+  if (_optionalChain([cache, "access", (_) => _[key], "optionalAccess", (_2) => _2.data]))
     return cache[key].data;
-  if (
-    _optionalChain([
-      cache,
-      "access",
-      (_3) => _3[key],
-      "optionalAccess",
-      (_4) => _4.pending,
-    ])
-  )
+  if (_optionalChain([cache, "access", (_3) => _3[key], "optionalAccess", (_4) => _4.pending]))
     return cache[key].pending;
 
   cache[key] = { data: null, pending: null };

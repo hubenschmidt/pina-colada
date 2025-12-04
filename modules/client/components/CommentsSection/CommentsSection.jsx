@@ -2,27 +2,11 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import {
-  MessageCircle,
-  Reply,
-  ChevronDown,
-  ChevronUp,
-  Share2,
-} from "lucide-react";
-import {
-  getComments,
-  createComment,
-  updateComment,
-  deleteComment,
-} from "../../api";
+import { MessageCircle, Reply, ChevronDown, ChevronUp, Share2 } from "lucide-react";
+import { getComments, createComment, updateComment, deleteComment } from "../../api";
 import { useUserContext } from "../../context/userContext";
 
-const CommentsSection = ({
-  entityType,
-  entityId,
-  pendingComments,
-  onPendingCommentsChange,
-}) => {
+const CommentsSection = ({ entityType, entityId, pendingComments, onPendingCommentsChange }) => {
   const { userState } = useUserContext();
   const currentUserEmail = userState.user?.email;
   const isCreateMode = entityId === null;
@@ -88,19 +72,15 @@ const CommentsSection = ({
     const threads = topLevel.map((comment) => ({
       comment,
       replies: comments
-        .filter(
-          (c) => c.parent_comment_id && findRootParent(c.id) === comment.id,
-        )
+        .filter((c) => c.parent_comment_id && findRootParent(c.id) === comment.id)
         .sort(
-          (a, b) =>
-            new Date(a.created_at || 0).getTime() -
-            new Date(b.created_at || 0).getTime(),
+          (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
         ),
     }));
     return threads.sort(
       (a, b) =>
         new Date(b.comment.created_at || 0).getTime() -
-        new Date(a.comment.created_at || 0).getTime(),
+        new Date(a.comment.created_at || 0).getTime()
     );
   };
 
@@ -108,10 +88,7 @@ const CommentsSection = ({
     if (!newCommentContent.trim()) return;
 
     if (isCreateMode && onPendingCommentsChange) {
-      onPendingCommentsChange([
-        ...(pendingComments || []),
-        newCommentContent.trim(),
-      ]);
+      onPendingCommentsChange([...(pendingComments || []), newCommentContent.trim()]);
       setNewCommentContent("");
       return;
     }
@@ -120,11 +97,7 @@ const CommentsSection = ({
 
     setError(null);
     try {
-      const comment = await createComment(
-        entityType,
-        entityId,
-        newCommentContent.trim(),
-      );
+      const comment = await createComment(entityType, entityId, newCommentContent.trim());
       setComments([...comments, comment]);
       setNewCommentContent("");
     } catch (err) {
@@ -137,12 +110,7 @@ const CommentsSection = ({
 
     setError(null);
     try {
-      const comment = await createComment(
-        entityType,
-        entityId,
-        replyContent.trim(),
-        parentId,
-      );
+      const comment = await createComment(entityType, entityId, replyContent.trim(), parentId);
       setComments([...comments, comment]);
       setReplyContent("");
       setReplyingToId(null);
@@ -177,11 +145,7 @@ const CommentsSection = ({
     try {
       await deleteComment(commentId);
       // Remove the comment and all its replies
-      setComments(
-        comments.filter(
-          (c) => c.id !== commentId && c.parent_comment_id !== commentId,
-        ),
-      );
+      setComments(comments.filter((c) => c.id !== commentId && c.parent_comment_id !== commentId));
     } catch (err) {
       setError(err?.message || "Failed to delete comment");
     }
@@ -271,11 +235,8 @@ const CommentsSection = ({
   const renderCommentContent = (comment, isReply = false) => {
     const isEditing = editingCommentId === comment.id;
     const displayName =
-      comment.created_by_name ||
-      comment.created_by_email?.split("@")[0] ||
-      "Unknown";
-    const isOwnComment =
-      currentUserEmail && comment.created_by_email === currentUserEmail;
+      comment.created_by_name || comment.created_by_email?.split("@")[0] || "Unknown";
+    const isOwnComment = currentUserEmail && comment.created_by_email === currentUserEmail;
 
     if (isEditing) {
       return (
@@ -283,9 +244,7 @@ const CommentsSection = ({
           <textarea
             value={editContent}
             onChange={(e) => setEditContent(e.target.value)}
-            onKeyDown={(e) =>
-              handleKeyDown(e, () => handleUpdateComment(comment.id))
-            }
+            onKeyDown={(e) => handleKeyDown(e, () => handleUpdateComment(comment.id))}
             className="w-full px-3 py-2 text-sm border border-zinc-300 dark:border-zinc-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 resize-none"
             rows={2}
             autoFocus
@@ -295,15 +254,13 @@ const CommentsSection = ({
             <button
               type="button"
               onClick={() => handleUpdateComment(comment.id)}
-              className="px-3 py-1 text-xs bg-lime-600 text-white rounded hover:bg-lime-700 transition-colors"
-            >
+              className="px-3 py-1 text-xs bg-lime-600 text-white rounded hover:bg-lime-700 transition-colors">
               Save
             </button>
             <button
               type="button"
               onClick={cancelEditing}
-              className="px-3 py-1 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
-            >
+              className="px-3 py-1 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
               Cancel
             </button>
           </div>
@@ -318,8 +275,7 @@ const CommentsSection = ({
           {comment.individual_id ? (
             <Link
               href={`/accounts/individuals/${comment.individual_id}`}
-              className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline"
-            >
+              className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline">
               {displayName}
             </Link>
           ) : (
@@ -338,21 +294,16 @@ const CommentsSection = ({
         </p>
 
         {/* Edited indicator */}
-        {comment.updated_at &&
-          comment.created_at &&
-          comment.updated_at !== comment.created_at && (
-            <span className="text-xs text-zinc-400 dark:text-zinc-500 italic">
-              (edited)
-            </span>
-          )}
+        {comment.updated_at && comment.created_at && comment.updated_at !== comment.created_at && (
+          <span className="text-xs text-zinc-400 dark:text-zinc-500 italic">(edited)</span>
+        )}
 
         {/* Actions */}
         <div className="flex items-center gap-3 text-xs mt-2">
           <button
             type="button"
             onClick={() => startReplying(comment.id)}
-            className="flex items-center gap-1 text-zinc-400 hover:text-lime-600 dark:hover:text-lime-400 transition-colors"
-          >
+            className="flex items-center gap-1 text-zinc-400 hover:text-lime-600 dark:hover:text-lime-400 transition-colors">
             <Reply size={12} />
             Reply
           </button>
@@ -361,15 +312,13 @@ const CommentsSection = ({
               <button
                 type="button"
                 onClick={() => startEditing(comment)}
-                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
-              >
+                className="text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors">
                 Edit
               </button>
               <button
                 type="button"
                 onClick={() => handleDeleteComment(comment.id)}
-                className="text-zinc-400 hover:text-red-500 transition-colors"
-              >
+                className="text-zinc-400 hover:text-red-500 transition-colors">
                 Delete
               </button>
             </>
@@ -383,8 +332,7 @@ const CommentsSection = ({
               setTimeout(() => setCopiedCommentId(null), 2000);
             }}
             className="flex items-center gap-1 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 transition-colors"
-            title="Copy link to clipboard"
-          >
+            title="Copy link to clipboard">
             <Share2 size={12} />
             {copiedCommentId === comment.id ? "Copied!" : "Share"}
           </button>
@@ -405,8 +353,7 @@ const CommentsSection = ({
         <div className="flex gap-3">
           {/* Avatar */}
           <div
-            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium ${getAvatarColor(comment.created_by_name, comment.created_by_email)}`}
-          >
+            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium ${getAvatarColor(comment.created_by_name, comment.created_by_email)}`}>
             {getInitials(comment.created_by_name, comment.created_by_email)}
           </div>
 
@@ -419,9 +366,7 @@ const CommentsSection = ({
             <textarea
               value={replyContent}
               onChange={(e) => setReplyContent(e.target.value)}
-              onKeyDown={(e) =>
-                handleKeyDown(e, () => handleAddReply(comment.id))
-              }
+              onKeyDown={(e) => handleKeyDown(e, () => handleAddReply(comment.id))}
               className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none"
               rows={2}
               placeholder="Write a reply..."
@@ -433,15 +378,13 @@ const CommentsSection = ({
                 type="button"
                 onClick={() => handleAddReply(comment.id)}
                 disabled={!replyContent.trim()}
-                className="px-3 py-1.5 text-xs bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-40 transition-colors"
-              >
+                className="px-3 py-1.5 text-xs bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-40 transition-colors">
                 Reply
               </button>
               <button
                 type="button"
                 onClick={cancelReplying}
-                className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
-              >
+                className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                 Cancel
               </button>
             </div>
@@ -455,13 +398,11 @@ const CommentsSection = ({
             <button
               type="button"
               onClick={() => toggleThread(comment.id)}
-              className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 mb-2 transition-colors"
-            >
+              className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300 mb-2 transition-colors">
               {isCollapsed ? (
                 <>
                   <ChevronDown size={14} />
-                  Show {replies.length}{" "}
-                  {replies.length === 1 ? "reply" : "replies"}
+                  Show {replies.length} {replies.length === 1 ? "reply" : "replies"}
                 </>
               ) : (
                 <>
@@ -479,12 +420,8 @@ const CommentsSection = ({
                     <div id={`comment-${reply.id}`} className="flex gap-3">
                       {/* Reply avatar (smaller) */}
                       <div
-                        className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium ${getAvatarColor(reply.created_by_name, reply.created_by_email)}`}
-                      >
-                        {getInitials(
-                          reply.created_by_name,
-                          reply.created_by_email,
-                        )}
+                        className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium ${getAvatarColor(reply.created_by_name, reply.created_by_email)}`}>
+                        {getInitials(reply.created_by_name, reply.created_by_email)}
                       </div>
 
                       {renderCommentContent(reply, true)}
@@ -495,9 +432,7 @@ const CommentsSection = ({
                         <textarea
                           value={replyContent}
                           onChange={(e) => setReplyContent(e.target.value)}
-                          onKeyDown={(e) =>
-                            handleKeyDown(e, () => handleAddReply(reply.id))
-                          }
+                          onKeyDown={(e) => handleKeyDown(e, () => handleAddReply(reply.id))}
                           className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none"
                           rows={2}
                           placeholder="Write a reply..."
@@ -509,15 +444,13 @@ const CommentsSection = ({
                             type="button"
                             onClick={() => handleAddReply(reply.id)}
                             disabled={!replyContent.trim()}
-                            className="px-3 py-1.5 text-xs bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-40 transition-colors"
-                          >
+                            className="px-3 py-1.5 text-xs bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-40 transition-colors">
                             Reply
                           </button>
                           <button
                             type="button"
                             onClick={cancelReplying}
-                            className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors"
-                          >
+                            className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
                             Cancel
                           </button>
                         </div>
@@ -540,12 +473,8 @@ const CommentsSection = ({
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-            You
-          </span>
-          <span className="text-xs text-lime-600 dark:text-lime-400 italic">
-            pending
-          </span>
+          <span className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">You</span>
+          <span className="text-xs text-lime-600 dark:text-lime-400 italic">pending</span>
         </div>
         <p className="text-sm text-zinc-700 dark:text-zinc-300 whitespace-pre-wrap break-words mb-2">
           {content}
@@ -553,8 +482,7 @@ const CommentsSection = ({
         <button
           type="button"
           onClick={() => handleRemovePendingComment(index)}
-          className="text-xs text-zinc-400 hover:text-red-500 transition-colors"
-        >
+          className="text-xs text-zinc-400 hover:text-red-500 transition-colors">
           Remove
         </button>
       </div>
@@ -569,9 +497,7 @@ const CommentsSection = ({
       {/* Header */}
       <div className="flex items-center gap-2">
         <MessageCircle size={18} className="text-zinc-400" />
-        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
-          Comments
-        </span>
+        <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">Comments</span>
         {totalComments > 0 && (
           <span className="text-xs text-zinc-400 bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded-full">
             {totalComments}
@@ -605,8 +531,7 @@ const CommentsSection = ({
             type="button"
             onClick={handleAddComment}
             disabled={!newCommentContent.trim()}
-            className="px-4 py-1.5 bg-lime-600 text-white text-sm rounded-lg hover:bg-lime-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-          >
+            className="px-4 py-1.5 bg-lime-600 text-white text-sm rounded-lg hover:bg-lime-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
             Post
           </button>
         </div>
@@ -620,9 +545,7 @@ const CommentsSection = ({
         </div>
       ) : (
         <div className="space-y-6">
-          {pendingComments?.map((content, index) =>
-            renderPendingCommentCard(content, index),
-          )}
+          {pendingComments?.map((content, index) => renderPendingCommentCard(content, index))}
           {threads.map((thread) => renderThread(thread))}
         </div>
       )}

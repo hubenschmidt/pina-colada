@@ -1,27 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useLookupsContext } from "../../context/lookupsContext";
 import { getRevenueRanges } from "../../api";
+import { fetchOnce } from "../../lib/lookup-cache";
 
 const RevenueRangeSelector = ({ value, onChange }) => {
-  const [ranges, setRanges] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { lookupsState, dispatchLookups } = useLookupsContext();
+  const { revenueRanges, loaded } = lookupsState;
 
   useEffect(() => {
-    const loadRanges = async () => {
-      try {
-        const data = await getRevenueRanges();
-        setRanges(data);
-      } catch (error) {
-        console.error("Failed to fetch revenue ranges:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadRanges();
-  }, []);
+    if (loaded.revenueRanges) return;
+    fetchOnce("revenueRanges", getRevenueRanges).then((data) => {
+      dispatchLookups({ type: "SET_REVENUE_RANGES", payload: data });
+    });
+  }, [loaded.revenueRanges, dispatchLookups]);
 
-  if (loading) {
+  if (!loaded.revenueRanges) {
     return (
       <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
         Loading...
@@ -33,15 +28,10 @@ const RevenueRangeSelector = ({ value, onChange }) => {
     <select
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
-      className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 ${value ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-500 dark:text-zinc-400"}`}
-    >
+      className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 ${value ? "text-zinc-900 dark:text-zinc-100" : "text-zinc-500 dark:text-zinc-400"}`}>
       <option value="">Select revenue range...</option>
-      {ranges.map((range) => (
-        <option
-          key={range.id}
-          value={range.id}
-          className="text-zinc-900 dark:text-zinc-100"
-        >
+      {revenueRanges.map((range) => (
+        <option key={range.id} value={range.id} className="text-zinc-900 dark:text-zinc-100">
           {range.label}
         </option>
       ))}

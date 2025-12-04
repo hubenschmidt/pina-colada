@@ -64,7 +64,7 @@ const CustomReportsPage = () => {
         limit,
         sortBy,
         sortDirection,
-        searchQuery || undefined,
+        searchQuery || undefined
       );
       setData({
         items: result.items,
@@ -74,9 +74,7 @@ const CustomReportsPage = () => {
         pageSize: result.pageSize,
       });
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to load saved reports",
-      );
+      setError(err instanceof Error ? err.message : "Failed to load saved reports");
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -90,8 +88,7 @@ const CustomReportsPage = () => {
 
   useEffect(() => {
     if (data !== null && !loading) {
-      const isPagination =
-        page !== (data.currentPage || 1) || limit !== (data.pageSize || 50);
+      const isPagination = page !== (data.currentPage || 1) || limit !== (data.pageSize || 50);
       fetchReports(false, isPagination);
     }
   }, [page, limit, sortBy, sortDirection, searchQuery]);
@@ -146,8 +143,7 @@ const CustomReportsPage = () => {
           fw={500}
           c="inherit"
           underline="hover"
-          onClick={(e) => e.stopPropagation()}
-        >
+          onClick={(e) => e.stopPropagation()}>
           {report.name}
         </Anchor>
       ),
@@ -155,8 +151,7 @@ const CustomReportsPage = () => {
     {
       header: "Scope",
       render: (report) =>
-        report.query_definition?.primary_entity === "leads" &&
-        selectedProject ? (
+        report.query_definition?.primary_entity === "leads" && selectedProject ? (
           <Badge variant="light" color="lime">
             {selectedProject.name}
           </Badge>
@@ -190,9 +185,7 @@ const CustomReportsPage = () => {
       sortKey: "updated_at",
       render: (report) => (
         <Text size="sm">
-          {report.updated_at
-            ? new Date(report.updated_at).toLocaleDateString()
-            : "-"}
+          {report.updated_at ? new Date(report.updated_at).toLocaleDateString() : "-"}
         </Text>
       ),
     },
@@ -200,11 +193,7 @@ const CustomReportsPage = () => {
       header: "",
       width: 50,
       render: (report) => (
-        <ActionIcon
-          variant="subtle"
-          color="red"
-          onClick={(e) => handleDeleteClick(report, e)}
-        >
+        <ActionIcon variant="subtle" color="red" onClick={(e) => handleDeleteClick(report, e)}>
           <Trash2 className="h-4 w-4" />
         </ActionIcon>
       ),
@@ -225,9 +214,7 @@ const CustomReportsPage = () => {
   if (error) {
     return (
       <Stack gap="lg">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-          Custom Reports
-        </h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Custom Reports</h1>
         <Text c="red">{error}</Text>
       </Stack>
     );
@@ -236,15 +223,9 @@ const CustomReportsPage = () => {
   return (
     <Stack gap="lg">
       <Group justify="space-between">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-          Custom Reports
-        </h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Custom Reports</h1>
         {selectedProject ? (
-          <Badge
-            variant="light"
-            color="lime"
-            leftSection={<FolderKanban className="h-3 w-3" />}
-          >
+          <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
             {selectedProject.name}
           </Badge>
         ) : (
@@ -266,8 +247,7 @@ const CustomReportsPage = () => {
                 <button
                   onClick={handleClearSearch}
                   className="text-zinc-400 hover:text-zinc-600 dark:text-zinc-500 dark:hover:text-zinc-400"
-                  aria-label="Clear search"
-                >
+                  aria-label="Clear search">
                   <X size={18} />
                 </button>
               )
@@ -278,8 +258,7 @@ const CustomReportsPage = () => {
           <Button
             leftSection={<Plus className="h-4 w-4" />}
             color="lime"
-            onClick={() => router.push("/reports/custom/new")}
-          >
+            onClick={() => router.push("/reports/custom/new")}>
             New Report
           </Button>
         </Group>
@@ -308,13 +287,8 @@ const CustomReportsPage = () => {
             right={0}
             h={2}
             bg="gray.1"
-            style={{ zIndex: 10, overflow: "hidden" }}
-          >
-            <Box
-              h="100%"
-              bg="gray.3"
-              style={{ width: "40%", transition: "width 0.3s ease" }}
-            />
+            style={{ zIndex: 10, overflow: "hidden" }}>
+            <Box h="100%" bg="gray.3" style={{ width: "40%", transition: "width 0.3s ease" }} />
           </Box>
         )}
         <DataTable

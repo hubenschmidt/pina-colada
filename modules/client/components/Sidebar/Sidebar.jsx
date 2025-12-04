@@ -45,8 +45,7 @@ export const Sidebar = () => {
     <aside
       className={`h-screen border-r border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 transition-all duration-300 ${
         sidebarCollapsed ? "w-14" : "w-64"
-      }`}
-    >
+      }`}>
       <Stack h="100%" gap={0} justify="space-between">
         {/* Toggle Button */}
         <div className="p-4 pb-0 flex justify-end">
@@ -58,8 +57,7 @@ export const Sidebar = () => {
               })
             }
             className="flex items-center justify-center rounded p-2 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800"
-            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          >
+            title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}>
             {sidebarCollapsed ? (
               <PanelLeft className="h-5 w-5" />
             ) : (
@@ -81,9 +79,7 @@ export const Sidebar = () => {
                       placeholder="Select project..."
                       value={selectedProject?.id?.toString() || null}
                       onChange={(value) => {
-                        const project = projects.find(
-                          (p) => p.id.toString() === value,
-                        );
+                        const project = projects.find((p) => p.id.toString() === value);
                         selectProject(project || null);
                       }}
                       data={projects
@@ -101,8 +97,7 @@ export const Sidebar = () => {
                   onClick={() => router.push("/projects")}
                   className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
                     pathname === "/projects" ? "font-bold" : "font-normal"
-                  }`}
-                >
+                  }`}>
                   <FolderKanban className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                   Projects
                 </button>
@@ -113,11 +108,8 @@ export const Sidebar = () => {
                 <button
                   onClick={() => toggleSection("accounts")}
                   className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-                    pathname?.startsWith("/accounts")
-                      ? "font-bold"
-                      : "font-normal"
-                  }`}
-                >
+                    pathname?.startsWith("/accounts") ? "font-bold" : "font-normal"
+                  }`}>
                   <Library className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                   Accounts
                   <span className="ml-auto">
@@ -133,33 +125,24 @@ export const Sidebar = () => {
                     <Link
                       href="/accounts/organizations"
                       className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 ${
-                        pathname === "/accounts/organizations"
-                          ? "font-bold"
-                          : "font-normal"
-                      }`}
-                    >
+                        pathname === "/accounts/organizations" ? "font-bold" : "font-normal"
+                      }`}>
                       <Building2 className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                       Organizations
                     </Link>
                     <Link
                       href="/accounts/individuals"
                       className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 ${
-                        pathname === "/accounts/individuals"
-                          ? "font-bold"
-                          : "font-normal"
-                      }`}
-                    >
+                        pathname === "/accounts/individuals" ? "font-bold" : "font-normal"
+                      }`}>
                       <User className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                       Individuals
                     </Link>
                     <Link
                       href="/accounts/contacts"
                       className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 ${
-                        pathname === "/accounts/contacts"
-                          ? "font-bold"
-                          : "font-normal"
-                      }`}
-                    >
+                        pathname === "/accounts/contacts" ? "font-bold" : "font-normal"
+                      }`}>
                       <PenLine className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                       Contacts
                     </Link>
@@ -173,8 +156,7 @@ export const Sidebar = () => {
                   onClick={() => toggleSection("leads")}
                   className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
                     pathname?.startsWith("/leads") ? "font-bold" : "font-normal"
-                  }`}
-                >
+                  }`}>
                   <Briefcase className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                   Leads
                   <span className="ml-auto">
@@ -190,33 +172,24 @@ export const Sidebar = () => {
                     <Link
                       href="/leads/jobs"
                       className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 ${
-                        pathname?.startsWith("/leads/jobs")
-                          ? "font-bold"
-                          : "font-normal"
-                      }`}
-                    >
+                        pathname?.startsWith("/leads/jobs") ? "font-bold" : "font-normal"
+                      }`}>
                       <Clipboard className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                       Jobs
                     </Link>
                     <Link
                       href="/leads/opportunities"
                       className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 ${
-                        pathname?.startsWith("/leads/opportunities")
-                          ? "font-bold"
-                          : "font-normal"
-                      }`}
-                    >
+                        pathname?.startsWith("/leads/opportunities") ? "font-bold" : "font-normal"
+                      }`}>
                       <Lightbulb className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                       Opportunities
                     </Link>
                     <Link
                       href="/leads/partnerships"
                       className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 ${
-                        pathname?.startsWith("/leads/partnerships")
-                          ? "font-bold"
-                          : "font-normal"
-                      }`}
-                    >
+                        pathname?.startsWith("/leads/partnerships") ? "font-bold" : "font-normal"
+                      }`}>
                       <Handshake className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                       Partnerships
                     </Link>
@@ -229,8 +202,7 @@ export const Sidebar = () => {
                 onClick={() => router.push("/tasks")}
                 className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
                   pathname === "/tasks" ? "font-bold" : "font-normal"
-                }`}
-              >
+                }`}>
                 <CheckSquare className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                 Tasks
               </button>
@@ -240,8 +212,7 @@ export const Sidebar = () => {
                 onClick={() => router.push("/assets/documents")}
                 className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
                   pathname === "/assets/documents" ? "font-bold" : "font-normal"
-                }`}
-              >
+                }`}>
                 <Files className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                 Documents
               </button>
@@ -264,11 +235,8 @@ export const Sidebar = () => {
                 <button
                   onClick={() => toggleSection("reports")}
                   className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-                    pathname?.startsWith("/reports")
-                      ? "font-bold"
-                      : "font-normal"
-                  }`}
-                >
+                    pathname?.startsWith("/reports") ? "font-bold" : "font-normal"
+                  }`}>
                   <BarChart3 className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                   Reports
                   <span className="ml-auto">
@@ -284,22 +252,16 @@ export const Sidebar = () => {
                     <Link
                       href="/reports/canned"
                       className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 ${
-                        pathname === "/reports/canned"
-                          ? "font-bold"
-                          : "font-normal"
-                      }`}
-                    >
+                        pathname === "/reports/canned" ? "font-bold" : "font-normal"
+                      }`}>
                       <FileText className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                       Canned
                     </Link>
                     <Link
                       href="/reports/custom"
                       className={`flex items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 hover:text-zinc-900 dark:hover:text-zinc-100 ${
-                        pathname === "/reports/custom"
-                          ? "font-bold"
-                          : "font-normal"
-                      }`}
-                    >
+                        pathname === "/reports/custom" ? "font-bold" : "font-normal"
+                      }`}>
                       <Wrench className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                       Custom
                     </Link>

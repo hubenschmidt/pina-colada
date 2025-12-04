@@ -10,18 +10,16 @@ const NewPartnershipPage = () => {
   const formConfig = useLeadFormConfig("partnership");
 
   const handleClose = () => {
-    router.push("/leads");
+    router.push("/leads/partnerships");
   };
 
   const handleAdd = async (data) => {
     const partnership = await createPartnership(data);
-    router.push("/leads");
+    router.push("/leads/partnerships");
     return partnership;
   };
 
-  return (
-    <LeadForm onClose={handleClose} onAdd={handleAdd} config={formConfig} />
-  );
+  return <LeadForm onClose={handleClose} onAdd={handleAdd} config={formConfig} />;
 };
 
 export default NewPartnershipPage;

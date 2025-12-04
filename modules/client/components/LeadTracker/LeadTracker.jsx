@@ -6,17 +6,7 @@ import { DataTable } from "../DataTable/DataTable";
 import { SearchBox } from "../SearchBox";
 
 import { ProjectContext } from "../../context/projectContext";
-import {
-  Stack,
-  Center,
-  Loader,
-  Alert,
-  Group,
-  Button,
-  Box,
-  Text,
-  Badge,
-} from "@mantine/core";
+import { Stack, Center, Loader, Alert, Group, Button, Box, Text, Badge } from "@mantine/core";
 import { FolderKanban } from "lucide-react";
 
 const LeadTracker = ({ config }) => {
@@ -31,19 +21,13 @@ const LeadTracker = ({ config }) => {
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(config.defaultPageSize || 50);
   const [sortBy, setSortBy] = useState(config.defaultSortBy || "created_at");
-  const [sortDirection, setSortDirection] = useState(
-    config.defaultSortDirection || "DESC",
-  );
+  const [sortDirection, setSortDirection] = useState(config.defaultSortDirection || "DESC");
   const [showLoadingBar, setShowLoadingBar] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const enableSearch = config.enableSearch !== false;
 
-  const loadLeads = (
-    showFullLoading = false,
-    showBar = false,
-    overrideSearch,
-  ) => {
+  const loadLeads = (showFullLoading = false, showBar = false, overrideSearch) => {
     if (showFullLoading) {
       setLoading(true);
     }
@@ -55,22 +39,13 @@ const LeadTracker = ({ config }) => {
 
     const search = overrideSearch !== undefined ? overrideSearch : searchQuery;
     config.api
-      .getLeads(
-        page,
-        limit,
-        sortBy,
-        sortDirection,
-        search || undefined,
-        selectedProjectId,
-      )
+      .getLeads(page, limit, sortBy, sortDirection, search || undefined, selectedProjectId)
       .then((pageData) => {
         setData(pageData);
       })
       .catch((err) => {
         console.error(`Error fetching ${config.entityNamePlural}:`, err);
-        setError(
-          `Failed to load ${config.entityNamePlural.toLowerCase()}. Please try again.`,
-        );
+        setError(`Failed to load ${config.entityNamePlural.toLowerCase()}. Please try again.`);
       })
       .finally(() => {
         setLoading(false);
@@ -111,19 +86,10 @@ const LeadTracker = ({ config }) => {
 
   const fetchPreview = async (query) => {
     if (!config.getSuggestionLabel) return [];
-    const result = await config.api.getLeads(
-      1,
-      4,
-      sortBy,
-      sortDirection,
-      query,
-      selectedProjectId,
-    );
+    const result = await config.api.getLeads(1, 4, sortBy, sortDirection, query, selectedProjectId);
     return result.items.map((item) => {
       const label = config.getSuggestionLabel(item);
-      const value = config.getSuggestionValue
-        ? config.getSuggestionValue(item)
-        : label;
+      const value = config.getSuggestionValue ? config.getSuggestionValue(item) : label;
       return { label, value };
     });
   };
@@ -133,9 +99,7 @@ const LeadTracker = ({ config }) => {
       <Center mih={400}>
         <Stack align="center" gap="md">
           <Loader size="xl" color="lime" />
-          <Text c="dimmed">
-            Loading {config.entityNamePlural.toLowerCase()}...
-          </Text>
+          <Text c="dimmed">Loading {config.entityNamePlural.toLowerCase()}...</Text>
         </Stack>
       </Center>
     );
@@ -163,11 +127,7 @@ const LeadTracker = ({ config }) => {
           {config.entityNamePlural}
         </h1>
         {selectedProject ? (
-          <Badge
-            variant="light"
-            color="lime"
-            leftSection={<FolderKanban className="h-3 w-3" />}
-          >
+          <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
             {selectedProject.name}
           </Badge>
         ) : (
@@ -197,8 +157,7 @@ const LeadTracker = ({ config }) => {
                 return;
               }
             }}
-            color="lime"
-          >
+            color="lime">
             New {config.entityName}
           </Button>
         </Group>
@@ -214,13 +173,8 @@ const LeadTracker = ({ config }) => {
             right={0}
             h={2}
             bg="gray.1"
-            style={{ zIndex: 10, overflow: "hidden" }}
-          >
-            <Box
-              h="100%"
-              bg="gray.3"
-              style={{ width: "40%", transition: "width 0.3s ease" }}
-            />
+            style={{ zIndex: 10, overflow: "hidden" }}>
+            <Box h="100%" bg="gray.3" style={{ width: "40%", transition: "width 0.3s ease" }} />
           </Box>
         )}
         <DataTable

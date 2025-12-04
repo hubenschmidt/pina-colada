@@ -139,6 +139,7 @@ async def create_organization(data: Dict[str, Any]) -> Organization:
                 select(Organization)
                 .options(
                     selectinload(Organization.account).selectinload(Account.industries),
+                    selectinload(Organization.account).selectinload(Account.projects),
                     selectinload(Organization.employee_count_range),
                     selectinload(Organization.funding_stage),
                     selectinload(Organization.revenue_range),
@@ -216,6 +217,7 @@ async def update_organization(org_id: int, data: Dict[str, Any]) -> Optional[Org
                 select(Organization)
                 .options(
                     selectinload(Organization.account).selectinload(Account.industries),
+                    selectinload(Organization.account).selectinload(Account.projects),
                     selectinload(Organization.employee_count_range),
                     selectinload(Organization.funding_stage),
                     selectinload(Organization.revenue_range),
@@ -251,6 +253,7 @@ async def search_organizations(query: str, tenant_id: Optional[int] = None) -> L
     async with async_get_session() as session:
         stmt = select(Organization).options(
             selectinload(Organization.account).selectinload(Account.industries),
+            selectinload(Organization.account).selectinload(Account.projects),
             selectinload(Organization.employee_count_range),
             selectinload(Organization.funding_stage),
             selectinload(Organization.revenue_range),

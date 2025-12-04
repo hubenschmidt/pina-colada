@@ -98,7 +98,11 @@ async def get_tasks_by_entity(entity_type: str, entity_id: int) -> dict:
 async def get_task(task_id: str) -> dict:
     """Get a single task by ID."""
     task = await get_task_service(task_id)
-    return task_to_detail_response(task)
+    entity_info = None
+    if task.taskable_type and task.taskable_id:
+        entity_info_map = await batch_resolve_entity_display([task])
+        entity_info = entity_info_map.get((task.taskable_type, task.taskable_id))
+    return task_to_detail_response(task, entity_info)
 
 
 @handle_http_exceptions
@@ -125,7 +129,11 @@ async def create_task(request: Request, data: TaskCreate) -> dict:
         "updated_by": user_id,
     }
     task = await create_task_service(task_data)
-    return task_to_detail_response(task)
+    entity_info = None
+    if task.taskable_type and task.taskable_id:
+        entity_info_map = await batch_resolve_entity_display([task])
+        entity_info = entity_info_map.get((task.taskable_type, task.taskable_id))
+    return task_to_detail_response(task, entity_info)
 
 
 @handle_http_exceptions
@@ -135,7 +143,11 @@ async def update_task(request: Request, task_id: str, data: TaskUpdate) -> dict:
     update_data = {k: v for k, v in data.model_dump().items() if v is not None}
     update_data["updated_by"] = user_id
     task = await update_task_service(task_id, update_data)
-    return task_to_detail_response(task)
+    entity_info = None
+    if task.taskable_type and task.taskable_id:
+        entity_info_map = await batch_resolve_entity_display([task])
+        entity_info = entity_info_map.get((task.taskable_type, task.taskable_id))
+    return task_to_detail_response(task, entity_info)
 
 
 @handle_http_exceptions

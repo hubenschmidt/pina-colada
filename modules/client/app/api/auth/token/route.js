@@ -8,9 +8,6 @@ export const GET = async () => {
     return NextResponse.json({ accessToken: token });
   } catch (error) {
     console.error("Token error:", error);
-    return NextResponse.json(
-      { error: "Unable to get access token" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Unable to get access token" }, { status: 401 });
   }
 };

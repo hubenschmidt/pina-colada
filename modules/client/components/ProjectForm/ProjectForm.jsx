@@ -1,15 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  Stack,
-  TextInput,
-  Textarea,
-  Button,
-  Group,
-  Text,
-  Select,
-} from "@mantine/core";
+import { Stack, TextInput, Textarea, Button, Group, Text, Select } from "@mantine/core";
 
 import { DeleteConfirmBanner } from "../DeleteConfirmBanner";
 
@@ -138,11 +130,7 @@ const ProjectForm = ({ project, onAdd, onUpdate, onDelete, onClose }) => {
 
         <Group justify="space-between">
           <Group>
-            <Button
-              variant="subtle"
-              onClick={onClose}
-              disabled={saving || deleting}
-            >
+            <Button variant="subtle" onClick={onClose} disabled={saving || deleting}>
               Cancel
             </Button>
             {isEdit && onDelete && (
@@ -151,8 +139,7 @@ const ProjectForm = ({ project, onAdd, onUpdate, onDelete, onClose }) => {
                 variant="subtle"
                 onClick={handleDeleteClick}
                 loading={deleting}
-                disabled={saving || showDeleteConfirm}
-              >
+                disabled={saving || showDeleteConfirm}>
                 Delete
               </Button>
             )}

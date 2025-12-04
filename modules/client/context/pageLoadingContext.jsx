@@ -16,15 +16,10 @@ export const usePageLoading = () => useContext(PageLoadingContext);
 
 export const PageLoadingProvider = ({ children }) => {
   const reducer = pageLoadingReducer(initialState);
-  const [pageLoadingState, dispatchPageLoading] = useReducer(
-    reducer,
-    initialState,
-  );
+  const [pageLoadingState, dispatchPageLoading] = useReducer(reducer, initialState);
 
   return (
-    <PageLoadingContext.Provider
-      value={{ pageLoadingState, dispatchPageLoading }}
-    >
+    <PageLoadingContext.Provider value={{ pageLoadingState, dispatchPageLoading }}>
       {children}
     </PageLoadingContext.Provider>
   );

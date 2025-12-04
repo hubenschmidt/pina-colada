@@ -49,8 +49,7 @@ const LoginPage = () => {
               {/* Login button */}
               <a
                 href="/auth/login"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 transition-all"
-              >
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 transition-all">
                 <ChevronLeft size={18} />
                 Log in
               </a>
@@ -58,8 +57,7 @@ const LoginPage = () => {
               {/* Sign up button */}
               <a
                 href="/auth/login?screen_hint=signup"
-                className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-blue-700 bg-blue-50 border-2 border-blue-200 rounded-lg hover:border-blue-300 hover:bg-blue-100 transition-colors"
-              >
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-semibold text-blue-700 bg-blue-50 border-2 border-blue-200 rounded-lg hover:border-blue-300 hover:bg-blue-100 transition-colors">
                 Sign up
                 <ChevronRight size={18} />
               </a>

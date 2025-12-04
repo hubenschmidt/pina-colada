@@ -12,8 +12,7 @@ const getOrganizationConfig = () => {
       header: "Industry",
       sortable: true,
       sortKey: "industries",
-      render: (org) =>
-        org.industries?.length > 0 ? org.industries.join(", ") : "-",
+      render: (org) => (org.industries?.length > 0 ? org.industries.join(", ") : "-"),
     },
     {
       header: "Funding",
@@ -46,8 +45,7 @@ const getOrganizationConfig = () => {
             target="_blank"
             rel="noopener noreferrer"
             className="text-blue-600 dark:text-blue-400 hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
+            onClick={(e) => e.stopPropagation()}>
             {org.website}
           </a>
         ) : (
@@ -117,8 +115,7 @@ const getIndividualConfig = () => {
           <a
             href={`mailto:${ind.email}`}
             className="text-blue-600 dark:text-blue-400 hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
+            onClick={(e) => e.stopPropagation()}>
             {ind.email}
           </a>
         ) : (
@@ -151,8 +148,7 @@ const getIndividualConfig = () => {
     emptyMessage: "No individuals yet. Add your first one above!",
     enableSearch: true,
     getSuggestionLabel: (ind) => {
-      const name =
-        `${ind.first_name || ""} ${ind.last_name || ""}`.trim() || "Unknown";
+      const name = `${ind.first_name || ""} ${ind.last_name || ""}`.trim() || "Unknown";
       return ind.title ? `${name} — ${ind.title}` : name;
     },
     getSuggestionValue: (ind) => ind.last_name || "",
@@ -202,8 +198,7 @@ const getContactConfig = () => {
           <a
             href={`mailto:${c.email}`}
             className="text-blue-600 dark:text-blue-400 hover:underline"
-            onClick={(e) => e.stopPropagation()}
-          >
+            onClick={(e) => e.stopPropagation()}>
             {c.email}
           </a>
         ) : (
@@ -236,8 +231,7 @@ const getContactConfig = () => {
     emptyMessage: "No contacts yet. Add your first one above!",
     enableSearch: true,
     getSuggestionLabel: (c) => {
-      const name =
-        `${c.first_name || ""} ${c.last_name || ""}`.trim() || "Unknown";
+      const name = `${c.first_name || ""} ${c.last_name || ""}`.trim() || "Unknown";
       return c.title ? `${name} — ${c.title}` : name;
     },
     getSuggestionValue: (c) => c.last_name || "",

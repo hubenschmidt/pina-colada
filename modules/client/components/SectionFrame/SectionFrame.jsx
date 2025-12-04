@@ -18,9 +18,8 @@ const SectionFrame = ({
           roundedClassName,
           "bg-white shadow-sm",
           "p-5 sm:p-6 md:p-8",
-          className,
-        )}
-      >
+          className
+        )}>
         {children}
       </div>
     </section>
