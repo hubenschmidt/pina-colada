@@ -10,6 +10,7 @@ from serializers.opportunity import (
     opportunity_to_list_response,
     opportunity_to_detail_response,
 )
+from schemas.opportunity import OpportunityCreate, OpportunityUpdate
 from services.opportunity_service import (
     create_opportunity as create_opportunity_service,
     delete_opportunity as delete_opportunity_service,

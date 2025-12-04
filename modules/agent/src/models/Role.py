@@ -14,8 +14,6 @@ class Role(Base):
     description = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-    created_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
-    updated_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
 
     # Relationships
     tenant = relationship("Tenant", back_populates="roles", foreign_keys=[tenant_id])

@@ -11,11 +11,8 @@ from serializers.individual import (
     ind_to_search_response,
     ind_to_detail_response,
 )
+from schemas.individual import IndContactCreate, IndContactUpdate, IndividualCreate, IndividualUpdate
 from services.individual_service import (
-    IndividualCreate,
-    IndividualUpdate,
-    IndContactCreate,
-    IndContactUpdate,
     get_individuals_paginated,
     search_individuals as search_individuals_service,
     get_individual as get_individual_service,

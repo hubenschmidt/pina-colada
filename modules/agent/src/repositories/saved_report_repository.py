@@ -92,7 +92,7 @@ async def find_all_saved_reports(
         offset = (page - 1) * limit
         stmt = (
             base_stmt
-            .options(selectinload(SavedReport.creator), selectinload(SavedReport.projects))
+            .options(selectinload(SavedReport.projects))
             .offset(offset)
             .limit(limit)
         )
@@ -116,7 +116,7 @@ async def find_saved_report_by_id(report_id: int, tenant_id: int) -> Optional[Sa
     async with async_get_session() as session:
         stmt = (
             select(SavedReport)
-            .options(selectinload(SavedReport.creator), selectinload(SavedReport.projects))
+            .options(selectinload(SavedReport.projects))
             .where(SavedReport.id == report_id, SavedReport.tenant_id == tenant_id)
         )
         result = await session.execute(stmt)
@@ -141,7 +141,7 @@ async def create_saved_report(data: Dict[str, Any], project_ids: Optional[List[i
         # Re-fetch with relationships loaded
         stmt = (
             select(SavedReport)
-            .options(selectinload(SavedReport.creator), selectinload(SavedReport.projects))
+            .options(selectinload(SavedReport.projects))
             .where(SavedReport.id == report.id)
         )
         result = await session.execute(stmt)
@@ -184,7 +184,7 @@ async def update_saved_report(
         # Re-fetch with relationships loaded
         stmt = (
             select(SavedReport)
-            .options(selectinload(SavedReport.creator), selectinload(SavedReport.projects))
+            .options(selectinload(SavedReport.projects))
             .where(SavedReport.id == report_id)
         )
         result = await session.execute(stmt)

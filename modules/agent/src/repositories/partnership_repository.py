@@ -79,13 +79,13 @@ async def find_all_partnerships(
         total_count = count_result.scalar() or 0
 
         sort_map = {
-            "updated_at": Partnership.updated_at,
+            "updated_at": Lead.updated_at,
             "created_at": Lead.created_at,
             "partnership_name": Partnership.partnership_name,
             "start_date": Partnership.start_date,
             "end_date": Partnership.end_date,
         }
-        sort_column = sort_map.get(order_by, Partnership.updated_at)
+        sort_column = sort_map.get(order_by, Lead.updated_at)
         stmt = stmt.order_by(sort_column.desc() if order.upper() == "DESC" else sort_column.asc())
 
         offset = (page - 1) * page_size
@@ -160,8 +160,6 @@ async def create_partnership(data: Dict[str, Any]) -> Partnership:
                 start_date=data.get("start_date"),
                 end_date=data.get("end_date"),
                 description=data.get("description"),
-                created_by=data.get("created_by"),
-                updated_by=data.get("updated_by"),
             )
 
             session.add(partnership)

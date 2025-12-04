@@ -7,8 +7,8 @@ from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
 from serializers.provenance import provenance_to_response
+from schemas.provenance import ProvenanceCreate
 from services.provenance_service import (
-    ProvenanceCreate,
     get_provenance as get_provenance_service,
     create_provenance as create_provenance_service,
 )

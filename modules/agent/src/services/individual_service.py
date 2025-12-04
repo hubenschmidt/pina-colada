@@ -8,7 +8,7 @@ from sqlalchemy import select, delete, func, or_, update
 
 from lib.db import async_get_session
 from models.Account import Account
-from models.Industry import Account_Industry
+from models.Industry import AccountIndustry
 from models.AccountProject import AccountProject
 from models.Contact import Contact, ContactIndividual, ContactOrganization
 from models.Individual import Individual
@@ -150,11 +150,10 @@ async def create_individual(
             # Link industries to the account
             if industry_ids:
                 for industry_id in industry_ids:
-                    stmt = Account_Industry.insert().values(
+                    session.add(AccountIndustry(
                         account_id=account.id,
                         industry_id=industry_id
-                    )
-                    await session.execute(stmt)
+                    ))
 
             # Link projects to the account
             if project_ids:
@@ -191,14 +190,13 @@ async def update_individual(
     if industry_ids is not None and individual.account_id:
         async with async_get_session() as session:
             await session.execute(
-                delete(Account_Industry).where(Account_Industry.c.account_id == individual.account_id)
+                delete(AccountIndustry).where(AccountIndustry.account_id == individual.account_id)
             )
             for industry_id in industry_ids:
-                stmt = Account_Industry.insert().values(
+                session.add(AccountIndustry(
                     account_id=individual.account_id,
                     industry_id=industry_id
-                )
-                await session.execute(stmt)
+                ))
             await session.commit()
 
     # Update projects if explicitly provided

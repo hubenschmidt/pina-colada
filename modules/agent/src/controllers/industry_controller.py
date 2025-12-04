@@ -4,8 +4,8 @@ from typing import List
 
 from lib.decorators import handle_http_exceptions
 from serializers.base import model_to_dict
+from schemas.industry import IndustryCreate
 from services.industry_service import (
-    IndustryCreate,
     get_all_industries as get_all_industries_service,
     create_industry as create_industry_service,
 )

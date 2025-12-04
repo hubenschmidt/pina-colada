@@ -6,9 +6,8 @@ from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
 from serializers.note import note_to_response
+from schemas.note import NoteCreate, NoteUpdate
 from services.note_service import (
-    NoteCreate,
-    NoteUpdate,
     get_notes_by_entity as get_notes_service,
     get_note as get_note_service,
     create_note as create_note_service,

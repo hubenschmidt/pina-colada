@@ -85,8 +85,8 @@ def job_to_list_response(job) -> Dict[str, Any]:
         "job_url": job.job_url,
         "created_at": format_datetime(created_at),
         "formatted_created_at": format_display_date(created_at),
-        "updated_at": format_datetime(job.updated_at),
-        "formatted_updated_at": format_display_date(job.updated_at),
+        "updated_at": format_datetime(job.lead.updated_at if job.lead else None),
+        "formatted_updated_at": format_display_date(job.lead.updated_at if job.lead else None),
     }
 
 
@@ -116,7 +116,7 @@ def job_to_detail_response(job) -> Dict[str, Any]:
         "formatted_resume_date": format_display_date(job.resume_date),
         "source": job.lead.source if job.lead else "manual",
         "created_at": format_datetime(created_at),
-        "updated_at": format_datetime(job.updated_at),
+        "updated_at": format_datetime(job.lead.updated_at if job.lead else None),
         "contacts": contacts,
         "industry": industry,
         "project_ids": project_ids,

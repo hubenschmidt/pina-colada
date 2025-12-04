@@ -127,13 +127,13 @@ async def find_all_jobs(
         # Apply sorting at DB level
         sort_map = {
             "date": Lead.created_at,
-            "updated_at": Job.updated_at,
+            "updated_at": Lead.updated_at,
             "application_date": Lead.created_at,
             "company": Organization.name,
             "job_title": Job.job_title,
             "resume": Job.resume_date,
         }
-        sort_column = sort_map.get(order_by, Job.updated_at)
+        sort_column = sort_map.get(order_by, Lead.updated_at)
         stmt = stmt.order_by(sort_column.desc() if order.upper() == "DESC" else sort_column.asc())
 
         # Apply pagination at DB level
@@ -228,8 +228,6 @@ async def create_job(data: Dict[str, Any]) -> Job:
                 resume_date=data.get("resume_date"),
                 salary_range=data.get("salary_range"),
                 salary_range_id=data.get("salary_range_id"),
-                created_by=data.get("created_by"),
-                updated_by=data.get("updated_by"),
             )
 
             session.add(job)

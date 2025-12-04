@@ -7,8 +7,8 @@ from fastapi import Request
 from lib.decorators import handle_http_exceptions
 from serializers.common import to_paged_response
 from serializers.document import document_to_list_response, document_to_detail_response
+from schemas.document import DocumentUpdate
 from services.document_service import (
-    DocumentUpdate,
     EntityLink,
     get_documents_paginated,
     check_filename_exists,

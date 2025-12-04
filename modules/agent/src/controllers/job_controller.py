@@ -8,6 +8,7 @@ from lib.decorators import handle_http_exceptions
 from serializers.base import model_to_dict
 from serializers.common import to_paged_response
 from serializers.job import job_to_list_response, job_to_detail_response
+from schemas.job import JobCreate, JobUpdate
 from services.job_service import (
     create_job as create_job_service,
     delete_job as delete_job_service,

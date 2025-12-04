@@ -13,8 +13,6 @@ def saved_report_to_dict(report) -> dict:
         "project_ids": project_ids,
         "project_names": project_names,
         "is_global": len(project_ids) == 0,
-        "created_by": report.created_by,
-        "creator_name": f"{report.creator.first_name} {report.creator.last_name}" if report.creator else None,
         "created_at": report.created_at.isoformat() if report.created_at else None,
         "updated_at": report.updated_at.isoformat() if report.updated_at else None,
     }

@@ -6,7 +6,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import selectinload
 from lib.db import async_get_session
 from models.Account import Account
-from models.Industry import Account_Industry
+from models.Industry import AccountIndustry
 from models.Organization import Organization
 from models.OrganizationTechnology import OrganizationTechnology
 from schemas.organization import (
@@ -184,11 +184,10 @@ async def get_or_create_organization(
             # Link industries to the account if provided
             if industry_ids:
                 for industry_id in industry_ids:
-                    stmt = Account_Industry.insert().values(
+                    session.add(AccountIndustry(
                         account_id=account.id,
                         industry_id=industry_id
-                    )
-                    await session.execute(stmt)
+                    ))
 
             await session.commit()
             await session.refresh(org)

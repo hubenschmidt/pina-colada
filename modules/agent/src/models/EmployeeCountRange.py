@@ -24,5 +24,3 @@ class EmployeeCountRange(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    created_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
-    updated_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)

@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, func
+from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey
 from sqlalchemy.orm import relationship
 from models import Base
 
@@ -24,10 +24,6 @@ class Job(Base):
     resume_date = Column(DateTime(timezone=True), nullable=True)
     salary_range = Column(Text, nullable=True)  # Legacy field, kept for backwards compat
     salary_range_id = Column(BigInteger, ForeignKey("Salary_Range.id", ondelete="SET NULL"), nullable=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-    created_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
-    updated_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
 
     # Relationships
     lead = relationship("Lead", back_populates="job")

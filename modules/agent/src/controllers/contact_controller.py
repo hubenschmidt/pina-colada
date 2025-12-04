@@ -7,9 +7,8 @@ from fastapi import Request
 from lib.decorators import handle_http_exceptions
 from serializers.common import to_paged_response
 from serializers.contact import contact_to_list_response, contact_to_detail_response
+from schemas.contact import ContactCreate, ContactUpdate
 from services.contact_service import (
-    ContactCreate,
-    ContactUpdate,
     get_contacts_paginated,
     search_contacts as search_contacts_service,
     get_contact as get_contact_service,

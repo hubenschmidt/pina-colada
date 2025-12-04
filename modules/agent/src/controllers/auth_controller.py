@@ -6,8 +6,8 @@ from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
 from serializers.base import model_to_dict
+from schemas.tenant import TenantCreate
 from services.auth_service import (
-    TenantCreate,
     get_user_tenants as get_user_tenants_service,
     create_tenant_for_user as create_tenant_service,
 )

@@ -1,6 +1,6 @@
 """Controller layer for organization routing to services."""
 
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import Request
 
@@ -14,11 +14,8 @@ from serializers.organization import (
     org_to_search_response,
     org_to_detail_response,
 )
+from schemas.organization import OrgContactCreate, OrgContactUpdate, OrganizationCreate, OrganizationUpdate
 from services.organization_service import (
-    OrganizationCreate,
-    OrganizationUpdate,
-    OrgContactCreate,
-    OrgContactUpdate,
     OrgTechnologyCreate,
     FundingRoundCreate,
     SignalCreate,

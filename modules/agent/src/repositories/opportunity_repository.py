@@ -79,13 +79,13 @@ async def find_all_opportunities(
         total_count = count_result.scalar() or 0
 
         sort_map = {
-            "updated_at": Opportunity.updated_at,
+            "updated_at": Lead.updated_at,
             "created_at": Lead.created_at,
             "opportunity_name": Opportunity.opportunity_name,
             "estimated_value": Opportunity.estimated_value,
             "expected_close_date": Opportunity.expected_close_date,
         }
-        sort_column = sort_map.get(order_by, Opportunity.updated_at)
+        sort_column = sort_map.get(order_by, Lead.updated_at)
         stmt = stmt.order_by(sort_column.desc() if order.upper() == "DESC" else sort_column.asc())
 
         offset = (page - 1) * page_size
@@ -160,8 +160,6 @@ async def create_opportunity(data: Dict[str, Any]) -> Opportunity:
                 probability=data.get("probability"),
                 expected_close_date=data.get("expected_close_date"),
                 description=data.get("description"),
-                created_by=data.get("created_by"),
-                updated_by=data.get("updated_by"),
             )
 
             session.add(opp)

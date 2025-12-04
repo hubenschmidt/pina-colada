@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import
+from sqlalchemy.orm import relationship
 from models import Base
 
 
@@ -17,8 +17,6 @@ class CommentNotification(Base):
     is_read = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
     updated_at = Column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
-    created_by = Column(Integer, ForeignKey("User.id"), nullable=False)
-    updated_by = Column(Integer, ForeignKey("User.id"), nullable=False)
     read_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships

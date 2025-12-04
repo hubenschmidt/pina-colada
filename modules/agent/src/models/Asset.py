@@ -35,6 +35,7 @@ class Asset(Base):
     tenant = relationship("Tenant", back_populates="assets")
     user = relationship("User", back_populates="assets", foreign_keys=[user_id])
     parent = relationship("Asset", remote_side=[id], backref="versions")
+    entity_links = relationship("EntityAsset", back_populates="asset")
 
     __mapper_args__ = {
         "polymorphic_on": asset_type,

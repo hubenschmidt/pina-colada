@@ -1,18 +1,21 @@
-from sqlalchemy import Column, BigInteger, String, Text, DateTime, ForeignKey, Table, func
+from sqlalchemy import Column, BigInteger, String, Text, DateTime, ForeignKey, func
+from sqlalchemy.orm import relationship
 from models import Base
 
-# Polymorphic join table for tagging any entity
-EntityTag = Table(
-    "Entity_Tag",
-    Base.metadata,
-    Column("tag_id", BigInteger, ForeignKey("Tag.id", ondelete="CASCADE"), primary_key=True),
-    Column("entity_type", Text, primary_key=True),
-    Column("entity_id", BigInteger, primary_key=True),
-    Column("created_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
-    Column("updated_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
-    Column("created_by", BigInteger, ForeignKey("User.id"), nullable=False),
-    Column("updated_by", BigInteger, ForeignKey("User.id"), nullable=False),
-)
+
+class EntityTag(Base):
+    """Polymorphic junction for tagging any entity."""
+
+    __tablename__ = "Entity_Tag"
+
+    tag_id = Column(BigInteger, ForeignKey("Tag.id", ondelete="CASCADE"), primary_key=True)
+    entity_type = Column(Text, primary_key=True)
+    entity_id = Column(BigInteger, primary_key=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    tag = relationship("Tag", back_populates="entity_links")
 
 
 class Tag(Base):
@@ -24,5 +27,6 @@ class Tag(Base):
     name = Column(String(100), nullable=False, unique=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-    created_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
-    updated_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
+
+    # Relationships
+    entity_links = relationship("EntityTag", back_populates="tag")

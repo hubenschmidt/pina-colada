@@ -10,9 +10,8 @@ from serializers.partnership import (
     partnership_to_list_response,
     partnership_to_detail_response,
 )
+from schemas.partnership import PartnershipCreate, PartnershipUpdate
 from services.partnership_service import (
-    PartnershipCreate,
-    PartnershipUpdate,
     get_partnerships_paginated,
     create_partnership as create_partnership_service,
     get_partnership as get_partnership_service,

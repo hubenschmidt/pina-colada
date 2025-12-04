@@ -17,6 +17,7 @@ from services.saved_report_service import (
     SavedReportCreate,
     SavedReportUpdate,
 )
+from schemas.report import SavedReportCreate, SavedReportUpdate
 from services.report_builder import (
     execute_custom_query,
     get_lead_pipeline_report,

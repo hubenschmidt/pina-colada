@@ -1,20 +1,19 @@
 """Industry model for account classification."""
 
-from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, Table, func
+from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, func
 from sqlalchemy.orm import relationship
 from models import Base
 
-# Join table for many-to-many relationship
-Account_Industry = Table(
-    "Account_Industry",
-    Base.metadata,
-    Column("account_id", BigInteger, ForeignKey("Account.id", ondelete="CASCADE"), primary_key=True),
-    Column("industry_id", BigInteger, ForeignKey("Industry.id", ondelete="CASCADE"), primary_key=True),
-    Column("created_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
-    Column("updated_at", DateTime(timezone=True), server_default=func.now(), nullable=False),
-    Column("created_by", BigInteger, ForeignKey("User.id"), nullable=False),
-    Column("updated_by", BigInteger, ForeignKey("User.id"), nullable=False),
-)
+
+class AccountIndustry(Base):
+    """Junction table for Account-Industry many-to-many relationship."""
+
+    __tablename__ = "Account_Industry"
+
+    account_id = Column(BigInteger, ForeignKey("Account.id", ondelete="CASCADE"), primary_key=True)
+    industry_id = Column(BigInteger, ForeignKey("Industry.id", ondelete="CASCADE"), primary_key=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
 
 class Industry(Base):
@@ -26,8 +25,6 @@ class Industry(Base):
     name = Column(Text, nullable=False, unique=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
-    created_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
-    updated_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
 
     # Relationships
-    accounts = relationship("Account", secondary=Account_Industry, back_populates="industries")
+    accounts = relationship("Account", secondary="Account_Industry", back_populates="industries")

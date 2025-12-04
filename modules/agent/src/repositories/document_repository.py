@@ -2,7 +2,7 @@
 
 import logging
 from typing import Any, Dict, List, Optional
-from sqlalchemy import and_, delete, func, insert, or_, select, update
+from sqlalchemy import and_, delete, func, or_, select, update
 from sqlalchemy.orm import joinedload
 from lib.db import async_get_session
 from models.Asset import Asset
@@ -46,23 +46,23 @@ async def find_documents_by_tenant(
             # to specific versions, so we show the version that was actually linked
             conditions = [
                 Document.tenant_id == tenant_id,
-                EntityAsset.c.entity_type == entity_type,
-                EntityAsset.c.entity_id == entity_id,
+                EntityAsset.entity_type == entity_type,
+                EntityAsset.entity_id == entity_id,
             ]
             base_stmt = (
                 select(Document)
-                .join(EntityAsset, EntityAsset.c.asset_id == Document.id)
+                .join(EntityAsset, EntityAsset.asset_id == Document.id)
                 .where(and_(*conditions))
             )
 
         # Filter by tags if provided
         if tags and len(tags) > 0:
             base_stmt = (
-                base_stmt.join(EntityTag, EntityTag.c.entity_id == Document.id)
-                .join(Tag, Tag.id == EntityTag.c.tag_id)
+                base_stmt.join(EntityTag, EntityTag.entity_id == Document.id)
+                .join(Tag, Tag.id == EntityTag.tag_id)
                 .where(
                     and_(
-                        EntityTag.c.entity_type == "Asset",
+                        EntityTag.entity_type == "Asset",
                         Tag.name.in_(tags),
                     )
                 )
@@ -178,9 +178,9 @@ async def link_document_to_entity(
             # Check if link already exists
             existing_stmt = select(func.count()).select_from(EntityAsset).where(
                 and_(
-                    EntityAsset.c.asset_id == document_id,
-                    EntityAsset.c.entity_type == entity_type,
-                    EntityAsset.c.entity_id == entity_id,
+                    EntityAsset.asset_id == document_id,
+                    EntityAsset.entity_type == entity_type,
+                    EntityAsset.entity_id == entity_id,
                 )
             )
             result = await session.execute(existing_stmt)
@@ -188,12 +188,12 @@ async def link_document_to_entity(
             if count > 0:
                 return True  # Already linked
 
-            stmt = insert(EntityAsset).values(
+            link = EntityAsset(
                 asset_id=document_id,
                 entity_type=entity_type,
                 entity_id=entity_id,
             )
-            await session.execute(stmt)
+            session.add(link)
             await session.commit()
             return True
         except Exception as e:
@@ -210,9 +210,9 @@ async def unlink_document_from_entity(
         try:
             stmt = delete(EntityAsset).where(
                 and_(
-                    EntityAsset.c.asset_id == document_id,
-                    EntityAsset.c.entity_type == entity_type,
-                    EntityAsset.c.entity_id == entity_id,
+                    EntityAsset.asset_id == document_id,
+                    EntityAsset.entity_type == entity_type,
+                    EntityAsset.entity_id == entity_id,
                 )
             )
             result = await session.execute(stmt)
@@ -253,9 +253,9 @@ async def _get_entity_name(session, entity_type: str, entity_id: int) -> Optiona
 async def get_document_entities(document_id: int) -> List[Dict[str, Any]]:
     """Get all entities linked to a document with their names."""
     async with async_get_session() as session:
-        stmt = select(EntityAsset).where(EntityAsset.c.asset_id == document_id)
+        stmt = select(EntityAsset).where(EntityAsset.asset_id == document_id)
         result = await session.execute(stmt)
-        rows = result.fetchall()
+        rows = result.scalars().all()
 
         entities = []
         for row in rows:
@@ -277,11 +277,11 @@ async def get_document_tags(document_id: int) -> List[str]:
     async with async_get_session() as session:
         stmt = (
             select(Tag.name)
-            .join(EntityTag, EntityTag.c.tag_id == Tag.id)
+            .join(EntityTag, EntityTag.tag_id == Tag.id)
             .where(
                 and_(
-                    EntityTag.c.entity_type == "Asset",
-                    EntityTag.c.entity_id == document_id,
+                    EntityTag.entity_type == "Asset",
+                    EntityTag.entity_id == document_id,
                 )
             )
             .order_by(Tag.name)
@@ -300,9 +300,9 @@ async def get_documents_entities_batch(document_ids: List[int]) -> Dict[int, Lis
 
     async with async_get_session() as session:
         # Get all entity links for all documents
-        stmt = select(EntityAsset).where(EntityAsset.c.asset_id.in_(document_ids))
+        stmt = select(EntityAsset).where(EntityAsset.asset_id.in_(document_ids))
         result = await session.execute(stmt)
-        rows = result.fetchall()
+        rows = result.scalars().all()
 
         # Group by document and collect unique entity lookups needed
         doc_entities: Dict[int, List[tuple]] = {}
@@ -369,15 +369,15 @@ async def get_documents_tags_batch(document_ids: List[int]) -> Dict[int, List[st
 
     async with async_get_session() as session:
         stmt = (
-            select(EntityTag.c.entity_id, Tag.name)
-            .join(Tag, Tag.id == EntityTag.c.tag_id)
+            select(EntityTag.entity_id, Tag.name)
+            .join(Tag, Tag.id == EntityTag.tag_id)
             .where(
                 and_(
-                    EntityTag.c.entity_type == "Asset",
-                    EntityTag.c.entity_id.in_(document_ids),
+                    EntityTag.entity_type == "Asset",
+                    EntityTag.entity_id.in_(document_ids),
                 )
             )
-            .order_by(EntityTag.c.entity_id, Tag.name)
+            .order_by(EntityTag.entity_id, Tag.name)
         )
         result = await session.execute(stmt)
 
@@ -467,14 +467,14 @@ async def find_existing_document_by_filename(
     async with async_get_session() as session:
         stmt = (
             select(Document)
-            .join(EntityAsset, EntityAsset.c.asset_id == Document.id)
+            .join(EntityAsset, EntityAsset.asset_id == Document.id)
             .where(
                 and_(
                     Document.tenant_id == tenant_id,
                     Document.filename == filename,
                     Document.is_current_version == True,
-                    EntityAsset.c.entity_type == entity_type,
-                    EntityAsset.c.entity_id == entity_id,
+                    EntityAsset.entity_type == entity_type,
+                    EntityAsset.entity_id == entity_id,
                 )
             )
         )

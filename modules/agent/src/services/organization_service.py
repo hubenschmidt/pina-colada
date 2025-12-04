@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from lib.db import async_get_session
 from models.Account import Account
-from models.Industry import Account_Industry
+from models.Industry import AccountIndustry
 from models.AccountProject import AccountProject
 from models.Contact import Contact, ContactOrganization
 from repositories.organization_repository import (
@@ -115,11 +115,10 @@ async def create_organization(
             # Link industries to the account
             if industry_ids:
                 for industry_id in industry_ids:
-                    stmt = Account_Industry.insert().values(
+                    session.add(AccountIndustry(
                         account_id=account.id,
                         industry_id=industry_id
-                    )
-                    await session.execute(stmt)
+                    ))
 
             # Link projects to the account
             if project_ids:
@@ -155,14 +154,13 @@ async def update_organization(
     if industry_ids is not None and org.account_id:
         async with async_get_session() as session:
             await session.execute(
-                delete(Account_Industry).where(Account_Industry.c.account_id == org.account_id)
+                delete(AccountIndustry).where(AccountIndustry.account_id == org.account_id)
             )
             for industry_id in industry_ids:
-                stmt = Account_Industry.insert().values(
+                session.add(AccountIndustry(
                     account_id=org.account_id,
                     industry_id=industry_id
-                )
-                await session.execute(stmt)
+                ))
             await session.commit()
 
     # Update projects if explicitly provided
