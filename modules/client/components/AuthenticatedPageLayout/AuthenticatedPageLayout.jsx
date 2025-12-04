@@ -5,20 +5,22 @@ import { useUserContext } from "../../context/userContext";
 import Header from "../Header/Header";
 import { Sidebar } from "../Sidebar/Sidebar";
 
-const AuthenticatedPageLayout = ({
-  children
-
-
-}) => {
+const AuthenticatedPageLayout = ({ children }) => {
   const { userState } = useUserContext();
   const { isLoading, isAuthed } = userState;
 
   if (isLoading || !isAuthed) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Image src="/loading-icon.png" alt="Loading" width={200} height={200} unoptimized />
-      </div>);
-
+        <Image
+          src="/loading-icon.png"
+          alt="Loading"
+          width={200}
+          height={200}
+          unoptimized
+        />
+      </div>
+    );
   }
 
   return (
@@ -28,8 +30,8 @@ const AuthenticatedPageLayout = ({
         <Header />
         <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>
-    </div>);
-
+    </div>
+  );
 };
 
 export default AuthenticatedPageLayout;

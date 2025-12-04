@@ -1,4 +1,3 @@
-
 import "@mantine/core/styles.css";
 import "./globals.css";
 import { NavProvider } from "../context/navContext";
@@ -15,7 +14,7 @@ import { MantineThemeProvider } from "../components/MantineThemeProvider/Mantine
 
 export const metadata = {
   title: "PinaColada.co",
-  description: "Software and AI Solutions"
+  description: "Software and AI Solutions",
 };
 
 export default ({ children }) => {
@@ -43,6 +42,6 @@ export default ({ children }) => {
           </UserProvider>
         </Auth0Provider>
       </body>
-    </html>);
-
+    </html>
+  );
 };

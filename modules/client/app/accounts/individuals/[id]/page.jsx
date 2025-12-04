@@ -5,7 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import { Center, Stack, Loader } from "@mantine/core";
 import { usePageLoading } from "../../../../context/pageLoadingContext";
 import AccountForm from "../../../../components/AccountForm/AccountForm";
-import { getIndividual, updateIndividual, deleteIndividual } from "../../../../api";
+import {
+  getIndividual,
+  updateIndividual,
+  deleteIndividual,
+} from "../../../../api";
 
 const IndividualDetailPage = () => {
   const params = useParams();
@@ -23,7 +27,9 @@ const IndividualDetailPage = () => {
         const data = await getIndividual(id);
         setIndividual(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load individual");
+        setError(
+          err instanceof Error ? err.message : "Failed to load individual",
+        );
       } finally {
         setLoading(false);
         dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
@@ -53,16 +59,18 @@ const IndividualDetailPage = () => {
         <Stack align="center" gap="md">
           <Loader size="xl" color="lime" />
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error || !individual) {
     return (
       <div className="p-6">
-        <p className="text-red-600 dark:text-red-400">{error || "Individual not found"}</p>
-      </div>);
-
+        <p className="text-red-600 dark:text-red-400">
+          {error || "Individual not found"}
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -71,9 +79,9 @@ const IndividualDetailPage = () => {
       onClose={handleClose}
       account={individual}
       onUpdate={handleUpdate}
-      onDelete={handleDelete} />);
-
-
+      onDelete={handleDelete}
+    />
+  );
 };
 
 export default IndividualDetailPage;

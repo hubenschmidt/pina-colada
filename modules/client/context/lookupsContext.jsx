@@ -10,22 +10,19 @@ const initialState = {
   loading: {
     industries: false,
     salaryRanges: false,
-    projects: false
+    projects: false,
   },
   loaded: {
     industries: false,
     salaryRanges: false,
-    projects: false
-  }
+    projects: false,
+  },
 };
 
-export const LookupsContext = createContext(
-
-
-  {
-    lookupsState: initialState,
-    dispatchLookups: () => {}
-  });
+export const LookupsContext = createContext({
+  lookupsState: initialState,
+  dispatchLookups: () => {},
+});
 
 export const useLookupsContext = () => useContext(LookupsContext);
 
@@ -36,6 +33,6 @@ export const LookupsProvider = ({ children }) => {
   return (
     <LookupsContext.Provider value={{ lookupsState, dispatchLookups }}>
       {children}
-    </LookupsContext.Provider>);
-
+    </LookupsContext.Provider>
+  );
 };

@@ -5,7 +5,11 @@ import { useParams, useRouter } from "next/navigation";
 import { Center, Stack, Loader } from "@mantine/core";
 import { usePageLoading } from "../../../../context/pageLoadingContext";
 import AccountForm from "../../../../components/AccountForm/AccountForm";
-import { getOrganization, updateOrganization, deleteOrganization } from "../../../../api";
+import {
+  getOrganization,
+  updateOrganization,
+  deleteOrganization,
+} from "../../../../api";
 
 const OrganizationDetailPage = () => {
   const params = useParams();
@@ -23,7 +27,9 @@ const OrganizationDetailPage = () => {
         const data = await getOrganization(id);
         setOrganization(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load organization");
+        setError(
+          err instanceof Error ? err.message : "Failed to load organization",
+        );
       } finally {
         setLoading(false);
         dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
@@ -53,16 +59,18 @@ const OrganizationDetailPage = () => {
         <Stack align="center" gap="md">
           <Loader size="xl" color="lime" />
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error || !organization) {
     return (
       <div className="p-6">
-        <p className="text-red-600 dark:text-red-400">{error || "Organization not found"}</p>
-      </div>);
-
+        <p className="text-red-600 dark:text-red-400">
+          {error || "Organization not found"}
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -71,9 +79,9 @@ const OrganizationDetailPage = () => {
       onClose={handleClose}
       account={organization}
       onUpdate={handleUpdate}
-      onDelete={handleDelete} />);
-
-
+      onDelete={handleDelete}
+    />
+  );
 };
 
 export default OrganizationDetailPage;

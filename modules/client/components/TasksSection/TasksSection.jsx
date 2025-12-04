@@ -4,30 +4,19 @@ import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Plus, Trash2, Edit2, Check, X } from "lucide-react";
 import {
-
-
-
-
   getTasksByEntity,
   getTaskStatuses,
   getTaskPriorities,
   createTask,
   updateTask,
-  deleteTask } from
-"../../api";
-
-
-
-
-
-
-
+  deleteTask,
+} from "../../api";
 
 const priorityColors = {
   Low: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
   Medium: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
   High: "bg-orange-100 text-orange-700 dark:bg-orange-900 dark:text-orange-300",
-  Urgent: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300"
+  Urgent: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
 };
 
 const COMPLEXITY_OPTIONS = [1, 2, 3, 5, 8, 13, 21];
@@ -36,7 +25,7 @@ const TasksSection = ({
   entityType,
   entityId,
   pendingTasks,
-  onPendingTasksChange
+  onPendingTasksChange,
 }) => {
   const isCreateMode = entityId === null;
   const [tasks, setTasks] = useState([]);
@@ -67,9 +56,9 @@ const TasksSection = ({
     const loadOptions = async () => {
       try {
         const [statusData, priorityData] = await Promise.all([
-        getTaskStatuses(),
-        getTaskPriorities()]
-        );
+          getTaskStatuses(),
+          getTaskPriorities(),
+        ]);
         setStatuses(statusData);
         setPriorities(priorityData);
       } catch (err) {
@@ -117,7 +106,7 @@ const TasksSection = ({
       current_status_id: newTaskStatusId,
       priority_id: newTaskPriorityId,
       due_date: newTaskDueDate || undefined,
-      complexity: newTaskComplexity
+      complexity: newTaskComplexity,
     };
 
     if (isCreateMode && onPendingTasksChange) {
@@ -133,7 +122,7 @@ const TasksSection = ({
       const task = await createTask({
         ...taskData,
         taskable_type: entityType,
-        taskable_id: entityId
+        taskable_id: entityId,
       });
       setTasks([task, ...tasks]);
       resetNewTaskForm();
@@ -153,9 +142,9 @@ const TasksSection = ({
         current_status_id: editStatusId,
         priority_id: editPriorityId,
         due_date: editDueDate || undefined,
-        complexity: editComplexity
+        complexity: editComplexity,
       });
-      setTasks(tasks.map((t) => t.id === taskId ? updated : t));
+      setTasks(tasks.map((t) => (t.id === taskId ? updated : t)));
       cancelEditing();
     } catch (err) {
       setError(err?.message || "Failed to update task");
@@ -199,288 +188,332 @@ const TasksSection = ({
   };
 
   const inputClasses =
-  "w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100";
+    "w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100";
 
   const selectClasses =
-  "px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm";
+    "px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 text-sm";
 
   const renderTaskCard = (task) => {
     const isEditing = editingTaskId === task.id;
-    const priorityClass = task.priority?.name ?
-    priorityColors[task.priority.name] || priorityColors.Medium :
-    "";
+    const priorityClass = task.priority?.name
+      ? priorityColors[task.priority.name] || priorityColors.Medium
+      : "";
 
     return (
       <div
         key={task.id}
-        className="p-3 border border-zinc-200 dark:border-zinc-700 rounded">
-
-        {isEditing ?
-        <div className="space-y-3">
+        className="p-3 border border-zinc-200 dark:border-zinc-700 rounded"
+      >
+        {isEditing ? (
+          <div className="space-y-3">
             <input
-            type="text"
-            value={editTitle}
-            onChange={(e) => setEditTitle(e.target.value)}
-            className={inputClasses}
-            placeholder="Task title..."
-            autoFocus />
+              type="text"
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+              className={inputClasses}
+              placeholder="Task title..."
+              autoFocus
+            />
 
             <textarea
-            value={editDescription}
-            onChange={(e) => setEditDescription(e.target.value)}
-            className={inputClasses}
-            placeholder="Description (optional)..."
-            rows={2} />
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+              className={inputClasses}
+              placeholder="Description (optional)..."
+              rows={2}
+            />
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
               <select
-              value={editStatusId || ""}
-              onChange={(e) => setEditStatusId(e.target.value ? Number(e.target.value) : null)}
-              className={selectClasses}>
-
+                value={editStatusId || ""}
+                onChange={(e) =>
+                  setEditStatusId(
+                    e.target.value ? Number(e.target.value) : null,
+                  )
+                }
+                className={selectClasses}
+              >
                 <option value="">Status...</option>
-                {statuses.map((s) =>
-              <option key={s.id} value={s.id}>{s.name}</option>
-              )}
+                {statuses.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
               </select>
               <select
-              value={editPriorityId || ""}
-              onChange={(e) => setEditPriorityId(e.target.value ? Number(e.target.value) : null)}
-              className={selectClasses}>
-
+                value={editPriorityId || ""}
+                onChange={(e) =>
+                  setEditPriorityId(
+                    e.target.value ? Number(e.target.value) : null,
+                  )
+                }
+                className={selectClasses}
+              >
                 <option value="">Priority...</option>
-                {priorities.map((p) =>
-              <option key={p.id} value={p.id}>{p.name}</option>
-              )}
+                {priorities.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
               </select>
               <input
-              type="date"
-              value={editDueDate}
-              onChange={(e) => setEditDueDate(e.target.value)}
-              className={selectClasses} />
+                type="date"
+                value={editDueDate}
+                onChange={(e) => setEditDueDate(e.target.value)}
+                className={selectClasses}
+              />
 
               <select
-              value={editComplexity || ""}
-              onChange={(e) => setEditComplexity(e.target.value ? Number(e.target.value) : null)}
-              className={selectClasses}>
-
+                value={editComplexity || ""}
+                onChange={(e) =>
+                  setEditComplexity(
+                    e.target.value ? Number(e.target.value) : null,
+                  )
+                }
+                className={selectClasses}
+              >
                 <option value="">Complexity...</option>
-                {COMPLEXITY_OPTIONS.map((c) =>
-              <option key={c} value={c}>{c}</option>
-              )}
+                {COMPLEXITY_OPTIONS.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="flex gap-2">
               <button
-              type="button"
-              onClick={() => handleUpdateTask(task.id)}
-              className="p-1 text-lime-600 hover:text-lime-700"
-              title="Save">
-
+                type="button"
+                onClick={() => handleUpdateTask(task.id)}
+                className="p-1 text-lime-600 hover:text-lime-700"
+                title="Save"
+              >
                 <Check size={16} />
               </button>
               <button
-              type="button"
-              onClick={cancelEditing}
-              className="p-1 text-zinc-400 hover:text-zinc-600"
-              title="Cancel">
-
+                type="button"
+                onClick={cancelEditing}
+                className="p-1 text-zinc-400 hover:text-zinc-600"
+                title="Cancel"
+              >
                 <X size={16} />
               </button>
             </div>
-          </div> :
-
-        <>
+          </div>
+        ) : (
+          <>
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1">
                 <Link
-                href={`/tasks/${task.id}`}
-                className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline">
-
+                  href={`/tasks/${task.id}`}
+                  className="text-sm font-medium text-zinc-900 dark:text-zinc-100 hover:text-zinc-500 dark:hover:text-zinc-400 hover:underline"
+                >
                   {task.title}
                 </Link>
-                {task.description &&
-              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+                {task.description && (
+                  <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                     {task.description}
                   </p>
-              }
+                )}
               </div>
               <div className="flex gap-1 shrink-0">
                 <button
-                type="button"
-                onClick={() => startEditing(task)}
-                className="p-1 text-zinc-400 hover:text-zinc-600"
-                title="Edit">
-
+                  type="button"
+                  onClick={() => startEditing(task)}
+                  className="p-1 text-zinc-400 hover:text-zinc-600"
+                  title="Edit"
+                >
                   <Edit2 size={14} />
                 </button>
                 <button
-                type="button"
-                onClick={() => handleDeleteTask(task.id)}
-                className="p-1 text-zinc-400 hover:text-red-500"
-                title="Delete">
-
+                  type="button"
+                  onClick={() => handleDeleteTask(task.id)}
+                  className="p-1 text-zinc-400 hover:text-red-500"
+                  title="Delete"
+                >
                   <Trash2 size={14} />
                 </button>
               </div>
             </div>
             <div className="flex flex-wrap items-center gap-2 mt-2">
-              {task.status &&
-            <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">
+              {task.status && (
+                <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">
                   {task.status.name}
                 </span>
-            }
-              {task.priority &&
-            <span className={`text-xs px-2 py-0.5 rounded ${priorityClass}`}>
+              )}
+              {task.priority && (
+                <span
+                  className={`text-xs px-2 py-0.5 rounded ${priorityClass}`}
+                >
                   {task.priority.name}
                 </span>
-            }
-              {task.complexity &&
-            <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+              )}
+              {task.complexity && (
+                <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
                   {task.complexity} pts
                 </span>
-            }
-              {task.due_date &&
-            <span className="text-xs text-zinc-500">
+              )}
+              {task.due_date && (
+                <span className="text-xs text-zinc-500">
                   Due: {task.due_date}
                 </span>
-            }
+              )}
             </div>
           </>
-        }
-      </div>);
-
+        )}
+      </div>
+    );
   };
 
   const renderPendingTaskCard = (task, index) => {
-    const priorityName = priorities.find((p) => p.id === task.priority_id)?.name;
-    const statusName = statuses.find((s) => s.id === task.current_status_id)?.name;
-    const priorityClass = priorityName ? priorityColors[priorityName] || "" : "";
+    const priorityName = priorities.find(
+      (p) => p.id === task.priority_id,
+    )?.name;
+    const statusName = statuses.find(
+      (s) => s.id === task.current_status_id,
+    )?.name;
+    const priorityClass = priorityName
+      ? priorityColors[priorityName] || ""
+      : "";
 
     return (
       <div
         key={`pending-${index}`}
-        className="p-3 border border-zinc-200 dark:border-zinc-700 rounded">
-
+        className="p-3 border border-zinc-200 dark:border-zinc-700 rounded"
+      >
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
             <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
               {task.title}
             </p>
-            {task.description &&
-            <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
+            {task.description && (
+              <p className="text-sm text-zinc-600 dark:text-zinc-400 mt-1">
                 {task.description}
               </p>
-            }
+            )}
           </div>
           <button
             type="button"
             onClick={() => handleRemovePendingTask(index)}
             className="p-1 text-zinc-400 hover:text-red-500"
-            title="Remove">
-
+            title="Remove"
+          >
             <Trash2 size={14} />
           </button>
         </div>
         <div className="flex flex-wrap items-center gap-2 mt-2">
           <span className="text-xs text-zinc-500 italic">Pending</span>
-          {statusName &&
-          <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">
+          {statusName && (
+            <span className="text-xs px-2 py-0.5 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">
               {statusName}
             </span>
-          }
-          {priorityName &&
-          <span className={`text-xs px-2 py-0.5 rounded ${priorityClass}`}>
+          )}
+          {priorityName && (
+            <span className={`text-xs px-2 py-0.5 rounded ${priorityClass}`}>
               {priorityName}
             </span>
-          }
-          {task.complexity &&
-          <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+          )}
+          {task.complexity && (
+            <span className="text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
               {task.complexity} pts
             </span>
-          }
-          {task.due_date &&
-          <span className="text-xs text-zinc-500">Due: {task.due_date}</span>
-          }
+          )}
+          {task.due_date && (
+            <span className="text-xs text-zinc-500">Due: {task.due_date}</span>
+          )}
         </div>
-      </div>);
-
+      </div>
+    );
   };
 
-  const renderAddForm = () =>
-  <div className="mb-4 p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 space-y-3">
+  const renderAddForm = () => (
+    <div className="mb-4 p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 space-y-3">
       <input
-      type="text"
-      value={newTaskTitle}
-      onChange={(e) => setNewTaskTitle(e.target.value)}
-      className={inputClasses}
-      placeholder="Task title..."
-      autoFocus />
+        type="text"
+        value={newTaskTitle}
+        onChange={(e) => setNewTaskTitle(e.target.value)}
+        className={inputClasses}
+        placeholder="Task title..."
+        autoFocus
+      />
 
       <textarea
-      value={newTaskDescription}
-      onChange={(e) => setNewTaskDescription(e.target.value)}
-      className={inputClasses}
-      placeholder="Description (optional)..."
-      rows={2} />
+        value={newTaskDescription}
+        onChange={(e) => setNewTaskDescription(e.target.value)}
+        className={inputClasses}
+        placeholder="Description (optional)..."
+        rows={2}
+      />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
         <select
-        value={newTaskStatusId || ""}
-        onChange={(e) => setNewTaskStatusId(e.target.value ? Number(e.target.value) : null)}
-        className={selectClasses}>
-
+          value={newTaskStatusId || ""}
+          onChange={(e) =>
+            setNewTaskStatusId(e.target.value ? Number(e.target.value) : null)
+          }
+          className={selectClasses}
+        >
           <option value="">Status...</option>
-          {statuses.map((s) =>
-        <option key={s.id} value={s.id}>{s.name}</option>
-        )}
+          {statuses.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.name}
+            </option>
+          ))}
         </select>
         <select
-        value={newTaskPriorityId || ""}
-        onChange={(e) => setNewTaskPriorityId(e.target.value ? Number(e.target.value) : null)}
-        className={selectClasses}>
-
+          value={newTaskPriorityId || ""}
+          onChange={(e) =>
+            setNewTaskPriorityId(e.target.value ? Number(e.target.value) : null)
+          }
+          className={selectClasses}
+        >
           <option value="">Priority...</option>
-          {priorities.map((p) =>
-        <option key={p.id} value={p.id}>{p.name}</option>
-        )}
+          {priorities.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+            </option>
+          ))}
         </select>
         <input
-        type="date"
-        value={newTaskDueDate}
-        onChange={(e) => setNewTaskDueDate(e.target.value)}
-        className={selectClasses} />
+          type="date"
+          value={newTaskDueDate}
+          onChange={(e) => setNewTaskDueDate(e.target.value)}
+          className={selectClasses}
+        />
 
         <select
-        value={newTaskComplexity || ""}
-        onChange={(e) => setNewTaskComplexity(e.target.value ? Number(e.target.value) : null)}
-        className={selectClasses}>
-
+          value={newTaskComplexity || ""}
+          onChange={(e) =>
+            setNewTaskComplexity(e.target.value ? Number(e.target.value) : null)
+          }
+          className={selectClasses}
+        >
           <option value="">Complexity...</option>
-          {COMPLEXITY_OPTIONS.map((c) =>
-        <option key={c} value={c}>{c}</option>
-        )}
+          {COMPLEXITY_OPTIONS.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
         </select>
       </div>
       <div className="flex gap-2">
         <button
-        type="button"
-        onClick={handleAddTask}
-        disabled={!newTaskTitle.trim()}
-        className="px-3 py-1 text-sm bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-50">
-
+          type="button"
+          onClick={handleAddTask}
+          disabled={!newTaskTitle.trim()}
+          className="px-3 py-1 text-sm bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-50"
+        >
           Add
         </button>
         <button
-        type="button"
-        onClick={resetNewTaskForm}
-        className="px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-300 dark:hover:bg-zinc-600">
-
+          type="button"
+          onClick={resetNewTaskForm}
+          className="px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-300 dark:hover:bg-zinc-600"
+        >
           Cancel
         </button>
       </div>
-    </div>;
-
+    </div>
+  );
 
   return (
     <div className="space-y-2">
@@ -488,29 +521,27 @@ const TasksSection = ({
         <span className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Tasks
         </span>
-        {!showAddForm &&
-        <button
-          type="button"
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-1 text-sm text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300">
-
+        {!showAddForm && (
+          <button
+            type="button"
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center gap-1 text-sm text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300"
+          >
             <Plus size={16} />
             Add Task
           </button>
-        }
+        )}
       </div>
 
-      {error &&
-      <div className="p-2 text-sm text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 rounded">
+      {error && (
+        <div className="p-2 text-sm text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30 rounded">
           {error}
         </div>
-      }
+      )}
 
       {showAddForm && renderAddForm()}
 
-      {isLoading &&
-      <p className="text-sm text-zinc-500">Loading tasks...</p>
-      }
+      {isLoading && <p className="text-sm text-zinc-500">Loading tasks...</p>}
 
       <div className="space-y-2">
         {tasks.map((task) => renderTaskCard(task))}
@@ -518,15 +549,15 @@ const TasksSection = ({
       </div>
 
       {!isLoading &&
-      tasks.length === 0 && (
-      !pendingTasks || pendingTasks.length === 0) &&
-      !showAddForm &&
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+        tasks.length === 0 &&
+        (!pendingTasks || pendingTasks.length === 0) &&
+        !showAddForm && (
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">
             No tasks yet.
           </p>
-      }
-    </div>);
-
+        )}
+    </div>
+  );
 };
 
 export default TasksSection;

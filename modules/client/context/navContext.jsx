@@ -8,17 +8,14 @@ const initialState = {
   sidebarSections: {
     accounts: true,
     leads: true,
-    reports: true
-  }
+    reports: true,
+  },
 };
 
-export const NavContext = createContext(
-
-
-  {
-    navState: initialState,
-    dispatchNav: () => {}
-  });
+export const NavContext = createContext({
+  navState: initialState,
+  dispatchNav: () => {},
+});
 
 export const useNavContext = () => useContext(NavContext);
 
@@ -29,6 +26,6 @@ export const NavProvider = ({ children }) => {
   return (
     <NavContext.Provider value={{ navState, dispatchNav }}>
       {children}
-    </NavContext.Provider>);
-
+    </NavContext.Provider>
+  );
 };

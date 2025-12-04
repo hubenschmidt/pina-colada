@@ -2,21 +2,12 @@
 
 import { Reply, MessageCircle, Check } from "lucide-react";
 
-
-
-
-
-
-
-
-
-
 const NotificationDropdown = ({
   notifications,
   isLoading,
   onNotificationClick,
   onMarkAllRead,
-  onClose
+  onClose,
 }) => {
   const formatRelativeTime = (dateStr) => {
     if (!dateStr) return "";
@@ -58,43 +49,48 @@ const NotificationDropdown = ({
         <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           Notifications
         </h3>
-        {hasUnread &&
-        <button
-          onClick={onMarkAllRead}
-          className="flex items-center gap-1 text-xs text-lime-600 hover:text-lime-700 dark:text-lime-400 dark:hover:text-lime-300 transition-colors">
-
+        {hasUnread && (
+          <button
+            onClick={onMarkAllRead}
+            className="flex items-center gap-1 text-xs text-lime-600 hover:text-lime-700 dark:text-lime-400 dark:hover:text-lime-300 transition-colors"
+          >
             <Check size={12} />
             Mark all read
           </button>
-        }
+        )}
       </div>
 
       {/* Content */}
       <div className="max-h-[400px] overflow-y-auto">
-        {isLoading ?
-        <div className="flex items-center justify-center py-8">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-8">
             <div className="w-5 h-5 border-2 border-zinc-300 border-t-zinc-600 rounded-full animate-spin" />
-          </div> :
-        notifications.length === 0 ?
-        <div className="py-8 text-center">
-            <MessageCircle size={24} className="mx-auto text-zinc-300 dark:text-zinc-600 mb-2" />
+          </div>
+        ) : notifications.length === 0 ? (
+          <div className="py-8 text-center">
+            <MessageCircle
+              size={24}
+              className="mx-auto text-zinc-300 dark:text-zinc-600 mb-2"
+            />
             <p className="text-sm text-zinc-500 dark:text-zinc-400">
               No notifications yet
             </p>
-          </div> :
-
-        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-            {notifications.map((notification) =>
-          <li key={notification.id}>
+          </div>
+        ) : (
+          <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            {notifications.map((notification) => (
+              <li key={notification.id}>
                 <button
-              onClick={(e) => {
-                e.stopPropagation();
-                onNotificationClick(notification);
-              }}
-              className={`w-full px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors ${
-              !notification.is_read ? "bg-lime-50/50 dark:bg-lime-900/10" : ""}`
-              }>
-
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onNotificationClick(notification);
+                  }}
+                  className={`w-full px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800 transition-colors ${
+                    !notification.is_read
+                      ? "bg-lime-50/50 dark:bg-lime-900/10"
+                      : ""
+                  }`}
+                >
                   <div className="flex gap-3">
                     {/* Icon */}
                     <div className="flex-shrink-0 mt-0.5">
@@ -104,32 +100,33 @@ const NotificationDropdown = ({
                     {/* Content */}
                     <div className="flex-1 min-w-0">
                       {/* Entity type badge */}
-                      {notification.entity?.type &&
-                  <div className="flex justify-end mb-1">
+                      {notification.entity?.type && (
+                        <div className="flex justify-end mb-1">
                           <span className="text-[10px] font-medium text-zinc-400 dark:text-zinc-500 uppercase tracking-wide">
                             {notification.entity.type}
                           </span>
                         </div>
-                  }
+                      )}
                       {/* Label */}
                       <p className="text-sm text-zinc-900 dark:text-zinc-100">
                         {getNotificationLabel(notification)}
-                        {notification.entity?.display_name &&
-                    <span className="text-zinc-500 dark:text-zinc-400">
-                            {" "}on{" "}
+                        {notification.entity?.display_name && (
+                          <span className="text-zinc-500 dark:text-zinc-400">
+                            {" "}
+                            on{" "}
                             <span className="text-zinc-700 dark:text-zinc-300">
                               {notification.entity.display_name}
                             </span>
                           </span>
-                    }
+                        )}
                       </p>
 
                       {/* Comment preview */}
-                      {notification.comment?.content &&
-                  <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
+                      {notification.comment?.content && (
+                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
                           "{notification.comment.content}"
                         </p>
-                  }
+                      )}
 
                       {/* Time */}
                       <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
@@ -138,20 +135,20 @@ const NotificationDropdown = ({
                     </div>
 
                     {/* Unread indicator */}
-                    {!notification.is_read &&
-                <div className="flex-shrink-0">
+                    {!notification.is_read && (
+                      <div className="flex-shrink-0">
                         <div className="w-2 h-2 bg-lime-500 rounded-full" />
                       </div>
-                }
+                    )}
                   </div>
                 </button>
               </li>
-          )}
+            ))}
           </ul>
-        }
+        )}
       </div>
-    </div>);
-
+    </div>
+  );
 };
 
 export default NotificationDropdown;

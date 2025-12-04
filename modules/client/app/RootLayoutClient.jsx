@@ -6,11 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import PageLoadingOverlay from "../components/PageLoadingOverlay/PageLoadingOverlay";
 import { useUserContext } from "../context/userContext";
 
-export const RootLayoutClient = ({
-  children
-
-
-}) => {
+export const RootLayoutClient = ({ children }) => {
   const pathname = usePathname();
   const router = useRouter();
   const { userState } = useUserContext();
@@ -40,7 +36,7 @@ export const RootLayoutClient = ({
     // Protect routes: redirect to /tenant/select if no tenantName
     const protectedRoutes = ["/chat", "/leads/jobs"];
     const isProtectedRoute = protectedRoutes.some((route) =>
-    pathname.startsWith(route)
+      pathname.startsWith(route),
     );
 
     if (isProtectedRoute && !tenantName) {
@@ -54,9 +50,16 @@ export const RootLayoutClient = ({
   if (isLoading || isRedirecting) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Image src="/loading-icon.png" alt="Loading" width={200} height={200} priority unoptimized />
-      </div>);
-
+        <Image
+          src="/loading-icon.png"
+          alt="Loading"
+          width={200}
+          height={200}
+          priority
+          unoptimized
+        />
+      </div>
+    );
   }
 
   return <PageLoadingOverlay>{children}</PageLoadingOverlay>;

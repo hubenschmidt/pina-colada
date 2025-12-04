@@ -2,7 +2,18 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Stack, Center, Loader, Text, Card, SimpleGrid, Table, Anchor, Badge, Group } from "@mantine/core";
+import {
+  Stack,
+  Center,
+  Loader,
+  Text,
+  Card,
+  SimpleGrid,
+  Table,
+  Anchor,
+  Badge,
+  Group,
+} from "@mantine/core";
 import { getNotesActivityReport } from "../../../../api";
 import { useProjectContext } from "../../../../context/projectContext";
 
@@ -35,8 +46,8 @@ const NotesActivityPage = () => {
           <Loader size="xl" color="lime" />
           <Text c="dimmed">Loading report...</Text>
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error) {
@@ -46,8 +57,8 @@ const NotesActivityPage = () => {
           Notes Activity Report
         </h1>
         <Text c="red">{error}</Text>
-      </Stack>);
-
+      </Stack>
+    );
   }
 
   if (!report) {
@@ -65,7 +76,7 @@ const NotesActivityPage = () => {
       day: "numeric",
       year: "numeric",
       hour: "numeric",
-      minute: "2-digit"
+      minute: "2-digit",
     });
   };
 
@@ -74,7 +85,7 @@ const NotesActivityPage = () => {
       Organization: `/accounts/organizations/${entityId}`,
       Individual: `/accounts/individuals/${entityId}`,
       Contact: `/contacts/${entityId}`,
-      Lead: `/leads/${entityId}`
+      Lead: `/leads/${entityId}`,
     };
     return routes[entityType] || null;
   };
@@ -85,41 +96,58 @@ const NotesActivityPage = () => {
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
           Notes Activity Report
         </h1>
-        {selectedProject ?
-        <Badge variant="light" color="lime">
+        {selectedProject ? (
+          <Badge variant="light" color="lime">
             {selectedProject.name}
-          </Badge> :
-
-        <Badge variant="light" color="gray">
+          </Badge>
+        ) : (
+          <Badge variant="light" color="gray">
             Global
           </Badge>
-        }
+        )}
       </Group>
 
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text c="dimmed" size="sm">Total Notes</Text>
-          <Text fw={700} size="xl">{report.total_notes}</Text>
-        </Card>
-        <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text c="dimmed" size="sm">Entity Types with Notes</Text>
-          <Text fw={700} size="xl">{entityTypeEntries.length}</Text>
-        </Card>
-        <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text c="dimmed" size="sm">Entities with Notes</Text>
+          <Text c="dimmed" size="sm">
+            Total Notes
+          </Text>
           <Text fw={700} size="xl">
-            {Object.values(report.entities_with_notes).reduce((a, b) => a + b, 0)}
+            {report.total_notes}
+          </Text>
+        </Card>
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Text c="dimmed" size="sm">
+            Entity Types with Notes
+          </Text>
+          <Text fw={700} size="xl">
+            {entityTypeEntries.length}
+          </Text>
+        </Card>
+        <Card shadow="sm" padding="lg" radius="md" withBorder>
+          <Text c="dimmed" size="sm">
+            Entities with Notes
+          </Text>
+          <Text fw={700} size="xl">
+            {Object.values(report.entities_with_notes).reduce(
+              (a, b) => a + b,
+              0,
+            )}
           </Text>
         </Card>
       </SimpleGrid>
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text fw={600} mb="md">Notes by Entity Type</Text>
-          {entityTypeEntries.length === 0 ?
-          <Text c="dimmed" size="sm">No data available</Text> :
-
-          <Table>
+          <Text fw={600} mb="md">
+            Notes by Entity Type
+          </Text>
+          {entityTypeEntries.length === 0 ? (
+            <Text c="dimmed" size="sm">
+              No data available
+            </Text>
+          ) : (
+            <Table>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Entity Type</Table.Th>
@@ -127,23 +155,27 @@ const NotesActivityPage = () => {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {entityTypeEntries.map(([type, count]) =>
-              <Table.Tr key={type}>
+                {entityTypeEntries.map(([type, count]) => (
+                  <Table.Tr key={type}>
                     <Table.Td>{type}</Table.Td>
                     <Table.Td>{count}</Table.Td>
                   </Table.Tr>
-              )}
+                ))}
               </Table.Tbody>
             </Table>
-          }
+          )}
         </Card>
 
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text fw={600} mb="md">Entities with Notes</Text>
-          {entitiesWithNotesEntries.length === 0 ?
-          <Text c="dimmed" size="sm">No data available</Text> :
-
-          <Table>
+          <Text fw={600} mb="md">
+            Entities with Notes
+          </Text>
+          {entitiesWithNotesEntries.length === 0 ? (
+            <Text c="dimmed" size="sm">
+              No data available
+            </Text>
+          ) : (
+            <Table>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Entity Type</Table.Th>
@@ -151,24 +183,28 @@ const NotesActivityPage = () => {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {entitiesWithNotesEntries.map(([type, count]) =>
-              <Table.Tr key={type}>
+                {entitiesWithNotesEntries.map(([type, count]) => (
+                  <Table.Tr key={type}>
                     <Table.Td>{type}</Table.Td>
                     <Table.Td>{count}</Table.Td>
                   </Table.Tr>
-              )}
+                ))}
               </Table.Tbody>
             </Table>
-          }
+          )}
         </Card>
       </SimpleGrid>
 
       <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Text fw={600} mb="md">Recent Notes</Text>
-        {report.recent_notes.length === 0 ?
-        <Text c="dimmed" size="sm">No recent notes</Text> :
-
-        <Table>
+        <Text fw={600} mb="md">
+          Recent Notes
+        </Text>
+        {report.recent_notes.length === 0 ? (
+          <Text c="dimmed" size="sm">
+            No recent notes
+          </Text>
+        ) : (
+          <Table>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>ID</Table.Th>
@@ -179,34 +215,47 @@ const NotesActivityPage = () => {
             </Table.Thead>
             <Table.Tbody>
               {report.recent_notes.map((note) => {
-              const entityLink = getEntityLink(note.entity_type, note.entity_id);
-              const displayName = note.entity_name || `${note.entity_type} #${note.entity_id}`;
-              return (
-                <Table.Tr key={note.id}>
+                const entityLink = getEntityLink(
+                  note.entity_type,
+                  note.entity_id,
+                );
+                const displayName =
+                  note.entity_name || `${note.entity_type} #${note.entity_id}`;
+                return (
+                  <Table.Tr key={note.id}>
                     <Table.Td>{note.id}</Table.Td>
                     <Table.Td>
-                      {entityLink ?
-                    <Anchor component={Link} href={entityLink} size="sm" c="blue">
+                      {entityLink ? (
+                        <Anchor
+                          component={Link}
+                          href={entityLink}
+                          size="sm"
+                          c="blue"
+                        >
                           {displayName}
-                        </Anchor> :
-
-                    <Text size="sm">{displayName}</Text>
-                    }
-                      <Text size="xs" c="dimmed">{note.entity_type}</Text>
+                        </Anchor>
+                      ) : (
+                        <Text size="sm">{displayName}</Text>
+                      )}
+                      <Text size="xs" c="dimmed">
+                        {note.entity_type}
+                      </Text>
                     </Table.Td>
                     <Table.Td style={{ maxWidth: 400 }}>
-                      <Text size="sm" lineClamp={2}>{note.content}</Text>
+                      <Text size="sm" lineClamp={2}>
+                        {note.content}
+                      </Text>
                     </Table.Td>
                     <Table.Td>{formatDate(note.created_at)}</Table.Td>
-                  </Table.Tr>);
-
-            })}
+                  </Table.Tr>
+                );
+              })}
             </Table.Tbody>
           </Table>
-        }
+        )}
       </Card>
-    </Stack>);
-
+    </Stack>
+  );
 };
 
 export default NotesActivityPage;

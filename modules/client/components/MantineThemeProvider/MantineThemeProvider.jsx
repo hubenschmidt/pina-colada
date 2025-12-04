@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useUserContext } from "../../context/userContext";
 
 const theme = createTheme({
-  primaryColor: "gray"
+  primaryColor: "gray",
 });
 
 export const MantineThemeProvider = ({ children }) => {
@@ -19,6 +19,6 @@ export const MantineThemeProvider = ({ children }) => {
   return (
     <MantineProvider theme={theme} forceColorScheme={colorScheme}>
       {children}
-    </MantineProvider>);
-
+    </MantineProvider>
+  );
 };

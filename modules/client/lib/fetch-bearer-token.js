@@ -14,9 +14,7 @@ const fetchToken = async () => {
   return cachedToken;
 };
 
-export const fetchBearerToken = async (
-
-) => {
+export const fetchBearerToken = async () => {
   // Return cached token if still valid
   if (cachedToken && Date.now() < tokenExpiry - TOKEN_BUFFER_MS) {
     return { headers: { Authorization: `Bearer ${cachedToken}` } };

@@ -4,12 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Stack, Center, Loader, Text } from "@mantine/core";
 import ProjectForm from "../../../components/ProjectForm/ProjectForm";
-import {
-  getProject,
-  updateProject,
-  deleteProject } from
-
-"../../../api";
+import { getProject, updateProject, deleteProject } from "../../../api";
 import { useProjectContext } from "../../../context/projectContext";
 
 const ProjectDetailPage = () => {
@@ -67,8 +62,8 @@ const ProjectDetailPage = () => {
           <Loader size="xl" color="lime" />
           <Text c="dimmed">Loading project...</Text>
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error) {
@@ -78,8 +73,8 @@ const ProjectDetailPage = () => {
           Project
         </h1>
         <Text c="red">{error}</Text>
-      </Stack>);
-
+      </Stack>
+    );
   }
 
   return (
@@ -87,9 +82,9 @@ const ProjectDetailPage = () => {
       project={project}
       onClose={handleClose}
       onUpdate={handleUpdate}
-      onDelete={handleDelete} />);
-
-
+      onDelete={handleDelete}
+    />
+  );
 };
 
 export default ProjectDetailPage;

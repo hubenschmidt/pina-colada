@@ -18,12 +18,8 @@ const NewOrganizationPage = () => {
   };
 
   return (
-    <AccountForm
-      type="organization"
-      onClose={handleClose}
-      onAdd={handleAdd} />);
-
-
+    <AccountForm type="organization" onClose={handleClose} onAdd={handleAdd} />
+  );
 };
 
 export default NewOrganizationPage;

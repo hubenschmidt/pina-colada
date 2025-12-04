@@ -10,7 +10,8 @@ export const formatPhoneNumber = (value) => {
 
   if (nationalDigits.length === 0) return "";
   if (nationalDigits.length <= 3) return `+1-${nationalDigits}`;
-  if (nationalDigits.length <= 6) return `+1-${nationalDigits.slice(0, 3)}-${nationalDigits.slice(3)}`;
+  if (nationalDigits.length <= 6)
+    return `+1-${nationalDigits.slice(0, 3)}-${nationalDigits.slice(3)}`;
 
   return `+1-${nationalDigits.slice(0, 3)}-${nationalDigits.slice(3, 6)}-${nationalDigits.slice(6, 10)}`;
 };

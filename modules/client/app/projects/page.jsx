@@ -9,41 +9,41 @@ import SearchHeader from "../../components/SearchHeader/SearchHeader";
 import { DataTable } from "../../components/DataTable/DataTable";
 
 const columns = [
-{
-  header: "Name",
-  accessor: "name",
-  sortable: true,
-  sortKey: "name"
-},
-{
-  header: "Status",
-  accessor: "status",
-  sortable: true,
-  sortKey: "status",
-  render: (project) => project.status || "-"
-},
-{
-  header: "Description",
-  accessor: "description",
-  sortable: true,
-  sortKey: "description",
-  render: (project) => project.description || "-"
-},
-{
-  header: "Start Date",
-  accessor: "start_date",
-  sortable: true,
-  sortKey: "start_date",
-  render: (project) => project.start_date || "-"
-},
-{
-  header: "End Date",
-  accessor: "end_date",
-  sortable: true,
-  sortKey: "end_date",
-  render: (project) => project.end_date || "-"
-}];
-
+  {
+    header: "Name",
+    accessor: "name",
+    sortable: true,
+    sortKey: "name",
+  },
+  {
+    header: "Status",
+    accessor: "status",
+    sortable: true,
+    sortKey: "status",
+    render: (project) => project.status || "-",
+  },
+  {
+    header: "Description",
+    accessor: "description",
+    sortable: true,
+    sortKey: "description",
+    render: (project) => project.description || "-",
+  },
+  {
+    header: "Start Date",
+    accessor: "start_date",
+    sortable: true,
+    sortKey: "start_date",
+    render: (project) => project.start_date || "-",
+  },
+  {
+    header: "End Date",
+    accessor: "end_date",
+    sortable: true,
+    sortKey: "end_date",
+    render: (project) => project.end_date || "-",
+  },
+];
 
 const ProjectsPage = () => {
   const router = useRouter();
@@ -63,7 +63,9 @@ const ProjectsPage = () => {
         const data = await getProjects();
         setProjects(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load projects");
+        setError(
+          err instanceof Error ? err.message : "Failed to load projects",
+        );
       } finally {
         setLoading(false);
         dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
@@ -80,15 +82,18 @@ const ProjectsPage = () => {
       const query = searchQuery.toLowerCase();
       filtered = projects.filter(
         (project) =>
-        project.name?.toLowerCase().includes(query) ||
-        project.description?.toLowerCase().includes(query) ||
-        project.status?.toLowerCase().includes(query)
+          project.name?.toLowerCase().includes(query) ||
+          project.description?.toLowerCase().includes(query) ||
+          project.status?.toLowerCase().includes(query),
       );
     }
 
     const getComparison = (a, b) => {
       if (sortBy === "updated_at") {
-        return new Date(a.updated_at || 0).getTime() - new Date(b.updated_at || 0).getTime();
+        return (
+          new Date(a.updated_at || 0).getTime() -
+          new Date(b.updated_at || 0).getTime()
+        );
       }
       const aVal = (a[sortBy] || "").toLowerCase();
       const bVal = (b[sortBy] || "").toLowerCase();
@@ -109,7 +114,7 @@ const ProjectsPage = () => {
       currentPage: page,
       totalPages,
       total: sorted.length,
-      pageSize: limit
+      pageSize: limit,
     };
   }, [projects, searchQuery, sortBy, sortDirection, page, limit]);
 
@@ -124,8 +129,8 @@ const ProjectsPage = () => {
           <Loader size="xl" color="lime" />
           <Text c="dimmed">Loading projects...</Text>
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error) {
@@ -135,8 +140,8 @@ const ProjectsPage = () => {
           Projects
         </h1>
         <p className="text-red-600 dark:text-red-400">{error}</p>
-      </Stack>);
-
+      </Stack>
+    );
   }
 
   return (
@@ -152,8 +157,8 @@ const ProjectsPage = () => {
           setSearchQuery(query);
           setPage(1);
         }}
-        onAdd={() => router.push("/projects/new")} />
-
+        onAdd={() => router.push("/projects/new")}
+      />
 
       <DataTable
         data={filteredAndSortedData}
@@ -175,13 +180,13 @@ const ProjectsPage = () => {
         onRowClick={handleRowClick}
         rowKey={(project) => project.id}
         emptyText={
-        searchQuery ?
-        "No matching projects found." :
-        "No projects yet. Add your first one above!"
-        } />
-
-    </Stack>);
-
+          searchQuery
+            ? "No matching projects found."
+            : "No projects yet. Add your first one above!"
+        }
+      />
+    </Stack>
+  );
 };
 
 export default ProjectsPage;

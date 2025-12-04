@@ -12,21 +12,27 @@ const PageLoadingOverlay = ({ children }) => {
   const { pageLoadingState } = usePageLoading();
 
   const isExcluded = EXCLUDED_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`)
+    (route) => pathname === route || pathname.startsWith(`${route}/`),
   );
 
   const showOverlay = !isExcluded && pageLoadingState.isPageLoading;
 
   return (
     <>
-      {showOverlay &&
-      <div className="flex min-h-screen items-center justify-center">
-          <Image src="/loading-icon.png" alt="Loading" width={200} height={200} unoptimized />
+      {showOverlay && (
+        <div className="flex min-h-screen items-center justify-center">
+          <Image
+            src="/loading-icon.png"
+            alt="Loading"
+            width={200}
+            height={200}
+            unoptimized
+          />
         </div>
-      }
+      )}
       <div style={{ display: showOverlay ? "none" : "block" }}>{children}</div>
-    </>);
-
+    </>
+  );
 };
 
 export default PageLoadingOverlay;

@@ -6,21 +6,8 @@ export const SET_THEME = "SET_THEME";
 export const SET_LOADING = "SET_LOADING";
 export const CLEAR_USER = "CLEAR_USER";
 
-
-
-
-
-
-
-
-
-
-
 export default (initialState) => {
-  return (
-    state,
-    action
-  ) => {
+  return (state, action) => {
     switch (action.type) {
       case SET_USER:
         return setUser(state, action.payload);

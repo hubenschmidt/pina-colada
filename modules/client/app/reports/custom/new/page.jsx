@@ -11,17 +11,12 @@ const NewReportPage = () => {
   const { projectState } = useProjectContext();
   const { selectedProject } = projectState;
 
-  const handleSave = async (
-  name,
-  description,
-  query,
-  projectIds) =>
-  {
+  const handleSave = async (name, description, query, projectIds) => {
     await createSavedReport({
       name,
       description: description || undefined,
       query_definition: query,
-      project_ids: projectIds.length > 0 ? projectIds : undefined
+      project_ids: projectIds.length > 0 ? projectIds : undefined,
     });
     router.push("/reports/custom");
   };
@@ -32,19 +27,19 @@ const NewReportPage = () => {
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
           New Custom Report
         </h1>
-        {selectedProject ?
-        <Badge variant="light" color="lime">
+        {selectedProject ? (
+          <Badge variant="light" color="lime">
             {selectedProject.name}
-          </Badge> :
-
-        <Badge variant="light" color="gray">
+          </Badge>
+        ) : (
+          <Badge variant="light" color="gray">
             Global
           </Badge>
-        }
+        )}
       </Group>
       <ReportBuilder onSave={handleSave} />
-    </Stack>);
-
+    </Stack>
+  );
 };
 
 export default NewReportPage;

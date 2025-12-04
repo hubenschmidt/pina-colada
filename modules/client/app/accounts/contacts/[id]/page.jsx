@@ -53,16 +53,18 @@ const ContactDetailPage = () => {
         <Stack align="center" gap="md">
           <Loader size="xl" color="lime" />
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error || !contact) {
     return (
       <div className="p-6">
-        <p className="text-red-600 dark:text-red-400">{error || "Contact not found"}</p>
-      </div>);
-
+        <p className="text-red-600 dark:text-red-400">
+          {error || "Contact not found"}
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -70,9 +72,9 @@ const ContactDetailPage = () => {
       contact={contact}
       onSave={handleSave}
       onDelete={handleDelete}
-      onClose={handleClose} />);
-
-
+      onClose={handleClose}
+    />
+  );
 };
 
 export default ContactDetailPage;

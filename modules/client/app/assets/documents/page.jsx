@@ -27,36 +27,36 @@ const DocumentsPage = () => {
         Documents
       </h1>
 
-      {uploadOpen &&
-      <Stack gap="xs">
+      {uploadOpen && (
+        <Stack gap="xs">
           <Collapse in={uploadOpen}>
             <DocumentUpload onUploadComplete={handleUploadComplete} />
           </Collapse>
         </Stack>
-      }
+      )}
 
       <DocumentList
         key={refreshKey}
         headerRight={
-        <Button
-          variant={uploadOpen ? "light" : "filled"}
-          color="lime"
-          leftSection={<Upload className="h-4 w-4" />}
-          rightSection={
-          uploadOpen ?
-          <ChevronUp className="h-4 w-4" /> :
-
-          <ChevronDown className="h-4 w-4" />
-
-          }
-          onClick={() => setUploadOpen(!uploadOpen)}>
-
+          <Button
+            variant={uploadOpen ? "light" : "filled"}
+            color="lime"
+            leftSection={<Upload className="h-4 w-4" />}
+            rightSection={
+              uploadOpen ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )
+            }
+            onClick={() => setUploadOpen(!uploadOpen)}
+          >
             Upload
           </Button>
-        } />
-
-    </Stack>);
-
+        }
+      />
+    </Stack>
+  );
 };
 
 export default DocumentsPage;

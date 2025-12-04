@@ -1,10 +1,5 @@
 "use client";
 
-
-
-
-
-
 const formatDateTime = (dateString) => {
   if (!dateString) return "—";
   const date = new Date(dateString);
@@ -24,8 +19,8 @@ const Timestamps = ({ createdAt, updatedAt }) => {
           {formatDateTime(updatedAt)}
         </div>
       </div>
-    </div>);
-
+    </div>
+  );
 };
 
 export default Timestamps;

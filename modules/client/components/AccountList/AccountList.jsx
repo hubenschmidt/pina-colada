@@ -13,12 +13,8 @@ import {
   Group,
   Button,
   Box,
-  Text } from
-"@mantine/core";
-
-
-
-
+  Text,
+} from "@mantine/core";
 
 const AccountList = ({ config }) => {
   const router = useRouter();
@@ -29,11 +25,9 @@ const AccountList = ({ config }) => {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(config.defaultPageSize || 50);
-  const [sortBy, setSortBy] = useState(
-    config.defaultSortBy || "updated_at"
-  );
+  const [sortBy, setSortBy] = useState(config.defaultSortBy || "updated_at");
   const [sortDirection, setSortDirection] = useState(
-    config.defaultSortDirection || "DESC"
+    config.defaultSortDirection || "DESC",
   );
   const [showLoadingBar, setShowLoadingBar] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
@@ -51,25 +45,26 @@ const AccountList = ({ config }) => {
       }
       setError(null);
 
-      const search = overrideSearch !== undefined ? overrideSearch : searchQuery;
-      config.api.
-      getItems(page, limit, sortBy, sortDirection, search || undefined).
-      then((pageData) => {
-        setData(pageData);
-      }).
-      catch((err) => {
-        console.error(`Error fetching ${config.entityNamePlural}:`, err);
-        setError(
-          `Failed to load ${config.entityNamePlural.toLowerCase()}. Please try again.`
-        );
-      }).
-      finally(() => {
-        setLoading(false);
-        setIsRefreshing(false);
-        setTimeout(() => setShowLoadingBar(false), 300);
-      });
+      const search =
+        overrideSearch !== undefined ? overrideSearch : searchQuery;
+      config.api
+        .getItems(page, limit, sortBy, sortDirection, search || undefined)
+        .then((pageData) => {
+          setData(pageData);
+        })
+        .catch((err) => {
+          console.error(`Error fetching ${config.entityNamePlural}:`, err);
+          setError(
+            `Failed to load ${config.entityNamePlural.toLowerCase()}. Please try again.`,
+          );
+        })
+        .finally(() => {
+          setLoading(false);
+          setIsRefreshing(false);
+          setTimeout(() => setShowLoadingBar(false), 300);
+        });
     },
-    [page, limit, sortBy, sortDirection, searchQuery, config]
+    [page, limit, sortBy, sortDirection, searchQuery, config],
   );
 
   useEffect(() => {
@@ -101,10 +96,18 @@ const AccountList = ({ config }) => {
 
   const fetchPreview = async (query) => {
     if (!config.getSuggestionLabel) return [];
-    const result = await config.api.getItems(1, 4, sortBy, sortDirection, query);
+    const result = await config.api.getItems(
+      1,
+      4,
+      sortBy,
+      sortDirection,
+      query,
+    );
     return result.items.map((item) => {
       const label = config.getSuggestionLabel(item);
-      const value = config.getSuggestionValue ? config.getSuggestionValue(item) : label;
+      const value = config.getSuggestionValue
+        ? config.getSuggestionValue(item)
+        : label;
       return { label, value };
     });
   };
@@ -118,8 +121,8 @@ const AccountList = ({ config }) => {
             Loading {config.entityNamePlural.toLowerCase()}...
           </Text>
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error) {
@@ -131,8 +134,8 @@ const AccountList = ({ config }) => {
             Retry
           </Button>
         </Stack>
-      </Alert>);
-
+      </Alert>
+    );
   }
 
   return (
@@ -141,47 +144,48 @@ const AccountList = ({ config }) => {
         {config.entityNamePlural}
       </h1>
 
-      {enableSearch &&
-      <Group gap="md">
+      {enableSearch && (
+        <Group gap="md">
           <SearchBox
-          placeholder={
-          config.searchPlaceholder ||
-          `Search ${config.entityNamePlural.toLowerCase()}... (Enter to search)`
-          }
-          onSearch={handleSearch}
-          fetchPreview={config.getSuggestionLabel ? fetchPreview : undefined} />
+            placeholder={
+              config.searchPlaceholder ||
+              `Search ${config.entityNamePlural.toLowerCase()}... (Enter to search)`
+            }
+            onSearch={handleSearch}
+            fetchPreview={config.getSuggestionLabel ? fetchPreview : undefined}
+          />
 
           <Button
-          onClick={() => {
-            if (config.newPagePath) {
-              router.push(config.newPagePath);
-            }
-          }}
-          color="lime">
-
+            onClick={() => {
+              if (config.newPagePath) {
+                router.push(config.newPagePath);
+              }
+            }}
+            color="lime"
+          >
             New {config.entityName}
           </Button>
         </Group>
-      }
+      )}
 
       <Box pos="relative">
-        {showLoadingBar && isRefreshing &&
-        <Box
-          pos="absolute"
-          top={0}
-          left={0}
-          right={0}
-          h={2}
-          bg="gray.1"
-          style={{ zIndex: 10, overflow: "hidden" }}>
-
+        {showLoadingBar && isRefreshing && (
+          <Box
+            pos="absolute"
+            top={0}
+            left={0}
+            right={0}
+            h={2}
+            bg="gray.1"
+            style={{ zIndex: 10, overflow: "hidden" }}
+          >
             <Box
-            h="100%"
-            bg="gray.3"
-            style={{ width: "40%", transition: "width 0.3s ease" }} />
-
+              h="100%"
+              bg="gray.3"
+              style={{ width: "40%", transition: "width 0.3s ease" }}
+            />
           </Box>
-        }
+        )}
         <DataTable
           data={data}
           columns={config.columns}
@@ -202,13 +206,13 @@ const AccountList = ({ config }) => {
           onRowClick={handleRowClick}
           rowKey={(item) => item.id}
           emptyText={
-          config.emptyMessage ||
-          `No ${config.entityNamePlural.toLowerCase()} yet. Add your first one above!`
-          } />
-
+            config.emptyMessage ||
+            `No ${config.entityNamePlural.toLowerCase()} yet. Add your first one above!`
+          }
+        />
       </Box>
-    </Stack>);
-
+    </Stack>
+  );
 };
 
 export default AccountList;

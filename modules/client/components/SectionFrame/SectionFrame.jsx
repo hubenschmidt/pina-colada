@@ -1,14 +1,5 @@
 // components/SectionFrame.tsx
 
-
-
-
-
-
-
-
-
-
 import cx from "../../lib/concat-classes";
 
 const SectionFrame = ({
@@ -17,7 +8,7 @@ const SectionFrame = ({
   className,
   children,
   roundedClassName = "rounded-2xl",
-  containerClassName = "mx-auto max-w-6xl px-4"
+  containerClassName = "mx-auto max-w-6xl px-4",
 }) => {
   return (
     <section id={id} className={cx("py-15", bandBg)}>
@@ -27,13 +18,13 @@ const SectionFrame = ({
           roundedClassName,
           "bg-white shadow-sm",
           "p-5 sm:p-6 md:p-8",
-          className
-        )}>
-
+          className,
+        )}
+      >
         {children}
       </div>
-    </section>);
-
+    </section>
+  );
 };
 
 export default SectionFrame;

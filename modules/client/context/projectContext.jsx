@@ -2,38 +2,27 @@
 
 import { createContext, useReducer, useContext, useEffect } from "react";
 import projectReducer, {
-
-
   SET_PROJECTS,
-  SET_SELECTED_PROJECT } from
-"../reducers/projectReducer";
+  SET_SELECTED_PROJECT,
+} from "../reducers/projectReducer";
 import { getProjects } from "../api";
 import { useUserContext } from "./userContext";
 
 const initialState = {
   selectedProject: null,
-  projects: []
+  projects: [],
 };
 
-export const ProjectContext = createContext(
-
-
-
-
-  {
-    projectState: initialState,
-    dispatchProject: () => {},
-    selectProject: () => {},
-    refreshProjects: async () => {}
-  });
+export const ProjectContext = createContext({
+  projectState: initialState,
+  dispatchProject: () => {},
+  selectProject: () => {},
+  refreshProjects: async () => {},
+});
 
 export const useProjectContext = () => useContext(ProjectContext);
 
-export const ProjectProvider = ({
-  children
-
-
-}) => {
+export const ProjectProvider = ({ children }) => {
   const { userState } = useUserContext();
   const reducer = projectReducer(initialState);
   const [projectState, dispatchProject] = useReducer(reducer, initialState);
@@ -46,9 +35,9 @@ export const ProjectProvider = ({
 
   const selectProject = (project) => {
     dispatchProject({ type: SET_SELECTED_PROJECT, payload: project });
-    const storageAction = project ?
-    () => localStorage.setItem("selectedProjectId", String(project.id)) :
-    () => localStorage.removeItem("selectedProjectId");
+    const storageAction = project
+      ? () => localStorage.setItem("selectedProjectId", String(project.id))
+      : () => localStorage.removeItem("selectedProjectId");
     storageAction();
   };
 
@@ -62,10 +51,13 @@ export const ProjectProvider = ({
       const savedProjectId = localStorage.getItem("selectedProjectId");
       if (savedProjectId) {
         const savedProject = projects.find(
-          (p) => p.id === Number(savedProjectId)
+          (p) => p.id === Number(savedProjectId),
         );
         if (savedProject) {
-          dispatchProject({ type: SET_SELECTED_PROJECT, payload: savedProject });
+          dispatchProject({
+            type: SET_SELECTED_PROJECT,
+            payload: savedProject,
+          });
         }
       }
     };
@@ -75,9 +67,9 @@ export const ProjectProvider = ({
 
   return (
     <ProjectContext.Provider
-      value={{ projectState, dispatchProject, selectProject, refreshProjects }}>
-
+      value={{ projectState, dispatchProject, selectProject, refreshProjects }}
+    >
       {children}
-    </ProjectContext.Provider>);
-
+    </ProjectContext.Provider>
+  );
 };

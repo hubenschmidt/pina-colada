@@ -1,6 +1,5 @@
 import { formatPhoneNumber } from "../../../lib/phone";
 
-
 const organizationFields = [
   {
     name: "name",
@@ -221,7 +220,24 @@ const getOrganizationConfig = () => ({
   editTitle: "Edit Organization",
   fields: organizationFields,
   sections: [
-    { name: "Details", fieldNames: ["name", "website", "phone", "employee_count_range_id", "revenue_range_id", "funding_stage_id", "founding_year", "company_type", "headquarters_city", "headquarters_state", "linkedin_url", "crunchbase_url", "description"] },
+    {
+      name: "Details",
+      fieldNames: [
+        "name",
+        "website",
+        "phone",
+        "employee_count_range_id",
+        "revenue_range_id",
+        "funding_stage_id",
+        "founding_year",
+        "company_type",
+        "headquarters_city",
+        "headquarters_state",
+        "linkedin_url",
+        "crunchbase_url",
+        "description",
+      ],
+    },
   ],
   onValidate: (formData) => {
     if (!formData.name || String(formData.name).trim() === "") {
@@ -233,16 +249,36 @@ const getOrganizationConfig = () => ({
     name: String(formData.name || "").trim(),
     website: formData.website ? String(formData.website).trim() : null,
     phone: formData.phone ? String(formData.phone).trim() : null,
-    employee_count_range_id: formData.employee_count_range_id ? Number(formData.employee_count_range_id) : null,
-    revenue_range_id: formData.revenue_range_id ? Number(formData.revenue_range_id) : null,
-    funding_stage_id: formData.funding_stage_id ? Number(formData.funding_stage_id) : null,
-    founding_year: formData.founding_year ? Number(formData.founding_year) : null,
-    company_type: formData.company_type ? String(formData.company_type).trim() : null,
-    headquarters_city: formData.headquarters_city ? String(formData.headquarters_city).trim() : null,
-    headquarters_state: formData.headquarters_state ? String(formData.headquarters_state).trim() : null,
-    linkedin_url: formData.linkedin_url ? String(formData.linkedin_url).trim() : null,
-    crunchbase_url: formData.crunchbase_url ? String(formData.crunchbase_url).trim() : null,
-    description: formData.description ? String(formData.description).trim() : null,
+    employee_count_range_id: formData.employee_count_range_id
+      ? Number(formData.employee_count_range_id)
+      : null,
+    revenue_range_id: formData.revenue_range_id
+      ? Number(formData.revenue_range_id)
+      : null,
+    funding_stage_id: formData.funding_stage_id
+      ? Number(formData.funding_stage_id)
+      : null,
+    founding_year: formData.founding_year
+      ? Number(formData.founding_year)
+      : null,
+    company_type: formData.company_type
+      ? String(formData.company_type).trim()
+      : null,
+    headquarters_city: formData.headquarters_city
+      ? String(formData.headquarters_city).trim()
+      : null,
+    headquarters_state: formData.headquarters_state
+      ? String(formData.headquarters_state).trim()
+      : null,
+    linkedin_url: formData.linkedin_url
+      ? String(formData.linkedin_url).trim()
+      : null,
+    crunchbase_url: formData.crunchbase_url
+      ? String(formData.crunchbase_url).trim()
+      : null,
+    description: formData.description
+      ? String(formData.description).trim()
+      : null,
   }),
 });
 
@@ -251,7 +287,24 @@ const getIndividualConfig = () => ({
   editTitle: "Edit Individual",
   fields: individualFields,
   sections: [
-    { name: "Details", fieldNames: ["first_name", "last_name", "email", "phone", "title", "seniority_level", "department", "is_decision_maker", "linkedin_url", "twitter_url", "github_url", "bio", "description"] },
+    {
+      name: "Details",
+      fieldNames: [
+        "first_name",
+        "last_name",
+        "email",
+        "phone",
+        "title",
+        "seniority_level",
+        "department",
+        "is_decision_maker",
+        "linkedin_url",
+        "twitter_url",
+        "github_url",
+        "bio",
+        "description",
+      ],
+    },
   ],
   onValidate: (formData) => {
     const errors = {};
@@ -268,15 +321,28 @@ const getIndividualConfig = () => ({
     last_name: String(formData.last_name || "").trim(),
     email: formData.email ? String(formData.email).trim() : null,
     phone: formData.phone ? String(formData.phone).trim() : null,
-    linkedin_url: formData.linkedin_url ? String(formData.linkedin_url).trim() : null,
-    twitter_url: formData.twitter_url ? String(formData.twitter_url).trim() : null,
+    linkedin_url: formData.linkedin_url
+      ? String(formData.linkedin_url).trim()
+      : null,
+    twitter_url: formData.twitter_url
+      ? String(formData.twitter_url).trim()
+      : null,
     github_url: formData.github_url ? String(formData.github_url).trim() : null,
     title: formData.title ? String(formData.title).trim() : null,
-    seniority_level: formData.seniority_level ? String(formData.seniority_level).trim() : null,
+    seniority_level: formData.seniority_level
+      ? String(formData.seniority_level).trim()
+      : null,
     department: formData.department ? String(formData.department).trim() : null,
-    is_decision_maker: formData.is_decision_maker === "true" ? true : formData.is_decision_maker === "false" ? false : null,
+    is_decision_maker:
+      formData.is_decision_maker === "true"
+        ? true
+        : formData.is_decision_maker === "false"
+          ? false
+          : null,
     bio: formData.bio ? String(formData.bio).trim() : null,
-    description: formData.description ? String(formData.description).trim() : null,
+    description: formData.description
+      ? String(formData.description).trim()
+      : null,
   }),
 });
 

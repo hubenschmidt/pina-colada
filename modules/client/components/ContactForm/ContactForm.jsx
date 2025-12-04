@@ -8,13 +8,6 @@ import NotesSection from "../NotesSection/NotesSection";
 import Timestamps from "../Timestamps/Timestamps";
 import { usePendingChanges } from "../../hooks/usePendingChanges";
 
-
-
-
-
-
-
-
 const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
   const isEditMode = !!contact;
 
@@ -26,7 +19,7 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
     title: contact?.title || "",
     department: contact?.department || "",
     role: contact?.role || "",
-    notes: contact?.notes || ""
+    notes: contact?.notes || "",
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -36,11 +29,11 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
 
   const hasPendingChanges = usePendingChanges({
     original: contact,
-    current: formData
+    current: formData,
   });
 
   const inputClasses =
-  "w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100";
+    "w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100";
 
   const handleChange = (field, value) => {
     if (field === "phone") {
@@ -101,8 +94,8 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
               value={formData.first_name}
               onChange={(e) => handleChange("first_name", e.target.value)}
               className={inputClasses}
-              placeholder="First name" />
-
+              placeholder="First name"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -113,21 +106,23 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
               value={formData.last_name}
               onChange={(e) => handleChange("last_name", e.target.value)}
               className={inputClasses}
-              placeholder="Last name" />
-
+              placeholder="Last name"
+            />
           </div>
         </div>
 
-        {isEditMode && contact?.organizations && contact.organizations.length > 0 &&
-        <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-              Account
-            </label>
-            <div className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300">
-              {contact.organizations.map((org) => org.name).join(", ")}
+        {isEditMode &&
+          contact?.organizations &&
+          contact.organizations.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
+                Account
+              </label>
+              <div className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300">
+                {contact.organizations.map((org) => org.name).join(", ")}
+              </div>
             </div>
-          </div>
-        }
+          )}
 
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -139,8 +134,8 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
               value={formData.email}
               onChange={(e) => handleChange("email", e.target.value)}
               className={inputClasses}
-              placeholder="email@example.com" />
-
+              placeholder="email@example.com"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -151,8 +146,8 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
               value={formData.phone}
               onChange={(e) => handleChange("phone", e.target.value)}
               className={inputClasses}
-              placeholder="(555) 555-5555" />
-
+              placeholder="(555) 555-5555"
+            />
           </div>
         </div>
 
@@ -166,8 +161,8 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
               value={formData.title}
               onChange={(e) => handleChange("title", e.target.value)}
               className={inputClasses}
-              placeholder="Job title" />
-
+              placeholder="Job title"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -178,8 +173,8 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
               value={formData.department}
               onChange={(e) => handleChange("department", e.target.value)}
               className={inputClasses}
-              placeholder="Department" />
-
+              placeholder="Department"
+            />
           </div>
           <div>
             <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
@@ -190,8 +185,8 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
               value={formData.role}
               onChange={(e) => handleChange("role", e.target.value)}
               className={inputClasses}
-              placeholder="Role" />
-
+              placeholder="Role"
+            />
           </div>
         </div>
 
@@ -203,17 +198,17 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
             value={formData.notes}
             onChange={(e) => handleChange("notes", e.target.value)}
             className={`${inputClasses} min-h-[100px]`}
-            placeholder="Description..." />
-
+            placeholder="Description..."
+          />
         </div>
 
         <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
           <NotesSection
             entityType="contact"
-            entityId={isEditMode ? contact?.id ?? null : null}
+            entityId={isEditMode ? (contact?.id ?? null) : null}
             pendingNotes={!isEditMode ? pendingNotes : undefined}
-            onPendingNotesChange={!isEditMode ? setPendingNotes : undefined} />
-
+            onPendingNotesChange={!isEditMode ? setPendingNotes : undefined}
+          />
         </div>
 
         <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">
@@ -224,25 +219,25 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
             hasPendingChanges={hasPendingChanges}
             onClose={onClose}
             onDelete={onDelete ? handleDelete : undefined}
-            variant="compact" />
-
+            variant="compact"
+          />
         </div>
 
-        {isEditMode && contact &&
-        <Timestamps
-          createdAt={contact.created_at}
-          updatedAt={contact.updated_at} />
+        {isEditMode && contact && (
+          <Timestamps
+            createdAt={contact.created_at}
+            updatedAt={contact.updated_at}
+          />
+        )}
 
-        }
-
-        {error &&
-        <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
+        {error && (
+          <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
             {error}
           </div>
-        }
+        )}
       </form>
-    </div>);
-
+    </div>
+  );
 };
 
 export default ContactForm;

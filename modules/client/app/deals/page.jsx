@@ -17,12 +17,10 @@ const DealsPage = () => {
         <Text size="xl" fw={600} c="dimmed">
           Deals
         </Text>
-        <Text c="dimmed">
-          This feature is coming soon.
-        </Text>
+        <Text c="dimmed">This feature is coming soon.</Text>
       </Stack>
-    </Center>);
-
+    </Center>
+  );
 };
 
 export default DealsPage;

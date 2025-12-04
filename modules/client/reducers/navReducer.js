@@ -2,16 +2,6 @@ export const SET_AGENT_OPEN = "SET_AGENT_OPEN";
 export const SET_SIDEBAR_COLLAPSED = "SET_SIDEBAR_COLLAPSED";
 export const SET_SIDEBAR_SECTION_EXPANDED = "SET_SIDEBAR_SECTION_EXPANDED";
 
-
-
-
-
-
-
-
-
-
-
 export default (initialState) => {
   return (state, action) => {
     switch (action.type) {
@@ -41,10 +31,7 @@ const setSidebarCollapsed = (state, payload) => {
   };
 };
 
-const setSidebarSectionExpanded = (
-  state,
-  payload
-) => {
+const setSidebarSectionExpanded = (state, payload) => {
   return {
     ...state,
     sidebarSections: {

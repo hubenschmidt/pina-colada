@@ -55,16 +55,18 @@ const JobDetailPage = () => {
         <Stack align="center" gap="md">
           <Loader size="xl" color="lime" />
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error || !job) {
     return (
       <div className="p-6">
-        <p className="text-red-600 dark:text-red-400">{error || "Job not found"}</p>
-      </div>);
-
+        <p className="text-red-600 dark:text-red-400">
+          {error || "Job not found"}
+        </p>
+      </div>
+    );
   }
 
   return (
@@ -73,9 +75,9 @@ const JobDetailPage = () => {
       lead={job}
       onUpdate={handleUpdate}
       onDelete={handleDelete}
-      config={formConfig} />);
-
-
+      config={formConfig}
+    />
+  );
 };
 
 export default JobDetailPage;

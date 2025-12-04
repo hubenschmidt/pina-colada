@@ -315,7 +315,10 @@
   display: inline-block;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-  font-feature-settings: "ss01", "ss02", "liga" 1;
+  font-feature-settings:
+    "ss01",
+    "ss02",
+    "liga" 1;
 }
 
 .bubbleUser {
@@ -478,7 +481,9 @@
   font-weight: 500;
   line-height: 1.2rem;
   cursor: pointer;
-  transition: background-color 0.15s ease-in-out, opacity 0.15s ease-in-out;
+  transition:
+    background-color 0.15s ease-in-out,
+    opacity 0.15s ease-in-out;
   box-shadow: var(--shadow-sm);
 }
 
@@ -515,7 +520,8 @@
 }
 
 @keyframes pulsate {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {

@@ -12,16 +12,14 @@ import {
   Text,
   Box,
   Center,
-  Loader } from
-"@mantine/core";
+  Loader,
+} from "@mantine/core";
 import { FolderKanban } from "lucide-react";
 import { SearchBox } from "../../components/SearchBox";
 import { DataTable } from "../../components/DataTable/DataTable";
 import { getTasks } from "../../api";
 import { useProjectContext } from "../../context/projectContext";
 import { usePageLoading } from "../../context/pageLoadingContext";
-
-
 
 const TasksPage = () => {
   const router = useRouter();
@@ -50,7 +48,7 @@ const TasksPage = () => {
         sortDirection,
         scope,
         projectId,
-        searchQuery || undefined
+        searchQuery || undefined,
       );
       setData(result);
     } catch (error) {
@@ -58,7 +56,15 @@ const TasksPage = () => {
     } finally {
       setLoading(false);
     }
-  }, [page, pageSize, sortBy, sortDirection, scope, selectedProject?.id, searchQuery]);
+  }, [
+    page,
+    pageSize,
+    sortBy,
+    sortDirection,
+    scope,
+    selectedProject?.id,
+    searchQuery,
+  ]);
 
   useEffect(() => {
     dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
@@ -83,106 +89,107 @@ const TasksPage = () => {
       Individual: "green",
       Project: "violet",
       Contact: "cyan",
-      Lead: "orange"
+      Lead: "orange",
     };
     return colorMap[entityType] || "gray";
   };
 
   const columns = [
-  {
-    header: "Task",
-    accessor: "title",
-    sortable: true,
-    sortKey: "title"
-  },
-  {
-    header: "Linked To",
-    render: (row) => {
-      if (!row.entity.type || !row.entity.display_name) {
-        return <Text c="dimmed">—</Text>;
-      }
-      return row.entity.url ?
-      <Anchor
-        component={Link}
-        href={row.entity.url}
-        size="sm"
-        onClick={(e) => e.stopPropagation()}>
-
+    {
+      header: "Task",
+      accessor: "title",
+      sortable: true,
+      sortKey: "title",
+    },
+    {
+      header: "Linked To",
+      render: (row) => {
+        if (!row.entity.type || !row.entity.display_name) {
+          return <Text c="dimmed">—</Text>;
+        }
+        return row.entity.url ? (
+          <Anchor
+            component={Link}
+            href={row.entity.url}
+            size="sm"
+            onClick={(e) => e.stopPropagation()}
+          >
             <Badge
-          size="sm"
-          variant="light"
-          color={getEntityColor(row.entity.type)}
-          style={{ cursor: "pointer" }}>
-
+              size="sm"
+              variant="light"
+              color={getEntityColor(row.entity.type)}
+              style={{ cursor: "pointer" }}
+            >
               {row.entity.display_name}
             </Badge>
-          </Anchor> :
-
-      <Badge
-        size="sm"
-        variant="light"
-        color={getEntityColor(row.entity.type)}>
-
+          </Anchor>
+        ) : (
+          <Badge
+            size="sm"
+            variant="light"
+            color={getEntityColor(row.entity.type)}
+          >
             {row.entity.display_name}
-          </Badge>;
-
-    }
-  },
-  {
-    header: "Status",
-    render: (row) =>
-    row.status ?
-    <Badge size="sm" variant="light">
-            {row.status.name}
-          </Badge> :
-
-    <Text c="dimmed">—</Text>,
-
-    sortable: true,
-    sortKey: "current_status_id"
-  },
-  {
-    header: "Priority",
-    render: (row) => {
-      if (!row.priority) return <Text c="dimmed">—</Text>;
-      const colorMap = {
-        Low: "gray",
-        Medium: "blue",
-        High: "orange",
-        Urgent: "red"
-      };
-      return (
-        <Badge
-          size="sm"
-          variant="outline"
-          color={colorMap[row.priority.name] || "gray"}>
-
-            {row.priority.name}
-          </Badge>);
-
+          </Badge>
+        );
+      },
     },
-    sortable: true,
-    sortKey: "priority_id"
-  },
-  {
-    header: "Due Date",
-    accessor: (row) => row.due_date || "—",
-    sortable: true,
-    sortKey: "due_date"
-  },
-  {
-    header: "Created",
-    accessor: (row) => row.created_at ? row.created_at.slice(0, 10) : "—",
-    sortable: true,
-    sortKey: "created_at"
-  },
-  {
-    header: "Updated",
-    accessor: (row) => row.updated_at ? row.updated_at.slice(0, 10) : "—",
-    sortable: true,
-    sortKey: "updated_at"
-  }];
+    {
+      header: "Status",
+      render: (row) =>
+        row.status ? (
+          <Badge size="sm" variant="light">
+            {row.status.name}
+          </Badge>
+        ) : (
+          <Text c="dimmed">—</Text>
+        ),
 
+      sortable: true,
+      sortKey: "current_status_id",
+    },
+    {
+      header: "Priority",
+      render: (row) => {
+        if (!row.priority) return <Text c="dimmed">—</Text>;
+        const colorMap = {
+          Low: "gray",
+          Medium: "blue",
+          High: "orange",
+          Urgent: "red",
+        };
+        return (
+          <Badge
+            size="sm"
+            variant="outline"
+            color={colorMap[row.priority.name] || "gray"}
+          >
+            {row.priority.name}
+          </Badge>
+        );
+      },
+      sortable: true,
+      sortKey: "priority_id",
+    },
+    {
+      header: "Due Date",
+      accessor: (row) => row.due_date || "—",
+      sortable: true,
+      sortKey: "due_date",
+    },
+    {
+      header: "Created",
+      accessor: (row) => (row.created_at ? row.created_at.slice(0, 10) : "—"),
+      sortable: true,
+      sortKey: "created_at",
+    },
+    {
+      header: "Updated",
+      accessor: (row) => (row.updated_at ? row.updated_at.slice(0, 10) : "—"),
+      sortable: true,
+      sortKey: "updated_at",
+    },
+  ];
 
   if (loading && !data) {
     return (
@@ -191,8 +198,8 @@ const TasksPage = () => {
           <Loader size="xl" color="lime" />
           <Text c="dimmed">Loading tasks...</Text>
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   return (
@@ -201,36 +208,37 @@ const TasksPage = () => {
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
           Tasks
         </h1>
-        {selectedProject ?
-        <Badge
-          variant="light"
-          color="lime"
-          leftSection={<FolderKanban className="h-3 w-3" />}>
-
+        {selectedProject ? (
+          <Badge
+            variant="light"
+            color="lime"
+            leftSection={<FolderKanban className="h-3 w-3" />}
+          >
             {selectedProject.name}
-          </Badge> :
-
-        <Badge variant="light" color="gray">
+          </Badge>
+        ) : (
+          <Badge variant="light" color="gray">
             Global
           </Badge>
-        }
+        )}
       </Group>
 
       <Stack gap="xs">
         <Group gap="md">
           <SearchBox
             placeholder="Search tasks... (Enter to search)"
-            onSearch={handleSearch} />
+            onSearch={handleSearch}
+          />
 
           <Button onClick={() => router.push("/tasks/new")} color="lime">
             New Task
           </Button>
         </Group>
-        {searchQuery &&
-        <Text size="sm" c="dimmed">
+        {searchQuery && (
+          <Text size="sm" c="dimmed">
             Showing results for &quot;{searchQuery}&quot;
           </Text>
-        }
+        )}
       </Stack>
 
       <Box pos="relative">
@@ -253,11 +261,11 @@ const TasksPage = () => {
             setPage(1);
           }}
           onRowClick={(task) => router.push(`/tasks/${task.id}`)}
-          emptyText="No tasks yet. Add your first one above!" />
-
+          emptyText="No tasks yet. Add your first one above!"
+        />
       </Box>
-    </Stack>);
-
+    </Stack>
+  );
 };
 
 export default TasksPage;

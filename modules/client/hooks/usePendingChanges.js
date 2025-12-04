@@ -1,9 +1,10 @@
- function _nullishCoalesce(lhs, rhsFn) { if (lhs != null) { return lhs; } else { return rhsFn(); } }
-
-
-
-
-
+function _nullishCoalesce(lhs, rhsFn) {
+  if (lhs != null) {
+    return lhs;
+  } else {
+    return rhsFn();
+  }
+}
 
 /**
  * Hook to detect if form has unsaved changes.
@@ -18,10 +19,10 @@ export const usePendingChanges = ({
   if (pendingDeletions.length > 0) return true;
   if (!original) return false;
 
-  const fields = _nullishCoalesce(trackFields, () => ( Object.keys(current)));
+  const fields = _nullishCoalesce(trackFields, () => Object.keys(current));
   return fields.some((key) => {
-    const origVal = _nullishCoalesce(original[key], () => ( ""));
-    const currVal = _nullishCoalesce(current[key], () => ( ""));
+    const origVal = _nullishCoalesce(original[key], () => "");
+    const currVal = _nullishCoalesce(current[key], () => "");
     return origVal !== currVal;
   });
 };

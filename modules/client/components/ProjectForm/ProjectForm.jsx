@@ -1,25 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import { Stack, TextInput, Textarea, Button, Group, Text, Select } from "@mantine/core";
+import {
+  Stack,
+  TextInput,
+  Textarea,
+  Button,
+  Group,
+  Text,
+  Select,
+} from "@mantine/core";
 
 import { DeleteConfirmBanner } from "../DeleteConfirmBanner";
 
-
-
-
-
-
-
-
-
-const ProjectForm = ({
-  project,
-  onAdd,
-  onUpdate,
-  onDelete,
-  onClose
-}) => {
+const ProjectForm = ({ project, onAdd, onUpdate, onDelete, onClose }) => {
   const isEdit = !!project;
   const [name, setName] = useState(project?.name || "");
   const [description, setDescription] = useState(project?.description || "");
@@ -47,7 +41,7 @@ const ProjectForm = ({
         description: description.trim() || null,
         status: status.trim() || null,
         start_date: startDate || null,
-        end_date: endDate || null
+        end_date: endDate || null,
       };
 
       const handler = isEdit && onUpdate ? onUpdate : onAdd;
@@ -85,86 +79,91 @@ const ProjectForm = ({
           {isEdit ? "Edit Project" : "New Project"}
         </h1>
 
-        {error &&
-        <Text c="red" size="sm">
+        {error && (
+          <Text c="red" size="sm">
             {error}
           </Text>
-        }
+        )}
 
-        {showDeleteConfirm && project &&
-        <DeleteConfirmBanner
-          itemName={project.name}
-          onConfirm={handleDeleteConfirm}
-          onCancel={() => setShowDeleteConfirm(false)}
-          loading={deleting} />
-
-        }
+        {showDeleteConfirm && project && (
+          <DeleteConfirmBanner
+            itemName={project.name}
+            onConfirm={handleDeleteConfirm}
+            onCancel={() => setShowDeleteConfirm(false)}
+            loading={deleting}
+          />
+        )}
 
         <TextInput
           label="Name"
           placeholder="Project name"
           value={name}
           onChange={(e) => setName(e.currentTarget.value)}
-          required />
-
+          required
+        />
 
         <Textarea
           label="Description"
           placeholder="Project description"
           value={description}
           onChange={(e) => setDescription(e.currentTarget.value)}
-          rows={3} />
-
+          rows={3}
+        />
 
         <Select
           label="Status"
           data={[
-          { value: "Active", label: "Active" },
-          { value: "Inactive", label: "Inactive" }]
-          }
+            { value: "Active", label: "Active" },
+            { value: "Inactive", label: "Inactive" },
+          ]}
           value={status}
-          onChange={(value) => setStatus(value || "Active")} />
-
+          onChange={(value) => setStatus(value || "Active")}
+        />
 
         <Group grow>
           <TextInput
             label="Start Date"
             type="date"
             value={startDate}
-            onChange={(e) => setStartDate(e.currentTarget.value)} />
+            onChange={(e) => setStartDate(e.currentTarget.value)}
+          />
 
           <TextInput
             label="End Date"
             type="date"
             value={endDate}
-            onChange={(e) => setEndDate(e.currentTarget.value)} />
-
+            onChange={(e) => setEndDate(e.currentTarget.value)}
+          />
         </Group>
 
         <Group justify="space-between">
           <Group>
-            <Button variant="subtle" onClick={onClose} disabled={saving || deleting}>
+            <Button
+              variant="subtle"
+              onClick={onClose}
+              disabled={saving || deleting}
+            >
               Cancel
             </Button>
-            {isEdit && onDelete &&
-            <Button
-              color="red"
-              variant="subtle"
-              onClick={handleDeleteClick}
-              loading={deleting}
-              disabled={saving || showDeleteConfirm}>
-
+            {isEdit && onDelete && (
+              <Button
+                color="red"
+                variant="subtle"
+                onClick={handleDeleteClick}
+                loading={deleting}
+                disabled={saving || showDeleteConfirm}
+              >
                 Delete
               </Button>
-            }
+            )}
           </Group>
           <Button type="submit" loading={saving} disabled={deleting}>
             {isEdit ? "Save Changes" : "Create Project"}
           </Button>
         </Group>
       </Stack>
-    </form>);
-
+    </form>
+  );
 };
 
 export default ProjectForm;

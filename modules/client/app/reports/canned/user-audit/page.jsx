@@ -1,7 +1,18 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Stack, Center, Loader, Text, Card, SimpleGrid, Table, Badge, Group, NumberInput } from "@mantine/core";
+import {
+  Stack,
+  Center,
+  Loader,
+  Text,
+  Card,
+  SimpleGrid,
+  Table,
+  Badge,
+  Group,
+  NumberInput,
+} from "@mantine/core";
 import { getUserAuditReport } from "../../../../api";
 import { usePageLoading } from "../../../../context/pageLoadingContext";
 
@@ -39,7 +50,7 @@ const UserAuditPage = () => {
       day: "numeric",
       year: "numeric",
       hour: "numeric",
-      minute: "2-digit"
+      minute: "2-digit",
     });
   };
 
@@ -50,8 +61,8 @@ const UserAuditPage = () => {
           <Loader size="xl" color="lime" />
           <Text c="dimmed">Loading report...</Text>
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error) {
@@ -61,8 +72,8 @@ const UserAuditPage = () => {
           User Audit Report
         </h1>
         <Text c="red">{error}</Text>
-      </Stack>);
-
+      </Stack>
+    );
   }
 
   if (!report) {
@@ -82,41 +93,58 @@ const UserAuditPage = () => {
             onChange={(val) => setUserId(typeof val === "number" ? val : null)}
             min={1}
             size="xs"
-            w={100} />
+            w={100}
+          />
 
-          {report.user ?
-          <Badge variant="light" color="lime" size="lg">
+          {report.user ? (
+            <Badge variant="light" color="lime" size="lg">
               {report.user.name}
-            </Badge> :
-
-          <Badge variant="light" color="gray" size="lg">
+            </Badge>
+          ) : (
+            <Badge variant="light" color="gray" size="lg">
               All Users
             </Badge>
-          }
+          )}
         </Group>
       </Group>
 
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text c="dimmed" size="sm">Total Records Created</Text>
-          <Text fw={700} size="xl">{report.total_created}</Text>
+          <Text c="dimmed" size="sm">
+            Total Records Created
+          </Text>
+          <Text fw={700} size="xl">
+            {report.total_created}
+          </Text>
         </Card>
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text c="dimmed" size="sm">Total Records Updated</Text>
-          <Text fw={700} size="xl">{report.total_updated}</Text>
+          <Text c="dimmed" size="sm">
+            Total Records Updated
+          </Text>
+          <Text fw={700} size="xl">
+            {report.total_updated}
+          </Text>
         </Card>
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text c="dimmed" size="sm">Tables with Activity</Text>
-          <Text fw={700} size="xl">{report.by_table.length}</Text>
+          <Text c="dimmed" size="sm">
+            Tables with Activity
+          </Text>
+          <Text fw={700} size="xl">
+            {report.by_table.length}
+          </Text>
         </Card>
       </SimpleGrid>
 
       <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Text fw={600} mb="md">Activity by Table</Text>
-        {report.by_table.length === 0 ?
-        <Text c="dimmed" size="sm">No audit data available</Text> :
-
-        <Table>
+        <Text fw={600} mb="md">
+          Activity by Table
+        </Text>
+        {report.by_table.length === 0 ? (
+          <Text c="dimmed" size="sm">
+            No audit data available
+          </Text>
+        ) : (
+          <Table>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Table</Table.Th>
@@ -125,24 +153,28 @@ const UserAuditPage = () => {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {report.by_table.map((row) =>
-            <Table.Tr key={row.table}>
+              {report.by_table.map((row) => (
+                <Table.Tr key={row.table}>
                   <Table.Td>{row.table}</Table.Td>
                   <Table.Td>{row.created_count}</Table.Td>
                   <Table.Td>{row.updated_count}</Table.Td>
                 </Table.Tr>
-            )}
+              ))}
             </Table.Tbody>
           </Table>
-        }
+        )}
       </Card>
 
       <Card shadow="sm" padding="lg" radius="md" withBorder>
-        <Text fw={600} mb="md">Recent Activity</Text>
-        {report.recent_activity.length === 0 ?
-        <Text c="dimmed" size="sm">No recent activity</Text> :
-
-        <Table>
+        <Text fw={600} mb="md">
+          Recent Activity
+        </Text>
+        {report.recent_activity.length === 0 ? (
+          <Text c="dimmed" size="sm">
+            No recent activity
+          </Text>
+        ) : (
+          <Table>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Table</Table.Th>
@@ -151,8 +183,8 @@ const UserAuditPage = () => {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {report.recent_activity.map((activity, idx) =>
-            <Table.Tr key={`${activity.table}-${activity.id}-${idx}`}>
+              {report.recent_activity.map((activity, idx) => (
+                <Table.Tr key={`${activity.table}-${activity.id}-${idx}`}>
                   <Table.Td>
                     <Badge variant="light" color="gray" size="sm">
                       {activity.table}
@@ -160,17 +192,19 @@ const UserAuditPage = () => {
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm">{activity.display_name}</Text>
-                    <Text size="xs" c="dimmed">ID: {activity.id}</Text>
+                    <Text size="xs" c="dimmed">
+                      ID: {activity.id}
+                    </Text>
                   </Table.Td>
                   <Table.Td>{formatDate(activity.updated_at)}</Table.Td>
                 </Table.Tr>
-            )}
+              ))}
             </Table.Tbody>
           </Table>
-        }
+        )}
       </Card>
-    </Stack>);
-
+    </Stack>
+  );
 };
 
 export default UserAuditPage;

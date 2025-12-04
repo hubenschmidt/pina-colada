@@ -15,13 +15,9 @@ import {
   Button,
   Box,
   Text,
-  Badge } from
-"@mantine/core";
+  Badge,
+} from "@mantine/core";
 import { FolderKanban } from "lucide-react";
-
-
-
-
 
 const LeadTracker = ({ config }) => {
   const router = useRouter();
@@ -34,18 +30,20 @@ const LeadTracker = ({ config }) => {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(config.defaultPageSize || 50);
-  const [sortBy, setSortBy] = useState(
-    config.defaultSortBy || "created_at"
-  );
+  const [sortBy, setSortBy] = useState(config.defaultSortBy || "created_at");
   const [sortDirection, setSortDirection] = useState(
-    config.defaultSortDirection || "DESC"
+    config.defaultSortDirection || "DESC",
   );
   const [showLoadingBar, setShowLoadingBar] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   const enableSearch = config.enableSearch !== false;
 
-  const loadLeads = (showFullLoading = false, showBar = false, overrideSearch) => {
+  const loadLeads = (
+    showFullLoading = false,
+    showBar = false,
+    overrideSearch,
+  ) => {
     if (showFullLoading) {
       setLoading(true);
     }
@@ -56,22 +54,29 @@ const LeadTracker = ({ config }) => {
     setError(null);
 
     const search = overrideSearch !== undefined ? overrideSearch : searchQuery;
-    config.api.
-    getLeads(page, limit, sortBy, sortDirection, search || undefined, selectedProjectId).
-    then((pageData) => {
-      setData(pageData);
-    }).
-    catch((err) => {
-      console.error(`Error fetching ${config.entityNamePlural}:`, err);
-      setError(
-        `Failed to load ${config.entityNamePlural.toLowerCase()}. Please try again.`
-      );
-    }).
-    finally(() => {
-      setLoading(false);
-      setIsRefreshing(false);
-      setTimeout(() => setShowLoadingBar(false), 300);
-    });
+    config.api
+      .getLeads(
+        page,
+        limit,
+        sortBy,
+        sortDirection,
+        search || undefined,
+        selectedProjectId,
+      )
+      .then((pageData) => {
+        setData(pageData);
+      })
+      .catch((err) => {
+        console.error(`Error fetching ${config.entityNamePlural}:`, err);
+        setError(
+          `Failed to load ${config.entityNamePlural.toLowerCase()}. Please try again.`,
+        );
+      })
+      .finally(() => {
+        setLoading(false);
+        setIsRefreshing(false);
+        setTimeout(() => setShowLoadingBar(false), 300);
+      });
   };
 
   useEffect(() => {
@@ -106,10 +111,19 @@ const LeadTracker = ({ config }) => {
 
   const fetchPreview = async (query) => {
     if (!config.getSuggestionLabel) return [];
-    const result = await config.api.getLeads(1, 4, sortBy, sortDirection, query, selectedProjectId);
+    const result = await config.api.getLeads(
+      1,
+      4,
+      sortBy,
+      sortDirection,
+      query,
+      selectedProjectId,
+    );
     return result.items.map((item) => {
       const label = config.getSuggestionLabel(item);
-      const value = config.getSuggestionValue ? config.getSuggestionValue(item) : label;
+      const value = config.getSuggestionValue
+        ? config.getSuggestionValue(item)
+        : label;
       return { label, value };
     });
   };
@@ -123,8 +137,8 @@ const LeadTracker = ({ config }) => {
             Loading {config.entityNamePlural.toLowerCase()}...
           </Text>
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error) {
@@ -136,8 +150,8 @@ const LeadTracker = ({ config }) => {
             Retry
           </Button>
         </Stack>
-      </Alert>);
-
+      </Alert>
+    );
   }
 
   const selectedProject = projectState.selectedProject;
@@ -148,62 +162,67 @@ const LeadTracker = ({ config }) => {
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
           {config.entityNamePlural}
         </h1>
-        {selectedProject ?
-        <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
+        {selectedProject ? (
+          <Badge
+            variant="light"
+            color="lime"
+            leftSection={<FolderKanban className="h-3 w-3" />}
+          >
             {selectedProject.name}
-          </Badge> :
-
-        <Badge variant="light" color="gray">
+          </Badge>
+        ) : (
+          <Badge variant="light" color="gray">
             Global
           </Badge>
-        }
+        )}
       </Group>
 
       {/* Search bar and Add button */}
-      {enableSearch &&
-      <Group gap="md">
+      {enableSearch && (
+        <Group gap="md">
           <SearchBox
-          key={selectedProjectId ?? "global"}
-          placeholder={
-          config.searchPlaceholder ||
-          `Search ${config.entityNamePlural.toLowerCase()}... (Enter to search)`
-          }
-          onSearch={handleSearch}
-          fetchPreview={config.getSuggestionLabel ? fetchPreview : undefined} />
+            key={selectedProjectId ?? "global"}
+            placeholder={
+              config.searchPlaceholder ||
+              `Search ${config.entityNamePlural.toLowerCase()}... (Enter to search)`
+            }
+            onSearch={handleSearch}
+            fetchPreview={config.getSuggestionLabel ? fetchPreview : undefined}
+          />
 
           <Button
-          onClick={() => {
-            if (config.newPagePath) {
-              router.push(config.newPagePath);
-              return;
-            }
-          }}
-          color="lime">
-
+            onClick={() => {
+              if (config.newPagePath) {
+                router.push(config.newPagePath);
+                return;
+              }
+            }}
+            color="lime"
+          >
             New {config.entityName}
           </Button>
         </Group>
-      }
+      )}
 
       {/* DataTable */}
       <Box pos="relative">
-        {showLoadingBar && isRefreshing &&
-        <Box
-          pos="absolute"
-          top={0}
-          left={0}
-          right={0}
-          h={2}
-          bg="gray.1"
-          style={{ zIndex: 10, overflow: "hidden" }}>
-
+        {showLoadingBar && isRefreshing && (
+          <Box
+            pos="absolute"
+            top={0}
+            left={0}
+            right={0}
+            h={2}
+            bg="gray.1"
+            style={{ zIndex: 10, overflow: "hidden" }}
+          >
             <Box
-            h="100%"
-            bg="gray.3"
-            style={{ width: "40%", transition: "width 0.3s ease" }} />
-
+              h="100%"
+              bg="gray.3"
+              style={{ width: "40%", transition: "width 0.3s ease" }}
+            />
           </Box>
-        }
+        )}
         <DataTable
           data={data}
           columns={config.columns}
@@ -224,13 +243,13 @@ const LeadTracker = ({ config }) => {
           onRowClick={handleRowClick}
           rowKey={(lead) => lead.id}
           emptyText={
-          config.emptyMessage ||
-          `No ${config.entityNamePlural.toLowerCase()} yet. Add your first one above!`
-          } />
-
+            config.emptyMessage ||
+            `No ${config.entityNamePlural.toLowerCase()} yet. Add your first one above!`
+          }
+        />
       </Box>
-    </Stack>);
-
+    </Stack>
+  );
 };
 
 export default LeadTracker;

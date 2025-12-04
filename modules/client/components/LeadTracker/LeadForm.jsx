@@ -4,13 +4,14 @@ import { useState, useEffect, useContext } from "react";
 import { ExternalLink, FolderKanban } from "lucide-react";
 import { Badge, Group } from "@mantine/core";
 
-
-
-import ContactSection from
-
-
-"../ContactSection/ContactSection";
-import { searchContacts, updateJob, createNote, createTask, linkDocumentToEntity } from "../../api";
+import ContactSection from "../ContactSection/ContactSection";
+import {
+  searchContacts,
+  updateJob,
+  createNote,
+  createTask,
+  linkDocumentToEntity,
+} from "../../api";
 import FormActions from "../FormActions/FormActions";
 import NotesSection from "../NotesSection/NotesSection";
 import TasksSection from "../TasksSection/TasksSection";
@@ -24,27 +25,10 @@ const emptyContact = () => ({
   first_name: "",
   last_name: "",
   email: "",
-  phone: ""
+  phone: "",
 });
 
-
-
-
-
-
-
-
-
-
-
-const LeadForm = ({
-  onClose,
-  onAdd,
-  config,
-  lead,
-  onUpdate,
-  onDelete
-}) => {
+const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
   const { projectState } = useContext(ProjectContext);
   const selectedProject = projectState.selectedProject;
   const isEditMode = !!lead;
@@ -89,13 +73,9 @@ const LeadForm = ({
   };
 
   // Update contact with individual field value
-  const updateContactWithIndividualField = (
-  prevContacts,
-  fieldName,
-  value) =>
-  {
+  const updateContactWithIndividualField = (prevContacts, fieldName, value) => {
     const newContacts =
-    prevContacts.length > 0 ? [...prevContacts] : [emptyContact()];
+      prevContacts.length > 0 ? [...prevContacts] : [emptyContact()];
     if (fieldName === "individual_first_name") {
       newContacts[0] = { ...newContacts[0], first_name: value };
       return newContacts;
@@ -107,11 +87,7 @@ const LeadForm = ({
   };
 
   // Validate a single field
-  const validateField = (
-  field,
-  value,
-  errors) =>
-  {
+  const validateField = (field, value, errors) => {
     if (field.required && (!value || value === "")) {
       errors[String(field.name)] = `${field.label} is required`;
       return;
@@ -128,10 +104,7 @@ const LeadForm = ({
   };
 
   // Validate form-level rules
-  const validateFormLevel = (
-  formData,
-  errors) =>
-  {
+  const validateFormLevel = (formData, errors) => {
     if (!config.onValidate) {
       return;
     }
@@ -144,22 +117,22 @@ const LeadForm = ({
 
   // Contact fields config for LeadForm
   const contactFields = [
-  { name: "first_name", label: "First Name", placeholder: "e.g., John" },
-  { name: "last_name", label: "Last Name", placeholder: "e.g., Doe" },
-  { name: "title", label: "Title", placeholder: "e.g., VP of Sales" },
-  {
-    name: "email",
-    label: "Email",
-    type: "email",
-    placeholder: "email@example.com"
-  },
-  {
-    name: "phone",
-    label: "Phone",
-    type: "tel",
-    placeholder: "+1-555-123-4567"
-  }];
-
+    { name: "first_name", label: "First Name", placeholder: "e.g., John" },
+    { name: "last_name", label: "Last Name", placeholder: "e.g., Doe" },
+    { name: "title", label: "Title", placeholder: "e.g., VP of Sales" },
+    {
+      name: "email",
+      label: "Email",
+      type: "email",
+      placeholder: "email@example.com",
+    },
+    {
+      name: "phone",
+      label: "Phone",
+      type: "tel",
+      placeholder: "+1-555-123-4567",
+    },
+  ];
 
   // Initialize form data
   useEffect(() => {
@@ -212,7 +185,7 @@ const LeadForm = ({
         } catch (error) {
           console.error(
             `Failed to initialize field ${String(field.name)}:`,
-            error
+            error,
           );
         }
       }
@@ -221,7 +194,7 @@ const LeadForm = ({
 
   const hasPendingChanges = usePendingChanges({
     original: lead,
-    current: formData
+    current: formData,
   });
 
   const handleFieldChange = (fieldName, value) => {
@@ -246,16 +219,16 @@ const LeadForm = ({
 
       // When individual fields change and Account Type is Individual, auto-populate first contact
       if (
-      (fieldName === "individual_first_name" ||
-      fieldName === "individual_last_name") &&
-      newData.account_type === "Individual")
-      {
+        (fieldName === "individual_first_name" ||
+          fieldName === "individual_last_name") &&
+        newData.account_type === "Individual"
+      ) {
         setContacts((prevContacts) =>
-        updateContactWithIndividualField(
-          prevContacts,
-          fieldName,
-          processedValue
-        )
+          updateContactWithIndividualField(
+            prevContacts,
+            fieldName,
+            processedValue,
+          ),
         );
       }
 
@@ -290,14 +263,22 @@ const LeadForm = ({
 
   const getErrorMessage = (err) => {
     const extractors = [
-    () => typeof err?.message === "string" ? err.message : null,
-    () => typeof err?.error === "string" ? err.error : null,
-    () => typeof err?.errorData?.detail === "string" ? err.errorData.detail : null,
-    () => typeof err?.errorData?.error === "string" ? err.errorData.error : null,
-    () => err?.errorData && typeof err.errorData === "object" ?
-    Object.entries(err.errorData).map(([k, v]) => `${k}: ${v}`).join(", ") :
-    null,
-    () => typeof err === "string" ? err : null];
+      () => (typeof err?.message === "string" ? err.message : null),
+      () => (typeof err?.error === "string" ? err.error : null),
+      () =>
+        typeof err?.errorData?.detail === "string"
+          ? err.errorData.detail
+          : null,
+      () =>
+        typeof err?.errorData?.error === "string" ? err.errorData.error : null,
+      () =>
+        err?.errorData && typeof err.errorData === "object"
+          ? Object.entries(err.errorData)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(", ")
+          : null,
+      () => (typeof err === "string" ? err : null),
+    ];
 
     for (const extractor of extractors) {
       const result = extractor();
@@ -322,7 +303,9 @@ const LeadForm = ({
       submitData.account = accountName;
     }
 
-    const validContacts = contacts.filter((c) => c.first_name.trim() && c.last_name.trim());
+    const validContacts = contacts.filter(
+      (c) => c.first_name.trim() && c.last_name.trim(),
+    );
     if (validContacts.length > 0) {
       submitData.contacts = validContacts;
     }
@@ -330,7 +313,9 @@ const LeadForm = ({
     delete submitData.individual_first_name;
     delete submitData.individual_last_name;
 
-    return config.onBeforeSubmit ? config.onBeforeSubmit(submitData, isEditMode) : submitData;
+    return config.onBeforeSubmit
+      ? config.onBeforeSubmit(submitData, isEditMode)
+      : submitData;
   };
 
   const createPendingNotes = async (leadId) => {
@@ -344,7 +329,7 @@ const LeadForm = ({
       await createTask({
         ...taskData,
         taskable_type: "Lead",
-        taskable_id: leadId
+        taskable_id: leadId,
       });
     }
   };
@@ -408,7 +393,10 @@ const LeadForm = ({
       resetForm();
       onClose();
     } catch (error) {
-      console.error(isEditMode ? "Failed to update lead:" : "Failed to add lead:", error);
+      console.error(
+        isEditMode ? "Failed to update lead:" : "Failed to add lead:",
+        error,
+      );
       setErrors({ _form: getErrorMessage(error) });
     } finally {
       setIsSubmitting(false);
@@ -428,7 +416,9 @@ const LeadForm = ({
       onClose();
     } catch (error) {
       console.error("Failed to delete:", error);
-      setErrors({ _form: error?.message || "Failed to delete. Please try again." });
+      setErrors({
+        _form: error?.message || "Failed to delete. Please try again.",
+      });
       setIsDeleting(false);
     }
   };
@@ -442,9 +432,9 @@ const LeadForm = ({
 
     // In edit mode, account-related fields are read-only
     const isAccountReadOnly =
-    isEditMode && (isAccountField || isAccountTypeField);
+      isEditMode && (isAccountField || isAccountTypeField);
     const readOnlyClasses =
-    "bg-zinc-100 dark:bg-zinc-700 cursor-not-allowed opacity-75";
+      "bg-zinc-100 dark:bg-zinc-700 cursor-not-allowed opacity-75";
 
     // If Individual is selected, render First Name instead of account field
     if (isAccountField && accountType === "Individual") {
@@ -452,120 +442,122 @@ const LeadForm = ({
         <div className={field.gridColumn || ""} key="individual_first_name">
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
             First Name{" "}
-            {field.required && !isEditMode &&
-            <span className="text-red-500">*</span>
-            }
+            {field.required && !isEditMode && (
+              <span className="text-red-500">*</span>
+            )}
           </label>
           <input
             type="text"
             value={formData.individual_first_name || ""}
             onChange={(e) =>
-            !isEditMode &&
-            handleFieldChange("individual_first_name", e.target.value)
+              !isEditMode &&
+              handleFieldChange("individual_first_name", e.target.value)
             }
             readOnly={isEditMode}
             className={`w-full px-3 py-2 border ${
-            errors["individual_first_name"] ?
-            "border-red-500" :
-            "border-zinc-300 dark:border-zinc-700"} rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
-
-            isEditMode ? readOnlyClasses : ""}`
-            }
+              errors["individual_first_name"]
+                ? "border-red-500"
+                : "border-zinc-300 dark:border-zinc-700"
+            } rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
+              isEditMode ? readOnlyClasses : ""
+            }`}
             placeholder="e.g., John"
-            required={field.required && !isEditMode} />
+            required={field.required && !isEditMode}
+          />
 
-          {errors["individual_first_name"] &&
-          <p className="text-red-500 text-xs mt-1">
+          {errors["individual_first_name"] && (
+            <p className="text-red-500 text-xs mt-1">
               {errors["individual_first_name"]}
             </p>
-          }
-        </div>);
-
+          )}
+        </div>
+      );
     }
 
     // If Individual is selected, render Account Type followed by Last Name
     if (isAccountTypeField && accountType === "Individual") {
       return [
-      <div className={field.gridColumn || ""} key="account_type">
+        <div className={field.gridColumn || ""} key="account_type">
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
             {field.label}
           </label>
           <select
-          value={formData.account_type || "Organization"}
-          onChange={(e) =>
-          !isEditMode && handleFieldChange("account_type", e.target.value)
-          }
-          disabled={isEditMode}
-          className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
-          isEditMode ? readOnlyClasses : ""}`
-          }>
-
-            {field.options?.map((option) =>
-          <option key={option.value} value={option.value}>
+            value={formData.account_type || "Organization"}
+            onChange={(e) =>
+              !isEditMode && handleFieldChange("account_type", e.target.value)
+            }
+            disabled={isEditMode}
+            className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
+              isEditMode ? readOnlyClasses : ""
+            }`}
+          >
+            {field.options?.map((option) => (
+              <option key={option.value} value={option.value}>
                 {option.label}
               </option>
-          )}
+            ))}
           </select>
         </div>,
-      <div className={field.gridColumn || ""} key="individual_last_name">
+        <div className={field.gridColumn || ""} key="individual_last_name">
           <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
             Last Name {!isEditMode && <span className="text-red-500">*</span>}
           </label>
           <input
-          type="text"
-          value={formData.individual_last_name || ""}
-          onChange={(e) =>
-          !isEditMode &&
-          handleFieldChange("individual_last_name", e.target.value)
-          }
-          readOnly={isEditMode}
-          className={`w-full px-3 py-2 border ${
-          errors["individual_last_name"] ?
-          "border-red-500" :
-          "border-zinc-300 dark:border-zinc-700"} rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
+            type="text"
+            value={formData.individual_last_name || ""}
+            onChange={(e) =>
+              !isEditMode &&
+              handleFieldChange("individual_last_name", e.target.value)
+            }
+            readOnly={isEditMode}
+            className={`w-full px-3 py-2 border ${
+              errors["individual_last_name"]
+                ? "border-red-500"
+                : "border-zinc-300 dark:border-zinc-700"
+            } rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
+              isEditMode ? readOnlyClasses : ""
+            }`}
+            placeholder="e.g., Doe"
+            required={!isEditMode}
+          />
 
-          isEditMode ? readOnlyClasses : ""}`
-          }
-          placeholder="e.g., Doe"
-          required={!isEditMode} />
-
-          {errors["individual_last_name"] &&
-        <p className="text-red-500 text-xs mt-1">
+          {errors["individual_last_name"] && (
+            <p className="text-red-500 text-xs mt-1">
               {errors["individual_last_name"]}
             </p>
-        }
-        </div>];
-
+          )}
+        </div>,
+      ];
     }
 
     const value = formData[field.name];
     const error = errors[String(field.name)];
 
     const inputClasses = `w-full px-3 py-2 border ${
-    error ? "border-red-500" : "border-zinc-300 dark:border-zinc-700"} rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100`;
+      error ? "border-red-500" : "border-zinc-300 dark:border-zinc-700"
+    } rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100`;
 
-
-    const fieldWrapper = (content) =>
-    <div className={field.gridColumn || ""} key={String(field.name)}>
+    const fieldWrapper = (content) => (
+      <div className={field.gridColumn || ""} key={String(field.name)}>
         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
           {field.label}{" "}
           {field.required && <span className="text-red-500">*</span>}
         </label>
         {content}
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
-      </div>;
-
+      </div>
+    );
 
     if (field.type === "custom" && field.renderCustom) {
       return fieldWrapper(
         field.renderCustom({
           value,
           onChange: (v) =>
-          !isAccountReadOnly && handleFieldChange(String(field.name), v),
+            !isAccountReadOnly && handleFieldChange(String(field.name), v),
           field,
           formData,
-          isEditMode
-        })
+          isEditMode,
+        }),
       );
     }
 
@@ -574,14 +566,14 @@ const LeadForm = ({
         <textarea
           value={value || ""}
           onChange={(e) =>
-          handleFieldChange(String(field.name), e.target.value)
+            handleFieldChange(String(field.name), e.target.value)
           }
           className={inputClasses}
           placeholder={field.placeholder}
           rows={field.rows || 3}
           required={field.required}
-          disabled={field.disabled} />
-
+          disabled={field.disabled}
+        />,
       );
     }
 
@@ -591,18 +583,18 @@ const LeadForm = ({
         <select
           value={value || ""}
           onChange={(e) =>
-          !isDisabled && handleFieldChange(String(field.name), e.target.value)
+            !isDisabled && handleFieldChange(String(field.name), e.target.value)
           }
           className={`${inputClasses} ${isDisabled ? readOnlyClasses : ""}`}
           required={field.required}
-          disabled={isDisabled}>
-
-          {field.options?.map((option) =>
-          <option key={option.value} value={option.value}>
+          disabled={isDisabled}
+        >
+          {field.options?.map((option) => (
+            <option key={option.value} value={option.value}>
               {option.label}
             </option>
-          )}
-        </select>
+          ))}
+        </select>,
       );
     }
 
@@ -613,15 +605,16 @@ const LeadForm = ({
             type="checkbox"
             checked={value || false}
             onChange={(e) =>
-            handleFieldChange(String(field.name), e.target.checked)
+              handleFieldChange(String(field.name), e.target.checked)
             }
             className="w-4 h-4 text-lime-500 border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 rounded focus:ring-lime-500"
-            disabled={field.disabled} />
+            disabled={field.disabled}
+          />
 
           <span className="text-sm text-zinc-600 dark:text-zinc-400">
             {field.placeholder}
           </span>
-        </label>
+        </label>,
       );
     }
 
@@ -630,28 +623,33 @@ const LeadForm = ({
     const hasUrl = isUrlField && value && String(value).trim();
 
     if (hasUrl) {
-      const url = String(value).startsWith("http") ? String(value) : `https://${value}`;
+      const url = String(value).startsWith("http")
+        ? String(value)
+        : `https://${value}`;
       return fieldWrapper(
         <div>
           <input
             type="text"
             value={value || ""}
-            onChange={(e) => handleFieldChange(String(field.name), e.target.value)}
+            onChange={(e) =>
+              handleFieldChange(String(field.name), e.target.value)
+            }
             className={inputClasses}
             placeholder={field.placeholder}
             required={field.required}
-            disabled={field.disabled} />
+            disabled={field.disabled}
+          />
 
           <a
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 mt-1 text-sm text-blue-600 dark:text-blue-400 hover:underline">
-
+            className="inline-flex items-center gap-1 mt-1 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+          >
             {String(value)}
             <ExternalLink size={14} />
           </a>
-        </div>
+        </div>,
       );
     }
 
@@ -667,8 +665,8 @@ const LeadForm = ({
         max={field.max}
         step={field.step}
         pattern={field.pattern}
-        disabled={field.disabled} />
-
+        disabled={field.disabled}
+      />,
     );
   };
 
@@ -691,7 +689,7 @@ const LeadForm = ({
 
   const handleUpdateContact = (index, updatedContact) => {
     const newContacts = contacts.map((c, i) =>
-    i === index ? updatedContact : c
+      i === index ? updatedContact : c,
     );
     setContacts(newContacts);
     saveContacts(newContacts);
@@ -700,15 +698,13 @@ const LeadForm = ({
   const handleSetPrimaryContact = (index) => {
     const newContacts = contacts.map((c, i) => ({
       ...c,
-      is_primary: i === index
+      is_primary: i === index,
     }));
     setContacts(newContacts);
     saveContacts(newContacts);
   };
 
-  const handleSearchContacts = async (
-  query) =>
-  {
+  const handleSearchContacts = async (query) => {
     const results = await searchContacts(query);
     return results.map((result) => ({
       individual_id: result.individual_id,
@@ -716,7 +712,7 @@ const LeadForm = ({
       last_name: result.last_name,
       email: result.email,
       phone: result.phone,
-      account_name: result.account_name
+      account_name: result.account_name,
     }));
   };
 
@@ -725,123 +721,122 @@ const LeadForm = ({
     return accountType === "Individual" && index === 0;
   };
 
-  const formContent =
-  <form onSubmit={handleSubmit}>
+  const formContent = (
+    <form onSubmit={handleSubmit}>
       <div className="space-y-6">
-        {config.sections && config.sections.length > 0 ?
-      // Render sections if configured
-      config.sections.map((section, sectionIndex) => {
-        // Special handling for Contact section - use dynamic contacts UI
-        const isContactSection = section.name === "Contact";
+        {config.sections && config.sections.length > 0 ? (
+          // Render sections if configured
+          config.sections.map((section, sectionIndex) => {
+            // Special handling for Contact section - use dynamic contacts UI
+            const isContactSection = section.name === "Contact";
 
-        if (isContactSection) {
-          return (
-            <div key={section.name}>
-                  {sectionIndex > 0 &&
-              <div className="border-t border-zinc-300 dark:border-zinc-700 mb-6"></div>
-              }
+            if (isContactSection) {
+              return (
+                <div key={section.name}>
+                  {sectionIndex > 0 && (
+                    <div className="border-t border-zinc-300 dark:border-zinc-700 mb-6"></div>
+                  )}
                   <ContactSection
-                contacts={contacts}
-                onAdd={handleAddContact}
-                onUpdate={handleUpdateContact}
-                onSetPrimary={handleSetPrimaryContact}
-                fields={contactFields}
-                emptyContact={emptyContact}
-                display={{ nameFields: ["first_name", "last_name"] }}
-                isContactLocked={isContactLocked}
-                individualSearch={{
-                  enabled: true,
-                  onSearch: handleSearchContacts
-                }}
-                disabled={!isEditMode && !formData.account}
-                disabledMessage="Select an account first to add contacts..." />
-
-                </div>);
-
-        }
-
-        const sectionFields = config.fields.filter((field) =>
-        section.fieldNames.includes(String(field.name))
-        );
-
-        return (
-          <div key={section.name}>
-                {sectionIndex > 0 &&
-            <div className="border-t border-zinc-300 dark:border-zinc-700 mb-6"></div>
+                    contacts={contacts}
+                    onAdd={handleAddContact}
+                    onUpdate={handleUpdateContact}
+                    onSetPrimary={handleSetPrimaryContact}
+                    fields={contactFields}
+                    emptyContact={emptyContact}
+                    display={{ nameFields: ["first_name", "last_name"] }}
+                    isContactLocked={isContactLocked}
+                    individualSearch={{
+                      enabled: true,
+                      onSearch: handleSearchContacts,
+                    }}
+                    disabled={!isEditMode && !formData.account}
+                    disabledMessage="Select an account first to add contacts..."
+                  />
+                </div>
+              );
             }
+
+            const sectionFields = config.fields.filter((field) =>
+              section.fieldNames.includes(String(field.name)),
+            );
+
+            return (
+              <div key={section.name}>
+                {sectionIndex > 0 && (
+                  <div className="border-t border-zinc-300 dark:border-zinc-700 mb-6"></div>
+                )}
                 <div>
                   <h4 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100 mb-4">
                     {section.name}
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {sectionFields.flatMap((field) => {
-                  const rendered = renderField(field);
-                  // Handle case where renderField returns an array (for Individual fields)
-                  if (Array.isArray(rendered)) {
-                    return rendered;
-                  }
-                  return rendered ? [rendered] : [];
-                })}
+                      const rendered = renderField(field);
+                      // Handle case where renderField returns an array (for Individual fields)
+                      if (Array.isArray(rendered)) {
+                        return rendered;
+                      }
+                      return rendered ? [rendered] : [];
+                    })}
                   </div>
                 </div>
-              </div>);
-
-      }) :
-
-      // Fallback: render all fields in a single grid if no sections configured
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              </div>
+            );
+          })
+        ) : (
+          // Fallback: render all fields in a single grid if no sections configured
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {config.fields.map((field) => renderField(field))}
           </div>
-      }
+        )}
       </div>
 
       <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
         <NotesSection
-        entityType="job"
-        entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
-        pendingNotes={!isEditMode ? pendingNotes : undefined}
-        onPendingNotesChange={!isEditMode ? setPendingNotes : undefined} />
-
+          entityType="job"
+          entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
+          pendingNotes={!isEditMode ? pendingNotes : undefined}
+          onPendingNotesChange={!isEditMode ? setPendingNotes : undefined}
+        />
       </div>
 
       <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
         <TasksSection
-        entityType="Lead"
-        entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
-        pendingTasks={!isEditMode ? pendingTasks : undefined}
-        onPendingTasksChange={!isEditMode ? setPendingTasks : undefined} />
-
+          entityType="Lead"
+          entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
+          pendingTasks={!isEditMode ? pendingTasks : undefined}
+          onPendingTasksChange={!isEditMode ? setPendingTasks : undefined}
+        />
       </div>
 
       <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
         <DocumentsSection
-        entityType="Lead"
-        entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
-        pendingDocumentIds={!isEditMode ? pendingDocumentIds : undefined}
-        onPendingDocumentIdsChange={!isEditMode ? setPendingDocumentIds : undefined} />
-
+          entityType="Lead"
+          entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
+          pendingDocumentIds={!isEditMode ? pendingDocumentIds : undefined}
+          onPendingDocumentIdsChange={
+            !isEditMode ? setPendingDocumentIds : undefined
+          }
+        />
       </div>
 
       <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">
         <FormActions
-        isEditMode={isEditMode}
-        isSubmitting={isSubmitting}
-        isDeleting={isDeleting}
-        hasPendingChanges={hasPendingChanges}
-        onClose={onClose}
-        onDelete={onDelete ? handleDelete : undefined}
-        cancelButtonText={config.cancelButtonText} />
-
+          isEditMode={isEditMode}
+          isSubmitting={isSubmitting}
+          isDeleting={isDeleting}
+          hasPendingChanges={hasPendingChanges}
+          onClose={onClose}
+          onDelete={onDelete ? handleDelete : undefined}
+          cancelButtonText={config.cancelButtonText}
+        />
       </div>
 
-      {isEditMode && lead &&
-    <Timestamps
-      createdAt={lead.created_at}
-      updatedAt={lead.updated_at} />
-
-    }
-    </form>;
-
+      {isEditMode && lead && (
+        <Timestamps createdAt={lead.created_at} updatedAt={lead.updated_at} />
+      )}
+    </form>
+  );
 
   return (
     <div>
@@ -849,22 +844,26 @@ const LeadForm = ({
         <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
           {isEditMode ? config.title.replace("Add New", "Edit") : config.title}
         </h1>
-        {selectedProject ?
-        <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
+        {selectedProject ? (
+          <Badge
+            variant="light"
+            color="lime"
+            leftSection={<FolderKanban className="h-3 w-3" />}
+          >
             {selectedProject.name}
-          </Badge> :
-
-        <Badge variant="light" color="gray">
+          </Badge>
+        ) : (
+          <Badge variant="light" color="gray">
             Global
           </Badge>
-        }
+        )}
       </Group>
       {formContent}
-      {errors._form &&
-      <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
+      {errors._form && (
+        <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">
           {errors._form}
         </div>
-      }
+      )}
 
       {/* Comments Section - below the form */}
       <div className="border-t border-zinc-200 dark:border-zinc-700 pt-6 mt-6">
@@ -872,11 +871,11 @@ const LeadForm = ({
           entityType="Lead"
           entityId={isEditMode && lead ? parseInt(lead.id, 10) : null}
           pendingComments={!isEditMode ? pendingComments : undefined}
-          onPendingCommentsChange={!isEditMode ? setPendingComments : undefined} />
-
+          onPendingCommentsChange={!isEditMode ? setPendingComments : undefined}
+        />
       </div>
-    </div>);
-
+    </div>
+  );
 };
 
 export default LeadForm;

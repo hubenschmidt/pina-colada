@@ -4,20 +4,12 @@
 
 import axios from "axios";
 
-
-
 import { env } from "next-runtime-env";
 import { fetchBearerToken } from "../lib/fetch-bearer-token";
 
 const getClient = () => axios.create();
 
-const makeRequest = async (
-client,
-method,
-url,
-data,
-config) =>
-{
+const makeRequest = async (client, method, url, data, config) => {
   if (method === "get") return client.get(url, config);
   if (method === "delete") return client.delete(url, config);
   if (method === "post") return client.post(url, data, config);
@@ -25,74 +17,66 @@ config) =>
   return client.put(url, data, config);
 };
 
-const apiRequest = async (
-method,
-path,
-data,
-config) =>
-{
+const apiRequest = async (method, path, data, config) => {
   const client = getClient();
   const authHeaders = await fetchBearerToken();
   const mergedConfig = { ...authHeaders, ...config };
   const apiUrl = env("NEXT_PUBLIC_API_URL");
   const url = `${apiUrl}${path}`;
 
-  return makeRequest(client, method, url, data, mergedConfig).
-  then((response) => response.data).
-  catch((error) => {
-    const errorData = error.response?.data || {};
-    // Handle Pydantic validation errors (422) which return detail as array
-    const message = Array.isArray(errorData.detail) ?
-    errorData.detail.
-    map(
-      (e) =>
-      `${e.loc?.slice(1).join(".") || "field"}: ${e.msg || "invalid"}`
-    ).
-    join("; ") :
-    errorData.detail ||
-    errorData.error ||
-    error.message ||
-    "Request failed";
-    console.error("API Error:", {
-      status: error.response?.status,
-      message,
-      data: errorData
+  return makeRequest(client, method, url, data, mergedConfig)
+    .then((response) => response.data)
+    .catch((error) => {
+      const errorData = error.response?.data || {};
+      // Handle Pydantic validation errors (422) which return detail as array
+      const message = Array.isArray(errorData.detail)
+        ? errorData.detail
+            .map(
+              (e) =>
+                `${e.loc?.slice(1).join(".") || "field"}: ${e.msg || "invalid"}`,
+            )
+            .join("; ")
+        : errorData.detail ||
+          errorData.error ||
+          error.message ||
+          "Request failed";
+      console.error("API Error:", {
+        status: error.response?.status,
+        message,
+        data: errorData,
+      });
+      const errorObj = new Error(message);
+      errorObj.response = error.response;
+      errorObj.errorData = errorData;
+      throw errorObj;
     });
-    const errorObj = new Error(message);
-    errorObj.response = error.response;
-    errorObj.errorData = errorData;
-    throw errorObj;
-  });
 };
 
-const apiGet = (path, config) =>
-apiRequest("get", path, undefined, config);
+const apiGet = (path, config) => apiRequest("get", path, undefined, config);
 
-const apiPost = (path, data, config) =>
-apiRequest("post", path, data, config);
+const apiPost = (path, data, config) => apiRequest("post", path, data, config);
 
-const apiPut = (path, data, config) =>
-apiRequest("put", path, data, config);
+const apiPut = (path, data, config) => apiRequest("put", path, data, config);
 
 const apiPatch = (path, data, config) =>
-apiRequest("patch", path, data, config);
+  apiRequest("patch", path, data, config);
 
 const apiDelete = (path, config) =>
-apiRequest("delete", path, undefined, config);
+  apiRequest("delete", path, undefined, config);
 
 export const getJobs = async (
-page = 1,
-limit = 50,
-orderBy = "date",
-order = "DESC",
-search,
-projectId) =>
-{
+  page = 1,
+  limit = 50,
+  orderBy = "date",
+  order = "DESC",
+  search,
+  projectId,
+) => {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
     orderBy,
-    order
+    order,
   });
   if (search && search.trim()) {
     params.append("search", search.trim());
@@ -110,9 +94,7 @@ const sanitize = (data) => {
   return sanitized;
 };
 
-export const createJob = async (
-job) =>
-{
+export const createJob = async (job) => {
   return apiPost("/jobs", sanitize(job));
 };
 
@@ -120,10 +102,7 @@ export const getJob = async (id) => {
   return apiGet(`/jobs/${id}`);
 };
 
-export const updateJob = async (
-id,
-job) =>
-{
+export const updateJob = async (id, job) => {
   return apiPut(`/jobs/${id}`, sanitize(job));
 };
 
@@ -133,9 +112,7 @@ export const deleteJob = async (id) => {
 
 export const getRecentResumeDate = async () => {
   try {
-    const data = await apiGet(
-      "/jobs/recent-resume-date"
-    );
+    const data = await apiGet("/jobs/recent-resume-date");
     return data.resume_date || null;
   } catch {
     return null;
@@ -143,16 +120,6 @@ export const getRecentResumeDate = async () => {
 };
 
 // Lead Status Types
-
-
-
-
-
-
-
-
-
-
 
 /**
  * Fetch all lead statuses from the database
@@ -165,9 +132,7 @@ export const getStatuses = async () => {
  * Fetch all job leads (jobs with non-null lead_status_id)
  * Optionally filter by lead status names
  */
-export const getLeads = async (
-statusNames) =>
-{
+export const getLeads = async (statusNames) => {
   const params = new URLSearchParams();
   if (statusNames && statusNames.length > 0) {
     params.append("statuses", statusNames.join(","));
@@ -187,42 +152,13 @@ export const markLeadAsApplied = async (jobId) => {
  * Mark a lead as "do not apply"
  * Sets status to 'do_not_apply' and clears lead_status_id
  */
-export const markLeadAsDoNotApply = async (
-jobId) =>
-{
+export const markLeadAsDoNotApply = async (jobId) => {
   return apiPost(`/leads/${jobId}/do-not-apply`, {});
 };
 
 // Tenant Types
 
-
-
-
-
-
-
-
 // User Types
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /**
  * Get current authenticated user
@@ -236,47 +172,25 @@ export const getMe = async () => {
  * Calls backend directly with user email
  * Returns tenant object if found, throws 404 error if not
  */
-export const checkUserTenant = async (user) =>
-
-{
+export const checkUserTenant = async (user) => {
   if (!user.email) {
     throw new Error("User email is required");
   }
-  return apiGet(
-    `/users/${encodeURIComponent(user.email)}/tenant`
-  );
+  return apiGet(`/users/${encodeURIComponent(user.email)}/tenant`);
 };
 
 /**
  * Create a new tenant/organization
  */
-export const createTenant = async (
-name,
-plan = "free") =>
-{
+export const createTenant = async (name, plan = "free") => {
   const data = await apiPost("/auth/tenant/create", {
     name,
-    plan
+    plan,
   });
   return data.tenant;
 };
 
 // Preferences Types
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /**
  * Get list of common timezones for dropdown
@@ -288,98 +202,50 @@ export const getTimezones = async () => {
 /**
  * Get current user's preferences
  */
-export const getUserPreferences =
-async () => {
+export const getUserPreferences = async () => {
   return apiGet("/preferences/user");
 };
 
 /**
  * Update current user's preferences (theme and/or timezone)
  */
-export const updateUserPreferences = async (updates) =>
-
-
-{
+export const updateUserPreferences = async (updates) => {
   return apiPatch("/preferences/user", updates);
 };
 
 /**
  * Get tenant preferences (Admin/SuperAdmin only)
  */
-export const getTenantPreferences =
-async () => {
+export const getTenantPreferences = async () => {
   return apiGet("/preferences/tenant");
 };
 
 /**
  * Update tenant theme preference (Admin/SuperAdmin only)
  */
-export const updateTenantPreferences = async (
-theme) =>
-{
+export const updateTenantPreferences = async (theme) => {
   return apiPatch("/preferences/tenant", { theme });
 };
 
 // Contact Types
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // Individual Types
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 /**
  * Get individuals for the current tenant with pagination
  */
 export const getIndividuals = async (
-page = 1,
-limit = 50,
-orderBy = "updated_at",
-order = "DESC",
-search) =>
-{
+  page = 1,
+  limit = 50,
+  orderBy = "updated_at",
+  order = "DESC",
+  search,
+) => {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
     orderBy,
-    order
+    order,
   });
   if (search && search.trim()) {
     params.append("search", search.trim());
@@ -397,19 +263,14 @@ export const getIndividual = async (id) => {
 /**
  * Create a new individual
  */
-export const createIndividual = async (
-data) =>
-{
+export const createIndividual = async (data) => {
   return apiPost("/individuals", data);
 };
 
 /**
  * Update an individual
  */
-export const updateIndividual = async (
-id,
-data) =>
-{
+export const updateIndividual = async (id, data) => {
   return apiPut(`/individuals/${id}`, data);
 };
 
@@ -422,37 +283,21 @@ export const deleteIndividual = async (id) => {
 
 // Organization Types
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * Get all organizations for the current tenant with pagination, sorting, and search
  */
 export const getOrganizations = async (
-page = 1,
-limit = 50,
-orderBy = "updated_at",
-order = "DESC",
-search) =>
-{
+  page = 1,
+  limit = 50,
+  orderBy = "updated_at",
+  order = "DESC",
+  search,
+) => {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
     orderBy,
-    order
+    order,
   });
   if (search && search.trim()) params.append("search", search.trim());
   const query = params.toString() ? `?${params}` : "";
@@ -469,23 +314,14 @@ export const getOrganization = async (id) => {
 /**
  * Create a new organization
  */
-export const createOrganization = async (
-data) =>
-
-
-{
+export const createOrganization = async (data) => {
   return apiPost("/organizations", data);
 };
 
 /**
  * Update an organization
  */
-export const updateOrganization = async (
-id,
-data) =>
-
-
-{
+export const updateOrganization = async (id, data) => {
   return apiPut(`/organizations/${id}`, data);
 };
 
@@ -499,75 +335,37 @@ export const deleteOrganization = async (id) => {
 /**
  * Search organizations by name
  */
-export const searchOrganizations = async (
-query) =>
-{
-  return apiGet(
-    `/organizations/search?q=${encodeURIComponent(query)}`
-  );
+export const searchOrganizations = async (query) => {
+  return apiGet(`/organizations/search?q=${encodeURIComponent(query)}`);
 };
 
 /**
  * Search individuals by name or email
  */
-export const searchIndividuals = async (
-query) =>
-{
-  return apiGet(
-    `/individuals/search?q=${encodeURIComponent(query)}`
-  );
+export const searchIndividuals = async (query) => {
+  return apiGet(`/individuals/search?q=${encodeURIComponent(query)}`);
 };
 
 // Account Search Types
 
-
-
-
-
-
-
 /**
  * Search accounts by name
  */
-export const searchAccounts = async (
-query) =>
-{
-  return apiGet(
-    `/accounts/search?q=${encodeURIComponent(query)}`
-  );
+export const searchAccounts = async (query) => {
+  return apiGet(`/accounts/search?q=${encodeURIComponent(query)}`);
 };
 
 // Contact Search Types
-
-
-
-
-
-
-
-
-
-
-
 
 /**
  * Search contacts and individuals by name or email.
  * Returns results that can be linked as contacts via individual_id.
  */
-export const searchContacts = async (
-query) =>
-{
-  return apiGet(
-    `/contacts/search?q=${encodeURIComponent(query)}`
-  );
+export const searchContacts = async (query) => {
+  return apiGet(`/contacts/search?q=${encodeURIComponent(query)}`);
 };
 
 // Industry Types
-
-
-
-
-
 
 /**
  * Get all industries
@@ -585,13 +383,6 @@ export const createIndustry = async (name) => {
 
 // Salary Range Types
 
-
-
-
-
-
-
-
 /**
  * Get all salary ranges
  */
@@ -601,28 +392,14 @@ export const getSalaryRanges = async () => {
 
 // Employee Count Range Types
 
-
-
-
-
-
-
-
 /**
  * Get all employee count ranges
  */
-export const getEmployeeCountRanges = async () =>
-
-{
+export const getEmployeeCountRanges = async () => {
   return apiGet("/employee-count-ranges");
 };
 
 // Funding Stage Types
-
-
-
-
-
 
 /**
  * Get all funding stages
@@ -637,17 +414,17 @@ export const getFundingStages = async () => {
  * Get contacts with pagination
  */
 export const getContacts = async (
-page = 1,
-limit = 50,
-orderBy = "updated_at",
-order = "DESC",
-search) =>
-{
+  page = 1,
+  limit = 50,
+  orderBy = "updated_at",
+  order = "DESC",
+  search,
+) => {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
     orderBy,
-    order
+    order,
   });
   if (search && search.trim()) {
     params.append("search", search.trim());
@@ -662,20 +439,6 @@ export const getContact = async (id) => {
   return apiGet(`/contacts/${id}`);
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * Create a standalone contact
  */
@@ -686,10 +449,7 @@ export const createContact = async (data) => {
 /**
  * Update a contact
  */
-export const updateContact = async (
-id,
-data) =>
-{
+export const updateContact = async (id, data) => {
   return apiPut(`/contacts/${id}`, data);
 };
 
@@ -705,21 +465,14 @@ export const deleteContact = async (id) => {
 /**
  * Get contacts for an individual
  */
-export const getIndividualContacts = async (
-individualId) =>
-{
+export const getIndividualContacts = async (individualId) => {
   return apiGet(`/individuals/${individualId}/contacts`);
 };
 
 /**
  * Create a contact for an individual
  */
-export const createIndividualContact = async (
-individualId,
-data) =>
-
-
-{
+export const createIndividualContact = async (individualId, data) => {
   return apiPost(`/individuals/${individualId}/contacts`, data);
 };
 
@@ -727,25 +480,17 @@ data) =>
  * Update a contact for an individual
  */
 export const updateIndividualContact = async (
-individualId,
-contactId,
-data) =>
-
-
-{
-  return apiPut(
-    `/individuals/${individualId}/contacts/${contactId}`,
-    data
-  );
+  individualId,
+  contactId,
+  data,
+) => {
+  return apiPut(`/individuals/${individualId}/contacts/${contactId}`, data);
 };
 
 /**
  * Delete a contact for an individual
  */
-export const deleteIndividualContact = async (
-individualId,
-contactId) =>
-{
+export const deleteIndividualContact = async (individualId, contactId) => {
   await apiDelete(`/individuals/${individualId}/contacts/${contactId}`);
 };
 
@@ -754,9 +499,7 @@ contactId) =>
 /**
  * Get contacts for an organization
  */
-export const getOrganizationContacts = async (
-orgId) =>
-{
+export const getOrganizationContacts = async (orgId) => {
   return apiGet(`/organizations/${orgId}/contacts`);
 };
 
@@ -764,103 +507,53 @@ orgId) =>
  * Input type for creating an organization contact
  */
 
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * Add a contact (existing individual) to an organization
  */
-export const createOrganizationContact = async (
-orgId,
-data) =>
-{
+export const createOrganizationContact = async (orgId, data) => {
   return apiPost(`/organizations/${orgId}/contacts`, data);
 };
 
 /**
  * Update a contact for an organization
  */
-export const updateOrganizationContact = async (
-orgId,
-contactId,
-data) =>
-
-
-
-
-
-{
+export const updateOrganizationContact = async (orgId, contactId, data) => {
   return apiPut(`/organizations/${orgId}/contacts/${contactId}`, data);
 };
 
 /**
  * Delete a contact for an organization
  */
-export const deleteOrganizationContact = async (
-orgId,
-contactId) =>
-{
+export const deleteOrganizationContact = async (orgId, contactId) => {
   await apiDelete(`/organizations/${orgId}/contacts/${contactId}`);
 };
 
 // Note Types
 
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * Get notes for an entity
  */
-export const getNotes = async (
-entityType,
-entityId) =>
-{
+export const getNotes = async (entityType, entityId) => {
   return apiGet(
-    `/notes?entity_type=${encodeURIComponent(entityType)}&entity_id=${entityId}`
+    `/notes?entity_type=${encodeURIComponent(entityType)}&entity_id=${entityId}`,
   );
 };
 
 /**
  * Create a new note
  */
-export const createNote = async (
-entityType,
-entityId,
-content) =>
-{
+export const createNote = async (entityType, entityId, content) => {
   return apiPost("/notes", {
     entity_type: entityType,
     entity_id: entityId,
-    content
+    content,
   });
 };
 
 /**
  * Update a note
  */
-export const updateNote = async (
-noteId,
-content) =>
-{
+export const updateNote = async (noteId, content) => {
   return apiPut(`/notes/${noteId}`, { content });
 };
 
@@ -875,14 +568,6 @@ export const deleteNote = async (noteId) => {
 // Revenue Range Types and API
 // ==============================================
 
-
-
-
-
-
-
-
-
 /**
  * Get all revenue ranges
  */
@@ -894,28 +579,10 @@ export const getRevenueRanges = async () => {
 // Technology Types and API
 // ==============================================
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * Get all technologies
  */
-export const getTechnologies = async (
-category) =>
-{
+export const getTechnologies = async (category) => {
   const params = category ? `?category=${encodeURIComponent(category)}` : "";
   return apiGet(`/technologies${params}`);
 };
@@ -923,45 +590,28 @@ category) =>
 /**
  * Create a new technology
  */
-export const createTechnology = async (data) =>
-
-
-
-{
+export const createTechnology = async (data) => {
   return apiPost("/technologies", data);
 };
 
 /**
  * Get technologies for an organization
  */
-export const getOrganizationTechnologies = async (
-orgId) =>
-{
-  return apiGet(
-    `/organizations/${orgId}/technologies`
-  );
+export const getOrganizationTechnologies = async (orgId) => {
+  return apiGet(`/organizations/${orgId}/technologies`);
 };
 
 /**
  * Add a technology to an organization
  */
-export const addOrganizationTechnology = async (
-orgId,
-data) =>
-{
-  return apiPost(
-    `/organizations/${orgId}/technologies`,
-    data
-  );
+export const addOrganizationTechnology = async (orgId, data) => {
+  return apiPost(`/organizations/${orgId}/technologies`, data);
 };
 
 /**
  * Remove a technology from an organization
  */
-export const removeOrganizationTechnology = async (
-orgId,
-technologyId) =>
-{
+export const removeOrganizationTechnology = async (orgId, technologyId) => {
   await apiDelete(`/organizations/${orgId}/technologies/${technologyId}`);
 };
 
@@ -969,54 +619,24 @@ technologyId) =>
 // Funding Round Types and API
 // ==============================================
 
-
-
-
-
-
-
-
-
-
-
-
 /**
  * Get funding rounds for an organization
  */
-export const getOrganizationFundingRounds = async (
-orgId) =>
-{
-  return apiGet(
-    `/organizations/${orgId}/funding-rounds`
-  );
+export const getOrganizationFundingRounds = async (orgId) => {
+  return apiGet(`/organizations/${orgId}/funding-rounds`);
 };
 
 /**
  * Create a funding round for an organization
  */
-export const createOrganizationFundingRound = async (
-orgId,
-data) =>
-
-
-
-
-
-
-{
-  return apiPost(
-    `/organizations/${orgId}/funding-rounds`,
-    data
-  );
+export const createOrganizationFundingRound = async (orgId, data) => {
+  return apiPost(`/organizations/${orgId}/funding-rounds`, data);
 };
 
 /**
  * Delete a funding round
  */
-export const deleteOrganizationFundingRound = async (
-orgId,
-roundId) =>
-{
+export const deleteOrganizationFundingRound = async (orgId, roundId) => {
   await apiDelete(`/organizations/${orgId}/funding-rounds/${roundId}`);
 };
 
@@ -1024,65 +644,28 @@ roundId) =>
 // Company Signal Types and API
 // ==============================================
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 /**
  * Get signals for an organization
  */
-export const getOrganizationSignals = async (
-orgId,
-options) =>
-{
+export const getOrganizationSignals = async (orgId, options) => {
   const params = new URLSearchParams();
   if (options?.signal_type) params.append("signal_type", options.signal_type);
   if (options?.limit) params.append("limit", options.limit.toString());
   const query = params.toString() ? `?${params}` : "";
-  return apiGet(
-    `/organizations/${orgId}/signals${query}`
-  );
+  return apiGet(`/organizations/${orgId}/signals${query}`);
 };
 
 /**
  * Create a signal for an organization
  */
-export const createOrganizationSignal = async (
-orgId,
-data) =>
-
-
-
-
-
-
-
-
-
-{
-  return apiPost(
-    `/organizations/${orgId}/signals`,
-    data
-  );
+export const createOrganizationSignal = async (orgId, data) => {
+  return apiPost(`/organizations/${orgId}/signals`, data);
 };
 
 /**
  * Delete a signal
  */
-export const deleteOrganizationSignal = async (
-orgId,
-signalId) =>
-{
+export const deleteOrganizationSignal = async (orgId, signalId) => {
   await apiDelete(`/organizations/${orgId}/signals/${signalId}`);
 };
 
@@ -1090,152 +673,17 @@ signalId) =>
 // Extended Organization Type (with research data)
 // ==============================================
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // ==============================================
 // Extended Individual Type (with research data)
 // ==============================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 // ==============================================
 // Reports Types and API
 // ==============================================
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 // Canned Reports
 
-export const getLeadPipelineReport = async (
-dateFrom,
-dateTo,
-projectId) =>
-{
+export const getLeadPipelineReport = async (dateFrom, dateTo, projectId) => {
   const params = new URLSearchParams();
   if (dateFrom) params.append("date_from", dateFrom);
   if (dateTo) params.append("date_to", dateTo);
@@ -1246,33 +694,15 @@ projectId) =>
   return apiGet(`/reports/canned/lead-pipeline${query}`);
 };
 
-export const getAccountOverviewReport =
-async () => {
+export const getAccountOverviewReport = async () => {
   return apiGet("/reports/canned/account-overview");
 };
 
-export const getContactCoverageReport =
-async () => {
+export const getContactCoverageReport = async () => {
   return apiGet("/reports/canned/contact-coverage");
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-export const getNotesActivityReport = async (
-projectId) =>
-{
+export const getNotesActivityReport = async (projectId) => {
   const params = new URLSearchParams();
   if (projectId !== undefined && projectId !== null) {
     params.append("project_id", projectId.toString());
@@ -1283,31 +713,7 @@ projectId) =>
 
 // User Audit Report
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-export const getUserAuditReport = async (
-userId) =>
-{
+export const getUserAuditReport = async (userId) => {
   const params = new URLSearchParams();
   if (userId !== undefined && userId !== null) {
     params.append("user_id", userId.toString());
@@ -1318,58 +724,42 @@ userId) =>
 
 // Custom Reports - Fields
 
-export const getEntityFields = async (
-entity) =>
-{
+export const getEntityFields = async (entity) => {
   return apiGet(`/reports/fields/${entity}`);
 };
 
 // Custom Reports - Execution
 
-export const previewCustomReport = async (
-query) =>
-{
+export const previewCustomReport = async (query) => {
   return apiPost("/reports/custom/preview", query);
 };
 
-export const runCustomReport = async (
-query) =>
-{
+export const runCustomReport = async (query) => {
   return apiPost("/reports/custom/run", query);
 };
 
-export const exportCustomReport = async (
-query) =>
-{
+export const exportCustomReport = async (query) => {
   const client = axios.create();
   const authHeaders = await fetchBearerToken();
   const apiUrl = env("NEXT_PUBLIC_API_URL");
   const response = await client.post(`${apiUrl}/reports/custom/export`, query, {
     ...authHeaders,
-    responseType: "blob"
+    responseType: "blob",
   });
   return response.data;
 };
 
 // Saved Reports CRUD
 
-
-
-
-
-
-
-
-
 export const getSavedReports = async (
-projectId,
-includeGlobal = true,
-page = 1,
-limit = 50,
-sortBy = "updated_at",
-order = "DESC",
-search) =>
-{
+  projectId,
+  includeGlobal = true,
+  page = 1,
+  limit = 50,
+  sortBy = "updated_at",
+  order = "DESC",
+  search,
+) => {
   const params = new URLSearchParams();
   if (projectId !== undefined && projectId !== null) {
     params.append("project_id", projectId.toString());
@@ -1390,24 +780,11 @@ export const getSavedReport = async (id) => {
   return apiGet(`/reports/saved/${id}`);
 };
 
-export const createSavedReport = async (data) =>
-
-
-
-
-{
+export const createSavedReport = async (data) => {
   return apiPost("/reports/saved", data);
 };
 
-export const updateSavedReport = async (
-id,
-data) =>
-
-
-
-
-
-{
+export const updateSavedReport = async (id, data) => {
   return apiPut(`/reports/saved/${id}`, data);
 };
 
@@ -1418,29 +795,6 @@ export const deleteSavedReport = async (id) => {
 // ==============================================
 // Project Types and API
 // ==============================================
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 export const getProjects = async () => {
   return apiGet("/projects");
@@ -1454,10 +808,7 @@ export const createProject = async (data) => {
   return apiPost("/projects", data);
 };
 
-export const updateProject = async (
-id,
-data) =>
-{
+export const updateProject = async (id, data) => {
   return apiPut(`/projects/${id}`, data);
 };
 
@@ -1465,77 +816,25 @@ export const deleteProject = async (id) => {
   await apiDelete(`/projects/${id}`);
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-export const getProjectLeads = async (
-projectId) =>
-{
+export const getProjectLeads = async (projectId) => {
   return apiGet(`/projects/${projectId}/leads`);
 };
 
-export const getProjectDeals = async (
-projectId) =>
-{
+export const getProjectDeals = async (projectId) => {
   return apiGet(`/projects/${projectId}/deals`);
 };
 
 // Opportunity types and API functions
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-export const createOpportunity = async (
-data) =>
-{
+export const createOpportunity = async (data) => {
   return apiPost("/opportunities", data);
 };
 
-export const getOpportunity = async (
-id) =>
-{
+export const getOpportunity = async (id) => {
   return apiGet(`/opportunities/${id}`);
 };
 
-export const updateOpportunity = async (
-id,
-data) =>
-{
+export const updateOpportunity = async (id, data) => {
   return apiPut(`/opportunities/${id}`, data);
 };
 
@@ -1544,18 +843,18 @@ export const deleteOpportunity = async (id) => {
 };
 
 export const getOpportunities = async (
-page = 1,
-limit = 50,
-orderBy = "updated_at",
-order = "DESC",
-search,
-projectId) =>
-{
+  page = 1,
+  limit = 50,
+  orderBy = "updated_at",
+  order = "DESC",
+  search,
+  projectId,
+) => {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
     orderBy,
-    order
+    order,
   });
   if (search && search.trim()) {
     params.append("search", search.trim());
@@ -1568,43 +867,15 @@ projectId) =>
 
 // Partnership types and API functions
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-export const createPartnership = async (
-data) =>
-{
+export const createPartnership = async (data) => {
   return apiPost("/partnerships", data);
 };
 
-export const getPartnership = async (
-id) =>
-{
+export const getPartnership = async (id) => {
   return apiGet(`/partnerships/${id}`);
 };
 
-export const updatePartnership = async (
-id,
-data) =>
-{
+export const updatePartnership = async (id, data) => {
   return apiPut(`/partnerships/${id}`, data);
 };
 
@@ -1613,18 +884,18 @@ export const deletePartnership = async (id) => {
 };
 
 export const getPartnerships = async (
-page = 1,
-limit = 50,
-orderBy = "updated_at",
-order = "DESC",
-search,
-projectId) =>
-{
+  page = 1,
+  limit = 50,
+  orderBy = "updated_at",
+  order = "DESC",
+  search,
+  projectId,
+) => {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
     orderBy,
-    order
+    order,
   });
   if (search && search.trim()) {
     params.append("search", search.trim());
@@ -1639,85 +910,25 @@ projectId) =>
 // Task Types and API
 // ==============================================
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-export const getTasksByEntity = async (
-entityType,
-entityId) =>
-{
+export const getTasksByEntity = async (entityType, entityId) => {
   return apiGet(`/tasks/entity/${entityType}/${entityId}`);
 };
 
 export const getTasks = async (
-page = 1,
-limit = 20,
-orderBy = "created_at",
-order = "DESC",
-scope = "global",
-projectId,
-search) =>
-{
+  page = 1,
+  limit = 20,
+  orderBy = "created_at",
+  order = "DESC",
+  scope = "global",
+  projectId,
+  search,
+) => {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
     orderBy,
     order,
-    scope
+    scope,
   });
   if (projectId) {
     params.append("projectId", projectId.toString());
@@ -1744,10 +955,7 @@ export const createTask = async (data) => {
   return apiPost("/tasks", data);
 };
 
-export const updateTask = async (
-id,
-data) =>
-{
+export const updateTask = async (id, data) => {
   return apiPut(`/tasks/${id}`, data);
 };
 
@@ -1759,50 +967,29 @@ export const deleteTask = async (id) => {
 // Comment Types and API
 // ==============================================
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-export const getComments = async (
-commentableType,
-commentableId) =>
-{
+export const getComments = async (commentableType, commentableId) => {
   return apiGet(
     `/comments?commentable_type=${encodeURIComponent(
-      commentableType
-    )}&commentable_id=${commentableId}`
+      commentableType,
+    )}&commentable_id=${commentableId}`,
   );
 };
 
 export const createComment = async (
-commentableType,
-commentableId,
-content,
-parentCommentId) =>
-{
+  commentableType,
+  commentableId,
+  content,
+  parentCommentId,
+) => {
   return apiPost("/comments", {
     commentable_type: commentableType,
     commentable_id: commentableId,
     content,
-    parent_comment_id: parentCommentId ?? null
+    parent_comment_id: parentCommentId ?? null,
   });
 };
 
-export const updateComment = async (
-commentId,
-content) =>
-{
+export const updateComment = async (commentId, content) => {
   return apiPut(`/comments/${commentId}`, { content });
 };
 
@@ -1814,62 +1001,24 @@ export const deleteComment = async (commentId) => {
 // Notification Types and API
 // ==============================================
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-export const getNotificationCount = async () =>
-
-{
+export const getNotificationCount = async () => {
   return apiGet("/notifications/count");
 };
 
-export const getNotifications = async (
-limit = 20) =>
-{
+export const getNotifications = async (limit = 20) => {
   return apiGet(`/notifications?limit=${limit}`);
 };
 
-export const markNotificationsRead = async (
-notificationIds) =>
-{
+export const markNotificationsRead = async (notificationIds) => {
   await apiPost("/notifications/mark-read", {
-    notification_ids: notificationIds
+    notification_ids: notificationIds,
   });
 };
 
-export const markEntityNotificationsRead = async (
-entityType,
-entityId) =>
-{
+export const markEntityNotificationsRead = async (entityType, entityId) => {
   await apiPost("/notifications/mark-entity-read", {
     entity_type: entityType,
-    entity_id: entityId
+    entity_id: entityId,
   });
 };
 
@@ -1877,45 +1026,21 @@ entityId) =>
 // Document Types and API
 // ==============================================
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 export const getDocuments = async (
-page = 1,
-limit = 50,
-orderBy = "updated_at",
-order = "DESC",
-search,
-tags,
-entityType,
-entityId) =>
-{
+  page = 1,
+  limit = 50,
+  orderBy = "updated_at",
+  order = "DESC",
+  search,
+  tags,
+  entityType,
+  entityId,
+) => {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
     orderBy,
-    order
+    order,
   });
   if (search && search.trim()) params.append("search", search.trim());
   if (tags && tags.length > 0) params.append("tags", tags.join(","));
@@ -1929,12 +1054,12 @@ export const getDocument = async (id) => {
 };
 
 export const uploadDocument = async (
-file,
-tags,
-entityType,
-entityId,
-description) =>
-{
+  file,
+  tags,
+  entityType,
+  entityId,
+  description,
+) => {
   const formData = new FormData();
   formData.append("file", file);
   if (tags && tags.length > 0) formData.append("tags", tags.join(","));
@@ -1948,15 +1073,12 @@ export const deleteDocument = async (id) => {
   await apiDelete(`/assets/documents/${id}`);
 };
 
-export const downloadDocument = async (
-id,
-filename) =>
-{
+export const downloadDocument = async (id, filename) => {
   const apiUrl = env("NEXT_PUBLIC_API_URL");
   const { headers } = await fetchBearerToken();
 
   const response = await fetch(`${apiUrl}/assets/documents/${id}/download`, {
-    headers
+    headers,
   });
 
   if (!response.ok) {
@@ -1981,7 +1103,7 @@ export const getDocumentPreviewUrl = async (id) => {
   const { headers } = await fetchBearerToken();
 
   const response = await fetch(`${apiUrl}/assets/documents/${id}/download`, {
-    headers
+    headers,
   });
 
   if (!response.ok) throw new Error("Failed to load preview");
@@ -1991,23 +1113,23 @@ export const getDocumentPreviewUrl = async (id) => {
 };
 
 export const linkDocumentToEntity = async (
-documentId,
-entityType,
-entityId) =>
-{
+  documentId,
+  entityType,
+  entityId,
+) => {
   await apiPost(`/assets/documents/${documentId}/link`, {
     entity_type: entityType,
-    entity_id: entityId
+    entity_id: entityId,
   });
 };
 
 export const unlinkDocumentFromEntity = async (
-documentId,
-entityType,
-entityId) =>
-{
+  documentId,
+  entityType,
+  entityId,
+) => {
   await apiDelete(
-    `/assets/documents/${documentId}/link?entity_type=${entityType}&entity_id=${entityId}`
+    `/assets/documents/${documentId}/link?entity_type=${entityType}&entity_id=${entityId}`,
   );
 };
 
@@ -2017,52 +1139,25 @@ export const getTags = async () => {
 
 // ============== Document Version API ==============
 
-
-
-
-
-
-
-
-
-
-export const checkDocumentFilename = async (
-filename,
-entityType,
-entityId) =>
-{
+export const checkDocumentFilename = async (filename, entityType, entityId) => {
   const params = new URLSearchParams({
     filename,
     entity_type: entityType,
-    entity_id: entityId.toString()
+    entity_id: entityId.toString(),
   });
-  return apiGet(
-    `/assets/documents/check-filename?${params}`
-  );
+  return apiGet(`/assets/documents/check-filename?${params}`);
 };
 
-export const getDocumentVersions = async (
-documentId) =>
-{
-  return apiGet(
-    `/assets/documents/${documentId}/versions`
-  );
+export const getDocumentVersions = async (documentId) => {
+  return apiGet(`/assets/documents/${documentId}/versions`);
 };
 
-export const createDocumentVersion = async (
-documentId,
-file) =>
-{
+export const createDocumentVersion = async (documentId, file) => {
   const formData = new FormData();
   formData.append("file", file);
-  return apiPost(
-    `/assets/documents/${documentId}/versions`,
-    formData
-  );
+  return apiPost(`/assets/documents/${documentId}/versions`, formData);
 };
 
-export const setCurrentDocumentVersion = async (
-documentId) =>
-{
+export const setCurrentDocumentVersion = async (documentId) => {
   return apiPatch(`/assets/documents/${documentId}/set-current`, {});
 };

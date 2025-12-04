@@ -16,33 +16,30 @@ import {
   TextInput,
   Textarea,
   Select,
-  NumberInput } from
-"@mantine/core";
+  NumberInput,
+} from "@mantine/core";
 import { ArrowLeft } from "lucide-react";
 import {
   getTask,
   updateTask,
   deleteTask,
   getTaskStatuses,
-  getTaskPriorities } from
-
-
-
-"../../../api";
+  getTaskPriorities,
+} from "../../../api";
 import CommentsSection from "../../../components/CommentsSection/CommentsSection";
 import Timestamps from "../../../components/Timestamps/Timestamps";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 import { DeleteConfirmBanner } from "../../../components/DeleteConfirmBanner";
 
 const COMPLEXITY_OPTIONS = [
-{ value: "1", label: "1" },
-{ value: "2", label: "2" },
-{ value: "3", label: "3" },
-{ value: "5", label: "5" },
-{ value: "8", label: "8" },
-{ value: "13", label: "13" },
-{ value: "21", label: "21" }];
-
+  { value: "1", label: "1" },
+  { value: "2", label: "2" },
+  { value: "3", label: "3" },
+  { value: "5", label: "5" },
+  { value: "8", label: "8" },
+  { value: "13", label: "13" },
+  { value: "21", label: "21" },
+];
 
 const TaskDetailPage = () => {
   const params = useParams();
@@ -74,10 +71,10 @@ const TaskDetailPage = () => {
     const fetchData = async () => {
       try {
         const [taskData, statusData, priorityData] = await Promise.all([
-        getTask(Number(id)),
-        getTaskStatuses(),
-        getTaskPriorities()]
-        );
+          getTask(Number(id)),
+          getTaskStatuses(),
+          getTaskPriorities(),
+        ]);
         setTask(taskData);
         setStatuses(statusData);
         setPriorities(priorityData);
@@ -120,7 +117,7 @@ const TaskDetailPage = () => {
         due_date: dueDate || null,
         estimated_hours: estimatedHours !== "" ? Number(estimatedHours) : null,
         actual_hours: actualHours !== "" ? Number(actualHours) : null,
-        complexity: complexity ? Number(complexity) : null
+        complexity: complexity ? Number(complexity) : null,
       });
       setTask(updated);
     } catch (err) {
@@ -153,8 +150,8 @@ const TaskDetailPage = () => {
           <Loader size="xl" color="lime" />
           <Text c="dimmed">Loading task...</Text>
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error && !task) {
@@ -163,13 +160,13 @@ const TaskDetailPage = () => {
         <Button
           variant="subtle"
           leftSection={<ArrowLeft size={16} />}
-          onClick={handleBack}>
-
+          onClick={handleBack}
+        >
           Back to Tasks
         </Button>
         <Text c="red">{error}</Text>
-      </Stack>);
-
+      </Stack>
+    );
   }
 
   if (!task) return null;
@@ -180,19 +177,19 @@ const TaskDetailPage = () => {
       Individual: "green",
       Project: "violet",
       Contact: "cyan",
-      Lead: "orange"
+      Lead: "orange",
     };
     return colorMap[entityType] || "gray";
   };
 
   const statusOptions = statuses.map((s) => ({
     value: s.id.toString(),
-    label: s.name
+    label: s.name,
   }));
 
   const priorityOptions = priorities.map((p) => ({
     value: p.id.toString(),
-    label: p.name
+    label: p.name,
   }));
 
   return (
@@ -201,8 +198,8 @@ const TaskDetailPage = () => {
         <Button
           variant="subtle"
           leftSection={<ArrowLeft size={16} />}
-          onClick={handleBack}>
-
+          onClick={handleBack}
+        >
           Back to Tasks
         </Button>
         <Group>
@@ -214,27 +211,27 @@ const TaskDetailPage = () => {
             variant="outline"
             onClick={handleDeleteClick}
             disabled={showDeleteConfirm}
-            loading={deleting}>
-
+            loading={deleting}
+          >
             Delete
           </Button>
         </Group>
       </Group>
 
-      {showDeleteConfirm &&
-      <DeleteConfirmBanner
-        itemName={task.title}
-        onConfirm={handleDeleteConfirm}
-        onCancel={() => setShowDeleteConfirm(false)}
-        loading={deleting} />
+      {showDeleteConfirm && (
+        <DeleteConfirmBanner
+          itemName={task.title}
+          onConfirm={handleDeleteConfirm}
+          onCancel={() => setShowDeleteConfirm(false)}
+          loading={deleting}
+        />
+      )}
 
-      }
-
-      {error &&
-      <Text c="red" size="sm">
+      {error && (
+        <Text c="red" size="sm">
           {error}
         </Text>
-      }
+      )}
 
       <Card withBorder p="lg">
         <Stack gap="md">
@@ -242,15 +239,15 @@ const TaskDetailPage = () => {
             label="Title"
             value={title}
             onChange={(e) => setTitle(e.currentTarget.value)}
-            required />
-
+            required
+          />
 
           <Textarea
             label="Description"
             value={description}
             onChange={(e) => setDescription(e.currentTarget.value)}
-            rows={3} />
-
+            rows={3}
+          />
 
           <Group grow>
             <Select
@@ -258,24 +255,24 @@ const TaskDetailPage = () => {
               data={statusOptions}
               value={statusId}
               onChange={setStatusId}
-              clearable />
-
+              clearable
+            />
 
             <Select
               label="Priority"
               data={priorityOptions}
               value={priorityId}
               onChange={setPriorityId}
-              clearable />
-
+              clearable
+            />
 
             <Select
               label="Complexity"
               data={COMPLEXITY_OPTIONS}
               value={complexity}
               onChange={setComplexity}
-              clearable />
-
+              clearable
+            />
           </Group>
 
           <Group grow>
@@ -283,15 +280,15 @@ const TaskDetailPage = () => {
               label="Start Date"
               type="date"
               value={startDate}
-              onChange={(e) => setStartDate(e.currentTarget.value)} />
-
+              onChange={(e) => setStartDate(e.currentTarget.value)}
+            />
 
             <TextInput
               label="Due Date"
               type="date"
               value={dueDate}
-              onChange={(e) => setDueDate(e.currentTarget.value)} />
-
+              onChange={(e) => setDueDate(e.currentTarget.value)}
+            />
           </Group>
 
           <Group grow>
@@ -300,47 +297,47 @@ const TaskDetailPage = () => {
               value={estimatedHours}
               onChange={setEstimatedHours}
               min={0}
-              decimalScale={2} />
-
+              decimalScale={2}
+            />
 
             <NumberInput
               label="Actual Hours"
               value={actualHours}
               onChange={setActualHours}
               min={0}
-              decimalScale={2} />
-
+              decimalScale={2}
+            />
           </Group>
 
-          {task.entity.type && task.entity.display_name &&
-          <Stack gap={4}>
+          {task.entity.type && task.entity.display_name && (
+            <Stack gap={4}>
               <Text size="xs" c="dimmed">
                 Linked To
               </Text>
               <Group gap="xs">
-                {task.entity.url ?
-              <Anchor component={Link} href={task.entity.url} size="sm">
+                {task.entity.url ? (
+                  <Anchor component={Link} href={task.entity.url} size="sm">
                     <Badge
-                  size="sm"
-                  variant="light"
-                  color={getEntityColor(task.entity.type)}
-                  style={{ cursor: "pointer" }}>
-
+                      size="sm"
+                      variant="light"
+                      color={getEntityColor(task.entity.type)}
+                      style={{ cursor: "pointer" }}
+                    >
                       {task.entity.display_name}
                     </Badge>
-                  </Anchor> :
-
-              <Badge
-                size="sm"
-                variant="light"
-                color={getEntityColor(task.entity.type)}>
-
+                  </Anchor>
+                ) : (
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color={getEntityColor(task.entity.type)}
+                  >
                     {task.entity.display_name}
                   </Badge>
-              }
+                )}
               </Group>
             </Stack>
-          }
+          )}
 
           <Timestamps createdAt={task.created_at} updatedAt={task.updated_at} />
         </Stack>
@@ -349,8 +346,8 @@ const TaskDetailPage = () => {
       <Card withBorder p="lg">
         <CommentsSection entityType="Task" entityId={Number(id)} />
       </Card>
-    </Stack>);
-
+    </Stack>
+  );
 };
 
 export default TaskDetailPage;

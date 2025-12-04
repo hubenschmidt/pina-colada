@@ -4,12 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Stack, Center, Loader, Text, Group, Badge } from "@mantine/core";
 import { ReportBuilder } from "../../../../components/Reports/ReportBuilder";
-import {
-  getSavedReport,
-  updateSavedReport } from
-
-
-"../../../../api";
+import { getSavedReport, updateSavedReport } from "../../../../api";
 import { useProjectContext } from "../../../../context/projectContext";
 
 const EditReportPage = () => {
@@ -37,17 +32,12 @@ const EditReportPage = () => {
     fetchReport();
   }, [reportId]);
 
-  const handleSave = async (
-  name,
-  description,
-  query,
-  projectIds) =>
-  {
+  const handleSave = async (name, description, query, projectIds) => {
     await updateSavedReport(reportId, {
       name,
       description: description || undefined,
       query_definition: query,
-      project_ids: projectIds
+      project_ids: projectIds,
     });
     router.push("/reports/custom");
   };
@@ -59,8 +49,8 @@ const EditReportPage = () => {
           <Loader size="xl" color="lime" />
           <Text c="dimmed">Loading report...</Text>
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error || !report) {
@@ -70,12 +60,13 @@ const EditReportPage = () => {
           Edit Report
         </h1>
         <Text c="red">{error || "Report not found"}</Text>
-      </Stack>);
-
+      </Stack>
+    );
   }
 
   // Only leads entity supports project filtering
-  const entitySupportsProjectFilter = report.query_definition?.primary_entity === "leads";
+  const entitySupportsProjectFilter =
+    report.query_definition?.primary_entity === "leads";
 
   return (
     <Stack gap="lg">
@@ -83,25 +74,25 @@ const EditReportPage = () => {
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
           Edit Report: {report.name}
         </h1>
-        {entitySupportsProjectFilter && selectedProject ?
-        <Badge variant="light" color="lime">
+        {entitySupportsProjectFilter && selectedProject ? (
+          <Badge variant="light" color="lime">
             {selectedProject.name}
-          </Badge> :
-
-        <Badge variant="light" color="gray">
+          </Badge>
+        ) : (
+          <Badge variant="light" color="gray">
             Global
           </Badge>
-        }
+        )}
       </Group>
       <ReportBuilder
         initialQuery={report.query_definition}
         reportName={report.name}
         reportDescription={report.description || ""}
         initialProjectIds={report.project_ids}
-        onSave={handleSave} />
-
-    </Stack>);
-
+        onSave={handleSave}
+      />
+    </Stack>
+  );
 };
 
 export default EditReportPage;

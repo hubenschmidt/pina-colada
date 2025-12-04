@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Stack, Center, Loader, Text, Card, SimpleGrid, Table, Badge, Group } from "@mantine/core";
+import {
+  Stack,
+  Center,
+  Loader,
+  Text,
+  Card,
+  SimpleGrid,
+  Table,
+  Badge,
+  Group,
+} from "@mantine/core";
 import { getLeadPipelineReport } from "../../../../api";
 import { useProjectContext } from "../../../../context/projectContext";
 
@@ -16,7 +26,11 @@ const LeadPipelinePage = () => {
     const fetchReport = async () => {
       setLoading(true);
       try {
-        const data = await getLeadPipelineReport(undefined, undefined, selectedProject?.id);
+        const data = await getLeadPipelineReport(
+          undefined,
+          undefined,
+          selectedProject?.id,
+        );
         setReport(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load report");
@@ -34,8 +48,8 @@ const LeadPipelinePage = () => {
           <Loader size="xl" color="lime" />
           <Text c="dimmed">Loading report...</Text>
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error) {
@@ -45,8 +59,8 @@ const LeadPipelinePage = () => {
           Lead Pipeline Report
         </h1>
         <Text c="red">{error}</Text>
-      </Stack>);
-
+      </Stack>
+    );
   }
 
   if (!report) {
@@ -62,39 +76,55 @@ const LeadPipelinePage = () => {
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
           Lead Pipeline Report
         </h1>
-        {selectedProject ?
-        <Badge variant="light" color="lime">
+        {selectedProject ? (
+          <Badge variant="light" color="lime">
             {selectedProject.name}
-          </Badge> :
-
-        <Badge variant="light" color="gray">
+          </Badge>
+        ) : (
+          <Badge variant="light" color="gray">
             Global
           </Badge>
-        }
+        )}
       </Group>
 
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text c="dimmed" size="sm">Total Leads</Text>
-          <Text fw={700} size="xl">{report.total_leads}</Text>
+          <Text c="dimmed" size="sm">
+            Total Leads
+          </Text>
+          <Text fw={700} size="xl">
+            {report.total_leads}
+          </Text>
         </Card>
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text c="dimmed" size="sm">Lead Types</Text>
-          <Text fw={700} size="xl">{typeEntries.length}</Text>
+          <Text c="dimmed" size="sm">
+            Lead Types
+          </Text>
+          <Text fw={700} size="xl">
+            {typeEntries.length}
+          </Text>
         </Card>
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text c="dimmed" size="sm">Lead Sources</Text>
-          <Text fw={700} size="xl">{sourceEntries.length}</Text>
+          <Text c="dimmed" size="sm">
+            Lead Sources
+          </Text>
+          <Text fw={700} size="xl">
+            {sourceEntries.length}
+          </Text>
         </Card>
       </SimpleGrid>
 
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text fw={600} mb="md">Leads by Type</Text>
-          {typeEntries.length === 0 ?
-          <Text c="dimmed" size="sm">No data available</Text> :
-
-          <Table>
+          <Text fw={600} mb="md">
+            Leads by Type
+          </Text>
+          {typeEntries.length === 0 ? (
+            <Text c="dimmed" size="sm">
+              No data available
+            </Text>
+          ) : (
+            <Table>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Type</Table.Th>
@@ -102,23 +132,27 @@ const LeadPipelinePage = () => {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {typeEntries.map(([type, count]) =>
-              <Table.Tr key={type}>
+                {typeEntries.map(([type, count]) => (
+                  <Table.Tr key={type}>
                     <Table.Td>{type}</Table.Td>
                     <Table.Td>{count}</Table.Td>
                   </Table.Tr>
-              )}
+                ))}
               </Table.Tbody>
             </Table>
-          }
+          )}
         </Card>
 
         <Card shadow="sm" padding="lg" radius="md" withBorder>
-          <Text fw={600} mb="md">Leads by Source</Text>
-          {sourceEntries.length === 0 ?
-          <Text c="dimmed" size="sm">No data available</Text> :
-
-          <Table>
+          <Text fw={600} mb="md">
+            Leads by Source
+          </Text>
+          {sourceEntries.length === 0 ? (
+            <Text c="dimmed" size="sm">
+              No data available
+            </Text>
+          ) : (
+            <Table>
               <Table.Thead>
                 <Table.Tr>
                   <Table.Th>Source</Table.Th>
@@ -126,19 +160,19 @@ const LeadPipelinePage = () => {
                 </Table.Tr>
               </Table.Thead>
               <Table.Tbody>
-                {sourceEntries.map(([source, count]) =>
-              <Table.Tr key={source}>
+                {sourceEntries.map(([source, count]) => (
+                  <Table.Tr key={source}>
                     <Table.Td>{source}</Table.Td>
                     <Table.Td>{count}</Table.Td>
                   </Table.Tr>
-              )}
+                ))}
               </Table.Tbody>
             </Table>
-          }
+          )}
         </Card>
       </SimpleGrid>
-    </Stack>);
-
+    </Stack>
+  );
 };
 
 export default LeadPipelinePage;

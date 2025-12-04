@@ -1,31 +1,7 @@
-
-
 export const SET_INDUSTRIES = "SET_INDUSTRIES";
 export const SET_SALARY_RANGES = "SET_SALARY_RANGES";
 export const SET_PROJECTS = "SET_PROJECTS";
 export const ADD_INDUSTRY = "ADD_INDUSTRY";
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 export default (initialState) => {
   return (state, action) => {
@@ -72,7 +48,9 @@ const setProjects = (state, payload) => {
 };
 
 const addIndustry = (state, payload) => {
-  const updated = [...state.industries, payload].sort((a, b) => a.name.localeCompare(b.name));
+  const updated = [...state.industries, payload].sort((a, b) =>
+    a.name.localeCompare(b.name),
+  );
   return {
     ...state,
     industries: updated,

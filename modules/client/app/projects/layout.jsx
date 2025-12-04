@@ -1,10 +1,6 @@
 import AuthenticatedPageLayout from "../../components/AuthenticatedPageLayout/AuthenticatedPageLayout";
 
-const ProjectsLayout = ({
-  children
-
-
-}) => {
+const ProjectsLayout = ({ children }) => {
   return <AuthenticatedPageLayout>{children}</AuthenticatedPageLayout>;
 };
 

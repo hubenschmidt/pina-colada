@@ -1,7 +1,4 @@
-export const debounce = (
-  fn,
-  wait
-) => {
+export const debounce = (fn, wait) => {
   let timeoutId = null;
 
   return (...args) => {

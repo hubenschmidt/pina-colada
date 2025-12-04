@@ -20,12 +20,8 @@ const NewOpportunityPage = () => {
   };
 
   return (
-    <LeadForm
-      onClose={handleClose}
-      onAdd={handleAdd}
-      config={formConfig} />);
-
-
+    <LeadForm onClose={handleClose} onAdd={handleAdd} config={formConfig} />
+  );
 };
 
 export default NewOpportunityPage;

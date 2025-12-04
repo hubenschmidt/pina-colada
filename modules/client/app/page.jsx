@@ -29,7 +29,7 @@ const Home = () => {
           history.replaceState(
             null,
             "",
-            window.location.pathname + window.location.search
+            window.location.pathname + window.location.search,
           );
         }
         ticking = false;
@@ -63,70 +63,75 @@ const Home = () => {
             <SectionTitle kicker="Software and AI Development" />
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
-              {
-                title: "Custom Software Development",
-                points: [
-                "Greenfield builds",
-                "Event-driven & real-time",
-                "Secure by design"]
-
-              },
-              {
-                title: "Full-Stack Development",
-                points: [
-                "Next.js/React UIs",
-                "Node & APIs",
-                "Testing & CI/CD"]
-
-              },
-              {
-                title: "Solutions Consulting (SMBs)",
-                points: [
-                "Roadmaps & audits",
-                "Cost-effective modernization",
-                "Buy vs. build"]
-
-              },
-              {
-                title: "CRM & ERP Systems",
-                points: [
-                "Plex, Salesforce",
-                "Customization & extensions",
-                "Data hygiene"]
-
-              },
-              {
-                title: "Systems Integrations",
-                points: [
-                "ETL & streaming",
-                "Microservices",
-                "3rd-party APIs"]
-
-              },
-              {
-                title: "Web Development",
-                points: [
-                "E-commerce integration",
-                "Marketing sites",
-                "Dashboards & portals"]
-
-              }].
-              map((s) =>
-              <Card key={s.title} className="p-5 transition-shadow hover:shadow-md">
+                {
+                  title: "Custom Software Development",
+                  points: [
+                    "Greenfield builds",
+                    "Event-driven & real-time",
+                    "Secure by design",
+                  ],
+                },
+                {
+                  title: "Full-Stack Development",
+                  points: [
+                    "Next.js/React UIs",
+                    "Node & APIs",
+                    "Testing & CI/CD",
+                  ],
+                },
+                {
+                  title: "Solutions Consulting (SMBs)",
+                  points: [
+                    "Roadmaps & audits",
+                    "Cost-effective modernization",
+                    "Buy vs. build",
+                  ],
+                },
+                {
+                  title: "CRM & ERP Systems",
+                  points: [
+                    "Plex, Salesforce",
+                    "Customization & extensions",
+                    "Data hygiene",
+                  ],
+                },
+                {
+                  title: "Systems Integrations",
+                  points: [
+                    "ETL & streaming",
+                    "Microservices",
+                    "3rd-party APIs",
+                  ],
+                },
+                {
+                  title: "Web Development",
+                  points: [
+                    "E-commerce integration",
+                    "Marketing sites",
+                    "Dashboards & portals",
+                  ],
+                },
+              ].map((s) => (
+                <Card
+                  key={s.title}
+                  className="p-5 transition-shadow hover:shadow-md"
+                >
                   <div className="mb-3 flex items-start justify-between">
-                    <h3 className="text-xl font-semibold text-blue-800">{s.title}</h3>
+                    <h3 className="text-xl font-semibold text-blue-800">
+                      {s.title}
+                    </h3>
                     <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
                   </div>
                   <ul className="space-y-1.5 text-sm text-blue-800">
-                    {s.points.map((p) =>
-                  <li key={p} className="flex items-center gap-2">
+                    {s.points.map((p) => (
+                      <li key={p} className="flex items-center gap-2">
                         <CheckCircle2 className="size-4 text-lime-500/80" />
                         <span>{p}</span>
                       </li>
-                  )}
+                    ))}
                   </ul>
                 </Card>
-              )}
+              ))}
             </div>
 
             <div id="ai" className="mx-auto max-w-6xl px-4 py-20">
@@ -138,39 +143,44 @@ const Home = () => {
               </div>
               <div className="grid gap-4 md:grid-cols-3">
                 {[
-                {
-                  title: "Agentic AI",
-                  points: [
-                  "Graph-based agents with LangGraph, OpenAI Agents SDK, MCP, and custom tooling."]
-
-                },
-                {
-                  title: "RAG & Knowledge",
-                  points: [
-                  "Retrieval-augmented pipelines with evaluators for accuracy, latency, and cost."]
-
-                },
-                {
-                  title: "Production & Governance",
-                  points: [
-                  "CI/CD on Azure DevOps, observability, guardrails, and secure data paths."]
-
-                }].
-                map((s) =>
-                <Card key={s.title} className="p-5 transition-shadow hover:shadow-md">
+                  {
+                    title: "Agentic AI",
+                    points: [
+                      "Graph-based agents with LangGraph, OpenAI Agents SDK, MCP, and custom tooling.",
+                    ],
+                  },
+                  {
+                    title: "RAG & Knowledge",
+                    points: [
+                      "Retrieval-augmented pipelines with evaluators for accuracy, latency, and cost.",
+                    ],
+                  },
+                  {
+                    title: "Production & Governance",
+                    points: [
+                      "CI/CD on Azure DevOps, observability, guardrails, and secure data paths.",
+                    ],
+                  },
+                ].map((s) => (
+                  <Card
+                    key={s.title}
+                    className="p-5 transition-shadow hover:shadow-md"
+                  >
                     <div className="mb-3 flex items-start justify-between">
-                      <h3 className="text-xl font-semibold text-blue-800">{s.title}</h3>
+                      <h3 className="text-xl font-semibold text-blue-800">
+                        {s.title}
+                      </h3>
                       <span className="mt-1 h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 opacity-80" />
                     </div>
                     <ul className="space-y-1.5 text-sm text-blue-800">
-                      {s.points.map((p) =>
-                    <li key={p} className="flex items-center gap-2">
+                      {s.points.map((p) => (
+                        <li key={p} className="flex items-center gap-2">
                           <span>{p}</span>
                         </li>
-                    )}
+                      ))}
                     </ul>
                   </Card>
-                )}
+                ))}
               </div>
             </div>
           </SectionFrame>
@@ -184,93 +194,93 @@ const Home = () => {
             </div>
             <div className="flex flex-col gap-4 md:flex-row md:items-stretch">
               {[
-              {
-                k: "1",
-                title: "Discover",
-                points: [
-                "Clearly map goals, constraints, and ROI. We favor lean specs and rapid prototypes."]
-
-              },
-              {
-                k: "2",
-                title: "Build and Ship",
-                points: [
-                "Continuously integrate feedback to respond quickly to your customer needs."]
-
-              },
-              {
-                k: "3",
-                title: "Scale",
-                points: [
-                "Cloud solutions for security, infra, and support to optimize your software."]
-
-              }].
-              map((s, i) =>
-              <React.Fragment key={s.title}>
+                {
+                  k: "1",
+                  title: "Discover",
+                  points: [
+                    "Clearly map goals, constraints, and ROI. We favor lean specs and rapid prototypes.",
+                  ],
+                },
+                {
+                  k: "2",
+                  title: "Build and Ship",
+                  points: [
+                    "Continuously integrate feedback to respond quickly to your customer needs.",
+                  ],
+                },
+                {
+                  k: "3",
+                  title: "Scale",
+                  points: [
+                    "Cloud solutions for security, infra, and support to optimize your software.",
+                  ],
+                },
+              ].map((s, i) => (
+                <React.Fragment key={s.title}>
                   <Card className="flex-1 p-5 transition-shadow hover:shadow-md">
                     <div className="mb-3 flex items-start justify-between">
                       <div className="flex items-center gap-3">
                         <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-r from-lime-400 to-yellow-400 text-sm font-bold text-blue-900">
                           {s.k}
                         </span>
-                        <h3 className="text-xl font-semibold text-blue-800">{s.title}</h3>
+                        <h3 className="text-xl font-semibold text-blue-800">
+                          {s.title}
+                        </h3>
                       </div>
                     </div>
                     <ul className="space-y-1.5 text-sm text-blue-800">
-                      {s.points.map((p) =>
-                    <li key={p} className="flex items-center gap-2">
+                      {s.points.map((p) => (
+                        <li key={p} className="flex items-center gap-2">
                           <span>{p}</span>
                         </li>
-                    )}
+                      ))}
                     </ul>
                   </Card>
-                  {i < 2 &&
-                <div className="hidden md:flex items-center justify-center px-2">
+                  {i < 2 && (
+                    <div className="hidden md:flex items-center justify-center px-2">
                       <ChevronRight className="size-6 text-blue-400" />
                     </div>
-                }
+                  )}
                 </React.Fragment>
-              )}
+              ))}
             </div>
           </SectionFrame>
 
           <SectionFrame id="portfolio" bandBg="bg-blue-300">
             <SectionTitle kicker="Portfolio" />
             {[
-            {
-              k: "helios",
-              href: "https://www.cumulus-erp.com/helios-ipaas/",
-              title: "Helios — B2B Integration Platform",
-              description: "iPaaS adopted by enterprise manufacturers."
-            },
-            {
-              k: "langgraph-react",
-              href: "https://github.com/hubenschmidt/langgraph-react",
-              title: "langgraph-react",
-              description:
-              "enterprise-ready LangGraph + React starter rolled with Langfuse self-hosted LLM observability tracing"
-            },
-            {
-              k: "tunecrook",
-              href: "https://www.tunecrook.com/",
-              title: "TuneCrook — DJ Music Discovery",
-              description: "Agentic AI curates your Discogs collection."
-            }].
-            map((p) =>
-            <CardLink key={p.k} href={p.href}>
+              {
+                k: "helios",
+                href: "https://www.cumulus-erp.com/helios-ipaas/",
+                title: "Helios — B2B Integration Platform",
+                description: "iPaaS adopted by enterprise manufacturers.",
+              },
+              {
+                k: "langgraph-react",
+                href: "https://github.com/hubenschmidt/langgraph-react",
+                title: "langgraph-react",
+                description:
+                  "enterprise-ready LangGraph + React starter rolled with Langfuse self-hosted LLM observability tracing",
+              },
+              {
+                k: "tunecrook",
+                href: "https://www.tunecrook.com/",
+                title: "TuneCrook — DJ Music Discovery",
+                description: "Agentic AI curates your Discogs collection.",
+              },
+            ].map((p) => (
+              <CardLink key={p.k} href={p.href}>
                 <div className="flex items-center justify-between">
                   <h3 className="text-2xl font-medium text-blue-800">
                     {p.title}
                   </h3>
                   <span
-                  className={`h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400`} />
-
+                    className={`h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400`}
+                  />
                 </div>
-                <p className="mt-2 text-sm text-blue-800">
-                  {p.description}
-                </p>
+                <p className="mt-2 text-sm text-blue-800">{p.description}</p>
               </CardLink>
-            )}
+            ))}
           </SectionFrame>
         </section>
         {/* Contact */}
@@ -290,8 +300,8 @@ const Home = () => {
                 <div className="flex flex-col sm:flex-row gap-3">
                   <Link
                     href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
-                    className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500">
-
+                    className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
+                  >
                     Email William
                   </Link>
                 </div>
@@ -309,23 +319,23 @@ const Home = () => {
               <Link
                 href="https://github.com/hubenschmidt"
                 target="_blank"
-                className="hover:text-white">
-
+                className="hover:text-white"
+              >
                 GitHub
               </Link>
               <Link
                 href="https://www.linkedin.com/company/pinacoladaco"
                 target="_blank"
-                className="hover:text-white">
-
+                className="hover:text-white"
+              >
                 LinkedIn
               </Link>
             </div>
           </div>
         </footer>
       </div>
-    </>);
-
+    </>
+  );
 };
 
 export default Home;

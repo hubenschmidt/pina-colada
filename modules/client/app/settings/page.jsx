@@ -12,16 +12,15 @@ import {
   Text,
   Loader,
   Center,
-  Select } from
-"@mantine/core";
+  Select,
+} from "@mantine/core";
 import {
   getUserPreferences,
   updateUserPreferences,
   getTenantPreferences,
   updateTenantPreferences,
-  getTimezones } from
-
-"../../api";
+  getTimezones,
+} from "../../api";
 
 const SettingsPage = () => {
   const { userState, dispatchUser } = useUserContext();
@@ -37,9 +36,9 @@ const SettingsPage = () => {
 
       try {
         const [userPrefs, tzOptions] = await Promise.all([
-        getUserPreferences(),
-        getTimezones()]
-        );
+          getUserPreferences(),
+          getTimezones(),
+        ]);
         setUserTheme(userPrefs.theme);
         setUserTimezone(userPrefs.timezone);
         setTimezoneOptions(tzOptions);
@@ -61,62 +60,62 @@ const SettingsPage = () => {
   const updateUserTheme = (newTheme) => {
     if (!userState.isAuthed) return;
 
-    updateUserPreferences({ theme: newTheme }).
-    then((data) => {
-      setUserTheme(newTheme);
-      dispatchUser({
-        type: SET_THEME,
-        payload: {
-          theme: data.effective_theme,
-          canEditTenant: userState.canEditTenantTheme
-        }
+    updateUserPreferences({ theme: newTheme })
+      .then((data) => {
+        setUserTheme(newTheme);
+        dispatchUser({
+          type: SET_THEME,
+          payload: {
+            theme: data.effective_theme,
+            canEditTenant: userState.canEditTenantTheme,
+          },
+        });
+      })
+      .catch((error) => {
+        console.error("Failed to update user theme:", error);
       });
-    }).
-    catch((error) => {
-      console.error("Failed to update user theme:", error);
-    });
   };
 
   const updateTimezone = (newTimezone) => {
     if (!userState.isAuthed) return;
 
-    updateUserPreferences({ timezone: newTimezone }).
-    then(() => {
-      setUserTimezone(newTimezone);
-    }).
-    catch((error) => {
-      console.error("Failed to update timezone:", error);
-    });
+    updateUserPreferences({ timezone: newTimezone })
+      .then(() => {
+        setUserTimezone(newTimezone);
+      })
+      .catch((error) => {
+        console.error("Failed to update timezone:", error);
+      });
   };
 
   const updateTenantTheme = (newTheme) => {
     if (!userState.isAuthed || !userState.canEditTenantTheme) return;
 
-    updateTenantPreferences(newTheme).
-    then(() => {
-      setTenantTheme(newTheme);
+    updateTenantPreferences(newTheme)
+      .then(() => {
+        setTenantTheme(newTheme);
 
-      if (userTheme === null) {
-        dispatchUser({
-          type: SET_THEME,
-          payload: {
-            theme: newTheme,
-            canEditTenant: userState.canEditTenantTheme
-          }
-        });
-      }
-    }).
-    catch((error) => {
-      console.error("Failed to update tenant theme:", error);
-    });
+        if (userTheme === null) {
+          dispatchUser({
+            type: SET_THEME,
+            payload: {
+              theme: newTheme,
+              canEditTenant: userState.canEditTenantTheme,
+            },
+          });
+        }
+      })
+      .catch((error) => {
+        console.error("Failed to update tenant theme:", error);
+      });
   };
 
   if (!userState.isAuthed) {
     return (
       <Container size="sm" py="xl">
         <Text>Please log in to access settings.</Text>
-      </Container>);
-
+      </Container>
+    );
   }
 
   if (loading) {
@@ -126,8 +125,8 @@ const SettingsPage = () => {
           <Loader size="xl" color="lime" />
           <Text c="dimmed">Loading settings...</Text>
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   return (
@@ -142,9 +141,9 @@ const SettingsPage = () => {
           <Radio.Group
             value={userTheme === null ? "inherit" : userTheme}
             onChange={(value) =>
-            updateUserTheme(value === "inherit" ? null : value)
-            }>
-
+              updateUserTheme(value === "inherit" ? null : value)
+            }
+          >
             <Stack gap="xs">
               <Radio value="inherit" label="Inherit from organization" />
               <Radio value="light" label="Light" />
@@ -162,12 +161,12 @@ const SettingsPage = () => {
             onChange={(value) => value && updateTimezone(value)}
             data={timezoneOptions}
             searchable
-            maw={400} />
-
+            maw={400}
+          />
         </Stack>
 
-        {userState.canEditTenantTheme &&
-        <Paper withBorder p="md">
+        {userState.canEditTenantTheme && (
+          <Paper withBorder p="md">
             <Stack gap="md">
               <div>
                 <Title order={2} size="h3" mb="xs">
@@ -178,11 +177,9 @@ const SettingsPage = () => {
                 </Text>
               </div>
               <Radio.Group
-              value={tenantTheme}
-              onChange={(value) =>
-              updateTenantTheme(value)
-              }>
-
+                value={tenantTheme}
+                onChange={(value) => updateTenantTheme(value)}
+              >
                 <Stack gap="xs">
                   <Radio value="light" label="Light" />
                   <Radio value="dark" label="Dark" />
@@ -190,10 +187,10 @@ const SettingsPage = () => {
               </Radio.Group>
             </Stack>
           </Paper>
-        }
+        )}
       </Stack>
-    </Container>);
-
+    </Container>
+  );
 };
 
 export default SettingsPage;

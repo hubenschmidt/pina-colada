@@ -1,24 +1,7 @@
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 
- 
-
-
-
-
-
-
 const GREETING =
   "Welcome! Ask me anything about our services, I would be glad to help.";
-
-
-
-
-
-
-
-
-
-
 
 /** Apply a streaming chunk to chat state (guard-clause style). */
 const applyStreamChunk = (prev, chunk) => {
@@ -63,19 +46,22 @@ const applyStartOfTurn = (prev) => {
   return prev;
 };
 
-
-
-
-
-
-
 const parseTokenUsage = (obj) => {
-  if (!obj.on_token_usage || typeof obj.on_token_usage !== "object") return null;
-  const current = obj.on_token_usage ;
-  const cumulative = (obj.on_token_cumulative || {}) ;
+  if (!obj.on_token_usage || typeof obj.on_token_usage !== "object")
+    return null;
+  const current = obj.on_token_usage;
+  const cumulative = obj.on_token_cumulative || {};
   return {
-    current: { input: current.input || 0, output: current.output || 0, total: current.total || 0 },
-    cumulative: { input: cumulative.input || 0, output: cumulative.output || 0, total: cumulative.total || 0 },
+    current: {
+      input: current.input || 0,
+      output: current.output || 0,
+      total: current.total || 0,
+    },
+    cumulative: {
+      input: cumulative.input || 0,
+      output: cumulative.output || 0,
+      total: cumulative.total || 0,
+    },
   };
 };
 
@@ -114,11 +100,17 @@ const handleParsedMessage = (obj, ctx) => {
 
 const handleUiEvents = (obj, ctx) => {
   const uiKeys = Object.keys(obj).filter(
-    (k) => k.startsWith("on_ui_") && k !== "on_chat_model_stream" && k !== "on_chat_model_end"
+    (k) =>
+      k.startsWith("on_ui_") &&
+      k !== "on_chat_model_stream" &&
+      k !== "on_chat_model_end",
   );
   if (uiKeys.length === 0) return;
   const k = uiKeys[0];
-  ctx.setMessages((prev) => [...prev, { user: "PinaColada", msg: `🔔 ${k}: ${JSON.stringify(obj[k])}` }]);
+  ctx.setMessages((prev) => [
+    ...prev,
+    { user: "PinaColada", msg: `🔔 ${k}: ${JSON.stringify(obj[k])}` },
+  ]);
 };
 
 export const useWs = (url) => {
@@ -164,12 +156,15 @@ export const useWs = (url) => {
         parsed = JSON.parse(event.data);
       } catch (e) {
         // Plain text from server -> bot bubble
-        setMessages((prev) => [...prev, { user: "PinaColada", msg: event.data }]);
+        setMessages((prev) => [
+          ...prev,
+          { user: "PinaColada", msg: event.data },
+        ]);
         return;
       }
 
       if (parsed === null || typeof parsed !== "object") return;
-      const obj = parsed ;
+      const obj = parsed;
       const ctx = { setIsThinking, setTokenUsage, setMessages };
 
       if (handleParsedMessage(obj, ctx)) return;
@@ -195,7 +190,7 @@ export const useWs = (url) => {
       setIsThinking(true); // Start thinking when user sends message
       s.send(JSON.stringify({ uuid, message: t }));
     },
-    [uuid]
+    [uuid],
   );
 
   // NEW: silent JSON sender (no UI echo)
@@ -206,10 +201,10 @@ export const useWs = (url) => {
       s.send(
         typeof payload === "string"
           ? payload
-          : JSON.stringify({ uuid, ...((payload ) || {}) })
+          : JSON.stringify({ uuid, ...(payload || {}) }),
       );
     },
-    [uuid]
+    [uuid],
   );
 
   const reset = useCallback(() => {
@@ -221,5 +216,13 @@ export const useWs = (url) => {
     ]);
   }, []);
 
-  return { isOpen, isThinking, tokenUsage, messages, sendMessage, sendControl, reset };
+  return {
+    isOpen,
+    isThinking,
+    tokenUsage,
+    messages,
+    sendMessage,
+    sendControl,
+    reset,
+  };
 };

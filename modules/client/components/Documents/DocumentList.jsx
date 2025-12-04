@@ -13,48 +13,31 @@ import {
   TagsInput,
   Loader,
   Center,
-  Anchor } from
-"@mantine/core";
+  Anchor,
+} from "@mantine/core";
 import { SearchBox } from "../SearchBox";
-import {
-  Download,
-  Trash2,
-  MoreVertical,
-  FileText,
-  Link2 } from
-"lucide-react";
+import { Download, Trash2, MoreVertical, FileText, Link2 } from "lucide-react";
 import {
   getDocuments,
   deleteDocument,
   downloadDocument,
-  getTags } from
-
-"../../api";
+  getTags,
+} from "../../api";
 import { DataTable } from "../DataTable/DataTable";
 import { DeleteConfirmBanner } from "../DeleteConfirmBanner";
-
-
-
-
-
-
-
-
 
 export const DocumentList = ({
   filterTags: externalFilterTags,
   entityType,
   entityId,
   onDocumentDeleted,
-  headerRight
+  headerRight,
 }) => {
   const router = useRouter();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filterTags, setFilterTags] = useState(
-    externalFilterTags || []
-  );
+  const [filterTags, setFilterTags] = useState(externalFilterTags || []);
   const [availableTags, setAvailableTags] = useState([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -76,7 +59,7 @@ export const DocumentList = ({
         searchQuery || undefined,
         filterTags.length > 0 ? filterTags : undefined,
         entityType,
-        entityId
+        entityId,
       );
       setData(pageData);
     } catch (err) {
@@ -84,16 +67,25 @@ export const DocumentList = ({
     } finally {
       setLoading(false);
     }
-  }, [page, limit, sortBy, sortDirection, searchQuery, filterTags, entityType, entityId]);
+  }, [
+    page,
+    limit,
+    sortBy,
+    sortDirection,
+    searchQuery,
+    filterTags,
+    entityType,
+    entityId,
+  ]);
 
   const loadTags = useCallback(async () => {
     try {
       const tagList = await getTags();
       setAvailableTags(tagList.map((t) => t.name));
     } catch {
-
       // Ignore tag loading errors
-    }}, []);
+    }
+  }, []);
 
   useEffect(() => {
     loadDocuments();
@@ -167,7 +159,7 @@ export const DocumentList = ({
       Individual: `/accounts/individuals/${entityId}`,
       Project: `/projects/${entityId}`,
       Contact: `/accounts/contacts/${entityId}`,
-      Lead: `/leads/jobs/${entityId}`
+      Lead: `/leads/jobs/${entityId}`,
     };
     return typeMap[entityType] || "#";
   };
@@ -178,19 +170,19 @@ export const DocumentList = ({
       Individual: "green",
       Project: "violet",
       Contact: "cyan",
-      Lead: "orange"
+      Lead: "orange",
     };
     return colorMap[entityType] || "gray";
   };
 
   const columns = [
-  {
-    header: "Name",
-    accessor: "filename",
-    sortable: true,
-    sortKey: "filename",
-    render: (doc) =>
-    <Group gap="xs">
+    {
+      header: "Name",
+      accessor: "filename",
+      sortable: true,
+      sortKey: "filename",
+      render: (doc) => (
+        <Group gap="xs">
           <FileText className="h-4 w-4 text-lime-600" />
           <div>
             <Group gap="xs">
@@ -201,132 +193,129 @@ export const DocumentList = ({
                 v{doc.version_number}
               </Badge>
             </Group>
-            {doc.description &&
-        <Text size="xs" c="dimmed" lineClamp={1}>
+            {doc.description && (
+              <Text size="xs" c="dimmed" lineClamp={1}>
                 {doc.description}
               </Text>
-        }
+            )}
           </div>
         </Group>
-
-  },
-  {
-    header: "Linked To",
-    accessor: "entities",
-    render: (doc) => {
-      // Filter out Lead entities to avoid clutter (documents like resumes link to many jobs)
-      const filteredEntities = (doc.entities || []).filter(
-        (e) => e.entity_type !== "Lead"
-      );
-      return (
-        <Group gap={4}>
-            {filteredEntities.map((entity, idx) =>
-          <Anchor
-            key={`${entity.entity_type}-${entity.entity_id}-${idx}`}
-            component={Link}
-            href={getEntityUrl(entity.entity_type, entity.entity_id)}
-            size="xs"
-            onClick={(e) => e.stopPropagation()}>
-
+      ),
+    },
+    {
+      header: "Linked To",
+      accessor: "entities",
+      render: (doc) => {
+        // Filter out Lead entities to avoid clutter (documents like resumes link to many jobs)
+        const filteredEntities = (doc.entities || []).filter(
+          (e) => e.entity_type !== "Lead",
+        );
+        return (
+          <Group gap={4}>
+            {filteredEntities.map((entity, idx) => (
+              <Anchor
+                key={`${entity.entity_type}-${entity.entity_id}-${idx}`}
+                component={Link}
+                href={getEntityUrl(entity.entity_type, entity.entity_id)}
+                size="xs"
+                onClick={(e) => e.stopPropagation()}
+              >
                 <Badge
-              size="sm"
-              variant="light"
-              color={getEntityColor(entity.entity_type)}
-              style={{ cursor: "pointer" }}>
-
+                  size="sm"
+                  variant="light"
+                  color={getEntityColor(entity.entity_type)}
+                  style={{ cursor: "pointer" }}
+                >
                   {entity.entity_name}
                 </Badge>
               </Anchor>
-          )}
-            {filteredEntities.length === 0 &&
-          <Text size="xs" c="dimmed">
+            ))}
+            {filteredEntities.length === 0 && (
+              <Text size="xs" c="dimmed">
                 -
               </Text>
-          }
-          </Group>);
-
-    }
-  },
-  {
-    header: "Size",
-    accessor: "file_size",
-    sortable: true,
-    sortKey: "file_size",
-    render: (doc) =>
-    <Text size="sm" c="dimmed">
+            )}
+          </Group>
+        );
+      },
+    },
+    {
+      header: "Size",
+      accessor: "file_size",
+      sortable: true,
+      sortKey: "file_size",
+      render: (doc) => (
+        <Text size="sm" c="dimmed">
           {formatFileSize(doc.file_size)}
         </Text>
-
-  },
-  {
-    header: "Tags",
-    accessor: "tags",
-    render: (doc) =>
-    <Group gap={4}>
-          {(doc.tags || []).slice(0, 3).map((tag) =>
-      <Badge key={tag} size="xs" variant="light" color="lime">
+      ),
+    },
+    {
+      header: "Tags",
+      accessor: "tags",
+      render: (doc) => (
+        <Group gap={4}>
+          {(doc.tags || []).slice(0, 3).map((tag) => (
+            <Badge key={tag} size="xs" variant="light" color="lime">
               {tag}
             </Badge>
-      )}
-          {(doc.tags || []).length > 3 &&
-      <Badge size="xs" variant="light" color="gray">
+          ))}
+          {(doc.tags || []).length > 3 && (
+            <Badge size="xs" variant="light" color="gray">
               +{doc.tags.length - 3}
             </Badge>
-      }
+          )}
         </Group>
-
-  },
-  {
-    header: "Uploaded",
-    accessor: "created_at",
-    sortable: true,
-    sortKey: "created_at",
-    render: (doc) =>
-    <Text size="sm" c="dimmed">
+      ),
+    },
+    {
+      header: "Uploaded",
+      accessor: "created_at",
+      sortable: true,
+      sortKey: "created_at",
+      render: (doc) => (
+        <Text size="sm" c="dimmed">
           {formatDate(doc.created_at)}
         </Text>
-
-  },
-  {
-    header: "Actions",
-    width: 80,
-    render: (doc) =>
-    <Menu position="bottom-end" withinPortal>
+      ),
+    },
+    {
+      header: "Actions",
+      width: 80,
+      render: (doc) => (
+        <Menu position="bottom-end" withinPortal>
           <Menu.Target>
             <ActionIcon
-          variant="subtle"
-          color="gray"
-          onClick={(e) => e.stopPropagation()}>
-
+              variant="subtle"
+              color="gray"
+              onClick={(e) => e.stopPropagation()}
+            >
               <MoreVertical className="h-4 w-4" />
             </ActionIcon>
           </Menu.Target>
           <Menu.Dropdown>
             <Menu.Item
-          leftSection={<Download className="h-4 w-4" />}
-          onClick={(e) => handleDownload(doc, e)}>
-
+              leftSection={<Download className="h-4 w-4" />}
+              onClick={(e) => handleDownload(doc, e)}
+            >
               Download
             </Menu.Item>
-            <Menu.Item
-          leftSection={<Link2 className="h-4 w-4" />}
-          disabled>
-
+            <Menu.Item leftSection={<Link2 className="h-4 w-4" />} disabled>
               Link to entity
             </Menu.Item>
             <Menu.Divider />
             <Menu.Item
-          leftSection={<Trash2 className="h-4 w-4" />}
-          color="red"
-          onClick={(e) => handleDeleteClick(doc, e)}>
-
+              leftSection={<Trash2 className="h-4 w-4" />}
+              color="red"
+              onClick={(e) => handleDeleteClick(doc, e)}
+            >
               Delete
             </Menu.Item>
           </Menu.Dropdown>
         </Menu>
-
-  }];
-
+      ),
+    },
+  ];
 
   if (loading && !data) {
     return (
@@ -337,16 +326,16 @@ export const DocumentList = ({
             Loading documents...
           </Text>
         </Stack>
-      </Center>);
-
+      </Center>
+    );
   }
 
   if (error) {
     return (
       <Text c="red" size="sm">
         {error}
-      </Text>);
-
+      </Text>
+    );
   }
 
   return (
@@ -354,7 +343,8 @@ export const DocumentList = ({
       <Group gap="md">
         <SearchBox
           placeholder="Search documents... (Enter to search)"
-          onSearch={handleSearch} />
+          onSearch={handleSearch}
+        />
 
         <TagsInput
           placeholder="Filter by tags..."
@@ -366,19 +356,20 @@ export const DocumentList = ({
           data={availableTags}
           clearable
           size="sm"
-          style={{ flex: 1 }} />
+          style={{ flex: 1 }}
+        />
 
         {headerRight}
       </Group>
 
-      {deleteConfirm &&
-      <DeleteConfirmBanner
-        itemName={deleteConfirm.filename}
-        onConfirm={handleDeleteConfirm}
-        onCancel={handleDeleteCancel}
-        loading={deleting} />
-
-      }
+      {deleteConfirm && (
+        <DeleteConfirmBanner
+          itemName={deleteConfirm.filename}
+          onConfirm={handleDeleteConfirm}
+          onCancel={handleDeleteCancel}
+          loading={deleting}
+        />
+      )}
 
       <DataTable
         data={data}
@@ -400,11 +391,11 @@ export const DocumentList = ({
         onRowClick={handleRowClick}
         rowKey={(doc) => doc.id}
         emptyText={
-        filterTags.length > 0 ?
-        "No documents match the selected tags." :
-        "No documents yet. Upload one above!"
-        } />
-
-    </Stack>);
-
+          filterTags.length > 0
+            ? "No documents match the selected tags."
+            : "No documents yet. Upload one above!"
+        }
+      />
+    </Stack>
+  );
 };

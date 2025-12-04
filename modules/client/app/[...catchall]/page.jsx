@@ -20,8 +20,8 @@ const CatchAllPage = () => {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <p className="text-zinc-600">Redirecting...</p>
-    </div>);
-
+    </div>
+  );
 };
 
 export default CatchAllPage;
