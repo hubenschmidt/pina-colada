@@ -51,7 +51,8 @@ async def create_comment(request: Request, data: CommentCreate) -> dict:
 async def update_comment(request: Request, comment_id: int, data: CommentUpdate) -> dict:
     """Update a comment."""
     tenant_id = request.state.tenant_id
-    comment = await update_comment_service(comment_id, tenant_id, data.content)
+    user_id = request.state.user_id
+    comment = await update_comment_service(comment_id, tenant_id, data.content, user_id)
     return comment_to_response(comment)
 
 

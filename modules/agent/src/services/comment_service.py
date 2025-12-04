@@ -66,6 +66,7 @@ async def create_comment(
         "commentable_id": commentable_id,
         "content": content,
         "created_by": user_id,
+        "updated_by": user_id,
         "parent_comment_id": parent_comment_id,
     }
 
@@ -79,12 +80,12 @@ async def create_comment(
     return comment
 
 
-async def update_comment(comment_id: int, tenant_id: int, content: str):
+async def update_comment(comment_id: int, tenant_id: int, content: str, user_id: int):
     """Update a comment."""
     if not content.strip():
         raise HTTPException(status_code=400, detail="Comment content cannot be empty")
 
-    comment = await update_comment_repo(comment_id, tenant_id, {"content": content})
+    comment = await update_comment_repo(comment_id, tenant_id, {"content": content, "updated_by": user_id})
     if not comment:
         raise HTTPException(status_code=404, detail="Comment not found")
     return comment
