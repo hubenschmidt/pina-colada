@@ -3,8 +3,8 @@
 from typing import List
 
 from lib.decorators import handle_http_exceptions
-from lib.serialization import model_to_dict
-from repositories.funding_stage_repository import find_all_funding_stages
+from serializers.base import model_to_dict
+from services.funding_stage_service import get_all_funding_stages as find_all_funding_stages
 
 
 @handle_http_exceptions

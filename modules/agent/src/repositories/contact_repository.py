@@ -1,56 +1,17 @@
 """Repository layer for contact data access."""
 
 import logging
-from typing import List, Optional, Dict, Any, Tuple
-
-from pydantic import BaseModel
-from sqlalchemy import select, or_, func
+from typing import Any, Dict, List, Optional, Tuple
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
-
 from lib.db import async_get_session
-from lib.validators import validate_phone
 from models.Contact import Contact, ContactIndividual, ContactOrganization
 from models.Individual import Individual
+from schemas.contact import ContactCreate, ContactUpdate
+
+__all__ = ["ContactCreate", "ContactUpdate"]
 
 logger = logging.getLogger(__name__)
-
-
-# Pydantic models
-
-class ContactCreate(BaseModel):
-    first_name: str
-    last_name: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    title: Optional[str] = None
-    department: Optional[str] = None
-    role: Optional[str] = None
-    notes: Optional[str] = None
-    individual_ids: Optional[List[int]] = None
-    organization_ids: Optional[List[int]] = None
-    is_primary: bool = False
-
-    @classmethod
-    def validate_phone_format(cls, v):
-        return validate_phone(v) if v else v
-
-
-class ContactUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    title: Optional[str] = None
-    department: Optional[str] = None
-    role: Optional[str] = None
-    notes: Optional[str] = None
-    individual_ids: Optional[List[int]] = None
-    organization_ids: Optional[List[int]] = None
-    is_primary: Optional[bool] = None
-
-    @classmethod
-    def validate_phone_format(cls, v):
-        return validate_phone(v) if v else v
 
 
 async def find_all_contacts_paginated(

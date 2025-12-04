@@ -2,10 +2,6 @@ from sqlalchemy import Column, Text, DateTime, Boolean, BigInteger, ForeignKey, 
 from sqlalchemy.orm import relationship
 from models import Base
 
-"""Status model for central status/stage definitions."""
-
-
-
 
 class Status(Base):
     """Status SQLAlchemy model for central status/stage definitions."""

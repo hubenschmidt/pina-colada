@@ -1,10 +1,8 @@
 """CommentNotification model for tracking comment activity notifications."""
 
 from datetime import datetime
-
 from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
-
+from sqlalchemy.orm import
 from models import Base
 
 

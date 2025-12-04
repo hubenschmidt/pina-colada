@@ -3,14 +3,13 @@
 from fastapi import APIRouter, Request
 
 from controllers.preferences_controller import (
+    get_tenant_preferences,
     get_timezones,
     get_user_preferences,
-    update_user_preferences,
-    get_tenant_preferences,
     update_tenant_preferences,
-    UpdateUserPreferencesRequest,
-    UpdateTenantPreferencesRequest,
+    update_user_preferences,
 )
+from schemas.preferences import UpdateTenantPreferencesRequest, UpdateUserPreferencesRequest
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

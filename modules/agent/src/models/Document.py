@@ -1,7 +1,6 @@
 """Document model - extends Asset for file storage."""
 
 from sqlalchemy import Column, Text, BigInteger, ForeignKey, DateTime, func
-
 from models.Asset import Asset
 
 

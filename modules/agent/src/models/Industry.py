@@ -2,9 +2,7 @@
 
 from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, Table, func
 from sqlalchemy.orm import relationship
-
 from models import Base
-
 
 # Join table for many-to-many relationship
 Account_Industry = Table(

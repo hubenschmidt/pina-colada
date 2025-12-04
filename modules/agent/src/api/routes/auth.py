@@ -3,10 +3,10 @@
 from fastapi import APIRouter, Request
 
 from controllers.auth_controller import (
-    get_current_user_with_tenants,
     create_tenant as create_tenant_controller,
-    TenantCreate,
+    get_current_user_with_tenants,
 )
+from schemas.tenant import TenantCreate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

@@ -7,7 +7,6 @@ from models.Individual import Individual
 from models.Account import Account
 from lib.db import async_get_session
 
-
 async def find_user_by_auth0_sub(auth0_sub: str) -> Optional[User]:
     """Find user by Auth0 subject ID."""
     async with async_get_session() as session:

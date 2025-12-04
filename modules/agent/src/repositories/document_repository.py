@@ -1,12 +1,9 @@
 """Repository layer for document data access."""
 
 import logging
-from typing import List, Optional, Dict, Any
-
-from pydantic import BaseModel
-from sqlalchemy import select, and_, delete, insert, func, update, or_
+from typing import Any, Dict, List, Optional
+from sqlalchemy import and_, delete, func, insert, or_, select, update
 from sqlalchemy.orm import joinedload
-
 from lib.db import async_get_session
 from models.Asset import Asset
 from models.Contact import Contact
@@ -16,20 +13,12 @@ from models.Individual import Individual
 from models.Lead import Lead
 from models.Organization import Organization
 from models.Project import Project
-from models.Tag import Tag, EntityTag
+from models.Tag import EntityTag, Tag
+from schemas.document import DocumentUpdate, EntityLink
+
+__all__ = ["DocumentUpdate", "EntityLink"]
 
 logger = logging.getLogger(__name__)
-
-
-# Pydantic models
-
-class DocumentUpdate(BaseModel):
-    description: Optional[str] = None
-
-
-class EntityLink(BaseModel):
-    entity_type: str
-    entity_id: int
 
 
 async def find_documents_by_tenant(

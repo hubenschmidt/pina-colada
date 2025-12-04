@@ -1,7 +1,6 @@
 """Technology model for tech stack lookup."""
 
 from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, func, UniqueConstraint
-
 from models import Base
 
 

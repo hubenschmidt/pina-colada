@@ -1,28 +1,16 @@
 """Repository layer for note data access."""
 
 import logging
-from typing import List, Optional, Dict, Any
-
-from pydantic import BaseModel
-from sqlalchemy import select, and_
+from typing import Any, Dict, List, Optional
+from sqlalchemy import and_, select
 from sqlalchemy.orm import joinedload
-
 from lib.db import async_get_session
 from models.Note import Note
+from schemas.note import NoteCreate, NoteUpdate
+
+__all__ = ["NoteCreate", "NoteUpdate"]
 
 logger = logging.getLogger(__name__)
-
-
-# Pydantic models
-
-class NoteCreate(BaseModel):
-    entity_type: str
-    entity_id: int
-    content: str
-
-
-class NoteUpdate(BaseModel):
-    content: str
 
 
 async def find_notes_by_entity(

@@ -3,16 +3,15 @@
 from fastapi import APIRouter, Request
 
 from controllers.project_controller import (
-    get_projects,
-    get_project,
     create_project,
-    update_project,
     delete_project,
-    get_project_leads,
+    get_project,
     get_project_deals,
-    ProjectCreate,
-    ProjectUpdate,
+    get_project_leads,
+    get_projects,
+    update_project,
 )
+from schemas.project import ProjectCreate, ProjectUpdate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

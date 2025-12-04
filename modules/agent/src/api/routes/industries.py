@@ -2,7 +2,8 @@
 
 from fastapi import APIRouter, Request
 
-from controllers.industry_controller import get_all_industries, create_industry, IndustryCreate
+from controllers.industry_controller import create_industry, get_all_industries
+from schemas.industry import IndustryCreate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

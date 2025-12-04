@@ -1,11 +1,12 @@
 """Controller layer for document routing to services."""
 
-import logging
-from typing import Optional, List
+from typing import Optional
 
 from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
+from serializers.common import to_paged_response
+from serializers.document import document_to_list_response, document_to_detail_response
 from services.document_service import (
     DocumentUpdate,
     EntityLink,
@@ -23,58 +24,8 @@ from services.document_service import (
     set_document_current_version as set_current_version_service,
 )
 
-logger = logging.getLogger(__name__)
-
 # Re-export for routes
 __all__ = ["DocumentUpdate", "EntityLink"]
-
-
-def _to_paged_response(count: int, page: int, limit: int, items: List) -> dict:
-    """Convert to paged response format."""
-    return {
-        "items": items,
-        "currentPage": page,
-        "totalPages": max(1, (count + limit - 1) // limit),
-        "total": count,
-        "pageSize": limit,
-    }
-
-
-def _document_to_list_response(document, entities=None, tags=None) -> dict:
-    """Convert Document model to dict - optimized for list/table view."""
-    return {
-        "id": document.id,
-        "filename": document.filename,
-        "file_size": document.file_size,
-        "description": document.description,
-        "created_at": document.created_at.isoformat() if document.created_at else None,
-        "entities": entities or [],
-        "tags": tags or [],
-        "version_number": document.version_number,
-    }
-
-
-def _document_to_detail_response(document, entities=None, tags=None, version_count=None) -> dict:
-    """Convert Document model to dictionary - full detail view."""
-    return {
-        "id": document.id,
-        "tenant_id": document.tenant_id,
-        "user_id": document.user_id,
-        "filename": document.filename,
-        "content_type": document.content_type,
-        "file_size": document.file_size,
-        "description": document.description,
-        "created_at": document.created_at.isoformat() if document.created_at else None,
-        "updated_at": document.updated_at.isoformat() if document.updated_at else None,
-        "created_by": document.created_by,
-        "updated_by": document.updated_by,
-        "entities": entities or [],
-        "tags": tags or [],
-        "parent_id": document.parent_id,
-        "version_number": document.version_number,
-        "is_current_version": document.is_current_version,
-        "version_count": version_count,
-    }
 
 
 # Document CRUD
@@ -97,10 +48,10 @@ async def get_documents(
         tenant_id, page, limit, order_by, order, entity_type, entity_id, search, tags
     )
     items = [
-        _document_to_list_response(doc, entities_map.get(doc.id, []), tags_map.get(doc.id, []))
+        document_to_list_response(doc, entities_map.get(doc.id, []), tags_map.get(doc.id, []))
         for doc in documents
     ]
-    return _to_paged_response(total, page, limit, items)
+    return to_paged_response(total, page, limit, items)
 
 
 @handle_http_exceptions
@@ -119,7 +70,7 @@ async def check_filename(
     if existing:
         return {
             "exists": True,
-            "document": _document_to_detail_response(existing, entities, tags, version_count),
+            "document": document_to_detail_response(existing, entities, tags, version_count),
         }
 
     return {"exists": False, "document": None}
@@ -130,7 +81,7 @@ async def get_document(request: Request, document_id: int) -> dict:
     """Get document by ID."""
     tenant_id = request.state.tenant_id
     document, entities, tags = await get_document_service(document_id, tenant_id)
-    return _document_to_detail_response(document, entities, tags)
+    return document_to_detail_response(document, entities, tags)
 
 
 @handle_http_exceptions
@@ -149,7 +100,7 @@ async def upload_document(
     document, entities, tags = await upload_document_service(
         tenant_id, user_id, filename, content, content_type, description, entity_type, entity_id
     )
-    return _document_to_detail_response(document, entities, tags)
+    return document_to_detail_response(document, entities, tags)
 
 
 @handle_http_exceptions
@@ -167,7 +118,7 @@ async def update_document(request: Request, document_id: int, data: DocumentUpda
     document, entities, tags = await update_document_service(
         document_id, tenant_id, user_id, data.description
     )
-    return _document_to_detail_response(document, entities, tags)
+    return document_to_detail_response(document, entities, tags)
 
 
 @handle_http_exceptions
@@ -185,7 +136,7 @@ async def link_document(request: Request, document_id: int, data: EntityLink) ->
     document, entities, tags = await link_document_service(
         document_id, tenant_id, data.entity_type, data.entity_id
     )
-    return _document_to_detail_response(document, entities, tags)
+    return document_to_detail_response(document, entities, tags)
 
 
 @handle_http_exceptions
@@ -200,7 +151,7 @@ async def unlink_document(
     document, entities, tags = await unlink_document_service(
         document_id, tenant_id, entity_type, entity_id
     )
-    return _document_to_detail_response(document, entities, tags)
+    return document_to_detail_response(document, entities, tags)
 
 
 # Version management
@@ -210,7 +161,7 @@ async def get_document_versions(request: Request, document_id: int) -> dict:
     """Get all versions of a document."""
     tenant_id = request.state.tenant_id
     versions = await get_versions_service(document_id, tenant_id)
-    result = [_document_to_detail_response(doc, entities, tags) for doc, entities, tags in versions]
+    result = [document_to_detail_response(doc, entities, tags) for doc, entities, tags in versions]
     return {"versions": result}
 
 
@@ -228,7 +179,7 @@ async def create_document_version(
     new_version, entities, tags, version_count = await create_version_service(
         document_id, tenant_id, user_id, filename, content, content_type
     )
-    return _document_to_detail_response(new_version, entities, tags, version_count)
+    return document_to_detail_response(new_version, entities, tags, version_count)
 
 
 @handle_http_exceptions
@@ -236,4 +187,4 @@ async def set_current_version(request: Request, document_id: int) -> dict:
     """Set a specific version as the current version."""
     tenant_id = request.state.tenant_id
     document, entities, tags, version_count = await set_current_version_service(document_id, tenant_id)
-    return _document_to_detail_response(document, entities, tags, version_count)
+    return document_to_detail_response(document, entities, tags, version_count)

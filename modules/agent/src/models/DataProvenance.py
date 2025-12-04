@@ -3,7 +3,6 @@
 from sqlalchemy import Column, Text, DateTime, BigInteger, Numeric, ForeignKey, func, CheckConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
-
 from models import Base
 
 

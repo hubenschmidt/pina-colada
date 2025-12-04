@@ -1,7 +1,6 @@
 """RevenueRange model for company revenue brackets."""
 
 from sqlalchemy import Column, Text, DateTime, BigInteger, Integer, ForeignKey, func
-
 from models import Base
 
 

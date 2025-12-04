@@ -2,8 +2,6 @@ from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, func
 from sqlalchemy.orm import relationship
 from models import Base
 
-"""TenantPreferences model for tenant-level theme settings."""
-
 
 class TenantPreferences(Base):
     """TenantPreferences SQLAlchemy model (theme settings for entire tenant)."""

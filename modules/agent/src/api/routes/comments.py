@@ -3,14 +3,13 @@
 from fastapi import APIRouter, Request
 
 from controllers.comment_controller import (
-    get_comments,
-    get_comment,
     create_comment,
-    update_comment,
     delete_comment,
-    CommentCreate,
-    CommentUpdate,
+    get_comment,
+    get_comments,
+    update_comment,
 )
+from schemas.comment import CommentCreate, CommentUpdate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

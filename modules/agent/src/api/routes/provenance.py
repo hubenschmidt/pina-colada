@@ -5,10 +5,10 @@ from typing import Optional
 from fastapi import APIRouter, Request, Query
 
 from controllers.provenance_controller import (
-    get_provenance,
     create_provenance,
-    ProvenanceCreate,
+    get_provenance,
 )
+from schemas.provenance import ProvenanceCreate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

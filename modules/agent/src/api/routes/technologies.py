@@ -5,11 +5,11 @@ from typing import Optional
 from fastapi import APIRouter, Request, Query
 
 from controllers.technology_controller import (
+    create_technology,
     get_all_technologies,
     get_technology,
-    create_technology,
-    TechnologyCreate,
 )
+from schemas.technology import TechnologyCreate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

@@ -1,12 +1,9 @@
 """Repository layer for opportunity data access."""
 
 import logging
-from typing import Dict, Any, List, Optional
-
-from pydantic import BaseModel, Field
-from sqlalchemy import select, func as sql_func, or_
+from typing import Any, Dict, List, Optional
+from sqlalchemy import func as sql_func, or_, select
 from sqlalchemy.orm import joinedload
-
 from lib.db import async_get_session
 from models.Account import Account
 from models.Deal import Deal
@@ -16,43 +13,11 @@ from models.LeadProject import LeadProject
 from models.Opportunity import Opportunity
 from models.Organization import Organization
 from models.Status import Status
+from schemas.opportunity import OpportunityCreate, OpportunityUpdate
+
+__all__ = ["OpportunityCreate", "OpportunityUpdate"]
 
 logger = logging.getLogger(__name__)
-
-
-# Pydantic models
-
-class OpportunityCreate(BaseModel):
-    """Model for creating an opportunity."""
-    account_type: str = "Organization"
-    account: Optional[str] = None
-    contacts: Optional[List[dict]] = None
-    industry: Optional[List[str]] = None
-    industry_ids: Optional[List[int]] = None
-    title: str
-    opportunity_name: str
-    estimated_value: Optional[float] = None
-    probability: Optional[int] = Field(default=None, ge=0, le=100)
-    expected_close_date: Optional[str] = None
-    description: Optional[str] = None
-    status: str = "Qualifying"
-    source: str = "manual"
-    project_ids: Optional[List[int]] = None
-
-
-class OpportunityUpdate(BaseModel):
-    """Model for updating an opportunity."""
-    account: Optional[str] = None
-    contacts: Optional[List[dict]] = None
-    title: Optional[str] = None
-    opportunity_name: Optional[str] = None
-    estimated_value: Optional[float] = None
-    probability: Optional[int] = Field(default=None, ge=0, le=100)
-    expected_close_date: Optional[str] = None
-    description: Optional[str] = None
-    status: Optional[str] = None
-    source: Optional[str] = None
-    project_ids: Optional[List[int]] = None
 
 
 async def _load_opportunity_with_relationships(session, opp_id: int) -> Opportunity:

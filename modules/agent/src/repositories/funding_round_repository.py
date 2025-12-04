@@ -6,7 +6,6 @@ from sqlalchemy import select
 from models.FundingRound import FundingRound
 from lib.db import async_get_session
 
-
 async def find_funding_rounds_by_org(org_id: int) -> List[FundingRound]:
     """Find all funding rounds for an organization, ordered by date descending."""
     async with async_get_session() as session:

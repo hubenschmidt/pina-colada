@@ -5,9 +5,9 @@ from typing import Dict, Any
 from fastapi import Request
 
 from lib.decorators import handle_http_exceptions
-from lib.serialization import model_to_dict
-from repositories.tenant_repository import TenantCreate
+from serializers.base import model_to_dict
 from services.auth_service import (
+    TenantCreate,
     get_user_tenants as get_user_tenants_service,
     create_tenant_for_user as create_tenant_service,
 )

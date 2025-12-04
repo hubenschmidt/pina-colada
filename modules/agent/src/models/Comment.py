@@ -1,10 +1,8 @@
 """Comment model for polymorphic comments across entities."""
 
 from datetime import datetime
-
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
-
 from models import Base
 
 

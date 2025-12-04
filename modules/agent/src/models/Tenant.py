@@ -2,13 +2,9 @@ from sqlalchemy import Column, Text, DateTime, BigInteger, Integer, ForeignKey, 
 from sqlalchemy.orm import relationship
 from models import Base
 
+
 """Tenant model for multi-tenant isolation."""
-
-
-
-
 class Tenant(Base):
-    """Tenant SQLAlchemy model (app customer/company)."""
 
     __tablename__ = "Tenant"
 

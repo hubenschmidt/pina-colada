@@ -3,8 +3,8 @@
 from typing import List
 
 from lib.decorators import handle_http_exceptions
-from lib.serialization import model_to_dict
-from repositories.employee_count_range_repository import find_all_employee_count_ranges
+from serializers.base import model_to_dict
+from services.employee_count_range_service import get_all_employee_count_ranges as find_all_employee_count_ranges
 
 
 @handle_http_exceptions

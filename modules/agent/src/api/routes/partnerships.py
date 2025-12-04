@@ -5,14 +5,13 @@ from typing import Optional
 from fastapi import APIRouter, Query, Request
 
 from controllers.partnership_controller import (
-    get_partnerships,
     create_partnership,
-    get_partnership,
-    update_partnership,
     delete_partnership,
-    PartnershipCreate,
-    PartnershipUpdate,
+    get_partnership,
+    get_partnerships,
+    update_partnership,
 )
+from schemas.partnership import PartnershipCreate, PartnershipUpdate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

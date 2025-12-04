@@ -5,7 +5,6 @@ from sqlalchemy import select
 from models.RevenueRange import RevenueRange
 from lib.db import async_get_session
 
-
 async def find_all_revenue_ranges() -> List[RevenueRange]:
     """Find all revenue ranges, ordered by display_order."""
     async with async_get_session() as session:

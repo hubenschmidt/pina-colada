@@ -1,9 +1,7 @@
 """EntityAsset model - polymorphic junction for linking assets to entities."""
 
 from sqlalchemy import Column, BigInteger, Text, DateTime, ForeignKey, Table, func
-
 from models import Base
-
 
 # Polymorphic join table for linking any asset to any entity
 EntityAsset = Table(

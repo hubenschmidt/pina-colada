@@ -3,7 +3,7 @@
 from typing import Optional, List
 
 from lib.decorators import handle_http_exceptions
-from lib.serialization import model_to_dict
+from serializers.base import model_to_dict
 from services.technology_service import (
     TechnologyCreate,
     get_all_technologies as get_all_technologies_service,

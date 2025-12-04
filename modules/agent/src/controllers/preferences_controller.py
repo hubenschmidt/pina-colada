@@ -1,6 +1,5 @@
 """Controller layer for preferences routing to services."""
 
-import logging
 from typing import Optional
 
 from fastapi import Request
@@ -18,8 +17,6 @@ from services.preferences_service import (
 
 # Re-export for routes
 __all__ = ["UpdateUserPreferencesRequest", "UpdateTenantPreferencesRequest"]
-
-logger = logging.getLogger(__name__)
 
 
 def get_timezones() -> list:

@@ -4,7 +4,7 @@ import logging
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 from fastapi import HTTPException
-from lib.serialization import model_to_dict
+from serializers.base import model_to_dict
 from lib.validators import validate_phone
 from lib.date_utils import parse_date_input
 from repositories.job_repository import (

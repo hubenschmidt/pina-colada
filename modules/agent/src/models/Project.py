@@ -2,10 +2,6 @@ from sqlalchemy import Column, Text, DateTime, BigInteger, Date, ForeignKey, fun
 from sqlalchemy.orm import relationship
 from models import Base
 
-"""Project model."""
-
-
-
 
 class Project(Base):
     """Project SQLAlchemy model."""

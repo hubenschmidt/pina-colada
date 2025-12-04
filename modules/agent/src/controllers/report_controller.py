@@ -6,12 +6,13 @@ from typing import Optional, Dict, Any, List
 from fastapi import Request, HTTPException
 
 from lib.decorators import handle_http_exceptions
-from repositories.saved_report_repository import (
-    find_all_saved_reports,
-    find_saved_report_by_id,
-    create_saved_report,
-    update_saved_report,
-    delete_saved_report,
+from serializers.report import saved_report_to_dict
+from services.saved_report_service import (
+    get_saved_reports,
+    get_saved_report_by_id,
+    create_report,
+    update_report,
+    delete_report,
     ReportQueryRequest,
     SavedReportCreate,
     SavedReportUpdate,
@@ -30,30 +31,7 @@ from services.report_builder import (
 # Re-export for routes
 __all__ = ["ReportQueryRequest", "SavedReportCreate", "SavedReportUpdate"]
 
-logger = logging.getLogger(__name__)
-
-
-def _saved_report_to_dict(report) -> dict:
-    """Convert saved report model to response dict."""
-    project_ids = [p.id for p in report.projects] if report.projects else []
-    project_names = [p.name for p in report.projects] if report.projects else []
-    return {
-        "id": report.id,
-        "name": report.name,
-        "description": report.description,
-        "query_definition": report.query_definition,
-        "project_ids": project_ids,
-        "project_names": project_names,
-        "is_global": len(project_ids) == 0,
-        "created_by": report.created_by,
-        "creator_name": f"{report.creator.first_name} {report.creator.last_name}" if report.creator else None,
-        "created_at": report.created_at.isoformat() if report.created_at else None,
-        "updated_at": report.updated_at.isoformat() if report.updated_at else None,
-    }
-
-
 # --- Canned Reports ---
-
 @handle_http_exceptions
 async def get_lead_pipeline(
     request: Request,
@@ -181,7 +159,7 @@ async def list_saved_reports(
 ) -> Dict[str, Any]:
     """List saved reports for the tenant with pagination and search."""
     tenant_id = request.state.tenant_id
-    result = await find_all_saved_reports(
+    result = await get_saved_reports(
         tenant_id,
         project_id,
         include_global,
@@ -192,7 +170,7 @@ async def list_saved_reports(
         sort_direction=order
     )
     return {
-        "items": [_saved_report_to_dict(r) for r in result["items"]],
+        "items": [saved_report_to_dict(r) for r in result["items"]],
         "total": result["total"],
         "currentPage": result["page"],
         "totalPages": result["total_pages"],
@@ -205,7 +183,7 @@ async def create_saved_report_controller(request: Request, data: SavedReportCrea
     """Create a new saved report."""
     tenant_id = request.state.tenant_id
     user_id = getattr(request.state, "user_id", None)
-    report = await create_saved_report(
+    report = await create_report(
         {
             "tenant_id": tenant_id,
             "name": data.name,
@@ -215,17 +193,17 @@ async def create_saved_report_controller(request: Request, data: SavedReportCrea
         },
         project_ids=data.project_ids
     )
-    return _saved_report_to_dict(report)
+    return saved_report_to_dict(report)
 
 
 @handle_http_exceptions
 async def get_saved_report(request: Request, report_id: int) -> Dict[str, Any]:
     """Get a saved report by ID."""
     tenant_id = request.state.tenant_id
-    report = await find_saved_report_by_id(report_id, tenant_id)
+    report = await get_saved_report_by_id(report_id, tenant_id)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
-    return _saved_report_to_dict(report)
+    return saved_report_to_dict(report)
 
 
 @handle_http_exceptions
@@ -239,17 +217,17 @@ async def update_saved_report_controller(request: Request, report_id: int, data:
     }
     if not update_data and project_ids is None:
         raise HTTPException(status_code=400, detail="No fields to update")
-    report = await update_saved_report(report_id, tenant_id, update_data, project_ids)
+    report = await update_report(report_id, tenant_id, update_data, project_ids)
     if not report:
         raise HTTPException(status_code=404, detail="Report not found")
-    return _saved_report_to_dict(report)
+    return saved_report_to_dict(report)
 
 
 @handle_http_exceptions
 async def delete_saved_report_controller(request: Request, report_id: int) -> Dict[str, Any]:
     """Delete a saved report."""
     tenant_id = request.state.tenant_id
-    deleted = await delete_saved_report(report_id, tenant_id)
+    deleted = await delete_report(report_id, tenant_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Report not found")
     return {"message": "Report deleted"}

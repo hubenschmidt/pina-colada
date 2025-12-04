@@ -3,14 +3,13 @@
 from fastapi import APIRouter, Request
 
 from controllers.note_controller import (
-    get_notes,
-    get_note,
     create_note,
-    update_note,
     delete_note,
-    NoteCreate,
-    NoteUpdate,
+    get_note,
+    get_notes,
+    update_note,
 )
+from schemas.note import NoteCreate, NoteUpdate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

@@ -3,27 +3,16 @@
 import logging
 from datetime import datetime, timedelta
 from typing import List, Optional
-
-from pydantic import BaseModel
-from sqlalchemy import select, and_, func, update, delete
+from sqlalchemy import and_, delete, func, select, update
 from sqlalchemy.orm import joinedload
-
 from lib.db import async_get_session
 from models.Comment import Comment
 from models.CommentNotification import CommentNotification
+from schemas.notification import MarkEntityReadRequest, MarkReadRequest
+
+__all__ = ["MarkReadRequest", "MarkEntityReadRequest"]
 
 logger = logging.getLogger(__name__)
-
-
-# Pydantic models
-
-class MarkReadRequest(BaseModel):
-    notification_ids: List[int]
-
-
-class MarkEntityReadRequest(BaseModel):
-    entity_type: str
-    entity_id: int
 
 
 async def get_unread_count(user_id: int, tenant_id: int) -> int:

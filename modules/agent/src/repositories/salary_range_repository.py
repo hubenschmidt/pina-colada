@@ -5,7 +5,6 @@ from sqlalchemy import select
 from models.SalaryRange import SalaryRange
 from lib.db import async_get_session
 
-
 async def find_all_salary_ranges() -> List[SalaryRange]:
     """Find all salary ranges, ordered by display_order."""
     async with async_get_session() as session:

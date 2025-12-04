@@ -2,8 +2,6 @@ from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, func
 from sqlalchemy.orm import relationship
 from models import Base
 
-"""UserPreferences model for user-level theme settings."""
-
 
 class UserPreferences(Base):
     """UserPreferences SQLAlchemy model (theme and locale settings for individual user)."""

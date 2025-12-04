@@ -1,105 +1,23 @@
 """Repository layer for individual data access."""
 
 import logging
-from typing import List, Optional, Dict, Any, Tuple
-
-from pydantic import BaseModel, field_validator
-from sqlalchemy import select, func, or_
+from typing import Any, Dict, List, Optional, Tuple
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
-
 from lib.db import async_get_session
-from lib.validators import validate_phone
 from models.Account import Account
 from models.Individual import Individual
+from schemas.individual import (
+
+    IndContactCreate,
+    IndContactUpdate,
+    IndividualCreate,
+    IndividualUpdate,
+)
+
+__all__ = ["IndividualCreate", "IndividualUpdate", "IndContactCreate", "IndContactUpdate"]
 
 logger = logging.getLogger(__name__)
-
-
-# Pydantic models
-
-class IndividualCreate(BaseModel):
-    first_name: str
-    last_name: str
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    linkedin_url: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    account_id: Optional[int] = None
-    industry_ids: Optional[List[int]] = None
-    project_ids: Optional[List[int]] = None
-    twitter_url: Optional[str] = None
-    github_url: Optional[str] = None
-    bio: Optional[str] = None
-    seniority_level: Optional[str] = None
-    department: Optional[str] = None
-    is_decision_maker: Optional[bool] = None
-    reports_to_id: Optional[int] = None
-
-    @field_validator("phone")
-    @classmethod
-    def validate_phone_format(cls, v):
-        return validate_phone(v)
-
-
-class IndividualUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    linkedin_url: Optional[str] = None
-    title: Optional[str] = None
-    description: Optional[str] = None
-    industry_ids: Optional[List[int]] = None
-    project_ids: Optional[List[int]] = None
-    twitter_url: Optional[str] = None
-    github_url: Optional[str] = None
-    bio: Optional[str] = None
-    seniority_level: Optional[str] = None
-    department: Optional[str] = None
-    is_decision_maker: Optional[bool] = None
-    reports_to_id: Optional[int] = None
-
-    @field_validator("phone")
-    @classmethod
-    def validate_phone_format(cls, v):
-        return validate_phone(v)
-
-
-class IndContactCreate(BaseModel):
-    first_name: str
-    last_name: str
-    organization_id: Optional[int] = None
-    title: Optional[str] = None
-    department: Optional[str] = None
-    role: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    is_primary: bool = False
-    notes: Optional[str] = None
-
-    @field_validator("phone")
-    @classmethod
-    def validate_phone_format(cls, v):
-        return validate_phone(v)
-
-
-class IndContactUpdate(BaseModel):
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
-    organization_id: Optional[int] = None
-    title: Optional[str] = None
-    department: Optional[str] = None
-    role: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    is_primary: Optional[bool] = None
-    notes: Optional[str] = None
-
-    @field_validator("phone")
-    @classmethod
-    def validate_phone_format(cls, v):
-        return validate_phone(v)
 
 
 async def find_all_individuals(tenant_id: Optional[int] = None) -> List[Individual]:

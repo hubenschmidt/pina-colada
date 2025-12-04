@@ -1,24 +1,12 @@
 """Repository layer for data provenance data access."""
 
-from typing import List, Optional, Any
-
-from pydantic import BaseModel
+from typing import Any, List, Optional
 from sqlalchemy import select
-
 from lib.db import async_get_session
 from models.DataProvenance import DataProvenance
+from schemas.provenance import ProvenanceCreate
 
-
-# Pydantic models
-
-class ProvenanceCreate(BaseModel):
-    entity_type: str
-    entity_id: int
-    field_name: str
-    source: str
-    source_url: Optional[str] = None
-    confidence: Optional[float] = None
-    raw_value: Optional[Any] = None
+__all__ = ["ProvenanceCreate"]
 
 
 async def find_provenance(

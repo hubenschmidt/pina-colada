@@ -1,7 +1,6 @@
 from sqlalchemy import Column, BigInteger, String, Text, DateTime, ForeignKey, Table, func
 from models import Base
 
-
 # Polymorphic join table for tagging any entity
 EntityTag = Table(
     "Entity_Tag",

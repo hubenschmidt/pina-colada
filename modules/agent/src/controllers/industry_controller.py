@@ -3,7 +3,7 @@
 from typing import List
 
 from lib.decorators import handle_http_exceptions
-from lib.serialization import model_to_dict
+from serializers.base import model_to_dict
 from services.industry_service import (
     IndustryCreate,
     get_all_industries as get_all_industries_service,

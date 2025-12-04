@@ -2,10 +2,6 @@ from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, func
 from sqlalchemy.orm import relationship
 from models import Base
 
-"""Role model for tenant-scoped roles."""
-
-
-
 
 class Role(Base):
     """Role SQLAlchemy model (tenant-scoped roles)."""

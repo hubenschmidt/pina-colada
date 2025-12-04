@@ -7,11 +7,6 @@ from models import Base
 SQLAlchemy model for database persistence (unavoidable OOP requirement).
 Functional TypedDict models for business logic.
 """
-
-
-
-
-# SQLAlchemy model (OOP required for ORM)
 class Task(Base):
     """Task SQLAlchemy model."""
 

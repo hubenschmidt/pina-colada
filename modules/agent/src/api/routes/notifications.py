@@ -3,13 +3,12 @@
 from fastapi import APIRouter, Request, Query
 
 from controllers.notification_controller import (
-    get_unread_count,
     get_notifications,
+    get_unread_count,
     mark_as_read,
     mark_entity_as_read,
-    MarkReadRequest,
-    MarkEntityReadRequest,
 )
+from schemas.notification import MarkEntityReadRequest, MarkReadRequest
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

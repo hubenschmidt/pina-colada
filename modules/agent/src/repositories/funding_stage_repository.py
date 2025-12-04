@@ -5,7 +5,6 @@ from sqlalchemy import select
 from models.FundingStage import FundingStage
 from lib.db import async_get_session
 
-
 async def find_all_funding_stages() -> List[FundingStage]:
     """Find all funding stages, ordered by display_order."""
     async with async_get_session() as session:

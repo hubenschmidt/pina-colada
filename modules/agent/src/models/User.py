@@ -2,10 +2,6 @@ from sqlalchemy import Column, Text, DateTime, BigInteger, ForeignKey, Boolean, 
 from sqlalchemy.orm import relationship
 from models import Base
 
-"""User model for multi-tenant users."""
-
-
-
 
 class User(Base):
     """User SQLAlchemy model (belongs to one Tenant)."""

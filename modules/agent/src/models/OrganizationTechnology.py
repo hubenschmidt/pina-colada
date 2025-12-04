@@ -2,7 +2,6 @@
 
 from sqlalchemy import Column, Text, DateTime, BigInteger, Numeric, ForeignKey, func, Integer
 from sqlalchemy.orm import relationship
-
 from models import Base
 
 

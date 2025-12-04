@@ -2,11 +2,6 @@ from sqlalchemy import Column, Text, DateTime, BigInteger, Numeric, Date, Foreig
 from sqlalchemy.orm import relationship
 from models import Base
 
-"""Opportunity model (extends Lead via Joined Table Inheritance)."""
-
-
-
-
 class Opportunity(Base):
     """Opportunity SQLAlchemy model (extends Lead)."""
 

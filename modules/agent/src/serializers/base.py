@@ -1,4 +1,4 @@
-"""Serialization utilities for converting SQLAlchemy models to dictionaries."""
+"""Base serialization utilities for converting SQLAlchemy models to dictionaries."""
 
 from datetime import datetime, date
 from typing import Any, Dict, Optional
@@ -79,4 +79,3 @@ def model_to_dict(
             )
 
     return result
-

@@ -1,29 +1,16 @@
 """Repository layer for comment data access."""
 
 import logging
-from typing import List, Optional, Dict, Any
-
-from pydantic import BaseModel
-from sqlalchemy import select, and_
+from typing import Any, Dict, List, Optional
+from sqlalchemy import and_, select
 from sqlalchemy.orm import joinedload
-
 from lib.db import async_get_session
 from models.Comment import Comment
+from schemas.comment import CommentCreate, CommentUpdate
+
+__all__ = ["CommentCreate", "CommentUpdate"]
 
 logger = logging.getLogger(__name__)
-
-
-# Pydantic models
-
-class CommentCreate(BaseModel):
-    commentable_type: str
-    commentable_id: int
-    content: str
-    parent_comment_id: int | None = None
-
-
-class CommentUpdate(BaseModel):
-    content: str
 
 
 async def find_comments_by_entity(

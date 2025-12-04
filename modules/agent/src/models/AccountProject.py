@@ -2,8 +2,7 @@
 
 from sqlalchemy import Column, BigInteger, ForeignKey, DateTime
 from sqlalchemy.sql import func
-
-from lib.db import Base
+from models import Base
 
 
 class AccountProject(Base):

@@ -7,24 +7,22 @@ from fastapi import APIRouter, Request, Query
 from fastapi.responses import StreamingResponse
 
 from controllers.report_controller import (
-    get_lead_pipeline,
+    create_saved_report_controller,
+    delete_saved_report_controller,
+    export_custom_report,
     get_account_overview,
     get_contact_coverage,
-    get_notes_activity,
-    get_user_audit,
     get_entity_fields,
+    get_lead_pipeline,
+    get_notes_activity,
+    get_saved_report,
+    get_user_audit,
+    list_saved_reports,
     preview_custom_report,
     run_custom_report,
-    export_custom_report,
-    list_saved_reports,
-    create_saved_report_controller,
-    get_saved_report,
     update_saved_report_controller,
-    delete_saved_report_controller,
-    ReportQueryRequest,
-    SavedReportCreate,
-    SavedReportUpdate,
 )
+from schemas.report import ReportQueryRequest, SavedReportCreate, SavedReportUpdate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

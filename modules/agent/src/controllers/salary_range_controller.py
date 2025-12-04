@@ -3,8 +3,8 @@
 from typing import List
 
 from lib.decorators import handle_http_exceptions
-from lib.serialization import model_to_dict
-from repositories.salary_range_repository import find_all_salary_ranges
+from serializers.base import model_to_dict
+from services.salary_range_service import get_all_salary_ranges as find_all_salary_ranges
 
 
 @handle_http_exceptions

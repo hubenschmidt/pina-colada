@@ -5,15 +5,14 @@ from typing import Optional
 from fastapi import APIRouter, Query, Request
 
 from controllers.job_controller import (
-    get_jobs,
     create_job,
-    get_job,
-    update_job,
     delete_job,
+    get_job,
+    get_jobs,
     get_recent_resume_date,
-    JobCreate,
-    JobUpdate,
+    update_job,
 )
+from schemas.job import JobCreate, JobUpdate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

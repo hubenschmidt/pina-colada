@@ -5,14 +5,13 @@ from typing import Optional
 from fastapi import APIRouter, Query, Request
 
 from controllers.opportunity_controller import (
-    get_opportunities,
     create_opportunity,
+    delete_opportunity,
+    get_opportunities,
     get_opportunity,
     update_opportunity,
-    delete_opportunity,
-    OpportunityCreate,
-    OpportunityUpdate,
 )
+from schemas.opportunity import OpportunityCreate, OpportunityUpdate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

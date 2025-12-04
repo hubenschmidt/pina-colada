@@ -6,21 +6,20 @@ from fastapi import APIRouter, Request, UploadFile, File, Form, Query
 from fastapi.responses import RedirectResponse, StreamingResponse
 
 from controllers.document_controller import (
-    get_documents,
     check_filename,
-    get_document,
-    upload_document,
-    download_document,
-    update_document,
-    delete_document,
-    link_document,
-    unlink_document,
-    get_document_versions,
     create_document_version,
+    delete_document,
+    download_document,
+    get_document,
+    get_document_versions,
+    get_documents,
+    link_document,
     set_current_version,
-    DocumentUpdate,
-    EntityLink,
+    unlink_document,
+    update_document,
+    upload_document,
 )
+from schemas.document import DocumentUpdate, EntityLink
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

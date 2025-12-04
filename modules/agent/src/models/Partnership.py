@@ -2,10 +2,6 @@ from sqlalchemy import Column, Text, DateTime, BigInteger, Date, ForeignKey, fun
 from sqlalchemy.orm import relationship
 from models import Base
 
-"""Partnership model (extends Lead via Joined Table Inheritance)."""
-
-
-
 
 class Partnership(Base):
     """Partnership SQLAlchemy model (extends Lead)."""

@@ -2,10 +2,6 @@ from sqlalchemy import Column, DateTime, BigInteger, ForeignKey, func, PrimaryKe
 from sqlalchemy.orm import relationship
 from models import Base
 
-"""UserRole model for user-role junction table."""
-
-
-
 
 class UserRole(Base):
     """UserRole SQLAlchemy model (many-to-many junction)."""

@@ -2,7 +2,6 @@
 
 from sqlalchemy import Column, BigInteger, ForeignKey, DateTime
 from sqlalchemy.sql import func
-
 from models import Base
 
 

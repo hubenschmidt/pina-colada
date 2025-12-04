@@ -1,10 +1,7 @@
 """Repository layer for tenant data access."""
 
-from typing import Optional, List, Tuple
-
-from pydantic import BaseModel
+from typing import List, Optional, Tuple
 from sqlalchemy import select
-
 from lib.db import async_get_session
 from models.Account import Account
 from models.Individual import Individual
@@ -13,15 +10,9 @@ from models.Role import Role
 from models.Tenant import Tenant
 from models.User import User
 from models.UserRole import UserRole
+from schemas.tenant import TenantCreate
 
-
-# Pydantic models
-
-class TenantCreate(BaseModel):
-    """Model for tenant creation."""
-    name: str
-    slug: Optional[str] = None
-    plan: str = "free"
+__all__ = ["TenantCreate"]
 
 
 async def find_tenant_by_slug(slug: str) -> Optional[Tenant]:

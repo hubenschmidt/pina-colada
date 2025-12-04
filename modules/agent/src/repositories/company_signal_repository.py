@@ -6,7 +6,6 @@ from sqlalchemy import select
 from models.CompanySignal import CompanySignal
 from lib.db import async_get_session
 
-
 async def find_signals_by_org(
     org_id: int,
     signal_type: Optional[str] = None,

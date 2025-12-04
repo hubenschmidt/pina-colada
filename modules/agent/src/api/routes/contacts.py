@@ -5,15 +5,14 @@ from typing import Optional
 from fastapi import APIRouter, Request, Query
 
 from controllers.contact_controller import (
+    create_contact,
+    delete_contact,
+    get_contact,
     get_contacts,
     search_contacts,
-    get_contact,
-    create_contact,
     update_contact,
-    delete_contact,
-    ContactCreate,
-    ContactUpdate,
 )
+from schemas.contact import ContactCreate, ContactUpdate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

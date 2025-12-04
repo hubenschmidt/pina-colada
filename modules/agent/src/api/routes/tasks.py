@@ -5,17 +5,16 @@ from typing import Optional
 from fastapi import APIRouter, Request, Query
 
 from controllers.task_controller import (
-    get_task_statuses,
+    create_task,
+    delete_task,
+    get_task,
     get_task_priorities,
+    get_task_statuses,
     get_tasks,
     get_tasks_by_entity,
-    get_task,
-    create_task,
     update_task,
-    delete_task,
-    TaskCreate,
-    TaskUpdate,
 )
+from schemas.task import TaskCreate, TaskUpdate
 from lib.auth import require_auth
 from lib.error_logging import log_errors
 

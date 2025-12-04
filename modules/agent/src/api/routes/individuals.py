@@ -5,20 +5,22 @@ from typing import Optional
 from fastapi import APIRouter, Request, Query
 
 from controllers.individual_controller import (
+    create_individual,
+    create_individual_contact,
+    delete_individual,
+    delete_individual_contact,
+    get_individual,
+    get_individual_contacts,
     get_individuals,
     search_individuals,
-    get_individual,
-    create_individual,
     update_individual,
-    delete_individual,
-    get_individual_contacts,
-    create_individual_contact,
     update_individual_contact,
-    delete_individual_contact,
-    IndividualCreate,
-    IndividualUpdate,
+)
+from schemas.individual import (
     IndContactCreate as ContactCreate,
     IndContactUpdate as ContactUpdate,
+    IndividualCreate,
+    IndividualUpdate,
 )
 from lib.auth import require_auth
 from lib.error_logging import log_errors
