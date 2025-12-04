@@ -231,3 +231,33 @@ async def delete_organization_signal(org_id: int, signal_id: int) -> dict:
     """Delete a signal."""
     await delete_signal_service(org_id, signal_id)
     return {"success": True}
+
+
+# Organization-to-Organization Relationship management
+
+@handle_http_exceptions
+async def create_organization_relationship(
+    org_id: int,
+    to_organization_id: int,
+    relationship_type: Optional[str] = None,
+    notes: Optional[str] = None,
+) -> dict:
+    """Create a relationship to another organization."""
+    from services.organization_service import create_organization_relationship as create_rel_service
+
+    relationship = await create_rel_service(
+        from_org_id=org_id,
+        to_org_id=to_organization_id,
+        relationship_type=relationship_type,
+        notes=notes,
+    )
+    return {"id": relationship.id, "to_organization_id": relationship.to_organization_id}
+
+
+@handle_http_exceptions
+async def delete_organization_relationship(org_id: int, relationship_id: int) -> dict:
+    """Delete a relationship."""
+    from services.organization_service import delete_organization_relationship as delete_rel_service
+
+    await delete_rel_service(org_id, relationship_id)
+    return {"success": True}

@@ -137,3 +137,9 @@ class SignalCreate(BaseModel):
     source_url: Optional[str] = None
     sentiment: Optional[str] = None
     relevance_score: Optional[float] = None
+
+
+class OrgRelationshipCreate(BaseModel):
+    to_organization_id: int
+    relationship_type: Optional[str] = None
+    notes: Optional[str] = None

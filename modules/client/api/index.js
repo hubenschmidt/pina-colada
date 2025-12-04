@@ -516,6 +516,22 @@ export const deleteOrganizationContact = async (orgId, contactId) => {
   await apiDelete(`/organizations/${orgId}/contacts/${contactId}`);
 };
 
+// Account Relationship Management
+
+/**
+ * Create a relationship between two accounts
+ */
+export const createAccountRelationship = async (accountId, data) => {
+  return apiPost(`/accounts/${accountId}/relationships`, data);
+};
+
+/**
+ * Delete a relationship from an account
+ */
+export const deleteAccountRelationship = async (accountId, relationshipId) => {
+  await apiDelete(`/accounts/${accountId}/relationships/${relationshipId}`);
+};
+
 // Note Types
 
 /**

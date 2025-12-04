@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, Any
 
 from fastapi import HTTPException
 from sqlalchemy import select, delete, func, or_, update
+from sqlalchemy.orm import selectinload
 
 from lib.db import async_get_session
 from models.Account import Account
@@ -260,9 +261,17 @@ async def create_individual_contact(
         session.add(contact)
         await session.flush()
 
-        # Link to individual
+        # Link to individual (owner)
         ind_link = ContactIndividual(contact_id=contact.id, individual_id=individual_id)
         session.add(ind_link)
+
+        # Link to another individual if provided (peer relationship)
+        if contact_data.get("linked_individual_id"):
+            peer_link = ContactIndividual(
+                contact_id=contact.id,
+                individual_id=contact_data["linked_individual_id"],
+            )
+            session.add(peer_link)
 
         # Link to organization if provided
         if contact_data.get("organization_id"):
@@ -346,3 +355,99 @@ async def delete_individual_contact(individual_id: int, contact_id: int):
     if not success:
         raise HTTPException(status_code=404, detail="Contact not found")
     return True
+
+
+# Individual-to-Individual Relationship management
+
+async def get_individual_relationships(individual_id: int):
+    """Get all relationships for an individual (both directions)."""
+    from models.IndividualRelationship import IndividualRelationship
+
+    individual = await find_individual_by_id(individual_id)
+    if not individual:
+        raise HTTPException(status_code=404, detail="Individual not found")
+
+    async with async_get_session() as session:
+        # Get outgoing relationships
+        stmt = (
+            select(IndividualRelationship)
+            .options(selectinload(IndividualRelationship.to_individual))
+            .where(IndividualRelationship.from_individual_id == individual_id)
+        )
+        result = await session.execute(stmt)
+        outgoing = list(result.scalars().all())
+
+        # Get incoming relationships
+        stmt = (
+            select(IndividualRelationship)
+            .options(selectinload(IndividualRelationship.from_individual))
+            .where(IndividualRelationship.to_individual_id == individual_id)
+        )
+        result = await session.execute(stmt)
+        incoming = list(result.scalars().all())
+
+        return outgoing, incoming
+
+
+async def create_individual_relationship(
+    from_individual_id: int,
+    to_individual_id: int,
+    relationship_type: Optional[str] = None,
+    notes: Optional[str] = None,
+):
+    """Create a relationship between two individuals."""
+    from models.IndividualRelationship import IndividualRelationship
+
+    if from_individual_id == to_individual_id:
+        raise HTTPException(status_code=400, detail="Cannot create relationship with self")
+
+    from_ind = await find_individual_by_id(from_individual_id)
+    if not from_ind:
+        raise HTTPException(status_code=404, detail="Source individual not found")
+
+    to_ind = await find_individual_by_id(to_individual_id)
+    if not to_ind:
+        raise HTTPException(status_code=404, detail="Target individual not found")
+
+    async with async_get_session() as session:
+        # Check if relationship already exists
+        stmt = select(IndividualRelationship).where(
+            IndividualRelationship.from_individual_id == from_individual_id,
+            IndividualRelationship.to_individual_id == to_individual_id,
+        )
+        result = await session.execute(stmt)
+        if result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Relationship already exists")
+
+        relationship = IndividualRelationship(
+            from_individual_id=from_individual_id,
+            to_individual_id=to_individual_id,
+            relationship_type=relationship_type,
+            notes=notes,
+        )
+        session.add(relationship)
+        await session.commit()
+        await session.refresh(relationship)
+        return relationship
+
+
+async def delete_individual_relationship(from_individual_id: int, relationship_id: int):
+    """Delete a relationship."""
+    from models.IndividualRelationship import IndividualRelationship
+
+    async with async_get_session() as session:
+        stmt = select(IndividualRelationship).where(
+            IndividualRelationship.id == relationship_id,
+            or_(
+                IndividualRelationship.from_individual_id == from_individual_id,
+                IndividualRelationship.to_individual_id == from_individual_id,
+            )
+        )
+        result = await session.execute(stmt)
+        relationship = result.scalar_one_or_none()
+        if not relationship:
+            raise HTTPException(status_code=404, detail="Relationship not found")
+
+        await session.delete(relationship)
+        await session.commit()
+        return True

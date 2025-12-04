@@ -97,12 +97,18 @@ async def find_all_organizations(
 
 async def find_organization_by_id(org_id: int) -> Optional[Organization]:
     """Find organization by ID with all relationships for detail view."""
+    from models.AccountRelationship import AccountRelationship
+
     async with async_get_session() as session:
         stmt = (
             select(Organization)
             .options(
                 selectinload(Organization.account).selectinload(Account.industries),
                 selectinload(Organization.account).selectinload(Account.projects),
+                selectinload(Organization.account).selectinload(Account.outgoing_relationships).selectinload(AccountRelationship.to_account).selectinload(Account.organizations),
+                selectinload(Organization.account).selectinload(Account.outgoing_relationships).selectinload(AccountRelationship.to_account).selectinload(Account.individuals),
+                selectinload(Organization.account).selectinload(Account.incoming_relationships).selectinload(AccountRelationship.from_account).selectinload(Account.organizations),
+                selectinload(Organization.account).selectinload(Account.incoming_relationships).selectinload(AccountRelationship.from_account).selectinload(Account.individuals),
                 selectinload(Organization.employee_count_range),
                 selectinload(Organization.funding_stage),
                 selectinload(Organization.revenue_range),

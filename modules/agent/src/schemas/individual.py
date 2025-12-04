@@ -57,9 +57,10 @@ class IndividualUpdate(BaseModel):
 
 
 class IndContactCreate(BaseModel):
-    first_name: str
-    last_name: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
     organization_id: Optional[int] = None
+    linked_individual_id: Optional[int] = None
     title: Optional[str] = None
     department: Optional[str] = None
     role: Optional[str] = None
@@ -90,3 +91,9 @@ class IndContactUpdate(BaseModel):
     @classmethod
     def validate_phone_format(cls, v):
         return validate_phone(v)
+
+
+class IndRelationshipCreate(BaseModel):
+    to_individual_id: int
+    relationship_type: Optional[str] = None
+    notes: Optional[str] = None

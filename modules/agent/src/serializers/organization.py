@@ -1,6 +1,7 @@
 """Serializers for organization-related models."""
 
 from serializers.common import contact_to_dict
+from serializers.account import get_account_relationships
 
 
 def technology_to_dict(org_tech) -> dict:
@@ -97,6 +98,7 @@ def org_to_detail_response(org, contacts=None, include_research=False) -> dict:
 
     result = {
         "id": org.id,
+        "account_id": org.account_id,
         "name": org.name,
         "website": org.website,
         "phone": org.phone,
@@ -123,18 +125,12 @@ def org_to_detail_response(org, contacts=None, include_research=False) -> dict:
 
     if contacts is not None:
         result["contacts"] = [contact_to_dict(c) for c in contacts]
-        seen_ind_ids = set()
-        related_individuals = []
-        for contact in contacts:
-            for ind in (contact.individuals or []):
-                if ind.id not in seen_ind_ids:
-                    seen_ind_ids.add(ind.id)
-                    related_individuals.append({
-                        "id": ind.id,
-                        "name": f"{ind.first_name} {ind.last_name}".strip(),
-                        "type": "individual",
-                    })
-        result["relationships"] = related_individuals
+
+    # Get relationships from Account level
+    if org.account:
+        result["relationships"] = get_account_relationships(org.account, org.account_id)
+    else:
+        result["relationships"] = []
 
     if include_research:
         result["technologies"] = [technology_to_dict(t) for t in (org.technologies or [])]

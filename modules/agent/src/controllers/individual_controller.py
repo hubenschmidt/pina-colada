@@ -133,3 +133,33 @@ async def delete_individual_contact(individual_id: int, contact_id: int) -> dict
     """Delete a contact from an individual."""
     await delete_contact_service(individual_id, contact_id)
     return {"success": True}
+
+
+# Individual-to-Individual Relationship management
+
+@handle_http_exceptions
+async def create_individual_relationship(
+    individual_id: int,
+    to_individual_id: int,
+    relationship_type: Optional[str] = None,
+    notes: Optional[str] = None,
+) -> dict:
+    """Create a relationship to another individual."""
+    from services.individual_service import create_individual_relationship as create_rel_service
+
+    relationship = await create_rel_service(
+        from_individual_id=individual_id,
+        to_individual_id=to_individual_id,
+        relationship_type=relationship_type,
+        notes=notes,
+    )
+    return {"id": relationship.id, "to_individual_id": relationship.to_individual_id}
+
+
+@handle_http_exceptions
+async def delete_individual_relationship(individual_id: int, relationship_id: int) -> dict:
+    """Delete a relationship."""
+    from services.individual_service import delete_individual_relationship as delete_rel_service
+
+    await delete_rel_service(individual_id, relationship_id)
+    return {"success": True}

@@ -16,6 +16,8 @@ import {
   createOrganizationContact,
   deleteOrganizationContact,
   updateOrganizationContact,
+  createAccountRelationship,
+  deleteAccountRelationship,
   searchContacts,
   searchAccounts,
   createNote,
@@ -390,26 +392,53 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
 
   const handleSearchRelationships = async (query) => {
     const results = await searchAccounts(query);
-    return results
-      .filter((r) => r.type !== "unknown")
+    console.log("searchAccounts raw results:", results);
+    // Filter out self (can't add relationship to yourself)
+    const mapped = results
+      .filter((r) => r.account_id !== account?.account_id)
       .map((r) => ({
         id: r.id,
+        account_id: r.account_id,
         name: r.name,
         type: r.type,
       }));
+    console.log("mapped results:", mapped);
+    return mapped;
   };
 
-  const handleAddRelationship = (relationship) => {
-    if (isEditMode) {
-      setRelationships([...relationships, relationship]);
+  const handleAddRelationship = async (relationship) => {
+    console.log("handleAddRelationship called with:", relationship);
+    console.log("Current account:", account);
+    if (isEditMode && account?.account_id) {
+      // In edit mode, persist the relationship via Account API
+      try {
+        console.log("Creating relationship:", { from: account.account_id, to: relationship.account_id });
+        const relResponse = await createAccountRelationship(account.account_id, {
+          to_account_id: relationship.account_id,
+        });
+        // Include relationship_id for deletion
+        setRelationships([...relationships, { ...relationship, relationship_id: relResponse?.id }]);
+      } catch (err) {
+        console.error("Failed to add relationship:", err);
+      }
       return;
     }
     setPendingRelationships([...pendingRelationships, relationship]);
   };
 
-  const handleRemoveRelationship = (index) => {
-    if (isEditMode) {
-      setRelationships(relationships.filter((_, i) => i !== index));
+  const handleRemoveRelationship = async (index) => {
+    if (isEditMode && account?.account_id) {
+      const relationship = relationships[index];
+      if (!relationship?.relationship_id) {
+        console.error("No relationship_id for relationship:", relationship);
+        return;
+      }
+      try {
+        await deleteAccountRelationship(account.account_id, relationship.relationship_id);
+        setRelationships(relationships.filter((_, i) => i !== index));
+      } catch (err) {
+        console.error("Failed to remove relationship:", err);
+      }
       return;
     }
     setPendingRelationships(pendingRelationships.filter((_, i) => i !== index));

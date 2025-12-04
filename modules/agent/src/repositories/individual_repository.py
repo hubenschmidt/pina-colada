@@ -96,12 +96,18 @@ async def find_all_individuals_paginated(
 
 async def find_individual_by_id(individual_id: int) -> Optional[Individual]:
     """Find individual by ID with all relationships for detail view."""
+    from models.AccountRelationship import AccountRelationship
+
     async with async_get_session() as session:
         stmt = (
             select(Individual)
             .options(
                 selectinload(Individual.account).selectinload(Account.industries),
                 selectinload(Individual.account).selectinload(Account.projects),
+                selectinload(Individual.account).selectinload(Account.outgoing_relationships).selectinload(AccountRelationship.to_account).selectinload(Account.organizations),
+                selectinload(Individual.account).selectinload(Account.outgoing_relationships).selectinload(AccountRelationship.to_account).selectinload(Account.individuals),
+                selectinload(Individual.account).selectinload(Account.incoming_relationships).selectinload(AccountRelationship.from_account).selectinload(Account.organizations),
+                selectinload(Individual.account).selectinload(Account.incoming_relationships).selectinload(AccountRelationship.from_account).selectinload(Account.individuals),
                 selectinload(Individual.reports_to),
                 selectinload(Individual.direct_reports),
             )

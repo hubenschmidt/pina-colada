@@ -1,6 +1,7 @@
 """Serializers for individual-related models."""
 
 from serializers.common import contact_to_dict
+from serializers.account import get_account_relationships
 
 
 def get_industries(ind) -> list:
@@ -15,18 +16,6 @@ def get_projects(ind) -> list:
     if not ind.account or not ind.account.projects:
         return []
     return [{"id": p.id, "name": p.name} for p in ind.account.projects]
-
-
-def get_related_orgs_from_contacts(contacts) -> list:
-    """Extract unique organizations from contacts."""
-    seen_ids = set()
-    orgs = []
-    for contact in contacts:
-        for org in (contact.organizations or []):
-            if org.id not in seen_ids:
-                seen_ids.add(org.id)
-                orgs.append({"id": org.id, "name": org.name, "type": "organization"})
-    return orgs
 
 
 def ind_to_list_response(ind) -> dict:
@@ -57,6 +46,7 @@ def ind_to_detail_response(ind, contacts=None, include_research=False) -> dict:
     """Convert individual ORM to full response dictionary - for detail/edit views."""
     result = {
         "id": ind.id,
+        "account_id": ind.account_id,
         "first_name": ind.first_name,
         "last_name": ind.last_name,
         "email": ind.email,
@@ -79,7 +69,12 @@ def ind_to_detail_response(ind, contacts=None, include_research=False) -> dict:
 
     if contacts is not None:
         result["contacts"] = [contact_to_dict(c) for c in contacts]
-        result["relationships"] = get_related_orgs_from_contacts(contacts)
+
+    # Get relationships from Account level
+    if ind.account:
+        result["relationships"] = get_account_relationships(ind.account, ind.account_id)
+    else:
+        result["relationships"] = []
 
     if include_research:
         if ind.reports_to:

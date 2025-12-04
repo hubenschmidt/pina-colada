@@ -11,7 +11,7 @@ from lib.db import async_get_session
 from models.Account import Account
 from models.Industry import AccountIndustry
 from models.AccountProject import AccountProject
-from models.Contact import Contact, ContactOrganization
+from models.Contact import Contact, ContactOrganization, ContactIndividual
 from repositories.organization_repository import (
     find_all_organizations,
     find_organization_by_id,
@@ -224,12 +224,32 @@ async def create_organization_contact(
         session.add(contact)
         await session.flush()
 
+        # Link to organization (owner)
         org_link = ContactOrganization(
             contact_id=contact.id,
             organization_id=org_id,
             is_primary=contact_data.get("is_primary", False),
         )
         session.add(org_link)
+
+        # Link to another organization if provided (partner relationship)
+        if contact_data.get("linked_organization_id"):
+            partner_link = ContactOrganization(
+                contact_id=contact.id,
+                organization_id=contact_data["linked_organization_id"],
+                is_primary=False,
+            )
+            session.add(partner_link)
+
+        # Link to individual if provided (for relationships)
+        individual_id = contact_data.get("individual_id")
+        if individual_id:
+            ind_link = ContactIndividual(
+                contact_id=contact.id,
+                individual_id=individual_id,
+            )
+            session.add(ind_link)
+
         await session.commit()
 
         stmt = select(Contact).where(Contact.id == contact.id)
@@ -405,3 +425,102 @@ async def delete_signal(org_id: int, signal_id: int):
         raise HTTPException(status_code=404, detail="Signal not found")
     await delete_signal_repo(signal_id)
     return True
+
+
+# Organization-to-Organization Relationship management
+
+async def get_organization_relationships(org_id: int):
+    """Get all relationships for an organization (both directions)."""
+    from sqlalchemy.orm import selectinload
+    from models.OrganizationRelationship import OrganizationRelationship
+
+    org = await find_organization_by_id(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+
+    async with async_get_session() as session:
+        # Get outgoing relationships
+        stmt = (
+            select(OrganizationRelationship)
+            .options(selectinload(OrganizationRelationship.to_organization))
+            .where(OrganizationRelationship.from_organization_id == org_id)
+        )
+        result = await session.execute(stmt)
+        outgoing = list(result.scalars().all())
+
+        # Get incoming relationships
+        stmt = (
+            select(OrganizationRelationship)
+            .options(selectinload(OrganizationRelationship.from_organization))
+            .where(OrganizationRelationship.to_organization_id == org_id)
+        )
+        result = await session.execute(stmt)
+        incoming = list(result.scalars().all())
+
+        return outgoing, incoming
+
+
+async def create_organization_relationship(
+    from_org_id: int,
+    to_org_id: int,
+    relationship_type: str = None,
+    notes: str = None,
+):
+    """Create a relationship between two organizations."""
+    from sqlalchemy import or_
+    from models.OrganizationRelationship import OrganizationRelationship
+
+    if from_org_id == to_org_id:
+        raise HTTPException(status_code=400, detail="Cannot create relationship with self")
+
+    from_org = await find_organization_by_id(from_org_id)
+    if not from_org:
+        raise HTTPException(status_code=404, detail="Source organization not found")
+
+    to_org = await find_organization_by_id(to_org_id)
+    if not to_org:
+        raise HTTPException(status_code=404, detail="Target organization not found")
+
+    async with async_get_session() as session:
+        # Check if relationship already exists
+        stmt = select(OrganizationRelationship).where(
+            OrganizationRelationship.from_organization_id == from_org_id,
+            OrganizationRelationship.to_organization_id == to_org_id,
+        )
+        result = await session.execute(stmt)
+        if result.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail="Relationship already exists")
+
+        relationship = OrganizationRelationship(
+            from_organization_id=from_org_id,
+            to_organization_id=to_org_id,
+            relationship_type=relationship_type,
+            notes=notes,
+        )
+        session.add(relationship)
+        await session.commit()
+        await session.refresh(relationship)
+        return relationship
+
+
+async def delete_organization_relationship(from_org_id: int, relationship_id: int):
+    """Delete a relationship."""
+    from sqlalchemy import or_
+    from models.OrganizationRelationship import OrganizationRelationship
+
+    async with async_get_session() as session:
+        stmt = select(OrganizationRelationship).where(
+            OrganizationRelationship.id == relationship_id,
+            or_(
+                OrganizationRelationship.from_organization_id == from_org_id,
+                OrganizationRelationship.to_organization_id == from_org_id,
+            )
+        )
+        result = await session.execute(stmt)
+        relationship = result.scalar_one_or_none()
+        if not relationship:
+            raise HTTPException(status_code=404, detail="Relationship not found")
+
+        await session.delete(relationship)
+        await session.commit()
+        return True

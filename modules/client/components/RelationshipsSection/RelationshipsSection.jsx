@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Building2, User, Plus, X } from "lucide-react";
 
@@ -16,31 +16,21 @@ const RelationshipsSection = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-  const [debounceTimer, setDebounceTimer] = useState(null);
 
   const inputClasses =
     "w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100";
 
-  const handleSearch = (query) => {
-    setSearchQuery(query);
-
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-
-    if (!onSearch || query.length < 2) {
+  // Debounced search effect
+  useEffect(() => {
+    if (!onSearch || searchQuery.length < 2) {
       setSearchResults([]);
-      setShowResults(false);
       return;
     }
 
+    setIsSearching(true);
     const timer = setTimeout(async () => {
-      setIsSearching(true);
-      setShowResults(true);
       try {
-        const results = await onSearch(query);
-        // Filter out already added relationships
+        const results = await onSearch(searchQuery);
         const existingIds = new Set(relationships.map((r) => r.id));
         setSearchResults(results.filter((r) => !existingIds.has(r.id)));
       } catch {
@@ -50,25 +40,24 @@ const RelationshipsSection = ({
       }
     }, 300);
 
-    setDebounceTimer(timer);
-  };
+    return () => clearTimeout(timer);
+  }, [searchQuery, onSearch, relationships]);
 
   const handleSelect = (result) => {
     if (!onAdd) return;
 
     const name = result.name || `${result.first_name || ""} ${result.last_name || ""}`.trim();
-
     const type = result.type || searchType || "organization";
 
     onAdd({
       id: result.id,
+      account_id: result.account_id,
       name,
       type,
     });
 
     setSearchQuery("");
     setSearchResults([]);
-    setShowResults(false);
     setShowAddForm(false);
   };
 
@@ -104,14 +93,13 @@ const RelationshipsSection = ({
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => handleSearch(e.target.value)}
-              onFocus={() => searchResults.length > 0 && setShowResults(true)}
-              onBlur={() => setTimeout(() => setShowResults(false), 200)}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className={inputClasses}
               placeholder={`Search by name...`}
+              autoFocus
             />
 
-            {showResults && searchResults.length > 0 && (
+            {searchResults.length > 0 && (
               <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg max-h-48 overflow-auto">
                 {searchResults.map((result) => (
                   <button
@@ -135,6 +123,11 @@ const RelationshipsSection = ({
             {isSearching && (
               <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded p-2 text-zinc-500">
                 Searching...
+              </div>
+            )}
+            {!isSearching && searchQuery.length >= 2 && searchResults.length === 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded p-2 text-zinc-500">
+                No matching {searchType === "individual" ? "individuals" : "organizations"} found
               </div>
             )}
           </div>

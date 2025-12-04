@@ -298,6 +298,18 @@ const DocumentsSection = ({
     </div>
   );
 
+  // Typeahead search with debounce
+  useEffect(() => {
+    if (!showLinkForm || !searchQuery.trim()) {
+      if (!searchQuery.trim()) setSearchResults([]);
+      return;
+    }
+    const debounce = setTimeout(() => {
+      handleSearchDocuments(searchQuery);
+    }, 300);
+    return () => clearTimeout(debounce);
+  }, [searchQuery, showLinkForm]);
+
   const renderLinkForm = () => (
     <div className="mb-4 p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
       <div className="space-y-3">
@@ -305,9 +317,13 @@ const DocumentsSection = ({
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && handleSearchDocuments(searchQuery)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+            }
+          }}
           className={inputClasses}
-          placeholder="Search documents... (Enter to search)"
+          placeholder="Search documents..."
           autoFocus
         />
 
