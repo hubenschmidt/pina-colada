@@ -826,6 +826,10 @@ export const getProjectDeals = async (projectId) => {
   return apiGet(`/projects/${projectId}/deals`);
 };
 
+export const setSelectedProject = async (projectId) => {
+  return apiPut("/users/me/selected-project", { project_id: projectId });
+};
+
 // Opportunity types and API functions
 
 export const createOpportunity = async (data) => {

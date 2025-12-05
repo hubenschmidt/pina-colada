@@ -26,7 +26,8 @@ async def get_current_user_with_tenants(request: Request) -> Dict[str, Any]:
     return {
         "user": model_to_dict(user, include_relationships=False),
         "tenants": tenants,
-        "current_tenant_id": tenant_id
+        "current_tenant_id": tenant_id,
+        "selected_project_id": user.selected_project_id,
     }
 
 

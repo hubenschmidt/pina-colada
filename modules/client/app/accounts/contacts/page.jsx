@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { usePageLoading } from "../../../context/pageLoadingContext";
-import { AccountList } from "../../../components/AccountList";
+import AccountList from "../../../components/AccountList/AccountList";
 import { useAccountListConfig } from "../../../components/AccountList/hooks/useAccountListConfig";
 
 const ContactsPage = () => {

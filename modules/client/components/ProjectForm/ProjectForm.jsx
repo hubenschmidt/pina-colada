@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Stack, TextInput, Textarea, Button, Group, Text, Select } from "@mantine/core";
 
-import { DeleteConfirmBanner } from "../DeleteConfirmBanner";
+import { DeleteConfirmBanner } from "../DeleteConfirmBanner/DeleteConfirmBanner";
 
 const ProjectForm = ({ project, onAdd, onUpdate, onDelete, onClose }) => {
   const isEdit = !!project;

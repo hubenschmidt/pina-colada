@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Stack, Group, Button, Badge, Anchor, Text, Box, Center, Loader } from "@mantine/core";
 import { FolderKanban } from "lucide-react";
-import { SearchBox } from "../../components/SearchBox";
+import SearchBox from "../../components/SearchBox/SearchBox";
 import { DataTable } from "../../components/DataTable/DataTable";
 import { getTasks } from "../../api";
 import { useProjectContext } from "../../context/projectContext";

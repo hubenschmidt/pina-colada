@@ -26,6 +26,7 @@ from schemas.report import Aggregation, ReportFilter, ReportQueryRequest, SavedR
 from schemas.task import TaskCreate, TaskUpdate
 from schemas.technology import TechnologyCreate
 from schemas.tenant import TenantCreate
+from schemas.user import SetSelectedProjectRequest
 
 __all__ = [
     # Comment
@@ -88,4 +89,6 @@ __all__ = [
     "TechnologyCreate",
     # Tenant
     "TenantCreate",
+    # User
+    "SetSelectedProjectRequest",
 ]

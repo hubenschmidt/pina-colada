@@ -40,7 +40,7 @@ import {
   getDocumentVersions,
   setCurrentDocumentVersion,
 } from "../../../../api";
-import { DeleteConfirmBanner } from "../../../../components/DeleteConfirmBanner";
+import { DeleteConfirmBanner } from "../../../../components/DeleteConfirmBanner/DeleteConfirmBanner";
 
 const DocumentDetailPage = () => {
   const params = useParams();

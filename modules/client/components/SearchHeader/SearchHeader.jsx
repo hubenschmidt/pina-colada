@@ -1,7 +1,7 @@
 "use client";
 
 import { Button, Group } from "@mantine/core";
-import { SearchBox } from "../SearchBox";
+import SearchBox from "../SearchBox/SearchBox";
 
 const SearchHeader = ({
   placeholder = "Search... (Enter to search)",

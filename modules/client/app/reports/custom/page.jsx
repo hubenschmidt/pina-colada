@@ -21,7 +21,7 @@ import { getSavedReports, deleteSavedReport } from "../../../api";
 import { useProjectContext } from "../../../context/projectContext";
 import { usePageLoading } from "../../../context/pageLoadingContext";
 import { DataTable } from "../../../components/DataTable/DataTable";
-import { DeleteConfirmBanner } from "../../../components/DeleteConfirmBanner";
+import { DeleteConfirmBanner } from "../../../components/DeleteConfirmBanner/DeleteConfirmBanner";
 
 const CustomReportsPage = () => {
   const router = useRouter();

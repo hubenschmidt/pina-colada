@@ -4,6 +4,7 @@ export const SET_BEARER_TOKEN = "SET_BEARER_TOKEN";
 export const SET_AUTHED = "SET_AUTHED";
 export const SET_THEME = "SET_THEME";
 export const SET_LOADING = "SET_LOADING";
+export const SET_SELECTED_PROJECT_ID = "SET_SELECTED_PROJECT_ID";
 export const CLEAR_USER = "CLEAR_USER";
 
 export default (initialState) => {
@@ -21,6 +22,8 @@ export default (initialState) => {
         return setTheme(state, action.payload);
       case SET_LOADING:
         return setLoading(state, action.payload);
+      case SET_SELECTED_PROJECT_ID:
+        return setSelectedProjectId(state, action.payload);
       case CLEAR_USER:
         return clearUser(state);
       default:
@@ -68,6 +71,11 @@ const setLoading = (state, payload) => ({
   isLoading: payload,
 });
 
+const setSelectedProjectId = (state, payload) => ({
+  ...state,
+  selectedProjectId: payload,
+});
+
 const clearUser = (state) => ({
   ...state,
   user: null,
@@ -77,4 +85,5 @@ const clearUser = (state) => ({
   isLoading: false,
   theme: "light",
   canEditTenantTheme: false,
+  selectedProjectId: null,
 });

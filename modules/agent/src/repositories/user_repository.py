@@ -74,3 +74,23 @@ async def update_user(user_id: int, data: Dict[str, Any]) -> Optional[User]:
         await session.commit()
         await session.refresh(user)
         return user
+
+
+async def set_selected_project(user_id: int, project_id: Optional[int]) -> Optional[User]:
+    """Set user's selected project."""
+    async with async_get_session() as session:
+        user = await session.get(User, user_id)
+        if not user:
+            return None
+
+        user.selected_project_id = project_id
+        await session.commit()
+        await session.refresh(user)
+        return user
+
+
+async def get_selected_project_id(user_id: int) -> Optional[int]:
+    """Get user's selected project ID."""
+    async with async_get_session() as session:
+        user = await session.get(User, user_id)
+        return user.selected_project_id if user else None

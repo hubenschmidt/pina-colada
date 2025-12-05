@@ -2,7 +2,7 @@
 
 import { createContext, useReducer, useContext, useEffect } from "react";
 import projectReducer, { SET_PROJECTS, SET_SELECTED_PROJECT } from "../reducers/projectReducer";
-import { getProjects } from "../api";
+import { getProjects, setSelectedProject as setSelectedProjectApi } from "../api";
 import { useUserContext } from "./userContext";
 
 const initialState = {
@@ -30,12 +30,13 @@ export const ProjectProvider = ({ children }) => {
     dispatchProject({ type: SET_PROJECTS, payload: projects });
   };
 
-  const selectProject = (project) => {
+  const selectProject = async (project) => {
     dispatchProject({ type: SET_SELECTED_PROJECT, payload: project });
-    const storageAction = project
-      ? () => localStorage.setItem("selectedProjectId", String(project.id))
-      : () => localStorage.removeItem("selectedProjectId");
-    storageAction();
+    try {
+      await setSelectedProjectApi(project?.id ?? null);
+    } catch (error) {
+      console.error("Failed to persist selected project:", error);
+    }
   };
 
   useEffect(() => {
@@ -45,9 +46,10 @@ export const ProjectProvider = ({ children }) => {
       const projects = await getProjects();
       dispatchProject({ type: SET_PROJECTS, payload: projects });
 
-      const savedProjectId = localStorage.getItem("selectedProjectId");
+      // Use selected_project_id from user state (from /auth/me response)
+      const savedProjectId = userState.selectedProjectId;
       if (savedProjectId) {
-        const savedProject = projects.find((p) => p.id === Number(savedProjectId));
+        const savedProject = projects.find((p) => p.id === savedProjectId);
         if (savedProject) {
           dispatchProject({
             type: SET_SELECTED_PROJECT,
@@ -58,7 +60,7 @@ export const ProjectProvider = ({ children }) => {
     };
 
     loadProjects();
-  }, [userState.isAuthed]);
+  }, [userState.isAuthed, userState.selectedProjectId]);
 
   return (
     <ProjectContext.Provider

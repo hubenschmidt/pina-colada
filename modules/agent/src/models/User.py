@@ -19,12 +19,14 @@ class User(Base):
     status = Column(Text, nullable=False, default='active')
     is_system_user = Column(Boolean, default=False)
     last_login_at = Column(DateTime(timezone=True), nullable=True)
+    selected_project_id = Column(BigInteger, ForeignKey("Project.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     # Relationships
     tenant = relationship("Tenant", back_populates="users", foreign_keys=[tenant_id])
     individual = relationship("Individual", back_populates="user", foreign_keys=[individual_id])
+    selected_project = relationship("Project", foreign_keys=[selected_project_id])
     user_roles = relationship("UserRole", back_populates="user", foreign_keys="UserRole.user_id")
     preferences = relationship("UserPreferences", back_populates="user", uselist=False, cascade="all, delete-orphan", foreign_keys="UserPreferences.user_id")
     assets = relationship("Asset", back_populates="user", cascade="all, delete-orphan", foreign_keys="Asset.user_id")

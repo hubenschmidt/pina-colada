@@ -10,6 +10,7 @@ const initialState = {
   isLoading: true,
   theme: "light",
   canEditTenantTheme: false,
+  selectedProjectId: null,
 };
 
 export const UserContext = createContext({

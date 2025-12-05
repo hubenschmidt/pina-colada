@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "../DataTable/DataTable";
-import { SearchBox } from "../SearchBox";
+import SearchBox from "../SearchBox/SearchBox";
 
 import { Stack, Center, Loader, Alert, Group, Button, Box, Text } from "@mantine/core";
 

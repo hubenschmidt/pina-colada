@@ -15,11 +15,11 @@ import {
   Center,
   Anchor,
 } from "@mantine/core";
-import { SearchBox } from "../SearchBox";
+import SearchBox from "../SearchBox/SearchBox";
 import { Download, Trash2, MoreVertical, FileText, Link2 } from "lucide-react";
 import { getDocuments, deleteDocument, downloadDocument, getTags } from "../../api";
 import { DataTable } from "../DataTable/DataTable";
-import { DeleteConfirmBanner } from "../DeleteConfirmBanner";
+import { DeleteConfirmBanner } from "../DeleteConfirmBanner/DeleteConfirmBanner";
 
 export const DocumentList = ({
   filterTags: externalFilterTags,
