@@ -244,3 +244,9 @@ async def search_individuals(query: str, tenant_id: Optional[int] = None) -> Lis
             stmt = stmt.join(Account, Individual.account_id == Account.id).where(Account.tenant_id == tenant_id)
         result = await session.execute(stmt)
         return list(result.scalars().all())
+
+
+async def get_individual_account_id(individual_id: int) -> Optional[int]:
+    """Get the account_id for an individual."""
+    individual = await find_individual_by_id(individual_id)
+    return individual.account_id if individual else None

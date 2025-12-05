@@ -11,8 +11,17 @@ from lib.db import async_get_session
 from models.Account import Account
 from models.Industry import AccountIndustry
 from models.AccountProject import AccountProject
-from models.Contact import Contact, ContactIndividual, ContactOrganization
-from models.Individual import Individual
+from repositories.contact_repository import (
+    create_contact as create_contact_repo,
+    update_contact as update_contact_repo,
+    delete_contact as delete_contact_repo,
+    find_contact_by_id,
+    find_contacts_by_account,
+    link_contact_to_account,
+    find_contact_account_link,
+    clear_primary_contacts_for_account,
+)
+from repositories.organization_repository import get_organization_account_id
 from repositories.individual_repository import (
     find_all_individuals_paginated,
     find_individual_by_id,
@@ -20,6 +29,7 @@ from repositories.individual_repository import (
     update_individual as update_individual_repo,
     delete_individual as delete_individual_repo,
     search_individuals as search_individuals_repo,
+    get_individual_account_id,
     IndividualCreate,
     IndividualUpdate,
     IndContactCreate,
@@ -33,7 +43,6 @@ __all__ = [
     "IndContactCreate",
     "IndContactUpdate",
 ]
-from repositories.contact_repository import find_contacts_by_individual, delete_contact
 
 logger = logging.getLogger(__name__)
 
@@ -109,7 +118,7 @@ async def get_individual(individual_id: int):
     individual = await find_individual_by_id(individual_id)
     if not individual:
         raise HTTPException(status_code=404, detail="Individual not found")
-    contacts = await find_contacts_by_individual(individual_id)
+    contacts = await find_contacts_by_account(individual.account_id) if individual.account_id else []
     return individual, contacts
 
 
@@ -231,7 +240,7 @@ async def get_individual_contacts(individual_id: int):
     individual = await find_individual_by_id(individual_id)
     if not individual:
         raise HTTPException(status_code=404, detail="Individual not found")
-    return await find_contacts_by_individual(individual_id)
+    return await find_contacts_by_account(individual.account_id) if individual.account_id else []
 
 
 async def create_individual_contact(
@@ -241,52 +250,40 @@ async def create_individual_contact(
 ):
     """Create a contact for an individual."""
     individual = await find_individual_by_id(individual_id)
-    if not individual:
+    if not individual or not individual.account_id:
         raise HTTPException(status_code=404, detail="Individual not found")
 
-    async with async_get_session() as session:
-        contact = Contact(
-            first_name=contact_data.get("first_name"),
-            last_name=contact_data.get("last_name"),
-            title=contact_data.get("title"),
-            department=contact_data.get("department"),
-            role=contact_data.get("role"),
-            email=contact_data.get("email"),
-            phone=contact_data.get("phone"),
-            is_primary=contact_data.get("is_primary", False),
-            notes=contact_data.get("notes"),
-            created_by=user_id,
-            updated_by=user_id,
-        )
-        session.add(contact)
-        await session.flush()
+    # Create contact via repository
+    contact = await create_contact_repo({
+        "first_name": contact_data.get("first_name"),
+        "last_name": contact_data.get("last_name"),
+        "title": contact_data.get("title"),
+        "department": contact_data.get("department"),
+        "role": contact_data.get("role"),
+        "email": contact_data.get("email"),
+        "phone": contact_data.get("phone"),
+        "is_primary": contact_data.get("is_primary", False),
+        "notes": contact_data.get("notes"),
+        "created_by": user_id,
+        "updated_by": user_id,
+    })
 
-        # Link to individual (owner)
-        ind_link = ContactIndividual(contact_id=contact.id, individual_id=individual_id)
-        session.add(ind_link)
+    # Link to individual's account
+    await link_contact_to_account(contact.id, individual.account_id, contact_data.get("is_primary", False))
 
-        # Link to another individual if provided (peer relationship)
-        if contact_data.get("linked_individual_id"):
-            peer_link = ContactIndividual(
-                contact_id=contact.id,
-                individual_id=contact_data["linked_individual_id"],
-            )
-            session.add(peer_link)
+    # Link to another individual's account if provided (peer relationship)
+    if contact_data.get("linked_individual_id"):
+        peer_account_id = await get_individual_account_id(contact_data["linked_individual_id"])
+        if peer_account_id:
+            await link_contact_to_account(contact.id, peer_account_id, False)
 
-        # Link to organization if provided
-        if contact_data.get("organization_id"):
-            org_link = ContactOrganization(
-                contact_id=contact.id,
-                organization_id=contact_data["organization_id"],
-                is_primary=contact_data.get("is_primary", False),
-            )
-            session.add(org_link)
+    # Link to organization's account if provided
+    if contact_data.get("organization_id"):
+        org_account_id = await get_organization_account_id(contact_data["organization_id"])
+        if org_account_id:
+            await link_contact_to_account(contact.id, org_account_id, contact_data.get("is_primary", False))
 
-        await session.commit()
-
-        stmt = select(Contact).where(Contact.id == contact.id)
-        result = await session.execute(stmt)
-        return result.scalar_one()
+    return await find_contact_by_id(contact.id)
 
 
 async def update_individual_contact(
@@ -296,62 +293,42 @@ async def update_individual_contact(
     user_id: Optional[int],
 ):
     """Update a contact for an individual."""
-    async with async_get_session() as session:
-        stmt = select(ContactIndividual).where(
-            ContactIndividual.contact_id == contact_id,
-            ContactIndividual.individual_id == individual_id
-        )
-        result = await session.execute(stmt)
-        link = result.scalar_one_or_none()
-        if not link:
-            raise HTTPException(status_code=404, detail="Contact not found for this individual")
+    individual = await find_individual_by_id(individual_id)
+    if not individual or not individual.account_id:
+        raise HTTPException(status_code=404, detail="Individual not found")
 
-        stmt = select(Contact).where(Contact.id == contact_id)
-        result = await session.execute(stmt)
-        contact = result.scalar_one()
+    # Check contact is linked to this individual's account
+    if not await find_contact_account_link(contact_id, individual.account_id):
+        raise HTTPException(status_code=404, detail="Contact not found for this individual")
 
-        # Update fields if provided
-        for field in ["first_name", "last_name", "title", "department", "role", "email", "phone", "notes"]:
-            if contact_data.get(field) is not None:
-                setattr(contact, field, contact_data[field])
+    # Build update data
+    update_data = {}
+    for field in ["first_name", "last_name", "title", "department", "role", "email", "phone", "notes"]:
+        if contact_data.get(field) is not None:
+            update_data[field] = contact_data[field]
 
-        # Handle is_primary specially
-        if contact_data.get("is_primary"):
-            stmt = select(ContactIndividual.contact_id).where(
-                ContactIndividual.individual_id == individual_id,
-                ContactIndividual.contact_id != contact_id
-            )
-            result = await session.execute(stmt)
-            other_contact_ids = [row[0] for row in result.fetchall()]
-            if other_contact_ids:
-                await session.execute(
-                    update(Contact).where(Contact.id.in_(other_contact_ids)).values(is_primary=False)
-                )
-            contact.is_primary = True
-        elif "is_primary" in contact_data and contact_data["is_primary"] is not None:
-            contact.is_primary = contact_data["is_primary"]
+    # Handle is_primary specially
+    if contact_data.get("is_primary"):
+        await clear_primary_contacts_for_account(individual.account_id, contact_id)
+        update_data["is_primary"] = True
+    elif "is_primary" in contact_data and contact_data["is_primary"] is not None:
+        update_data["is_primary"] = contact_data["is_primary"]
 
-        contact.updated_by = user_id
-        await session.commit()
-
-        stmt = select(Contact).where(Contact.id == contact_id)
-        result = await session.execute(stmt)
-        return result.scalar_one()
+    update_data["updated_by"] = user_id
+    return await update_contact_repo(contact_id, update_data)
 
 
 async def delete_individual_contact(individual_id: int, contact_id: int):
     """Delete a contact from an individual."""
-    async with async_get_session() as session:
-        stmt = select(ContactIndividual).where(
-            ContactIndividual.contact_id == contact_id,
-            ContactIndividual.individual_id == individual_id
-        )
-        result = await session.execute(stmt)
-        link = result.scalar_one_or_none()
-        if not link:
-            raise HTTPException(status_code=404, detail="Contact not found for this individual")
+    individual = await find_individual_by_id(individual_id)
+    if not individual or not individual.account_id:
+        raise HTTPException(status_code=404, detail="Individual not found")
 
-    success = await delete_contact(contact_id)
+    # Check contact is linked to this individual's account
+    if not await find_contact_account_link(contact_id, individual.account_id):
+        raise HTTPException(status_code=404, detail="Contact not found for this individual")
+
+    success = await delete_contact_repo(contact_id)
     if not success:
         raise HTTPException(status_code=404, detail="Contact not found")
     return True

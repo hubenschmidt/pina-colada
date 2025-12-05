@@ -505,10 +505,10 @@ async def get_account_overview_report(tenant_id: int) -> Dict[str, Any]:
 async def get_contact_coverage_report(tenant_id: int) -> Dict[str, Any]:
     """Generate contact coverage canned report."""
     async with async_get_session() as session:
-        # Get all organizations for tenant with contact counts
+        # Get all organizations for tenant with contact counts (via Account)
         org_stmt = (
             select(Organization)
-            .options(selectinload(Organization.contacts))
+            .options(selectinload(Organization.account).selectinload(Account.contacts))
             .join(Account, Organization.account_id == Account.id)
             .where(Account.tenant_id == tenant_id)
         )
@@ -523,11 +523,12 @@ async def get_contact_coverage_report(tenant_id: int) -> Dict[str, Any]:
 
         coverage_data = []
         for org in orgs:
-            contact_count = len(org.contacts)
+            contacts = org.account.contacts if org.account else []
+            contact_count = len(contacts)
             total_contacts += contact_count
             if contact_count == 0:
                 orgs_with_zero_contacts += 1
-            for contact in org.contacts:
+            for contact in contacts:
                 total_contact_count += 1
                 if getattr(contact, "is_decision_maker", False):
                     decision_makers += 1

@@ -16,8 +16,7 @@ class ContactCreate(BaseModel):
     department: Optional[str] = None
     role: Optional[str] = None
     notes: Optional[str] = None
-    individual_ids: Optional[List[int]] = None
-    organization_ids: Optional[List[int]] = None
+    account_ids: Optional[List[int]] = None
     is_primary: bool = False
 
     @classmethod
@@ -34,8 +33,7 @@ class ContactUpdate(BaseModel):
     department: Optional[str] = None
     role: Optional[str] = None
     notes: Optional[str] = None
-    individual_ids: Optional[List[int]] = None
-    organization_ids: Optional[List[int]] = None
+    account_ids: Optional[List[int]] = None
     is_primary: Optional[bool] = None
 
     @classmethod

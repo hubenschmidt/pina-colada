@@ -21,6 +21,7 @@ class SavedReport(Base):
     name = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
     query_definition = Column(JSONB, nullable=False)
+    created_by = Column(BigInteger, ForeignKey("Individual.id", ondelete="SET NULL"), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 

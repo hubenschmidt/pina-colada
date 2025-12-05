@@ -35,12 +35,6 @@ class Individual(Base):
 
     # Relationships
     account = relationship("Account", back_populates="individuals")
-    contacts = relationship(
-        "Contact",
-        secondary="Contact_Individual",
-        back_populates="individuals",
-        lazy="selectin"
-    )
     user = relationship("User", back_populates="individual", uselist=False, foreign_keys="User.individual_id")
     reports_to = relationship("Individual", remote_side=[id], foreign_keys=[reports_to_id])
     direct_reports = relationship("Individual", back_populates="reports_to", foreign_keys=[reports_to_id])

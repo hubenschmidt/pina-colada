@@ -23,3 +23,4 @@ class Account(Base):
     leads = relationship("Lead", back_populates="account")
     industries = relationship("Industry", secondary="Account_Industry", back_populates="accounts")
     projects = relationship("Project", secondary="Account_Project", backref="accounts")
+    contacts = relationship("Contact", secondary="Contact_Account", back_populates="accounts", lazy="selectin")

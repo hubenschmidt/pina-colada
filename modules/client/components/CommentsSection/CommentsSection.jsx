@@ -55,28 +55,27 @@ const CommentsSection = ({ entityType, entityId, pendingComments, onPendingComme
     }
   };
 
-  // Organize comments into threads (top-level + all nested replies flattened)
+  // Organize comments into a nested tree structure
   const organizeThreads = () => {
-    const topLevel = comments.filter((c) => !c.parent_comment_id);
+    // Build a map for quick lookup
+    const commentMap = new Map();
+    comments.forEach((c) => commentMap.set(c.id, c));
 
-    // Helper to find root parent of a comment
-    const findRootParent = (commentId) => {
-      const comment = comments.find((c) => c.id === commentId);
-      if (!comment || !comment.parent_comment_id) return commentId;
-      const parent = comments.find((c) => c.id === comment.parent_comment_id);
-      if (!parent) return commentId;
-      if (!parent.parent_comment_id) return parent.id;
-      return findRootParent(parent.id);
-    };
-
-    const threads = topLevel.map((comment) => ({
-      comment,
-      replies: comments
-        .filter((c) => c.parent_comment_id && findRootParent(c.id) === comment.id)
+    // Build tree recursively
+    const buildTree = (comment) => {
+      const directReplies = comments
+        .filter((c) => c.parent_comment_id === comment.id)
         .sort(
           (a, b) => new Date(a.created_at || 0).getTime() - new Date(b.created_at || 0).getTime()
-        ),
-    }));
+        );
+      return {
+        comment,
+        replies: directReplies.map((reply) => buildTree(reply)),
+      };
+    };
+
+    const topLevel = comments.filter((c) => !c.parent_comment_id);
+    const threads = topLevel.map((comment) => buildTree(comment));
     return threads.sort(
       (a, b) =>
         new Date(b.comment.created_at || 0).getTime() -
@@ -341,23 +340,34 @@ const CommentsSection = ({ entityType, entityId, pendingComments, onPendingComme
     );
   };
 
-  const renderThread = (thread) => {
-    const { comment, replies } = thread;
+  // Count total replies in a thread (recursive)
+  const countAllReplies = (thread) => {
+    let count = thread.replies.length;
+    thread.replies.forEach((r) => {
+      count += countAllReplies(r);
+    });
+    return count;
+  };
+
+  // Render a single comment node with its nested replies
+  const renderCommentNode = (node, depth = 0) => {
+    const { comment, replies } = node;
     const isCollapsed = collapsedThreads.has(comment.id);
     const hasReplies = replies.length > 0;
     const isReplying = replyingToId === comment.id;
+    const totalReplies = countAllReplies(node);
+    const isTopLevel = depth === 0;
+    const avatarSize = isTopLevel ? "w-8 h-8 text-xs" : "w-6 h-6 text-[10px]";
 
     return (
       <div key={comment.id} id={`comment-${comment.id}`} className="group">
-        {/* Main comment */}
+        {/* Comment */}
         <div className="flex gap-3">
-          {/* Avatar */}
           <div
-            className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-medium ${getAvatarColor(comment.created_by_name, comment.created_by_email)}`}>
+            className={`flex-shrink-0 rounded-full flex items-center justify-center text-white font-medium ${avatarSize} ${getAvatarColor(comment.created_by_name, comment.created_by_email)}`}>
             {getInitials(comment.created_by_name, comment.created_by_email)}
           </div>
-
-          {renderCommentContent(comment)}
+          {renderCommentContent(comment, !isTopLevel)}
         </div>
 
         {/* Reply input */}
@@ -372,7 +382,6 @@ const CommentsSection = ({ entityType, entityId, pendingComments, onPendingComme
               placeholder="Write a reply..."
               autoFocus
             />
-
             <div className="flex gap-2">
               <button
                 type="button"
@@ -391,7 +400,7 @@ const CommentsSection = ({ entityType, entityId, pendingComments, onPendingComme
           </div>
         )}
 
-        {/* Replies */}
+        {/* Nested replies */}
         {hasReplies && (
           <div className="ml-11 mt-3">
             {/* Collapse/expand toggle */}
@@ -402,7 +411,7 @@ const CommentsSection = ({ entityType, entityId, pendingComments, onPendingComme
               {isCollapsed ? (
                 <>
                   <ChevronDown size={14} />
-                  Show {replies.length} {replies.length === 1 ? "reply" : "replies"}
+                  Show {totalReplies} {totalReplies === 1 ? "reply" : "replies"}
                 </>
               ) : (
                 <>
@@ -412,52 +421,10 @@ const CommentsSection = ({ entityType, entityId, pendingComments, onPendingComme
               )}
             </button>
 
-            {/* Reply list */}
+            {/* Recursive reply rendering */}
             {!isCollapsed && (
               <div className="space-y-3 border-l-2 border-zinc-200 dark:border-zinc-700 pl-4">
-                {replies.map((reply) => (
-                  <div key={reply.id}>
-                    <div id={`comment-${reply.id}`} className="flex gap-3">
-                      {/* Reply avatar (smaller) */}
-                      <div
-                        className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-medium ${getAvatarColor(reply.created_by_name, reply.created_by_email)}`}>
-                        {getInitials(reply.created_by_name, reply.created_by_email)}
-                      </div>
-
-                      {renderCommentContent(reply, true)}
-                    </div>
-                    {/* Reply input for this reply */}
-                    {replyingToId === reply.id && (
-                      <div className="ml-9 mt-3 space-y-2">
-                        <textarea
-                          value={replyContent}
-                          onChange={(e) => setReplyContent(e.target.value)}
-                          onKeyDown={(e) => handleKeyDown(e, () => handleAddReply(reply.id))}
-                          className="w-full px-3 py-2 text-sm border border-zinc-200 dark:border-zinc-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-lime-500 bg-zinc-50 dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 placeholder-zinc-400 resize-none"
-                          rows={2}
-                          placeholder="Write a reply..."
-                          autoFocus
-                        />
-
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            onClick={() => handleAddReply(reply.id)}
-                            disabled={!replyContent.trim()}
-                            className="px-3 py-1.5 text-xs bg-lime-600 text-white rounded hover:bg-lime-700 disabled:opacity-40 transition-colors">
-                            Reply
-                          </button>
-                          <button
-                            type="button"
-                            onClick={cancelReplying}
-                            className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300 transition-colors">
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
+                {replies.map((replyNode) => renderCommentNode(replyNode, depth + 1))}
               </div>
             )}
           </div>
@@ -465,6 +432,8 @@ const CommentsSection = ({ entityType, entityId, pendingComments, onPendingComme
       </div>
     );
   };
+
+  const renderThread = (thread) => renderCommentNode(thread, 0);
 
   const renderPendingCommentCard = (content, index) => (
     <div key={`pending-${index}`} className="flex gap-3">

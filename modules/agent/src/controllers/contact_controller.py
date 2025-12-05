@@ -53,8 +53,8 @@ async def get_contact(contact_id: int) -> dict:
 async def create_contact(request: Request, data: ContactCreate) -> dict:
     """Create a new contact."""
     user_id = request.state.user_id
-    contact_data = data.model_dump(exclude={"individual_ids", "organization_ids"})
-    contact = await create_contact_service(contact_data, user_id, data.individual_ids, data.organization_ids)
+    contact_data = data.model_dump(exclude={"account_ids"})
+    contact = await create_contact_service(contact_data, user_id, data.account_ids)
     return contact_to_detail_response(contact)
 
 
@@ -62,8 +62,8 @@ async def create_contact(request: Request, data: ContactCreate) -> dict:
 async def update_contact(request: Request, contact_id: int, data: ContactUpdate) -> dict:
     """Update a contact."""
     user_id = request.state.user_id
-    contact_data = data.model_dump(exclude={"individual_ids", "organization_ids"}, exclude_unset=True)
-    contact = await update_contact_service(contact_id, contact_data, user_id, data.individual_ids, data.organization_ids)
+    contact_data = data.model_dump(exclude={"account_ids"}, exclude_unset=True)
+    contact = await update_contact_service(contact_id, contact_data, user_id, data.account_ids)
     return contact_to_detail_response(contact)
 
 

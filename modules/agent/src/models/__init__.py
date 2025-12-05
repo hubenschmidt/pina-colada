@@ -13,7 +13,7 @@ from models.UserRole import UserRole
 from models.Status import Status
 from models.Organization import Organization
 from models.Individual import Individual
-from models.Contact import Contact
+from models.Contact import Contact, ContactAccount
 from models.Project import Project
 from models.Deal import Deal
 from models.Lead import Lead
@@ -81,4 +81,5 @@ __all__ = [
     "Lead_Project",
     "Comment_Notification",
     "AccountRelationship",
+    "Contact_Account",
 ]

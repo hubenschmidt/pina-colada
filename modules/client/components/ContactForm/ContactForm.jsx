@@ -12,28 +12,14 @@ import { Building2, User, Plus, X } from "lucide-react";
 const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
   const isEditMode = !!contact;
 
-  // Build initial linked accounts from contact's individuals and organizations
+  // Build initial linked accounts from contact's accounts
   const getInitialLinkedAccounts = () => {
-    const accounts = [];
-    if (contact?.individuals) {
-      contact.individuals.forEach((ind) => {
-        accounts.push({
-          id: ind.id,
-          name: `${ind.first_name} ${ind.last_name}`.trim(),
-          type: "individual",
-        });
-      });
-    }
-    if (contact?.organizations) {
-      contact.organizations.forEach((org) => {
-        accounts.push({
-          id: org.id,
-          name: org.name,
-          type: "organization",
-        });
-      });
-    }
-    return accounts;
+    if (!contact?.accounts) return [];
+    return contact.accounts.map((acc) => ({
+      id: acc.id,
+      name: acc.name,
+      type: acc.type || "organization",
+    }));
   };
 
   const [formData, setFormData] = useState({
@@ -69,9 +55,9 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
     const timer = setTimeout(async () => {
       try {
         const results = await searchAccounts(accountSearchQuery);
-        // Filter out already linked accounts
-        const linkedIds = new Set(linkedAccounts.map((a) => `${a.type}-${a.id}`));
-        setAccountSearchResults(results.filter((r) => !linkedIds.has(`${r.type}-${r.id}`)));
+        // Filter out already linked accounts by account_id
+        const linkedIds = new Set(linkedAccounts.map((a) => a.id));
+        setAccountSearchResults(results.filter((r) => !linkedIds.has(r.account_id)));
       } catch {
         setAccountSearchResults([]);
       } finally {
@@ -105,8 +91,7 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
       // Build save data with linked account IDs
       const saveData = {
         ...formData,
-        individual_ids: linkedAccounts.filter((a) => a.type === "individual").map((a) => a.id),
-        organization_ids: linkedAccounts.filter((a) => a.type === "organization").map((a) => a.id),
+        account_ids: linkedAccounts.map((a) => a.id),
       };
       const savedContact = await onSave(saveData);
       // Create pending notes after contact is created
@@ -124,7 +109,7 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
 
   const handleAddAccount = (account) => {
     setLinkedAccounts([...linkedAccounts, {
-      id: account.id,
+      id: account.account_id,
       name: account.name,
       type: account.type,
     }]);
@@ -219,7 +204,7 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
                   <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg max-h-48 overflow-auto">
                     {accountSearchResults.map((result) => (
                       <button
-                        key={`${result.type}-${result.id}`}
+                        key={`${result.type}-${result.account_id}`}
                         type="button"
                         onClick={() => handleAddAccount(result)}
                         className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 flex items-center gap-2">

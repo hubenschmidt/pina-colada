@@ -2,32 +2,20 @@ from sqlalchemy import Column, Text, DateTime, BigInteger, Boolean, ForeignKey, 
 from sqlalchemy.orm import relationship
 from models import Base
 
-"""Contact model with many-to-many relationships to Individual and Organization."""
 
-
-class ContactIndividual(Base):
-    """Junction table for Contact-Individual many-to-many relationship."""
-    __tablename__ = "Contact_Individual"
+class ContactAccount(Base):
+    """Junction table for Contact-Account many-to-many relationship."""
+    __tablename__ = "Contact_Account"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     contact_id = Column(BigInteger, ForeignKey("Contact.id", ondelete="CASCADE"), nullable=False)
-    individual_id = Column(BigInteger, ForeignKey("Individual.id", ondelete="CASCADE"), nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-
-
-class ContactOrganization(Base):
-    """Junction table for Contact-Organization many-to-many relationship."""
-    __tablename__ = "Contact_Organization"
-
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    contact_id = Column(BigInteger, ForeignKey("Contact.id", ondelete="CASCADE"), nullable=False)
-    organization_id = Column(BigInteger, ForeignKey("Organization.id", ondelete="CASCADE"), nullable=False)
+    account_id = Column(BigInteger, ForeignKey("Account.id", ondelete="CASCADE"), nullable=False)
     is_primary = Column(Boolean, default=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
 class Contact(Base):
-    """Contact SQLAlchemy model - standalone entity that can link to multiple Individuals/Organizations."""
+    """Contact SQLAlchemy model - standalone entity that can link to multiple Accounts."""
 
     __tablename__ = "Contact"
 
@@ -46,16 +34,10 @@ class Contact(Base):
     created_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
     updated_by = Column(BigInteger, ForeignKey("User.id"), nullable=False)
 
-    # Many-to-many relationships via junction tables
-    individuals = relationship(
-        "Individual",
-        secondary="Contact_Individual",
-        back_populates="contacts",
-        lazy="selectin"
-    )
-    organizations = relationship(
-        "Organization",
-        secondary="Contact_Organization",
+    # Many-to-many relationship to Account via junction table
+    accounts = relationship(
+        "Account",
+        secondary="Contact_Account",
         back_populates="contacts",
         lazy="selectin"
     )

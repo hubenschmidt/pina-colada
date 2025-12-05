@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from sqlalchemy import select, delete as sql_delete
 
 from lib.db import async_get_session
-from models.Contact import Contact, ContactIndividual, ContactOrganization
+from models.Contact import Contact, ContactAccount
 from repositories.contact_repository import (
     search_contacts_and_individuals,
     delete_contact as delete_contact_repo,
@@ -58,10 +58,9 @@ async def get_contact(contact_id: int):
 async def create_contact(
     contact_data: Dict[str, Any],
     user_id: Optional[int],
-    individual_ids: Optional[List[int]],
-    organization_ids: Optional[List[int]],
+    account_ids: Optional[List[int]],
 ):
-    """Create a contact with optional individual/organization links."""
+    """Create a contact with optional account links."""
     async with async_get_session() as session:
         contact = Contact(
             first_name=contact_data.get("first_name"),
@@ -79,14 +78,9 @@ async def create_contact(
         session.add(contact)
         await session.flush()
 
-        if individual_ids:
-            for ind_id in individual_ids:
-                link = ContactIndividual(contact_id=contact.id, individual_id=ind_id)
-                session.add(link)
-
-        if organization_ids:
-            for org_id in organization_ids:
-                link = ContactOrganization(contact_id=contact.id, organization_id=org_id)
+        if account_ids:
+            for acc_id in account_ids:
+                link = ContactAccount(contact_id=contact.id, account_id=acc_id)
                 session.add(link)
 
         await session.commit()
@@ -100,10 +94,9 @@ async def update_contact(
     contact_id: int,
     contact_data: Dict[str, Any],
     user_id: Optional[int],
-    individual_ids: Optional[List[int]],
-    organization_ids: Optional[List[int]],
+    account_ids: Optional[List[int]],
 ):
-    """Update a contact with individual/organization links."""
+    """Update a contact with account links."""
     async with async_get_session() as session:
         stmt = select(Contact).where(Contact.id == contact_id)
         result = await session.execute(stmt)
@@ -117,20 +110,12 @@ async def update_contact(
 
         contact.updated_by = user_id
 
-        if individual_ids is not None:
+        if account_ids is not None:
             await session.execute(
-                sql_delete(ContactIndividual).where(ContactIndividual.contact_id == contact_id)
+                sql_delete(ContactAccount).where(ContactAccount.contact_id == contact_id)
             )
-            for ind_id in individual_ids:
-                link = ContactIndividual(contact_id=contact_id, individual_id=ind_id)
-                session.add(link)
-
-        if organization_ids is not None:
-            await session.execute(
-                sql_delete(ContactOrganization).where(ContactOrganization.contact_id == contact_id)
-            )
-            for org_id in organization_ids:
-                link = ContactOrganization(contact_id=contact_id, organization_id=org_id)
+            for acc_id in account_ids:
+                link = ContactAccount(contact_id=contact_id, account_id=acc_id)
                 session.add(link)
 
         await session.commit()

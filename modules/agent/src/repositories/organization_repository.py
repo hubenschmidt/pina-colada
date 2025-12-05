@@ -270,3 +270,9 @@ async def search_organizations(query: str, tenant_id: Optional[int] = None) -> L
             stmt = stmt.join(Account, Organization.account_id == Account.id).where(Account.tenant_id == tenant_id)
         result = await session.execute(stmt)
         return list(result.scalars().all())
+
+
+async def get_organization_account_id(org_id: int) -> Optional[int]:
+    """Get the account_id for an organization."""
+    org = await find_organization_by_id(org_id)
+    return org.account_id if org else None

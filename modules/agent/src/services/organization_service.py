@@ -11,7 +11,16 @@ from lib.db import async_get_session
 from models.Account import Account
 from models.Industry import AccountIndustry
 from models.AccountProject import AccountProject
-from models.Contact import Contact, ContactOrganization, ContactIndividual
+from repositories.contact_repository import (
+    create_contact as create_contact_repo,
+    update_contact as update_contact_repo,
+    delete_contact as delete_contact_repo,
+    find_contact_by_id,
+    find_contacts_by_account,
+    link_contact_to_account,
+    find_contact_account_link,
+    clear_primary_contacts_for_account,
+)
 from repositories.organization_repository import (
     find_all_organizations,
     find_organization_by_id,
@@ -19,6 +28,7 @@ from repositories.organization_repository import (
     update_organization as update_organization_repo,
     delete_organization as delete_organization_repo,
     search_organizations as search_organizations_repo,
+    get_organization_account_id,
     OrganizationCreate,
     OrganizationUpdate,
     OrgContactCreate,
@@ -27,6 +37,7 @@ from repositories.organization_repository import (
     FundingRoundCreate,
     SignalCreate,
 )
+from repositories.individual_repository import get_individual_account_id
 
 # Re-export Pydantic models for controllers
 __all__ = [
@@ -38,7 +49,6 @@ __all__ = [
     "FundingRoundCreate",
     "SignalCreate",
 ]
-from repositories.contact_repository import find_contacts_by_organization, delete_contact
 from repositories.technology_repository import (
     find_organization_technologies,
     add_organization_technology,
@@ -89,7 +99,7 @@ async def get_organization(org_id: int):
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
-    contacts = await find_contacts_by_organization(org_id)
+    contacts = await find_contacts_by_account(org.account_id) if org.account_id else []
     return org, contacts
 
 
@@ -194,7 +204,7 @@ async def get_organization_contacts(org_id: int):
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
-    return await find_contacts_by_organization(org_id)
+    return await find_contacts_by_account(org.account_id) if org.account_id else []
 
 
 async def create_organization_contact(
@@ -204,57 +214,40 @@ async def create_organization_contact(
 ):
     """Create a contact for an organization."""
     org = await find_organization_by_id(org_id)
-    if not org:
+    if not org or not org.account_id:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    async with async_get_session() as session:
-        contact = Contact(
-            first_name=contact_data.get("first_name"),
-            last_name=contact_data.get("last_name"),
-            title=contact_data.get("title"),
-            department=contact_data.get("department"),
-            role=contact_data.get("role"),
-            email=contact_data.get("email"),
-            phone=contact_data.get("phone"),
-            is_primary=contact_data.get("is_primary", False),
-            notes=contact_data.get("notes"),
-            created_by=user_id,
-            updated_by=user_id,
-        )
-        session.add(contact)
-        await session.flush()
+    # Create contact via repository
+    contact = await create_contact_repo({
+        "first_name": contact_data.get("first_name"),
+        "last_name": contact_data.get("last_name"),
+        "title": contact_data.get("title"),
+        "department": contact_data.get("department"),
+        "role": contact_data.get("role"),
+        "email": contact_data.get("email"),
+        "phone": contact_data.get("phone"),
+        "is_primary": contact_data.get("is_primary", False),
+        "notes": contact_data.get("notes"),
+        "created_by": user_id,
+        "updated_by": user_id,
+    })
 
-        # Link to organization (owner)
-        org_link = ContactOrganization(
-            contact_id=contact.id,
-            organization_id=org_id,
-            is_primary=contact_data.get("is_primary", False),
-        )
-        session.add(org_link)
+    # Link to organization's account
+    await link_contact_to_account(contact.id, org.account_id, contact_data.get("is_primary", False))
 
-        # Link to another organization if provided (partner relationship)
-        if contact_data.get("linked_organization_id"):
-            partner_link = ContactOrganization(
-                contact_id=contact.id,
-                organization_id=contact_data["linked_organization_id"],
-                is_primary=False,
-            )
-            session.add(partner_link)
+    # Link to another organization's account if provided (partner relationship)
+    if contact_data.get("linked_organization_id"):
+        partner_account_id = await get_organization_account_id(contact_data["linked_organization_id"])
+        if partner_account_id:
+            await link_contact_to_account(contact.id, partner_account_id, False)
 
-        # Link to individual if provided (for relationships)
-        individual_id = contact_data.get("individual_id")
-        if individual_id:
-            ind_link = ContactIndividual(
-                contact_id=contact.id,
-                individual_id=individual_id,
-            )
-            session.add(ind_link)
+    # Link to individual's account if provided (for relationships)
+    if contact_data.get("individual_id"):
+        ind_account_id = await get_individual_account_id(contact_data["individual_id"])
+        if ind_account_id:
+            await link_contact_to_account(contact.id, ind_account_id, False)
 
-        await session.commit()
-
-        stmt = select(Contact).where(Contact.id == contact.id)
-        result = await session.execute(stmt)
-        return result.scalar_one()
+    return await find_contact_by_id(contact.id)
 
 
 async def update_organization_contact(
@@ -264,62 +257,42 @@ async def update_organization_contact(
     user_id: Optional[int],
 ):
     """Update a contact for an organization."""
-    async with async_get_session() as session:
-        stmt = select(ContactOrganization).where(
-            ContactOrganization.contact_id == contact_id,
-            ContactOrganization.organization_id == org_id
-        )
-        result = await session.execute(stmt)
-        link = result.scalar_one_or_none()
-        if not link:
-            raise HTTPException(status_code=404, detail="Contact not found for this organization")
+    org = await find_organization_by_id(org_id)
+    if not org or not org.account_id:
+        raise HTTPException(status_code=404, detail="Organization not found")
 
-        stmt = select(Contact).where(Contact.id == contact_id)
-        result = await session.execute(stmt)
-        contact = result.scalar_one()
+    # Check contact is linked to this organization's account
+    if not await find_contact_account_link(contact_id, org.account_id):
+        raise HTTPException(status_code=404, detail="Contact not found for this organization")
 
-        # Update fields if provided
-        for field in ["first_name", "last_name", "title", "department", "role", "email", "phone", "notes"]:
-            if contact_data.get(field) is not None:
-                setattr(contact, field, contact_data[field])
+    # Build update data
+    update_data = {}
+    for field in ["first_name", "last_name", "title", "department", "role", "email", "phone", "notes"]:
+        if contact_data.get(field) is not None:
+            update_data[field] = contact_data[field]
 
-        # Handle is_primary specially
-        if contact_data.get("is_primary"):
-            stmt = select(ContactOrganization.contact_id).where(
-                ContactOrganization.organization_id == org_id,
-                ContactOrganization.contact_id != contact_id
-            )
-            result = await session.execute(stmt)
-            other_contact_ids = [row[0] for row in result.fetchall()]
-            if other_contact_ids:
-                await session.execute(
-                    update(Contact).where(Contact.id.in_(other_contact_ids)).values(is_primary=False)
-                )
-            contact.is_primary = True
-        elif "is_primary" in contact_data and contact_data["is_primary"] is not None:
-            contact.is_primary = contact_data["is_primary"]
+    # Handle is_primary specially
+    if contact_data.get("is_primary"):
+        await clear_primary_contacts_for_account(org.account_id, contact_id)
+        update_data["is_primary"] = True
+    elif "is_primary" in contact_data and contact_data["is_primary"] is not None:
+        update_data["is_primary"] = contact_data["is_primary"]
 
-        contact.updated_by = user_id
-        await session.commit()
-
-        stmt = select(Contact).where(Contact.id == contact_id)
-        result = await session.execute(stmt)
-        return result.scalar_one()
+    update_data["updated_by"] = user_id
+    return await update_contact_repo(contact_id, update_data)
 
 
 async def delete_organization_contact(org_id: int, contact_id: int):
     """Delete a contact from an organization."""
-    async with async_get_session() as session:
-        stmt = select(ContactOrganization).where(
-            ContactOrganization.contact_id == contact_id,
-            ContactOrganization.organization_id == org_id
-        )
-        result = await session.execute(stmt)
-        link = result.scalar_one_or_none()
-        if not link:
-            raise HTTPException(status_code=404, detail="Contact not found for this organization")
+    org = await find_organization_by_id(org_id)
+    if not org or not org.account_id:
+        raise HTTPException(status_code=404, detail="Organization not found")
 
-    success = await delete_contact(contact_id)
+    # Check contact is linked to this organization's account
+    if not await find_contact_account_link(contact_id, org.account_id):
+        raise HTTPException(status_code=404, detail="Contact not found for this organization")
+
+    success = await delete_contact_repo(contact_id)
     if not success:
         raise HTTPException(status_code=404, detail="Contact not found")
     return True

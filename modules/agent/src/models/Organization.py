@@ -37,12 +37,6 @@ class Organization(Base):
 
     # Relationships
     account = relationship("Account", back_populates="organizations")
-    contacts = relationship(
-        "Contact",
-        secondary="Contact_Organization",
-        back_populates="organizations",
-        lazy="selectin"
-    )
     employee_count_range = relationship("EmployeeCountRange")
     funding_stage = relationship("FundingStage")
     revenue_range = relationship("RevenueRange")

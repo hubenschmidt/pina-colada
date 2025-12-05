@@ -5,8 +5,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import func, or_, select
 from sqlalchemy.orm import selectinload
 from lib.db import async_get_session
-from models.Contact import Contact, ContactIndividual, ContactOrganization
+from models.Contact import Contact, ContactAccount
 from models.Individual import Individual
+from models.Organization import Organization
 from schemas.contact import ContactCreate, ContactUpdate
 
 __all__ = ["ContactCreate", "ContactUpdate"]
@@ -21,15 +22,9 @@ async def find_all_contacts_paginated(
     order_by: str = "updated_at",
     order: str = "DESC",
 ) -> Tuple[List[Contact], int]:
-    """Find contacts with pagination, sorting, and search at DB level.
-
-    Optimized for list view - only loads organizations for account display.
-    """
+    """Find contacts with pagination, sorting, and search."""
     async with async_get_session() as session:
-        stmt = (
-            select(Contact)
-            .options(selectinload(Contact.organizations))
-        )
+        stmt = select(Contact).options(selectinload(Contact.accounts))
 
         if search and search.strip():
             search_lower = search.strip().lower()
@@ -66,38 +61,26 @@ async def find_all_contacts_paginated(
         return contacts, total_count
 
 
-async def _find_contact_by_individual_only(session, individual_id: int) -> Optional[Contact]:
-    """Find contact linked to individual without organization filter."""
-    stmt = (
-        select(Contact)
-        .join(ContactIndividual, Contact.id == ContactIndividual.contact_id)
-        .where(ContactIndividual.individual_id == individual_id)
-    )
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
-
-
-async def _find_contact_by_individual_and_org(session, individual_id: int, organization_id: int) -> Optional[Contact]:
-    """Find contact linked to both individual and organization."""
-    stmt = (
-        select(Contact)
-        .join(ContactIndividual, Contact.id == ContactIndividual.contact_id)
-        .where(ContactIndividual.individual_id == individual_id)
-        .join(ContactOrganization, Contact.id == ContactOrganization.contact_id)
-        .where(ContactOrganization.organization_id == organization_id)
-    )
-    result = await session.execute(stmt)
-    return result.scalar_one_or_none()
-
-
-async def find_contact_by_individual_and_org(
-    individual_id: int, organization_id: Optional[int] = None
-) -> Optional[Contact]:
-    """Find contact by individual and organization via junction tables."""
+async def find_contacts_by_account(account_id: int) -> List[Contact]:
+    """Find all contacts linked to an account."""
     async with async_get_session() as session:
-        if organization_id is None:
-            return await _find_contact_by_individual_only(session, individual_id)
-        return await _find_contact_by_individual_and_org(session, individual_id, organization_id)
+        stmt = (
+            select(Contact)
+            .join(ContactAccount, Contact.id == ContactAccount.contact_id)
+            .where(ContactAccount.account_id == account_id)
+            .options(selectinload(Contact.accounts))
+            .order_by(Contact.is_primary.desc(), Contact.id)
+        )
+        result = await session.execute(stmt)
+        return list(result.scalars().all())
+
+
+async def find_contact_by_id(contact_id: int) -> Optional[Contact]:
+    """Find a contact by ID."""
+    async with async_get_session() as session:
+        stmt = select(Contact).options(selectinload(Contact.accounts)).where(Contact.id == contact_id)
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
 
 
 async def create_contact(data: Dict[str, Any]) -> Contact:
@@ -113,157 +96,6 @@ async def create_contact(data: Dict[str, Any]) -> Contact:
             await session.rollback()
             logger.error(f"Failed to create contact: {e}")
             raise
-
-
-def _maybe_add_org_link(session, contact_id: int, organization_id: Optional[int], is_primary: bool) -> None:
-    """Add organization link if organization_id is provided."""
-    if organization_id is None:
-        return
-    org_link = ContactOrganization(
-        contact_id=contact_id,
-        organization_id=organization_id,
-        is_primary=is_primary
-    )
-    session.add(org_link)
-
-
-def _maybe_add_individual_link(session, contact_id: int, individual_id: Optional[int]) -> None:
-    """Add individual link if individual_id is provided."""
-    if individual_id is None:
-        return
-    ind_link = ContactIndividual(contact_id=contact_id, individual_id=individual_id)
-    session.add(ind_link)
-
-
-async def find_contact_by_org_and_name(
-    organization_id: int, first_name: str, last_name: str
-) -> Optional[Contact]:
-    """Find contact by organization and name."""
-    async with async_get_session() as session:
-        stmt = (
-            select(Contact)
-            .join(ContactOrganization, Contact.id == ContactOrganization.contact_id)
-            .where(ContactOrganization.organization_id == organization_id)
-            .where(Contact.first_name == first_name)
-            .where(Contact.last_name == last_name)
-        )
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none()
-
-
-async def _find_existing_contact(
-    individual_id: Optional[int],
-    organization_id: Optional[int],
-    first_name: Optional[str],
-    last_name: Optional[str]
-) -> Optional[Contact]:
-    """Find existing contact by individual or by org+name."""
-    if individual_id is not None:
-        return await find_contact_by_individual_and_org(individual_id, organization_id)
-    if organization_id is not None and first_name and last_name:
-        return await find_contact_by_org_and_name(organization_id, first_name, last_name)
-    return None
-
-
-async def _update_contact_primary(contact_id: int, is_primary: bool) -> None:
-    """Update contact's is_primary field."""
-    async with async_get_session() as session:
-        stmt = select(Contact).where(Contact.id == contact_id)
-        result = await session.execute(stmt)
-        contact = result.scalar_one_or_none()
-        if not contact:
-            return
-        contact.is_primary = is_primary
-        await session.commit()
-
-
-async def get_or_create_contact(
-    contact_id: Optional[int] = None,
-    individual_id: Optional[int] = None,
-    organization_id: Optional[int] = None,
-    first_name: Optional[str] = None,
-    last_name: Optional[str] = None,
-    email: Optional[str] = None,
-    phone: Optional[str] = None,
-    title: Optional[str] = None,
-    is_primary: bool = False
-) -> Contact:
-    """Get or create a contact, optionally linked to individual and/or organization."""
-
-    async def _sync_primary_status(contact: Contact) -> Contact:
-        if contact.is_primary != is_primary:
-            await _update_contact_primary(contact.id, is_primary)
-            contact.is_primary = is_primary
-        return contact
-
-    # If contact_id is provided, find by ID first
-    if contact_id is not None:
-        existing = await find_contact_by_id(contact_id)
-        if existing:
-            return await _sync_primary_status(existing)
-
-    # Otherwise try to find by individual/org/name
-    existing = await _find_existing_contact(individual_id, organization_id, first_name, last_name)
-    if existing:
-        return await _sync_primary_status(existing)
-
-    async with async_get_session() as session:
-        try:
-            contact = Contact(
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                phone=phone,
-                title=title,
-                is_primary=is_primary
-            )
-            session.add(contact)
-            await session.flush()
-
-            _maybe_add_individual_link(session, contact.id, individual_id)
-            _maybe_add_org_link(session, contact.id, organization_id, is_primary)
-
-            await session.commit()
-            await session.refresh(contact)
-            return contact
-        except Exception as e:
-            await session.rollback()
-            logger.error(f"Failed to create contact: {e}")
-            raise
-
-
-async def find_contacts_by_individual(individual_id: int) -> List[Contact]:
-    """Find all contacts linked to an individual."""
-    async with async_get_session() as session:
-        stmt = (
-            select(Contact)
-            .join(ContactIndividual, Contact.id == ContactIndividual.contact_id)
-            .where(ContactIndividual.individual_id == individual_id)
-            .options(selectinload(Contact.organizations), selectinload(Contact.individuals))
-            .order_by(Contact.is_primary.desc(), Contact.id)
-        )
-        result = await session.execute(stmt)
-        return list(result.scalars().all())
-
-
-async def find_contacts_by_organization(organization_id: int) -> List[Contact]:
-    """Find all contacts linked to an organization."""
-    async with async_get_session() as session:
-        stmt = (
-            select(Contact)
-            .join(ContactOrganization, Contact.id == ContactOrganization.contact_id)
-            .where(ContactOrganization.organization_id == organization_id)
-            .options(selectinload(Contact.organizations), selectinload(Contact.individuals))
-            .order_by(Contact.is_primary.desc(), Contact.id)
-        )
-        result = await session.execute(stmt)
-        return list(result.scalars().all())
-
-
-async def find_contact_by_id(contact_id: int) -> Optional[Contact]:
-    """Find a contact by ID."""
-    async with async_get_session() as session:
-        return await session.get(Contact, contact_id)
 
 
 async def update_contact(contact_id: int, data: Dict[str, Any]) -> Optional[Contact]:
@@ -305,10 +137,9 @@ async def delete_contact(contact_id: int) -> bool:
 
 def _contact_to_search_result(contact: Contact) -> Dict[str, Any]:
     """Convert Contact to search result dict."""
-    # Get account name from linked organizations
     account_name = None
-    if contact.organizations:
-        account_name = contact.organizations[0].name
+    if contact.accounts:
+        account_name = contact.accounts[0].name
     return {
         "individual_id": None,
         "contact_id": contact.id,
@@ -337,17 +168,14 @@ def _individual_to_search_result(individual: Individual) -> Dict[str, Any]:
 
 
 async def search_contacts_and_individuals(query: str, tenant_id: Optional[int] = None) -> List[Dict[str, Any]]:
-    """
-    Search both Individuals and existing Contacts.
-    Returns unified results - Contacts first, then Individuals.
-    """
+    """Search both Individuals and existing Contacts."""
     async with async_get_session() as session:
         search_pattern = f"%{query}%"
 
-        # Search Contacts (with organizations for account name)
+        # Search Contacts (with accounts for account name)
         contact_stmt = (
             select(Contact)
-            .options(selectinload(Contact.organizations))
+            .options(selectinload(Contact.accounts))
             .where(
                 or_(
                     Contact.first_name.ilike(search_pattern),
@@ -384,3 +212,149 @@ async def search_contacts_and_individuals(query: str, tenant_id: Optional[int] =
         results = [_contact_to_search_result(c) for c in contacts]
         results.extend(_individual_to_search_result(i) for i in individuals)
         return results[:20]
+
+
+async def get_or_create_contact(
+    contact_id: Optional[int] = None,
+    individual_id: Optional[int] = None,
+    organization_id: Optional[int] = None,
+    first_name: Optional[str] = None,
+    last_name: Optional[str] = None,
+    email: Optional[str] = None,
+    phone: Optional[str] = None,
+    title: Optional[str] = None,
+    is_primary: bool = False,
+) -> Optional[Contact]:
+    """Get or create a contact, linking to account via individual_id or organization_id."""
+    async with async_get_session() as session:
+        try:
+            # Get account_id from individual or organization
+            account_id = None
+            if individual_id:
+                individual = await session.get(Individual, individual_id)
+                if individual:
+                    account_id = individual.account_id
+            elif organization_id:
+                org = await session.get(Organization, organization_id)
+                if org:
+                    account_id = org.account_id
+
+            # If contact_id provided, update existing
+            if contact_id:
+                contact = await session.get(Contact, contact_id)
+                if contact:
+                    if first_name:
+                        contact.first_name = first_name
+                    if last_name:
+                        contact.last_name = last_name
+                    if email:
+                        contact.email = email
+                    if phone:
+                        contact.phone = phone
+                    if title:
+                        contact.title = title
+                    contact.is_primary = is_primary
+                    await session.commit()
+                    await session.refresh(contact)
+                    return contact
+
+            # Try to find existing contact by email
+            if email:
+                stmt = select(Contact).where(func.lower(Contact.email) == email.lower())
+                result = await session.execute(stmt)
+                existing = result.scalar_one_or_none()
+                if existing:
+                    return existing
+
+            # Create new contact
+            contact = Contact(
+                first_name=first_name,
+                last_name=last_name,
+                email=email,
+                phone=phone,
+                title=title,
+                is_primary=is_primary,
+            )
+            session.add(contact)
+            await session.flush()
+
+            # Link to account if we have one
+            if account_id:
+                link = ContactAccount(
+                    contact_id=contact.id,
+                    account_id=account_id,
+                    is_primary=is_primary,
+                )
+                session.add(link)
+
+            await session.commit()
+            await session.refresh(contact)
+            return contact
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to get or create contact: {e}")
+            raise
+
+
+async def link_contact_to_account(
+    contact_id: int,
+    account_id: int,
+    is_primary: bool = False,
+) -> bool:
+    """Link a contact to an account via ContactAccount."""
+    async with async_get_session() as session:
+        try:
+            # Check if link already exists
+            stmt = select(ContactAccount).where(
+                ContactAccount.contact_id == contact_id,
+                ContactAccount.account_id == account_id
+            )
+            result = await session.execute(stmt)
+            if result.scalar_one_or_none():
+                return True  # Already linked
+
+            link = ContactAccount(
+                contact_id=contact_id,
+                account_id=account_id,
+                is_primary=is_primary,
+            )
+            session.add(link)
+            await session.commit()
+            return True
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to link contact to account: {e}")
+            raise
+
+
+async def find_contact_account_link(contact_id: int, account_id: int) -> bool:
+    """Check if a contact is linked to an account."""
+    async with async_get_session() as session:
+        stmt = select(ContactAccount).where(
+            ContactAccount.contact_id == contact_id,
+            ContactAccount.account_id == account_id
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
+
+async def find_other_contact_ids_for_account(account_id: int, exclude_contact_id: int) -> List[int]:
+    """Find contact IDs linked to an account, excluding a specific contact."""
+    async with async_get_session() as session:
+        stmt = select(ContactAccount.contact_id).where(
+            ContactAccount.account_id == account_id,
+            ContactAccount.contact_id != exclude_contact_id
+        )
+        result = await session.execute(stmt)
+        return [row[0] for row in result.fetchall()]
+
+
+async def clear_primary_contacts_for_account(account_id: int, exclude_contact_id: int) -> None:
+    """Clear is_primary flag for all contacts of an account except one."""
+    async with async_get_session() as session:
+        from sqlalchemy import update as sql_update
+        contact_ids = await find_other_contact_ids_for_account(account_id, exclude_contact_id)
+        if contact_ids:
+            stmt = sql_update(Contact).where(Contact.id.in_(contact_ids)).values(is_primary=False)
+            await session.execute(stmt)
+            await session.commit()
