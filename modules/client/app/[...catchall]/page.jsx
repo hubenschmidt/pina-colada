@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useUserContext } from "../../context/userContext";
 
@@ -19,7 +20,7 @@ const CatchAllPage = () => {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <p className="text-zinc-600">Redirecting...</p>
+      <Image src="/loading-icon.png" alt="Redirecting" width={200} height={200} priority />
     </div>
   );
 };

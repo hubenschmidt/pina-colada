@@ -115,7 +115,7 @@ async def _build_entity_url(taskable_type: str, taskable_id: int) -> Tuple[Optio
     """Build URL and lead_type for an entity. Returns (url, lead_type)."""
     url_map = {
         "Project": f"/projects/{taskable_id}",
-        "Deal": f"/deals/{taskable_id}",
+        "Deal": f"/leads/deals/{taskable_id}",
         "Individual": f"/accounts/individuals/{taskable_id}",
         "Organization": f"/accounts/organizations/{taskable_id}",
     }
@@ -213,7 +213,7 @@ async def batch_resolve_entity_display(tasks: List[Any]) -> Dict[Tuple[str, int]
     
     url_map = {
         "Project": lambda tid: f"/projects/{tid}",
-        "Deal": lambda tid: f"/deals/{tid}",
+        "Deal": lambda tid: f"/leads/deals/{tid}",
         "Individual": lambda tid: f"/accounts/individuals/{tid}",
         "Organization": lambda tid: f"/accounts/organizations/{tid}",
     }

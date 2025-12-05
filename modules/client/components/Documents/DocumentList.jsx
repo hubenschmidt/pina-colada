@@ -16,7 +16,7 @@ import {
   Anchor,
 } from "@mantine/core";
 import SearchBox from "../SearchBox/SearchBox";
-import { Download, Trash2, MoreVertical, FileText, Link2 } from "lucide-react";
+import { Download, Trash2, MoreVertical, Link2 } from "lucide-react";
 import { getDocuments, deleteDocument, downloadDocument, getTags } from "../../api";
 import { DataTable } from "../DataTable/DataTable";
 import { DeleteConfirmBanner } from "../DeleteConfirmBanner/DeleteConfirmBanner";
@@ -168,24 +168,19 @@ export const DocumentList = ({
       sortable: true,
       sortKey: "filename",
       render: (doc) => (
-        <Group gap="xs">
-          <FileText className="h-4 w-4 text-lime-600" />
-          <div>
-            <Group gap="xs">
-              <Text size="sm" fw={500}>
-                {doc.filename}
-              </Text>
+        <div>
+          <Group gap="xs">
+            <Text size="sm">{doc.filename}</Text>
               <Badge size="xs" variant="light" color="gray">
                 v{doc.version_number}
               </Badge>
-            </Group>
-            {doc.description && (
-              <Text size="xs" c="dimmed" lineClamp={1}>
-                {doc.description}
-              </Text>
-            )}
-          </div>
-        </Group>
+          </Group>
+          {doc.description && (
+            <Text size="xs" c="dimmed" lineClamp={1}>
+              {doc.description}
+            </Text>
+          )}
+        </div>
       ),
     },
     {
