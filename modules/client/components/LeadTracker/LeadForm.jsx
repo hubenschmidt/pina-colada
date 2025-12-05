@@ -50,34 +50,6 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     return value ?? "";
   };
 
-  // Parse Individual account name into first/last name
-  const parseIndividualAccount = (data) => {
-    if (data.account_type !== "Individual" || !data.account) {
-      return;
-    }
-
-    const parts = data.account.split(", ");
-    if (parts.length === 2) {
-      data.individual_last_name = parts[0];
-      data.individual_first_name = parts[1];
-      return;
-    }
-
-    data.individual_first_name = data.account;
-  };
-
-  // Update contact with individual field value
-  const updateContactWithIndividualField = (prevContacts, fieldName, value) => {
-    const newContacts = prevContacts.length > 0 ? [...prevContacts] : [emptyContact()];
-    if (fieldName === "individual_first_name") {
-      newContacts[0] = { ...newContacts[0], first_name: value };
-      return newContacts;
-    }
-    if (fieldName === "individual_last_name") {
-      newContacts[0] = { ...newContacts[0], last_name: value };
-    }
-    return newContacts;
-  };
 
   // Validate a single field
   const validateField = (field, value, errors) => {
@@ -136,8 +108,6 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
         const value = lead[field.name];
         data[field.name] = parseFieldValue(field, value);
       });
-      // Handle Individual account type - parse account into first/last name
-      parseIndividualAccount(data);
       setFormData(data);
       // Load contacts from lead if available
       const leadContacts = lead.contacts;
@@ -187,6 +157,14 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     current: formData,
   });
 
+  // Check if all required fields are complete (for create mode button styling)
+  const isFormComplete = config.fields
+    .filter((field) => field.required)
+    .every((field) => {
+      const value = formData[field.name];
+      return value && value !== "";
+    });
+
   const handleFieldChange = (fieldName, value) => {
     const field = config.fields.find((f) => f.name === fieldName);
 
@@ -198,23 +176,10 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     setFormData((prev) => {
       const newData = { ...prev, [fieldName]: processedValue };
 
-      // When account_type changes, clear account and individual fields
+      // When account_type changes, clear account and reset contacts
       if (fieldName === "account_type") {
         newData.account = "";
-        newData.individual_first_name = "";
-        newData.individual_last_name = "";
-        // Reset contacts when switching account type
         setContacts([]);
-      }
-
-      // When individual fields change and Account Type is Individual, auto-populate first contact
-      if (
-        (fieldName === "individual_first_name" || fieldName === "individual_last_name") &&
-        newData.account_type === "Individual"
-      ) {
-        setContacts((prevContacts) =>
-          updateContactWithIndividualField(prevContacts, fieldName, processedValue)
-        );
       }
 
       return newData;
@@ -268,29 +233,18 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     return `Failed to ${isEditMode ? "update" : "add"}. Please try again.`;
   };
 
-  const buildIndividualAccountName = (data) => {
-    if (data.account_type !== "Individual" || isEditMode) return undefined;
-    const lastName = data.individual_last_name || "";
-    const firstName = data.individual_first_name || "";
-    if (!lastName && !firstName) return undefined;
-    return `${lastName}, ${firstName}`.trim().replace(/^,\s*|,\s*$/g, "");
-  };
-
   const prepareSubmitData = (data) => {
     const submitData = { ...data };
 
-    const accountName = buildIndividualAccountName(submitData);
-    if (accountName) {
-      submitData.account = accountName;
+    // For Individual type, set contact_name from account (the selected individual's name)
+    if (submitData.account_type === "Individual" && !isEditMode && submitData.account) {
+      submitData.contact_name = submitData.account.trim();
     }
 
     const validContacts = contacts.filter((c) => c.first_name.trim() && c.last_name.trim());
     if (validContacts.length > 0) {
       submitData.contacts = validContacts;
     }
-
-    delete submitData.individual_first_name;
-    delete submitData.individual_last_name;
 
     return config.onBeforeSubmit ? config.onBeforeSubmit(submitData, isEditMode) : submitData;
   };
@@ -408,87 +362,6 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     const isAccountReadOnly = isEditMode && (isAccountField || isAccountTypeField);
     const readOnlyClasses = "bg-zinc-100 dark:bg-zinc-700 cursor-not-allowed opacity-75";
 
-    // If Individual is selected, render First Name instead of account field
-    if (isAccountField && accountType === "Individual") {
-      return (
-        <div className={field.gridColumn || ""} key="individual_first_name">
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            First Name {field.required && !isEditMode && <span className="text-red-500">*</span>}
-          </label>
-          <input
-            type="text"
-            value={formData.individual_first_name || ""}
-            onChange={(e) =>
-              !isEditMode && handleFieldChange("individual_first_name", e.target.value)
-            }
-            readOnly={isEditMode}
-            className={`w-full px-3 py-2 border ${
-              errors["individual_first_name"]
-                ? "border-red-500"
-                : "border-zinc-300 dark:border-zinc-700"
-            } rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
-              isEditMode ? readOnlyClasses : ""
-            }`}
-            placeholder="e.g., John"
-            required={field.required && !isEditMode}
-          />
-
-          {errors["individual_first_name"] && (
-            <p className="text-red-500 text-xs mt-1">{errors["individual_first_name"]}</p>
-          )}
-        </div>
-      );
-    }
-
-    // If Individual is selected, render Account Type followed by Last Name
-    if (isAccountTypeField && accountType === "Individual") {
-      return [
-        <div className={field.gridColumn || ""} key="account_type">
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            {field.label}
-          </label>
-          <select
-            value={formData.account_type || "Organization"}
-            onChange={(e) => !isEditMode && handleFieldChange("account_type", e.target.value)}
-            disabled={isEditMode}
-            className={`w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
-              isEditMode ? readOnlyClasses : ""
-            }`}>
-            {field.options?.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
-        </div>,
-        <div className={field.gridColumn || ""} key="individual_last_name">
-          <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-            Last Name {!isEditMode && <span className="text-red-500">*</span>}
-          </label>
-          <input
-            type="text"
-            value={formData.individual_last_name || ""}
-            onChange={(e) =>
-              !isEditMode && handleFieldChange("individual_last_name", e.target.value)
-            }
-            readOnly={isEditMode}
-            className={`w-full px-3 py-2 border ${
-              errors["individual_last_name"]
-                ? "border-red-500"
-                : "border-zinc-300 dark:border-zinc-700"
-            } rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 ${
-              isEditMode ? readOnlyClasses : ""
-            }`}
-            placeholder="e.g., Doe"
-            required={!isEditMode}
-          />
-
-          {errors["individual_last_name"] && (
-            <p className="text-red-500 text-xs mt-1">{errors["individual_last_name"]}</p>
-          )}
-        </div>,
-      ];
-    }
 
     const value = formData[field.name];
     const error = errors[String(field.name)];
@@ -497,10 +370,13 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
       error ? "border-red-500" : "border-zinc-300 dark:border-zinc-700"
     } rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100`;
 
+    // Dynamic label for account field based on account_type
+    const displayLabel = isAccountField ? accountType : field.label;
+
     const fieldWrapper = (content) => (
       <div className={field.gridColumn || ""} key={String(field.name)}>
         <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-          {field.label} {field.required && <span className="text-red-500">*</span>}
+          {displayLabel} {field.required && <span className="text-red-500">*</span>}
         </label>
         {content}
         {error && <p className="text-red-500 text-xs mt-1">{error}</p>}
@@ -658,10 +534,6 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     }));
   };
 
-  const isContactLocked = (_, index) => {
-    const accountType = formData["account_type"] || "Organization";
-    return accountType === "Individual" && index === 0;
-  };
 
   const formContent = (
     <form onSubmit={handleSubmit}>
@@ -686,7 +558,6 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
                     fields={contactFields}
                     emptyContact={emptyContact}
                     display={{ nameFields: ["first_name", "last_name"] }}
-                    isContactLocked={isContactLocked}
                     individualSearch={{
                       enabled: true,
                       onSearch: handleSearchContacts,
@@ -766,6 +637,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
           isSubmitting={isSubmitting}
           isDeleting={isDeleting}
           hasPendingChanges={hasPendingChanges}
+          isFormComplete={isFormComplete}
           onClose={onClose}
           onDelete={onDelete ? handleDelete : undefined}
           cancelButtonText={config.cancelButtonText}

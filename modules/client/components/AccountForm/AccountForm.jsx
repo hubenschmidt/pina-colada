@@ -109,6 +109,14 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
   const projectsChanged = JSON.stringify(originalProjectIds) !== JSON.stringify(currentProjectIds);
   const hasPendingChanges = formDataHasChanges || projectsChanged;
 
+  // Check if all required fields are complete (for create mode button styling)
+  const isFormComplete = config.fields
+    .filter((field) => field.required)
+    .every((field) => {
+      const value = formData[field.name];
+      return value && value !== "";
+    });
+
   const handleChange = (field, value) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
     if (errors[field]) {
@@ -625,6 +633,7 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
             isSubmitting={isSubmitting}
             isDeleting={isDeleting}
             hasPendingChanges={hasPendingChanges}
+            isFormComplete={isFormComplete}
             onClose={onClose}
             onDelete={onDelete ? handleDelete : undefined}
             variant="compact"

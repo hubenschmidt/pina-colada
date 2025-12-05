@@ -1,13 +1,20 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import LeadForm from "../../../../components/LeadTracker/LeadForm";
 import { useLeadFormConfig } from "../../../../components/LeadTracker/hooks/useLeadFormConfig";
+import { usePageLoading } from "../../../../context/pageLoadingContext";
 import { createPartnership } from "../../../../api";
 
 const NewPartnershipPage = () => {
   const router = useRouter();
   const formConfig = useLeadFormConfig("partnership");
+  const { dispatchPageLoading } = usePageLoading();
+
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+  }, [dispatchPageLoading]);
 
   const handleClose = () => {
     router.push("/leads/partnerships");

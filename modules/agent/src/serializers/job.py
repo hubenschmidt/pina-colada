@@ -25,17 +25,10 @@ def extract_company_from_orm(job) -> tuple[str, str]:
 
 
 def get_account_contacts(job) -> list:
-    """Get contacts from job's account (org or individual)."""
+    """Get contacts from job's account."""
     if not job.lead or not job.lead.account:
         return []
-
-    if job.lead.account.organizations:
-        return job.lead.account.organizations[0].contacts or []
-
-    if job.lead.account.individuals:
-        return job.lead.account.individuals[0].contacts or []
-
-    return []
+    return job.lead.account.contacts or []
 
 
 def get_salary_info(job, job_dict: dict) -> tuple[Optional[str], Optional[int]]:

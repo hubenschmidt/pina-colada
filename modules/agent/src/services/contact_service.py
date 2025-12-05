@@ -22,6 +22,11 @@ __all__ = ["ContactCreate", "ContactUpdate"]
 logger = logging.getLogger(__name__)
 
 
+def _empty_to_none(value: Optional[str]) -> Optional[str]:
+    """Convert empty string to None."""
+    return None if value == "" else value
+
+
 async def get_contacts_paginated(
     page: int,
     page_size: int,
@@ -65,11 +70,11 @@ async def create_contact(
         contact = Contact(
             first_name=contact_data.get("first_name"),
             last_name=contact_data.get("last_name"),
-            email=contact_data.get("email"),
-            phone=contact_data.get("phone"),
-            title=contact_data.get("title"),
-            department=contact_data.get("department"),
-            role=contact_data.get("role"),
+            email=_empty_to_none(contact_data.get("email")),
+            phone=_empty_to_none(contact_data.get("phone")),
+            title=_empty_to_none(contact_data.get("title")),
+            department=_empty_to_none(contact_data.get("department")),
+            role=_empty_to_none(contact_data.get("role")),
             notes=contact_data.get("notes"),
             is_primary=contact_data.get("is_primary", False),
             created_by=user_id,
@@ -104,9 +109,11 @@ async def update_contact(
         if not contact:
             raise HTTPException(status_code=404, detail="Contact not found")
 
-        for field in ["first_name", "last_name", "email", "phone", "title", "department", "role", "notes", "is_primary"]:
-            if contact_data.get(field) is not None:
-                setattr(contact, field, contact_data[field])
+        sanitize_fields = {"email", "phone", "title", "department", "role"}
+        updateable_fields = ["first_name", "last_name", "email", "phone", "title", "department", "role", "notes", "is_primary"]
+        for field in (f for f in updateable_fields if f in contact_data):
+            value = _empty_to_none(contact_data[field]) if field in sanitize_fields else contact_data[field]
+            setattr(contact, field, value)
 
         contact.updated_by = user_id
 

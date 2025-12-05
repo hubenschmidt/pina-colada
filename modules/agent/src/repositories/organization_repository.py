@@ -140,24 +140,13 @@ async def create_organization(data: Dict[str, Any]) -> Organization:
             org = Organization(**data)
             session.add(org)
             await session.commit()
-            # Re-fetch with relationships loaded
-            stmt = (
-                select(Organization)
-                .options(
-                    selectinload(Organization.account).selectinload(Account.industries),
-                    selectinload(Organization.account).selectinload(Account.projects),
-                    selectinload(Organization.employee_count_range),
-                    selectinload(Organization.funding_stage),
-                    selectinload(Organization.revenue_range),
-                )
-                .where(Organization.id == org.id)
-            )
-            result = await session.execute(stmt)
-            return result.scalar_one()
+            org_id = org.id
         except Exception as e:
             await session.rollback()
             logger.error(f"Failed to create organization: {e}")
             raise
+    # Re-fetch with full relationships using find_organization_by_id
+    return await find_organization_by_id(org_id)
 
 
 async def get_or_create_organization(

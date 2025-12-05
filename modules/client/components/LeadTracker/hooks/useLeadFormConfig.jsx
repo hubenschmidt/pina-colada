@@ -15,12 +15,15 @@ import IndustrySelector from "../../AccountForm/IndustrySelector";
 // Type guard for Organization vs Individual
 const isOrganization = (item) => "name" in item && !("first_name" in item);
 
-// Account Search/Autocomplete Component for Organizations
+// Account Search/Autocomplete Component for Organizations and Individuals
 const AccountSelector = ({ value, onChange, accountType = "Organization", readOnly = false }) => {
   const [query, setQuery] = useState(value || "");
   const [results, setResults] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showNewIndividual, setShowNewIndividual] = useState(false);
+  const [newFirstName, setNewFirstName] = useState("");
+  const [newLastName, setNewLastName] = useState("");
   const dropdownId = useId();
 
   const searchFn = accountType === "Organization" ? searchOrganizations : searchIndividuals;
@@ -51,6 +54,13 @@ const AccountSelector = ({ value, onChange, accountType = "Organization", readOn
     setQuery(value || "");
   }, [value]);
 
+  // Reset new individual form when account type changes
+  useEffect(() => {
+    setShowNewIndividual(false);
+    setNewFirstName("");
+    setNewLastName("");
+  }, [accountType]);
+
   useEffect(() => {
     const handleClickOutside = (event) => {
       const dropdown = document.getElementById(dropdownId);
@@ -75,6 +85,18 @@ const AccountSelector = ({ value, onChange, accountType = "Organization", readOn
     onChange(displayName);
     setIsOpen(false);
     setResults([]);
+    setShowNewIndividual(false);
+  };
+
+  const handleAddNewIndividual = () => {
+    if (!newFirstName.trim() || !newLastName.trim()) return;
+    const fullName = `${newFirstName.trim()} ${newLastName.trim()}`;
+    setQuery(fullName);
+    onChange(fullName);
+    setIsOpen(false);
+    setShowNewIndividual(false);
+    setNewFirstName("");
+    setNewLastName("");
   };
 
   const getDisplayName = (item) => {
@@ -140,11 +162,70 @@ const AccountSelector = ({ value, onChange, accountType = "Organization", readOn
               )}
             </button>
           ))}
+          {accountType === "Individual" && (
+            <button
+              type="button"
+              onClick={() => setShowNewIndividual(true)}
+              className="w-full px-3 py-2 text-left hover:bg-zinc-100 dark:hover:bg-zinc-700 border-t border-zinc-200 dark:border-zinc-600 text-lime-600 dark:text-lime-400 font-medium">
+              + Add new individual...
+            </button>
+          )}
         </div>
       )}
-      {isOpen && query.length >= 2 && results.length === 0 && !loading && (
+      {isOpen && query.length >= 2 && results.length === 0 && !loading && accountType === "Organization" && (
         <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg p-3 text-sm text-zinc-500 dark:text-zinc-400">
-          No existing {accountType.toLowerCase()}s found. A new one will be created.
+          No existing organizations found. A new one will be created.
+        </div>
+      )}
+      {isOpen && query.length >= 2 && results.length === 0 && !loading && accountType === "Individual" && (
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg p-3">
+          <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">No existing individuals found.</div>
+          <button
+            type="button"
+            onClick={() => setShowNewIndividual(true)}
+            className="text-lime-600 dark:text-lime-400 font-medium text-sm hover:underline">
+            + Add new individual...
+          </button>
+        </div>
+      )}
+      {showNewIndividual && (
+        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg p-3">
+          <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Add New Individual</div>
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              value={newFirstName}
+              onChange={(e) => setNewFirstName(e.target.value)}
+              placeholder="First name"
+              className="flex-1 px-2 py-1 border border-zinc-300 dark:border-zinc-600 rounded text-sm bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
+            />
+            <input
+              type="text"
+              value={newLastName}
+              onChange={(e) => setNewLastName(e.target.value)}
+              placeholder="Last name"
+              className="flex-1 px-2 py-1 border border-zinc-300 dark:border-zinc-600 rounded text-sm bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100"
+            />
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleAddNewIndividual}
+              disabled={!newFirstName.trim() || !newLastName.trim()}
+              className="px-3 py-1 bg-lime-500 text-white rounded text-sm hover:bg-lime-600 disabled:opacity-50 disabled:cursor-not-allowed">
+              Add
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowNewIndividual(false);
+                setNewFirstName("");
+                setNewLastName("");
+              }}
+              className="px-3 py-1 text-zinc-600 dark:text-zinc-400 text-sm hover:underline">
+              Cancel
+            </button>
+          </div>
         </div>
       )}
     </div>
@@ -536,20 +617,8 @@ const getJobFormConfig = (selectedProjectId) => ({
     const accountType = formData.account_type || "Organization";
 
     // Account (Organization or Individual) is required
-    if (accountType === "Individual") {
-      // For Individual, require first and last name
-      if (!formData.individual_first_name || formData.individual_first_name.trim() === "") {
-        errors.individual_first_name = "First Name is required";
-      }
-      if (!formData.individual_last_name || formData.individual_last_name.trim() === "") {
-        errors.individual_last_name = "Last Name is required";
-      }
-      return errors;
-    }
-
-    // For Organization, require account field
     if (!formData.account || formData.account.trim() === "") {
-      errors.account = "Organization is required";
+      errors.account = accountType === "Individual" ? "Individual is required" : "Organization is required";
     }
 
     if (!formData.job_title) {
@@ -716,18 +785,9 @@ const getOpportunityFormConfig = (selectedProjectId) => ({
     const errors = {};
     const accountType = formData.account_type || "Organization";
 
-    if (accountType === "Individual") {
-      if (!formData.individual_first_name || formData.individual_first_name.trim() === "") {
-        errors.individual_first_name = "First Name is required";
-      }
-      if (!formData.individual_last_name || formData.individual_last_name.trim() === "") {
-        errors.individual_last_name = "Last Name is required";
-      }
-      return errors;
-    }
-
+    // Account (Organization or Individual) is required
     if (!formData.account || formData.account.trim() === "") {
-      errors.account = "Organization is required";
+      errors.account = accountType === "Individual" ? "Individual is required" : "Organization is required";
     }
 
     if (!formData.title) {
@@ -903,18 +963,9 @@ const getPartnershipFormConfig = (selectedProjectId) => ({
     const errors = {};
     const accountType = formData.account_type || "Organization";
 
-    if (accountType === "Individual") {
-      if (!formData.individual_first_name || formData.individual_first_name.trim() === "") {
-        errors.individual_first_name = "First Name is required";
-      }
-      if (!formData.individual_last_name || formData.individual_last_name.trim() === "") {
-        errors.individual_last_name = "Last Name is required";
-      }
-      return errors;
-    }
-
+    // Account (Organization or Individual) is required
     if (!formData.account || formData.account.trim() === "") {
-      errors.account = "Organization is required";
+      errors.account = accountType === "Individual" ? "Individual is required" : "Organization is required";
     }
 
     if (!formData.title) {

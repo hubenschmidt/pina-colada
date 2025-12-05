@@ -22,30 +22,15 @@ def get_account_contacts(partnership) -> list:
     """Get contacts from partnership's account."""
     if not partnership.lead or not partnership.lead.account:
         return []
-
-    if partnership.lead.account.organizations:
-        return partnership.lead.account.organizations[0].contacts or []
-
-    if partnership.lead.account.individuals:
-        return partnership.lead.account.individuals[0].contacts or []
-
-    return []
+    return partnership.lead.account.contacts or []
 
 
 def build_contact_dict(contact) -> dict:
     """Build contact dictionary from ORM contact."""
-    first_name = contact.first_name or ""
-    last_name = contact.last_name or ""
-
-    if not first_name and contact.individuals:
-        first_name = contact.individuals[0].first_name or ""
-    if not last_name and contact.individuals:
-        last_name = contact.individuals[0].last_name or ""
-
     return {
         "id": contact.id,
-        "first_name": first_name,
-        "last_name": last_name,
+        "first_name": contact.first_name or "",
+        "last_name": contact.last_name or "",
         "email": contact.email or "",
         "phone": contact.phone or "",
         "title": contact.title,

@@ -83,11 +83,21 @@ async def find_contact_by_id(contact_id: int) -> Optional[Contact]:
         return result.scalar_one_or_none()
 
 
+def _sanitize_contact_data(data: Dict[str, Any]) -> Dict[str, Any]:
+    """Convert empty strings to None for fields with format constraints."""
+    sanitized = data.copy()
+    for field in ["phone", "email", "title", "department", "role"]:
+        if field in sanitized and sanitized[field] == "":
+            sanitized[field] = None
+    return sanitized
+
+
 async def create_contact(data: Dict[str, Any]) -> Contact:
     """Create a new contact record."""
     async with async_get_session() as session:
         try:
-            contact = Contact(**data)
+            sanitized = _sanitize_contact_data(data)
+            contact = Contact(**sanitized)
             session.add(contact)
             await session.commit()
             await session.refresh(contact)
@@ -106,7 +116,8 @@ async def update_contact(contact_id: int, data: Dict[str, Any]) -> Optional[Cont
             if not contact:
                 return None
 
-            for key, value in data.items():
+            sanitized = _sanitize_contact_data(data)
+            for key, value in sanitized.items():
                 if hasattr(contact, key):
                     setattr(contact, key, value)
 

@@ -7,6 +7,7 @@ const FormActions = ({
   isSubmitting,
   isDeleting = false,
   hasPendingChanges = false,
+  isFormComplete = false,
   onClose,
   onDelete,
   submitButtonText,
@@ -25,13 +26,16 @@ const FormActions = ({
     return isEditMode ? "Save" : "Create";
   };
 
+  // Green when: edit mode with pending changes, OR create mode with form complete
+  const showGreen = isEditMode ? hasPendingChanges : isFormComplete;
+
   return (
     <div className={`flex gap-3 ${marginTop}`}>
       <button
         type="submit"
         disabled={isSubmitting}
         className={`flex items-center gap-2 px-6 ${paddingY} ${rounded} font-semibold disabled:opacity-50 disabled:cursor-not-allowed ${
-          hasPendingChanges
+          showGreen
             ? "bg-lime-600 text-white border border-lime-600 hover:bg-lime-700"
             : "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-700"
         }`}>
