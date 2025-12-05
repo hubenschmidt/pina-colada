@@ -108,8 +108,6 @@ def opportunity_to_detail_response(opp) -> Dict[str, Any]:
     if opp.lead and opp.lead.current_status:
         status = opp.lead.current_status.name
 
-    created_at = opp_dict.get("created_at", "")
-
     project_ids = []
     if opp.lead and opp.lead.projects:
         project_ids = [p.id for p in opp.lead.projects]
@@ -127,7 +125,7 @@ def opportunity_to_detail_response(opp) -> Dict[str, Any]:
         "description": opp_dict.get("description"),
         "status": status,
         "source": lead.get("source", "manual"),
-        "created_at": format_datetime(created_at),
+        "created_at": format_datetime(opp_dict.get("created_at")),
         "updated_at": format_datetime(opp_dict.get("updated_at")),
         "contacts": contacts,
         "industry": get_industries(opp),

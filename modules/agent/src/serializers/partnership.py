@@ -109,8 +109,6 @@ def partnership_to_detail_response(partnership) -> Dict[str, Any]:
     if partnership.lead and partnership.lead.current_status:
         status = partnership.lead.current_status.name
 
-    created_at = p_dict.get("created_at", "")
-
     project_ids = []
     if partnership.lead and partnership.lead.projects:
         project_ids = [p.id for p in partnership.lead.projects]
@@ -129,7 +127,7 @@ def partnership_to_detail_response(partnership) -> Dict[str, Any]:
         "description": p_dict.get("description"),
         "status": status,
         "source": lead.get("source", "manual"),
-        "created_at": format_datetime(created_at),
+        "created_at": format_datetime(p_dict.get("created_at")),
         "updated_at": format_datetime(p_dict.get("updated_at")),
         "contacts": contacts,
         "industry": get_industries(partnership),

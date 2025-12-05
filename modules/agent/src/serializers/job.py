@@ -72,7 +72,6 @@ def job_to_list_response(job) -> Dict[str, Any]:
     """Convert job ORM to response dictionary - optimized for list/table view."""
     company, _ = extract_company_from_orm(job)
     status = get_status_name(job)
-    created_at = job.lead.created_at if job.lead else None
 
     return {
         "id": str(job.id),
@@ -83,10 +82,10 @@ def job_to_list_response(job) -> Dict[str, Any]:
         "resume": format_datetime(job.resume_date),
         "formatted_resume_date": format_display_date(job.resume_date),
         "job_url": job.job_url,
-        "created_at": format_datetime(created_at),
-        "formatted_created_at": format_display_date(created_at),
-        "updated_at": format_datetime(job.lead.updated_at if job.lead else None),
-        "formatted_updated_at": format_display_date(job.lead.updated_at if job.lead else None),
+        "created_at": format_datetime(job.created_at),
+        "formatted_created_at": format_display_date(job.created_at),
+        "updated_at": format_datetime(job.updated_at),
+        "formatted_updated_at": format_display_date(job.updated_at),
     }
 
 
@@ -94,7 +93,6 @@ def job_to_detail_response(job) -> Dict[str, Any]:
     """Convert job ORM to full response dictionary - for detail/edit views."""
     company, company_type = extract_company_from_orm(job)
     status = get_status_name(job)
-    created_at = job.lead.created_at if job.lead else None
     salary_range, salary_range_id = get_salary_info(job, {})
     project_ids = get_project_ids(job)
     contacts = [contact_to_dict(c) for c in get_account_contacts(job)]
@@ -105,8 +103,8 @@ def job_to_detail_response(job) -> Dict[str, Any]:
         "account": company,
         "account_type": company_type,
         "job_title": job.job_title or "",
-        "date": format_date(created_at),
-        "formatted_date": format_display_date(created_at),
+        "date": format_date(job.created_at),
+        "formatted_date": format_display_date(job.created_at),
         "status": status,
         "job_url": job.job_url,
         "salary_range": salary_range,
@@ -115,8 +113,8 @@ def job_to_detail_response(job) -> Dict[str, Any]:
         "resume": format_datetime(job.resume_date),
         "formatted_resume_date": format_display_date(job.resume_date),
         "source": job.lead.source if job.lead else "manual",
-        "created_at": format_datetime(created_at),
-        "updated_at": format_datetime(job.lead.updated_at if job.lead else None),
+        "created_at": format_datetime(job.created_at),
+        "updated_at": format_datetime(job.updated_at),
         "contacts": contacts,
         "industry": industry,
         "project_ids": project_ids,

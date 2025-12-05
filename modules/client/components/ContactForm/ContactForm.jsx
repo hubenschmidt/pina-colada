@@ -1,15 +1,40 @@
 "use client";
 
-import { useState } from "react";
-import { createNote } from "../../api";
+import { useState, useEffect } from "react";
+import { createNote, searchAccounts } from "../../api";
 import { formatPhoneNumber } from "../../lib/phone";
 import FormActions from "../FormActions/FormActions";
 import NotesSection from "../NotesSection/NotesSection";
 import Timestamps from "../Timestamps/Timestamps";
 import { usePendingChanges } from "../../hooks/usePendingChanges";
+import { Building2, User, Plus, X } from "lucide-react";
 
 const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
   const isEditMode = !!contact;
+
+  // Build initial linked accounts from contact's individuals and organizations
+  const getInitialLinkedAccounts = () => {
+    const accounts = [];
+    if (contact?.individuals) {
+      contact.individuals.forEach((ind) => {
+        accounts.push({
+          id: ind.id,
+          name: `${ind.first_name} ${ind.last_name}`.trim(),
+          type: "individual",
+        });
+      });
+    }
+    if (contact?.organizations) {
+      contact.organizations.forEach((org) => {
+        accounts.push({
+          id: org.id,
+          name: org.name,
+          type: "organization",
+        });
+      });
+    }
+    return accounts;
+  };
 
   const [formData, setFormData] = useState({
     first_name: contact?.first_name || "",
@@ -22,10 +47,40 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
     notes: contact?.notes || "",
   });
 
+  const [linkedAccounts, setLinkedAccounts] = useState(getInitialLinkedAccounts);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [error, setError] = useState(null);
   const [pendingNotes, setPendingNotes] = useState([]);
+  const [showAccountSearch, setShowAccountSearch] = useState(false);
+  const [accountSearchQuery, setAccountSearchQuery] = useState("");
+  const [accountSearchResults, setAccountSearchResults] = useState([]);
+  const [isSearchingAccounts, setIsSearchingAccounts] = useState(false);
+
+  // Debounced account search
+  useEffect(() => {
+    if (accountSearchQuery.length < 2) {
+      setAccountSearchResults([]);
+      return;
+    }
+
+    setIsSearchingAccounts(true);
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchAccounts(accountSearchQuery);
+        // Filter out already linked accounts
+        const linkedIds = new Set(linkedAccounts.map((a) => `${a.type}-${a.id}`));
+        setAccountSearchResults(results.filter((r) => !linkedIds.has(`${r.type}-${r.id}`)));
+      } catch {
+        setAccountSearchResults([]);
+      } finally {
+        setIsSearchingAccounts(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [accountSearchQuery, linkedAccounts]);
 
   const hasPendingChanges = usePendingChanges({
     original: contact,
@@ -47,7 +102,13 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
     setIsSubmitting(true);
     setError(null);
     try {
-      const savedContact = await onSave(formData);
+      // Build save data with linked account IDs
+      const saveData = {
+        ...formData,
+        individual_ids: linkedAccounts.filter((a) => a.type === "individual").map((a) => a.id),
+        organization_ids: linkedAccounts.filter((a) => a.type === "organization").map((a) => a.id),
+      };
+      const savedContact = await onSave(saveData);
       // Create pending notes after contact is created
       if (!isEditMode && savedContact && pendingNotes.length > 0) {
         for (const noteContent of pendingNotes) {
@@ -59,6 +120,21 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleAddAccount = (account) => {
+    setLinkedAccounts([...linkedAccounts, {
+      id: account.id,
+      name: account.name,
+      type: account.type,
+    }]);
+    setAccountSearchQuery("");
+    setAccountSearchResults([]);
+    setShowAccountSearch(false);
+  };
+
+  const handleRemoveAccount = (index) => {
+    setLinkedAccounts(linkedAccounts.filter((_, i) => i !== index));
   };
 
   const handleDelete = async () => {
@@ -111,16 +187,104 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
           </div>
         </div>
 
-        {isEditMode && contact?.organizations && contact.organizations.length > 0 && (
-          <div>
-            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-1">
-              Account
+        {/* Linked Accounts Section */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Linked Accounts
             </label>
-            <div className="w-full px-3 py-2 border border-zinc-200 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300">
-              {contact.organizations.map((org) => org.name).join(", ")}
-            </div>
+            {!showAccountSearch && (
+              <button
+                type="button"
+                onClick={() => setShowAccountSearch(true)}
+                className="flex items-center gap-1 text-sm text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300">
+                <Plus size={16} />
+                Link Account
+              </button>
+            )}
           </div>
-        )}
+
+          {showAccountSearch && (
+            <div className="mb-3 p-3 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
+              <div className="relative">
+                <input
+                  type="text"
+                  value={accountSearchQuery}
+                  onChange={(e) => setAccountSearchQuery(e.target.value)}
+                  className={inputClasses}
+                  placeholder="Search accounts by name..."
+                  autoFocus
+                />
+                {accountSearchResults.length > 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg max-h-48 overflow-auto">
+                    {accountSearchResults.map((result) => (
+                      <button
+                        key={`${result.type}-${result.id}`}
+                        type="button"
+                        onClick={() => handleAddAccount(result)}
+                        className="w-full text-left px-3 py-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                        {result.type === "organization" ? (
+                          <Building2 size={14} className="text-zinc-400 flex-shrink-0" />
+                        ) : (
+                          <User size={14} className="text-zinc-400 flex-shrink-0" />
+                        )}
+                        <span className="flex-1">{result.name}</span>
+                        <span className="text-xs text-zinc-400 capitalize">{result.type}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {isSearchingAccounts && (
+                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded p-2 text-zinc-500">
+                    Searching...
+                  </div>
+                )}
+                {!isSearchingAccounts && accountSearchQuery.length >= 2 && accountSearchResults.length === 0 && (
+                  <div className="absolute z-10 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded p-2 text-zinc-500">
+                    No accounts found
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAccountSearch(false);
+                  setAccountSearchQuery("");
+                  setAccountSearchResults([]);
+                }}
+                className="mt-2 px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-300 dark:hover:bg-zinc-600">
+                Cancel
+              </button>
+            </div>
+          )}
+
+          {linkedAccounts.length > 0 ? (
+            <div className="space-y-2">
+              {linkedAccounts.map((account, index) => (
+                <div
+                  key={`${account.type}-${account.id}`}
+                  className="flex items-center gap-2 p-2 border border-zinc-200 dark:border-zinc-700 rounded">
+                  {account.type === "organization" ? (
+                    <Building2 size={14} className="text-zinc-500" />
+                  ) : (
+                    <User size={14} className="text-zinc-500" />
+                  )}
+                  <span className="text-sm text-zinc-900 dark:text-zinc-100 flex-1">{account.name}</span>
+                  <span className="text-xs text-zinc-400 capitalize">{account.type}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveAccount(index)}
+                    className="text-zinc-400 hover:text-red-500"
+                    title="Remove">
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">No accounts linked yet.</p>
+          )}
+        </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>

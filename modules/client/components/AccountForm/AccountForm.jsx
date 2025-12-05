@@ -392,9 +392,8 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
 
   const handleSearchRelationships = async (query) => {
     const results = await searchAccounts(query);
-    console.log("searchAccounts raw results:", results);
     // Filter out self (can't add relationship to yourself)
-    const mapped = results
+    return results
       .filter((r) => r.account_id !== account?.account_id)
       .map((r) => ({
         id: r.id,
@@ -402,17 +401,12 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
         name: r.name,
         type: r.type,
       }));
-    console.log("mapped results:", mapped);
-    return mapped;
   };
 
   const handleAddRelationship = async (relationship) => {
-    console.log("handleAddRelationship called with:", relationship);
-    console.log("Current account:", account);
     if (isEditMode && account?.account_id) {
       // In edit mode, persist the relationship via Account API
       try {
-        console.log("Creating relationship:", { from: account.account_id, to: relationship.account_id });
         const relResponse = await createAccountRelationship(account.account_id, {
           to_account_id: relationship.account_id,
         });
