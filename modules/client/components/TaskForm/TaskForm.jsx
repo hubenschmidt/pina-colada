@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Badge, Group } from "@mantine/core";
 import { FolderKanban } from "lucide-react";
 
@@ -8,6 +8,7 @@ import FormActions from "../FormActions/FormActions";
 import Timestamps from "../Timestamps/Timestamps";
 import CommentsSection from "../CommentsSection/CommentsSection";
 import { usePendingChanges } from "../../hooks/usePendingChanges";
+import { useDebounce, DEBOUNCE_MS } from "../../hooks/useDebounce";
 import {
   getTaskStatuses,
   getTaskPriorities,
@@ -106,30 +107,27 @@ const TaskForm = ({ onClose, onAdd, task, onUpdate, onDelete, selectedProject })
     current: formData,
   });
 
-  // Search for entities when typing
-  useEffect(() => {
-    if (!entityType || !entitySearch.trim() || entitySearch.length < 2) {
-      setEntityOptions([]);
-      return;
-    }
-
-    const searchEntities = async () => {
+  const performEntitySearch = useCallback(
+    async (type, query) => {
+      if (!type || !query.trim() || query.length < 2) {
+        setEntityOptions([]);
+        return;
+      }
       setIsSearching(true);
       try {
         let results = [];
-        if (entityType === "Account") {
-          const accounts = await searchAccounts(entitySearch);
+        if (type === "Account") {
+          const accounts = await searchAccounts(query);
           results = accounts.map((a) => ({
             id: a.id,
             name: a.name,
             type: a.type,
           }));
-        } else if (entityType === "Lead") {
-          // Fetch all lead types and filter client-side
+        } else if (type === "Lead") {
           const [jobs, opportunities, partnerships] = await Promise.all([
-            getJobs(1, 50, "title", "ASC", entitySearch).catch(() => ({ items: [] })),
-            getOpportunities(1, 50, "title", "ASC", entitySearch).catch(() => ({ items: [] })),
-            getPartnerships(1, 50, "title", "ASC", entitySearch).catch(() => ({ items: [] })),
+            getJobs(1, 50, "title", "ASC", query).catch(() => ({ items: [] })),
+            getOpportunities(1, 50, "title", "ASC", query).catch(() => ({ items: [] })),
+            getPartnerships(1, 50, "title", "ASC", query).catch(() => ({ items: [] })),
           ]);
           results = [
             ...(jobs.items || []).map((j) => ({ id: j.id, name: j.title, type: "Job" })),
@@ -152,11 +150,20 @@ const TaskForm = ({ onClose, onAdd, task, onUpdate, onDelete, selectedProject })
       } finally {
         setIsSearching(false);
       }
-    };
+    },
+    []
+  );
 
-    const debounce = setTimeout(searchEntities, 300);
-    return () => clearTimeout(debounce);
-  }, [entityType, entitySearch]);
+  const debouncedEntitySearch = useDebounce(performEntitySearch, DEBOUNCE_MS.SEARCH);
+
+  // Trigger search when entityType or entitySearch changes
+  useEffect(() => {
+    if (!entityType || !entitySearch.trim() || entitySearch.length < 2) {
+      setEntityOptions([]);
+      return;
+    }
+    debouncedEntitySearch(entityType, entitySearch);
+  }, [entityType, entitySearch, debouncedEntitySearch]);
 
   const handleFieldChange = (name, value) => {
     setFormData((prev) => ({ ...prev, [name]: value }));

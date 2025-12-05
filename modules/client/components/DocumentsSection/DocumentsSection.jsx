@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { Trash2, Download, Plus, Upload } from "lucide-react";
 import { Collapse } from "@mantine/core";
@@ -13,6 +13,7 @@ import {
 } from "../../api";
 import { DocumentUpload } from "../Documents/DocumentUpload";
 import { useRouter } from "next/navigation";
+import { useDebounce, DEBOUNCE_MS } from "../../hooks/useDebounce";
 
 const DocumentsSection = ({
   entityType,
@@ -64,31 +65,44 @@ const DocumentsSection = ({
     }
   };
 
-  const handleSearchDocuments = async (query) => {
+  const performDocumentSearch = useCallback(
+    async (query) => {
+      if (!query.trim()) {
+        setSearchResults([]);
+        return;
+      }
+      setIsSearching(true);
+      try {
+        const pageData = await getDocuments(
+          1,
+          20, // Limit search results
+          "updated_at",
+          "DESC",
+          query.trim()
+        );
+        // Filter out already linked documents
+        const linkedIds = new Set(
+          isCreateMode ? pendingDocumentIds || [] : documents.map((d) => d.id)
+        );
+        setSearchResults((pageData.items || []).filter((d) => !linkedIds.has(d.id)));
+      } catch (err) {
+        console.error("Failed to search documents:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    },
+    [isCreateMode, pendingDocumentIds, documents]
+  );
+
+  const debouncedDocumentSearch = useDebounce(performDocumentSearch, DEBOUNCE_MS.SEARCH);
+
+  const handleSearchChange = (query) => {
+    setSearchQuery(query);
     if (!query.trim()) {
       setSearchResults([]);
       return;
     }
-
-    setIsSearching(true);
-    try {
-      const pageData = await getDocuments(
-        1,
-        20, // Limit search results
-        "updated_at",
-        "DESC",
-        query.trim()
-      );
-      // Filter out already linked documents
-      const linkedIds = new Set(
-        isCreateMode ? pendingDocumentIds || [] : documents.map((d) => d.id)
-      );
-      setSearchResults((pageData.items || []).filter((d) => !linkedIds.has(d.id)));
-    } catch (err) {
-      console.error("Failed to search documents:", err);
-    } finally {
-      setIsSearching(false);
-    }
+    debouncedDocumentSearch(query);
   };
 
   const handleLinkDocument = async (documentId) => {
@@ -298,17 +312,6 @@ const DocumentsSection = ({
     </div>
   );
 
-  // Typeahead search with debounce
-  useEffect(() => {
-    if (!showLinkForm || !searchQuery.trim()) {
-      if (!searchQuery.trim()) setSearchResults([]);
-      return;
-    }
-    const debounce = setTimeout(() => {
-      handleSearchDocuments(searchQuery);
-    }, 300);
-    return () => clearTimeout(debounce);
-  }, [searchQuery, showLinkForm]);
 
   const renderLinkForm = () => (
     <div className="mb-4 p-4 border border-zinc-200 dark:border-zinc-700 rounded-lg bg-zinc-50 dark:bg-zinc-800/50">
@@ -316,7 +319,7 @@ const DocumentsSection = ({
         <input
           type="text"
           value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();

@@ -6,7 +6,7 @@ import {
   getSalaryRanges,
 } from "../../../api";
 import { useState, useEffect, useCallback, useId, useContext } from "react";
-import { debounce } from "../../../lib/debounce";
+import { useDebounce, DEBOUNCE_MS } from "../../../hooks/useDebounce";
 import { ProjectContext } from "../../../context/projectContext";
 import { useLookupsContext } from "../../../context/lookupsContext";
 import { fetchOnce } from "../../../lib/lookup-cache";
@@ -28,9 +28,8 @@ const AccountSelector = ({ value, onChange, accountType = "Organization", readOn
 
   const searchFn = accountType === "Organization" ? searchOrganizations : searchIndividuals;
 
-  // Debounced search
-  const searchDebounced = useCallback(
-    debounce(async (searchQuery) => {
+  const performSearch = useCallback(
+    async (searchQuery) => {
       if (!searchQuery || searchQuery.length < 2) {
         setResults([]);
         return;
@@ -46,9 +45,11 @@ const AccountSelector = ({ value, onChange, accountType = "Organization", readOn
       } finally {
         setLoading(false);
       }
-    }, 300),
+    },
     [searchFn]
   );
+
+  const searchDebounced = useDebounce(performSearch, DEBOUNCE_MS.SEARCH);
 
   useEffect(() => {
     setQuery(value || "");

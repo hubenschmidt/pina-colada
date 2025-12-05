@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { Building2, User, Plus, X } from "lucide-react";
+import { useDebounce, DEBOUNCE_MS } from "../../hooks/useDebounce";
 
 const RelationshipsSection = ({
   relationships,
@@ -20,17 +21,15 @@ const RelationshipsSection = ({
   const inputClasses =
     "w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100";
 
-  // Debounced search effect
-  useEffect(() => {
-    if (!onSearch || searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    setIsSearching(true);
-    const timer = setTimeout(async () => {
+  const performSearch = useCallback(
+    async (query) => {
+      if (!onSearch || query.length < 2) {
+        setSearchResults([]);
+        return;
+      }
+      setIsSearching(true);
       try {
-        const results = await onSearch(searchQuery);
+        const results = await onSearch(query);
         const existingIds = new Set(relationships.map((r) => r.id));
         setSearchResults(results.filter((r) => !existingIds.has(r.id)));
       } catch {
@@ -38,10 +37,20 @@ const RelationshipsSection = ({
       } finally {
         setIsSearching(false);
       }
-    }, 300);
+    },
+    [onSearch, relationships]
+  );
 
-    return () => clearTimeout(timer);
-  }, [searchQuery, onSearch, relationships]);
+  const debouncedSearch = useDebounce(performSearch, DEBOUNCE_MS.SEARCH);
+
+  const handleSearchChange = (query) => {
+    setSearchQuery(query);
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    debouncedSearch(query);
+  };
 
   const handleSelect = (result) => {
     if (!onAdd) return;
@@ -93,7 +102,7 @@ const RelationshipsSection = ({
             <input
               type="text"
               value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className={inputClasses}
               placeholder={`Search by name...`}
               autoFocus

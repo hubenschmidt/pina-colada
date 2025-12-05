@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { createNote, searchAccounts } from "../../api";
 import { formatPhoneNumber } from "../../lib/phone";
 import FormActions from "../FormActions/FormActions";
 import NotesSection from "../NotesSection/NotesSection";
 import Timestamps from "../Timestamps/Timestamps";
 import { usePendingChanges } from "../../hooks/usePendingChanges";
+import { useDebounce, DEBOUNCE_MS } from "../../hooks/useDebounce";
 import { Building2, User, Plus, X } from "lucide-react";
 
 const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
@@ -44,18 +45,15 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
   const [accountSearchResults, setAccountSearchResults] = useState([]);
   const [isSearchingAccounts, setIsSearchingAccounts] = useState(false);
 
-  // Debounced account search
-  useEffect(() => {
-    if (accountSearchQuery.length < 2) {
-      setAccountSearchResults([]);
-      return;
-    }
-
-    setIsSearchingAccounts(true);
-    const timer = setTimeout(async () => {
+  const performAccountSearch = useCallback(
+    async (query) => {
+      if (query.length < 2) {
+        setAccountSearchResults([]);
+        return;
+      }
+      setIsSearchingAccounts(true);
       try {
-        const results = await searchAccounts(accountSearchQuery);
-        // Filter out already linked accounts by account_id
+        const results = await searchAccounts(query);
         const linkedIds = new Set(linkedAccounts.map((a) => a.id));
         setAccountSearchResults(results.filter((r) => !linkedIds.has(r.account_id)));
       } catch {
@@ -63,10 +61,20 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
       } finally {
         setIsSearchingAccounts(false);
       }
-    }, 300);
+    },
+    [linkedAccounts]
+  );
 
-    return () => clearTimeout(timer);
-  }, [accountSearchQuery, linkedAccounts]);
+  const debouncedAccountSearch = useDebounce(performAccountSearch, DEBOUNCE_MS.SEARCH);
+
+  const handleAccountSearchChange = (query) => {
+    setAccountSearchQuery(query);
+    if (query.length < 2) {
+      setAccountSearchResults([]);
+      return;
+    }
+    debouncedAccountSearch(query);
+  };
 
   const hasPendingChanges = usePendingChanges({
     original: contact,
@@ -195,7 +203,7 @@ const ContactForm = ({ contact, onSave, onDelete, onClose }) => {
                 <input
                   type="text"
                   value={accountSearchQuery}
-                  onChange={(e) => setAccountSearchQuery(e.target.value)}
+                  onChange={(e) => handleAccountSearchChange(e.target.value)}
                   className={inputClasses}
                   placeholder="Search accounts by name..."
                   autoFocus

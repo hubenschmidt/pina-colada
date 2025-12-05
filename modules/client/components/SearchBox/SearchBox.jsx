@@ -3,13 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import { TextInput, Paper, Stack, Text } from "@mantine/core";
 import { Search, X } from "lucide-react";
+import { DEBOUNCE_MS } from "../../hooks/useDebounce";
 
 const SearchBox = ({
   placeholder = "Search... (Enter to search)",
   onSearch,
   initialValue = "",
   fetchPreview,
-  debounceMs = 1500,
+  debounceMs = DEBOUNCE_MS.PREVIEW,
 }) => {
   const [input, setInput] = useState(initialValue);
   const [suggestions, setSuggestions] = useState([]);

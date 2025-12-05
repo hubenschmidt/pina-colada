@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { Plus, Trash2, Pencil, Star } from "lucide-react";
 import { formatPhoneNumber } from "../../lib/phone";
+import { useDebounce, DEBOUNCE_MS } from "../../hooks/useDebounce";
 
 const ContactSection = ({
   contacts,
@@ -26,29 +27,19 @@ const ContactSection = ({
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showResults, setShowResults] = useState(false);
-  const [debounceTimer, setDebounceTimer] = useState(null);
   const [editingIndex, setEditingIndex] = useState(null);
   const [editingContact, setEditingContact] = useState(null);
 
   const inputClasses =
     "w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100";
 
-  const handleSearch = (query) => {
-    setSearchQuery(query);
-
-    // Clear previous debounce timer
-    if (debounceTimer) {
-      clearTimeout(debounceTimer);
-    }
-
-    if (!individualSearch || query.length < 2) {
-      setSearchResults([]);
-      setShowResults(false);
-      return;
-    }
-
-    // Debounce the API call by 300ms
-    const timer = setTimeout(async () => {
+  const performSearch = useCallback(
+    async (query) => {
+      if (!individualSearch || query.length < 2) {
+        setSearchResults([]);
+        setShowResults(false);
+        return;
+      }
       setIsSearching(true);
       setShowResults(true);
       try {
@@ -59,9 +50,20 @@ const ContactSection = ({
       } finally {
         setIsSearching(false);
       }
-    }, 300);
+    },
+    [individualSearch]
+  );
 
-    setDebounceTimer(timer);
+  const debouncedSearch = useDebounce(performSearch, DEBOUNCE_MS.SEARCH);
+
+  const handleSearch = (query) => {
+    setSearchQuery(query);
+    if (!individualSearch || query.length < 2) {
+      setSearchResults([]);
+      setShowResults(false);
+      return;
+    }
+    debouncedSearch(query);
   };
 
   const handleSelectIndividual = (result) => {
