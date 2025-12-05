@@ -1,5 +1,4 @@
 import {
-  getRecentResumeDate,
   searchOrganizations,
   searchIndividuals,
   getProjects,
@@ -434,48 +433,18 @@ const getJobFormConfig = (selectedProjectId) => ({
     },
     {
       name: "resume",
-      label: "Resume Date",
+      label: "Resume Date (Legacy)",
       type: "custom",
-      onInit: async () => {
-        try {
-          const resumeDate = await getRecentResumeDate();
-          return resumeDate || "";
-        } catch (error) {
-          console.error("Failed to fetch recent resume date:", error);
-          return "";
-        }
-      },
-      renderCustom: ({ value, onChange }) => (
-        <div>
-          <input
-            type="date"
-            value={value ? value.split(/[T ]/)[0] : ""}
-            onChange={(e) => onChange(e.target.value)}
-            className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded focus:outline-none focus:ring-2 focus:ring-lime-500 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100"
-          />
-
-          <label className="flex items-center gap-2 mt-2 text-sm text-zinc-600 dark:text-zinc-400 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={!!value}
-              onChange={async (e) => {
-                if (!e.target.checked) {
-                  onChange("");
-                  return;
-                }
-                try {
-                  const resumeDate = await getRecentResumeDate();
-                  onChange(resumeDate || "");
-                } catch (error) {
-                  console.error("Failed to fetch recent resume date:", error);
-                }
-              }}
-              className="w-4 h-4 border-zinc-300 dark:border-zinc-600 bg-white dark:bg-zinc-700 rounded focus:ring-zinc-500 accent-zinc-600 dark:accent-zinc-400"
-            />
-
-            <span>Use latest resume on file?</span>
-          </label>
-        </div>
+      // Only show in edit mode when there's existing data
+      showCondition: ({ isEditMode, formData }) => isEditMode && !!formData?.resume,
+      renderCustom: ({ value }) => (
+        <input
+          type="date"
+          value={value ? value.split(/[T ]/)[0] : ""}
+          readOnly
+          disabled
+          className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-700 text-zinc-500 dark:text-zinc-400 cursor-not-allowed opacity-75"
+        />
       ),
     },
     {

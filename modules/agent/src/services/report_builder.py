@@ -589,6 +589,15 @@ async def _get_entity_name_for_note(session, note) -> Optional[str]:
     return extractor(entity)
 
 
+async def _get_lead_type_for_note(session, note) -> Optional[str]:
+    """Get the lead type (Job, Opportunity, Partnership) for a Lead note."""
+    if note.entity_type != "Lead":
+        return None
+    result = await session.execute(select(Lead).where(Lead.id == note.entity_id))
+    lead = result.scalar_one_or_none()
+    return lead.type.lower() if lead and lead.type else None
+
+
 async def get_notes_activity_report(tenant_id: int, project_id: Optional[int] = None) -> Dict[str, Any]:
     """Generate notes activity canned report.
 
@@ -638,11 +647,13 @@ async def get_notes_activity_report(tenant_id: int, project_id: Optional[int] = 
         recent_notes = []
         for note in notes[:10]:
             entity_name = await _get_entity_name_for_note(session, note)
+            lead_type = await _get_lead_type_for_note(session, note)
             recent_notes.append({
                 "id": note.id,
                 "entity_type": note.entity_type,
                 "entity_id": note.entity_id,
                 "entity_name": entity_name,
+                "lead_type": lead_type,
                 "content": note.content[:100] + "..." if note.content and len(note.content) > 100 else note.content,
                 "created_at": note.created_at.isoformat() if note.created_at else None,
             })

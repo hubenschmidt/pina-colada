@@ -80,12 +80,15 @@ const NotesActivityPage = () => {
     });
   };
 
-  const getEntityLink = (entityType, entityId) => {
+  const getEntityLink = (entityType, entityId, leadType) => {
+    if (entityType === "Lead" && leadType) {
+      // leadType is 'job', 'opportunity', or 'partnership'
+      return `/leads/${leadType}s/${entityId}`;
+    }
     const routes = {
       Organization: `/accounts/organizations/${entityId}`,
       Individual: `/accounts/individuals/${entityId}`,
       Contact: `/contacts/${entityId}`,
-      Lead: `/leads/${entityId}`,
     };
     return routes[entityType] || null;
   };
@@ -212,14 +215,14 @@ const NotesActivityPage = () => {
             </Table.Thead>
             <Table.Tbody>
               {report.recent_notes.map((note) => {
-                const entityLink = getEntityLink(note.entity_type, note.entity_id);
+                const entityLink = getEntityLink(note.entity_type, note.entity_id, note.lead_type);
                 const displayName = note.entity_name || `${note.entity_type} #${note.entity_id}`;
                 return (
                   <Table.Tr key={note.id}>
                     <Table.Td>{note.id}</Table.Td>
                     <Table.Td>
                       {entityLink ? (
-                        <Anchor component={Link} href={entityLink} size="sm" c="blue">
+                        <Anchor component={Link} href={entityLink} size="sm" underline="hover" c="inherit">
                           {displayName}
                         </Anchor>
                       ) : (

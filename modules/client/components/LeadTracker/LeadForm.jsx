@@ -353,6 +353,8 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
 
   const renderField = (field) => {
     if (field.hidden) return null;
+    // Check showCondition if present
+    if (field.showCondition && !field.showCondition({ isEditMode, formData })) return null;
 
     const accountType = formData["account_type"] || "Organization";
     const isAccountField = field.name === "account";
@@ -569,9 +571,14 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
               );
             }
 
-            const sectionFields = config.fields.filter((field) =>
-              section.fieldNames.includes(String(field.name))
-            );
+            const sectionFields = config.fields.filter((field) => {
+              if (!section.fieldNames.includes(String(field.name))) return false;
+              // Check showCondition if present
+              if (field.showCondition) {
+                return field.showCondition({ isEditMode, formData });
+              }
+              return true;
+            });
 
             return (
               <div key={section.name}>
