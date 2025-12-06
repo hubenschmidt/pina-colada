@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useCallback } from "react";
-import Chat from "../../components/Chat/Chat";
-import { usePageLoading } from "../../context/pageLoadingContext";
+import { useParams } from "next/navigation";
+import Chat from "../../../components/Chat/Chat";
+import { usePageLoading } from "../../../context/pageLoadingContext";
 
-const ChatPage = () => {
+const ChatThreadPage = () => {
+  const params = useParams();
+  const threadId = params.threadId;
   const { dispatchPageLoading } = usePageLoading();
 
   useEffect(() => {
@@ -18,8 +21,7 @@ const ChatPage = () => {
     [dispatchPageLoading]
   );
 
-  // No threadId = new conversation (useWs generates one internally)
-  return <Chat variant="page" onConnectionChange={handleConnectionChange} />;
+  return <Chat variant="page" threadId={threadId} onConnectionChange={handleConnectionChange} />;
 };
 
-export default ChatPage;
+export default ChatThreadPage;

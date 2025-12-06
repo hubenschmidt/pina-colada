@@ -277,14 +277,7 @@ async def get_crm_tools() -> List:
     """Return CRM-specific tools for the CRM worker."""
     tools = []
 
-    # Account lookup
-    tools.append(StructuredTool.from_function(
-        func=lambda **kwargs: None,
-        coroutine=lookup_account,
-        name="lookup_account",
-        description="Look up CRM accounts by name. Returns account details with linked organizations and individuals.",
-        args_schema=EntityLookupInput,
-    ))
+    # Note: lookup_account removed - users query people/orgs directly, not internal "accounts"
 
     # Organization lookup
     tools.append(StructuredTool.from_function(

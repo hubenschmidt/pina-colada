@@ -215,11 +215,11 @@ async def create_orchestrator():
         logger.warning(f"Could not load CRM schema: {e}")
         schema_context = "CRM schema not available."
 
-    # Build tool sets for each worker
+    # Build tool sets for each worker (no longer need all_tools combined)
     worker_tools = document_tools + general_tools  # General worker: docs + web search (NO job search)
     job_worker_tools = document_tools + job_search_tools  # Job search: docs + job tools
-    crm_worker_tools = document_tools + crm_tools + general_tools  # CRM: docs + CRM + web search
-    all_tools = document_tools + general_tools + job_search_tools + crm_tools  # For ToolNode
+    crm_worker_tools = document_tools + crm_tools  # CRM: docs + CRM only (removed general_tools)
+    cover_letter_tools = document_tools  # Cover letter: just docs
 
     # Create nodes - each worker gets appropriate tools
     worker = await create_worker_node(worker_tools, _trim_messages)
@@ -249,7 +249,12 @@ async def create_orchestrator():
     graph_builder.add_node("job_search", job_search)
     graph_builder.add_node("cover_letter_writer", cover_letter_writer)
     graph_builder.add_node("crm_worker", crm_worker)
-    graph_builder.add_node("tools", ToolNode(tools=all_tools))  # All tools for ToolNode
+    # Per-worker ToolNodes to reduce token usage (only bind relevant tools)
+    graph_builder.add_node("worker_tools", ToolNode(tools=worker_tools))
+    graph_builder.add_node("job_tools", ToolNode(tools=job_worker_tools))
+    graph_builder.add_node("crm_tools", ToolNode(tools=crm_worker_tools))
+    graph_builder.add_node("cover_letter_tools", ToolNode(tools=cover_letter_tools))
+    logger.info(f"✓ Created per-worker ToolNodes: worker({len(worker_tools)}), job({len(job_worker_tools)}), crm({len(crm_worker_tools)}), cover_letter({len(cover_letter_tools)})")
     # Add specialized evaluators
     graph_builder.add_node("career_evaluator", career_evaluator)
     graph_builder.add_node("general_evaluator", general_evaluator)
@@ -271,47 +276,36 @@ async def create_orchestrator():
         },
     )
 
+    # Route each worker to its dedicated ToolNode
     graph_builder.add_conditional_edges(
         "worker",
         route_from_worker,
-        {"tools": "tools", "evaluator": "general_evaluator"},
+        {"tools": "worker_tools", "evaluator": "general_evaluator"},
     )
 
     graph_builder.add_conditional_edges(
         "job_search",
         route_from_job_search,
-        {"tools": "tools", "evaluator": "career_evaluator"},
+        {"tools": "job_tools", "evaluator": "career_evaluator"},
     )
 
     graph_builder.add_conditional_edges(
         "crm_worker",
         route_from_crm_worker,
-        {"tools": "tools", "evaluator": "crm_evaluator"},
+        {"tools": "crm_tools", "evaluator": "crm_evaluator"},
     )
 
-    def route_from_tools(state: Dict[str, Any]) -> str:
-        """Route back to the node that called tools."""
-        route_to = state.get("route_to_agent", "worker")
-        logger.info(f"→ Routing from tools back to {route_to}")
-        return route_to
-
-    graph_builder.add_conditional_edges(
-        "tools",
-        route_from_tools,
-        {
-            "worker": "worker",
-            "job_search": "job_search",
-            "cover_letter_writer": "cover_letter_writer",
-            "crm_worker": "crm_worker",
-        },
-    )
-
-    # Cover letter writer now has tools, so needs conditional routing
     graph_builder.add_conditional_edges(
         "cover_letter_writer",
         route_from_cover_letter_writer,
-        {"tools": "tools", "evaluator": "career_evaluator"},
+        {"tools": "cover_letter_tools", "evaluator": "career_evaluator"},
     )
+
+    # Route from each ToolNode back to its worker
+    graph_builder.add_edge("worker_tools", "worker")
+    graph_builder.add_edge("job_tools", "job_search")
+    graph_builder.add_edge("crm_tools", "crm_worker")
+    graph_builder.add_edge("cover_letter_tools", "cover_letter_writer")
 
     # Route from each evaluator back to worker or END
     evaluator_routing = {

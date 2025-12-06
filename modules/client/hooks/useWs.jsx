@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef, useContext } from "react";
+import { UserContext } from "../context/userContext";
 
-const GREETING = "Welcome! Ask me anything about our services, I would be glad to help.";
+const GREETING = "Welcome to your CRM assistant. I can help you look up contacts, organizations, accounts, and documents. What would you like to find?";
 
 /** Apply a streaming chunk to chat state (guard-clause style). */
 const applyStreamChunk = (prev, chunk) => {
@@ -89,6 +90,16 @@ const handleParsedMessage = (obj, ctx) => {
     return true;
   }
 
+  // Cancelled by user
+  if (obj.type === "cancelled") {
+    ctx.setIsThinking(false);
+    ctx.setMessages((prev) => {
+      const closed = applyEndOfTurn(prev);
+      return [...closed, { user: "PinaColada", msg: "⏹️ Generation stopped." }];
+    });
+    return true;
+  }
+
   return false;
 };
 
@@ -104,7 +115,7 @@ const handleUiEvents = (obj, ctx) => {
   ]);
 };
 
-export const useWs = (url) => {
+export const useWs = (url, { threadId: initialThreadId = null } = {}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [tokenUsage, setTokenUsage] = useState(null);
@@ -116,7 +127,16 @@ export const useWs = (url) => {
   ]);
   const wsRef = useRef(null);
 
-  const uuid = useMemo(() => crypto.randomUUID(), []);
+  // Get user context for user_id and tenant_id
+  const { userState } = useContext(UserContext);
+  const userId = userState?.user?.id;
+  const tenantId = userState?.user?.tenant_id;
+
+  // Use provided threadId or generate new one
+  const uuid = useMemo(
+    () => initialThreadId || crypto.randomUUID(),
+    [initialThreadId]
+  );
 
   useEffect(() => {
     const socket = new WebSocket(url);
@@ -176,9 +196,15 @@ export const useWs = (url) => {
 
       setMessages((prev) => [...prev, { user: "User", msg: t }]);
       setIsThinking(true); // Start thinking when user sends message
-      s.send(JSON.stringify({ uuid, message: t }));
+
+      // Include user_id and tenant_id for message persistence
+      const payload = { uuid, message: t };
+      if (userId) payload.user_id = userId;
+      if (tenantId) payload.tenant_id = tenantId;
+
+      s.send(JSON.stringify(payload));
     },
-    [uuid]
+    [uuid, userId, tenantId]
   );
 
   // NEW: silent JSON sender (no UI echo)
@@ -200,6 +226,18 @@ export const useWs = (url) => {
     ]);
   }, []);
 
+  const loadMessages = useCallback((conversationMessages) => {
+    if (!conversationMessages?.length) {
+      setMessages([{ user: "PinaColada", msg: GREETING }]);
+      return;
+    }
+    const formatted = conversationMessages.map((m) => ({
+      user: m.role === "user" ? "User" : "PinaColada",
+      msg: m.content,
+    }));
+    setMessages(formatted);
+  }, []);
+
   return {
     isOpen,
     isThinking,
@@ -208,5 +246,7 @@ export const useWs = (url) => {
     sendMessage,
     sendControl,
     reset,
+    loadMessages,
+    threadId: uuid,
   };
 };

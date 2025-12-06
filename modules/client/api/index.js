@@ -1148,3 +1148,43 @@ export const createDocumentVersion = async (documentId, file) => {
 export const setCurrentDocumentVersion = async (documentId) => {
   return apiPatch(`/assets/documents/${documentId}/set-current`, {});
 };
+
+// ============== Conversation API ==============
+
+export const getConversations = async (limit = 50, includeArchived = false) => {
+  const params = new URLSearchParams({
+    limit: limit.toString(),
+    include_archived: includeArchived.toString(),
+  });
+  return apiGet(`/conversations?${params}`);
+};
+
+export const getAllConversations = async ({ search, limit = 100, offset = 0, includeArchived = false } = {}) => {
+  const params = new URLSearchParams({
+    limit: limit.toString(),
+    offset: offset.toString(),
+    include_archived: includeArchived.toString(),
+  });
+  if (search) params.set("search", search);
+  return apiGet(`/conversations/all?${params}`);
+};
+
+export const getConversation = async (threadId) => {
+  return apiGet(`/conversations/${threadId}`);
+};
+
+export const updateConversationTitle = async (threadId, title) => {
+  return apiPatch(`/conversations/${threadId}`, { title });
+};
+
+export const archiveConversation = async (threadId) => {
+  return apiDelete(`/conversations/${threadId}`);
+};
+
+export const unarchiveConversation = async (threadId) => {
+  return apiPost(`/conversations/${threadId}/unarchive`);
+};
+
+export const deleteConversationPermanent = async (threadId) => {
+  return apiDelete(`/conversations/${threadId}/permanent`);
+};

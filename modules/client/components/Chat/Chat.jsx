@@ -1,5 +1,6 @@
-import React, { useEffect, useId, useState } from "react";
+import React, { useEffect, useId, useState, useRef } from "react";
 import { useWs } from "../../hooks/useWs";
+import { useConversationContext } from "../../context/conversationContext";
 import styles from "./Chat.module.css";
 import { Copy, Check, Download, ChevronDown } from "lucide-react";
 import { env } from "next-runtime-env";
@@ -239,9 +240,13 @@ const getWsUrl = () => {
 
 const WS_URL = getWsUrl();
 
-const Chat = ({ variant = "embedded", onConnectionChange }) => {
-  const { isOpen, isThinking, tokenUsage, messages, sendMessage, sendControl, reset } =
-    useWs(WS_URL);
+const Chat = ({ variant = "embedded", threadId: urlThreadId, onConnectionChange }) => {
+  const { conversationState, loadConversations, selectConversation } = useConversationContext();
+  const { activeConversation } = conversationState;
+
+  const { isOpen, isThinking, tokenUsage, messages, sendMessage, sendControl, reset, loadMessages, threadId } =
+    useWs(WS_URL, { threadId: urlThreadId });
+
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
   const [copiedIndex, setCopiedIndex] = useState(null);
@@ -249,6 +254,7 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
   const [demoDropdownOpen, setDemoDropdownOpen] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [demoIframeUrl, setDemoIframeUrl] = useState(`${API_URL}/mocks/401k-rollover/`);
+  const hasRefreshedRef = useRef(false);
 
   const listId = useId();
   const [hasSentContext, setHasSentContext] = useState(false);
@@ -259,6 +265,23 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
   useEffect(() => {
     onConnectionChange?.(isOpen);
   }, [isOpen, onConnectionChange]);
+
+  // Load conversation from URL threadId on mount
+  useEffect(() => {
+    if (urlThreadId) {
+      selectConversation(urlThreadId).catch(() => {
+        // New conversation, no existing messages to load
+      });
+    }
+  }, [urlThreadId, selectConversation]);
+
+  // Load messages when a conversation is selected
+  useEffect(() => {
+    if (activeConversation?.messages) {
+      loadMessages(activeConversation.messages);
+      hasRefreshedRef.current = true; // Don't trigger refresh for loaded conversations
+    }
+  }, [activeConversation, loadMessages]);
 
   // --- Send rich user context as soon as WS opens (testing-only) ---
   useEffect(() => {
@@ -276,6 +299,20 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
     if (!el) return;
     el.scrollTop = el.scrollHeight;
   }, [messages, listId]);
+
+  // After first bot response: refresh conversation list so new chat appears in sidebar
+  useEffect(() => {
+    const hasUserMessage = messages.some((m) => m.user === "User");
+    const hasBotResponse = messages.some((m) => m.user === "PinaColada" && !m.streaming);
+    const botResponseCount = messages.filter((m) => m.user === "PinaColada" && !m.streaming).length;
+
+    // After first complete bot response to a user message
+    if (hasUserMessage && hasBotResponse && botResponseCount === 2 && !hasRefreshedRef.current) {
+      hasRefreshedRef.current = true;
+      // Refresh conversation list so new chat appears in sidebar
+      setTimeout(() => loadConversations(), 500);
+    }
+  }, [messages, loadConversations]);
 
   // Close tools dropdown when clicking outside
   useEffect(() => {
@@ -468,14 +505,15 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
                 <span className={styles.thinkingText}>{isThinking ? "thinking" : ""}</span>
                 {tokenUsage && (
                   <span className={styles.tokenUsage}>
+                    turn:{" "}
                     {tokenUsage.current.total >= 1000
                       ? `${(tokenUsage.current.total / 1000).toFixed(1)}k`
                       : tokenUsage.current.total}
-                    {" / "}
+                    {" · "}
+                    total:{" "}
                     {tokenUsage.cumulative.total >= 1000
                       ? `${(tokenUsage.cumulative.total / 1000).toFixed(1)}k`
-                      : tokenUsage.cumulative.total}{" "}
-                    tokens
+                      : tokenUsage.cumulative.total}
                   </span>
                 )}
               </div>
@@ -497,7 +535,21 @@ const Chat = ({ variant = "embedded", onConnectionChange }) => {
               <button type="submit" className={styles.btn} disabled={!isOpen || !input.trim()}>
                 Send
               </button>
-              <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={reset}>
+              {isThinking && (
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnStop}`}
+                  onClick={() => sendControl({ type: "cancel" })}>
+                  Stop
+                </button>
+              )}
+              <button
+                type="button"
+                className={`${styles.btn} ${styles.btnGhost}`}
+                onClick={() => {
+                  reset();
+                  hasRefreshedRef.current = false;
+                }}>
                 Reset
               </button>
             </div>

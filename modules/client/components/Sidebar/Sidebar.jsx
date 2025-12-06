@@ -25,6 +25,7 @@ import {
 import { Stack, ScrollArea, Select } from "@mantine/core";
 import { useNavContext } from "../../context/navContext";
 import { useProjectContext } from "../../context/projectContext";
+import { ChatHistory } from "../ChatHistory/ChatHistory";
 
 export const Sidebar = () => {
   const pathname = usePathname();
@@ -70,8 +71,19 @@ export const Sidebar = () => {
         <ScrollArea flex={1} type="auto">
           {!sidebarCollapsed && (
             <nav className="p-4 space-y-2">
+              {/* Chat History Section */}
+              <ChatHistory collapsed={sidebarCollapsed} />
+
               {/* Projects Section */}
               <div>
+                <button
+                  onClick={() => router.push("/projects")}
+                  className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                    pathname === "/projects" ? "font-bold" : "font-normal"
+                  }`}>
+                  <FolderKanban className="h-4 w-4 text-lime-600 dark:text-lime-400" />
+                  Projects
+                </button>
                 {projects.filter((p) => p.status !== "Inactive").length > 0 && (
                   <div className="mb-4 px-3">
                     <Select
@@ -93,14 +105,6 @@ export const Sidebar = () => {
                     />
                   </div>
                 )}
-                <button
-                  onClick={() => router.push("/projects")}
-                  className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
-                    pathname === "/projects" ? "font-bold" : "font-normal"
-                  }`}>
-                  <FolderKanban className="h-4 w-4 text-lime-600 dark:text-lime-400" />
-                  Projects
-                </button>
               </div>
 
               {/* Accounts Section */}

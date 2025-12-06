@@ -508,6 +508,17 @@
   border-color: var(--border-hover);
 }
 
+.btnStop {
+  background-color: #dc2626; /* red-600 */
+  color: #ffffff;
+  border-color: #dc2626;
+}
+
+.btnStop:hover {
+  background-color: #b91c1c; /* red-700 */
+  border-color: #b91c1c;
+}
+
 /* TYPING INDICATOR -------------------------------------------------------- */
 .thinkingIndicator {
   position: absolute;
@@ -542,6 +553,7 @@
   font-weight: 300;
   color: #a3a3a3; /* neutral-400 - subtle gray */
   font-size: 0.75rem;
+  margin-right: 24px; /* Clear scrollbar */
 }
 
 /* DEMO MODE SPLIT VIEW ---------------------------------------------------- */
