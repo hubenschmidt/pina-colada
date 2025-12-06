@@ -10,6 +10,7 @@
 ## Problem Summary
 
 Job search consumed **350k tokens** and **50+ iterations** due to:
+
 1. `gpt-5-mini` (LEAN_MODEL) fails at tool-calling, causing endless retry loops
 2. No way for users to stop runaway iterations
 3. High token usage from worker→evaluator loop retries
@@ -21,6 +22,7 @@ Job search consumed **350k tokens** and **50+ iterations** due to:
 ### Phase 1: Remove LEAN_MODEL from Tool-Heavy Workers ✅ DONE
 
 **Files Modified**:
+
 - `agent/workers/career/job_search.py` - Removed `model=LEAN_MODEL`, now uses default gpt-5.1
 
 **Rationale**: gpt-5-mini is not suitable for agentic tool-calling tasks.
@@ -30,6 +32,7 @@ Job search consumed **350k tokens** and **50+ iterations** due to:
 ### Phase 2: Add Stop/Cancel Buttons to Chat ✅ DONE
 
 **Files Modified**:
+
 - `server.py:200-212` - Added cancel message handling
 - `orchestrator.py:22-40` - Added `_running_tasks` dict and `cancel_streaming()` function
 - `orchestrator.py:322-325` - Register tasks for cancellation
@@ -38,13 +41,15 @@ Job search consumed **350k tokens** and **50+ iterations** due to:
 **WebSocket Protocol**:
 
 Client → Server:
+
 ```json
-{"type": "cancel", "uuid": "<thread_id>"}
+{ "type": "cancel", "uuid": "<thread_id>" }
 ```
 
 Server → Client:
+
 ```json
-{"type": "cancelled"}
+{ "type": "cancelled" }
 ```
 
 ---
@@ -52,6 +57,7 @@ Server → Client:
 ### Phase 3: Reduce Iteration Limits ✅ DONE
 
 **Files Modified**:
+
 - `orchestrator.py:334` - Reduced `recursion_limit` from 50 to 20
 
 ---
@@ -59,6 +65,7 @@ Server → Client:
 ### Phase 4: Token Budget Safeguards ✅ DONE
 
 **Files Modified**:
+
 - `orchestrator.py:26` - Added `TOKEN_BUDGET = 50000` constant
 - `orchestrator.py:440-445` - Stop execution if token budget exceeded
 
@@ -71,11 +78,13 @@ Server → Client:
 #### Implementation Plan
 
 **Step 1**: Add cachetools dependency
+
 ```bash
 uv add cachetools
 ```
 
 **Step 2**: Add async TTL cache decorator
+
 ```python
 from cachetools import TTLCache
 from functools import wraps
@@ -98,25 +107,27 @@ def async_ttl_cache(cache, key_fn):
 
 **Step 3**: Cache Document Tools (`agent/tools/document_tools.py`)
 
-| Function | Cache Key | TTL | Benefit |
-|----------|-----------|-----|---------|
-| `get_document_content` | `(tenant_id, document_id)` | 5 min | Avoid S3 downloads, PDF parsing |
-| `search_documents` | `(tenant_id, query, tags, entity_type, entity_id)` | 2 min | Avoid DB queries |
+| Function               | Cache Key                                          | TTL   | Benefit                         |
+| ---------------------- | -------------------------------------------------- | ----- | ------------------------------- |
+| `get_document_content` | `(tenant_id, document_id)`                         | 5 min | Avoid S3 downloads, PDF parsing |
+| `search_documents`     | `(tenant_id, query, tags, entity_type, entity_id)` | 2 min | Avoid DB queries                |
 
 **Step 4**: Cache CRM Tools (`agent/tools/crm_tools.py`)
 
-| Function | Cache Key | TTL | Benefit |
-|----------|-----------|-----|---------|
-| `lookup_individual` | `(tenant_id, query)` | 2 min | Avoid DB queries |
-| `lookup_organization` | `(tenant_id, query)` | 2 min | Avoid DB queries |
-| `execute_crm_query` | `(tenant_id, query_hash)` | 1 min | Avoid repeated DB queries |
+| Function              | Cache Key                 | TTL   | Benefit                   |
+| --------------------- | ------------------------- | ----- | ------------------------- |
+| `lookup_individual`   | `(tenant_id, query)`      | 2 min | Avoid DB queries          |
+| `lookup_organization` | `(tenant_id, query)`      | 2 min | Avoid DB queries          |
+| `execute_crm_query`   | `(tenant_id, query_hash)` | 1 min | Avoid repeated DB queries |
 
 **Expected Savings**:
+
 - 50-80% reduction in tool execution time for repeated calls
 - Reduced database/storage load
 - Lower latency for cached responses
 
 **Files Modified**:
+
 - `agent/tools/document_tools.py` - Added `_document_content_cache` (5 min TTL) and `_search_cache` (2 min TTL)
 - `agent/tools/crm_tools.py` - Added caches for all lookup functions and SQL queries
 
@@ -126,12 +137,12 @@ def async_ttl_cache(cache, key_fn):
 
 **LangGraph CachePolicy** was evaluated for node-level caching but determined to provide minimal benefit on top of tool-level caching:
 
-| Node Type | Cache Benefit | Reason |
-|-----------|---------------|--------|
-| Workers (LLM) | ❌ None | Input includes message history that changes every iteration |
-| Router (LLM) | ❌ None | Same as workers - message history changes |
-| Evaluators (LLM) | ❌ None | Same as workers - response content changes |
-| Tools Node | ⚠️ Minimal | Would cache if identical tool calls in same order, but tool-level caching already handles this |
+| Node Type        | Cache Benefit | Reason                                                                                         |
+| ---------------- | ------------- | ---------------------------------------------------------------------------------------------- |
+| Workers (LLM)    | ❌ None       | Input includes message history that changes every iteration                                    |
+| Router (LLM)     | ❌ None       | Same as workers - message history changes                                                      |
+| Evaluators (LLM) | ❌ None       | Same as workers - response content changes                                                     |
+| Tools Node       | ⚠️ Minimal    | Would cache if identical tool calls in same order, but tool-level caching already handles this |
 
 **Conclusion**: Tool-level caching (Phase 5) provides more granular and effective caching than node-level. Node caching is not needed.
 
@@ -139,13 +150,13 @@ def async_ttl_cache(cache, key_fn):
 
 ## Files Modified Summary
 
-| File | Change | Status |
-|------|--------|--------|
-| `agent/workers/career/job_search.py` | Remove model=LEAN_MODEL | ✅ Done |
-| `server.py` | Add cancel message handling | ✅ Done |
-| `orchestrator.py` | Add task tracking, cancel function, token budget | ✅ Done |
-| `agent/tools/document_tools.py` | Add TTL caching | ✅ Done |
-| `agent/tools/crm_tools.py` | Add TTL caching | ✅ Done |
+| File                                 | Change                                           | Status  |
+| ------------------------------------ | ------------------------------------------------ | ------- |
+| `agent/workers/career/job_search.py` | Remove model=LEAN_MODEL                          | ✅ Done |
+| `server.py`                          | Add cancel message handling                      | ✅ Done |
+| `orchestrator.py`                    | Add task tracking, cancel function, token budget | ✅ Done |
+| `agent/tools/document_tools.py`      | Add TTL caching                                  | ✅ Done |
+| `agent/tools/crm_tools.py`           | Add TTL caching                                  | ✅ Done |
 
 ---
 
@@ -165,13 +176,14 @@ def async_ttl_cache(cache, key_fn):
 
 ## Frontend Changes Implemented
 
-| File | Change |
-|------|--------|
-| `hooks/useWs.jsx:92-100` | Handle `{"type": "cancelled"}` message |
-| `components/Chat/Chat.jsx:500-507` | Stop button (shows when `isThinking`) |
-| `components/Chat/Chat.module.css:511-520` | Stop button styles (red) |
+| File                                      | Change                                 |
+| ----------------------------------------- | -------------------------------------- |
+| `hooks/useWs.jsx:92-100`                  | Handle `{"type": "cancelled"}` message |
+| `components/Chat/Chat.jsx:500-507`        | Stop button (shows when `isThinking`)  |
+| `components/Chat/Chat.module.css:511-520` | Stop button styles (red)               |
 
 **Protocol:**
+
 - User clicks Stop → sends `{"type": "cancel", "uuid": "<thread_id>"}`
 - Server cancels task → sends `{"type": "cancelled"}`
 - Frontend shows "Generation stopped." message
@@ -185,6 +197,7 @@ def async_ttl_cache(cache, key_fn):
 **Solution**: Create separate ToolNodes per worker type, each with only relevant tools.
 
 **Files Modified**:
+
 - `orchestrator.py:218-222` - Build per-worker tool sets
 - `orchestrator.py:252-257` - Create separate ToolNodes
 - `orchestrator.py:279-308` - Route workers to their specific ToolNode
@@ -205,31 +218,21 @@ def async_ttl_cache(cache, key_fn):
 
 **Problem**: Simple CRM lookup ("look up William Hubenschmidt") uses **~2.1k tokens** across **4 LLM calls**:
 
-| Step | Node | Model | Est. Tokens |
-|------|------|-------|-------------|
-| 1 | Router | Haiku | ~300-400 |
-| 2 | CRM Worker (tool call) | GPT-4 | ~967 |
-| 3 | CRM Worker (format response) | GPT-4 | ~500 |
-| 4 | CRM Evaluator | Haiku | ~400-500 |
+| Step | Node                         | Model | Est. Tokens |
+| ---- | ---------------------------- | ----- | ----------- |
+| 1    | Router                       | Haiku | ~300-400    |
+| 2    | CRM Worker (tool call)       | GPT-4 | ~967        |
+| 3    | CRM Worker (format response) | GPT-4 | ~500        |
+| 4    | CRM Evaluator                | Haiku | ~400-500    |
 
 **Proposed Optimizations**:
 
-#### Option A: Fast-Path Router (~300 token savings)
-- Pattern match obvious queries to skip LLM router
-- Regex patterns:
-  - `/look\s*up|search\s+for|find\s+/i` → crm_worker
-  - `/job|career|position/i` → job_search
-  - `/cover\s*letter/i` → cover_letter_writer
-- File: `agent/orchestrator.py` or new `agent/routers/fast_router.py`
+#### Option A: Skip Evaluator for Simple Responses (~400 token savings)
 
-#### Option B: Skip Evaluator for Simple Responses (~400 token savings)
 - If worker returns structured data (lookup results), auto-approve
 - Add `skip_evaluation: bool` flag to State
 - Worker sets flag when response is a simple data lookup
 - File: `agent/workers/crm/crm_worker.py`, `agent/evaluators/_base_evaluator.py`
-
-#### Option C: Both (Target: ~1200-1400 tokens total)
-Combined savings of ~700 tokens per simple query.
 
 **Files to Modify**:
 | File | Change |
