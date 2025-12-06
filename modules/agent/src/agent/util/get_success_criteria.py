@@ -3,6 +3,26 @@ from typing import List, Tuple
 # Each entry: (keywords, criteria_text)
 # First match wins, so order matters
 _CRITERIA_MAP: List[Tuple[List[str], str]] = [
+    # 0. JOB SEARCH (check first to catch "search for jobs")
+    (
+        ["job search", "job listing", "jobs at", "jobs in", "jobs matching", "find jobs", "search for jobs"],
+        """Success criteria:
+- MUST call job_search tool with appropriate query
+- Return list of jobs with: Company - Title - Direct URL
+- URLs must be from actual search results (do not make up URLs)
+- Filter out already-applied jobs using check_applied_jobs
+- If resume context needed, fetch it first via document tools
+- If user asks to email results, USE send_email tool (you CAN send emails!)""",
+    ),
+    # 0.5. EMAIL (before CRM lookups)
+    (
+        ["email", "send to", "mail to", "send this to"],
+        """Success criteria:
+- USE the send_email tool to send the email - you CAN send emails!
+- Extract recipient email address(es) from user request
+- Format content appropriately for email
+- Confirm email was sent successfully""",
+    ),
     # 1. CRM LOOKUPS
     (
         ["look up", "lookup", "find", "search for", "who is", "info on", "information about"],

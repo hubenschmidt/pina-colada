@@ -228,6 +228,15 @@ async def create_base_evaluator_node(
 
 def route_from_evaluator(state: Dict[str, Any]) -> str:
     """Pure routing function - examines state and returns next node"""
+    score = state.get("score", 0)
+
+    # Don't approve very low scores even if user_input_needed
+    # (likely means response was empty or broken)
+    if score is not None and score < 30:
+        route_to = state.get("route_to_agent", "worker")
+        logger.info(f"→ Routing back to {route_to.upper()} (score {score} too low)")
+        return route_to
+
     if state["success_criteria_met"] or state["user_input_needed"]:
         logger.info("→ Routing to END (response approved)")
         return "END"

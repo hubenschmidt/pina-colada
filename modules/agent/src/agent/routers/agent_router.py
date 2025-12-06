@@ -27,13 +27,14 @@ class RouterDecision(BaseModel):
 ROUTER_SYSTEM_PROMPT = """Route user request to correct worker.
 
 WORKERS:
-- job_search: find/search jobs, job listings
+- job_search: find/search jobs, job listings, email job results to someone
 - cover_letter_writer: write/create cover letter
 - crm_worker: accounts, orgs, contacts, leads, deals, tasks, CRM data research
 - worker: everything else (general questions, conversation, resume questions, ambiguous)
 
 RULES:
 - Route based on CURRENT message intent
+- "email this list" or "send to email" after job search → job_search
 - When in doubt → worker"""
 
 

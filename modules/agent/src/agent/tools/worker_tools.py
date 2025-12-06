@@ -426,12 +426,62 @@ async def check_applied_jobs(query: str = "") -> str:
         return f"Unable to check applied jobs: {e}. Please check that the Supabase integration is configured correctly."
 
 
+_JOB_BOARD_EXCLUSIONS = [
+    "linkedin.com", "indeed.com", "glassdoor.com", "ziprecruiter.com",
+    "monster.com", "simplyhired.com", "careerbuilder.com", "dice.com",
+]
+
+
+def _enhance_job_query(query: str) -> str:
+    """Enhance query to find direct company career pages."""
+    # Add exclusions for major job boards
+    exclusions = " ".join(f"-site:{site}" for site in _JOB_BOARD_EXCLUSIONS)
+    # Focus on careers/jobs pages at company sites
+    return f'{query} careers OR jobs site:*.com {exclusions}'
+
+
+def _format_serper_results(results: dict) -> str:
+    """Format Serper structured results into readable job listings."""
+    organic = results.get("organic", [])
+    if not organic:
+        return "No job listings found for this search."
+
+    lines = []
+    for i, item in enumerate(organic[:10], 1):  # Top 10 results
+        title = item.get("title", "Unknown")
+        link = item.get("link", "")
+        snippet = item.get("snippet", "")
+
+        # Try to extract company name from title or snippet
+        # Common pattern: "Job Title at Company" or "Company - Job Title"
+        company = "Unknown Company"
+        if " at " in title:
+            parts = title.split(" at ")
+            if len(parts) >= 2:
+                company = parts[-1].strip()
+                title = parts[0].strip()
+        elif " - " in title:
+            parts = title.split(" - ")
+            if len(parts) >= 2:
+                # Could be "Company - Title" or "Title - Company"
+                company = parts[0].strip()
+
+        lines.append(f"{i}. {company} - {title}")
+        if link:
+            lines.append(f"   URL: {link}")
+        if snippet:
+            lines.append(f"   {snippet[:150]}...")
+        lines.append("")
+
+    return "\n".join(lines)
+
+
 async def job_search_with_filter(query: str) -> str:
     """
     Search for jobs and filter out ones already applied to or marked as 'do not apply'.
 
     This function:
-    1. Performs a web search for jobs
+    1. Performs a web search for jobs (excluding job boards)
     2. Fetches all jobs from the database
     3. Filters out duplicates by company and title (for jobs with status='applied' or 'do_not_apply')
     4. Returns the filtered results
@@ -444,19 +494,27 @@ async def job_search_with_filter(query: str) -> str:
         all_jobs = await get_all_jobs(refresh=True)
 
         logger.info(
-            f"Loaded {len(all_jobs)} total jobs for filtering (will filter out 'applied' and 'do_not_apply')"
+            f"Loaded {len(all_jobs)} jobs from database (will filter duplicates)"
         )
 
-        # Perform the search
-        serper = GoogleSerperAPIWrapper()
-        raw_results = serper.run(query)
+        # Perform the search with query enhancements
+        enhanced_query = _enhance_job_query(query)
+        logger.info(f"Job search query: {enhanced_query}")
+
+        # Use Serper with organic results - returns structured data
+        serper = GoogleSerperAPIWrapper(type="search")
+        raw_results = serper.results(enhanced_query)
+
+        # Format results as structured list with URLs
+        formatted = _format_serper_results(raw_results)
+        logger.info(f"Formatted {len(raw_results.get('organic', []))} search results")
 
         if not all_jobs:
             logger.info("No jobs found in database - returning unfiltered results")
-            return raw_results
+            return formatted
 
         # Parse and filter results (filter jobs with status='applied' or 'do_not_apply')
-        filtered_results = _filter_job_results(raw_results, tracker, all_jobs)
+        filtered_results = _filter_job_results(formatted, tracker, all_jobs)
 
         if not filtered_results.strip():
             return "All job postings found have already been applied to or marked as 'do not apply'. Try refining your search criteria or location."
@@ -552,12 +610,10 @@ def _title_matches(search_title: str, applied_title: str) -> bool:
     return False
 
 
-def _is_valid_applied_job(job: Dict[str, str]) -> bool:
-    """Check if job has valid status and required fields."""
-    status = job.get("status", "").lower()
-    has_valid_status = status in ["applied", "do_not_apply"]
+def _is_tracked_job(job: Dict[str, str]) -> bool:
+    """Check if job exists in database (any status means we've seen it before)."""
     has_required_fields = bool(job.get("company")) and bool(job.get("title"))
-    return has_valid_status and has_required_fields
+    return has_required_fields
 
 
 def _job_matches_criteria(job: Dict[str, str], company: str, title: str) -> bool:
@@ -573,15 +629,15 @@ def _job_matches_criteria(job: Dict[str, str], company: str, title: str) -> bool
     return False
 
 
-def _matches_applied_job(company: str, title: str, jobs_details: list) -> bool:
-    """Check if a job matches any applied or do_not_apply job (strict matching)."""
+def _matches_tracked_job(company: str, title: str, jobs_details: list) -> bool:
+    """Check if a job matches any job in the database (filter duplicates)."""
     # Require both company AND title for strict matching
     if not company or not title:
         logger.debug(f"Skipping match check - company={bool(company)}, title={bool(title)}")
         return False
 
-    valid_jobs = [j for j in jobs_details if _is_valid_applied_job(j)]
-    return any(_job_matches_criteria(j, company, title) for j in valid_jobs)
+    tracked_jobs = [j for j in jobs_details if _is_tracked_job(j)]
+    return any(_job_matches_criteria(j, company, title) for j in tracked_jobs)
 
 
 def _extract_company_from_line(line: str) -> str:
@@ -641,7 +697,7 @@ def _should_skip_line(
     new_title = title if title else current_title
 
     if new_company and new_title:
-        if _matches_applied_job(new_company, new_title, jobs_details):
+        if _matches_tracked_job(new_company, new_title, jobs_details):
             return True, "", ""
 
     return False, new_company, new_title
@@ -817,7 +873,11 @@ async def get_job_search_tools():
     send_email_tool = StructuredTool.from_function(
         func=send_email,
         name="send_email",
-        description="Send job listings via email. Include job_listings parameter with the listings.",
+        description=(
+            "Send an email to one or more recipients. You CAN send emails - use this tool! "
+            "Parameters: to_email (recipient address), subject (email subject line), "
+            "body (main email text), job_listings (optional formatted job list to append)."
+        ),
         args_schema=SendEmailInput,
     )
     tools.append(send_email_tool)

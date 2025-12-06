@@ -110,6 +110,11 @@ async def create_base_worker_node(
         logger.info(f"   Token usage: {token_usage.get('total', 0)} total ({token_usage.get('input', 0)} in, {token_usage.get('output', 0)} out)")
         if tools:
             logger.info(f"   Has tool calls: {bool(response.tool_calls)}")
+        # Debug empty responses
+        if not response.content and token_usage.get('output', 0) > 0:
+            logger.warning(f"   ⚠️ Empty content with {token_usage.get('output')} output tokens!")
+            logger.warning(f"   Response type: {type(response)}")
+            logger.warning(f"   Response metadata: {getattr(response, 'response_metadata', {})}")
 
         return {"messages": [response], "token_usage": token_usage}
 
