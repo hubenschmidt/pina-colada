@@ -13,6 +13,17 @@ from agent.util.langfuse_helper import get_langfuse_handler
 logger = logging.getLogger(__name__)
 
 
+# OpenAI Frontier Models:
+# gpt-5.1      - Best for coding/agentic tasks (configurable reasoning)
+# gpt-5-mini   - Faster, cost-efficient for well-defined tasks
+# gpt-5-nano   - Fastest, most cost-efficient
+# gpt-5-pro    - Smarter, more precise responses
+# gpt-4.1      - Smartest non-reasoning model
+
+DEFAULT_MODEL = "gpt-5.1"      # Best for agentic/tool-calling tasks
+LEAN_MODEL = "gpt-5-mini"      # Cost-efficient for simpler tasks
+
+
 async def create_base_worker_node(
     worker_name: str,
     build_prompt: Callable[[Dict[str, Any]], str],
@@ -20,6 +31,7 @@ async def create_base_worker_node(
     trim_messages_fn: Optional[Callable] = None,
     max_tokens: int = 512,
     temperature: float = 0.7,
+    model: Optional[str] = None,
 ):
     """
     Factory function that creates a worker node with dependency injection.
@@ -31,17 +43,19 @@ async def create_base_worker_node(
         trim_messages_fn: Function to trim message history
         max_tokens: Max completion tokens for LLM
         temperature: LLM temperature
+        model: Model name (defaults to DEFAULT_MODEL, use LEAN_MODEL for simpler tasks)
 
     Returns:
         Pure function that takes state and returns updated state
     """
-    logger.info(f"Setting up {worker_name} LLM: OpenAI GPT-5 (temperature={temperature})")
+    model_name = model or DEFAULT_MODEL
+    logger.info(f"Setting up {worker_name} LLM: {model_name} (temperature={temperature})")
     langfuse_handler = get_langfuse_handler()
 
     callbacks = [langfuse_handler] if langfuse_handler else []
 
     worker_llm = ChatOpenAI(
-        model="gpt-5-chat-latest",
+        model=model_name,
         temperature=temperature,
         max_completion_tokens=max_tokens,
         max_retries=3,

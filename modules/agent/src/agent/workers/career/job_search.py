@@ -16,10 +16,7 @@ async def create_job_search_node(
 
     def build_prompt(state: Dict[str, Any]) -> str:
         """Build job search prompt"""
-        return build_job_search_prompt(
-            state["resume_name"],
-            state["success_criteria"],
-        )
+        return build_job_search_prompt(state["success_criteria"])
 
     return await create_base_worker_node(
         worker_name="Job Search",
@@ -27,6 +24,7 @@ async def create_job_search_node(
         tools=tools,
         trim_messages_fn=trim_messages_fn,
         max_tokens=1024,
+        # Using default gpt-5.1 - gpt-5-mini fails at tool calling
     )
 
 

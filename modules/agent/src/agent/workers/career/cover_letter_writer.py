@@ -16,7 +16,7 @@ async def create_cover_letter_writer_node(
 
     def build_prompt(state: Dict[str, Any]) -> str:
         """Build cover letter writer prompt"""
-        return build_cover_letter_writer_prompt(state["resume_name"])
+        return build_cover_letter_writer_prompt()
 
     return await create_base_worker_node(
         worker_name="Cover Letter Writer",

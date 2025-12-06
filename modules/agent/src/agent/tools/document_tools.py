@@ -8,8 +8,10 @@ Provides:
 
 import io
 import logging
+from functools import wraps
 from typing import Optional, List
 
+from cachetools import TTLCache
 from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
@@ -22,6 +24,27 @@ logger = logging.getLogger(__name__)
 
 # Max chars to return (token optimization)
 MAX_CONTENT_CHARS = 15000
+
+# TTL Caches for tool results
+_document_content_cache: TTLCache = TTLCache(maxsize=100, ttl=300)  # 5 min
+_search_cache: TTLCache = TTLCache(maxsize=200, ttl=120)  # 2 min
+
+
+def async_ttl_cache(cache: TTLCache, key_fn):
+    """Decorator for async functions with TTL cache."""
+    def decorator(func):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            key = key_fn(*args, **kwargs)
+            if key in cache:
+                logger.debug(f"Cache HIT: {func.__name__}({key})")
+                return cache[key]
+            result = await func(*args, **kwargs)
+            cache[key] = result
+            logger.debug(f"Cache MISS: {func.__name__}({key}) - cached")
+            return result
+        return wrapper
+    return decorator
 
 
 def _extract_pdf_text(content_bytes: bytes) -> str:
@@ -57,28 +80,34 @@ class GetDocumentContentInput(BaseModel):
 
 # --- Tool Functions ---
 
-async def search_documents(
-    query: Optional[str] = None,
-    tags: Optional[str] = None,
-    entity_type: Optional[str] = None,
-    entity_id: Optional[int] = None,
-    limit: int = 10,
+async def _get_default_tenant_id() -> Optional[int]:
+    """Get default tenant ID (pinacolada) when no context available."""
+    from lib.db import async_get_session
+    from sqlalchemy import text
+    try:
+        async with async_get_session() as session:
+            result = await session.execute(text("SELECT id FROM \"Tenant\" WHERE slug = 'pinacolada' LIMIT 1"))
+            row = result.fetchone()
+            return row[0] if row else None
+    except Exception as e:
+        logger.warning(f"Failed to get default tenant: {e}")
+        return None
+
+
+async def _search_documents_cached(
+    tenant_id: int,
+    query: Optional[str],
+    tags: Optional[str],
+    entity_type: Optional[str],
+    entity_id: Optional[int],
+    limit: int,
 ) -> str:
-    """Search for documents. Returns document metadata (id, filename, description)."""
-    tenant_id = get_tenant_id()
-    if not tenant_id:
-        # Fallback: get default tenant (pinacolada)
-        from lib.db import async_get_session
-        from sqlalchemy import select, text
-        try:
-            async with async_get_session() as session:
-                result = await session.execute(text("SELECT id FROM \"Tenant\" WHERE slug = 'pinacolada' LIMIT 1"))
-                row = result.fetchone()
-                tenant_id = row[0] if row else None
-        except Exception as e:
-            logger.warning(f"Failed to get default tenant: {e}")
-    if not tenant_id:
-        return "Error: No tenant context available. Cannot search documents."
+    """Cached search implementation."""
+    # Check cache first
+    cache_key = (tenant_id, query, tags, entity_type, entity_id, limit)
+    if cache_key in _search_cache:
+        logger.debug(f"Cache HIT: search_documents({cache_key})")
+        return _search_cache[cache_key]
 
     try:
         tag_list = tags.split(",") if tags else None
@@ -104,36 +133,48 @@ async def search_documents(
             if entity_type:
                 filters.append(f"entity_type={entity_type}")
             filter_str = ", ".join(filters) if filters else "no filters"
-            return f"No documents found ({filter_str})"
+            result = f"No documents found ({filter_str})"
+        else:
+            formatted = []
+            for doc in documents:
+                desc = f" - {doc.description}" if doc.description else ""
+                formatted.append(f"- id={doc.id}: {doc.filename}{desc} ({doc.content_type})")
+            result = f"Found {len(documents)} of {total} documents:\n" + "\n".join(formatted)
 
-        formatted = []
-        for doc in documents:
-            desc = f" - {doc.description}" if doc.description else ""
-            formatted.append(f"- id={doc.id}: {doc.filename}{desc} ({doc.content_type})")
-
-        return f"Found {len(documents)} of {total} documents:\n" + "\n".join(formatted)
+        # Cache the result
+        _search_cache[cache_key] = result
+        logger.debug(f"Cache MISS: search_documents({cache_key}) - cached")
+        return result
 
     except Exception as e:
         logger.error(f"Document search failed: {e}")
         return f"Document search failed: {e}"
 
 
-async def get_document_content(document_id: int) -> str:
-    """Get the text content of a document by ID."""
+async def search_documents(
+    query: Optional[str] = None,
+    tags: Optional[str] = None,
+    entity_type: Optional[str] = None,
+    entity_id: Optional[int] = None,
+    limit: int = 10,
+) -> str:
+    """Search for documents. Returns document metadata (id, filename, description)."""
     tenant_id = get_tenant_id()
     if not tenant_id:
-        # Fallback: get default tenant (pinacolada)
-        from lib.db import async_get_session
-        from sqlalchemy import text
-        try:
-            async with async_get_session() as session:
-                result = await session.execute(text("SELECT id FROM \"Tenant\" WHERE slug = 'pinacolada' LIMIT 1"))
-                row = result.fetchone()
-                tenant_id = row[0] if row else None
-        except Exception as e:
-            logger.warning(f"Failed to get default tenant: {e}")
+        tenant_id = await _get_default_tenant_id()
     if not tenant_id:
-        return "Error: No tenant context available. Cannot fetch document."
+        return "Error: No tenant context available. Cannot search documents."
+
+    return await _search_documents_cached(tenant_id, query, tags, entity_type, entity_id, limit)
+
+
+async def _get_document_content_cached(tenant_id: int, document_id: int) -> str:
+    """Cached document content retrieval."""
+    # Check cache first
+    cache_key = (tenant_id, document_id)
+    if cache_key in _document_content_cache:
+        logger.debug(f"Cache HIT: get_document_content({cache_key})")
+        return _document_content_cache[cache_key]
 
     try:
         document = await find_document_by_id(document_id, tenant_id)
@@ -165,11 +206,27 @@ async def get_document_content(document_id: int) -> str:
         if len(content) > MAX_CONTENT_CHARS:
             content = content[:MAX_CONTENT_CHARS] + f"\n\n[Truncated - {len(content)} total chars]"
 
-        return f"=== {document.filename} ===\n\n{content}"
+        result = f"=== {document.filename} ===\n\n{content}"
+
+        # Cache the result
+        _document_content_cache[cache_key] = result
+        logger.debug(f"Cache MISS: get_document_content({cache_key}) - cached")
+        return result
 
     except Exception as e:
         logger.error(f"Failed to get document content: {e}")
         return f"Failed to get document content: {e}"
+
+
+async def get_document_content(document_id: int) -> str:
+    """Get the text content of a document by ID."""
+    tenant_id = get_tenant_id()
+    if not tenant_id:
+        tenant_id = await _get_default_tenant_id()
+    if not tenant_id:
+        return "Error: No tenant context available. Cannot fetch document."
+
+    return await _get_document_content_cached(tenant_id, document_id)
 
 
 # --- Tool Factory ---

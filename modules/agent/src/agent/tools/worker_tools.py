@@ -43,6 +43,10 @@ class UpdateJobStatusInput(BaseModel):
     notes: str = Field(default="", description="Optional notes about the application")
 
 
+class JobCheckInput(BaseModel):
+    query: str = Field(default="", description="Search query (company name, job title, or both). Empty string lists all jobs.")
+
+
 def get_applied_jobs_tracker():
     """Get job service tracker (functional dict interface)."""
     return {
@@ -395,7 +399,7 @@ def _route_job_check(tracker, company: str, job_title: str, applied_jobs: list, 
     return _handle_list_all(tracker, applied_jobs, jobs_details)
 
 
-def check_applied_jobs(query: str = "") -> str:
+async def check_applied_jobs(query: str = "") -> str:
     """
     Check if a specific job has been applied to, or list all applied jobs.
 
@@ -409,11 +413,11 @@ def check_applied_jobs(query: str = "") -> str:
         company, job_title = _parse_query_input(query)
         logger.info(f"check_applied_jobs: query='{query}', company='{company}', job_title='{job_title}'")
 
-        tracker = get_applied_jobs_tracker()
-        applied_jobs = tracker["fetch_applied_jobs"](refresh=True)
-        jobs_details = tracker["get_jobs_details"](refresh=True)
+        applied_jobs = await fetch_applied_jobs(refresh=True)
+        jobs_details = await get_jobs_details(refresh=True)
         logger.info(f"Applied: {len(applied_jobs)}, Details: {len(jobs_details)}")
 
+        tracker = get_applied_jobs_tracker()
         return _route_job_check(tracker, company, job_title, applied_jobs, jobs_details)
 
     except Exception as e:
@@ -745,34 +749,9 @@ def update_job_status(
         return f"Failed to update job status: {e}"
 
 
-async def get_worker_tools():
-    """Return all available tools for the Worker"""
+async def get_general_tools():
+    """Return general-purpose tools (web search, wikipedia) - NO job search tools."""
     tools = []
-
-    # Push notification tool
-    push_tool = Tool(
-        name="send_push_notification",
-        func=push,
-        description="Use this tool when you want to send a push notification to the owner",
-    )
-    tools.append(push_tool)
-
-    # User details recording tool
-    record_details_tool = Tool(
-        name="record_user_details",
-        func=record_user_details,
-        description="Record user contact information. Requires email, optional name and notes. Use after collecting contact info from the conversation.",
-    )
-    tools.append(record_details_tool)
-
-    # Email sending tool (using StructuredTool for multiple parameters)
-    send_email_tool = StructuredTool.from_function(
-        func=send_email,
-        name="send_email",
-        description="Send an email to a user. Use when user requests to receive job listings or other information via email. Always include the job listings in the job_listings parameter if sending job search results.",
-        args_schema=SendEmailInput,
-    )
-    tools.append(send_email_tool)
 
     # Web search tool
     web_search_tool = Tool(
@@ -782,41 +761,6 @@ async def get_worker_tools():
     )
     tools.append(web_search_tool)
 
-    # Job search tool with filtering (async)
-    job_search_tool = Tool(
-        name="job_search",
-        func=lambda q: None,  # Placeholder for sync
-        coroutine=job_search_with_filter,
-        description="Search for job postings and automatically filter out positions already applied to (tracked in Supabase). Use this instead of web_search for job-related queries. Input: a job search query (e.g., 'software engineer jobs in NYC').",
-    )
-    tools.append(job_search_tool)
-
-    # Check applied jobs tool
-    check_applied_tool = Tool(
-        name="check_applied_jobs",
-        func=check_applied_jobs,
-        description="Check job applications tracked in Supabase database. ALWAYS use this tool when user asks about job applications. Input: a query string. Examples: '' (empty string) for all jobs, 'Software Engineer' to find jobs with that title, 'Google' to find jobs at that company, 'Google Software Engineer' for specific company+title. The tool performs fuzzy matching on job titles, so 'Software Engineer' will match 'Senior Software Engineer', 'Full Stack Software Engineer', etc.",
-    )
-    tools.append(check_applied_tool)
-
-    # Get data source info tool
-    data_source_info_tool = Tool(
-        name="get_data_source_info",
-        func=get_data_source_info,
-        description="Get information about the connected data source (Supabase). Use when user asks about the data source being used for job tracking.",
-    )
-    tools.append(data_source_info_tool)
-
-    # Update job status tool
-
-    update_job_status_tool = StructuredTool.from_function(
-        func=update_job_status,
-        name="update_job_status",
-        description="Update the status of a job application. Use this when the user says they applied to a company, wants to mark a job as 'do not apply', or update any job status. Supports fuzzy matching on company names. Example: 'I applied to Alto Neuroscience' or 'Mark Ramp as do not apply'.",
-        args_schema=UpdateJobStatusInput,
-    )
-    tools.append(update_job_status_tool)
-
     # Wikipedia tool
     try:
         wikipedia = WikipediaAPIWrapper()
@@ -825,5 +769,65 @@ async def get_worker_tools():
     except Exception as e:
         logger.warning(f"Could not initialize Wikipedia tool: {e}")
 
-    logger.info(f"Initialized {len(tools)} tools")
+    logger.info(f"Initialized {len(tools)} general tools")
     return tools
+
+
+async def get_job_search_tools():
+    """Return job search specific tools - only for job_search worker."""
+    tools = []
+
+    # Job search tool with filtering (async)
+    job_search_tool = Tool(
+        name="job_search",
+        func=lambda q: None,  # Placeholder for sync
+        coroutine=job_search_with_filter,
+        description="Search for job postings and automatically filter out positions already applied to (tracked in Supabase). Input: a job search query (e.g., 'software engineer jobs in NYC').",
+    )
+    tools.append(job_search_tool)
+
+    # Check applied jobs tool (async)
+    check_applied_tool = StructuredTool.from_function(
+        func=lambda **kwargs: None,
+        coroutine=check_applied_jobs,
+        name="check_applied_jobs",
+        description="Check job applications tracked in Supabase database. Input: a query string. Examples: '' (empty string) for all jobs, 'Software Engineer' to find jobs with that title, 'Google' to find jobs at that company.",
+        args_schema=JobCheckInput,
+    )
+    tools.append(check_applied_tool)
+
+    # Get data source info tool
+    data_source_info_tool = Tool(
+        name="get_data_source_info",
+        func=get_data_source_info,
+        description="Get information about the connected data source (Supabase).",
+    )
+    tools.append(data_source_info_tool)
+
+    # Update job status tool
+    update_job_status_tool = StructuredTool.from_function(
+        func=update_job_status,
+        name="update_job_status",
+        description="Update the status of a job application. Use when user says they applied to a company or wants to mark a job as 'do not apply'.",
+        args_schema=UpdateJobStatusInput,
+    )
+    tools.append(update_job_status_tool)
+
+    # Email tool for sending job listings
+    send_email_tool = StructuredTool.from_function(
+        func=send_email,
+        name="send_email",
+        description="Send job listings via email. Include job_listings parameter with the listings.",
+        args_schema=SendEmailInput,
+    )
+    tools.append(send_email_tool)
+
+    logger.info(f"Initialized {len(tools)} job search tools")
+    return tools
+
+
+async def get_worker_tools():
+    """Return all tools (for backwards compatibility) - DEPRECATED, use specific getters."""
+    general = await get_general_tools()
+    job_search = await get_job_search_tools()
+    return general + job_search

@@ -15,6 +15,7 @@ import time
 from fastapi import FastAPI, WebSocket, Request
 from fastapi.middleware.cors import CORSMiddleware
 from agent.graph import invoke_graph
+from agent.orchestrator import cancel_streaming
 from agent.util.logging_config import configure_logging
 from api.routes import jobs_routes, leads_routes, auth_routes, users_routes, preferences_routes, organizations_routes, individuals_routes, industries_routes, salary_ranges_routes, employee_count_ranges_routes, funding_stages_routes, notes_routes, contacts_routes, accounts_routes, revenue_ranges_routes, technologies_routes, provenance_routes, reports_routes, projects_routes, opportunities_routes, partnerships_routes, tasks_routes, comments_routes, notifications_routes, documents_routes, tags_routes
 from api.routes.mocks.k401_rollover import router as mock_401k_router
@@ -194,6 +195,20 @@ async def websocket_endpoint(websocket: WebSocket):
                     }
                 )
             )
+            return new_uid
+
+        # Cancel request? Stop the running graph execution
+        if payload.get("type") == "cancel":
+            logger.info(
+                json.dumps(
+                    {
+                        "timestamp": datetime.now().isoformat(),
+                        "uuid": new_uid,
+                        "op": "Cancel request received",
+                    }
+                )
+            )
+            await cancel_streaming(new_uid)
             return new_uid
 
         # Control/telemetry envelopes -> forward to graph (it will silently store & return)

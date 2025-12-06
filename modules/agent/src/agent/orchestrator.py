@@ -3,6 +3,7 @@ Orchestrator - functional implementation
 Uses factory function pattern to create a graph with closed-over state
 """
 
+import asyncio
 import json
 import logging
 from typing import List, Any, Optional, Dict, Annotated
@@ -18,6 +19,26 @@ from dotenv import load_dotenv
 logger = logging.getLogger(__name__)
 load_dotenv(override=True)
 
+# Track running tasks by thread_id for cancellation
+_running_tasks: Dict[str, asyncio.Task] = {}
+
+# Token budget limit (50k tokens max per request)
+TOKEN_BUDGET = 50000
+
+
+async def cancel_streaming(thread_id: str) -> bool:
+    """Cancel a running streaming task by thread_id.
+
+    Returns True if a task was cancelled, False otherwise.
+    """
+    task = _running_tasks.get(thread_id)
+    if task and not task.done():
+        logger.info(f"Cancelling streaming task for thread: {thread_id}")
+        task.cancel()
+        return True
+    logger.warning(f"No running task found for thread: {thread_id}")
+    return False
+
 
 # State type definition
 class State(TypedDict):
@@ -27,7 +48,6 @@ class State(TypedDict):
     success_criteria_met: bool
     user_input_needed: bool
     score: Optional[int]  # Numeric score from 0-100 rating response quality
-    resume_name: str
     route_to_agent: Optional[str]
     evaluator_type: Optional[str]  # career, scraper, or general
     token_usage: Optional[Dict[str, int]]  # current call: input, output, total
@@ -108,7 +128,7 @@ async def create_orchestrator():
         - run_streaming: async function to execute the graph
         - set_websocket_sender: function to set WS sender
     """
-    from agent.tools.worker_tools import get_worker_tools
+    from agent.tools.worker_tools import get_general_tools, get_job_search_tools
     from agent.tools.crm_tools import get_crm_tools
     from agent.tools.document_tools import get_document_tools
     from agent.workers.general_worker import create_worker_node, route_from_worker
@@ -131,11 +151,13 @@ async def create_orchestrator():
 
     logger.info("=== AGENT SETUP ===")
 
-    # Load tools
-    base_tools = await get_worker_tools()
-    document_tools = await get_document_tools()
-    tools = base_tools + document_tools  # All workers get document tools
-    logger.info(f"✓ Loaded {len(base_tools)} base tools + {len(document_tools)} document tools")
+    # Load tools - separated by purpose
+    general_tools = await get_general_tools()  # web search, wikipedia
+    document_tools = await get_document_tools()  # search_documents, get_document_content
+    job_search_tools = await get_job_search_tools()  # job_search, check_applied_jobs, etc.
+    crm_tools = await get_crm_tools()  # lookup_individual, lookup_organization, etc.
+
+    logger.info(f"✓ Loaded tools: {len(general_tools)} general, {len(document_tools)} document, {len(job_search_tools)} job search, {len(crm_tools)} CRM")
 
     # Load CRM schema context for RAG
     try:
@@ -146,18 +168,18 @@ async def create_orchestrator():
         logger.warning(f"Could not load CRM schema: {e}")
         schema_context = "CRM schema not available."
 
-    # Load CRM tools
-    crm_tools = await get_crm_tools()
-    all_crm_tools = tools + crm_tools  # CRM worker gets all tools including document + CRM
-    logger.info(f"✓ Loaded {len(crm_tools)} CRM tools")
+    # Build tool sets for each worker
+    worker_tools = document_tools + general_tools  # General worker: docs + web search (NO job search)
+    job_worker_tools = document_tools + job_search_tools  # Job search: docs + job tools
+    crm_worker_tools = document_tools + crm_tools + general_tools  # CRM: docs + CRM + web search
+    all_tools = document_tools + general_tools + job_search_tools + crm_tools  # For ToolNode
 
-    # Create nodes (each returns a pure function with closed-over LLMs)
-    # All workers now have access to document tools for dynamic resume/document fetching
-    worker = await create_worker_node(tools, _trim_messages)
-    job_search = await create_job_search_node(tools, _trim_messages)
-    cover_letter_writer = await create_cover_letter_writer_node(tools, _trim_messages)
-    crm_worker = await create_crm_worker_node(all_crm_tools, schema_context, _trim_messages)
-    logger.info("✓ Created workers with document tool access")
+    # Create nodes - each worker gets appropriate tools
+    worker = await create_worker_node(worker_tools, _trim_messages)
+    job_search = await create_job_search_node(job_worker_tools, _trim_messages)
+    cover_letter_writer = await create_cover_letter_writer_node(document_tools, _trim_messages)  # Only docs
+    crm_worker = await create_crm_worker_node(crm_worker_tools, schema_context, _trim_messages)
+    logger.info("✓ Created workers with appropriate tool access")
 
     # Create specialized evaluators
     career_evaluator = await create_career_evaluator_node()
@@ -180,7 +202,7 @@ async def create_orchestrator():
     graph_builder.add_node("job_search", job_search)
     graph_builder.add_node("cover_letter_writer", cover_letter_writer)
     graph_builder.add_node("crm_worker", crm_worker)
-    graph_builder.add_node("tools", ToolNode(tools=all_crm_tools))  # Use all tools including CRM
+    graph_builder.add_node("tools", ToolNode(tools=all_tools))  # All tools for ToolNode
     # Add specialized evaluators
     graph_builder.add_node("career_evaluator", career_evaluator)
     graph_builder.add_node("general_evaluator", general_evaluator)
@@ -298,6 +320,11 @@ async def create_orchestrator():
         logger.info(f"▶️  Starting graph execution for thread: {thread_id}")
         logger.info(f"   User message: {message[:100]}...")
 
+        # Register this task for cancellation support
+        current_task = asyncio.current_task()
+        if current_task:
+            _running_tasks[thread_id] = current_task
+
         # Set tenant context for CRM tools (request-scoped)
         set_tenant_id(tenant_id)
         if tenant_id:
@@ -305,7 +332,7 @@ async def create_orchestrator():
 
         config = {
             "configurable": {"thread_id": thread_id},
-            "recursion_limit": 50,  # Higher limit for browser automation tasks
+            "recursion_limit": 20,  # Reduced from 50 to prevent runaway iterations
         }
 
         sc = (
@@ -320,7 +347,6 @@ async def create_orchestrator():
             "success_criteria_met": False,
             "user_input_needed": False,
             "score": None,
-            "resume_name": "William Hubenschmidt",
             "route_to_agent": None,
             "evaluator_type": None,
             "token_usage": None,
@@ -343,77 +369,103 @@ async def create_orchestrator():
         last_content = ""
         iteration = 0
         cumulative = {"input": 0, "output": 0, "total": 0}
+        last_token_usage_id = None  # Track to avoid double-counting same token_usage
+        cancelled = False
 
-        async for event in compiled_graph.astream(
-            state, config=config, stream_mode="values"
-        ):
-            iteration += 1
-            logger.info(f"   Graph iteration {iteration}")
+        try:
+            async for event in compiled_graph.astream(
+                state, config=config, stream_mode="values"
+            ):
+                iteration += 1
+                logger.info(f"   Graph iteration {iteration}")
 
-            messages = event.get("messages")
-            last_msg = None
-            try:
-                last_msg = (messages or [])[-1]
-            except Exception:
+                messages = event.get("messages")
                 last_msg = None
+                try:
+                    last_msg = (messages or [])[-1]
+                except Exception:
+                    last_msg = None
 
-            current_content = getattr(last_msg, "content", None)
-            is_ai = isinstance(last_msg, AIMessage)
-            changed = (
-                isinstance(current_content, str)
-                and current_content
-                and current_content != last_content
-            )
-
-            # Detect if this is a NEW response (content got shorter or replaced, not just appended)
-            is_new_response = (
-                changed
-                and last_content
-                and not current_content.startswith(last_content)
-            )
-
-            should_emit = is_ai and changed
-
-            if should_emit:
-                # Send start event for new response to reset frontend streaming state
-                if is_new_response:
-                    logger.info(
-                        f"New response detected (content replaced), sending start event"
-                    )
-                    await send_ws(json.dumps({"type": "start"}))
-
-                last_content = current_content
-                await send_ws(
-                    json.dumps(
-                        {
-                            "type": "content",
-                            "content": current_content,
-                            "is_final": False,
-                        }
-                    )
+                current_content = getattr(last_msg, "content", None)
+                is_ai = isinstance(last_msg, AIMessage)
+                changed = (
+                    isinstance(current_content, str)
+                    and current_content
+                    and current_content != last_content
                 )
 
-            # Send token usage if available
-            token_usage = event.get("token_usage")
-            if token_usage and token_usage.get("total", 0) > 0:
-                # Accumulate tokens
-                cumulative["input"] += token_usage.get("input", 0)
-                cumulative["output"] += token_usage.get("output", 0)
-                cumulative["total"] += token_usage.get("total", 0)
-
-                await send_ws(
-                    json.dumps({
-                        "type": "token_usage",
-                        "token_usage": token_usage,
-                        "cumulative": cumulative.copy()
-                    })
+                # Detect if this is a NEW response (content got shorter or replaced, not just appended)
+                is_new_response = (
+                    changed
+                    and last_content
+                    and not current_content.startswith(last_content)
                 )
 
-        await send_ws(
-            json.dumps({"type": "content", "content": last_content, "is_final": True})
-        )
-        await send_ws(json.dumps({"type": "end"}))
-        logger.info(f"✅ Graph execution completed in {iteration} iterations")
+                should_emit = is_ai and changed
+
+                if should_emit:
+                    # Send start event for new response to reset frontend streaming state
+                    if is_new_response:
+                        logger.info(
+                            f"New response detected (content replaced), sending start event"
+                        )
+                        await send_ws(json.dumps({"type": "start"}))
+
+                    last_content = current_content
+                    await send_ws(
+                        json.dumps(
+                            {
+                                "type": "content",
+                                "content": current_content,
+                                "is_final": False,
+                            }
+                        )
+                    )
+
+                # Send token usage if available (deduplicate to avoid double-counting)
+                token_usage = event.get("token_usage")
+                if token_usage and token_usage.get("total", 0) > 0:
+                    # Create unique ID for this token_usage to detect duplicates
+                    token_id = (token_usage.get("input", 0), token_usage.get("output", 0), token_usage.get("total", 0))
+
+                    if token_id != last_token_usage_id:
+                        # New token usage event - accumulate
+                        last_token_usage_id = token_id
+                        cumulative["input"] += token_usage.get("input", 0)
+                        cumulative["output"] += token_usage.get("output", 0)
+                        cumulative["total"] += token_usage.get("total", 0)
+
+                        await send_ws(
+                            json.dumps({
+                                "type": "token_usage",
+                                "token_usage": token_usage,
+                                "cumulative": cumulative.copy()
+                            })
+                        )
+
+                        # Check token budget
+                        if cumulative["total"] > TOKEN_BUDGET:
+                            logger.warning(
+                                f"Token budget exceeded ({cumulative['total']} > {TOKEN_BUDGET}), stopping execution"
+                            )
+                            break
+
+        except asyncio.CancelledError:
+            cancelled = True
+            logger.info(f"⚠️  Graph execution cancelled for thread: {thread_id}")
+            await send_ws(json.dumps({"type": "cancelled"}))
+            raise  # Re-raise to properly cancel the task
+
+        finally:
+            # Cleanup task tracking
+            _running_tasks.pop(thread_id, None)
+
+            if not cancelled:
+                await send_ws(
+                    json.dumps({"type": "content", "content": last_content, "is_final": True})
+                )
+                await send_ws(json.dumps({"type": "end"}))
+                logger.info(f"✅ Graph execution completed in {iteration} iterations")
 
         return state
 

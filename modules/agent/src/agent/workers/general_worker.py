@@ -15,17 +15,14 @@ async def create_worker_node(
     """Create a general-purpose worker node"""
 
     def build_prompt(state: Dict[str, Any]) -> str:
-        return build_worker_prompt(
-            state["resume_name"],
-            state["success_criteria"],
-        )
+        return build_worker_prompt(state["success_criteria"])
 
     return await create_base_worker_node(
         worker_name="Worker",
         build_prompt=build_prompt,
         tools=tools,
         trim_messages_fn=trim_messages_fn,
-        max_tokens=512,
+        max_tokens=2048,  # Higher for document content
     )
 
 

@@ -40,6 +40,7 @@ async def create_crm_worker_node(
         trim_messages_fn=trim_messages_fn,
         max_tokens=2048,  # Higher for proposal output
         temperature=0.3,  # Lower for more deterministic CRM queries
+        # Keep GPT-5 for reliable tool calling
     )
 
 
