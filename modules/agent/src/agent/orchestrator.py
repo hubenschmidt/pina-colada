@@ -16,6 +16,27 @@ from langgraph.prebuilt import ToolNode
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, trim_messages
 from dotenv import load_dotenv
 
+from agent.tools.worker_tools import get_general_tools, get_job_search_tools
+from agent.tools.crm_tools import get_crm_tools
+from agent.tools.document_tools import get_document_tools
+from agent.workers.general_worker import create_worker_node, route_from_worker
+from agent.workers.career import (
+    create_job_search_node,
+    route_from_job_search,
+    create_cover_letter_writer_node,
+    route_from_cover_letter_writer,
+)
+from agent.workers.crm import create_crm_worker_node, route_from_crm_worker
+from agent.routers.agent_router import create_router_node, route_from_router_edge
+from agent.evaluators import (
+    route_from_evaluator,
+    create_career_evaluator_node,
+    create_general_evaluator_node,
+    create_crm_evaluator_node,
+)
+from services.reasoning_service import get_reasoning_schema, format_schema_context
+from lib.tenant_context import set_tenant_id
+
 logger = logging.getLogger(__name__)
 load_dotenv(override=True)
 
@@ -118,6 +139,51 @@ def _trim_messages(messages: List[Any], max_tokens: int = 8000) -> List[Any]:
         return messages[-10:]
 
 
+def _extract_content_info(last_msg: Any, last_content: str) -> Dict[str, Any]:
+    """Extract content emission info from message. Returns dict with should_emit, content, is_new."""
+    current_content = getattr(last_msg, "content", None)
+    is_ai = isinstance(last_msg, AIMessage)
+
+    if not isinstance(current_content, str):
+        return {"should_emit": False, "content": last_content, "is_new": False}
+    if not current_content:
+        return {"should_emit": False, "content": last_content, "is_new": False}
+    if current_content == last_content:
+        return {"should_emit": False, "content": last_content, "is_new": False}
+    if not is_ai:
+        return {"should_emit": False, "content": current_content, "is_new": False}
+
+    is_new = bool(last_content and not current_content.startswith(last_content))
+    return {"should_emit": True, "content": current_content, "is_new": is_new}
+
+
+def _should_accumulate_tokens(token_usage: Optional[Dict], last_id: Optional[tuple]) -> tuple:
+    """Check if token usage should be accumulated. Returns (should_accumulate, token_id)."""
+    if not token_usage:
+        return (False, last_id)
+    if token_usage.get("total", 0) <= 0:
+        return (False, last_id)
+
+    token_id = (
+        token_usage.get("input", 0),
+        token_usage.get("output", 0),
+        token_usage.get("total", 0),
+    )
+    if token_id == last_id:
+        return (False, last_id)
+
+    return (True, token_id)
+
+
+async def _stream_with_budget(stream, cumulative: Dict, budget: int):
+    """Async generator that stops when budget exceeded. Avoids break in main loop."""
+    async for event in stream:
+        yield event
+        if cumulative["total"] > budget:
+            logger.warning(f"Token budget exceeded ({cumulative['total']} > {budget}), stopping")
+            return
+
+
 async def create_orchestrator():
     """
     Factory function that creates an orchestrator with closed-over state.
@@ -128,27 +194,6 @@ async def create_orchestrator():
         - run_streaming: async function to execute the graph
         - set_websocket_sender: function to set WS sender
     """
-    from agent.tools.worker_tools import get_general_tools, get_job_search_tools
-    from agent.tools.crm_tools import get_crm_tools
-    from agent.tools.document_tools import get_document_tools
-    from agent.workers.general_worker import create_worker_node, route_from_worker
-    from agent.workers.career import (
-        create_job_search_node,
-        route_from_job_search,
-        create_cover_letter_writer_node,
-        route_from_cover_letter_writer,
-    )
-    from agent.workers.crm import create_crm_worker_node, route_from_crm_worker
-    from agent.routers.agent_router import create_router_node, route_from_router_edge
-    from agent.evaluators import (
-        route_from_evaluator,
-        create_career_evaluator_node,
-        create_general_evaluator_node,
-        create_crm_evaluator_node,
-    )
-    from services.reasoning_service import get_reasoning_schema, format_schema_context
-    from lib.tenant_context import set_tenant_id
-
     logger.info("=== AGENT SETUP ===")
 
     # Load tools - separated by purpose
@@ -369,86 +414,49 @@ async def create_orchestrator():
         last_content = ""
         iteration = 0
         cumulative = {"input": 0, "output": 0, "total": 0}
-        last_token_usage_id = None  # Track to avoid double-counting same token_usage
+        last_token_usage_id = None
         cancelled = False
 
+        raw_stream = compiled_graph.astream(state, config=config, stream_mode="values")
+        budget_stream = _stream_with_budget(raw_stream, cumulative, TOKEN_BUDGET)
+
         try:
-            async for event in compiled_graph.astream(
-                state, config=config, stream_mode="values"
-            ):
+            async for event in budget_stream:
                 iteration += 1
                 logger.info(f"   Graph iteration {iteration}")
 
                 messages = event.get("messages")
-                last_msg = None
-                try:
-                    last_msg = (messages or [])[-1]
-                except Exception:
-                    last_msg = None
+                last_msg = (messages or [None])[-1]
 
-                current_content = getattr(last_msg, "content", None)
-                is_ai = isinstance(last_msg, AIMessage)
-                changed = (
-                    isinstance(current_content, str)
-                    and current_content
-                    and current_content != last_content
-                )
+                content_info = _extract_content_info(last_msg, last_content)
+                last_content = content_info["content"]
 
-                # Detect if this is a NEW response (content got shorter or replaced, not just appended)
-                is_new_response = (
-                    changed
-                    and last_content
-                    and not current_content.startswith(last_content)
-                )
+                if content_info["should_emit"] and content_info["is_new"]:
+                    logger.info("New response detected, sending start event")
+                    await send_ws(json.dumps({"type": "start"}))
 
-                should_emit = is_ai and changed
+                if content_info["should_emit"]:
+                    await send_ws(json.dumps({
+                        "type": "content",
+                        "content": content_info["content"],
+                        "is_final": False,
+                    }))
 
-                if should_emit:
-                    # Send start event for new response to reset frontend streaming state
-                    if is_new_response:
-                        logger.info(
-                            f"New response detected (content replaced), sending start event"
-                        )
-                        await send_ws(json.dumps({"type": "start"}))
-
-                    last_content = current_content
-                    await send_ws(
-                        json.dumps(
-                            {
-                                "type": "content",
-                                "content": current_content,
-                                "is_final": False,
-                            }
-                        )
-                    )
-
-                # Send token usage if available (deduplicate to avoid double-counting)
                 token_usage = event.get("token_usage")
-                if token_usage and token_usage.get("total", 0) > 0:
-                    # Create unique ID for this token_usage to detect duplicates
-                    token_id = (token_usage.get("input", 0), token_usage.get("output", 0), token_usage.get("total", 0))
+                should_accumulate, last_token_usage_id = _should_accumulate_tokens(
+                    token_usage, last_token_usage_id
+                )
 
-                    if token_id != last_token_usage_id:
-                        # New token usage event - accumulate
-                        last_token_usage_id = token_id
-                        cumulative["input"] += token_usage.get("input", 0)
-                        cumulative["output"] += token_usage.get("output", 0)
-                        cumulative["total"] += token_usage.get("total", 0)
+                if should_accumulate:
+                    cumulative["input"] += token_usage.get("input", 0)
+                    cumulative["output"] += token_usage.get("output", 0)
+                    cumulative["total"] += token_usage.get("total", 0)
 
-                        await send_ws(
-                            json.dumps({
-                                "type": "token_usage",
-                                "token_usage": token_usage,
-                                "cumulative": cumulative.copy()
-                            })
-                        )
-
-                        # Check token budget
-                        if cumulative["total"] > TOKEN_BUDGET:
-                            logger.warning(
-                                f"Token budget exceeded ({cumulative['total']} > {TOKEN_BUDGET}), stopping execution"
-                            )
-                            break
+                    await send_ws(json.dumps({
+                        "type": "token_usage",
+                        "token_usage": token_usage,
+                        "cumulative": cumulative.copy()
+                    }))
 
         except asyncio.CancelledError:
             cancelled = True
