@@ -6,6 +6,7 @@ from fastapi import APIRouter, Request
 
 from controllers.conversation_controller import (
     list_conversations,
+    list_tenant_conversations,
     get_conversation,
     update_title,
     archive_conversation,
@@ -26,6 +27,18 @@ async def list_conversations_route(
 ):
     """List conversations for the current user."""
     return await list_conversations(request, limit, include_archived)
+
+
+@router.get("/all")
+async def list_tenant_conversations_route(
+    request: Request,
+    search: str = None,
+    limit: int = 100,
+    offset: int = 0,
+    include_archived: bool = False,
+):
+    """List all conversations for the tenant (with search and pagination)."""
+    return await list_tenant_conversations(request, search, limit, offset, include_archived)
 
 
 @router.get("/{thread_id}")

@@ -12,6 +12,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from repositories import conversation_repository as repo
 from schemas.conversation import (
     ConversationResponse,
+    ConversationWithUserResponse,
     ConversationWithMessagesResponse,
     MessageResponse,
 )
@@ -33,6 +34,24 @@ async def list_conversations(
         include_archived=include_archived,
     )
     return [ConversationResponse.model_validate(c) for c in conversations]
+
+
+async def list_tenant_conversations(
+    tenant_id: int,
+    search: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+    include_archived: bool = False,
+) -> tuple[List[ConversationWithUserResponse], int]:
+    """List all conversations for a tenant with search and pagination."""
+    conversations, total = await repo.list_tenant_conversations(
+        tenant_id=tenant_id,
+        search=search,
+        limit=limit,
+        offset=offset,
+        include_archived=include_archived,
+    )
+    return [ConversationWithUserResponse.model_validate(c) for c in conversations], total
 
 
 async def get_conversation(thread_id: UUID) -> ConversationResponse:

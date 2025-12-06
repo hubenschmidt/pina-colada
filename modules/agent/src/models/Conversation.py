@@ -17,8 +17,12 @@ class Conversation(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     archived_at = Column(DateTime(timezone=True), nullable=True)
+    created_by_id = Column(BigInteger, ForeignKey("User.id"), nullable=False)
+    updated_by_id = Column(BigInteger, ForeignKey("User.id"), nullable=False)
 
     messages = relationship("ConversationMessage", back_populates="conversation", cascade="all, delete-orphan")
+    created_by = relationship("User", foreign_keys=[created_by_id])
+    updated_by = relationship("User", foreign_keys=[updated_by_id])
 
 
 class ConversationMessage(Base):

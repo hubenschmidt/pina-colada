@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from uuid import UUID
 
 from sqlalchemy import and_, func, select, update
+from sqlalchemy.orm import selectinload
 from lib.db import async_get_session
 from models.Conversation import Conversation, ConversationMessage
 
@@ -35,6 +36,43 @@ async def list_conversations(
         )
         result = await session.execute(stmt)
         return list(result.scalars().all())
+
+
+async def list_tenant_conversations(
+    tenant_id: int,
+    search: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+    include_archived: bool = False,
+) -> tuple[List[Conversation], int]:
+    """List all conversations for a tenant with search and pagination."""
+    async with async_get_session() as session:
+        conditions = [Conversation.tenant_id == tenant_id]
+
+        if not include_archived:
+            conditions.append(Conversation.archived_at.is_(None))
+
+        if search:
+            conditions.append(Conversation.title.ilike(f"%{search}%"))
+
+        # Count total
+        count_stmt = select(func.count(Conversation.id)).where(and_(*conditions))
+        count_result = await session.execute(count_stmt)
+        total = count_result.scalar() or 0
+
+        # Fetch with eager loading
+        stmt = (
+            select(Conversation)
+            .options(selectinload(Conversation.created_by), selectinload(Conversation.updated_by))
+            .where(and_(*conditions))
+            .order_by(Conversation.updated_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        conversations = list(result.scalars().all())
+
+        return conversations, total
 
 
 async def get_conversation(thread_id: UUID) -> Optional[Conversation]:
@@ -82,6 +120,8 @@ async def create_conversation(
             tenant_id=tenant_id,
             thread_id=thread_id,
             title=title,
+            created_by_id=user_id,
+            updated_by_id=user_id,
         )
         session.add(conversation)
         await session.commit()

@@ -33,6 +33,14 @@ class MessageResponse(BaseModel):
         from_attributes = True
 
 
+class UserBrief(BaseModel):
+    id: int
+    email: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
 class ConversationResponse(BaseModel):
     id: int
     thread_id: UUID
@@ -43,6 +51,14 @@ class ConversationResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+class ConversationWithUserResponse(ConversationResponse):
+    """Conversation response with user details for full listing."""
+    created_by_id: Optional[int] = None
+    updated_by_id: Optional[int] = None
+    created_by: Optional[UserBrief] = None
+    updated_by: Optional[UserBrief] = None
 
 
 class ConversationWithMessagesResponse(BaseModel):

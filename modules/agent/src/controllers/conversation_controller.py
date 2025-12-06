@@ -29,6 +29,31 @@ async def list_conversations(
 
 
 @handle_http_exceptions
+async def list_tenant_conversations(
+    request: Request,
+    search: str = None,
+    limit: int = 100,
+    offset: int = 0,
+    include_archived: bool = False,
+) -> dict:
+    """List all conversations for the tenant (with search and pagination)."""
+    tenant_id = request.state.tenant_id
+    conversations, total = await service.list_tenant_conversations(
+        tenant_id=tenant_id,
+        search=search,
+        limit=limit,
+        offset=offset,
+        include_archived=include_archived,
+    )
+    return {
+        "data": [c.model_dump() for c in conversations],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
+
+
+@handle_http_exceptions
 async def get_conversation(request: Request, thread_id: UUID) -> dict:
     """Get a conversation by thread_id."""
     result = await service.get_conversation_with_messages(thread_id)
