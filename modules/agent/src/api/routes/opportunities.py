@@ -12,16 +12,12 @@ from controllers.opportunity_controller import (
     update_opportunity,
 )
 from schemas.opportunity import OpportunityCreate, OpportunityUpdate
-from lib.auth import require_auth
-from lib.error_logging import log_errors
 
 
 router = APIRouter(prefix="/opportunities", tags=["opportunities"])
 
 
 @router.get("")
-@log_errors
-@require_auth
 async def get_opportunities_route(
     request: Request,
     page: int = Query(1, ge=1),
@@ -36,32 +32,24 @@ async def get_opportunities_route(
 
 
 @router.post("")
-@log_errors
-@require_auth
 async def create_opportunity_route(request: Request, data: OpportunityCreate):
     """Create a new opportunity."""
     return await create_opportunity(request, data)
 
 
 @router.get("/{opportunity_id}")
-@log_errors
-@require_auth
 async def get_opportunity_route(request: Request, opportunity_id: str):
     """Get an opportunity by ID."""
     return await get_opportunity(opportunity_id)
 
 
 @router.put("/{opportunity_id}")
-@log_errors
-@require_auth
 async def update_opportunity_route(request: Request, opportunity_id: str, data: OpportunityUpdate):
     """Update an opportunity."""
     return await update_opportunity(request, opportunity_id, data)
 
 
 @router.delete("/{opportunity_id}")
-@log_errors
-@require_auth
 async def delete_opportunity_route(request: Request, opportunity_id: str):
     """Delete an opportunity."""
     return await delete_opportunity(opportunity_id)

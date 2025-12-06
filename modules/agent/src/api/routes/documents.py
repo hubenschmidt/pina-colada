@@ -20,16 +20,12 @@ from controllers.document_controller import (
     upload_document,
 )
 from schemas.document import DocumentUpdate, EntityLink
-from lib.auth import require_auth
-from lib.error_logging import log_errors
 
 
 router = APIRouter(prefix="/assets/documents", tags=["documents"])
 
 
 @router.get("")
-@require_auth
-@log_errors
 async def list_documents_route(
     request: Request,
     page: int = Query(1, ge=1),
@@ -46,8 +42,6 @@ async def list_documents_route(
 
 
 @router.get("/check-filename")
-@require_auth
-@log_errors
 async def check_filename_route(
     request: Request,
     filename: str = Query(...),
@@ -59,16 +53,12 @@ async def check_filename_route(
 
 
 @router.get("/{document_id}")
-@require_auth
-@log_errors
 async def get_document_route(request: Request, document_id: int):
     """Get a single document by ID."""
     return await get_document(request, document_id)
 
 
 @router.post("")
-@require_auth
-@log_errors
 async def upload_document_route(
     request: Request,
     file: UploadFile = File(...),
@@ -85,8 +75,6 @@ async def upload_document_route(
 
 
 @router.get("/{document_id}/download")
-@require_auth
-@log_errors
 async def download_document_route(request: Request, document_id: int):
     """Download a document file."""
     document, redirect_url, content = await download_document(request, document_id)
@@ -102,32 +90,24 @@ async def download_document_route(request: Request, document_id: int):
 
 
 @router.put("/{document_id}")
-@require_auth
-@log_errors
 async def update_document_route(request: Request, document_id: int, data: DocumentUpdate):
     """Update a document's metadata."""
     return await update_document(request, document_id, data)
 
 
 @router.delete("/{document_id}")
-@require_auth
-@log_errors
 async def delete_document_route(request: Request, document_id: int):
     """Delete a document."""
     return await delete_document(request, document_id)
 
 
 @router.post("/{document_id}/link")
-@require_auth
-@log_errors
 async def link_document_route(request: Request, document_id: int, data: EntityLink):
     """Link a document to an entity."""
     return await link_document(request, document_id, data)
 
 
 @router.delete("/{document_id}/link")
-@require_auth
-@log_errors
 async def unlink_document_route(
     request: Request,
     document_id: int,
@@ -141,16 +121,12 @@ async def unlink_document_route(
 # Version endpoints
 
 @router.get("/{document_id}/versions")
-@require_auth
-@log_errors
 async def get_document_versions_route(request: Request, document_id: int):
     """Get all versions of a document."""
     return await get_document_versions(request, document_id)
 
 
 @router.post("/{document_id}/versions")
-@require_auth
-@log_errors
 async def create_document_version_route(
     request: Request,
     document_id: int,
@@ -163,8 +139,6 @@ async def create_document_version_route(
 
 
 @router.patch("/{document_id}/set-current")
-@require_auth
-@log_errors
 async def set_current_version_route(request: Request, document_id: int):
     """Set a specific version as the current version."""
     return await set_current_version(request, document_id)

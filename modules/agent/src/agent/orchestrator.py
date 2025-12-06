@@ -7,6 +7,7 @@ import asyncio
 import json
 import logging
 from typing import List, Any, Optional, Dict, Annotated
+from uuid import UUID
 
 from typing_extensions import TypedDict
 from langgraph.checkpoint.memory import MemorySaver
@@ -35,6 +36,7 @@ from agent.evaluators import (
     create_crm_evaluator_node,
 )
 from services.reasoning_service import get_reasoning_schema, format_schema_context
+from services import conversation_service
 from lib.tenant_context import set_tenant_id
 
 logger = logging.getLogger(__name__)
@@ -359,7 +361,11 @@ async def create_orchestrator():
         ws_sender_ref["send_ws"] = send_ws
 
     async def run_streaming(
-        message: str, thread_id: str, success_criteria: str = None, tenant_id: int = None
+        message: str,
+        thread_id: str,
+        success_criteria: str = None,
+        tenant_id: int = None,
+        user_id: int = None,
     ) -> Dict[str, Any]:
         """Run the graph with streaming support"""
         logger.info(f"▶️  Starting graph execution for thread: {thread_id}")
@@ -374,6 +380,31 @@ async def create_orchestrator():
         set_tenant_id(tenant_id)
         if tenant_id:
             logger.info(f"   Tenant ID: {tenant_id}")
+
+        # Check if this is a new conversation (for title generation)
+        is_new_conversation = False
+        thread_uuid = None
+        if user_id and tenant_id:
+            try:
+                thread_uuid = UUID(thread_id)
+                existing = await conversation_service.get_conversation(thread_uuid)
+            except Exception:
+                existing = None
+                is_new_conversation = True
+            if not existing:
+                is_new_conversation = True
+
+            # Save user message
+            try:
+                await conversation_service.add_message(
+                    thread_id=thread_uuid,
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                    role="user",
+                    content=message,
+                )
+            except Exception as e:
+                logger.warning(f"Failed to save user message: {e}")
 
         config = {
             "configurable": {"thread_id": thread_id},
@@ -474,6 +505,26 @@ async def create_orchestrator():
                 )
                 await send_ws(json.dumps({"type": "end"}))
                 logger.info(f"✅ Graph execution completed in {iteration} iterations")
+
+                # Save assistant message
+                if user_id and tenant_id and last_content and thread_uuid:
+                    try:
+                        await conversation_service.add_message(
+                            thread_id=thread_uuid,
+                            user_id=user_id,
+                            tenant_id=tenant_id,
+                            role="assistant",
+                            content=last_content,
+                            token_usage=cumulative if cumulative.get("total", 0) > 0 else None,
+                        )
+
+                        # Generate title for new conversations
+                        if is_new_conversation:
+                            conversation_service.schedule_title_generation(
+                                thread_uuid, message, last_content
+                            )
+                    except Exception as e:
+                        logger.warning(f"Failed to save assistant message: {e}")
 
         return state
 

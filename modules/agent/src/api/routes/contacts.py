@@ -13,16 +13,12 @@ from controllers.contact_controller import (
     update_contact,
 )
 from schemas.contact import ContactCreate, ContactUpdate
-from lib.auth import require_auth
-from lib.error_logging import log_errors
 
 
 router = APIRouter(prefix="/contacts", tags=["contacts"])
 
 
 @router.get("")
-@log_errors
-@require_auth
 async def get_contacts_route(
     request: Request,
     page: int = Query(1, ge=1),
@@ -36,8 +32,6 @@ async def get_contacts_route(
 
 
 @router.get("/search")
-@log_errors
-@require_auth
 async def search_contacts_route(request: Request, q: Optional[str] = Query(None, min_length=1)):
     """Search for contacts/individuals by name or email."""
     if not q:
@@ -46,32 +40,24 @@ async def search_contacts_route(request: Request, q: Optional[str] = Query(None,
 
 
 @router.get("/{contact_id}")
-@log_errors
-@require_auth
 async def get_contact_route(request: Request, contact_id: int):
     """Get a single contact by ID."""
     return await get_contact(contact_id)
 
 
 @router.post("")
-@log_errors
-@require_auth
 async def create_contact_route(request: Request, data: ContactCreate):
     """Create a new contact with optional individual/organization links."""
     return await create_contact(request, data)
 
 
 @router.put("/{contact_id}")
-@log_errors
-@require_auth
 async def update_contact_route(request: Request, contact_id: int, data: ContactUpdate):
     """Update an existing contact."""
     return await update_contact(request, contact_id, data)
 
 
 @router.delete("/{contact_id}")
-@log_errors
-@require_auth
 async def delete_contact_route(request: Request, contact_id: int):
     """Delete a contact."""
     return await delete_contact(contact_id)

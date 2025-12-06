@@ -3,8 +3,6 @@
 from fastapi import APIRouter, Request
 
 from controllers.user_controller import get_user_tenant, set_selected_project
-from lib.auth import require_auth
-from lib.error_logging import log_errors
 from schemas.user import SetSelectedProjectRequest
 
 
@@ -18,8 +16,6 @@ async def get_user_tenant_route(email: str):
 
 
 @router.put("/me/selected-project")
-@log_errors
-@require_auth
 async def set_selected_project_route(request: Request, body: SetSelectedProjectRequest):
     """Set the current user's selected project."""
     return await set_selected_project(request, body.project_id)

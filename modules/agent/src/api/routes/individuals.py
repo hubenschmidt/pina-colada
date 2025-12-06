@@ -22,8 +22,6 @@ from schemas.individual import (
     IndividualCreate,
     IndividualUpdate,
 )
-from lib.auth import require_auth
-from lib.error_logging import log_errors
 
 
 router = APIRouter(prefix="/individuals", tags=["individuals"])
@@ -32,8 +30,6 @@ router = APIRouter(prefix="/individuals", tags=["individuals"])
 # Individual CRUD
 
 @router.get("")
-@log_errors
-@require_auth
 async def get_individuals_route(
     request: Request,
     page: int = Query(1, ge=1),
@@ -47,8 +43,6 @@ async def get_individuals_route(
 
 
 @router.get("/search")
-@log_errors
-@require_auth
 async def search_individuals_route(request: Request, q: Optional[str] = Query(None, min_length=1)):
     """Search individuals by name or email."""
     if not q:
@@ -57,32 +51,24 @@ async def search_individuals_route(request: Request, q: Optional[str] = Query(No
 
 
 @router.get("/{individual_id}")
-@log_errors
-@require_auth
 async def get_individual_route(request: Request, individual_id: int):
     """Get a single individual by ID."""
     return await get_individual(individual_id)
 
 
 @router.post("")
-@log_errors
-@require_auth
 async def create_individual_route(request: Request, data: IndividualCreate):
     """Create a new individual."""
     return await create_individual(request, data)
 
 
 @router.put("/{individual_id}")
-@log_errors
-@require_auth
 async def update_individual_route(request: Request, individual_id: int, data: IndividualUpdate):
     """Update an existing individual."""
     return await update_individual(request, individual_id, data)
 
 
 @router.delete("/{individual_id}")
-@log_errors
-@require_auth
 async def delete_individual_route(request: Request, individual_id: int):
     """Delete an individual."""
     return await delete_individual(individual_id)
@@ -91,32 +77,24 @@ async def delete_individual_route(request: Request, individual_id: int):
 # Contact management
 
 @router.get("/{individual_id}/contacts")
-@log_errors
-@require_auth
 async def get_individual_contacts_route(request: Request, individual_id: int):
     """Get all contacts for an individual."""
     return await get_individual_contacts(individual_id)
 
 
 @router.post("/{individual_id}/contacts")
-@log_errors
-@require_auth
 async def create_individual_contact_route(request: Request, individual_id: int, data: ContactCreate):
     """Add a contact to an individual."""
     return await create_individual_contact(request, individual_id, data)
 
 
 @router.put("/{individual_id}/contacts/{contact_id}")
-@log_errors
-@require_auth
 async def update_individual_contact_route(request: Request, individual_id: int, contact_id: int, data: ContactUpdate):
     """Update a contact for an individual."""
     return await update_individual_contact(request, individual_id, contact_id, data)
 
 
 @router.delete("/{individual_id}/contacts/{contact_id}")
-@log_errors
-@require_auth
 async def delete_individual_contact_route(request: Request, individual_id: int, contact_id: int):
     """Remove a contact from an individual."""
     return await delete_individual_contact(individual_id, contact_id)

@@ -260,7 +260,7 @@ async def invoke_graph(
     set_sender = orchestrator.get("set_websocket_sender")
     set_sender(send)
 
-    # Extract tenant_id from payload if provided
+    # Extract tenant_id and user_id from payload if provided
     tenant_id = payload.get("tenant_id")
     if tenant_id:
         try:
@@ -268,12 +268,23 @@ async def invoke_graph(
         except (ValueError, TypeError):
             tenant_id = None
 
+    user_id = payload.get("user_id")
+    if user_id:
+        try:
+            user_id = int(user_id)
+        except (ValueError, TypeError):
+            user_id = None
+
     # run
     success_criteria = get_success_criteria(message)
     logger.info(f"Generated success criteria: {success_criteria[:60]}...")
     try:
         await orchestrator["run_streaming"](
-            message=message, thread_id=user_uuid, success_criteria=success_criteria, tenant_id=tenant_id
+            message=message,
+            thread_id=user_uuid,
+            success_criteria=success_criteria,
+            tenant_id=tenant_id,
+            user_id=user_id,
         )
     except Exception as e:
         if _is_disconnect_error(e):

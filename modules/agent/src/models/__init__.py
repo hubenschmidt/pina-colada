@@ -51,6 +51,7 @@ from models.LeadProject import LeadProject
 from models.CommentNotification import CommentNotification
 from models.AccountRelationship import AccountRelationship
 from models.Reasoning import Reasoning
+from models.Conversation import Conversation, ConversationMessage
 
 __all__ = [
     "Base",
@@ -98,4 +99,6 @@ __all__ = [
     "CommentNotification",
     "AccountRelationship",
     "Reasoning",
+    "Conversation",
+    "ConversationMessage",
 ]
