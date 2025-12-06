@@ -436,37 +436,35 @@
 /* INPUT FORM */
 .inputForm {
   position: relative;
-  display: grid;
-  row-gap: 0.5rem; /* 8px */
   margin-top: 0.75rem; /* 12px */
   flex-shrink: 0; /* Prevent input from shrinking */
 }
 
-/* TEXTAREA */
-.textarea {
-  resize: vertical;
-  min-height: 4.5rem; /* 72px */
+/* SINGLE-LINE INPUT ROW */
+.inputRow {
+  display: flex;
+  gap: 0.5rem; /* 8px */
+  align-items: center;
+}
+
+/* TEXT INPUT */
+.inputText {
+  flex: 1;
   background-color: var(--input-background);
   border: 1px solid var(--input-border);
   border-radius: 0.5rem; /* 8px */
   color: var(--text-primary);
   font-size: 0.9rem;
   line-height: 1.4rem;
-  padding: 0.5rem; /* 8px */
+  padding: 0.5rem 0.75rem;
   outline: none;
   font-family: inherit;
   box-shadow: var(--shadow-sm);
 }
 
-.textarea:focus {
+.inputText:focus {
   border-color: var(--input-focus);
   box-shadow: 0 0 0 3px rgb(132 204 22 / 0.1);
-}
-
-/* ACTION ROW */
-.actions {
-  display: flex;
-  column-gap: 0.5rem; /* 8px */
 }
 
 /* BUTTONS */
@@ -548,12 +546,27 @@
   animation: pulsate 1.5s ease-in-out infinite;
 }
 
+.indicatorRight {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-right: 24px; /* Clear scrollbar */
+}
+
+.statusSmall {
+  width: 10px;
+  height: 10px;
+  border-radius: 9999px;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  transition: background-color 0.2s ease-in-out;
+}
+
 .tokenUsage {
   font-style: italic;
   font-weight: 300;
   color: #a3a3a3; /* neutral-400 - subtle gray */
   font-size: 0.75rem;
-  margin-right: 24px; /* Clear scrollbar */
 }
 
 /* DEMO MODE SPLIT VIEW ---------------------------------------------------- */

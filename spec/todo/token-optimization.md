@@ -218,12 +218,12 @@ def async_ttl_cache(cache, key_fn):
 
 **Problem**: Simple CRM lookup ("look up William Hubenschmidt") uses **~2.1k tokens** across **4 LLM calls**:
 
-| Step | Node                         | Model | Est. Tokens |
-| ---- | ---------------------------- | ----- | ----------- |
-| 1    | Router                       | Haiku | ~300-400    |
-| 2    | CRM Worker (tool call)       | GPT-4 | ~967        |
-| 3    | CRM Worker (format response) | GPT-4 | ~500        |
-| 4    | CRM Evaluator                | Haiku | ~400-500    |
+| Step | Node                         | Model   | Est. Tokens |
+| ---- | ---------------------------- | ------- | ----------- |
+| 1    | Router                       | Haiku   | ~300-400    |
+| 2    | CRM Worker (tool call)       | GPT-5.1 | ~967        |
+| 3    | CRM Worker (format response) | GPT-5.1 | ~500        |
+| 4    | CRM Evaluator                | Haiku   | ~400-500    |
 
 **Proposed Optimizations**:
 

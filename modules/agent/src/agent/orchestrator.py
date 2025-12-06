@@ -29,6 +29,9 @@ from agent.workers.career import (
 )
 from agent.workers.crm import create_crm_worker_node, route_from_crm_worker
 from agent.routers.agent_router import create_router_node, route_from_router_edge
+from agent.routers.intent_classifier import create_intent_classifier_node, route_from_classifier
+from agent.nodes.fast_lookup import fast_lookup_node, fast_count_node, fast_list_node
+from agent.nodes.format_response import create_format_response_node
 from agent.evaluators import (
     route_from_evaluator,
     create_career_evaluator_node,
@@ -77,6 +80,11 @@ class State(TypedDict):
     token_usage_cumulative: Optional[Dict[str, int]]  # cumulative for entire request
     schema_context: Optional[str]  # CRM schema context from reasoning service
     tenant_id: Optional[int]  # Tenant ID for CRM queries
+    # Fast-path fields
+    fast_path_intent: Optional[str]  # lookup, count, list, or other
+    lookup_entity_type: Optional[str]  # individual, account, organization, contact
+    lookup_query: Optional[str]  # Extracted search query (for lookup intent)
+    lookup_result: Optional[str]  # Raw result from fast path
 
 
 def _get_tool_call_ids(msg: Any) -> set:
@@ -238,12 +246,24 @@ async def create_orchestrator():
     router = await create_router_node()
     logger.info("✓ Created LLM-based router")
 
+    # Create fast-path nodes
+    intent_classifier = await create_intent_classifier_node()
+    format_response = await create_format_response_node()
+    logger.info("✓ Created fast-path nodes (intent_classifier, fast_lookup, format_response)")
+
     # Build graph
     logger.info("Building LangGraph workflow...")
     graph_builder = StateGraph(State)
 
     # Add nodes - now they're all pure functions
     logger.info("Adding nodes to graph...")
+    # Fast-path nodes
+    graph_builder.add_node("intent_classifier", intent_classifier)
+    graph_builder.add_node("fast_lookup", fast_lookup_node)
+    graph_builder.add_node("fast_count", fast_count_node)
+    graph_builder.add_node("fast_list", fast_list_node)
+    graph_builder.add_node("format_response", format_response)
+    # Router and workers
     graph_builder.add_node("router", router)
     graph_builder.add_node("worker", worker)
     graph_builder.add_node("job_search", job_search)
@@ -263,8 +283,25 @@ async def create_orchestrator():
 
     # Add edges
     logger.info("Adding edges to graph...")
-    graph_builder.add_edge(START, "router")
 
+    # Fast-path: START → intent_classifier → [fast_lookup | fast_count | fast_list | router]
+    graph_builder.add_edge(START, "intent_classifier")
+    graph_builder.add_conditional_edges(
+        "intent_classifier",
+        route_from_classifier,
+        {
+            "fast_lookup": "fast_lookup",
+            "fast_count": "fast_count",
+            "fast_list": "fast_list",
+            "router": "router",
+        },
+    )
+    graph_builder.add_edge("fast_lookup", "format_response")
+    graph_builder.add_edge("fast_count", "format_response")
+    graph_builder.add_edge("fast_list", "format_response")
+    graph_builder.add_edge("format_response", END)
+
+    # Full flow: router → workers
     graph_builder.add_conditional_edges(
         "router",
         route_from_router_edge,
@@ -292,7 +329,7 @@ async def create_orchestrator():
     graph_builder.add_conditional_edges(
         "crm_worker",
         route_from_crm_worker,
-        {"tools": "crm_tools", "evaluator": "crm_evaluator"},
+        {"tools": "crm_tools", "END": END},  # Skip evaluator for CRM queries
     )
 
     graph_builder.add_conditional_edges(
@@ -423,6 +460,11 @@ async def create_orchestrator():
             "token_usage_cumulative": {"input": 0, "output": 0, "total": 0},
             "schema_context": schema_context,
             "tenant_id": tenant_id,
+            # Fast-path fields
+            "fast_path_intent": None,
+            "lookup_entity_type": None,
+            "lookup_query": None,
+            "lookup_result": None,
         }
 
         send_ws = ws_sender_ref["send_ws"]

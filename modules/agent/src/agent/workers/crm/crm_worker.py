@@ -45,5 +45,11 @@ async def create_crm_worker_node(
 
 
 def route_from_crm_worker(state: Dict[str, Any]) -> str:
-    """Route from CRM worker to tools or evaluator."""
-    return route_from_worker_with_tools(state)
+    """Route from CRM worker to tools or END (skip evaluator for CRM queries)."""
+    last_message = state["messages"][-1]
+
+    if hasattr(last_message, "tool_calls") and last_message.tool_calls:
+        return "tools"
+
+    # CRM queries are simple data retrieval - skip evaluator, go straight to END
+    return "END"

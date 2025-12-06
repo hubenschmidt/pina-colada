@@ -183,6 +183,82 @@ async def lookup_contact(query: str) -> str:
 
 
 
+async def count_entities(entity_type: str) -> str:
+    """Count entities of a given type. Fast-path for count queries."""
+    logger.info(f"🔢 count_entities: type={entity_type}")
+
+    from lib.db import async_get_session
+    from sqlalchemy import text
+
+    # Map entity types to table names
+    table_map = {
+        "individual": "Individual",
+        "organization": "Organization",
+        "account": "Account",
+        "contact": "Contact",
+    }
+
+    table_name = table_map.get(entity_type)
+    if not table_name:
+        return f"Unknown entity type: {entity_type}"
+
+    try:
+        async with async_get_session() as session:
+            query = text(f'SELECT COUNT(*) FROM "{table_name}"')
+            result = await session.execute(query)
+            count = result.scalar()
+            return f"Count of {entity_type}s: {count}"
+    except Exception as e:
+        logger.error(f"Count query failed: {e}")
+        return f"Count failed: {e}"
+
+
+async def list_entities(entity_type: str) -> str:
+    """List all entities of a given type. Fast-path for list queries."""
+    tenant_id = await _get_tenant_with_fallback()
+    logger.info(f"📋 list_entities: type={entity_type}, tenant={tenant_id}")
+
+    # Use existing search functions with wildcard-like queries
+    if entity_type == "individual":
+        results = await search_individuals("", tenant_id)
+        if not results:
+            return "No individuals found."
+        formatted = []
+        for ind in results[:20]:
+            name = f"{ind.first_name or ''} {ind.last_name or ''}".strip()
+            formatted.append(f"- {name} (id={ind.id}, email={ind.email or 'N/A'})")
+        return f"Found {len(results)} individuals:\n" + "\n".join(formatted)
+
+    if entity_type == "organization":
+        results = await search_organizations("", tenant_id)
+        if not results:
+            return "No organizations found."
+        formatted = []
+        for org in results[:20]:
+            formatted.append(f"- {org.name} (id={org.id}, website={org.website or 'N/A'})")
+        return f"Found {len(results)} organizations:\n" + "\n".join(formatted)
+
+    if entity_type == "account":
+        results = await search_accounts("", tenant_id)
+        if not results:
+            return "No accounts found."
+        formatted = []
+        for acc in results[:20]:
+            formatted.append(f"- {acc.name} (id={acc.id})")
+        return f"Found {len(results)} accounts:\n" + "\n".join(formatted)
+
+    if entity_type == "contact":
+        results = await search_contacts("", tenant_id)
+        if not results:
+            return "No contacts found."
+        formatted = []
+        for contact in results[:20]:
+            formatted.append(f"- Contact id={contact.id}")
+        return f"Found {len(results)} contacts:\n" + "\n".join(formatted)
+
+    return f"Unknown entity type: {entity_type}"
+
+
 async def execute_crm_query(query: str, reasoning: str) -> str:
     """
     Execute a read-only SQL query against CRM tables.

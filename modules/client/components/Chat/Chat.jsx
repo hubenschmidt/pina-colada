@@ -410,42 +410,44 @@ const Chat = ({ variant = "embedded", threadId: urlThreadId, onConnectionChange 
       )}
       <section
         className={`${styles.shellCard} ${variant === "page" ? styles.shellCardFlat : ""} w-full`}>
-        {/* header */}
-        <header className={styles.header}>
-          <div className={styles.headerLeft}>
-            <div
-              className={`${styles.status} ${isOpen ? styles.statusOnline : styles.statusOffline}`}
-              title={isOpen ? "Connected" : "Disconnected"}
-            />
+        {/* header - hidden on page variant */}
+        {variant !== "page" && (
+          <header className={styles.header}>
+            <div className={styles.headerLeft}>
+              <div
+                className={`${styles.status} ${isOpen ? styles.statusOnline : styles.statusOffline}`}
+                title={isOpen ? "Connected" : "Disconnected"}
+              />
 
-            <b className={styles.title}>Chat</b>
-          </div>
-          <div className={styles.headerRight}>
-            <div className={styles.toolsDropdown} id={toolsDropdownId}>
+              <b className={styles.title}>Chat</b>
+            </div>
+            <div className={styles.headerRight}>
+              <div className={styles.toolsDropdown} id={toolsDropdownId}>
+                <button
+                  type="button"
+                  className={styles.toolsButton}
+                  onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}
+                  title="Tools">
+                  <span>Tools</span>
+                  <ChevronDown size={16} className={toolsDropdownOpen ? styles.chevronOpen : ""} />
+                </button>
+                {toolsDropdownOpen && (
+                  <div className={styles.toolsMenu}>
+                    <div className="px-4 py-3 text-sm text-zinc-500 italic">Big things coming!</div>
+                  </div>
+                )}
+              </div>
               <button
                 type="button"
-                className={styles.toolsButton}
-                onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}
-                title="Tools">
-                <span>Tools</span>
-                <ChevronDown size={16} className={toolsDropdownOpen ? styles.chevronOpen : ""} />
+                className={styles.exportButton}
+                onClick={exportChat}
+                disabled={!messages.length}
+                title="Export chat to .txt file">
+                <Download size={16} />
               </button>
-              {toolsDropdownOpen && (
-                <div className={styles.toolsMenu}>
-                  <div className="px-4 py-3 text-sm text-zinc-500 italic">Big things coming!</div>
-                </div>
-              )}
             </div>
-            <button
-              type="button"
-              className={styles.exportButton}
-              onClick={exportChat}
-              disabled={!messages.length}
-              title="Export chat to .txt file">
-              <Download size={16} />
-            </button>
-          </div>
-        </header>
+          </header>
+        )}
 
         {/* chat panel - always rendered the same */}
         <main className={styles.chatPanel}>
@@ -500,38 +502,45 @@ const Chat = ({ variant = "embedded", threadId: urlThreadId, onConnectionChange 
           {/* input */}
           <form className={styles.inputForm} onSubmit={onSubmit}>
             {/* Typing indicator above input */}
-            {(isThinking || tokenUsage) && (
+            {(isThinking || tokenUsage || variant === "page") && (
               <div className={styles.thinkingIndicator}>
                 <span className={styles.thinkingText}>{isThinking ? "thinking" : ""}</span>
-                {tokenUsage && (
-                  <span className={styles.tokenUsage}>
-                    turn:{" "}
-                    {tokenUsage.current.total >= 1000
-                      ? `${(tokenUsage.current.total / 1000).toFixed(1)}k`
-                      : tokenUsage.current.total}
-                    {" · "}
-                    total:{" "}
-                    {tokenUsage.cumulative.total >= 1000
-                      ? `${(tokenUsage.cumulative.total / 1000).toFixed(1)}k`
-                      : tokenUsage.cumulative.total}
-                  </span>
-                )}
+                <div className={styles.indicatorRight}>
+                  {tokenUsage && (
+                    <span className={styles.tokenUsage}>
+                      turn:{" "}
+                      {tokenUsage.current.total >= 1000
+                        ? `${(tokenUsage.current.total / 1000).toFixed(1)}k`
+                        : tokenUsage.current.total}
+                      {" · "}
+                      total:{" "}
+                      {tokenUsage.cumulative.total >= 1000
+                        ? `${(tokenUsage.cumulative.total / 1000).toFixed(1)}k`
+                        : tokenUsage.cumulative.total}
+                    </span>
+                  )}
+                  {variant === "page" && (
+                    <div
+                      className={`${styles.statusSmall} ${isOpen ? styles.statusOnline : styles.statusOffline}`}
+                      title={isOpen ? "Connected" : "Disconnected"}
+                    />
+                  )}
+                </div>
               </div>
             )}
-            <textarea
-              autoFocus
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={onKeyDown}
-              onCompositionStart={() => setComposing(true)}
-              onCompositionEnd={() => setComposing(false)}
-              placeholder="Type or paste your message..."
-              rows={3}
-              spellCheck
-              className={styles.textarea}
-            />
-
-            <div className={styles.actions}>
+            <div className={styles.inputRow}>
+              <input
+                type="text"
+                autoFocus
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKeyDown}
+                onCompositionStart={() => setComposing(true)}
+                onCompositionEnd={() => setComposing(false)}
+                placeholder="Type or paste your message..."
+                spellCheck
+                className={styles.inputText}
+              />
               <button type="submit" className={styles.btn} disabled={!isOpen || !input.trim()}>
                 Send
               </button>
@@ -552,6 +561,16 @@ const Chat = ({ variant = "embedded", threadId: urlThreadId, onConnectionChange 
                 }}>
                 Reset
               </button>
+              {variant === "page" && (
+                <button
+                  type="button"
+                  className={styles.exportButton}
+                  onClick={exportChat}
+                  disabled={!messages.length}
+                  title="Export chat to .txt file">
+                  <Download size={16} />
+                </button>
+              )}
             </div>
           </form>
         </main>

@@ -202,9 +202,24 @@ async def create_base_evaluator_node(
 
         logger.info(f"   Calling Claude Haiku 4.5 for {evaluator_name} evaluation...")
 
+        # Estimate input tokens based on message length (~4 chars per token)
+        input_chars = sum(len(m.content) for m in evaluator_messages)
+        estimated_input = input_chars // 4
+
         try:
             eval_result = llm_with_output.invoke(evaluator_messages)
             _force_approval_if_needed(eval_result, is_retry, retry_count)
+
+            # Estimate output tokens from response
+            output_chars = len(eval_result.feedback) + 50  # feedback + structured fields
+            estimated_output = output_chars // 4
+            token_usage = {
+                "input": estimated_input,
+                "output": estimated_output,
+                "total": estimated_input + estimated_output,
+            }
+            logger.info(f"   Evaluator tokens (est): {token_usage.get('total', 0)} ({token_usage.get('input', 0)} in, {token_usage.get('output', 0)} out)")
+
         except Exception as e:
             logger.error(f"⚠️  Evaluation failed: {e}")
             return {
@@ -212,6 +227,7 @@ async def create_base_evaluator_node(
                 "success_criteria_met": True,
                 "user_input_needed": False,
                 "score": 100,
+                "token_usage": {"input": 0, "output": 0, "total": 0},
             }
 
         _log_result(evaluator_name, eval_result)
@@ -221,6 +237,7 @@ async def create_base_evaluator_node(
             "success_criteria_met": eval_result.success_criteria_met,
             "user_input_needed": eval_result.user_input_needed,
             "score": eval_result.score,
+            "token_usage": token_usage,
         }
 
     return evaluator_node

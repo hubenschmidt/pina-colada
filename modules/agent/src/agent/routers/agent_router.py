@@ -126,14 +126,28 @@ Which worker should handle this request?"""
             HumanMessage(content=user_prompt),
         ]
 
+        # Estimate input tokens based on message length (~4 chars per token)
+        input_chars = sum(len(m.content) for m in messages)
+        estimated_input = input_chars // 4
+
         try:
             decision = await llm_with_output.ainvoke(messages)
+
+            # Estimate output tokens from response
+            output_chars = len(decision.reasoning) + 20  # reasoning + route field
+            estimated_output = output_chars // 4
+            token_usage = {
+                "input": estimated_input,
+                "output": estimated_output,
+                "total": estimated_input + estimated_output,
+            }
             logger.info(f"✓ Router decision: {decision.route}")
             logger.info(f"   Reasoning: {decision.reasoning}")
-            return {"route_to_agent": decision.route}
+            logger.info(f"   Router tokens (est): {token_usage.get('total', 0)} ({token_usage.get('input', 0)} in, {token_usage.get('output', 0)} out)")
+            return {"route_to_agent": decision.route, "token_usage": token_usage}
         except Exception as e:
             logger.error(f"⚠️ Router failed: {e}, defaulting to worker")
-            return {"route_to_agent": "worker"}
+            return {"route_to_agent": "worker", "token_usage": {"input": 0, "output": 0, "total": 0}}
 
     return router_node
 
