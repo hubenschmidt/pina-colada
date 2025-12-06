@@ -7,6 +7,7 @@ from agent.evaluators._base_evaluator import (
 )
 from agent.evaluators.career_evaluator import create_career_evaluator_node
 from agent.evaluators.general_evaluator import create_general_evaluator_node
+from agent.evaluators.crm_evaluator import create_crm_evaluator_node
 
 __all__ = [
     "make_evaluator_output_model",
@@ -14,4 +15,5 @@ __all__ = [
     "route_from_evaluator",
     "create_career_evaluator_node",
     "create_general_evaluator_node",
+    "create_crm_evaluator_node",
 ]

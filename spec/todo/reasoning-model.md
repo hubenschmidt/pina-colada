@@ -1,18 +1,93 @@
-# Feature: Reasoning Model (Schema Registry for AI Agents)
+# Feature: AI-Assisted CRM (RAG + Semi-Automatic Updates)
 
 ## Overview
 
-A metadata registry table that maps database tables to reasoning contexts. When an AI agent needs to research/reason on a specific domain (e.g., "crm"), it queries this registry to discover which tables are relevant.
+Enable AI agents to **retrieve CRM context** (RAG) and **propose updates** so users can focus on closing leads rather than manual data entry.
+
+**Core capabilities:**
+1. **RAG**: Schema registry tells agents which tables/fields to query for context
+2. **Research**: Agents search web for new leads, contacts, company info
+3. **Proposals**: Agents suggest CRM updates (new leads, contacts, tasks) for user approval
+4. **Approval Workflow**: User reviews and approves changes before they're committed
 
 ## User Story
 
-As an AI agent, I want to know which tables contain data relevant to a specific reasoning context so that I can efficiently query the right sources without hardcoding table names.
+As a user managing job/opportunity/partnership leads, I want AI to handle research and data entry so I can focus on relationship-building and closing deals.
 
 ---
 
-## Schema
+## Use Cases
 
-### Reasoning Table
+### 1. Find Similar Opportunities
+> "Find job leads similar to ones that reached interview stage"
+
+**Agent flow**:
+1. Query CRM for successful leads (status = "Interview")
+2. Analyze patterns (company size, industry, role type)
+3. Web search for similar opportunities
+4. **Propose** new leads for user approval
+
+**User benefit**: Discover opportunities without manual searching
+
+### 2. Enrich Contacts
+> "Research contacts at organizations linked to my job leads"
+
+**Agent flow**:
+1. Query CRM for leads with linked organizations
+2. Web search for decision-makers at those orgs
+3. **Propose** new contacts/individuals for user approval
+
+**User benefit**: Build contact lists without LinkedIn grinding
+
+### 3. Create Follow-up Tasks
+> "Create tasks to follow up on leads that haven't been updated in 2 weeks"
+
+**Agent flow**:
+1. Query CRM for stale leads
+2. **Propose** tasks with suggested due dates and notes
+
+**User benefit**: Never forget to follow up
+
+### 4. Data Hygiene
+> "Find duplicate organizations or contacts and suggest merges"
+
+**Agent flow**:
+1. Query CRM for potential duplicates (fuzzy name matching)
+2. **Propose** merge actions for user approval
+
+**User benefit**: Clean data without manual auditing
+
+---
+
+## Approval Workflow
+
+All CRM modifications go through approval:
+
+```
+Agent researches → Proposes changes → User reviews → Approves/Rejects → Committed
+```
+
+**Proposal format**:
+```json
+{
+  "proposed_action": "create",
+  "entity_type": "Individual",
+  "data": { "first_name": "Jane", "last_name": "Doe", "title": "CTO" },
+  "confidence": 0.85,
+  "source": "LinkedIn search",
+  "link_to": { "organization_id": 123 }
+}
+```
+
+**UI shows**: List of proposals with approve/reject buttons, batch approve option
+
+---
+
+## Schema Registry (RAG Component)
+
+The `reasoning` table tells agents which CRM tables exist and how to query them.
+
+### Table Definition
 
 ```sql
 CREATE TABLE reasoning (
@@ -170,13 +245,104 @@ Plus:
 
 ---
 
+## LangGraph Integration
+
+### Architecture
+
+Integrates with existing orchestrator-worker-evaluator pattern in `modules/agent/`:
+
+```
+Router → CRM Worker → Tools → Evaluator → Retry or END
+              ↓
+    Schema context pre-loaded
+    from reasoning table
+```
+
+### New CRM Worker
+
+**Location**: `modules/agent/src/agent/workers/crm/crm_worker.py`
+
+- Created via `create_base_worker_node` factory
+- Receives pre-loaded schema context string at orchestrator startup
+- Uses schema hints for both SQL generation AND prompt enrichment
+
+### CRM Tools
+
+**Location**: `modules/agent/src/agent/tools/crm_tools.py`
+
+**CRM Read Tools (service layer - preferred)**:
+- `lookup_account(search_query)` - via account_service
+- `lookup_organization(search_query)` - via organization_service
+- `lookup_individual(search_query)` - via individual_service
+- `lookup_contact(search_query)` - via contact_service
+- `lookup_deal(search_query)` - via deal_service
+- `lookup_lead(search_query, lead_type?, status?)` - via lead_service
+
+**SQL Fallback**:
+- `execute_crm_query(query, reasoning)` - SELECT-only, validates tables against reasoning registry
+
+**Web Search** (reuse existing from `worker_tools.py`):
+- `SerperSearch` - Google search for job postings, company info
+- `WikipediaQuery` - Company/industry research
+
+**Proposal Output**:
+- CRM worker returns structured proposal reports (JSON or markdown)
+- No direct database writes in Phase 1
+- Format: `{ proposed_action, entity_type, data, confidence, source }`
+
+Worker prompt instructs to:
+1. Prefer service tools for CRM reads
+2. Use SQL for complex joins/aggregations
+3. Use web search for external research
+4. Return proposals as reports, not direct updates
+
+### Router Integration
+
+**File**: `modules/agent/src/agent/routers/agent_router.py`
+
+Add `crm_worker` route for intents:
+- Accounts, organizations, contacts, individuals
+- Deals, leads, opportunities, partnerships
+- "Show me", "Find", "Look up" + CRM entities
+
+### State Changes
+
+Add to `State` TypedDict in `orchestrator.py`:
+```python
+schema_context: Optional[str]  # Pre-loaded from reasoning service
+tenant_id: Optional[int]       # For tenant-scoped CRM queries
+```
+
+### Vector DB
+
+**Phase 2** - not required for initial implementation. The `schema_hint.embedding_fields` property is forward-compatible for when vector search is added.
+
+---
+
 ## Implementation Checklist
 
-- [ ] Create migration for `reasoning` table
-- [ ] Seed with CRM table mappings
-- [ ] Create `Reasoning` SQLAlchemy model
-- [ ] Add utility function for agent table discovery
-- [ ] Document in agent system prompt / tool definitions
+### Phase 1: Database Layer
+- [ ] Create `Reasoning` SQLAlchemy model (`models/Reasoning.py`)
+- [ ] Register in `models/__init__.py`
+- [ ] Create `reasoning_service.py` with `get_reasoning_schema()` and `format_schema_context()`
+- [ ] Create seed script (`scripts/seed_reasoning.py`)
+
+### Phase 2: CRM Worker
+- [ ] Create `workers/crm/crm_worker.py` using base worker factory
+- [ ] Add `build_crm_worker_prompt()` to `prompts/worker_prompts.py`
+
+### Phase 3: CRM Tools
+- [ ] Create `tools/crm_tools.py` with service-layer lookup tools
+- [ ] Add SQL fallback tool with table validation
+
+### Phase 4: Router
+- [ ] Add `crm_worker` to `RouterDecision` literal
+- [ ] Update router system prompt with CRM routing rules
+
+### Phase 5: Orchestrator
+- [ ] Add `schema_context` and `tenant_id` to State
+- [ ] Load schema context at startup
+- [ ] Wire CRM worker node and conditional edges
 
 ---
 

@@ -10,7 +10,6 @@ from agent.workers._base_worker import create_base_worker_node, route_from_worke
 
 async def create_job_search_node(
     tools: list,
-    resume_context_concise: str,
     trim_messages_fn: Callable,
 ):
     """Create a job search specialized node"""
@@ -19,7 +18,6 @@ async def create_job_search_node(
         """Build job search prompt"""
         return build_job_search_prompt(
             state["resume_name"],
-            resume_context_concise,
             state["success_criteria"],
         )
 

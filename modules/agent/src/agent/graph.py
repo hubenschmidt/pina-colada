@@ -14,7 +14,6 @@ from typing import Dict, Any, Optional, Callable, Awaitable
 from fastapi import WebSocket
 from dotenv import load_dotenv
 from agent.orchestrator import create_orchestrator
-from agent.util.document_scanner import load_documents
 from agent.util.get_success_criteria import get_success_criteria
 from agent.tools.static_tools import record_user_context
 
@@ -35,17 +34,6 @@ def _is_disconnect_error(err: Exception) -> bool:
         or "close" in error_msg
     )
 
-# Load resume documents
-RESUME_NAME = "William Hubenschmidt"
-logger.info("Loading documents from me/ directory...")
-resume_text, summary, sample_answers, cover_letters = load_documents("me")
-logger.info(
-    f"Documents loaded - Resume: {len(resume_text)} chars, "
-    f"Summary: {len(summary)} chars, "
-    f"Sample answers: {len(sample_answers)} chars, "
-    f"Cover letters: {len(cover_letters)}"
-)
-
 # Orchestrator instance (will be lazily initialized)
 _orchestrator_ref = {"instance": None}
 
@@ -54,12 +42,7 @@ async def get_orchestrator():
     """Get or create the orchestrator instance"""
     if _orchestrator_ref["instance"] is None:
         logger.info("Initializing Orchestrator...")
-        _orchestrator_ref["instance"] = await create_orchestrator(
-            resume_text=resume_text,
-            summary=summary,
-            sample_answers=sample_answers,
-            cover_letters=cover_letters,
-        )
+        _orchestrator_ref["instance"] = await create_orchestrator()
         logger.info("Orchestrator initialized successfully")
 
     return _orchestrator_ref["instance"]
@@ -277,12 +260,20 @@ async def invoke_graph(
     set_sender = orchestrator.get("set_websocket_sender")
     set_sender(send)
 
+    # Extract tenant_id from payload if provided
+    tenant_id = payload.get("tenant_id")
+    if tenant_id:
+        try:
+            tenant_id = int(tenant_id)
+        except (ValueError, TypeError):
+            tenant_id = None
+
     # run
     success_criteria = get_success_criteria(message)
     logger.info(f"Generated success criteria: {success_criteria[:60]}...")
     try:
         await orchestrator["run_streaming"](
-            message=message, thread_id=user_uuid, success_criteria=success_criteria
+            message=message, thread_id=user_uuid, success_criteria=success_criteria, tenant_id=tenant_id
         )
     except Exception as e:
         if _is_disconnect_error(e):

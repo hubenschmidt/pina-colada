@@ -26,6 +26,10 @@ uv run python scripts/run_seeders.py || echo "⚠️  Could not run seeders"
 echo "ℹ️  Uploading seed document files..."
 uv run python scripts/seed_documents.py || echo "⚠️  Could not upload seed documents"
 
+# Run health checks
+echo "ℹ️  Running agent health checks..."
+uv run python src/scripts/health_check.py || echo "⚠️  Health check failed - some features may not work correctly"
+
 # Start LangGraph dev API (2024) - already has hot-reload built-in
 # Quiet LangGraph runtime queue stats by setting log level
 export LOG_LEVEL=WARNING

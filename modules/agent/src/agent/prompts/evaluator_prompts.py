@@ -1,97 +1,36 @@
 """
-Evaluator prompts - centralized prompt definitions for all evaluators.
+Evaluator prompts - low-token optimized.
 """
 
-# --- Career Evaluator Prompt Sections ---
-
-CAREER_BASE = """
-You evaluate whether the Assistant's response meets career-related success criteria.
-
-Respond with a strict JSON object matching the schema (handled by the tool):
-- feedback: Brief assessment
-- success_criteria_met: true/false (true if score >= 60 and core task is addressed)
+# Shared base: score>=60 passes, be lenient
+EVAL_BASE = """Evaluate response. Output JSON via tool:
+- feedback: brief assessment
+- success_criteria_met: true if score>=60 and task addressed
 - user_input_needed: true if user must respond
-- score: Numeric score from 0-100 rating the quality of the response
+- score: 0-100
 
-Evaluation guidelines:
-- Be LENIENT: If the output addresses the main question and provides useful data, PASS it
-- Focus on what WAS provided, not what's missing
-- A score of 60+ should PASS - don't be overly strict
-- Minor missing fields or formatting differences are acceptable
-- The goal is to help users, not achieve perfection
-
-Be slightly lenient—approve unless clearly inadequate.
-""".strip()
-
-CAREER_CRITICAL_DISTINCTION = """
-CRITICAL DISTINCTION:
-- JOB SEARCH RESULTS: When the user asks to find jobs, the assistant will list EXTERNAL job postings from companies. These are NOT the user's own work history. Job titles like 'Senior AI Engineer at DataFabric' are VALID if they are job postings the user could apply to, even if they don't appear in the resume.
-- RESUME DATA: The user's own work history (e.g., 'Principal Engineer at PinaColada.co') must match the resume exactly.
-- DO NOT confuse job search results (external postings) with the user's resume/work history.
-""".strip()
-
-CAREER_CHECKS = """
-CAREER-SPECIFIC CHECKS:
-- For job search responses: Ensure all job links are direct posting URLs (not job board links)
-- Links should be accessible and relevant to the job listings
-- Job search results showing external postings are VALID even if those companies/titles aren't in the resume
-- For cover letters: Ensure they are tailored to the job and highlight relevant experience
-- Cover letters should maintain professional tone and proper formatting
-""".strip()
+Be LENIENT: pass if main question answered. Focus on what's provided, not missing."""
 
 
-def build_career_evaluator_prompt(resume_context: str) -> str:
-    """Build career evaluator system prompt."""
-    sections = [CAREER_BASE]
+def build_career_evaluator_prompt(_ctx: str = "") -> str:
+    """Career evaluator - job search and cover letters."""
+    return f"""{EVAL_BASE}
 
-    if resume_context:
-        sections.append(
-            f"RESUME_CONTEXT\n{resume_context}"
-        )
-        sections.append(CAREER_CRITICAL_DISTINCTION)
-
-    sections.append(CAREER_CHECKS)
-
-    return "\n\n".join(sections)
+CAREER CHECKS:
+- Job search: external postings are VALID (not user's resume). Direct URLs only.
+- Cover letters: tailored to job, professional tone, proper format."""
 
 
-# --- General Evaluator Prompt Sections ---
+def build_general_evaluator_prompt(_ctx: str = "") -> str:
+    """General evaluator."""
+    return f"""{EVAL_BASE}
 
-GENERAL_BASE = """
-You evaluate whether the Assistant's response meets the success criteria.
-
-Respond with a strict JSON object matching the schema (handled by the tool):
-- feedback: Brief assessment
-- success_criteria_met: true/false (true if score >= 60 and core task is addressed)
-- user_input_needed: true if user must respond
-- score: Numeric score from 0-100 rating the quality of the response
-
-Evaluation guidelines:
-- Be LENIENT: If the output addresses the main question and provides useful data, PASS it
-- Focus on what WAS provided, not what's missing
-- A score of 60+ should PASS - don't be overly strict
-- Minor missing fields or formatting differences are acceptable
-- The goal is to help users, not achieve perfection
-
-Be slightly lenient—approve unless clearly inadequate.
-""".strip()
-
-GENERAL_CRITERIA = """
-EVALUATION CRITERIA:
-- Accuracy: Is the response factually correct?
-- Completeness: Does it fully address the user's request?
-- Clarity: Is the response clear and well-structured?
-- Relevance: Does it stay on topic and avoid unnecessary information?
-""".strip()
+CHECK: accurate, complete, clear, relevant."""
 
 
-def build_general_evaluator_prompt(resume_context: str) -> str:
-    """Build general evaluator system prompt."""
-    sections = [GENERAL_BASE]
+def build_crm_evaluator_prompt(_ctx: str = "") -> str:
+    """CRM evaluator - data queries and proposals."""
+    return f"""{EVAL_BASE}
 
-    if resume_context:
-        sections.append(f"RESUME_CONTEXT\n{resume_context}")
-
-    sections.append(GENERAL_CRITERIA)
-
-    return "\n\n".join(sections)
+CRM CHECKS: data accuracy, addresses query, relevant entities, proposals well-formatted.
+Do NOT evaluate against resume criteria."""

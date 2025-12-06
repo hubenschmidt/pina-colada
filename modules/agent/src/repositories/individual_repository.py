@@ -226,18 +226,25 @@ async def delete_individual(individual_id: int) -> bool:
 async def search_individuals(query: str, tenant_id: Optional[int] = None) -> List[Individual]:
     """Search individuals by name or email (case-insensitive partial match), filtered by tenant (through Account)."""
     async with async_get_session() as session:
-        search_pattern = func.lower(f"%{query}%")
+        # Split query into words and match any word against any field
+        words = query.lower().split()
+        conditions = []
+        for word in words:
+            pattern = f"%{word}%"
+            conditions.append(
+                (func.lower(Individual.first_name).like(pattern)) |
+                (func.lower(Individual.last_name).like(pattern)) |
+                (func.lower(Individual.email).like(pattern))
+            )
+        # All words must match (AND logic) - each word can match different fields
+        from sqlalchemy import and_
         stmt = (
             select(Individual)
             .options(
                 selectinload(Individual.account).selectinload(Account.industries),
                 selectinload(Individual.account).selectinload(Account.projects),
             )
-            .where(
-                (func.lower(Individual.first_name).like(search_pattern)) |
-                (func.lower(Individual.last_name).like(search_pattern)) |
-                (func.lower(Individual.email).like(search_pattern))
-            )
+            .where(and_(*conditions) if conditions else True)
             .order_by(Individual.updated_at.desc())
         )
         if tenant_id is not None:

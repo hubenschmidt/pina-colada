@@ -28,13 +28,24 @@ logger = logging.getLogger(__name__)
 SEEDS_DIR = Path(__file__).parent.parent / "seeders" / "documents"
 
 SEED_FILES = [
+    # Generic seed documents
     "company_proposal.pdf",
     "meeting_notes.pdf",
     "contract_draft.pdf",
     "product_spec.pdf",
     "invoice_sample.pdf",
-    "individual_resume.pdf",
+    # William Hubenschmidt personal documents
+    "william_hubenschmidt_resume.pdf",
+    "william_hubenschmidt_summary.txt",
+    "william_hubenschmidt_sample_answers.txt",
+    "william_hubenschmidt_coverletter_1.pdf",
+    "william_hubenschmidt_coverletter_2.pdf",
 ]
+
+CONTENT_TYPES = {
+    ".pdf": "application/pdf",
+    ".txt": "text/plain",
+}
 
 
 async def upload_seed_files():
@@ -88,7 +99,9 @@ async def upload_seed_files():
             with open(filepath, "rb") as f:
                 content = f.read()
 
-            await storage.upload(storage_path, content, "application/pdf")
+            ext = filepath.suffix.lower()
+            content_type = CONTENT_TYPES.get(ext, "application/octet-stream")
+            await storage.upload(storage_path, content, content_type)
             logger.info(f"Uploaded: {storage_path}")
             uploaded_count += 1
 

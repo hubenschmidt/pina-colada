@@ -10,7 +10,6 @@ from agent.workers._base_worker import create_base_worker_node, route_from_worke
 
 async def create_worker_node(
     tools: list,
-    resume_context_concise: str,
     trim_messages_fn: Callable,
 ):
     """Create a general-purpose worker node"""
@@ -18,7 +17,6 @@ async def create_worker_node(
     def build_prompt(state: Dict[str, Any]) -> str:
         return build_worker_prompt(
             state["resume_name"],
-            resume_context_concise,
             state["success_criteria"],
         )
 

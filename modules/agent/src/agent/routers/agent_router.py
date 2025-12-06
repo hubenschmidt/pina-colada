@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 class RouterDecision(BaseModel):
     """Structured output for routing decision"""
-    route: Literal["worker", "job_search", "cover_letter_writer"] = Field(
+    route: Literal["worker", "job_search", "cover_letter_writer", "crm_worker"] = Field(
         description="The worker to route to based on user intent"
     )
     reasoning: str = Field(
@@ -24,29 +24,17 @@ class RouterDecision(BaseModel):
     )
 
 
-ROUTER_SYSTEM_PROMPT = """You are a routing assistant that decides which specialized worker should handle a user request.
+ROUTER_SYSTEM_PROMPT = """Route user request to correct worker.
 
-AVAILABLE WORKERS:
-1. worker - General-purpose assistant for questions, conversation, and non-specialized tasks
-2. job_search - Specialized for finding job opportunities, searching job boards, filtering jobs
-3. cover_letter_writer - Specialized for writing cover letters tailored to specific job postings
+WORKERS:
+- job_search: find/search jobs, job listings
+- cover_letter_writer: write/create cover letter
+- crm_worker: accounts, orgs, contacts, leads, deals, tasks, CRM data research
+- worker: everything else (general questions, conversation, resume questions, ambiguous)
 
-ROUTING RULES:
-- Route to "job_search" when the user wants to FIND or SEARCH for jobs, see job listings, or filter job results
-- Route to "cover_letter_writer" when the user wants to WRITE or CREATE a cover letter for a specific role
-- Route to "worker" for ALL other requests including:
-  - General questions (technical, knowledge, etc.)
-  - Conversation and chitchat
-  - Resume questions
-  - Career advice (that isn't job search or cover letter writing)
-  - Any ambiguous requests
-
-IMPORTANT:
-- Focus on the CURRENT message's intent, not just keywords from context
-- If the current message is a general question, route to "worker" even if previous messages were about jobs/cover letters
-- When in doubt, route to "worker"
-
-Respond with your routing decision."""
+RULES:
+- Route based on CURRENT message intent
+- When in doubt → worker"""
 
 
 def _get_last_user_message(messages) -> str:
@@ -154,7 +142,7 @@ def route_from_router_edge(state: Dict[str, Any]) -> str:
     route = state.get("route_to_agent", "worker")
     logger.info(f"🔀 Router decided: {route}")
 
-    valid_routes = {"worker", "cover_letter_writer", "job_search"}
+    valid_routes = {"worker", "cover_letter_writer", "job_search", "crm_worker"}
     if route not in valid_routes:
         logger.warning(f"Invalid route '{route}', defaulting to 'worker'")
         return "worker"

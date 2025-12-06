@@ -109,7 +109,7 @@ _DEFAULT_CRITERIA = """Success criteria:
 - Response is appropriately concise (typically 2-5 sentences)
 - Professional and conversational tone
 - Plain text format (no markdown)
-- If information isn't in resume data, uses record_unknown_question tool"""
+- If information isn't available, clearly state that"""
 
 
 def _matches_job_search(msg: str) -> bool:

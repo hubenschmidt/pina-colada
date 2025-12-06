@@ -7,7 +7,6 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Dict, Optional
 from langchain_core.tools import Tool, StructuredTool
-from langchain_community.agent_toolkits import FileManagementToolkit
 from langchain_community.tools.wikipedia.tool import WikipediaQueryRun
 from langchain_community.utilities import GoogleSerperAPIWrapper
 from langchain_community.utilities.wikipedia import WikipediaAPIWrapper
@@ -53,26 +52,6 @@ def get_applied_jobs_tracker():
         "filter_jobs": lambda jobs: filter_jobs(jobs),
         "add_applied_job": lambda **kwargs: add_job(**kwargs),
     }
-
-
-def get_file_tools():
-    """Get file management tools for the 'me' directory"""
-    try:
-        toolkit = FileManagementToolkit(
-            root_dir="me"
-        )  # me directory contains resume info
-        return toolkit.get_tools()
-    except Exception as e:
-        logger.warning(f"Could not initialize file tools: {e}")
-        return []
-
-
-def record_unknown_question(question: str):
-    """Record questions that couldn't be answered"""
-    message = f"Recording question that couldn't be answered: {question}"
-    push(message)
-    logger.info(message)
-    return {"recorded": "ok", "question": question}
 
 
 def _get_smtp_config():
@@ -794,18 +773,6 @@ async def get_worker_tools():
         args_schema=SendEmailInput,
     )
     tools.append(send_email_tool)
-
-    # Unknown question recording tool
-    record_question_tool = Tool(
-        name="record_unknown_question",
-        func=record_unknown_question,
-        description="Record a question that you couldn't answer. This alerts the owner that additional information may be needed.",
-    )
-    tools.append(record_question_tool)
-
-    # File management tools
-    file_tools = get_file_tools()
-    tools.extend(file_tools)  # extend since get_file_tools contains CRUD ops
 
     # Web search tool
     web_search_tool = Tool(

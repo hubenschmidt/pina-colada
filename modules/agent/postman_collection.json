@@ -2195,6 +2195,11 @@
       ]
     },
     {
+      "name": "AI Chat (WebSocket) - README",
+      "description": "WebSocket-based AI chat. Postman collections don't support WebSocket - use Postman's WebSocket Request UI or wscat.\n\n## Connection\n```\nws://localhost:8000/ws\n```\n\n## Testing with wscat\n```bash\nnpm install -g wscat\nwscat -c ws://localhost:8000/ws\n```\n\n## Message Format\n\n### 1. Initialize\n```json\n{\"uuid\": \"test-123\", \"init\": true}\n```\n\n### 2. Query\n```json\n{\"uuid\": \"test-123\", \"message\": \"your question here\"}\n```\n\n## Sample Queries\n\n### CRM Lookups\n- `look up William Hubenschmidt's individual record`\n- `find information about Acme Corp`\n- `what accounts do we have`\n\n### Documents\n- `find documents tagged with resume`\n- `show me the contents of William's resume`\n- `how many documents are linked to William Hubenschmidt`\n\n### SQL Fallback\n- `list all organizations with their account IDs`",
+      "item": []
+    },
+    {
       "name": "Leads",
       "item": [
         {
