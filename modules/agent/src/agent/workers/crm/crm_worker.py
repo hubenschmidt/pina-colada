@@ -34,7 +34,7 @@ async def create_crm_worker_node(
         )
 
     return await create_base_worker_node(
-        worker_name="CRM Worker",
+        worker_name="crm_worker",
         build_prompt=build_prompt,
         tools=tools,
         trim_messages_fn=trim_messages_fn,

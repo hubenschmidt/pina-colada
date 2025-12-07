@@ -1,46 +1,37 @@
 """Service layer for usage analytics business logic."""
 
+import logging
 from typing import Dict, List, Optional
 
 from repositories import usage_analytics_repository as repo
-from services.pricing_service import calculate_cost, get_cost_tier
+
+logger = logging.getLogger(__name__)
 
 
-def _add_cost_to_record(record: Dict) -> Dict:
-    """Add cost calculation to a usage record."""
-    model_name = record.get("model_name", "")
-    cost = calculate_cost(
-        model_name,
-        record.get("input_tokens", 0),
-        record.get("output_tokens", 0),
-    )
-    record["estimated_cost"] = round(cost, 6) if cost is not None else None
-    record["cost_tier"] = get_cost_tier(cost)
-    return record
-
-
-def _add_cost_to_aggregate(record: Dict, model_name: Optional[str] = None) -> Dict:
-    """Add cost calculation to an aggregate record (uses average pricing if no model)."""
-    cost = calculate_cost(
-        model_name or "",
-        record.get("input_tokens", 0),
-        record.get("output_tokens", 0),
-    )
-    record["estimated_cost"] = round(cost, 6) if cost is not None else None
-    record["cost_tier"] = get_cost_tier(cost)
-    return record
+def _aggregate_usage(records: List[Dict]) -> Dict:
+    """Aggregate usage records into totals."""
+    totals = {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "total_tokens": 0,
+    }
+    for record in records:
+        totals["input_tokens"] += record.get("input_tokens", 0)
+        totals["output_tokens"] += record.get("output_tokens", 0)
+        totals["total_tokens"] += record.get("total_tokens", 0)
+    return totals
 
 
 async def get_user_usage(user_id: int, period: str = "monthly") -> Dict:
-    """Get aggregated usage for a user with cost estimate."""
-    usage = await repo.get_user_usage(user_id, period)
-    return _add_cost_to_aggregate(usage)
+    """Get aggregated usage for a user."""
+    records = await repo.get_user_usage(user_id, period)
+    return _aggregate_usage(records)
 
 
 async def get_tenant_usage(tenant_id: int, period: str = "monthly") -> Dict:
-    """Get aggregated usage for a tenant with cost estimate."""
-    usage = await repo.get_tenant_usage(tenant_id, period)
-    return _add_cost_to_aggregate(usage)
+    """Get aggregated usage for a tenant."""
+    records = await repo.get_tenant_usage(tenant_id, period)
+    return _aggregate_usage(records)
 
 
 async def get_usage_timeseries(
@@ -49,26 +40,34 @@ async def get_usage_timeseries(
     user_id: Optional[int] = None,
 ) -> List[Dict]:
     """Get usage data grouped by date for charting."""
-    data = await repo.get_usage_timeseries(tenant_id, period, user_id)
-    return [_add_cost_to_aggregate(record) for record in data]
+    return await repo.get_usage_timeseries(tenant_id, period, user_id)
 
 
 async def get_usage_by_node(tenant_id: int, period: str = "monthly") -> List[Dict]:
     """Get usage breakdown by node (developer analytics)."""
-    data = await repo.get_usage_by_node(tenant_id, period)
-    return [_add_cost_to_aggregate(record) for record in data]
+    raw_data = await repo.get_usage_by_node(tenant_id, period)
 
+    # Aggregate by node (data comes grouped by node+model)
+    node_totals = {}
+    for record in raw_data:
+        node = record["node_name"]
+        if node not in node_totals:
+            node_totals[node] = {
+                "node_name": node,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "total_tokens": 0,
+            }
+        node_totals[node]["input_tokens"] += record.get("input_tokens", 0)
+        node_totals[node]["output_tokens"] += record.get("output_tokens", 0)
+        node_totals[node]["total_tokens"] += record.get("total_tokens", 0)
 
-async def get_usage_by_tool(tenant_id: int, period: str = "monthly") -> List[Dict]:
-    """Get usage breakdown by tool (developer analytics)."""
-    data = await repo.get_usage_by_tool(tenant_id, period)
-    return [_add_cost_to_aggregate(record) for record in data]
+    return sorted(node_totals.values(), key=lambda x: x["total_tokens"], reverse=True)
 
 
 async def get_usage_by_model(tenant_id: int, period: str = "monthly") -> List[Dict]:
     """Get usage breakdown by model (developer analytics)."""
-    data = await repo.get_usage_by_model(tenant_id, period)
-    return [_add_cost_to_record(record) for record in data]
+    return await repo.get_usage_by_model(tenant_id, period)
 
 
 async def log_usage(
@@ -96,3 +95,28 @@ async def log_usage(
         conversation_id=conversation_id,
         message_id=message_id,
     )
+
+
+async def log_usage_records(
+    tenant_id: int,
+    user_id: int,
+    records: List[Dict],
+) -> None:
+    """Log usage records with model and node info."""
+    logger.info(f"log_usage_records: tenant={tenant_id}, user={user_id}, count={len(records)}")
+    db_records = [
+        {
+            "tenant_id": tenant_id,
+            "user_id": user_id,
+            "input_tokens": r.get("input", 0),
+            "output_tokens": r.get("output", 0),
+            "total_tokens": r.get("total", 0),
+            "model_name": r.get("model_name"),
+            "node_name": r.get("node_name"),
+        }
+        for r in records
+        if r.get("total", 0) > 0
+    ]
+    if db_records:
+        await repo.insert_usage_batch(db_records)
+        logger.info(f"Inserted {len(db_records)} usage records")

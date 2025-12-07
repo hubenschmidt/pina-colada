@@ -67,6 +67,8 @@ async def create_format_response_node():
             return {
                 "messages": [AIMessage(content=response.content)],
                 "token_usage": token_usage,
+                "model_name": "claude-haiku-4-5-20251001",
+                "current_node": "format_response",
             }
         except Exception as e:
             logger.error(f"Format response failed: {e}")

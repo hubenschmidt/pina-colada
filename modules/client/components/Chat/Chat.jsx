@@ -571,8 +571,7 @@ const Chat = ({
               </div>
             )}
             <div className={styles.inputRow}>
-              <input
-                type="text"
+              <textarea
                 autoFocus
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -581,6 +580,7 @@ const Chat = ({
                 onCompositionEnd={() => setComposing(false)}
                 placeholder="Type or paste your message..."
                 spellCheck
+                rows={1}
                 className={styles.inputText}
               />
               <button type="submit" className={styles.btn} disabled={!isOpen || !input.trim()}>

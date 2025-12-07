@@ -81,6 +81,8 @@ class State(TypedDict):
     token_usage_cumulative: Optional[Dict[str, int]]  # cumulative for entire request
     schema_context: Optional[str]  # CRM schema context from reasoning service
     tenant_id: Optional[int]  # Tenant ID for CRM queries
+    model_name: Optional[str]  # Model name for usage tracking
+    current_node: Optional[str]  # Current node name for usage tracking
     # Fast-path fields
     fast_path_intent: Optional[str]  # lookup, count, list, or other
     lookup_entity_type: Optional[str]  # individual, account, organization, contact
@@ -461,6 +463,8 @@ async def create_orchestrator():
             "token_usage_cumulative": {"input": 0, "output": 0, "total": 0},
             "schema_context": schema_context,
             "tenant_id": tenant_id,
+            "model_name": None,
+            "current_node": None,
             # Fast-path fields
             "fast_path_intent": None,
             "lookup_entity_type": None,
@@ -482,6 +486,8 @@ async def create_orchestrator():
         last_content = ""
         iteration = 0
         cumulative = {"input": 0, "output": 0, "total": 0}
+        # Track usage records: list of {model_name, node_name, input, output, total}
+        usage_records = []
         last_token_usage_id = None
         cancelled = False
 
@@ -491,7 +497,9 @@ async def create_orchestrator():
         try:
             async for event in budget_stream:
                 iteration += 1
-                logger.info(f"   Graph iteration {iteration}")
+                # Debug: log what keys are in the event
+                event_keys = list(event.keys()) if isinstance(event, dict) else "not a dict"
+                logger.info(f"   Graph iteration {iteration}, event keys: {event_keys}")
 
                 messages = event.get("messages")
                 last_msg = (messages or [None])[-1]
@@ -519,6 +527,19 @@ async def create_orchestrator():
                     cumulative["input"] += token_usage.get("input", 0)
                     cumulative["output"] += token_usage.get("output", 0)
                     cumulative["total"] += token_usage.get("total", 0)
+
+                    # Track usage per model+node
+                    model_name = event.get("model_name")
+                    node_name = event.get("current_node") or event.get("route_to_agent")
+                    logger.info(f"   📊 Token accumulation: model={model_name}, node={node_name}, tokens={token_usage}")
+                    if model_name:
+                        usage_records.append({
+                            "model_name": model_name,
+                            "node_name": node_name,
+                            "input": token_usage.get("input", 0),
+                            "output": token_usage.get("output", 0),
+                            "total": token_usage.get("total", 0),
+                        })
 
                     await send_ws(json.dumps({
                         "type": "token_usage",
@@ -563,20 +584,18 @@ async def create_orchestrator():
                     except Exception as e:
                         logger.warning(f"Failed to save assistant message: {e}")
 
-                # Log usage analytics
-                if user_id and tenant_id and cumulative.get("total", 0) > 0:
+                # Log usage analytics (batch insert)
+                logger.info(f"📊 Usage tracking: user_id={user_id}, tenant_id={tenant_id}, records={len(usage_records)}")
+                if user_id and tenant_id and usage_records:
                     try:
-                        await usage_service.log_usage(
+                        await usage_service.log_usage_records(
                             tenant_id=tenant_id,
                             user_id=user_id,
-                            input_tokens=cumulative.get("input", 0),
-                            output_tokens=cumulative.get("output", 0),
-                            total_tokens=cumulative.get("total", 0),
-                            node_name=event.get("route_to_agent"),
-                            model_name="gpt-4o-mini",  # Default model used
+                            records=usage_records,
                         )
+                        logger.info(f"✓ Usage analytics logged: {len(usage_records)} record(s)")
                     except Exception as e:
-                        logger.warning(f"Failed to log usage analytics: {e}")
+                        logger.error(f"Failed to log usage analytics: {e}", exc_info=True)
 
         return state
 

@@ -54,50 +54,88 @@ async def insert_usage(
         return usage
 
 
-async def get_user_usage(user_id: int, period: str) -> Dict:
-    """Get aggregated token usage for a user."""
+async def insert_usage_batch(records: List[Dict]) -> None:
+    """Insert multiple usage records in a single transaction."""
+    if not records:
+        return
     async with async_get_session() as session:
-        period_start = _get_period_start(period)
-        stmt = select(
-            func.coalesce(func.sum(UsageAnalytics.input_tokens), 0).label("input_tokens"),
-            func.coalesce(func.sum(UsageAnalytics.output_tokens), 0).label("output_tokens"),
-            func.coalesce(func.sum(UsageAnalytics.total_tokens), 0).label("total_tokens"),
-        ).where(
-            and_(
-                UsageAnalytics.user_id == user_id,
-                UsageAnalytics.created_at >= period_start,
+        for record in records:
+            usage = UsageAnalytics(
+                tenant_id=record["tenant_id"],
+                user_id=record["user_id"],
+                input_tokens=record.get("input_tokens", 0),
+                output_tokens=record.get("output_tokens", 0),
+                total_tokens=record.get("total_tokens", 0),
+                node_name=record.get("node_name"),
+                tool_name=record.get("tool_name"),
+                model_name=record.get("model_name"),
+                conversation_id=record.get("conversation_id"),
+                message_id=record.get("message_id"),
             )
-        )
-        result = await session.execute(stmt)
-        row = result.one()
-        return {
-            "input_tokens": row.input_tokens,
-            "output_tokens": row.output_tokens,
-            "total_tokens": row.total_tokens,
-        }
+            session.add(usage)
+        await session.commit()
 
 
-async def get_tenant_usage(tenant_id: int, period: str) -> Dict:
-    """Get aggregated token usage for a tenant."""
+async def get_user_usage(user_id: int, period: str) -> List[Dict]:
+    """Get token usage for a user grouped by model for cost calculation."""
     async with async_get_session() as session:
         period_start = _get_period_start(period)
-        stmt = select(
-            func.coalesce(func.sum(UsageAnalytics.input_tokens), 0).label("input_tokens"),
-            func.coalesce(func.sum(UsageAnalytics.output_tokens), 0).label("output_tokens"),
-            func.coalesce(func.sum(UsageAnalytics.total_tokens), 0).label("total_tokens"),
-        ).where(
-            and_(
-                UsageAnalytics.tenant_id == tenant_id,
-                UsageAnalytics.created_at >= period_start,
+        stmt = (
+            select(
+                UsageAnalytics.model_name,
+                func.coalesce(func.sum(UsageAnalytics.input_tokens), 0).label("input_tokens"),
+                func.coalesce(func.sum(UsageAnalytics.output_tokens), 0).label("output_tokens"),
+                func.coalesce(func.sum(UsageAnalytics.total_tokens), 0).label("total_tokens"),
             )
+            .where(
+                and_(
+                    UsageAnalytics.user_id == user_id,
+                    UsageAnalytics.created_at >= period_start,
+                )
+            )
+            .group_by(UsageAnalytics.model_name)
         )
         result = await session.execute(stmt)
-        row = result.one()
-        return {
-            "input_tokens": row.input_tokens,
-            "output_tokens": row.output_tokens,
-            "total_tokens": row.total_tokens,
-        }
+        return [
+            {
+                "model_name": row.model_name,
+                "input_tokens": row.input_tokens,
+                "output_tokens": row.output_tokens,
+                "total_tokens": row.total_tokens,
+            }
+            for row in result.all()
+        ]
+
+
+async def get_tenant_usage(tenant_id: int, period: str) -> List[Dict]:
+    """Get token usage for a tenant grouped by model for cost calculation."""
+    async with async_get_session() as session:
+        period_start = _get_period_start(period)
+        stmt = (
+            select(
+                UsageAnalytics.model_name,
+                func.coalesce(func.sum(UsageAnalytics.input_tokens), 0).label("input_tokens"),
+                func.coalesce(func.sum(UsageAnalytics.output_tokens), 0).label("output_tokens"),
+                func.coalesce(func.sum(UsageAnalytics.total_tokens), 0).label("total_tokens"),
+            )
+            .where(
+                and_(
+                    UsageAnalytics.tenant_id == tenant_id,
+                    UsageAnalytics.created_at >= period_start,
+                )
+            )
+            .group_by(UsageAnalytics.model_name)
+        )
+        result = await session.execute(stmt)
+        return [
+            {
+                "model_name": row.model_name,
+                "input_tokens": row.input_tokens,
+                "output_tokens": row.output_tokens,
+                "total_tokens": row.total_tokens,
+            }
+            for row in result.all()
+        ]
 
 
 async def get_usage_timeseries(
@@ -139,12 +177,14 @@ async def get_usage_timeseries(
 
 
 async def get_usage_by_node(tenant_id: int, period: str) -> List[Dict]:
-    """Get usage breakdown by node name (developer analytics)."""
+    """Get usage breakdown by node name with model info for cost calculation."""
     async with async_get_session() as session:
         period_start = _get_period_start(period)
+        # Group by node AND model to enable per-model cost calculation
         stmt = (
             select(
                 UsageAnalytics.node_name,
+                UsageAnalytics.model_name,
                 func.sum(UsageAnalytics.input_tokens).label("input_tokens"),
                 func.sum(UsageAnalytics.output_tokens).label("output_tokens"),
                 func.sum(UsageAnalytics.total_tokens).label("total_tokens"),
@@ -156,13 +196,14 @@ async def get_usage_by_node(tenant_id: int, period: str) -> List[Dict]:
                     UsageAnalytics.node_name.isnot(None),
                 )
             )
-            .group_by(UsageAnalytics.node_name)
+            .group_by(UsageAnalytics.node_name, UsageAnalytics.model_name)
             .order_by(func.sum(UsageAnalytics.total_tokens).desc())
         )
         result = await session.execute(stmt)
         return [
             {
                 "node_name": row.node_name,
+                "model_name": row.model_name,
                 "input_tokens": row.input_tokens or 0,
                 "output_tokens": row.output_tokens or 0,
                 "total_tokens": row.total_tokens or 0,

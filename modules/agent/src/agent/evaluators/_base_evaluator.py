@@ -238,6 +238,8 @@ async def create_base_evaluator_node(
             "user_input_needed": eval_result.user_input_needed,
             "score": eval_result.score,
             "token_usage": token_usage,
+            "model_name": "claude-haiku-4-5-20251001",
+            "current_node": f"{evaluator_name}_evaluator",
         }
 
     return evaluator_node

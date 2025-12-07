@@ -18,7 +18,7 @@ async def create_worker_node(
         return build_worker_prompt(state["success_criteria"])
 
     return await create_base_worker_node(
-        worker_name="Worker",
+        worker_name="general_worker",
         build_prompt=build_prompt,
         tools=tools,
         trim_messages_fn=trim_messages_fn,

@@ -19,7 +19,7 @@ async def create_job_search_node(
         return build_job_search_prompt(state["success_criteria"])
 
     return await create_base_worker_node(
-        worker_name="Job Search",
+        worker_name="job_search",
         build_prompt=build_prompt,
         tools=tools,
         trim_messages_fn=trim_messages_fn,

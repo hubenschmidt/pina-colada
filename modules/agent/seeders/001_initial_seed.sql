@@ -98,6 +98,11 @@ BEGIN
         ON CONFLICT DO NOTHING;
     END IF;
 
+    -- Set William's theme preference to dark
+    INSERT INTO "User_Preferences" (user_id, theme, timezone, created_at, updated_at)
+    VALUES (v_user_id, 'dark', 'America/New_York', NOW(), NOW())
+    ON CONFLICT (user_id) DO UPDATE SET theme = 'dark', updated_at = NOW();
+
     -- Create default Organization for the tenant
     INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by)
     VALUES (v_tenant_id, 'PinaColada', NOW(), NOW(), v_bootstrap_user_id, v_bootstrap_user_id)

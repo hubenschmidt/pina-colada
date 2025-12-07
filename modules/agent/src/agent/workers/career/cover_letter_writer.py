@@ -19,7 +19,7 @@ async def create_cover_letter_writer_node(
         return build_cover_letter_writer_prompt()
 
     return await create_base_worker_node(
-        worker_name="Cover Letter Writer",
+        worker_name="cover_letter_writer",
         build_prompt=build_prompt,
         tools=tools,  # Document tools for fetching resume/cover letters
         trim_messages_fn=trim_messages_fn,

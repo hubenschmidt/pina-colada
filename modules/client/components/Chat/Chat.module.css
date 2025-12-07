@@ -459,11 +459,11 @@
   flex-shrink: 0; /* Prevent input from shrinking */
 }
 
-/* SINGLE-LINE INPUT ROW */
+/* INPUT ROW */
 .inputRow {
   display: flex;
   gap: 0.5rem; /* 8px */
-  align-items: center;
+  align-items: flex-end;
 }
 
 /* TEXT INPUT */
@@ -479,6 +479,11 @@
   outline: none;
   font-family: inherit;
   box-shadow: var(--shadow-sm);
+  resize: none;
+  min-height: 2.4rem;
+  max-height: 10rem;
+  overflow-y: auto;
+  field-sizing: content;
 }
 
 .inputText:focus {

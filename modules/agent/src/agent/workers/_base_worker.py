@@ -116,7 +116,7 @@ async def create_base_worker_node(
             logger.warning(f"   Response type: {type(response)}")
             logger.warning(f"   Response metadata: {getattr(response, 'response_metadata', {})}")
 
-        return {"messages": [response], "token_usage": token_usage}
+        return {"messages": [response], "token_usage": token_usage, "model_name": model_name, "current_node": worker_name}
 
     return worker_node
 

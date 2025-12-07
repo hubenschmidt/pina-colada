@@ -144,7 +144,7 @@ Which worker should handle this request?"""
             logger.info(f"✓ Router decision: {decision.route}")
             logger.info(f"   Reasoning: {decision.reasoning}")
             logger.info(f"   Router tokens (est): {token_usage.get('total', 0)} ({token_usage.get('input', 0)} in, {token_usage.get('output', 0)} out)")
-            return {"route_to_agent": decision.route, "token_usage": token_usage}
+            return {"route_to_agent": decision.route, "token_usage": token_usage, "model_name": "claude-haiku-4-5-20251001", "current_node": "agent_router"}
         except Exception as e:
             logger.error(f"⚠️ Router failed: {e}, defaulting to worker")
             return {"route_to_agent": "worker", "token_usage": {"input": 0, "output": 0, "total": 0}}

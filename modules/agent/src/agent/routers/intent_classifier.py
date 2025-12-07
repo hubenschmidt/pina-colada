@@ -92,6 +92,8 @@ async def create_intent_classifier_node():
                 "lookup_entity_type": intent.entity_type,
                 "lookup_query": intent.query,
                 "token_usage": token_usage,
+                "model_name": "claude-haiku-4-5-20251001",
+                "current_node": "intent_classifier",
             }
         except Exception as e:
             logger.error(f"⚠️ Classifier failed: {e}, falling back to full flow")

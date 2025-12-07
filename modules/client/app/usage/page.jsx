@@ -10,11 +10,11 @@ import {
   Center,
   SegmentedControl,
   Group,
-  Badge,
   Table,
   Tabs,
+  Badge,
 } from "@mantine/core";
-import { BarChart2, User, Building, Code, Wrench, Cpu } from "lucide-react";
+import { BarChart2, User, Building, Code, Cpu } from "lucide-react";
 import { usePageLoading } from "../../context/pageLoadingContext";
 import {
   getUserUsage,
@@ -37,29 +37,11 @@ const formatTokens = (count) => {
   return count.toString();
 };
 
-const formatCost = (cost) => {
-  if (cost === null || cost === undefined) return "N/A";
-  if (cost < 0.01) return `$${cost.toFixed(4)}`;
-  return `$${cost.toFixed(2)}`;
-};
-
-const CostBadge = ({ tier }) => {
-  const colorMap = { low: "green", moderate: "yellow", high: "red", unknown: "gray" };
-  return (
-    <Badge color={colorMap[tier] || "gray"} size="sm">
-      {tier}
-    </Badge>
-  );
-};
-
 const UsageCard = ({ title, icon: Icon, data, loading }) => (
   <Paper withBorder p="md" radius="md">
-    <Group justify="space-between" mb="xs">
-      <Group gap="xs">
-        <Icon size={20} />
-        <Text fw={500}>{title}</Text>
-      </Group>
-      {data?.cost_tier && <CostBadge tier={data.cost_tier} />}
+    <Group gap="xs" mb="xs">
+      <Icon size={20} />
+      <Text fw={500}>{title}</Text>
     </Group>
     {loading ? (
       <Loader size="sm" />
@@ -77,14 +59,6 @@ const UsageCard = ({ title, icon: Icon, data, loading }) => (
           </Text>
           <Text size="sm">
             {formatTokens(data?.input_tokens || 0)} / {formatTokens(data?.output_tokens || 0)}
-          </Text>
-        </Group>
-        <Group justify="space-between">
-          <Text size="sm" c="dimmed">
-            Est. cost
-          </Text>
-          <Text fw={500} c="blue">
-            {formatCost(data?.estimated_cost || 0)}
           </Text>
         </Group>
       </Stack>
@@ -109,8 +83,6 @@ const AnalyticsTable = ({ data, labelKey, labelTitle }) => {
           <Table.Th ta="right">Total</Table.Th>
           <Table.Th ta="right">Input</Table.Th>
           <Table.Th ta="right">Output</Table.Th>
-          <Table.Th ta="right">Est. Cost</Table.Th>
-          <Table.Th>Tier</Table.Th>
         </Table.Tr>
       </Table.Thead>
       <Table.Tbody>
@@ -120,10 +92,6 @@ const AnalyticsTable = ({ data, labelKey, labelTitle }) => {
             <Table.Td ta="right">{formatTokens(row.total_tokens)}</Table.Td>
             <Table.Td ta="right">{formatTokens(row.input_tokens)}</Table.Td>
             <Table.Td ta="right">{formatTokens(row.output_tokens)}</Table.Td>
-            <Table.Td ta="right">{formatCost(row.estimated_cost || 0)}</Table.Td>
-            <Table.Td>
-              <CostBadge tier={row.cost_tier} />
-            </Table.Td>
           </Table.Tr>
         ))}
       </Table.Tbody>
@@ -138,7 +106,6 @@ const UsagePage = () => {
   const [tenantUsage, setTenantUsage] = useState(null);
   const [hasDeveloperAccess, setHasDeveloperAccess] = useState(false);
   const [nodeAnalytics, setNodeAnalytics] = useState([]);
-  const [toolAnalytics, setToolAnalytics] = useState([]);
   const [modelAnalytics, setModelAnalytics] = useState([]);
   const [loading, setLoading] = useState(true);
   const [analyticsTab, setAnalyticsTab] = useState("node");
@@ -163,13 +130,11 @@ const UsagePage = () => {
         setHasDeveloperAccess(devAccess.has_developer_access);
 
         if (devAccess.has_developer_access) {
-          const [nodes, tools, models] = await Promise.all([
+          const [nodes, models] = await Promise.all([
             getDeveloperAnalytics(period, "node"),
-            getDeveloperAnalytics(period, "tool"),
             getDeveloperAnalytics(period, "model"),
           ]);
           setNodeAnalytics(nodes.data || []);
-          setToolAnalytics(tools.data || []);
           setModelAnalytics(models.data || []);
         }
       } catch (error) {
@@ -185,9 +150,9 @@ const UsagePage = () => {
 
   if (!userState.isAuthed) {
     return (
-      <Container size="md" py="xl">
+      <Center mih={400}>
         <Text>Please log in to view usage analytics.</Text>
-      </Container>
+      </Center>
     );
   }
 
@@ -224,7 +189,7 @@ const UsagePage = () => {
           <Stack gap="md">
             <Group gap="xs">
               <BarChart2 size={20} />
-              <Text fw={600}>Developer Analytics</Text>
+              <Text fw={600}>Agent Analytics</Text>
               <Badge color="grape" size="sm">
                 Developer
               </Badge>
@@ -235,9 +200,6 @@ const UsagePage = () => {
                 <Tabs.Tab value="node" leftSection={<Code size={14} />}>
                   By Node
                 </Tabs.Tab>
-                <Tabs.Tab value="tool" leftSection={<Wrench size={14} />}>
-                  By Tool
-                </Tabs.Tab>
                 <Tabs.Tab value="model" leftSection={<Cpu size={14} />}>
                   By Model
                 </Tabs.Tab>
@@ -245,10 +207,6 @@ const UsagePage = () => {
 
               <Tabs.Panel value="node" pt="md">
                 <AnalyticsTable data={nodeAnalytics} labelKey="node_name" labelTitle="Node" />
-              </Tabs.Panel>
-
-              <Tabs.Panel value="tool" pt="md">
-                <AnalyticsTable data={toolAnalytics} labelKey="tool_name" labelTitle="Tool" />
               </Tabs.Panel>
 
               <Tabs.Panel value="model" pt="md">
