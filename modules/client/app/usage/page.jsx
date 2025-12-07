@@ -205,7 +205,7 @@ const UsagePage = () => {
   return (
     <Stack gap="lg">
       <Group justify="space-between">
-        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Usage Analytics</h1>
+        <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">Usage</h1>
         <SegmentedControl value={period} onChange={setPeriod} data={PERIODS} size="sm" />
       </Group>
 
