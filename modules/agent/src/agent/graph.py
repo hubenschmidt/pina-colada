@@ -10,6 +10,8 @@ __all__ = ["graph", "invoke_graph", "build_default_graph"]
 
 import json
 import logging
+import os
+import traceback
 from typing import Dict, Any, Optional, Callable, Awaitable
 from fastapi import WebSocket
 from dotenv import load_dotenv
@@ -19,6 +21,8 @@ from agent.tools.static_tools import record_user_context
 
 logger = logging.getLogger(__name__)
 load_dotenv(override=True)
+
+VERBOSE_ERROR_LOGS = os.getenv("VERBOSE_ERROR_LOGS", "").lower() == "true"
 
 from langfuse import observe
 
@@ -140,13 +144,24 @@ def make_websocket_stream_adapter(websocket) -> Callable[[str], Awaitable[None]]
     return send
 
 
-async def _send_error_to_websocket(websocket) -> None:
+async def _send_error_to_websocket(websocket, error: Exception = None) -> None:
     """Send error message to websocket, handling disconnection gracefully."""
     try:
+        # Send user-friendly message in chat stream
         await websocket.send_text(json.dumps({
             "on_chat_model_stream": "\n\nSorry, there was an error generating the response."
         }))
         await websocket.send_text(json.dumps({"on_chat_model_end": True}))
+
+        # Send structured error for error banner (if verbose mode or always for debugging)
+        if error:
+            error_payload = {
+                "type": "error",
+                "message": str(error),
+            }
+            if VERBOSE_ERROR_LOGS:
+                error_payload["details"] = traceback.format_exc()
+            await websocket.send_text(json.dumps(error_payload))
     except Exception as send_err:
         err_type = type(send_err).__name__
         if _is_disconnect_error(send_err):
@@ -248,10 +263,10 @@ async def invoke_graph(
     # message
     message = str(payload.get("message", data))
 
-    # Test triggers (disabled by default - uncomment to enable)
-    # from agent.util.test_triggers import handle_test_error_trigger
-    # if await handle_test_error_trigger(websocket, message):
-    #     return
+    # Test triggers (enabled for development)
+    from agent.util.test_triggers import handle_test_error_trigger
+    if await handle_test_error_trigger(websocket, message):
+        return
 
     # orchestrator
     orchestrator = await get_orchestrator()
@@ -292,4 +307,4 @@ async def invoke_graph(
             return
 
         logger.error(f"Error invoking orchestrator: {e}", exc_info=True)
-        await _send_error_to_websocket(websocket)
+        await _send_error_to_websocket(websocket, e)

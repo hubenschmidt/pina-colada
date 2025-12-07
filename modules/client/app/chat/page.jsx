@@ -1,11 +1,16 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useState } from "react";
+import { env } from "next-runtime-env";
+import { AlertCircle, X } from "lucide-react";
 import Chat from "../../components/Chat/Chat";
 import { usePageLoading } from "../../context/pageLoadingContext";
+import styles from "./page.module.css";
 
 const ChatPage = () => {
   const { dispatchPageLoading } = usePageLoading();
+  const [error, setError] = useState(null);
+  const isVerbose = env("NEXT_PUBLIC_VERBOSE_ERRORS") === "true";
 
   useEffect(() => {
     dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: true });
@@ -18,8 +23,39 @@ const ChatPage = () => {
     [dispatchPageLoading]
   );
 
-  // No threadId = new conversation (useWs generates one internally)
-  return <Chat variant="page" onConnectionChange={handleConnectionChange} />;
+  const handleError = useCallback((err) => {
+    setError(err);
+  }, []);
+
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  return (
+    <div className={styles.chatPageContainer}>
+      {error && (
+        <div className={styles.errorBanner}>
+          <div className={styles.errorContent}>
+            <AlertCircle size={16} className={styles.errorIcon} />
+            <div className={styles.errorText}>{error.message}</div>
+            <button className={styles.errorDismiss} onClick={clearError}>
+              <X size={14} />
+            </button>
+          </div>
+          {isVerbose && error.details && (
+            <pre className={styles.errorDetails}>{error.details}</pre>
+          )}
+        </div>
+      )}
+      <Chat
+        variant="page"
+        onConnectionChange={handleConnectionChange}
+        error={error}
+        onError={handleError}
+        onClearError={clearError}
+      />
+    </div>
+  );
 };
 
 export default ChatPage;

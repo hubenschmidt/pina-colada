@@ -1,8 +1,8 @@
-import React, { useEffect, useId, useState, useRef } from "react";
+import React, { useEffect, useId, useState, useRef, useCallback } from "react";
 import { useWs } from "../../hooks/useWs";
 import { useConversationContext } from "../../context/conversationContext";
 import styles from "./Chat.module.css";
-import { Copy, Check, Download, ChevronDown } from "lucide-react";
+import { Copy, Check, Download, ChevronDown, AlertCircle, X } from "lucide-react";
 import { env } from "next-runtime-env";
 import { Box } from "@mantine/core";
 
@@ -240,12 +240,36 @@ const getWsUrl = () => {
 
 const WS_URL = getWsUrl();
 
-const Chat = ({ variant = "embedded", threadId: urlThreadId, onConnectionChange }) => {
+const Chat = ({
+  variant = "embedded",
+  threadId: urlThreadId,
+  onConnectionChange,
+  error,
+  onError,
+  onClearError,
+}) => {
   const { conversationState, loadConversations, selectConversation } = useConversationContext();
   const { activeConversation } = conversationState;
+  const isVerbose = env("NEXT_PUBLIC_VERBOSE_ERRORS") === "true";
 
-  const { isOpen, isThinking, tokenUsage, messages, sendMessage, sendControl, reset, loadMessages, threadId } =
-    useWs(WS_URL, { threadId: urlThreadId });
+  const handleWsError = useCallback(
+    (message, details) => {
+      onError?.({ message, details });
+    },
+    [onError]
+  );
+
+  const {
+    isOpen,
+    isThinking,
+    tokenUsage,
+    messages,
+    sendMessage,
+    sendControl,
+    reset,
+    loadMessages,
+    threadId,
+  } = useWs(WS_URL, { threadId: urlThreadId, onError: handleWsError });
 
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
@@ -392,10 +416,11 @@ const Chat = ({ variant = "embedded", threadId: urlThreadId, onConnectionChange 
 
   return (
     <Box
+      bg={variant === "page" ? "transparent" : undefined}
       className={`${styles.chatRoot} ${variant === "page" ? styles.chatRootPage : ""} w-full ${
         isDemoMode ? "max-w-full" : variant === "embedded" ? "max-w-5xl" : "max-w-4xl"
-      } mx-auto min-h-[80svh] ${
-        isDemoMode ? "flex flex-row gap-4 items-start" : "flex items-center"
+      } mx-auto ${variant === "page" ? "h-full" : "min-h-[80svh]"} ${
+        isDemoMode ? "flex flex-row gap-4 items-start" : variant === "page" ? "flex flex-col" : "flex items-center"
       } ${variant === "embedded" ? "px-4 py-6" : ""}`}>
       {isDemoMode && (
         <div className={styles.demoIframePanel}>
@@ -450,7 +475,22 @@ const Chat = ({ variant = "embedded", threadId: urlThreadId, onConnectionChange 
         )}
 
         {/* chat panel - always rendered the same */}
-        <main className={styles.chatPanel}>
+        <main className={`${styles.chatPanel} ${variant === "page" ? styles.chatPanelFlat : ""}`}>
+          {/* error banner - above messages (only for embedded variant) */}
+          {variant === "embedded" && error && (
+            <div className={styles.errorBanner}>
+              <div className={styles.errorContent}>
+                <AlertCircle size={16} className={styles.errorIcon} />
+                <div className={styles.errorText}>{error.message}</div>
+                <button className={styles.errorDismiss} onClick={onClearError}>
+                  <X size={14} />
+                </button>
+              </div>
+              {isVerbose && error.details && (
+                <pre className={styles.errorDetails}>{error.details}</pre>
+              )}
+            </div>
+          )}
           {/* message list */}
           <section
             id={listId}
@@ -507,7 +547,9 @@ const Chat = ({ variant = "embedded", threadId: urlThreadId, onConnectionChange 
                 <span className={styles.thinkingText}>{isThinking ? "thinking" : ""}</span>
                 <div className={styles.indicatorRight}>
                   {tokenUsage && (
-                    <span className={styles.tokenUsage}>
+                    <span
+                      className={styles.tokenUsage}
+                      title="Tokens used: last message / total this session">
                       turn:{" "}
                       {tokenUsage.current.total >= 1000
                         ? `${(tokenUsage.current.total / 1000).toFixed(1)}k`

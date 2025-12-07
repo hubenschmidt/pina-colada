@@ -100,6 +100,16 @@ const handleParsedMessage = (obj, ctx) => {
     return true;
   }
 
+  // Error from backend
+  if (obj.type === "error") {
+    ctx.setIsThinking(false);
+    ctx.setMessages((prev) => applyEndOfTurn(prev));
+    if (ctx.onError) {
+      ctx.onError(obj.message || "An error occurred", obj.details || obj.stack);
+    }
+    return true;
+  }
+
   return false;
 };
 
@@ -115,7 +125,7 @@ const handleUiEvents = (obj, ctx) => {
   ]);
 };
 
-export const useWs = (url, { threadId: initialThreadId = null } = {}) => {
+export const useWs = (url, { threadId: initialThreadId = null, onError = null } = {}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [tokenUsage, setTokenUsage] = useState(null);
@@ -173,7 +183,7 @@ export const useWs = (url, { threadId: initialThreadId = null } = {}) => {
 
       if (parsed === null || typeof parsed !== "object") return;
       const obj = parsed;
-      const ctx = { setIsThinking, setTokenUsage, setMessages };
+      const ctx = { setIsThinking, setTokenUsage, setMessages, onError };
 
       if (handleParsedMessage(obj, ctx)) return;
       handleUiEvents(obj, ctx);

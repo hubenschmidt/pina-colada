@@ -253,7 +253,9 @@ async def list_entities(entity_type: str) -> str:
             return "No contacts found."
         formatted = []
         for contact in results[:20]:
-            formatted.append(f"- Contact id={contact.id}")
+            # search_contacts returns List[Dict], not ORM objects
+            name = f"{contact.get('first_name', '')} {contact.get('last_name', '')}".strip()
+            formatted.append(f"- {name} (id={contact['id']}, email={contact.get('email', 'N/A')})")
         return f"Found {len(results)} contacts:\n" + "\n".join(formatted)
 
     return f"Unknown entity type: {entity_type}"

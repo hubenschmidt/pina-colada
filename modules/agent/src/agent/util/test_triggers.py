@@ -7,9 +7,13 @@ To use these triggers, import and call them in graph.py before processing messag
 import json
 import asyncio
 import logging
+import os
+import traceback
 from fastapi import WebSocket
 
 logger = logging.getLogger(__name__)
+
+VERBOSE_ERROR_LOGS = os.getenv("VERBOSE_ERROR_LOGS", "").lower() == "true"
 
 
 async def handle_test_error_trigger(
@@ -47,6 +51,18 @@ async def handle_test_error_trigger(
             )
         )
         await websocket.send_text(json.dumps({"on_chat_model_end": True}))
+
+        # Send structured error for error banner
+        try:
+            raise ValueError("Test error: 'dict' object has no attribute 'id' (simulated)")
+        except Exception as e:
+            error_payload = {
+                "type": "error",
+                "message": str(e),
+            }
+            if VERBOSE_ERROR_LOGS:
+                error_payload["details"] = traceback.format_exc()
+            await websocket.send_text(json.dumps(error_payload))
     except Exception as send_err:
         send_error_name = type(send_err).__name__
         send_error_msg = str(send_err).lower()
