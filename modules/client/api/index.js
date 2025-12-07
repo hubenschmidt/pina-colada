@@ -1210,3 +1210,9 @@ export const getDeveloperAnalytics = async (period = "monthly", groupBy = "node"
 export const checkDeveloperAccess = async () => {
   return apiGet("/usage/developer-access");
 };
+
+// ============== Provider Costs API ==============
+
+export const getProviderCosts = async (period = "monthly") => {
+  return apiGet(`/costs/summary?period=${period}`);
+};

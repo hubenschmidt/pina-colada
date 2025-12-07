@@ -14,13 +14,14 @@ import {
   Tabs,
   Badge,
 } from "@mantine/core";
-import { BarChart2, User, Building, Code, Cpu } from "lucide-react";
+import { BarChart2, User, Building, Code, Cpu, DollarSign } from "lucide-react";
 import { usePageLoading } from "../../context/pageLoadingContext";
 import {
   getUserUsage,
   getTenantUsage,
   getDeveloperAnalytics,
   checkDeveloperAccess,
+  getProviderCosts,
 } from "../../api";
 
 const PERIODS = [
@@ -35,6 +36,11 @@ const formatTokens = (count) => {
   if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(2)}M`;
   if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
   return count.toString();
+};
+
+const formatCost = (amount) => {
+  if (amount === null || amount === undefined) return "—";
+  return `$${parseFloat(amount).toFixed(2)}`;
 };
 
 const UsageCard = ({ title, icon: Icon, data, loading }) => (
@@ -99,6 +105,46 @@ const AnalyticsTable = ({ data, labelKey, labelTitle }) => {
   );
 };
 
+const ProviderCostsCard = ({ costs, loading }) => (
+  <Paper withBorder p="md" radius="md">
+    <Group gap="xs" mb="xs">
+      <DollarSign size={20} />
+      <Text fw={500}>Provider Spend</Text>
+      <Badge color="grape" size="sm">
+        Developer
+      </Badge>
+    </Group>
+    {loading ? (
+      <Loader size="sm" />
+    ) : costs?.error ? (
+      <Text c="dimmed" size="sm">
+        {costs.error}
+      </Text>
+    ) : (
+      <Stack gap="xs">
+        <Group justify="space-between">
+          <Text size="sm" c="dimmed">
+            OpenAI
+          </Text>
+          <Text fw={600}>{formatCost(costs?.openai?.spend)}</Text>
+        </Group>
+        <Group justify="space-between">
+          <Text size="sm" c="dimmed">
+            Anthropic
+          </Text>
+          <Text fw={600}>{formatCost(costs?.anthropic?.spend)}</Text>
+        </Group>
+        <Group justify="space-between" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+          <Text size="sm" fw={500}>
+            Total
+          </Text>
+          <Text fw={700}>{formatCost(costs?.total_spend)}</Text>
+        </Group>
+      </Stack>
+    )}
+  </Paper>
+);
+
 const UsagePage = () => {
   const { userState } = useUserContext();
   const [period, setPeriod] = useState("monthly");
@@ -107,6 +153,7 @@ const UsagePage = () => {
   const [hasDeveloperAccess, setHasDeveloperAccess] = useState(false);
   const [nodeAnalytics, setNodeAnalytics] = useState([]);
   const [modelAnalytics, setModelAnalytics] = useState([]);
+  const [providerCosts, setProviderCosts] = useState(null);
   const [loading, setLoading] = useState(true);
   const [analyticsTab, setAnalyticsTab] = useState("node");
   const { dispatchPageLoading } = usePageLoading();
@@ -130,12 +177,14 @@ const UsagePage = () => {
         setHasDeveloperAccess(devAccess.has_developer_access);
 
         if (devAccess.has_developer_access) {
-          const [nodes, models] = await Promise.all([
+          const [nodes, models, costs] = await Promise.all([
             getDeveloperAnalytics(period, "node"),
             getDeveloperAnalytics(period, "model"),
+            getProviderCosts(period),
           ]);
           setNodeAnalytics(nodes.data || []);
           setModelAnalytics(models.data || []);
+          setProviderCosts(costs);
         }
       } catch (error) {
         console.error("Failed to fetch usage data:", error);
@@ -182,6 +231,9 @@ const UsagePage = () => {
           data={tenantUsage}
           loading={loading}
         />
+        {hasDeveloperAccess && (
+          <ProviderCostsCard costs={providerCosts} loading={loading} />
+        )}
       </Group>
 
       {hasDeveloperAccess && (
