@@ -7,7 +7,7 @@ import { useUserContext } from "../../context/userContext";
 import HeaderAuthed from "../HeaderAuthed/HeaderAuthed";
 import NotificationBell from "../NotificationBell/NotificationBell";
 import { Menu, Button } from "@mantine/core";
-import { ChevronDown, Settings, LogOut } from "lucide-react";
+import { ChevronDown, Settings, LogOut, BarChart2 } from "lucide-react";
 
 const Header = () => {
   const { dispatchNav } = useNavContext();
@@ -112,6 +112,9 @@ const Header = () => {
                 <Menu.Dropdown>
                   <Menu.Item leftSection={<Settings size={16} />} component={Link} href="/settings">
                     Settings
+                  </Menu.Item>
+                  <Menu.Item leftSection={<BarChart2 size={16} />} component={Link} href="/usage">
+                    Usage
                   </Menu.Item>
                   <Menu.Divider />
                   <Menu.Item

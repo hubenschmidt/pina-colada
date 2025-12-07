@@ -71,6 +71,13 @@
   overflow: hidden;
 }
 
+.shellCardCentered {
+  height: auto;
+  max-height: 100%;
+  margin: auto 0;
+  overflow: hidden;
+}
+
 .chatPanelFlat {
   background: none !important;
   background-color: transparent !important;

@@ -85,6 +85,19 @@ BEGIN
     VALUES (v_user_id, v_role_id, NOW())
     ON CONFLICT DO NOTHING;
 
+    -- Create Developer Role (global)
+    INSERT INTO "Role" (tenant_id, name, description)
+    VALUES (NULL, 'developer', 'Developer access with analytics and debugging tools')
+    ON CONFLICT DO NOTHING;
+
+    -- Assign developer role to William
+    SELECT id INTO v_role_id FROM "Role" WHERE name = 'developer' AND tenant_id IS NULL;
+    IF v_role_id IS NOT NULL THEN
+        INSERT INTO "User_Role" (user_id, role_id, created_at)
+        VALUES (v_user_id, v_role_id, NOW())
+        ON CONFLICT DO NOTHING;
+    END IF;
+
     -- Create default Organization for the tenant
     INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by)
     VALUES (v_tenant_id, 'PinaColada', NOW(), NOW(), v_bootstrap_user_id, v_bootstrap_user_id)

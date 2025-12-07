@@ -40,6 +40,7 @@ from agent.evaluators import (
 )
 from services.reasoning_service import get_reasoning_schema, format_schema_context
 from services import conversation_service
+from services import usage_service
 from lib.tenant_context import set_tenant_id
 
 logger = logging.getLogger(__name__)
@@ -561,6 +562,21 @@ async def create_orchestrator():
                             )
                     except Exception as e:
                         logger.warning(f"Failed to save assistant message: {e}")
+
+                # Log usage analytics
+                if user_id and tenant_id and cumulative.get("total", 0) > 0:
+                    try:
+                        await usage_service.log_usage(
+                            tenant_id=tenant_id,
+                            user_id=user_id,
+                            input_tokens=cumulative.get("input", 0),
+                            output_tokens=cumulative.get("output", 0),
+                            total_tokens=cumulative.get("total", 0),
+                            node_name=event.get("route_to_agent"),
+                            model_name="gpt-4o-mini",  # Default model used
+                        )
+                    except Exception as e:
+                        logger.warning(f"Failed to log usage analytics: {e}")
 
         return state
 

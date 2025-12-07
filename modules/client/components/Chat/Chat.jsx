@@ -434,7 +434,7 @@ const Chat = ({
         </div>
       )}
       <section
-        className={`${styles.shellCard} ${variant === "page" ? styles.shellCardFlat : ""} w-full`}>
+        className={`${styles.shellCard} ${variant === "page" ? `${styles.shellCardFlat} ${styles.shellCardCentered}` : ""} w-full`}>
         {/* header - hidden on page variant */}
         {variant !== "page" && (
           <header className={styles.header}>

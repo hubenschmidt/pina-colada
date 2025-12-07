@@ -27,6 +27,7 @@ from api.routes.notifications import router as notifications_routes
 from api.routes.documents import router as documents_routes
 from api.routes.tags import router as tags_routes
 from api.routes.conversations import router as conversations_routes
+from api.routes.usage import router as usage_routes
 
 __all__ = [
     "jobs_routes",
@@ -56,5 +57,6 @@ __all__ = [
     "documents_routes",
     "tags_routes",
     "conversations_routes",
+    "usage_routes",
 ]
 

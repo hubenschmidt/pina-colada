@@ -1188,3 +1188,25 @@ export const unarchiveConversation = async (threadId) => {
 export const deleteConversationPermanent = async (threadId) => {
   return apiDelete(`/conversations/${threadId}/permanent`);
 };
+
+// ============== Usage Analytics API ==============
+
+export const getUserUsage = async (period = "monthly") => {
+  return apiGet(`/usage/user?period=${period}`);
+};
+
+export const getTenantUsage = async (period = "monthly") => {
+  return apiGet(`/usage/tenant?period=${period}`);
+};
+
+export const getUsageTimeseries = async (period = "monthly", scope = "user") => {
+  return apiGet(`/usage/timeseries?period=${period}&scope=${scope}`);
+};
+
+export const getDeveloperAnalytics = async (period = "monthly", groupBy = "node") => {
+  return apiGet(`/usage/analytics?period=${period}&group_by=${groupBy}`);
+};
+
+export const checkDeveloperAccess = async () => {
+  return apiGet("/usage/developer-access");
+};

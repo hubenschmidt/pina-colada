@@ -52,6 +52,7 @@ from models.CommentNotification import CommentNotification
 from models.AccountRelationship import AccountRelationship
 from models.Reasoning import Reasoning
 from models.Conversation import Conversation, ConversationMessage
+from models.UsageAnalytics import UsageAnalytics
 
 __all__ = [
     "Base",
@@ -101,4 +102,5 @@ __all__ = [
     "Reasoning",
     "Conversation",
     "ConversationMessage",
+    "UsageAnalytics",
 ]
