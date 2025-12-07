@@ -153,16 +153,17 @@ async def get_usage_timeseries(
         if user_id:
             conditions.append(UsageAnalytics.user_id == user_id)
 
+        date_trunc_expr = func.date_trunc("day", UsageAnalytics.created_at)
         stmt = (
             select(
-                func.date_trunc("day", UsageAnalytics.created_at).label("date"),
+                date_trunc_expr.label("date"),
                 func.sum(UsageAnalytics.input_tokens).label("input_tokens"),
                 func.sum(UsageAnalytics.output_tokens).label("output_tokens"),
                 func.sum(UsageAnalytics.total_tokens).label("total_tokens"),
             )
             .where(and_(*conditions))
-            .group_by(func.date_trunc("day", UsageAnalytics.created_at))
-            .order_by(func.date_trunc("day", UsageAnalytics.created_at))
+            .group_by(date_trunc_expr)
+            .order_by(date_trunc_expr)
         )
         result = await session.execute(stmt)
         return [

@@ -130,11 +130,14 @@ const ProviderCostsCard = ({ costs, loading }) => (
         </Group>
         <Group justify="space-between">
           <Text size="sm" c="dimmed">
-            Anthropic
+            Anthropic (includes Claude Code raw API cost)
           </Text>
           <Text fw={600}>{formatCost(costs?.anthropic?.spend)}</Text>
         </Group>
-        <Group justify="space-between" pt="xs" style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
+        <Group
+          justify="space-between"
+          pt="xs"
+          style={{ borderTop: "1px solid var(--mantine-color-default-border)" }}>
           <Text size="sm" fw={500}>
             Total
           </Text>
@@ -154,48 +157,62 @@ const UsagePage = () => {
   const [nodeAnalytics, setNodeAnalytics] = useState([]);
   const [modelAnalytics, setModelAnalytics] = useState([]);
   const [providerCosts, setProviderCosts] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loadingUsage, setLoadingUsage] = useState(true);
+  const [loadingCosts, setLoadingCosts] = useState(true);
   const [analyticsTab, setAnalyticsTab] = useState("node");
   const { dispatchPageLoading } = usePageLoading();
 
+  // Fetch usage data (fast)
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchUsageData = async () => {
       if (!userState.isAuthed) {
         dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
         return;
       }
 
-      setLoading(true);
+      setLoadingUsage(true);
       try {
-        const [user, tenant, devAccess] = await Promise.all([
+        const [user, tenant, devAccess, nodes, models] = await Promise.all([
           getUserUsage(period),
           getTenantUsage(period),
           checkDeveloperAccess(),
+          getDeveloperAnalytics(period, "node"),
+          getDeveloperAnalytics(period, "model"),
         ]);
         setUserUsage(user);
         setTenantUsage(tenant);
         setHasDeveloperAccess(devAccess.has_developer_access);
-
-        if (devAccess.has_developer_access) {
-          const [nodes, models, costs] = await Promise.all([
-            getDeveloperAnalytics(period, "node"),
-            getDeveloperAnalytics(period, "model"),
-            getProviderCosts(period),
-          ]);
-          setNodeAnalytics(nodes.data || []);
-          setModelAnalytics(models.data || []);
-          setProviderCosts(costs);
-        }
+        setNodeAnalytics(nodes.data || []);
+        setModelAnalytics(models.data || []);
       } catch (error) {
         console.error("Failed to fetch usage data:", error);
       } finally {
-        setLoading(false);
+        setLoadingUsage(false);
         dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
       }
     };
 
-    fetchData();
+    fetchUsageData();
   }, [userState.isAuthed, period, dispatchPageLoading]);
+
+  // Fetch provider costs separately (slow external API)
+  useEffect(() => {
+    const fetchCosts = async () => {
+      if (!userState.isAuthed) return;
+
+      setLoadingCosts(true);
+      try {
+        const costs = await getProviderCosts(period);
+        setProviderCosts(costs);
+      } catch (error) {
+        console.error("Failed to fetch provider costs:", error);
+      } finally {
+        setLoadingCosts(false);
+      }
+    };
+
+    fetchCosts();
+  }, [userState.isAuthed, period]);
 
   if (!userState.isAuthed) {
     return (
@@ -205,7 +222,7 @@ const UsagePage = () => {
     );
   }
 
-  if (loading && !userUsage) {
+  if (loadingUsage && !userUsage) {
     return (
       <Center mih={400}>
         <Stack align="center" gap="md">
@@ -224,16 +241,14 @@ const UsagePage = () => {
       </Group>
 
       <Group grow>
-        <UsageCard title="Your Usage" icon={User} data={userUsage} loading={loading} />
+        <UsageCard title="Your Usage" icon={User} data={userUsage} loading={loadingUsage} />
         <UsageCard
           title="Organization Usage"
           icon={Building}
           data={tenantUsage}
-          loading={loading}
+          loading={loadingUsage}
         />
-        {hasDeveloperAccess && (
-          <ProviderCostsCard costs={providerCosts} loading={loading} />
-        )}
+        {hasDeveloperAccess && <ProviderCostsCard costs={providerCosts} loading={loadingCosts} />}
       </Group>
 
       {hasDeveloperAccess && (

@@ -49,12 +49,12 @@ async def get_developer_analytics(
     if not has_role:
         return {"error": "Insufficient permissions", "data": []}
 
-    if group_by == "tool":
-        data = await service.get_usage_by_tool(tenant_id, period)
-    elif group_by == "model":
-        data = await service.get_usage_by_model(tenant_id, period)
-    else:
-        data = await service.get_usage_by_node(tenant_id, period)
+    group_by_handlers = {
+        "model": service.get_usage_by_model,
+        "node": service.get_usage_by_node,
+    }
+    handler = group_by_handlers.get(group_by, service.get_usage_by_node)
+    data = await handler(tenant_id, period)
 
     return {"group_by": group_by, "data": data}
 

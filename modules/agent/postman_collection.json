@@ -2297,6 +2297,272 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Usage Analytics",
+      "item": [
+        {
+          "name": "Get User Usage",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/usage/user?period=monthly",
+              "host": ["{{base_url}}"],
+              "path": ["usage", "user"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "monthly",
+                  "description": "Time period: daily, weekly, monthly, quarterly, annual"
+                }
+              ]
+            },
+            "description": "Get token usage for the current user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Tenant Usage",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/usage/tenant?period=monthly",
+              "host": ["{{base_url}}"],
+              "path": ["usage", "tenant"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "monthly",
+                  "description": "Time period: daily, weekly, monthly, quarterly, annual"
+                }
+              ]
+            },
+            "description": "Get token usage for the entire tenant/organization"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Usage Timeseries",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/usage/timeseries?period=monthly&scope=user",
+              "host": ["{{base_url}}"],
+              "path": ["usage", "timeseries"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "monthly",
+                  "description": "Time period: daily, weekly, monthly, quarterly, annual"
+                },
+                {
+                  "key": "scope",
+                  "value": "user",
+                  "description": "Scope: user or tenant"
+                }
+              ]
+            },
+            "description": "Get usage data as timeseries for charting"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Developer Analytics (By Node)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/usage/analytics?period=monthly&group_by=node",
+              "host": ["{{base_url}}"],
+              "path": ["usage", "analytics"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "monthly",
+                  "description": "Time period: daily, weekly, monthly, quarterly, annual"
+                },
+                {
+                  "key": "group_by",
+                  "value": "node",
+                  "description": "Group by: node or model"
+                }
+              ]
+            },
+            "description": "Get developer analytics grouped by node (requires developer role)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Developer Analytics (By Model)",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/usage/analytics?period=monthly&group_by=model",
+              "host": ["{{base_url}}"],
+              "path": ["usage", "analytics"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "monthly",
+                  "description": "Time period: daily, weekly, monthly, quarterly, annual"
+                },
+                {
+                  "key": "group_by",
+                  "value": "model",
+                  "description": "Group by: node or model"
+                }
+              ]
+            },
+            "description": "Get developer analytics grouped by model (requires developer role)"
+          },
+          "response": []
+        },
+        {
+          "name": "Check Developer Access",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/usage/developer-access",
+              "host": ["{{base_url}}"],
+              "path": ["usage", "developer-access"]
+            },
+            "description": "Check if current user has developer access for analytics"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Provider Costs",
+      "item": [
+        {
+          "name": "Get Costs Summary",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/costs/summary?period=monthly",
+              "host": ["{{base_url}}"],
+              "path": ["costs", "summary"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "monthly",
+                  "description": "Time period: daily, weekly, monthly, quarterly, annual"
+                }
+              ]
+            },
+            "description": "Get combined costs from OpenAI and Anthropic APIs filtered to app API key (set ANTHROPIC_API_KEY_NAME in .env)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Org Costs",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/costs/org?period=monthly",
+              "host": ["{{base_url}}"],
+              "path": ["costs", "org"],
+              "query": [
+                {
+                  "key": "period",
+                  "value": "monthly",
+                  "description": "Time period: daily, weekly, monthly, quarterly, annual"
+                }
+              ]
+            },
+            "description": "Get org-wide Anthropic costs including Claude Code usage."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
