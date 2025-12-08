@@ -9,6 +9,7 @@ import (
 
 	"github.com/pina-colada-co/agent-go/internal/controllers"
 	appMiddleware "github.com/pina-colada-co/agent-go/internal/middleware"
+	"github.com/pina-colada-co/agent-go/internal/repositories"
 )
 
 // Controllers holds all controller instances
@@ -61,10 +62,11 @@ func NewRouter() *chi.Mux {
 }
 
 // RegisterRoutes registers all API routes with controllers
-func RegisterRoutes(r *chi.Mux, c *Controllers) {
+func RegisterRoutes(r *chi.Mux, c *Controllers, userRepo *repositories.UserRepository) {
 	// Protected routes (require auth)
 	r.Group(func(r chi.Router) {
 		r.Use(appMiddleware.AuthMiddleware)
+		r.Use(appMiddleware.UserLoaderMiddleware(userRepo))
 
 		// Auth routes
 		r.Route("/auth", func(r chi.Router) {

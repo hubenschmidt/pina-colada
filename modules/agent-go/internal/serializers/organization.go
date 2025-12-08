@@ -22,16 +22,15 @@ type OrganizationListResponse struct {
 // OrganizationDetailResponse represents an organization in detail view
 type OrganizationDetailResponse struct {
 	OrganizationListResponse
-	LinkedInURL   *string            `json:"linkedin_url"`
-	TwitterURL    *string            `json:"twitter_url"`
-	GithubURL     *string            `json:"github_url"`
-	Phone         *string            `json:"phone"`
-	Founded       *int               `json:"founded"`
-	Headquarters  *string            `json:"headquarters"`
-	Revenue       *string            `json:"revenue"`
-	Technologies  []TechnologyBrief  `json:"technologies"`
-	Contacts      []ContactBrief     `json:"contacts"`
-	FundingRounds []FundingBrief     `json:"funding_rounds"`
+	LinkedInURL   *string           `json:"linkedin_url"`
+	TwitterURL    *string           `json:"twitter_url"`
+	GithubURL     *string           `json:"github_url"`
+	Phone         *string           `json:"phone"`
+	Founded       *int              `json:"founded"`
+	Headquarters  *string           `json:"headquarters"`
+	Revenue       *string           `json:"revenue"`
+	Technologies  []TechnologyBrief `json:"technologies"`
+	FundingRounds []FundingBrief    `json:"funding_rounds"`
 }
 
 // IndustryBrief represents industry summary
@@ -79,9 +78,10 @@ func OrganizationToListResponse(org *models.Organization) OrganizationListRespon
 		UpdatedAt:    org.UpdatedAt,
 	}
 
-	if org.Industries != nil {
-		resp.Industries = make([]IndustryBrief, len(org.Industries))
-		for i, ind := range org.Industries {
+	// Get industries from Account relation
+	if org.Account != nil && org.Account.Industries != nil {
+		resp.Industries = make([]IndustryBrief, len(org.Account.Industries))
+		for i, ind := range org.Account.Industries {
 			resp.Industries[i] = IndustryBrief{ID: ind.ID, Name: ind.Name}
 		}
 	}
@@ -100,24 +100,6 @@ func OrganizationToDetailResponse(org *models.Organization) OrganizationDetailRe
 		Founded:                 org.Founded,
 		Headquarters:            org.Headquarters,
 		Revenue:                 org.Revenue,
-	}
-
-	// Technologies relationship needs Technology model loaded via preload
-	// Skipping for now as OrganizationTechnology is a junction table
-
-	if org.Contacts != nil {
-		resp.Contacts = make([]ContactBrief, len(org.Contacts))
-		for i, c := range org.Contacts {
-			resp.Contacts[i] = ContactBrief{
-				ID:        c.ID,
-				FirstName: c.FirstName,
-				LastName:  c.LastName,
-				Email:     c.Email,
-				Phone:     c.Phone,
-				Title:     c.Title,
-				IsPrimary: c.IsPrimary,
-			}
-		}
 	}
 
 	if org.FundingRounds != nil {

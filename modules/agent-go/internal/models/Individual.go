@@ -27,9 +27,7 @@ type Individual struct {
 	ReportsToID     *int64  `json:"reports_to_id"`
 
 	// Relations (for eager loading)
-	Industries []Industry `gorm:"many2many:Individual_Industry;" json:"industries,omitempty"`
-	Contacts   []Contact  `gorm:"foreignKey:IndividualID" json:"contacts,omitempty"`
-	Projects   []Project  `gorm:"many2many:Lead_Project;" json:"projects,omitempty"`
+	Account *Account `gorm:"foreignKey:AccountID" json:"account,omitempty"`
 }
 
 func (Individual) TableName() string {

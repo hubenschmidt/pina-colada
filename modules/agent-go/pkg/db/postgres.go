@@ -25,6 +25,8 @@ func Connect(databaseURL string, debug bool) (*gorm.DB, error) {
 
 	// Register join tables with explicit table names
 	db.SetupJoinTable(&models.Lead{}, "Projects", &models.LeadProject{})
+	db.SetupJoinTable(&models.Account{}, "Industries", &models.AccountIndustry{})
+	db.SetupJoinTable(&models.Account{}, "Contacts", &models.ContactAccount{})
 
 	sqlDB, err := db.DB()
 	if err != nil {

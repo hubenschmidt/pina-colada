@@ -66,7 +66,7 @@ func main() {
 
 	// Initialize router and register routes
 	router := routes.NewRouter()
-	routes.RegisterRoutes(router, ctrls)
+	routes.RegisterRoutes(router, ctrls, userRepo)
 
 	// Create HTTP server
 	server := &http.Server{

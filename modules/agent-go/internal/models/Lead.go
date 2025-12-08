@@ -7,7 +7,6 @@ type Lead struct {
 	TenantID          *int64    `gorm:"index" json:"tenant_id"`
 	AccountID         *int64    `gorm:"index" json:"account_id"`
 	DealID            int64     `gorm:"not null" json:"deal_id"`
-	ProjectID         *int64    `gorm:"index" json:"project_id"`
 	Type              string    `gorm:"not null" json:"type"` // Job, Opportunity, Partnership
 	Title             string    `gorm:"not null" json:"title"`
 	Description       *string   `json:"description"`

@@ -22,9 +22,7 @@ func (r *IndividualRepository) FindAll(params PaginationParams, tenantID *int64)
 
 	query := r.db.Model(&models.Individual{}).
 		Preload("Account").
-		Preload("Account.Industries").
-		Preload("Industries").
-		Preload("Contacts")
+		Preload("Account.Industries")
 
 	if tenantID != nil {
 		query = query.Where("individuals.tenant_id = ?", *tenantID)
@@ -63,9 +61,6 @@ func (r *IndividualRepository) FindByID(id int64) (*models.Individual, error) {
 	err := r.db.
 		Preload("Account").
 		Preload("Account.Industries").
-		Preload("Industries").
-		Preload("Contacts").
-		Preload("Projects").
 		First(&ind, id).Error
 
 	if err != nil {

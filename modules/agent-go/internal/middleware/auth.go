@@ -11,6 +11,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lestrrat-go/jwx/v2/jwk"
+	"github.com/pina-colada-co/agent-go/internal/repositories"
 )
 
 type contextKey string
@@ -204,6 +205,32 @@ func GetUserID(ctx context.Context) (int64, bool) {
 func GetTenantID(ctx context.Context) (int64, bool) {
 	id, ok := ctx.Value(TenantIDKey).(int64)
 	return id, ok
+}
+
+// UserLoaderMiddleware loads user from DB and sets UserID in context
+func UserLoaderMiddleware(userRepo *repositories.UserRepository) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+
+			auth0Sub, ok := ctx.Value(Auth0SubKey).(string)
+			if !ok {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			email, _ := ctx.Value(EmailKey).(string)
+
+			user, err := userRepo.GetOrCreate(auth0Sub, email)
+			if err != nil {
+				writeError(w, http.StatusInternalServerError, "failed to load user")
+				return
+			}
+
+			ctx = context.WithValue(ctx, UserIDKey, user.ID)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }
 
 // GetAuth0Sub extracts auth0_sub from context

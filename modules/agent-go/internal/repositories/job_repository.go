@@ -3,6 +3,7 @@ package repositories
 import (
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 // JobRepository handles job data access
@@ -99,23 +100,29 @@ func (r *JobRepository) FindByID(id int64) (*models.Job, error) {
 	return &job, nil
 }
 
-// Create creates a new job with its Lead parent
+// Create creates a new job with its Deal and Lead parents
 func (r *JobRepository) Create(job *models.Job, lead *models.Lead, projectIDs []int64) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		// Create Lead first
+		deal := &models.Deal{
+			TenantID:  lead.TenantID,
+			Name:      lead.Title,
+			CreatedBy: lead.CreatedBy,
+			UpdatedBy: lead.UpdatedBy,
+		}
+		if err := tx.Create(deal).Error; err != nil {
+			return err
+		}
+
+		lead.DealID = deal.ID
 		if err := tx.Create(lead).Error; err != nil {
 			return err
 		}
 
-		// Set job ID to lead ID (joined inheritance)
 		job.ID = lead.ID
-
-		// Create Job
 		if err := tx.Create(job).Error; err != nil {
 			return err
 		}
 
-		// Create project associations
 		for _, pid := range projectIDs {
 			lp := models.LeadProject{LeadID: lead.ID, ProjectID: pid}
 			if err := tx.Create(&lp).Error; err != nil {
@@ -129,7 +136,7 @@ func (r *JobRepository) Create(job *models.Job, lead *models.Lead, projectIDs []
 
 // Update updates an existing job
 func (r *JobRepository) Update(job *models.Job, updates map[string]interface{}) error {
-	return r.db.Model(job).Updates(updates).Error
+	return r.db.Model(job).Omit(clause.Associations).Updates(updates).Error
 }
 
 // UpdateLead updates the lead associated with a job

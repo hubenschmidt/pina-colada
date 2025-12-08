@@ -185,12 +185,12 @@
               "host": ["{{base_url}}"],
               "path": ["jobs"],
               "query": [
-                {"key": "page", "value": "1"},
-                {"key": "limit", "value": "25"},
-                {"key": "orderBy", "value": "updated_at"},
-                {"key": "order", "value": "DESC"},
-                {"key": "search", "value": "", "disabled": true},
-                {"key": "projectId", "value": "", "disabled": true}
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "25" },
+                { "key": "orderBy", "value": "updated_at" },
+                { "key": "order", "value": "DESC" },
+                { "key": "search", "value": "", "disabled": true },
+                { "key": "projectId", "value": "", "disabled": true }
               ]
             },
             "description": "Get all jobs with pagination"
@@ -202,7 +202,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -210,7 +216,7 @@
               "raw": "{{base_url}}/jobs/:job_id",
               "host": ["{{base_url}}"],
               "path": ["jobs", ":job_id"],
-              "variable": [{"key": "job_id", "value": "5"}]
+              "variable": [{ "key": "job_id", "value": "5" }]
             }
           },
           "response": []
@@ -220,10 +226,16 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"account\": \"Example Company\",\n  \"job_title\": \"Software Engineer\",\n  \"date\": \"2024-01-15T00:00:00Z\",\n  \"job_url\": \"https://example.com/job\",\n  \"description\": \"Great opportunity\",\n  \"status\": \"Applied\",\n  \"source\": \"manual\"\n}"
@@ -241,10 +253,16 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "PUT",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"job_title\": \"Senior Software Engineer\",\n  \"status\": \"Interviewing\"\n}"
@@ -253,7 +271,7 @@
               "raw": "{{base_url}}/jobs/:job_id",
               "host": ["{{base_url}}"],
               "path": ["jobs", ":job_id"],
-              "variable": [{"key": "job_id", "value": "1"}]
+              "variable": [{ "key": "job_id", "value": "5" }]
             }
           },
           "response": []
@@ -263,7 +281,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "DELETE",
             "header": [],
@@ -271,7 +295,7 @@
               "raw": "{{base_url}}/jobs/:job_id",
               "host": ["{{base_url}}"],
               "path": ["jobs", ":job_id"],
-              "variable": [{"key": "job_id", "value": "1"}]
+              "variable": [{ "key": "job_id", "value": "5" }]
             }
           },
           "response": []
@@ -286,7 +310,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -295,11 +325,11 @@
               "host": ["{{base_url}}"],
               "path": ["organizations"],
               "query": [
-                {"key": "page", "value": "1"},
-                {"key": "limit", "value": "50"},
-                {"key": "orderBy", "value": "updated_at"},
-                {"key": "order", "value": "DESC"},
-                {"key": "search", "value": "", "disabled": true}
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "50" },
+                { "key": "orderBy", "value": "updated_at" },
+                { "key": "order", "value": "DESC" },
+                { "key": "search", "value": "", "disabled": true }
               ]
             }
           },
@@ -310,7 +340,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -318,7 +354,7 @@
               "raw": "{{base_url}}/organizations/:id",
               "host": ["{{base_url}}"],
               "path": ["organizations", ":id"],
-              "variable": [{"key": "id", "value": "1"}]
+              "variable": [{ "key": "id", "value": "1" }]
             }
           },
           "response": []
@@ -328,7 +364,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -336,7 +378,7 @@
               "raw": "{{base_url}}/organizations/search?q=acme",
               "host": ["{{base_url}}"],
               "path": ["organizations", "search"],
-              "query": [{"key": "q", "value": "acme"}]
+              "query": [{ "key": "q", "value": "acme" }]
             }
           },
           "response": []
@@ -351,7 +393,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -360,11 +408,11 @@
               "host": ["{{base_url}}"],
               "path": ["individuals"],
               "query": [
-                {"key": "page", "value": "1"},
-                {"key": "limit", "value": "50"},
-                {"key": "orderBy", "value": "updated_at"},
-                {"key": "order", "value": "DESC"},
-                {"key": "search", "value": "", "disabled": true}
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "50" },
+                { "key": "orderBy", "value": "updated_at" },
+                { "key": "order", "value": "DESC" },
+                { "key": "search", "value": "", "disabled": true }
               ]
             }
           },
@@ -375,7 +423,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -383,7 +437,7 @@
               "raw": "{{base_url}}/individuals/:id",
               "host": ["{{base_url}}"],
               "path": ["individuals", ":id"],
-              "variable": [{"key": "id", "value": "1"}]
+              "variable": [{ "key": "id", "value": "1" }]
             }
           },
           "response": []
@@ -398,7 +452,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -407,11 +467,11 @@
               "host": ["{{base_url}}"],
               "path": ["tasks"],
               "query": [
-                {"key": "page", "value": "1"},
-                {"key": "limit", "value": "50"},
-                {"key": "orderBy", "value": "updated_at"},
-                {"key": "order", "value": "DESC"},
-                {"key": "search", "value": "", "disabled": true}
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "50" },
+                { "key": "orderBy", "value": "updated_at" },
+                { "key": "order", "value": "DESC" },
+                { "key": "search", "value": "", "disabled": true }
               ]
             }
           },
@@ -422,7 +482,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -430,7 +496,7 @@
               "raw": "{{base_url}}/tasks/:id",
               "host": ["{{base_url}}"],
               "path": ["tasks", ":id"],
-              "variable": [{"key": "id", "value": "1"}]
+              "variable": [{ "key": "id", "value": "1" }]
             }
           },
           "response": []
@@ -440,10 +506,16 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"title\": \"Follow up with client\",\n  \"description\": \"Send proposal document\",\n  \"taskable_type\": \"Organization\",\n  \"taskable_id\": 1\n}"
@@ -461,10 +533,16 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "PUT",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"completed_at\": \"2025-01-15T10:00:00Z\"\n}"
@@ -473,7 +551,7 @@
               "raw": "{{base_url}}/tasks/:id",
               "host": ["{{base_url}}"],
               "path": ["tasks", ":id"],
-              "variable": [{"key": "id", "value": "1"}]
+              "variable": [{ "key": "id", "value": "1" }]
             }
           },
           "response": []
@@ -483,7 +561,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "DELETE",
             "header": [],
@@ -491,7 +575,7 @@
               "raw": "{{base_url}}/tasks/:id",
               "host": ["{{base_url}}"],
               "path": ["tasks", ":id"],
-              "variable": [{"key": "id", "value": "1"}]
+              "variable": [{ "key": "id", "value": "1" }]
             }
           },
           "response": []
@@ -506,7 +590,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -515,10 +605,10 @@
               "host": ["{{base_url}}"],
               "path": ["opportunities"],
               "query": [
-                {"key": "page", "value": "1"},
-                {"key": "limit", "value": "50"},
-                {"key": "orderBy", "value": "updated_at"},
-                {"key": "order", "value": "DESC"}
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "50" },
+                { "key": "orderBy", "value": "updated_at" },
+                { "key": "order", "value": "DESC" }
               ]
             }
           },
@@ -529,7 +619,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -537,7 +633,7 @@
               "raw": "{{base_url}}/opportunities/:id",
               "host": ["{{base_url}}"],
               "path": ["opportunities", ":id"],
-              "variable": [{"key": "id", "value": "1"}]
+              "variable": [{ "key": "id", "value": "1" }]
             }
           },
           "response": []
@@ -547,10 +643,16 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"account\": \"Acme Corp\",\n  \"title\": \"Acme Corp - Website Redesign\",\n  \"opportunity_name\": \"Website Redesign Project\",\n  \"estimated_value\": 50000,\n  \"probability\": 75,\n  \"status\": \"Qualifying\"\n}"
@@ -573,7 +675,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -582,10 +690,10 @@
               "host": ["{{base_url}}"],
               "path": ["partnerships"],
               "query": [
-                {"key": "page", "value": "1"},
-                {"key": "limit", "value": "50"},
-                {"key": "orderBy", "value": "updated_at"},
-                {"key": "order", "value": "DESC"}
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "50" },
+                { "key": "orderBy", "value": "updated_at" },
+                { "key": "order", "value": "DESC" }
               ]
             }
           },
@@ -596,7 +704,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -604,7 +718,7 @@
               "raw": "{{base_url}}/partnerships/:id",
               "host": ["{{base_url}}"],
               "path": ["partnerships", ":id"],
-              "variable": [{"key": "id", "value": "1"}]
+              "variable": [{ "key": "id", "value": "1" }]
             }
           },
           "response": []
@@ -614,10 +728,16 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "POST",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"account\": \"Partner Corp\",\n  \"title\": \"Partner Corp - Strategic Alliance\",\n  \"partnership_name\": \"Strategic Alliance\",\n  \"partnership_type\": \"Strategic\",\n  \"status\": \"Exploring\"\n}"
@@ -640,7 +760,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -649,10 +775,10 @@
               "host": ["{{base_url}}"],
               "path": ["contacts"],
               "query": [
-                {"key": "page", "value": "1"},
-                {"key": "limit", "value": "50"},
-                {"key": "orderBy", "value": "updated_at"},
-                {"key": "order", "value": "DESC"}
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "50" },
+                { "key": "orderBy", "value": "updated_at" },
+                { "key": "order", "value": "DESC" }
               ]
             }
           },
@@ -663,7 +789,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -671,7 +803,7 @@
               "raw": "{{base_url}}/contacts/:id",
               "host": ["{{base_url}}"],
               "path": ["contacts", ":id"],
-              "variable": [{"key": "id", "value": "1"}]
+              "variable": [{ "key": "id", "value": "1" }]
             }
           },
           "response": []
@@ -686,7 +818,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -695,10 +833,10 @@
               "host": ["{{base_url}}"],
               "path": ["assets", "documents"],
               "query": [
-                {"key": "page", "value": "1"},
-                {"key": "limit", "value": "50"},
-                {"key": "orderBy", "value": "updated_at"},
-                {"key": "order", "value": "DESC"}
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "50" },
+                { "key": "orderBy", "value": "updated_at" },
+                { "key": "order", "value": "DESC" }
               ]
             }
           },
@@ -709,7 +847,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -717,7 +861,7 @@
               "raw": "{{base_url}}/assets/documents/:id",
               "host": ["{{base_url}}"],
               "path": ["assets", "documents", ":id"],
-              "variable": [{"key": "id", "value": "1"}]
+              "variable": [{ "key": "id", "value": "1" }]
             }
           },
           "response": []
@@ -727,7 +871,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -735,7 +885,7 @@
               "raw": "{{base_url}}/assets/documents/:id/download",
               "host": ["{{base_url}}"],
               "path": ["assets", "documents", ":id", "download"],
-              "variable": [{"key": "id", "value": "1"}]
+              "variable": [{ "key": "id", "value": "1" }]
             }
           },
           "response": []
@@ -750,7 +900,13 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "GET",
             "header": [],
@@ -767,10 +923,16 @@
           "request": {
             "auth": {
               "type": "bearer",
-              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
             },
             "method": "PATCH",
-            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
               "raw": "{\n  \"theme\": \"dark\"\n}"
@@ -797,7 +959,7 @@
               "raw": "{{base_url}}/users/:email/tenant",
               "host": ["{{base_url}}"],
               "path": ["users", ":email", "tenant"],
-              "variable": [{"key": "email", "value": "user@example.com"}]
+              "variable": [{ "key": "email", "value": "user@example.com" }]
             }
           },
           "response": []

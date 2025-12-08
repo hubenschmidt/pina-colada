@@ -35,10 +35,9 @@ type Organization struct {
 	Revenue             *string `json:"revenue"`
 
 	// Relations
-	Industries    []Industry          `gorm:"many2many:Organization_Industry;" json:"industries,omitempty"`
+	Account       *Account                 `gorm:"foreignKey:AccountID" json:"account,omitempty"`
 	Technologies  []OrganizationTechnology `gorm:"foreignKey:OrganizationID" json:"technologies,omitempty"`
-	Contacts      []Contact           `gorm:"many2many:Contact_Organization;" json:"contacts,omitempty"`
-	FundingRounds []FundingRound      `gorm:"foreignKey:OrganizationID" json:"funding_rounds,omitempty"`
+	FundingRounds []FundingRound           `gorm:"foreignKey:OrganizationID" json:"funding_rounds,omitempty"`
 }
 
 func (Organization) TableName() string {

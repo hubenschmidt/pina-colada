@@ -130,16 +130,20 @@ func accountToResponse(account *models.Account) *AccountBrief {
 
 	resp := &AccountBrief{
 		ID:   account.ID,
-		Type: account.Type,
+		Name: account.Name,
 	}
 
-	// Get name from org or individual
+	// Derive type and details from org or individual
 	if len(account.Organizations) > 0 {
 		org := account.Organizations[0]
+		orgType := "organization"
+		resp.Type = &orgType
 		resp.Name = org.Name
 		resp.Organization = &OrganizationBrief{ID: org.ID, Name: org.Name}
 	} else if len(account.Individuals) > 0 {
 		ind := account.Individuals[0]
+		indType := "individual"
+		resp.Type = &indType
 		resp.Name = ind.FirstName + " " + ind.LastName
 		resp.Individual = &IndividualBrief{
 			ID:        ind.ID,
