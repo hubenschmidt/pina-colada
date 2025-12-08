@@ -630,6 +630,260 @@ require (
 - **Library Gaps**: Some Python libs lack Go equivalents
 - **Team Familiarity**: May require Go training
 
+## Docker Configuration
+
+### Dockerfile
+
+```dockerfile
+# modules/agent-go/Dockerfile
+FROM golang:1.23-alpine AS builder
+WORKDIR /app
+
+# Install build dependencies
+RUN apk add --no-cache git ca-certificates
+
+# Copy go mod files
+COPY go.mod go.sum ./
+RUN go mod download
+
+# Copy source
+COPY . .
+
+# Build binary
+RUN CGO_ENABLED=0 GOOS=linux go build -o /agent-go ./cmd/agent
+
+# Runtime image
+FROM alpine:3.19
+RUN apk add --no-cache ca-certificates tzdata
+COPY --from=builder /agent-go /agent-go
+
+EXPOSE 8080
+CMD ["/agent-go"]
+```
+
+### docker-compose.yml Entry
+
+```yaml
+# Add to docker-compose.yml
+agent-go:
+  build:
+    context: ./modules/agent-go
+    dockerfile: Dockerfile
+  env_file:
+    - ./modules/agent-go/.env
+  environment:
+    - PORT=8080
+    - ENV=development
+    - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@app-postgres:5432/${COMPOSE_PROJECT_NAME:-pina_colada}
+    - LANGFUSE_HOST=http://langfuse:3000
+  ports:
+    - "8080:8080"
+  depends_on:
+    app-postgres:
+      condition: service_healthy
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+```
+
+**Port Assignment:**
+- Python agent: `8000` (current)
+- Go agent: `8080` (new)
+
+---
+
+## Frontend API Switching
+
+Add a dropdown in the frontend settings/dev panel to switch between Python and Go APIs:
+
+### Implementation
+
+```javascript
+// Frontend: API base URL switching
+const API_BACKENDS = {
+  python: 'http://localhost:8000',
+  go: 'http://localhost:8080',
+};
+
+// Store preference in localStorage
+const getBackend = () =>
+  localStorage.getItem('api_backend') || 'python';
+
+const setBackend = (backend) =>
+  localStorage.setItem('api_backend', backend);
+
+// Use in API client
+const apiBaseUrl = API_BACKENDS[getBackend()];
+```
+
+### UI Component
+
+Add a simple toggle in the settings or dev toolbar:
+- Label: "API Backend"
+- Options: "Python (8000)" | "Go (8080)"
+- Persists to localStorage
+- Only visible in development mode
+
+---
+
+## Authentication: Auth0 Integration
+
+The Go service must implement the same Auth0 JWT verification as Python.
+
+### Required Environment Variables
+
+```env
+# modules/agent-go/.env
+AUTH0_DOMAIN=your-tenant.auth0.com
+AUTH0_AUDIENCE=https://api.pinacolada.co
+AUTH0_NAMESPACE=https://pinacolada.co
+```
+
+### Auth Middleware Implementation
+
+```go
+package middleware
+
+import (
+	"context"
+	"net/http"
+	"os"
+	"strings"
+	"sync"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/lestrrat-go/jwx/v2/jwk"
+)
+
+var (
+	jwksCache jwk.Set
+	jwksMu    sync.RWMutex
+)
+
+type Claims struct {
+	jwt.RegisteredClaims
+	Email    string `json:"email"`
+	TenantID *int64 `json:"https://pinacolada.co/tenant_id"`
+}
+
+type AuthContext struct {
+	UserID   int64
+	TenantID int64
+	Email    string
+	Auth0Sub string
+}
+
+func Auth(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Extract token from Authorization header
+		authHeader := r.Header.Get("Authorization")
+		if !strings.HasPrefix(authHeader, "Bearer ") {
+			http.Error(w, "Missing or invalid Authorization header", http.StatusUnauthorized)
+			return
+		}
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
+
+		// Verify JWT
+		claims, err := verifyToken(tokenString)
+		if err != nil {
+			http.Error(w, "Invalid token: "+err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		// Get or create user (same logic as Python)
+		user, err := getOrCreateUser(r.Context(), claims.Subject, claims.Email)
+		if err != nil {
+			http.Error(w, "Failed to resolve user", http.StatusInternalServerError)
+			return
+		}
+
+		// Resolve tenant ID (header > claim > user default)
+		tenantID := resolveTenantID(r, claims, user)
+
+		// Add auth context to request
+		authCtx := AuthContext{
+			UserID:   user.ID,
+			TenantID: tenantID,
+			Email:    claims.Email,
+			Auth0Sub: claims.Subject,
+		}
+		ctx := context.WithValue(r.Context(), "auth", authCtx)
+
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+func verifyToken(tokenString string) (*Claims, error) {
+	domain := os.Getenv("AUTH0_DOMAIN")
+	audience := os.Getenv("AUTH0_AUDIENCE")
+
+	// Fetch JWKS (cached)
+	keySet, err := getJWKS(domain)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse and verify token
+	token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+		kid, ok := token.Header["kid"].(string)
+		if !ok {
+			return nil, fmt.Errorf("missing kid header")
+		}
+		key, ok := keySet.LookupKeyID(kid)
+		if !ok {
+			return nil, fmt.Errorf("key not found")
+		}
+		var rawKey interface{}
+		key.Raw(&rawKey)
+		return rawKey, nil
+	}, jwt.WithAudience(audience), jwt.WithIssuer("https://"+domain+"/"))
+
+	if err != nil {
+		return nil, err
+	}
+
+	return token.Claims.(*Claims), nil
+}
+
+func resolveTenantID(r *http.Request, claims *Claims, user *models.User) int64 {
+	// 1. Check X-Tenant-Id header
+	if tid := r.Header.Get("X-Tenant-Id"); tid != "" {
+		if id, err := strconv.ParseInt(tid, 10, 64); err == nil {
+			return id
+		}
+	}
+	// 2. Check JWT claim
+	if claims.TenantID != nil {
+		return *claims.TenantID
+	}
+	// 3. Fall back to user's default tenant
+	if user.TenantID != nil {
+		return *user.TenantID
+	}
+	return 0
+}
+```
+
+### Key Points
+
+1. **Same JWT verification**: RS256 with Auth0 JWKS
+2. **Same claim extraction**: `sub`, `email`, namespaced `tenant_id`
+3. **Same tenant resolution**: Header → Claim → User default
+4. **User get-or-create**: Match Python behavior for first-time logins
+
+### Additional Auth Dependencies
+
+```go
+require (
+    github.com/golang-jwt/jwt/v5 v5.2.0
+    github.com/lestrrat-go/jwx/v2 v2.0.21
+)
+```
+
+---
+
 ## Open Questions
 
 1. **Model Routing**: ADK is Gemini-optimized; need to verify OpenAI/Anthropic integration patterns
