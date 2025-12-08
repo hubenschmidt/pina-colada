@@ -28,10 +28,19 @@ class FastPathIntent(BaseModel):
 CLASSIFIER_PROMPT = """Classify user intent for CRM fast-path routing.
 
 INTENT TYPES:
-- lookup: Single entity search by name (e.g., "look up John Smith", "find Acme Corp")
+- lookup: ONLY simple single-entity search by name with NO additional actions
+  Examples: "look up John Smith", "find Acme Corp", "show me contact Jane Doe"
 - count: How many entities exist (e.g., "how many contacts", "count individuals")
 - list: Show all entities of a type (e.g., "list all accounts", "show organizations")
-- other: Complex queries, comparisons, analysis, document operations
+- other: Use for ANY of these:
+  * Multi-step requests (lookup AND do something else)
+  * Job search, career assistance, or action requests
+  * Document/file/resume reading or analysis
+  * Content generation (cover letters, emails, reports)
+  * Comparisons, analysis, trends, or insights
+  * Any request beyond simple data retrieval
+
+CRITICAL: If request contains "and", "then", "also", job/career terms, or asks for actions beyond retrieval → other
 
 Output intent_type, entity_type (individual/account/organization/contact), query (name if lookup, else null)."""
 
