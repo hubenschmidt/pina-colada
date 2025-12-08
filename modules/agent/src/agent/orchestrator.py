@@ -1,398 +1,225 @@
 """
-Orchestrator - functional implementation
-Uses factory function pattern to create a graph with closed-over state
+Orchestrator using OpenAI Agents SDK.
+
+Uses Claude Haiku for routing, GPT-4.1 for workers.
+Structured outputs, handoffs, and @function_tool decorators.
 """
 
 import asyncio
 import json
 import logging
-from typing import List, Any, Optional, Dict, Annotated
+from typing import Any, Callable, Dict, Optional
 from uuid import UUID
 
-from typing_extensions import TypedDict
-from langgraph.checkpoint.memory import MemorySaver
-from langgraph.graph import StateGraph, START, END
-from langgraph.graph.message import add_messages
-from langgraph.prebuilt import ToolNode
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, trim_messages
-from dotenv import load_dotenv
+import os
 
-from agent.tools.worker_tools import get_general_tools, get_job_search_tools
-from agent.tools.crm_tools import get_crm_tools
-from agent.tools.document_tools import get_document_tools
-from agent.workers.general_worker import create_worker_node, route_from_worker
-from agent.workers.career import (
-    create_job_search_node,
-    route_from_job_search,
-    create_cover_letter_writer_node,
-    route_from_cover_letter_writer,
-)
-from agent.workers.crm import create_crm_worker_node, route_from_crm_worker
-from agent.routers.agent_router import create_router_node, route_from_router_edge
-from agent.routers.intent_classifier import create_intent_classifier_node, route_from_classifier
-from agent.nodes.fast_lookup import fast_lookup_node, fast_count_node, fast_list_node
-from agent.nodes.format_response import create_format_response_node
-from agent.evaluators import (
-    route_from_evaluator,
-    create_career_evaluator_node,
-    create_general_evaluator_node,
-    create_crm_evaluator_node,
-)
+from dotenv import load_dotenv
+load_dotenv(override=True)
+
+from openai import AsyncOpenAI
+from agents import Runner, function_tool, trace, set_default_openai_api, OpenAIChatCompletionsModel
+
+from agent.workers.general import create_general_worker
+from agent.workers.career.job_search import create_job_search_worker
+from agent.workers.career.cover_letter import create_cover_letter_worker
+from agent.workers.crm.crm_worker import create_crm_worker
+from agent.routers.triage import create_triage_router
+from agent.util.agent_hooks import logging_hooks
 from services.reasoning_service import get_reasoning_schema, format_schema_context
 from services import conversation_service
+from services.conversation_service import load_messages, save_message
 from services import usage_service
 from lib.tenant_context import set_tenant_id
 
 logger = logging.getLogger(__name__)
-load_dotenv(override=True)
 
-# Track running tasks by thread_id for cancellation
+# Use Chat Completions API
+set_default_openai_api("chat_completions")
+
+# Claude client for triage (fast routing)
+_claude_client = AsyncOpenAI(
+    api_key=os.getenv("ANTHROPIC_API_KEY"),
+    base_url="https://api.anthropic.com/v1/",
+)
+
+# Models
+GPT_5 = "gpt-5.1"
+CLAUDE_HAIKU = OpenAIChatCompletionsModel(
+    model="claude-haiku-4-5-20251001",
+    openai_client=_claude_client,
+)
+
+# Track running tasks for cancellation
 _running_tasks: Dict[str, asyncio.Task] = {}
 
-# Token budget limit (50k tokens max per request)
-TOKEN_BUDGET = 50000
+# Track cumulative token usage per thread
+_thread_token_totals: Dict[str, Dict[str, int]] = {}
+
+
+# --- Tools ---
+
+@function_tool
+def web_search(query: str) -> str:
+    """Search the web for current information (news, docs, general queries)."""
+    from agent.tools.worker_tools import serper_search
+    return serper_search(query)
+
+
+@function_tool
+async def job_search(query: str) -> str:
+    """Search for jobs, filtering out already-applied positions."""
+    from agent.tools.worker_tools import job_search_with_filter
+    return await job_search_with_filter(query)
+
+
+@function_tool
+async def check_applied_jobs(query: str = "") -> str:
+    """Check job applications in database. Empty string lists all."""
+    from agent.tools.worker_tools import check_applied_jobs as _check
+    return await _check(query)
+
+
+@function_tool
+def update_job_status(
+    company: str,
+    job_title: str,
+    status: str,
+    job_url: str = "",
+    notes: str = "",
+) -> str:
+    """Update job application status (applied, interviewing, rejected, offer, accepted, do_not_apply)."""
+    from agent.tools.worker_tools import update_job_status as _update
+    return _update(company, job_title, status, job_url, notes)
+
+
+@function_tool
+def send_email(to_email: str, subject: str, body: str, job_listings: str = "") -> str:
+    """Send an email to the specified address."""
+    from agent.tools.worker_tools import send_email as _send
+    return _send(to_email, subject, body, job_listings)
+
+
+@function_tool
+async def read_document(file_path: str) -> str:
+    """Read a document file (PDF, DOCX, TXT)."""
+    from agent.tools.document_tools import read_document as _read
+    return await _read(file_path)
+
+
+@function_tool
+async def list_documents() -> str:
+    """List available documents."""
+    from agent.tools.document_tools import list_documents as _list
+    return await _list()
+
+
+@function_tool
+async def search_entity_documents(entity_type: str, entity_id: int) -> str:
+    """Search for documents linked to a specific entity (Individual, Organization, Account, Contact)."""
+    from agent.tools.document_tools import search_entity_documents as _search
+    return await _search(entity_type, entity_id)
+
+
+@function_tool
+async def crm_lookup(entity_type: str, query: str) -> str:
+    """Look up CRM entities (individual, account, organization, contact)."""
+    from agent.tools.crm_tools import crm_lookup as _lookup
+    return await _lookup(entity_type, query)
+
+
+@function_tool
+async def crm_count(entity_type: str) -> str:
+    """Count CRM entities of a type."""
+    from agent.tools.crm_tools import crm_count as _count
+    return await _count(entity_type)
+
+
+@function_tool
+async def crm_list(entity_type: str) -> str:
+    """List all CRM entities of a type."""
+    from agent.tools.crm_tools import crm_list as _list
+    return await _list(entity_type)
+
+
+# --- Agent Definitions ---
+
+def _create_agents(schema_context: str = ""):
+    """Create all agents with current context."""
+    # Create workers with their tool sets
+    general_worker = create_general_worker(
+        model=GPT_5,
+        tools=[web_search, read_document, list_documents],
+    )
+
+    job_search_worker = create_job_search_worker(
+        model=GPT_5,
+        tools=[job_search, check_applied_jobs, update_job_status, send_email, web_search],
+    )
+
+    cover_letter_worker = create_cover_letter_worker(
+        model=GPT_5,
+        tools=[read_document, list_documents],
+    )
+
+    crm_worker = create_crm_worker(
+        model=GPT_5,
+        tools=[crm_lookup, crm_count, crm_list, search_entity_documents, read_document, list_documents, web_search],
+        schema_context=schema_context,
+    )
+
+    # Create triage router with all workers
+    return create_triage_router(
+        model=CLAUDE_HAIKU,
+        workers=[general_worker, job_search_worker, cover_letter_worker, crm_worker],
+    )
+
+
+# Cached agents
+_triage_agent = None
+
+
+async def _get_triage_agent():
+    """Get or create triage agent with schema context."""
+    global _triage_agent
+
+    if _triage_agent is None:
+        schema_context = ""
+        try:
+            schema = await get_reasoning_schema("crm")
+            schema_context = format_schema_context(schema) if schema else ""
+        except Exception as e:
+            logger.warning(f"Failed to load CRM schema: {e}")
+
+        _triage_agent = _create_agents(schema_context)
+        logger.info("Agents initialized")
+
+    return _triage_agent
 
 
 async def cancel_streaming(thread_id: str) -> bool:
-    """Cancel a running streaming task by thread_id.
-
-    Returns True if a task was cancelled, False otherwise.
-    """
+    """Cancel a running streaming task."""
     task = _running_tasks.get(thread_id)
     if task and not task.done():
-        logger.info(f"Cancelling streaming task for thread: {thread_id}")
+        logger.info(f"Cancelling task for thread: {thread_id}")
         task.cancel()
         return True
-    logger.warning(f"No running task found for thread: {thread_id}")
     return False
 
 
-# State type definition
-class State(TypedDict):
-    messages: Annotated[List[Any], add_messages]
-    success_criteria: str
-    feedback_on_work: Optional[str]
-    success_criteria_met: bool
-    user_input_needed: bool
-    score: Optional[int]  # Numeric score from 0-100 rating response quality
-    route_to_agent: Optional[str]
-    evaluator_type: Optional[str]  # career, scraper, or general
-    token_usage: Optional[Dict[str, int]]  # current call: input, output, total
-    token_usage_cumulative: Optional[Dict[str, int]]  # cumulative for entire request
-    schema_context: Optional[str]  # CRM schema context from reasoning service
-    tenant_id: Optional[int]  # Tenant ID for CRM queries
-    model_name: Optional[str]  # Model name for usage tracking
-    current_node: Optional[str]  # Current node name for usage tracking
-    # Fast-path fields
-    fast_path_intent: Optional[str]  # lookup, count, list, or other
-    lookup_entity_type: Optional[str]  # individual, account, organization, contact
-    lookup_query: Optional[str]  # Extracted search query (for lookup intent)
-    lookup_result: Optional[str]  # Raw result from fast path
-
-
-def _get_tool_call_ids(msg: Any) -> set:
-    """Extract tool call IDs from a message."""
-    if not isinstance(msg, AIMessage):
-        return set()
-    if not hasattr(msg, 'tool_calls') or not msg.tool_calls:
-        return set()
-    return {tc.get('id') for tc in msg.tool_calls}
-
-
-def _find_pending_tool_calls(messages: List[Any]) -> set:
-    """Find tool_call_ids that don't have responses."""
-    pending = set()
-    for msg in messages:
-        pending.update(_get_tool_call_ids(msg))
-        if isinstance(msg, ToolMessage):
-            pending.discard(msg.tool_call_id)
-    return pending
-
-
-def _is_orphaned_tool_call(msg: Any, pending_ids: set) -> bool:
-    """Check if a message contains an orphaned tool call."""
-    call_ids = _get_tool_call_ids(msg)
-    return bool(call_ids & pending_ids)
-
-
-def _ensure_tool_pairs_intact(messages: List[Any]) -> List[Any]:
-    """Ensure tool_call messages are followed by their tool responses."""
-    if not messages:
-        return messages
-
-    pending = _find_pending_tool_calls(messages)
-    if not pending:
-        return messages
-
-    logger.warning(f"Removing {len(pending)} orphaned tool calls")
-    return [msg for msg in messages if not _is_orphaned_tool_call(msg, pending)]
-
-
-def _trim_messages(messages: List[Any], max_tokens: int = 8000) -> List[Any]:
-    """Pure function to trim message history"""
-    try:
-        trimmed = trim_messages(
-            messages,
-            max_tokens=max_tokens,
-            strategy="last",
-            token_counter=len,
-            include_system=True,
-            allow_partial=False,
-        )
-
-        if len(trimmed) < len(messages):
-            logger.info(f"Trimmed messages from {len(messages)} to {len(trimmed)}")
-
-        # Ensure tool call/response pairs are intact
-        trimmed = _ensure_tool_pairs_intact(trimmed)
-
-        return trimmed
-    except Exception as e:
-        logger.warning(f"Message trimming failed: {e}, using last 10 messages")
-        return messages[-10:]
-
-
-def _extract_content_info(last_msg: Any, last_content: str) -> Dict[str, Any]:
-    """Extract content emission info from message. Returns dict with should_emit, content, is_new."""
-    current_content = getattr(last_msg, "content", None)
-    is_ai = isinstance(last_msg, AIMessage)
-
-    if not isinstance(current_content, str):
-        return {"should_emit": False, "content": last_content, "is_new": False}
-    if not current_content:
-        return {"should_emit": False, "content": last_content, "is_new": False}
-    if current_content == last_content:
-        return {"should_emit": False, "content": last_content, "is_new": False}
-    if not is_ai:
-        return {"should_emit": False, "content": current_content, "is_new": False}
-
-    is_new = bool(last_content and not current_content.startswith(last_content))
-    return {"should_emit": True, "content": current_content, "is_new": is_new}
-
-
-def _should_accumulate_tokens(token_usage: Optional[Dict], last_id: Optional[tuple]) -> tuple:
-    """Check if token usage should be accumulated. Returns (should_accumulate, token_id)."""
-    if not token_usage:
-        return (False, last_id)
-    if token_usage.get("total", 0) <= 0:
-        return (False, last_id)
-
-    token_id = (
-        token_usage.get("input", 0),
-        token_usage.get("output", 0),
-        token_usage.get("total", 0),
-    )
-    if token_id == last_id:
-        return (False, last_id)
-
-    return (True, token_id)
-
-
-async def _stream_with_budget(stream, cumulative: Dict, budget: int):
-    """Async generator that stops when budget exceeded. Avoids break in main loop."""
-    async for event in stream:
-        yield event
-        if cumulative["total"] > budget:
-            logger.warning(f"Token budget exceeded ({cumulative['total']} > {budget}), stopping")
-            return
-
-
-async def create_orchestrator():
+async def create_orchestrator() -> Dict[str, Callable]:
     """
-    Factory function that creates an orchestrator with closed-over state.
+    Create orchestrator interface (maintains API compatibility).
 
-    Resume/document context is fetched dynamically by workers using document tools.
-
-    Returns:
-        - run_streaming: async function to execute the graph
-        - set_websocket_sender: function to set WS sender
+    Returns dict with:
+        - run_streaming: Main execution function
+        - set_websocket_sender: Set WebSocket sender for streaming
     """
-    logger.info("=== AGENT SETUP ===")
+    logger.info("Initializing SDK-based orchestrator...")
 
-    # Load tools - separated by purpose
-    general_tools = await get_general_tools()  # web search, wikipedia
-    document_tools = await get_document_tools()  # search_documents, get_document_content
-    job_search_tools = await get_job_search_tools()  # job_search, check_applied_jobs, etc.
-    crm_tools = await get_crm_tools()  # lookup_individual, lookup_organization, etc.
+    # Pre-initialize agents
+    await _get_triage_agent()
 
-    logger.info(f"✓ Loaded tools: {len(general_tools)} general, {len(document_tools)} document, {len(job_search_tools)} job search, {len(crm_tools)} CRM")
-
-    # Load CRM schema context for RAG
-    try:
-        crm_schema = await get_reasoning_schema("crm")
-        schema_context = format_schema_context(crm_schema)
-        logger.info(f"✓ Loaded CRM schema context ({len(crm_schema)} tables)")
-    except Exception as e:
-        logger.warning(f"Could not load CRM schema: {e}")
-        schema_context = "CRM schema not available."
-
-    # Build tool sets for each worker (no longer need all_tools combined)
-    worker_tools = document_tools + general_tools  # General worker: docs + web search (NO job search)
-    job_worker_tools = document_tools + job_search_tools  # Job search: docs + job tools
-    crm_worker_tools = document_tools + crm_tools  # CRM: docs + CRM only (removed general_tools)
-    cover_letter_tools = document_tools  # Cover letter: just docs
-
-    # Create nodes - each worker gets appropriate tools
-    worker = await create_worker_node(worker_tools, _trim_messages)
-    job_search = await create_job_search_node(job_worker_tools, _trim_messages)
-    cover_letter_writer = await create_cover_letter_writer_node(document_tools, _trim_messages)  # Only docs
-    crm_worker = await create_crm_worker_node(crm_worker_tools, schema_context, _trim_messages)
-    logger.info("✓ Created workers with appropriate tool access")
-
-    # Create specialized evaluators
-    career_evaluator = await create_career_evaluator_node()
-    general_evaluator = await create_general_evaluator_node()
-    crm_evaluator = await create_crm_evaluator_node()
-    logger.info("✓ Created specialized evaluators (career, general, crm)")
-
-    # Create LLM-based router
-    router = await create_router_node()
-    logger.info("✓ Created LLM-based router")
-
-    # Create fast-path nodes
-    intent_classifier = await create_intent_classifier_node()
-    format_response = await create_format_response_node()
-    logger.info("✓ Created fast-path nodes (intent_classifier, fast_lookup, format_response)")
-
-    # Build graph
-    logger.info("Building LangGraph workflow...")
-    graph_builder = StateGraph(State)
-
-    # Add nodes - now they're all pure functions
-    logger.info("Adding nodes to graph...")
-    # Fast-path nodes
-    graph_builder.add_node("intent_classifier", intent_classifier)
-    graph_builder.add_node("fast_lookup", fast_lookup_node)
-    graph_builder.add_node("fast_count", fast_count_node)
-    graph_builder.add_node("fast_list", fast_list_node)
-    graph_builder.add_node("format_response", format_response)
-    # Router and workers
-    graph_builder.add_node("router", router)
-    graph_builder.add_node("worker", worker)
-    graph_builder.add_node("job_search", job_search)
-    graph_builder.add_node("cover_letter_writer", cover_letter_writer)
-    graph_builder.add_node("crm_worker", crm_worker)
-    # Per-worker ToolNodes to reduce token usage (only bind relevant tools)
-    graph_builder.add_node("worker_tools", ToolNode(tools=worker_tools))
-    graph_builder.add_node("job_tools", ToolNode(tools=job_worker_tools))
-    graph_builder.add_node("crm_tools", ToolNode(tools=crm_worker_tools))
-    graph_builder.add_node("cover_letter_tools", ToolNode(tools=cover_letter_tools))
-    logger.info(f"✓ Created per-worker ToolNodes: worker({len(worker_tools)}), job({len(job_worker_tools)}), crm({len(crm_worker_tools)}), cover_letter({len(cover_letter_tools)})")
-    # Add specialized evaluators
-    graph_builder.add_node("career_evaluator", career_evaluator)
-    graph_builder.add_node("general_evaluator", general_evaluator)
-    graph_builder.add_node("crm_evaluator", crm_evaluator)
-    logger.info("✓ Nodes added")
-
-    # Add edges
-    logger.info("Adding edges to graph...")
-
-    # Fast-path: START → intent_classifier → [fast_lookup | fast_count | fast_list | router]
-    graph_builder.add_edge(START, "intent_classifier")
-    graph_builder.add_conditional_edges(
-        "intent_classifier",
-        route_from_classifier,
-        {
-            "fast_lookup": "fast_lookup",
-            "fast_count": "fast_count",
-            "fast_list": "fast_list",
-            "router": "router",
-        },
-    )
-    graph_builder.add_edge("fast_lookup", "format_response")
-    graph_builder.add_edge("fast_count", "format_response")
-    graph_builder.add_edge("fast_list", "format_response")
-    graph_builder.add_edge("format_response", END)
-
-    # Full flow: router → workers
-    graph_builder.add_conditional_edges(
-        "router",
-        route_from_router_edge,
-        {
-            "worker": "worker",
-            "job_search": "job_search",
-            "cover_letter_writer": "cover_letter_writer",
-            "crm_worker": "crm_worker",
-        },
-    )
-
-    # Route each worker to its dedicated ToolNode
-    graph_builder.add_conditional_edges(
-        "worker",
-        route_from_worker,
-        {"tools": "worker_tools", "evaluator": "general_evaluator"},
-    )
-
-    graph_builder.add_conditional_edges(
-        "job_search",
-        route_from_job_search,
-        {"tools": "job_tools", "evaluator": "career_evaluator"},
-    )
-
-    graph_builder.add_conditional_edges(
-        "crm_worker",
-        route_from_crm_worker,
-        {"tools": "crm_tools", "END": END},  # Skip evaluator for CRM queries
-    )
-
-    graph_builder.add_conditional_edges(
-        "cover_letter_writer",
-        route_from_cover_letter_writer,
-        {"tools": "cover_letter_tools", "evaluator": "career_evaluator"},
-    )
-
-    # Route from each ToolNode back to its worker
-    graph_builder.add_edge("worker_tools", "worker")
-    graph_builder.add_edge("job_tools", "job_search")
-    graph_builder.add_edge("crm_tools", "crm_worker")
-    graph_builder.add_edge("cover_letter_tools", "cover_letter_writer")
-
-    # Route from each evaluator back to worker or END
-    evaluator_routing = {
-        "worker": "worker",
-        "job_search": "job_search",
-        "cover_letter_writer": "cover_letter_writer",
-        "crm_worker": "crm_worker",
-        "END": END,
-    }
-
-    graph_builder.add_conditional_edges(
-        "career_evaluator",
-        route_from_evaluator,
-        evaluator_routing,
-    )
-
-    graph_builder.add_conditional_edges(
-        "general_evaluator",
-        route_from_evaluator,
-        evaluator_routing,
-    )
-
-    graph_builder.add_conditional_edges(
-        "crm_evaluator",
-        route_from_evaluator,
-        evaluator_routing,
-    )
-
-    logger.info("✓ Edges added")
-
-    # Compile graph
-    logger.info("Compiling graph...")
-    memory = MemorySaver()
-    compiled_graph = graph_builder.compile(checkpointer=memory)
-
-    if compiled_graph is None:
-        raise RuntimeError("Graph compilation returned None")
-
-    logger.info("✓ Graph compiled successfully")
-    logger.info("===================")
-
-    # Closed-over mutable state for WebSocket sender (only stateful thing we need)
     ws_sender_ref = {"send_ws": None}
-
-    def set_websocket_sender(send_ws):
-        """Set the WebSocket sender function"""
-        ws_sender_ref["send_ws"] = send_ws
 
     async def run_streaming(
         message: str,
@@ -401,208 +228,182 @@ async def create_orchestrator():
         tenant_id: int = None,
         user_id: int = None,
     ) -> Dict[str, Any]:
-        """Run the graph with streaming support"""
-        logger.info(f"▶️  Starting graph execution for thread: {thread_id}")
-        logger.info(f"   User message: {message[:100]}...")
+        """Run the agent with streaming support."""
+        logger.info(f"Starting agent for thread: {thread_id}")
+        logger.info(f"   Message: {message[:100]}...")
 
-        # Register this task for cancellation support
         current_task = asyncio.current_task()
         if current_task:
             _running_tasks[thread_id] = current_task
 
-        # Set tenant context for CRM tools (request-scoped)
         set_tenant_id(tenant_id)
-        if tenant_id:
-            logger.info(f"   Tenant ID: {tenant_id}")
+        send_ws = ws_sender_ref["send_ws"]
 
-        # Check if this is a new conversation (for title generation)
+        # Check for new conversation
         is_new_conversation = False
         thread_uuid = None
-        conversation_id = None
         if user_id and tenant_id:
             try:
                 thread_uuid = UUID(thread_id)
                 existing = await conversation_service.get_conversation(thread_uuid)
-                conversation_id = existing.id if existing else None
             except Exception:
                 existing = None
                 is_new_conversation = True
             if not existing:
                 is_new_conversation = True
 
-            # Save user message
             try:
-                await conversation_service.add_message(
-                    thread_id=thread_uuid,
-                    user_id=user_id,
-                    tenant_id=tenant_id,
-                    role="user",
-                    content=message,
-                )
+                await save_message(thread_id, user_id, tenant_id, "user", message)
             except Exception as e:
                 logger.warning(f"Failed to save user message: {e}")
 
-        config = {
-            "configurable": {"thread_id": thread_id},
-            "recursion_limit": 20,  # Reduced from 50 to prevent runaway iterations
-        }
-
-        sc = (
-            success_criteria
-            or "Provide a clear and accurate response to the user's question"
-        )
-
-        state = {
-            "messages": [HumanMessage(content=message)],
-            "success_criteria": sc,
-            "feedback_on_work": None,
-            "success_criteria_met": False,
-            "user_input_needed": False,
-            "score": None,
-            "route_to_agent": None,
-            "evaluator_type": None,
-            "token_usage": None,
-            "token_usage_cumulative": {"input": 0, "output": 0, "total": 0},
-            "schema_context": schema_context,
-            "tenant_id": tenant_id,
-            "model_name": None,
-            "current_node": None,
-            # Fast-path fields
-            "fast_path_intent": None,
-            "lookup_entity_type": None,
-            "lookup_query": None,
-            "lookup_result": None,
-        }
-
-        send_ws = ws_sender_ref["send_ws"]
-
-        # Non-streaming path
-        if not send_ws:
-            result = await compiled_graph.ainvoke(state, config=config)
-            logger.info("✅ Graph execution completed")
-            return result
-
-        # Streaming path
-        await send_ws(json.dumps({"type": "start"}))
-
-        last_content = ""
-        iteration = 0
-        cumulative = {"input": 0, "output": 0, "total": 0}
-        # Track usage records: list of {model_name, node_name, input, output, total}
-        usage_records = []
-        last_token_usage_id = None
-        cancelled = False
-
-        raw_stream = compiled_graph.astream(state, config=config, stream_mode="values")
-        budget_stream = _stream_with_budget(raw_stream, cumulative, TOKEN_BUDGET)
+        # Send start event
+        if send_ws:
+            await send_ws(json.dumps({"type": "start"}))
 
         try:
-            async for event in budget_stream:
-                iteration += 1
-                # Debug: log what keys are in the event
-                event_keys = list(event.keys()) if isinstance(event, dict) else "not a dict"
-                logger.info(f"   Graph iteration {iteration}, event keys: {event_keys}")
+            triage = await _get_triage_agent()
 
-                messages = event.get("messages")
-                last_msg = (messages or [None])[-1]
+            # Load recent conversation context
+            context_parts = []
+            if thread_id:
+                history = await load_messages(thread_id, max_messages=6)
+                for msg in history:
+                    role = msg.get("role", "user")
+                    content = msg.get("content", "")
+                    if role in ("user", "assistant") and content:
+                        prefix = "User" if role == "user" else "Assistant"
+                        context_parts.append(f"{prefix}: {content[:500]}")
 
-                content_info = _extract_content_info(last_msg, last_content)
-                last_content = content_info["content"]
+            # Build input with context if available
+            if context_parts:
+                context_str = "\n".join(context_parts[-6:])  # Last 3 exchanges
+                input_message = f"[Recent conversation context]\n{context_str}\n\n[Current request]\n{message}"
+            else:
+                input_message = message
 
-                if content_info["should_emit"] and content_info["is_new"]:
-                    logger.info("New response detected, sending start event")
-                    await send_ws(json.dumps({"type": "start"}))
-
-                if content_info["should_emit"]:
-                    await send_ws(json.dumps({
-                        "type": "content",
-                        "content": content_info["content"],
-                        "is_final": False,
-                    }))
-
-                token_usage = event.get("token_usage")
-                should_accumulate, last_token_usage_id = _should_accumulate_tokens(
-                    token_usage, last_token_usage_id
+            # Run with tracing and logging hooks
+            with trace(workflow_name="agent", group_id=thread_id):
+                result = await Runner.run(
+                    triage,
+                    input_message,
+                    hooks=logging_hooks,
                 )
 
-                if should_accumulate:
-                    cumulative["input"] += token_usage.get("input", 0)
-                    cumulative["output"] += token_usage.get("output", 0)
-                    cumulative["total"] += token_usage.get("total", 0)
+            # Extract response
+            final_content = ""
+            if isinstance(result.final_output, str):
+                final_content = result.final_output
+            elif hasattr(result.final_output, "model_dump"):
+                final_content = json.dumps(result.final_output.model_dump())
+            else:
+                final_content = str(result.final_output)
 
-                    # Track usage per model+node
-                    model_name = event.get("model_name")
-                    node_name = event.get("current_node") or event.get("route_to_agent")
-                    logger.info(f"   📊 Token accumulation: model={model_name}, node={node_name}, tokens={token_usage}")
-                    if model_name:
-                        usage_records.append({
-                            "model_name": model_name,
-                            "node_name": node_name,
-                            "input": token_usage.get("input", 0),
-                            "output": token_usage.get("output", 0),
-                            "total": token_usage.get("total", 0),
-                        })
+            # Get token usage from result.context_wrapper.usage
+            turn_tokens = {"input": 0, "output": 0, "total": 0}
+            try:
+                usage = result.context_wrapper.usage
+                turn_tokens = {
+                    "input": usage.input_tokens,
+                    "output": usage.output_tokens,
+                    "total": usage.total_tokens,
+                }
+            except (AttributeError, TypeError):
+                logger.warning("Could not get token usage from result")
 
-                    await send_ws(json.dumps({
-                        "type": "token_usage",
-                        "token_usage": token_usage,
-                        "cumulative": cumulative.copy()
-                    }))
+            # Update cumulative totals for this thread
+            if thread_id not in _thread_token_totals:
+                _thread_token_totals[thread_id] = {"input": 0, "output": 0, "total": 0}
+            _thread_token_totals[thread_id]["input"] += turn_tokens["input"]
+            _thread_token_totals[thread_id]["output"] += turn_tokens["output"]
+            _thread_token_totals[thread_id]["total"] += turn_tokens["total"]
+            cumulative_tokens = _thread_token_totals[thread_id]
+
+            # Combined token info for response
+            tokens = {
+                "turn": turn_tokens,
+                "cumulative": cumulative_tokens,
+            }
+
+            # Save assistant response
+            if user_id and tenant_id and final_content:
+                try:
+                    await save_message(
+                        thread_id, user_id, tenant_id, "assistant", final_content, turn_tokens
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to save assistant message: {e}")
+
+            # Generate title for new conversations (synchronously so we can send it)
+            generated_title = None
+            if is_new_conversation and thread_uuid and final_content:
+                try:
+                    generated_title = await conversation_service.generate_title(message, final_content)
+                    await conversation_service.update_title(thread_uuid, generated_title)
+                    logger.info(f"Generated title: {generated_title}")
+                except Exception as e:
+                    logger.warning(f"Failed to generate title: {e}")
+
+            # Record usage with actual worker name
+            if tenant_id and turn_tokens.get("total", 0) > 0:
+                try:
+                    # Get the name of the worker that handled the request
+                    worker_name = "agent"
+                    if hasattr(result, "last_agent") and result.last_agent:
+                        worker_name = result.last_agent.name
+                    logger.info(f"Recording usage for worker: {worker_name}")
+
+                    await usage_service.log_usage_records(
+                        tenant_id=tenant_id,
+                        user_id=user_id,
+                        records=[{"model_name": GPT_5, "node_name": worker_name, **turn_tokens}],
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to record usage: {e}")
+
+            # Send completion
+            if send_ws:
+                await send_ws(json.dumps({
+                    "type": "content",
+                    "content": final_content,
+                    "is_final": True,
+                }))
+                logger.info(f"Token usage - turn: {turn_tokens}, cumulative: {cumulative_tokens}")
+                complete_payload = {
+                    "type": "complete",
+                    "final_token_usage": tokens,
+                }
+                if generated_title:
+                    complete_payload["conversation_title"] = generated_title
+                await send_ws(json.dumps(complete_payload))
+
+            logger.info("Agent execution completed")
+            return {
+                "messages": [{"role": "assistant", "content": final_content}],
+                "tokens": tokens,
+                "done": True,
+            }
 
         except asyncio.CancelledError:
-            cancelled = True
-            logger.info(f"⚠️  Graph execution cancelled for thread: {thread_id}")
-            await send_ws(json.dumps({"type": "cancelled"}))
-            raise  # Re-raise to properly cancel the task
+            logger.info(f"Agent cancelled for thread: {thread_id}")
+            if send_ws:
+                await send_ws(json.dumps({"type": "cancelled"}))
+            raise
+
+        except Exception as e:
+            logger.error(f"Agent failed: {e}")
+            if send_ws:
+                await send_ws(json.dumps({"type": "error", "error": str(e)}))
+            raise
 
         finally:
-            # Cleanup task tracking
             _running_tasks.pop(thread_id, None)
 
-            if not cancelled:
-                await send_ws(
-                    json.dumps({"type": "content", "content": last_content, "is_final": True})
-                )
-                await send_ws(json.dumps({"type": "end"}))
-                logger.info(f"✅ Graph execution completed in {iteration} iterations")
+    def set_websocket_sender(send_ws):
+        """Set WebSocket sender for streaming."""
+        ws_sender_ref["send_ws"] = send_ws
 
-                # Save assistant message
-                if user_id and tenant_id and last_content and thread_uuid:
-                    try:
-                        await conversation_service.add_message(
-                            thread_id=thread_uuid,
-                            user_id=user_id,
-                            tenant_id=tenant_id,
-                            role="assistant",
-                            content=last_content,
-                            token_usage=cumulative if cumulative.get("total", 0) > 0 else None,
-                        )
-
-                        # Generate title for new conversations
-                        if is_new_conversation:
-                            conversation_service.schedule_title_generation(
-                                thread_uuid, message, last_content
-                            )
-                    except Exception as e:
-                        logger.warning(f"Failed to save assistant message: {e}")
-
-                # Log usage analytics (batch insert)
-                logger.info(f"📊 Usage tracking: user_id={user_id}, tenant_id={tenant_id}, records={len(usage_records)}")
-                if user_id and tenant_id and usage_records:
-                    try:
-                        await usage_service.log_usage_records(
-                            tenant_id=tenant_id,
-                            user_id=user_id,
-                            records=usage_records,
-                            conversation_id=conversation_id,
-                        )
-                        logger.info(f"✓ Usage analytics logged: {len(usage_records)} record(s)")
-                    except Exception as e:
-                        logger.error(f"Failed to log usage analytics: {e}", exc_info=True)
-
-        return state
-
-    # Return functions that use the closed-over state
+    logger.info("SDK-based orchestrator initialized")
     return {
         "run_streaming": run_streaming,
         "set_websocket_sender": set_websocket_sender,

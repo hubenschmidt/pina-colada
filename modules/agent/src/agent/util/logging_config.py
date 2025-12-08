@@ -23,8 +23,4 @@ def configure_logging(level=logging.INFO) -> None:
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("uvicorn").setLevel(logging.INFO)
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-    logging.getLogger("uvicorn.error").setLevel(logging.WARNING)  # Quiet WatchFiles reload messages
-    # Quiet all LangGraph loggers (very verbose)
-    logging.getLogger("langgraph_api").setLevel(logging.WARNING)
-    logging.getLogger("langgraph_runtime").setLevel(logging.WARNING)
-    logging.getLogger("langgraph_runtime_inmem").setLevel(logging.WARNING)
+    logging.getLogger("uvicorn.error").setLevel(logging.WARNING)

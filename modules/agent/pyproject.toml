@@ -1,7 +1,7 @@
 [project]
 name = "agent"
-version = "0.0.1"
-description = "Starter template for making a new agent LangGraph."
+version = "0.1.0"
+description = "Framework-free AI agent with direct OpenAI/Anthropic SDK calls."
 authors = [
     { name = "William Fu-Hinthorn", email = "13333726+hinthornw@users.noreply.github.com" },
 ]
@@ -9,13 +9,9 @@ readme = "README.md"
 license = { text = "MIT" }
 requires-python = ">=3.12"
 dependencies = [
-  "langchain>1.0.1",
-  "langchain-anthropic>=1.0.1",
-  "langgraph>=1.0,<2",
-  "langgraph-cli[inmem]>=0.2.8",
-  "langchain-openai>=1.0.1",
-  "langchain-community>=0.4.1",
-  "langchain-core>=0.3.79",
+  "openai>=1.0.0",
+  "anthropic>=0.40.0",
+  "openai-agents>=0.0.16",
   "python-dotenv>=1.0,<2",
   "langfuse>=3,<4",
   "fastapi>=0.119.1,<1",

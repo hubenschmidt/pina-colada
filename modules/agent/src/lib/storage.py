@@ -40,7 +40,9 @@ class StorageBackend(ABC):
 class LocalStorage(StorageBackend):
     """Filesystem storage for local development."""
 
-    def __init__(self, base_path: str = "./storage/documents"):
+    def __init__(self, base_path: str = None):
+        if base_path is None:
+            base_path = os.getenv("STORAGE_PATH", "/app/storage/documents")
         self.base_path = Path(base_path)
         self.base_path.mkdir(parents=True, exist_ok=True)
 

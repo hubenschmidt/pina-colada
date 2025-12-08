@@ -12,7 +12,6 @@ import logging
 from typing import Optional, List
 
 from cachetools import TTLCache
-from langchain_core.tools import Tool, StructuredTool
 from pydantic import BaseModel, Field
 
 from services.account_service import search_accounts
@@ -349,49 +348,29 @@ async def execute_crm_query(query: str, reasoning: str) -> str:
         return f"Query execution failed: {e}"
 
 
-# --- Tool Factory ---
+# --- Simple Wrappers for SDK ---
 
-async def get_crm_tools() -> List:
-    """Return CRM-specific tools for the CRM worker."""
-    tools = []
+async def crm_lookup(entity_type: str, query: str) -> str:
+    """Look up CRM entities by type and query. Wrapper for SDK tools."""
+    entity_lower = entity_type.lower()
 
-    # Note: lookup_account removed - users query people/orgs directly, not internal "accounts"
+    if entity_lower == "individual":
+        return await lookup_individual(query)
+    elif entity_lower == "organization":
+        return await lookup_organization(query)
+    elif entity_lower == "account":
+        return await lookup_account(query)
+    elif entity_lower == "contact":
+        return await lookup_contact(query)
+    else:
+        return f"Unknown entity type: {entity_type}. Supported: individual, organization, account, contact"
 
-    # Organization lookup
-    tools.append(StructuredTool.from_function(
-        func=lambda **kwargs: None,
-        coroutine=lookup_organization,
-        name="lookup_organization",
-        description="Look up organizations (companies) by name. Returns org details including website.",
-        args_schema=EntityLookupInput,
-    ))
 
-    # Individual lookup
-    tools.append(StructuredTool.from_function(
-        func=lambda **kwargs: None,
-        coroutine=lookup_individual,
-        name="lookup_individual",
-        description="Look up individuals (people) by name or email. Returns contact details.",
-        args_schema=EntityLookupInput,
-    ))
+async def crm_count(entity_type: str) -> str:
+    """Count CRM entities of a type. Wrapper for SDK tools."""
+    return await count_entities(entity_type.lower())
 
-    # Contact lookup
-    tools.append(StructuredTool.from_function(
-        func=lambda **kwargs: None,
-        coroutine=lookup_contact,
-        name="lookup_contact",
-        description="Look up contacts linking individuals to organizations.",
-        args_schema=EntityLookupInput,
-    ))
 
-    # SQL fallback (use for deals, leads, and complex queries)
-    tools.append(StructuredTool.from_function(
-        func=lambda **kwargs: None,
-        coroutine=execute_crm_query,
-        name="execute_crm_query",
-        description="Execute a read-only SQL SELECT query against CRM tables. Use only for complex joins/aggregations that service tools can't handle. Must explain reasoning.",
-        args_schema=SQLQueryInput,
-    ))
-
-    logger.info(f"Initialized {len(tools)} CRM tools")
-    return tools
+async def crm_list(entity_type: str) -> str:
+    """List CRM entities of a type. Wrapper for SDK tools."""
+    return await list_entities(entity_type.lower())

@@ -6,10 +6,10 @@ import traceback
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Dict, Optional
-from langchain_core.tools import Tool, StructuredTool
-from langchain_community.tools.wikipedia.tool import WikipediaQueryRun
-from langchain_community.utilities import GoogleSerperAPIWrapper
-from langchain_community.utilities.wikipedia import WikipediaAPIWrapper
+
+import requests
+import wikipedia
+
 from agent.tools.static_tools import push
 from dotenv import load_dotenv
 from services.job_service import (
@@ -160,9 +160,31 @@ def record_user_details(
 
 
 def serper_search(query: str) -> str:
+    """Search the web using Serper API."""
     try:
-        serper = GoogleSerperAPIWrapper()
-        return serper.run(query)
+        api_key = os.getenv("SERPER_API_KEY")
+        if not api_key:
+            return "Web search not configured. SERPER_API_KEY required."
+
+        response = requests.post(
+            "https://google.serper.dev/search",
+            headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
+            json={"q": query},
+            timeout=10,
+        )
+        response.raise_for_status()
+        data = response.json()
+
+        # Format results
+        results = []
+        for item in data.get("organic", [])[:5]:
+            title = item.get("title", "")
+            snippet = item.get("snippet", "")
+            link = item.get("link", "")
+            results.append(f"{title}\n{snippet}\n{link}\n")
+
+        return "\n".join(results) if results else "No results found."
+
     except Exception as e:
         logger.error(f"Serper search failed: {e}")
         return f"Web search failed: {e}"
@@ -501,9 +523,19 @@ async def job_search_with_filter(query: str) -> str:
         enhanced_query = _enhance_job_query(query)
         logger.info(f"Job search query: {enhanced_query}")
 
-        # Use Serper with organic results - returns structured data
-        serper = GoogleSerperAPIWrapper(type="search")
-        raw_results = serper.results(enhanced_query)
+        # Use Serper API directly for structured results
+        api_key = os.getenv("SERPER_API_KEY")
+        if not api_key:
+            return "Job search not configured. SERPER_API_KEY required."
+
+        response = requests.post(
+            "https://google.serper.dev/search",
+            headers={"X-API-KEY": api_key, "Content-Type": "application/json"},
+            json={"q": enhanced_query},
+            timeout=15,
+        )
+        response.raise_for_status()
+        raw_results = response.json()
 
         # Format results as structured list with URLs
         formatted = _format_serper_results(raw_results)
@@ -805,89 +837,3 @@ def update_job_status(
         return f"Failed to update job status: {e}"
 
 
-async def get_general_tools():
-    """Return general-purpose tools (web search, wikipedia) - NO job search tools."""
-    tools = []
-
-    # Web search tool
-    web_search_tool = Tool(
-        name="web_search",
-        func=serper_search,
-        description="Search the web for current information (news, documentation, general queries). Input: a search query.",
-    )
-    tools.append(web_search_tool)
-
-    # Wikipedia tool
-    try:
-        wikipedia = WikipediaAPIWrapper()
-        wiki_tool = WikipediaQueryRun(api_wrapper=wikipedia)
-        tools.append(wiki_tool)
-    except Exception as e:
-        logger.warning(f"Could not initialize Wikipedia tool: {e}")
-
-    logger.info(f"Initialized {len(tools)} general tools")
-    return tools
-
-
-async def get_job_search_tools():
-    """Return job search specific tools - only for job_search worker."""
-    tools = []
-
-    # Job search tool with filtering (async)
-    job_search_tool = Tool(
-        name="job_search",
-        func=lambda q: None,  # Placeholder for sync
-        coroutine=job_search_with_filter,
-        description="Search for job postings and automatically filter out positions already applied to (tracked in Supabase). Input: a job search query (e.g., 'software engineer jobs in NYC').",
-    )
-    tools.append(job_search_tool)
-
-    # Check applied jobs tool (async)
-    check_applied_tool = StructuredTool.from_function(
-        func=lambda **kwargs: None,
-        coroutine=check_applied_jobs,
-        name="check_applied_jobs",
-        description="Check job applications tracked in Supabase database. Input: a query string. Examples: '' (empty string) for all jobs, 'Software Engineer' to find jobs with that title, 'Google' to find jobs at that company.",
-        args_schema=JobCheckInput,
-    )
-    tools.append(check_applied_tool)
-
-    # Get data source info tool
-    data_source_info_tool = Tool(
-        name="get_data_source_info",
-        func=get_data_source_info,
-        description="Get information about the connected data source (Supabase).",
-    )
-    tools.append(data_source_info_tool)
-
-    # Update job status tool
-    update_job_status_tool = StructuredTool.from_function(
-        func=update_job_status,
-        name="update_job_status",
-        description="Update the status of a job application. Use when user says they applied to a company or wants to mark a job as 'do not apply'.",
-        args_schema=UpdateJobStatusInput,
-    )
-    tools.append(update_job_status_tool)
-
-    # Email tool for sending job listings
-    send_email_tool = StructuredTool.from_function(
-        func=send_email,
-        name="send_email",
-        description=(
-            "Send an email to one or more recipients. You CAN send emails - use this tool! "
-            "Parameters: to_email (recipient address), subject (email subject line), "
-            "body (main email text), job_listings (optional formatted job list to append)."
-        ),
-        args_schema=SendEmailInput,
-    )
-    tools.append(send_email_tool)
-
-    logger.info(f"Initialized {len(tools)} job search tools")
-    return tools
-
-
-async def get_worker_tools():
-    """Return all tools (for backwards compatibility) - DEPRECATED, use specific getters."""
-    general = await get_general_tools()
-    job_search = await get_job_search_tools()
-    return general + job_search

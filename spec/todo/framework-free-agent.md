@@ -119,18 +119,23 @@ def needs_evaluator(state: AgentState) -> bool:
 "langgraph-cli[inmem]>=0.2.8",
 ```
 
+## Decisions
+
+- **Migration approach:** Complete replacement (build new system fully, swap in one go)
+- **Observability:** Keep Langfuse integration in direct SDK calls
+
 ## Implementation Order
 
-1. Create `core/state.py` + `core/llm.py` (foundation)
-2. Create `core/loop.py` with dispatch skeleton
-3. Adapt `intent_classifier` + `agent_router` to direct calls
-4. Adapt `_base_worker` to direct calls
-5. Adapt `_base_evaluator` to JSON mode
-6. Create `core/tools.py` with lazy schemas
-7. Create `core/persistence.py` wrapping conversation_repository
+1. Create `core/state.py` + `core/llm.py` (foundation, with Langfuse)
+2. Create `core/tools.py` with lazy schemas
+3. Create `core/loop.py` with dispatch skeleton
+4. Create `core/persistence.py` wrapping conversation_repository
+5. Adapt `intent_classifier` + `agent_router` to direct calls
+6. Adapt `_base_worker` to direct calls
+7. Adapt `_base_evaluator` to JSON mode
 8. Wire up `orchestrator.py` to new loop
-9. Remove LangGraph imports + dependencies
-10. Test end-to-end
+9. Test end-to-end
+10. Remove LangGraph imports + dependencies
 
 ## Estimated Savings
 

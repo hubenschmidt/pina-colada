@@ -4,7 +4,6 @@ set -euo pipefail
 # Forward signals to children
 _term() {
   echo "Caught SIGTERM, shutting down..."
-  kill -TERM "$LG_PID" 2>/dev/null || true
   kill -TERM "$API_PID" 2>/dev/null || true
 }
 trap _term TERM INT
@@ -30,13 +29,7 @@ uv run python scripts/seed_documents.py || echo "⚠️  Could not upload seed d
 echo "ℹ️  Running agent health checks..."
 uv run python src/scripts/health_check.py || echo "⚠️  Health check failed - some features may not work correctly"
 
-# Start LangGraph dev API (2024) - already has hot-reload built-in
-# Quiet LangGraph runtime queue stats by setting log level
-export LOG_LEVEL=WARNING
-uv run langgraph dev --host 0.0.0.0 --port 2024 &
-LG_PID=$!
-
-# Start your FastAPI websocket server (8000) with hot-reload
+# Start FastAPI websocket server (8000) with hot-reload
 uv run python -m uvicorn server:app \
   --host 0.0.0.0 \
   --port 8000 \
@@ -45,6 +38,6 @@ uv run python -m uvicorn server:app \
   --log-level warning &
 API_PID=$!
 
-# Wait on either to exit, then exit with that code
-wait -n $LG_PID $API_PID
+# Wait for the API process
+wait $API_PID
 exit $?

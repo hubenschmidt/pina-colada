@@ -1,12 +1,11 @@
 """
-PinaColada.co | LangGraph
-=====================================================
+WebSocket handler for agent orchestrator.
 
-Graph Flow:
-    START → router → [worker → tools] → evaluator → [retry or END]
+Adapts orchestrator events to frontend WebSocket format and handles
+user context messages.
 """
 
-__all__ = ["graph", "invoke_graph", "build_default_graph"]
+__all__ = ["handle_message"]
 
 import json
 import logging
@@ -15,6 +14,8 @@ import traceback
 from typing import Dict, Any, Optional, Callable, Awaitable
 from fastapi import WebSocket
 from dotenv import load_dotenv
+
+# Use framework-free orchestrator
 from agent.orchestrator import create_orchestrator
 from agent.util.get_success_criteria import get_success_criteria
 from agent.tools.static_tools import record_user_context
@@ -107,11 +108,43 @@ async def _handle_token_usage(state: _WebSocketStreamState, payload: dict) -> No
         })
 
 
+async def _handle_complete(state: _WebSocketStreamState, payload: dict) -> None:
+    """Handle completion event with final token usage and title."""
+    token_usage = payload.get("final_token_usage", {})
+    conversation_title = payload.get("conversation_title")
+    logger.info(f"WS _handle_complete received: tokens={token_usage}, title={conversation_title}")
+    await state.safe_send({"on_chat_model_end": True})
+
+    # Send token usage
+    if token_usage:
+        turn = token_usage.get("turn", {})
+        cumulative = token_usage.get("cumulative", {})
+        usage_payload = {
+            "on_token_usage": {
+                "input": turn.get("input", 0),
+                "output": turn.get("output", 0),
+                "total": turn.get("total", 0),
+            },
+            "on_token_cumulative": {
+                "input": cumulative.get("input", 0),
+                "output": cumulative.get("output", 0),
+                "total": cumulative.get("total", 0),
+            },
+        }
+        logger.info(f"WS sending token usage: {usage_payload}")
+        await state.safe_send(usage_payload)
+
+    # Send conversation title if generated
+    if conversation_title:
+        await state.safe_send({"on_conversation_title": conversation_title})
+
+
 _STREAM_HANDLERS = {
     "start": _handle_stream_start,
     "end": _handle_stream_end,
     "content": _handle_stream_content,
     "token_usage": _handle_token_usage,
+    "complete": _handle_complete,
 }
 
 
@@ -170,33 +203,6 @@ async def _send_error_to_websocket(websocket, error: Exception = None) -> None:
         logger.debug(f"Could not send error message: {err_type}")
 
 
-def build_default_graph():
-    """
-    Build a placeholder graph for LangGraph API compatibility.
-    The actual work is done by the orchestrator.
-    """
-    from langgraph.graph import StateGraph, START, END
-    from typing import TypedDict, List, Dict, Any
-
-    class SimpleState(TypedDict):
-        messages: List[Dict[str, Any]]
-
-    def passthrough(state: SimpleState) -> Dict[str, Any]:
-        return {}
-
-    graph_builder = StateGraph(SimpleState)
-    graph_builder.add_node("passthrough", passthrough)
-    graph_builder.add_edge(START, "passthrough")
-    graph_builder.add_edge("passthrough", END)
-
-    logger.info("Built placeholder graph for LangGraph API")
-    return graph_builder.compile()
-
-
-# Graph instance for LangGraph compatibility
-graph = build_default_graph()
-
-
 # --- user context handler: guard clauses, no nesting -------------------------
 async def _handle_user_context(
     websocket: WebSocket, payload: Dict[str, Any], user_uuid: str
@@ -243,7 +249,7 @@ def _to_dict(d) -> Optional[Dict[str, Any]]:
 
 
 @observe()
-async def invoke_graph(
+async def handle_message(
     websocket: WebSocket,
     data: Dict[str, Any] | str | list[dict[str, str]],
     user_uuid: str,

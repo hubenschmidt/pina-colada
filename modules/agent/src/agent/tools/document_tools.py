@@ -12,7 +12,6 @@ from functools import wraps
 from typing import Optional, List
 
 from cachetools import TTLCache
-from langchain_core.tools import StructuredTool
 from pydantic import BaseModel, Field
 from pypdf import PdfReader
 
@@ -229,27 +228,42 @@ async def get_document_content(document_id: int) -> str:
     return await _get_document_content_cached(tenant_id, document_id)
 
 
-# --- Tool Factory ---
+# --- Simple Wrappers for SDK ---
 
-async def get_document_tools() -> List:
-    """Return document tools for workers."""
-    tools = []
+async def read_document(file_path: str) -> str:
+    """Read a document by filename or ID. Wrapper for SDK tools."""
+    # Try to parse as document ID
+    try:
+        doc_id = int(file_path)
+        return await get_document_content(doc_id)
+    except ValueError:
+        pass
 
-    tools.append(StructuredTool.from_function(
-        func=lambda **kwargs: None,
-        coroutine=search_documents,
-        name="search_documents",
-        description="Search for documents by filename, tags, or linked entity. Returns document metadata including IDs.",
-        args_schema=SearchDocumentsInput,
-    ))
+    # Search by filename
+    results = await search_documents(query=file_path, limit=1)
+    if "No documents found" in results:
+        return f"Document not found: {file_path}"
 
-    tools.append(StructuredTool.from_function(
-        func=lambda **kwargs: None,
-        coroutine=get_document_content,
-        name="get_document_content",
-        description="Get the text content of a document by its ID. Use search_documents first to find document IDs.",
-        args_schema=GetDocumentContentInput,
-    ))
+    # Try to extract ID from search results
+    import re
+    match = re.search(r"id=(\d+)", results)
+    if match:
+        doc_id = int(match.group(1))
+        return await get_document_content(doc_id)
 
-    logger.info(f"Initialized {len(tools)} document tools")
-    return tools
+    return results
+
+
+async def list_documents() -> str:
+    """List available documents. Wrapper for SDK tools."""
+    return await search_documents(limit=20)
+
+
+async def search_entity_documents(entity_type: str, entity_id: int) -> str:
+    """Search for documents linked to a specific entity.
+
+    Args:
+        entity_type: Type of entity (Individual, Organization, Account, Contact)
+        entity_id: ID of the entity
+    """
+    return await search_documents(entity_type=entity_type, entity_id=entity_id, limit=20)

@@ -110,6 +110,12 @@ const handleParsedMessage = (obj, ctx) => {
     return true;
   }
 
+  // Conversation title update
+  if (obj.on_conversation_title && ctx.onTitleUpdate) {
+    ctx.onTitleUpdate(obj.on_conversation_title);
+    return true;
+  }
+
   return false;
 };
 
@@ -125,7 +131,7 @@ const handleUiEvents = (obj, ctx) => {
   ]);
 };
 
-export const useWs = (url, { threadId: initialThreadId = null, onError = null } = {}) => {
+export const useWs = (url, { threadId: initialThreadId = null, onError = null, onTitleUpdate = null } = {}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
   const [tokenUsage, setTokenUsage] = useState(null);
@@ -180,7 +186,7 @@ export const useWs = (url, { threadId: initialThreadId = null, onError = null } 
 
       if (parsed === null || typeof parsed !== "object") return;
       const obj = parsed;
-      const ctx = { setIsThinking, setTokenUsage, setMessages, onError };
+      const ctx = { setIsThinking, setTokenUsage, setMessages, onError, onTitleUpdate };
 
       if (handleParsedMessage(obj, ctx)) return;
       handleUiEvents(obj, ctx);

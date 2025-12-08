@@ -63,6 +63,7 @@ export const ConversationContext = createContext({
   startNewChat: () => {},
   archiveConversation: async () => {},
   clearActiveConversation: () => {},
+  updateConversationTitle: () => {},
 });
 
 export const useConversationContext = () => useContext(ConversationContext);
@@ -133,6 +134,10 @@ export const ConversationProvider = ({ children }) => {
     dispatch({ type: "NEW_CHAT" });
   }, []);
 
+  const updateConversationTitle = useCallback((threadId, title) => {
+    dispatch({ type: "UPDATE_CONVERSATION", payload: { thread_id: threadId, title } });
+  }, []);
+
   // Load conversations on auth
   useEffect(() => {
     if (userState.isAuthed) {
@@ -150,6 +155,7 @@ export const ConversationProvider = ({ children }) => {
         startNewChat,
         archiveConversation,
         clearActiveConversation,
+        updateConversationTitle,
       }}>
       {children}
     </ConversationContext.Provider>

@@ -5,9 +5,8 @@ import logging
 from typing import Optional, Dict, Any, List
 from uuid import UUID
 
+import anthropic
 from fastapi import HTTPException
-from langchain_anthropic import ChatAnthropic
-from langchain_core.messages import HumanMessage, SystemMessage
 
 from repositories import conversation_repository as repo
 from schemas.conversation import (
@@ -72,6 +71,51 @@ async def get_conversation_with_messages(thread_id: UUID) -> ConversationWithMes
         conversation=ConversationResponse.model_validate(result["conversation"]),
         messages=[MessageResponse.model_validate(m) for m in result["messages"]],
     )
+
+
+async def load_messages(thread_id: str, max_messages: int = 50) -> List[Dict[str, Any]]:
+    """Load recent messages for a conversation as simple dicts."""
+    try:
+        uuid = UUID(thread_id)
+        result = await repo.get_conversation_with_messages(uuid)
+
+        if not result or not result.get("messages"):
+            return []
+
+        messages = result["messages"]
+        if len(messages) > max_messages:
+            messages = messages[-max_messages:]
+
+        return [{"role": msg.role, "content": msg.content} for msg in messages]
+
+    except Exception as e:
+        logger.warning(f"Failed to load messages for {thread_id}: {e}")
+        return []
+
+
+async def save_message(
+    thread_id: str,
+    user_id: int,
+    tenant_id: int,
+    role: str,
+    content: str,
+    token_usage: Optional[Dict[str, int]] = None,
+) -> bool:
+    """Save a message to conversation. Creates conversation if needed."""
+    try:
+        uuid = UUID(thread_id)
+        conversation = await repo.get_or_create_conversation(user_id, tenant_id, uuid)
+        await repo.add_message(
+            conversation_id=conversation.id,
+            role=role,
+            content=content,
+            token_usage=token_usage,
+        )
+        await repo.touch_conversation(uuid)
+        return True
+    except Exception as e:
+        logger.warning(f"Failed to save message for {thread_id}: {e}")
+        return False
 
 
 async def create_conversation(
@@ -148,11 +192,7 @@ async def add_message(
 async def generate_title(user_message: str, assistant_response: str) -> str:
     """Generate a 3-5 word title using Claude Haiku."""
     try:
-        llm = ChatAnthropic(
-            model="claude-haiku-4-5-20251001",
-            temperature=0,
-            max_tokens=30,
-        )
+        client = anthropic.AsyncAnthropic()
 
         prompt = f"""Generate a 3-5 word title summarizing this conversation. Return ONLY the title, no quotes or punctuation.
 
@@ -161,13 +201,14 @@ Assistant: {assistant_response[:200]}
 
 Title:"""
 
-        messages = [
-            SystemMessage(content="You generate short, descriptive titles. Return only the title text."),
-            HumanMessage(content=prompt),
-        ]
+        response = await client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=30,
+            system="You generate short, descriptive titles. Return only the title text.",
+            messages=[{"role": "user", "content": prompt}],
+        )
 
-        response = await llm.ainvoke(messages)
-        title = response.content.strip().strip('"').strip("'")
+        title = response.content[0].text.strip().strip('"').strip("'")
 
         if len(title) > 100:
             title = title[:97] + "..."

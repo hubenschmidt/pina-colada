@@ -248,7 +248,7 @@ const Chat = ({
   onError,
   onClearError,
 }) => {
-  const { conversationState, loadConversations, selectConversation } = useConversationContext();
+  const { conversationState, loadConversations, selectConversation, updateConversationTitle } = useConversationContext();
   const { activeConversation } = conversationState;
   const isVerbose = env("NEXT_PUBLIC_VERBOSE_ERRORS") === "true";
 
@@ -257,6 +257,17 @@ const Chat = ({
       onError?.({ message, details });
     },
     [onError]
+  );
+
+  const handleTitleUpdate = useCallback(
+    (title) => {
+      if (urlThreadId && title) {
+        updateConversationTitle(urlThreadId, title);
+        // Also refresh the list to ensure new conversations appear
+        loadConversations();
+      }
+    },
+    [urlThreadId, updateConversationTitle, loadConversations]
   );
 
   const {
@@ -269,7 +280,7 @@ const Chat = ({
     reset,
     loadMessages,
     threadId,
-  } = useWs(WS_URL, { threadId: urlThreadId, onError: handleWsError });
+  } = useWs(WS_URL, { threadId: urlThreadId, onError: handleWsError, onTitleUpdate: handleTitleUpdate });
 
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
