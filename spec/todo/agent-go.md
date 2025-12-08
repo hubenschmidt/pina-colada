@@ -93,7 +93,7 @@ Direct SDK calls with hand-rolled state machine - port of Python approach.
 
 ### Proposed Go Structure
 
-Maintains the same layered architecture: **models → schemas → repositories → services → controllers → routes**
+Maintains the same layered architecture: **models → schemas → serializers → repositories → services → controllers → routes**
 
 ```
 modules/agent-go/
@@ -126,6 +126,11 @@ modules/agent-go/
 │   │   ├── job_schema.go
 │   │   ├── contact_schema.go
 │   │   └── agent_schema.go
+│   ├── serializers/                 # Model ↔ Schema transforms
+│   │   ├── conversation_serializer.go
+│   │   ├── job_serializer.go
+│   │   ├── contact_serializer.go
+│   │   └── company_serializer.go
 │   ├── repositories/                # Data access layer
 │   │   ├── conversation_repo.go
 │   │   ├── job_repo.go
@@ -181,6 +186,7 @@ modules/agent-go/
 |-------|--------|----|----|
 | **Models** | SQLAlchemy ORM | GORM structs | Domain entities |
 | **Schemas** | Pydantic | Go structs + validator | Request/response DTOs |
+| **Serializers** | Serializer classes | Transform functions | Model ↔ Schema conversion |
 | **Repositories** | Raw SQL / ORM | GORM queries | Data access only |
 | **Services** | Business logic | Same pattern | Orchestrates repos |
 | **Controllers** | FastAPI deps | Chi handlers | HTTP request handling |
@@ -259,6 +265,49 @@ func (r *JobRepository) Create(ctx context.Context, job *models.Job) error {
 - No runtime reflection
 - Better for complex queries
 - Requires writing SQL manually
+
+### Serializer Pattern
+
+Serializers handle Model ↔ Schema transformations, keeping conversion logic centralized:
+
+```go
+package serializers
+
+type JobSerializer struct{}
+
+// ToSchema converts a model to response DTO
+func (s *JobSerializer) ToSchema(job *models.Job) *schemas.JobResponse {
+    return &schemas.JobResponse{
+        ID:        job.ID,
+        Title:     job.Title,
+        Company:   job.Company,
+        Location:  job.Location,
+        Status:    job.Status,
+        AppliedAt: job.AppliedAt,
+        CreatedAt: job.CreatedAt,
+    }
+}
+
+// ToSchemaList converts multiple models
+func (s *JobSerializer) ToSchemaList(jobs []models.Job) []schemas.JobResponse {
+    result := make([]schemas.JobResponse, len(jobs))
+    for i, job := range jobs {
+        result[i] = *s.ToSchema(&job)
+    }
+    return result
+}
+
+// FromSchema converts request DTO to model (for create/update)
+func (s *JobSerializer) FromSchema(req *schemas.CreateJobRequest, tenantID int) *models.Job {
+    return &models.Job{
+        TenantID: tenantID,
+        Title:    req.Title,
+        Company:  req.Company,
+        Location: req.Location,
+        Status:   "new",
+    }
+}
+```
 
 ---
 

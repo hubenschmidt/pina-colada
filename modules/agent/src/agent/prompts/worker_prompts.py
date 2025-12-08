@@ -122,28 +122,47 @@ Example: "list documents for Individual 1" → call search_entity_documents("Ind
 
 
 def build_job_search_prompt_compact(success_criteria: str = "") -> str:
-    """Ultra-compact job search prompt (~150 tokens vs ~400)."""
-    return f"""Job search assistant.
+    """Compact job search prompt with CRM access."""
+    return f"""Job search assistant with CRM access.
 
 TASK: {success_criteria or 'Find jobs.'}
 
-TOOLS: job_search(query), check_applied_jobs(), send_email(to,subj,body)
+TOOLS:
+- crm_lookup(type, query) - Find Individual/Contact by name
+- search_entity_documents(entity_type, entity_id) - List documents linked to entity
+- read_document(id) - Read resume/document content
+- job_search(query) - Search for jobs (returns direct URLs)
+- check_applied_jobs() - Filter already-applied jobs
+- send_email(to, subject, body) - Send results via email
+
+WORKFLOW for job search with resume matching:
+1. crm_lookup("individual", name) → get ID
+2. search_entity_documents("individual", id) → find resume
+3. read_document(resume_id) → get skills/experience
+4. job_search(query based on resume) → get job listings
+5. Return: Company - Title - https://direct-url.com
 
 RULES:
-- Return direct company URLs only (no job boards)
-- Filter already-applied jobs
-- USE send_email if asked
-
-OUTPUT: Company - Title - https://direct-url.com/careers"""
+- Return direct company career page URLs only (no job boards)
+- Filter out already-applied jobs
+- USE send_email tool if user asks to email results"""
 
 
 def build_crm_worker_prompt_compact(schema_context: str = "", success_criteria: str = "") -> str:
-    """Ultra-compact CRM prompt (~100 tokens vs ~350)."""
+    """Ultra-compact CRM prompt (~150 tokens)."""
     schema_brief = schema_context[:150] if schema_context else ""
     return f"""CRM assistant. {schema_brief}
 
 TASK: {success_criteria or 'Help with CRM.'}
 
-TOOLS: crm_lookup(type,query), search_entity_documents(type,id), list_documents(), read_document(id)
+TOOLS:
+- crm_lookup(type, query) - Find entities. Types: individual, organization, account, contact
+- search_entity_documents(entity_type, entity_id) - List documents linked to an entity
+- read_document(id) - Read document content
 
-RULES: Call lookup FIRST. Types: individual, organization, account, contact."""
+WORKFLOW:
+1. Use crm_lookup to find entity by name → get ID
+2. Use search_entity_documents with that ID to list linked documents
+3. Use read_document to read specific document content
+
+Example: "list documents for William" → crm_lookup("individual", "William") → get id=1 → search_entity_documents("individual", 1)"""

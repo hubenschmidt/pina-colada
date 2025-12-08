@@ -30,8 +30,21 @@ from services import conversation_service
 from services.conversation_service import load_messages, save_message
 from services import usage_service
 from lib.tenant_context import set_tenant_id
+from agent.prompts.evaluator_prompts import (
+    build_career_evaluator_prompt,
+    build_crm_evaluator_prompt,
+    build_general_evaluator_prompt,
+)
 
 logger = logging.getLogger(__name__)
+
+# Evaluator mapping: worker name -> evaluator prompt builder
+WORKER_EVALUATORS = {
+    "job_search": build_career_evaluator_prompt,
+    "cover_letter_writer": build_career_evaluator_prompt,
+    "crm_worker": build_crm_evaluator_prompt,
+    "worker": build_general_evaluator_prompt,
+}
 
 # Use Chat Completions API
 set_default_openai_api("chat_completions")
@@ -54,6 +67,61 @@ _running_tasks: Dict[str, asyncio.Task] = {}
 
 # Track cumulative token usage per thread
 _thread_token_totals: Dict[str, Dict[str, int]] = {}
+
+
+# --- Evaluation ---
+
+async def evaluate_response(
+    worker_name: str,
+    user_message: str,
+    assistant_response: str,
+    success_criteria: str = "",
+) -> Dict[str, Any]:
+    """Evaluate agent response using Claude Haiku. Returns score, feedback, pass/fail."""
+    prompt_builder = WORKER_EVALUATORS.get(worker_name, build_general_evaluator_prompt)
+    system_prompt = prompt_builder()
+
+    eval_prompt = f"""User request: {user_message[:500]}
+
+Success criteria: {success_criteria or 'Address the user request accurately and completely.'}
+
+Assistant response to evaluate:
+{assistant_response[:2000]}
+
+Evaluate this response. Return JSON with: feedback, success_criteria_met (bool), user_input_needed (bool), score (0-100)."""
+
+    try:
+        response = await _claude_client.chat.completions.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=500,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": eval_prompt},
+            ],
+            response_format={"type": "json_object"},
+        )
+        result_text = response.choices[0].message.content
+        result = json.loads(result_text)
+
+        # Log evaluation result
+        score = result.get("score", 0)
+        passed = result.get("success_criteria_met", False)
+        feedback = result.get("feedback", "No feedback")
+        status = "✓ PASS" if passed else "✗ FAIL"
+
+        logger.info(f"📊 EVALUATOR ({worker_name}): {status} - Score: {score}/100")
+        logger.info(f"   Feedback: {feedback[:200]}")
+
+        return {
+            "score": score,
+            "passed": passed,
+            "feedback": feedback,
+            "user_input_needed": result.get("user_input_needed", False),
+        }
+
+    except Exception as e:
+        logger.warning(f"Evaluation failed: {e} - defaulting to pass")
+        return {"score": 100, "passed": True, "feedback": "Evaluation skipped", "user_input_needed": False}
 
 
 # --- Tools ---
@@ -157,7 +225,7 @@ def _create_agents(schema_context: str = ""):
 
     job_search_worker = create_job_search_worker(
         model=GPT_5,
-        tools=[job_search, check_applied_jobs, send_email],  # Minimal: search + filter + email
+        tools=[job_search, check_applied_jobs, send_email, crm_lookup, search_entity_documents, read_document],  # Job search + CRM for resume lookup
     )
 
     cover_letter_worker = create_cover_letter_worker(
@@ -309,6 +377,22 @@ async def create_orchestrator() -> Dict[str, Callable]:
             else:
                 final_content = str(result.final_output)
 
+            # Get worker name for evaluation
+            worker_name = "worker"
+            if hasattr(result, "last_agent") and result.last_agent:
+                worker_name = result.last_agent.name
+
+            # Evaluate response (for complex tasks)
+            eval_result = None
+            complex_workers = {"job_search", "cover_letter_writer"}
+            if worker_name in complex_workers and final_content:
+                eval_result = await evaluate_response(
+                    worker_name=worker_name,
+                    user_message=message,
+                    assistant_response=final_content,
+                    success_criteria=success_criteria or "",
+                )
+
             # Get token usage from result.context_wrapper.usage
             turn_tokens = {"input": 0, "output": 0, "total": 0}
             try:
@@ -357,10 +441,6 @@ async def create_orchestrator() -> Dict[str, Callable]:
             # Record usage with actual worker name
             if tenant_id and turn_tokens.get("total", 0) > 0:
                 try:
-                    # Get the name of the worker that handled the request
-                    worker_name = "agent"
-                    if hasattr(result, "last_agent") and result.last_agent:
-                        worker_name = result.last_agent.name
                     logger.info(f"Recording usage for worker: {worker_name}")
 
                     await usage_service.log_usage_records(
@@ -385,12 +465,15 @@ async def create_orchestrator() -> Dict[str, Callable]:
                 }
                 if generated_title:
                     complete_payload["conversation_title"] = generated_title
+                if eval_result:
+                    complete_payload["evaluation"] = eval_result
                 await send_ws(json.dumps(complete_payload))
 
             logger.info("Agent execution completed")
             return {
                 "messages": [{"role": "assistant", "content": final_content}],
                 "tokens": tokens,
+                "evaluation": eval_result,
                 "done": True,
             }
 

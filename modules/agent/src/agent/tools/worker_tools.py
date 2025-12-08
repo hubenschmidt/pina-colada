@@ -449,17 +449,26 @@ async def check_applied_jobs(query: str = "") -> str:
 
 
 _JOB_BOARD_EXCLUSIONS = [
+    # Major job boards
     "linkedin.com", "indeed.com", "glassdoor.com", "ziprecruiter.com",
     "monster.com", "simplyhired.com", "careerbuilder.com", "dice.com",
+    # ATS hosted pages (not direct company sites)
+    "lever.co", "greenhouse.io", "ashbyhq.com", "smartrecruiters.com",
+    "workday.com", "myworkdayjobs.com", "icims.com", "jobvite.com",
+    # Startup aggregators
+    "workatastartup.com", "ycombinator.com", "wellfound.com", "angellist.com",
+    "builtinnyc.com", "builtin.com", "triplebyte.com", "hired.com",
+    # Other aggregators
+    "jobtarget.com", "ihiretechnology.com", "salary.com", "payscale.com",
 ]
 
 
 def _enhance_job_query(query: str) -> str:
     """Enhance query to find direct company career pages."""
-    # Add exclusions for major job boards
+    # Add exclusions for job boards and ATS
     exclusions = " ".join(f"-site:{site}" for site in _JOB_BOARD_EXCLUSIONS)
-    # Focus on careers/jobs pages at company sites
-    return f'{query} careers OR jobs site:*.com {exclusions}'
+    # Focus on company career pages
+    return f'{query} "careers" OR "jobs" OR "join us" {exclusions}'
 
 
 def _extract_company_from_title(title: str) -> tuple[str, str]:
