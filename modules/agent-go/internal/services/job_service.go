@@ -2,9 +2,9 @@ package services
 
 import (
 	"errors"
+	"strings"
 	"time"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
@@ -12,13 +12,27 @@ import (
 
 var ErrJobNotFound = errors.New("job not found")
 var ErrJobTitleRequired = errors.New("job_title is required")
+var ErrAccountRequired = errors.New("account is required")
 
 type JobService struct {
-	jobRepo *repositories.JobRepository
+	jobRepo    *repositories.JobRepository
+	orgRepo    *repositories.OrganizationRepository
+	indRepo    *repositories.IndividualRepository
+	lookupRepo *repositories.LookupRepository
 }
 
-func NewJobService(jobRepo *repositories.JobRepository) *JobService {
-	return &JobService{jobRepo: jobRepo}
+func NewJobService(
+	jobRepo *repositories.JobRepository,
+	orgRepo *repositories.OrganizationRepository,
+	indRepo *repositories.IndividualRepository,
+	lookupRepo *repositories.LookupRepository,
+) *JobService {
+	return &JobService{
+		jobRepo:    jobRepo,
+		orgRepo:    orgRepo,
+		indRepo:    indRepo,
+		lookupRepo: lookupRepo,
+	}
 }
 
 func (s *JobService) GetJobs(page, pageSize int, orderBy, order, search string, tenantID, projectID *int64) (*serializers.PagedResponse, error) {
@@ -69,34 +83,94 @@ func (s *JobService) CreateJob(input schemas.JobCreate, tenantID *int64, userID 
 		return nil, ErrJobTitleRequired
 	}
 
-	lead := &models.Lead{
-		TenantID:    tenantID,
-		Type:        "Job",
-		Title:       input.JobTitle,
-		Description: input.Description,
-		Source:      &input.Source,
-		CreatedBy:   userID,
-		UpdatedBy:   userID,
-	}
-
-	job := &models.Job{
-		JobTitle:      input.JobTitle,
-		Description:   input.Description,
-		JobURL:        input.JobURL,
-		SalaryRange:   input.SalaryRange,
-		SalaryRangeID: input.SalaryRangeID,
-		ResumeDate:    parseDate(input.Resume),
-	}
-
-	err := s.jobRepo.Create(job, lead, input.ProjectIDs)
+	accountID, err := s.resolveAccount(input, tenantID, userID)
 	if err != nil {
 		return nil, err
 	}
 
-	return s.GetJob(job.ID)
+	statusID, err := s.resolveStatusID(input.Status)
+	if err != nil {
+		return nil, err
+	}
+
+	repoInput := repositories.JobCreateInput{
+		TenantID:        tenantID,
+		UserID:          userID,
+		JobTitle:        input.JobTitle,
+		Description:     input.Description,
+		Source:          input.Source,
+		JobURL:          input.JobURL,
+		SalaryRange:     input.SalaryRange,
+		SalaryRangeID:   input.SalaryRangeID,
+		ResumeDate:      parseDate(input.Resume),
+		ProjectIDs:      input.ProjectIDs,
+		AccountID:       accountID,
+		CurrentStatusID: statusID,
+	}
+
+	jobID, err := s.jobRepo.Create(repoInput)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetJob(jobID)
 }
 
-func (s *JobService) UpdateJob(id int64, input schemas.JobUpdate, userID int64) (*serializers.JobDetailResponse, error) {
+// resolveStatusID resolves a status name to its ID
+func (s *JobService) resolveStatusID(statusName string) (*int64, error) {
+	if statusName == "" {
+		return nil, nil
+	}
+	status, err := s.lookupRepo.FindStatusByName(statusName, "job")
+	if err != nil {
+		return nil, err
+	}
+	if status == nil {
+		return nil, nil
+	}
+	return &status.ID, nil
+}
+
+// resolveAccount resolves the account based on account_type and account name
+func (s *JobService) resolveAccount(input schemas.JobCreate, tenantID *int64, userID int64) (*int64, error) {
+	if input.Account == nil || *input.Account == "" {
+		return nil, nil
+	}
+
+	if input.AccountType == "Individual" {
+		return s.resolveIndividualAccount(*input.Account, tenantID, userID)
+	}
+
+	return s.resolveOrganizationAccount(*input.Account, tenantID, userID)
+}
+
+func (s *JobService) resolveIndividualAccount(name string, tenantID *int64, userID int64) (*int64, error) {
+	firstName, lastName := parseFullName(name)
+	ind, err := s.indRepo.FindOrCreateByName(firstName, lastName, tenantID, userID)
+	if err != nil {
+		return nil, err
+	}
+	return ind.AccountID, nil
+}
+
+func (s *JobService) resolveOrganizationAccount(name string, tenantID *int64, userID int64) (*int64, error) {
+	org, err := s.orgRepo.FindOrCreateByName(name, tenantID, userID)
+	if err != nil {
+		return nil, err
+	}
+	return org.AccountID, nil
+}
+
+func parseFullName(name string) (firstName, lastName string) {
+	parts := strings.SplitN(strings.TrimSpace(name), " ", 2)
+	firstName = parts[0]
+	if len(parts) > 1 {
+		lastName = parts[1]
+	}
+	return
+}
+
+func (s *JobService) UpdateJob(id int64, input schemas.JobUpdate, tenantID *int64, userID int64) (*serializers.JobDetailResponse, error) {
 	job, err := s.jobRepo.FindByID(id)
 	if err != nil {
 		return nil, err
@@ -105,12 +179,12 @@ func (s *JobService) UpdateJob(id int64, input schemas.JobUpdate, userID int64) 
 		return nil, ErrJobNotFound
 	}
 
-	err = s.applyJobUpdates(job, input)
+	err = s.applyJobUpdates(id, input)
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.applyLeadUpdates(id, input, userID)
+	err = s.applyLeadUpdates(id, input, tenantID, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -123,20 +197,63 @@ func (s *JobService) UpdateJob(id int64, input schemas.JobUpdate, userID int64) 
 	return s.GetJob(id)
 }
 
-func (s *JobService) applyJobUpdates(job *models.Job, input schemas.JobUpdate) error {
+func (s *JobService) applyJobUpdates(id int64, input schemas.JobUpdate) error {
 	updates := buildJobUpdates(input)
 	if len(updates) == 0 {
 		return nil
 	}
-	return s.jobRepo.Update(job, updates)
+	return s.jobRepo.Update(id, updates)
 }
 
-func (s *JobService) applyLeadUpdates(id int64, input schemas.JobUpdate, userID int64) error {
+func (s *JobService) applyLeadUpdates(id int64, input schemas.JobUpdate, tenantID *int64, userID int64) error {
 	updates := buildLeadUpdates(input, userID)
+
+	if err := s.addAccountUpdate(updates, input.Account, tenantID, userID); err != nil {
+		return err
+	}
+
+	if err := s.addStatusUpdate(updates, input.Status); err != nil {
+		return err
+	}
+
+	if input.LeadStatusID != nil && *input.LeadStatusID != "" {
+		updates["current_status_id"] = *input.LeadStatusID
+	}
+
 	if len(updates) == 0 {
 		return nil
 	}
 	return s.jobRepo.UpdateLead(id, updates)
+}
+
+func (s *JobService) addAccountUpdate(updates map[string]interface{}, account *string, tenantID *int64, userID int64) error {
+	if account == nil || *account == "" {
+		return nil
+	}
+	org, err := s.orgRepo.FindOrCreateByName(*account, tenantID, userID)
+	if err != nil {
+		return err
+	}
+	if org.AccountID == nil {
+		return nil
+	}
+	updates["account_id"] = *org.AccountID
+	return nil
+}
+
+func (s *JobService) addStatusUpdate(updates map[string]interface{}, status *string) error {
+	if status == nil || *status == "" {
+		return nil
+	}
+	st, err := s.lookupRepo.FindStatusByName(*status, "job")
+	if err != nil {
+		return err
+	}
+	if st == nil {
+		return nil
+	}
+	updates["current_status_id"] = st.ID
+	return nil
 }
 
 func (s *JobService) applyProjectUpdates(id int64, projectIDs []int64) error {
@@ -174,9 +291,6 @@ func buildJobUpdates(input schemas.JobUpdate) map[string]interface{} {
 func buildLeadUpdates(input schemas.JobUpdate, userID int64) map[string]interface{} {
 	updates := make(map[string]interface{})
 
-	if input.JobTitle != nil {
-		updates["title"] = *input.JobTitle
-	}
 	if input.Description != nil {
 		updates["description"] = *input.Description
 	}

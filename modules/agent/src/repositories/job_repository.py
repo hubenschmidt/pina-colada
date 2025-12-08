@@ -48,17 +48,6 @@ def _update_lead_source(lead: Lead, data: Dict[str, Any]) -> None:
     lead.source = data["source"]
 
 
-async def _update_lead_title_if_needed(session, job: Job, data: Dict[str, Any]) -> None:
-    """Update lead title if job_title or account changed."""
-    if "job_title" not in data and "account_id" not in data:
-        return
-
-    org_name = "Unknown"
-    if job.lead and job.lead.account and job.lead.account.organizations:
-        org_name = job.lead.account.organizations[0].name
-    job.lead.title = f"{org_name} - {job.job_title}"
-
-
 async def _load_job_with_relationships(session, job_id: int) -> Job:
     """Load job with all relationships eagerly."""
     stmt = select(Job).options(
@@ -180,12 +169,11 @@ async def create_job(data: Dict[str, Any]) -> Job:
     """Create a new job (with Lead parent).
 
     Note: This handles the joined table inheritance by creating both Lead and Job records.
-    Expects account_id, account_name, deal_id, and current_status_id to be resolved by service layer.
+    Expects account_id, deal_id, and current_status_id to be resolved by service layer.
     """
     async with async_get_session() as session:
         try:
             account_id = data.get("account_id")
-            account_name = data.get("account_name", "Unknown")
             tenant_id = data.get("tenant_id")
             deal_id = data.get("deal_id")
             status_id = data.get("current_status_id")
@@ -195,14 +183,10 @@ async def create_job(data: Dict[str, Any]) -> Job:
             if not deal_id:
                 raise ValueError("deal_id is required")
 
-            # Build title from account name and job_title
-            title = f"{account_name} - {data.get('job_title', 'Job')}"
-
             # Create Lead first with account_id
             lead_data: Dict[str, Any] = {
                 "deal_id": deal_id,
                 "type": "Job",
-                "title": title,
                 "description": data.get("description"),
                 "source": data.get("source", "manual"),
                 "current_status_id": status_id,
@@ -296,7 +280,6 @@ async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
 
             _update_lead_status(job.lead, data)
             _update_lead_source(job.lead, data)
-            await _update_lead_title_if_needed(session, job, data)
 
             # Update project_ids if provided (many-to-many)
             if "project_ids" in data:

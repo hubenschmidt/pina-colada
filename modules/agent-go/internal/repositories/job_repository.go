@@ -1,10 +1,28 @@
 package repositories
 
 import (
+	"time"
+
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+// JobCreateInput contains data needed to create a job
+type JobCreateInput struct {
+	TenantID        *int64
+	UserID          int64
+	JobTitle        string
+	Description     *string
+	Source          string
+	JobURL          *string
+	SalaryRange     *string
+	SalaryRangeID   *int64
+	ResumeDate      *time.Time
+	ProjectIDs      []int64
+	AccountID       *int64
+	CurrentStatusID *int64
+}
 
 // JobRepository handles job data access
 type JobRepository struct {
@@ -101,42 +119,63 @@ func (r *JobRepository) FindByID(id int64) (*models.Job, error) {
 }
 
 // Create creates a new job with its Deal and Lead parents
-func (r *JobRepository) Create(job *models.Job, lead *models.Lead, projectIDs []int64) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
+func (r *JobRepository) Create(input JobCreateInput) (int64, error) {
+	var jobID int64
+	err := r.db.Transaction(func(tx *gorm.DB) error {
 		deal := &models.Deal{
-			TenantID:  lead.TenantID,
-			Name:      lead.Title,
-			CreatedBy: lead.CreatedBy,
-			UpdatedBy: lead.UpdatedBy,
+			TenantID:  input.TenantID,
+			Name:      input.JobTitle,
+			CreatedBy: input.UserID,
+			UpdatedBy: input.UserID,
 		}
 		if err := tx.Create(deal).Error; err != nil {
 			return err
 		}
 
-		lead.DealID = deal.ID
+		lead := &models.Lead{
+			TenantID:        input.TenantID,
+			DealID:          deal.ID,
+			Type:            "Job",
+			Description:     input.Description,
+			Source:          &input.Source,
+			AccountID:       input.AccountID,
+			CurrentStatusID: input.CurrentStatusID,
+			CreatedBy:       input.UserID,
+			UpdatedBy:       input.UserID,
+		}
 		if err := tx.Create(lead).Error; err != nil {
 			return err
 		}
 
-		job.ID = lead.ID
+		job := &models.Job{
+			ID:            lead.ID,
+			JobTitle:      input.JobTitle,
+			Description:   input.Description,
+			JobURL:        input.JobURL,
+			SalaryRange:   input.SalaryRange,
+			SalaryRangeID: input.SalaryRangeID,
+			ResumeDate:    input.ResumeDate,
+		}
 		if err := tx.Create(job).Error; err != nil {
 			return err
 		}
 
-		for _, pid := range projectIDs {
+		for _, pid := range input.ProjectIDs {
 			lp := models.LeadProject{LeadID: lead.ID, ProjectID: pid}
 			if err := tx.Create(&lp).Error; err != nil {
 				return err
 			}
 		}
 
+		jobID = job.ID
 		return nil
 	})
+	return jobID, err
 }
 
-// Update updates an existing job
-func (r *JobRepository) Update(job *models.Job, updates map[string]interface{}) error {
-	return r.db.Model(job).Omit(clause.Associations).Updates(updates).Error
+// Update updates an existing job by ID
+func (r *JobRepository) Update(id int64, updates map[string]interface{}) error {
+	return r.db.Model(&models.Job{}).Where("id = ?", id).Omit(clause.Associations).Updates(updates).Error
 }
 
 // UpdateLead updates the lead associated with a job

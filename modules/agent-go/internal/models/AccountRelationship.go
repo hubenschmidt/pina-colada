@@ -12,6 +12,10 @@ type AccountRelationship struct {
 	UpdatedAt        time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 	CreatedBy        int64     `gorm:"not null" json:"created_by"`
 	UpdatedBy        int64     `gorm:"not null" json:"updated_by"`
+
+	// Relations
+	FromAccount *Account `gorm:"foreignKey:FromAccountID" json:"from_account,omitempty"`
+	ToAccount   *Account `gorm:"foreignKey:ToAccountID" json:"to_account,omitempty"`
 }
 
 func (AccountRelationship) TableName() string {

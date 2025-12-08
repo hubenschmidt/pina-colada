@@ -20,6 +20,15 @@ type Controllers struct {
 	Task         *controllers.TaskController
 	Contact      *controllers.ContactController
 	Preferences  *controllers.PreferencesController
+	Notification *controllers.NotificationController
+	Project      *controllers.ProjectController
+	Conversation *controllers.ConversationController
+	Lookup       *controllers.LookupController
+	Note         *controllers.NoteController
+	Comment      *controllers.CommentController
+	Document     *controllers.DocumentController
+	Account      *controllers.AccountController
+	Lead         *controllers.LeadController
 }
 
 // NewRouter creates and configures the Chi router
@@ -88,7 +97,9 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 			r.Get("/", c.Organization.GetOrganizations)
 			r.Get("/search", c.Organization.SearchOrganizations)
 			r.Get("/{id}", c.Organization.GetOrganization)
+			r.Put("/{id}", c.Organization.UpdateOrganization)
 			r.Delete("/{id}", c.Organization.DeleteOrganization)
+			r.Post("/{id}/contacts", c.Organization.AddOrganizationContact)
 		})
 
 		// Individuals routes
@@ -96,13 +107,18 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 			r.Get("/", c.Individual.GetIndividuals)
 			r.Get("/search", c.Individual.SearchIndividuals)
 			r.Get("/{id}", c.Individual.GetIndividual)
+			r.Put("/{id}", c.Individual.UpdateIndividual)
 			r.Delete("/{id}", c.Individual.DeleteIndividual)
+			r.Post("/{id}/contacts", c.Individual.AddContact)
 		})
 
 		// Tasks routes
 		r.Route("/tasks", func(r chi.Router) {
 			r.Get("/", c.Task.GetTasks)
 			r.Post("/", c.Task.CreateTask)
+			r.Get("/statuses", c.Lookup.GetTaskStatuses)
+			r.Get("/priorities", c.Lookup.GetTaskPriorities)
+			r.Get("/entity/{entityType}/{entityID}", c.Task.GetTasksByEntity)
 			r.Get("/{id}", c.Task.GetTask)
 			r.Put("/{id}", c.Task.UpdateTask)
 			r.Delete("/{id}", c.Task.DeleteTask)
@@ -121,12 +137,90 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 		// Users routes
 		r.Route("/users", func(r chi.Router) {
 			r.Get("/{email}/tenant", c.Auth.GetUserTenant)
+			r.Put("/me/selected-project", c.Auth.SetSelectedProject)
 		})
 
 		// Preferences routes
 		r.Route("/preferences", func(r chi.Router) {
 			r.Get("/user", c.Preferences.GetUserPreferences)
 			r.Patch("/user", c.Preferences.UpdateUserPreferences)
+			r.Get("/timezones", c.Preferences.GetTimezones)
+		})
+
+		// Notifications routes
+		r.Route("/notifications", func(r chi.Router) {
+			r.Get("/count", c.Notification.GetNotificationCount)
+		})
+
+		// Projects routes
+		r.Route("/projects", func(r chi.Router) {
+			r.Get("/", c.Project.GetProjects)
+		})
+
+		// Conversations routes
+		r.Route("/conversations", func(r chi.Router) {
+			r.Get("/", c.Conversation.GetConversations)
+		})
+
+		// Opportunities routes
+		r.Route("/opportunities", func(r chi.Router) {
+			r.Get("/", c.Lead.GetOpportunities)
+			r.Get("/{id}", c.Lead.GetOpportunity)
+		})
+
+		// Partnerships routes
+		r.Route("/partnerships", func(r chi.Router) {
+			r.Get("/", c.Lead.GetPartnerships)
+			r.Get("/{id}", c.Lead.GetPartnership)
+		})
+
+		// Accounts routes
+		r.Route("/accounts", func(r chi.Router) {
+			r.Get("/search", c.Account.SearchAccounts)
+			r.Post("/{id}/relationships", c.Account.CreateRelationship)
+			r.Delete("/{id}/relationships/{relationshipId}", c.Account.DeleteRelationship)
+		})
+
+		// Lookup routes
+		r.Get("/industries", c.Lookup.GetIndustries)
+		r.Get("/employee-count-ranges", c.Lookup.GetEmployeeCountRanges)
+		r.Get("/revenue-ranges", c.Lookup.GetRevenueRanges)
+		r.Get("/funding-stages", c.Lookup.GetFundingStages)
+		r.Get("/salary-ranges", c.Lookup.GetSalaryRanges)
+
+		// Notes routes
+		r.Route("/notes", func(r chi.Router) {
+			r.Get("/", c.Note.GetNotes)
+			r.Post("/", c.Note.CreateNote)
+			r.Get("/{id}", c.Note.GetNote)
+			r.Put("/{id}", c.Note.UpdateNote)
+			r.Delete("/{id}", c.Note.DeleteNote)
+		})
+
+		// Comments routes
+		r.Route("/comments", func(r chi.Router) {
+			r.Get("/", c.Comment.GetComments)
+			r.Post("/", c.Comment.CreateComment)
+			r.Get("/{id}", c.Comment.GetComment)
+			r.Put("/{id}", c.Comment.UpdateComment)
+			r.Delete("/{id}", c.Comment.DeleteComment)
+		})
+
+		// Documents routes
+		r.Route("/assets", func(r chi.Router) {
+			r.Get("/documents", c.Document.GetDocuments)
+			r.Get("/documents/check-filename", c.Document.CheckFilename)
+			r.Get("/documents/{id}", c.Document.GetDocument)
+			r.Post("/documents", c.Document.UploadDocument)
+			r.Post("/documents/{id}/link", c.Document.LinkDocument)
+			r.Delete("/documents/{id}/link", c.Document.UnlinkDocument)
+		})
+
+		// Tags routes
+		r.Get("/tags", func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`[]`))
 		})
 	})
 }

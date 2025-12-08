@@ -5,6 +5,21 @@ import (
 	"gorm.io/gorm"
 )
 
+// ContactCreateInput contains data needed to create a contact
+type ContactCreateInput struct {
+	UserID     int64
+	FirstName  string
+	LastName   string
+	Email      *string
+	Phone      *string
+	Title      *string
+	Department *string
+	Role       *string
+	Notes      *string
+	IsPrimary  bool
+	AccountIDs []int64
+}
+
 // ContactRepository handles contact data access
 type ContactRepository struct {
 	db *gorm.DB
@@ -49,28 +64,77 @@ func (r *ContactRepository) FindAll(params PaginationParams, tenantID *int64) (*
 	}, nil
 }
 
-// FindByID returns a contact by ID
+// FindByID returns a contact by ID with linked accounts
 func (r *ContactRepository) FindByID(id int64) (*models.Contact, error) {
 	var contact models.Contact
 	err := r.db.First(&contact, id).Error
-
 	if err != nil {
 		if err == gorm.ErrRecordNotFound {
 			return nil, nil
 		}
 		return nil, err
 	}
+
+	// Manually load accounts via Contact_Account join table
+	var accountIDs []int64
+	r.db.Table(`"Contact_Account"`).
+		Select("account_id").
+		Where("contact_id = ?", id).
+		Pluck("account_id", &accountIDs)
+
+	if len(accountIDs) > 0 {
+		var accounts []models.Account
+		r.db.Preload("Organizations").
+			Preload("Individuals").
+			Where("id IN ?", accountIDs).
+			Find(&accounts)
+		contact.Accounts = accounts
+	}
+
 	return &contact, nil
 }
 
-// Create creates a new contact
-func (r *ContactRepository) Create(contact *models.Contact) error {
-	return r.db.Create(contact).Error
+// Create creates a new contact and links to accounts
+func (r *ContactRepository) Create(input ContactCreateInput) (int64, error) {
+	var contactID int64
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		contact := &models.Contact{
+			FirstName:  input.FirstName,
+			LastName:   input.LastName,
+			Email:      input.Email,
+			Phone:      input.Phone,
+			Title:      input.Title,
+			Department: input.Department,
+			Role:       input.Role,
+			Notes:      input.Notes,
+			IsPrimary:  input.IsPrimary,
+			CreatedBy:  input.UserID,
+			UpdatedBy:  input.UserID,
+		}
+		if err := tx.Create(contact).Error; err != nil {
+			return err
+		}
+		contactID = contact.ID
+
+		// Link to accounts if provided
+		for _, accountID := range input.AccountIDs {
+			ca := models.ContactAccount{
+				ContactID: contact.ID,
+				AccountID: accountID,
+				IsPrimary: input.IsPrimary,
+			}
+			if err := tx.Create(&ca).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	return contactID, err
 }
 
-// Update updates a contact
-func (r *ContactRepository) Update(contact *models.Contact, updates map[string]interface{}) error {
-	return r.db.Model(contact).Updates(updates).Error
+// Update updates a contact by ID
+func (r *ContactRepository) Update(id int64, updates map[string]interface{}) error {
+	return r.db.Model(&models.Contact{}).Where("id = ?", id).Updates(updates).Error
 }
 
 // Delete deletes a contact by ID

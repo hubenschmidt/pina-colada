@@ -74,3 +74,24 @@ func writePrefsJSON(w http.ResponseWriter, status int, data interface{}) {
 func writePrefsError(w http.ResponseWriter, status int, message string) {
 	writePrefsJSON(w, status, serializers.ErrorResponse{Error: message})
 }
+
+// GetTimezones handles GET /preferences/timezones
+func (c *PreferencesController) GetTimezones(w http.ResponseWriter, r *http.Request) {
+	timezones := []string{
+		"America/New_York",
+		"America/Chicago",
+		"America/Denver",
+		"America/Los_Angeles",
+		"America/Anchorage",
+		"Pacific/Honolulu",
+		"Europe/London",
+		"Europe/Paris",
+		"Europe/Berlin",
+		"Asia/Tokyo",
+		"Asia/Shanghai",
+		"Asia/Singapore",
+		"Australia/Sydney",
+		"UTC",
+	}
+	writePrefsJSON(w, http.StatusOK, map[string][]string{"timezones": timezones})
+}

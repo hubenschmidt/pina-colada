@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -57,4 +58,42 @@ func (c *AuthController) GetUserTenant(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, http.StatusOK, result)
+}
+
+// SetSelectedProjectRequest is the request body for setting selected project
+type SetSelectedProjectRequest struct {
+	ProjectID *int64 `json:"project_id"`
+}
+
+// SetSelectedProject handles PUT /users/me/selected-project
+func (c *AuthController) SetSelectedProject(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "not authenticated")
+		return
+	}
+
+	tenantID, ok := middleware.GetTenantID(r.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant not set")
+		return
+	}
+
+	var req SetSelectedProjectRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	result, err := c.authService.SetSelectedProject(userID, tenantID, req.ProjectID)
+	if errors.Is(err, services.ErrProjectNotInTenant) {
+		writeError(w, http.StatusForbidden, "project does not belong to tenant")
+		return
+	}
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]*int64{"selected_project_id": result})
 }

@@ -1,11 +1,13 @@
 package controllers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/pina-colada-co/agent-go/internal/middleware"
+	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
@@ -112,4 +114,65 @@ func (c *OrganizationController) DeleteOrganization(w http.ResponseWriter, r *ht
 	}
 
 	writeJSON(w, http.StatusOK, serializers.SuccessResponse{Success: true})
+}
+
+// UpdateOrganization handles PUT /organizations/{id}
+func (c *OrganizationController) UpdateOrganization(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid organization ID")
+		return
+	}
+
+	var input schemas.OrganizationUpdate
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	userID, _ := middleware.GetUserID(r.Context())
+
+	result, err := c.orgService.UpdateOrganization(id, input, userID)
+	if err != nil {
+		if err.Error() == "organization not found" {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
+// AddOrganizationContact handles POST /organizations/{id}/contacts
+func (c *OrganizationController) AddOrganizationContact(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	orgID, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid organization ID")
+		return
+	}
+
+	var input schemas.OrgContactCreate
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	userID, _ := middleware.GetUserID(r.Context())
+	tenantID, _ := middleware.GetTenantID(r.Context())
+
+	result, err := c.orgService.AddContactToOrganization(orgID, input, userID, tenantID)
+	if err != nil {
+		if err.Error() == "organization not found" {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, result)
 }

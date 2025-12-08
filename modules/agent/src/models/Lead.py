@@ -13,7 +13,6 @@ class Lead(Base):
     account_id = Column(BigInteger, ForeignKey("Account.id", ondelete="SET NULL"), nullable=True)
     deal_id = Column(BigInteger, ForeignKey("Deal.id", ondelete="CASCADE"), nullable=False)
     type = Column(Text, nullable=False)  # Discriminator: 'Job', 'Opportunity', 'Partnership', etc.
-    title = Column(Text, nullable=False)
     description = Column(Text, nullable=True)
     source = Column(Text, nullable=True)  # inbound/referral/event/campaign/agent/manual/etc.
     current_status_id = Column(BigInteger, ForeignKey("Status.id", ondelete="SET NULL"), nullable=True)

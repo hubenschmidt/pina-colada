@@ -122,7 +122,6 @@ async def create_opportunity(data: Dict[str, Any]) -> Opportunity:
     async with async_get_session() as session:
         try:
             account_id = data.get("account_id")
-            account_name = data.get("account_name", "Unknown")
             tenant_id = data.get("tenant_id")
             deal_id = data.get("deal_id")
             status_id = data.get("current_status_id")
@@ -132,12 +131,9 @@ async def create_opportunity(data: Dict[str, Any]) -> Opportunity:
             if not deal_id:
                 raise ValueError("deal_id is required")
 
-            title = data.get("title") or f"{account_name} - {data.get('opportunity_name', 'Opportunity')}"
-
             lead_data: Dict[str, Any] = {
                 "deal_id": deal_id,
                 "type": "Opportunity",
-                "title": title,
                 "description": data.get("description"),
                 "source": data.get("source", "manual"),
                 "current_status_id": status_id,
@@ -202,8 +198,6 @@ async def update_opportunity(opp_id: int, data: Dict[str, Any]) -> Optional[Oppo
                     opp.lead.description = data["description"]
 
             if opp.lead:
-                if "title" in data and data["title"] is not None:
-                    opp.lead.title = data["title"]
                 if "current_status_id" in data and data["current_status_id"] is not None:
                     opp.lead.current_status_id = data["current_status_id"]
                 if "source" in data and data["source"] is not None:

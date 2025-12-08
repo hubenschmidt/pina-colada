@@ -8,7 +8,6 @@ type Lead struct {
 	AccountID         *int64    `gorm:"index" json:"account_id"`
 	DealID            int64     `gorm:"not null" json:"deal_id"`
 	Type              string    `gorm:"not null" json:"type"` // Job, Opportunity, Partnership
-	Title             string    `gorm:"not null" json:"title"`
 	Description       *string   `json:"description"`
 	Source            *string   `json:"source"` // inbound, referral, event, campaign, agent, manual
 	CurrentStatusID   *int64    `json:"current_status_id"`

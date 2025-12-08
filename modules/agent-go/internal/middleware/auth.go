@@ -208,7 +208,7 @@ func GetTenantID(ctx context.Context) (int64, bool) {
 
 // UserLoader interface for loading users - implemented by AuthService
 type UserLoader interface {
-	GetOrCreateUser(auth0Sub, email string) (userID int64, err error)
+	GetOrCreateUser(auth0Sub, email string) (userID int64, tenantID *int64, err error)
 }
 
 // UserLoaderMiddleware loads user from DB and sets UserID in context
@@ -225,13 +225,19 @@ func UserLoaderMiddleware(loader UserLoader) func(http.Handler) http.Handler {
 
 			email, _ := ctx.Value(EmailKey).(string)
 
-			userID, err := loader.GetOrCreateUser(auth0Sub, email)
+			userID, tenantID, err := loader.GetOrCreateUser(auth0Sub, email)
 			if err != nil {
 				writeError(w, http.StatusInternalServerError, "failed to load user")
 				return
 			}
 
 			ctx = context.WithValue(ctx, UserIDKey, userID)
+
+			// Set tenant from user if not already set from header/claims
+			if _, hasTenant := ctx.Value(TenantIDKey).(int64); !hasTenant && tenantID != nil {
+				ctx = context.WithValue(ctx, TenantIDKey, *tenantID)
+			}
+
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

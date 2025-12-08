@@ -36,12 +36,12 @@ type TenantInfo struct {
 }
 
 // GetOrCreateUser finds or creates a user by Auth0 sub - implements middleware.UserLoader
-func (s *AuthService) GetOrCreateUser(auth0Sub, email string) (int64, error) {
+func (s *AuthService) GetOrCreateUser(auth0Sub, email string) (int64, *int64, error) {
 	user, err := s.userRepo.GetOrCreate(auth0Sub, email)
 	if err != nil {
-		return 0, err
+		return 0, nil, err
 	}
-	return user.ID, nil
+	return user.ID, user.TenantID, nil
 }
 
 // GetOrCreateUserFull finds or creates a user by Auth0 sub and returns full response
@@ -133,4 +133,26 @@ type UserTenantResponse struct {
 	Email    string       `json:"email"`
 	TenantID *int64       `json:"tenant_id"`
 	Tenants  []TenantInfo `json:"tenants"`
+}
+
+var ErrProjectNotFound = errors.New("project not found")
+var ErrProjectNotInTenant = errors.New("project does not belong to tenant")
+
+// SetSelectedProject sets the user's selected project
+func (s *AuthService) SetSelectedProject(userID int64, tenantID int64, projectID *int64) (*int64, error) {
+	if projectID != nil {
+		belongs, err := s.userRepo.ProjectBelongsToTenant(*projectID, tenantID)
+		if err != nil {
+			return nil, err
+		}
+		if !belongs {
+			return nil, ErrProjectNotInTenant
+		}
+	}
+
+	if err := s.userRepo.SetSelectedProject(userID, projectID); err != nil {
+		return nil, err
+	}
+
+	return projectID, nil
 }

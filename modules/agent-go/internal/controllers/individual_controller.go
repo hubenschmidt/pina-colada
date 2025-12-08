@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -91,6 +92,66 @@ func (c *IndividualController) SearchIndividuals(w http.ResponseWriter, r *http.
 	}
 
 	writeJSON(w, http.StatusOK, results)
+}
+
+// AddContact handles POST /individuals/{id}/contacts
+func (c *IndividualController) AddContact(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid individual ID")
+		return
+	}
+
+	var input services.ContactCreateInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	userID, _ := middleware.GetUserID(r.Context())
+
+	result, err := c.indService.AddContactToIndividual(id, input, userID)
+	if err != nil {
+		if err.Error() == "individual not found" || err.Error() == "individual has no account" {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, result)
+}
+
+// UpdateIndividual handles PUT /individuals/{id}
+func (c *IndividualController) UpdateIndividual(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid individual ID")
+		return
+	}
+
+	var input services.IndividualUpdateInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	userID, _ := middleware.GetUserID(r.Context())
+
+	result, err := c.indService.UpdateIndividual(id, input, userID)
+	if err != nil {
+		if err.Error() == "individual not found" {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
 }
 
 // DeleteIndividual handles DELETE /individuals/{id}

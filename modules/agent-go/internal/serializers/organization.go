@@ -8,36 +8,26 @@ import (
 
 // OrganizationListResponse represents an organization in list view
 type OrganizationListResponse struct {
-	ID           int64           `json:"id"`
-	Name         string          `json:"name"`
-	Domain       *string         `json:"domain"`
-	Website      *string         `json:"website"`
-	Description  *string         `json:"description"`
-	EmployeeCount *int           `json:"employee_count"`
-	Industries   []IndustryBrief `json:"industries"`
-	CreatedAt    time.Time       `json:"created_at"`
-	UpdatedAt    time.Time       `json:"updated_at"`
+	ID            int64    `json:"id"`
+	Name          string   `json:"name"`
+	Website       *string  `json:"website"`
+	Description   *string  `json:"description"`
+	EmployeeCount *int     `json:"employee_count"`
+	Industries    []string `json:"industries"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
 }
 
 // OrganizationDetailResponse represents an organization in detail view
 type OrganizationDetailResponse struct {
 	OrganizationListResponse
 	LinkedInURL   *string           `json:"linkedin_url"`
-	TwitterURL    *string           `json:"twitter_url"`
-	GithubURL     *string           `json:"github_url"`
+	CrunchbaseURL *string           `json:"crunchbase_url"`
 	Phone         *string           `json:"phone"`
-	Founded       *int              `json:"founded"`
-	Headquarters  *string           `json:"headquarters"`
-	Revenue       *string           `json:"revenue"`
 	Technologies  []TechnologyBrief `json:"technologies"`
 	FundingRounds []FundingBrief    `json:"funding_rounds"`
 }
 
-// IndustryBrief represents industry summary
-type IndustryBrief struct {
-	ID   int64  `json:"id"`
-	Name string `json:"name"`
-}
 
 // TechnologyBrief represents technology summary
 type TechnologyBrief struct {
@@ -68,21 +58,20 @@ type FundingBrief struct {
 // OrganizationToListResponse converts Organization model to list response
 func OrganizationToListResponse(org *models.Organization) OrganizationListResponse {
 	resp := OrganizationListResponse{
-		ID:           org.ID,
-		Name:         org.Name,
-		Domain:       org.Domain,
-		Website:      org.Website,
-		Description:  org.Description,
+		ID:            org.ID,
+		Name:          org.Name,
+		Website:       org.Website,
+		Description:   org.Description,
 		EmployeeCount: org.EmployeeCount,
-		CreatedAt:    org.CreatedAt,
-		UpdatedAt:    org.UpdatedAt,
+		CreatedAt:     org.CreatedAt,
+		UpdatedAt:     org.UpdatedAt,
 	}
 
 	// Get industries from Account relation
 	if org.Account != nil && org.Account.Industries != nil {
-		resp.Industries = make([]IndustryBrief, len(org.Account.Industries))
+		resp.Industries = make([]string, len(org.Account.Industries))
 		for i, ind := range org.Account.Industries {
-			resp.Industries[i] = IndustryBrief{ID: ind.ID, Name: ind.Name}
+			resp.Industries[i] = ind.Name
 		}
 	}
 
@@ -93,13 +82,9 @@ func OrganizationToListResponse(org *models.Organization) OrganizationListRespon
 func OrganizationToDetailResponse(org *models.Organization) OrganizationDetailResponse {
 	resp := OrganizationDetailResponse{
 		OrganizationListResponse: OrganizationToListResponse(org),
-		LinkedInURL:             org.LinkedInURL,
-		TwitterURL:              org.TwitterURL,
-		GithubURL:               org.GithubURL,
-		Phone:                   org.Phone,
-		Founded:                 org.Founded,
-		Headquarters:            org.Headquarters,
-		Revenue:                 org.Revenue,
+		LinkedInURL:              org.LinkedInURL,
+		CrunchbaseURL:            org.CrunchbaseURL,
+		Phone:                    org.Phone,
 	}
 
 	if org.FundingRounds != nil {

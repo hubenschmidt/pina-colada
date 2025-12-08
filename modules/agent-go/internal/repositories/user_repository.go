@@ -132,3 +132,15 @@ type TenantWithRole struct {
 func stringPtr(s string) *string {
 	return &s
 }
+
+// SetSelectedProject updates user's selected project
+func (r *UserRepository) SetSelectedProject(userID int64, projectID *int64) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("selected_project_id", projectID).Error
+}
+
+// ProjectBelongsToTenant checks if a project belongs to a tenant
+func (r *UserRepository) ProjectBelongsToTenant(projectID int64, tenantID int64) (bool, error) {
+	var count int64
+	err := r.db.Table(`"Project"`).Where("id = ? AND tenant_id = ?", projectID, tenantID).Count(&count).Error
+	return count > 0, err
+}

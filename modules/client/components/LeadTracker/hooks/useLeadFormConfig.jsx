@@ -1,9 +1,4 @@
-import {
-  searchOrganizations,
-  searchIndividuals,
-  getProjects,
-  getSalaryRanges,
-} from "../../../api";
+import { searchOrganizations, searchIndividuals, getSalaryRanges } from "../../../api";
 import { useState, useEffect, useCallback, useId, useContext } from "react";
 import { useDebounce, DEBOUNCE_MS } from "../../../hooks/useDebounce";
 import { ProjectContext } from "../../../context/projectContext";
@@ -172,25 +167,37 @@ const AccountSelector = ({ value, onChange, accountType = "Organization", readOn
           )}
         </div>
       )}
-      {isOpen && query.length >= 2 && results.length === 0 && !loading && accountType === "Organization" && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg p-3 text-sm text-zinc-500 dark:text-zinc-400">
-          No existing organizations found. A new one will be created.
-        </div>
-      )}
-      {isOpen && query.length >= 2 && results.length === 0 && !loading && accountType === "Individual" && (
-        <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg p-3">
-          <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">No existing individuals found.</div>
-          <button
-            type="button"
-            onClick={() => setShowNewIndividual(true)}
-            className="text-lime-600 dark:text-lime-400 font-medium text-sm hover:underline">
-            + Add new individual...
-          </button>
-        </div>
-      )}
+      {isOpen &&
+        query.length >= 2 &&
+        results.length === 0 &&
+        !loading &&
+        accountType === "Organization" && (
+          <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg p-3 text-sm text-zinc-500 dark:text-zinc-400">
+            No existing organizations found. A new one will be created.
+          </div>
+        )}
+      {isOpen &&
+        query.length >= 2 &&
+        results.length === 0 &&
+        !loading &&
+        accountType === "Individual" && (
+          <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg p-3">
+            <div className="text-sm text-zinc-500 dark:text-zinc-400 mb-2">
+              No existing individuals found.
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowNewIndividual(true)}
+              className="text-lime-600 dark:text-lime-400 font-medium text-sm hover:underline">
+              + Add new individual...
+            </button>
+          </div>
+        )}
       {showNewIndividual && (
         <div className="absolute z-50 w-full mt-1 bg-white dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded shadow-lg p-3">
-          <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">Add New Individual</div>
+          <div className="text-sm font-medium text-zinc-700 dark:text-zinc-300 mb-2">
+            Add New Individual
+          </div>
           <div className="flex gap-2 mb-2">
             <input
               type="text"
@@ -234,30 +241,19 @@ const AccountSelector = ({ value, onChange, accountType = "Organization", readOn
 
 // Project Multi-Select Component
 const ProjectSelector = ({ value, onChange, defaultProjectIds }) => {
-  const { lookupsState, dispatchLookups } = useLookupsContext();
-  const { projects, loaded } = lookupsState;
+  const { projectState } = useContext(ProjectContext);
+  const { projects } = projectState;
   const [isOpen, setIsOpen] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const dropdownId = useId();
+  const loaded = projects.length > 0;
 
   useEffect(() => {
-    if (loaded.projects) return;
-    fetchOnce("projects", getProjects).then((data) => {
-      dispatchLookups({ type: "SET_PROJECTS", payload: data });
-    });
-  }, [loaded.projects, dispatchLookups]);
-
-  useEffect(() => {
-    if (
-      !initialized &&
-      loaded.projects &&
-      defaultProjectIds?.length &&
-      (!value || value.length === 0)
-    ) {
+    if (!initialized && loaded && defaultProjectIds?.length && (!value || value.length === 0)) {
       onChange(defaultProjectIds);
       setInitialized(true);
     }
-  }, [loaded.projects, defaultProjectIds, value, onChange, initialized]);
+  }, [loaded, defaultProjectIds, value, onChange, initialized]);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -277,7 +273,7 @@ const ProjectSelector = ({ value, onChange, defaultProjectIds }) => {
     onChange(updated);
   };
 
-  if (!loaded.projects) {
+  if (!loaded) {
     return (
       <div className="w-full px-3 py-2 border border-zinc-300 dark:border-zinc-700 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400">
         Loading...
@@ -382,8 +378,8 @@ const getJobFormConfig = (selectedProjectId) => ({
     {
       name: "Job Info",
       fieldNames: [
-        "project_ids",
         "job_title",
+        "project_ids",
         "date",
         "resume",
         "salary_range_id",
@@ -405,6 +401,13 @@ const getJobFormConfig = (selectedProjectId) => ({
   fields: [
     // Job Info Section
     {
+      name: "job_title",
+      label: "Job Title",
+      type: "text",
+      required: true,
+      placeholder: "e.g., Software Engineer",
+    },
+    {
       name: "project_ids",
       label: "Projects",
       type: "custom",
@@ -416,13 +419,6 @@ const getJobFormConfig = (selectedProjectId) => ({
           defaultProjectIds={selectedProjectId ? [selectedProjectId] : []}
         />
       ),
-    },
-    {
-      name: "job_title",
-      label: "Job Title",
-      type: "text",
-      required: true,
-      placeholder: "e.g., Software Engineer",
     },
     {
       name: "date",
@@ -588,7 +584,8 @@ const getJobFormConfig = (selectedProjectId) => ({
 
     // Account (Organization or Individual) is required
     if (!formData.account || formData.account.trim() === "") {
-      errors.account = accountType === "Individual" ? "Individual is required" : "Organization is required";
+      errors.account =
+        accountType === "Individual" ? "Individual is required" : "Organization is required";
     }
 
     if (!formData.job_title) {
@@ -615,9 +612,8 @@ const getOpportunityFormConfig = (selectedProjectId) => ({
     {
       name: "Opportunity Info",
       fieldNames: [
-        "project_ids",
-        "title",
         "opportunity_name",
+        "project_ids",
         "estimated_value",
         "probability",
         "expected_close_date",
@@ -637,6 +633,13 @@ const getOpportunityFormConfig = (selectedProjectId) => ({
 
   fields: [
     {
+      name: "opportunity_name",
+      label: "Name",
+      type: "text",
+      required: true,
+      placeholder: "e.g., Acme Corp - Website Redesign",
+    },
+    {
       name: "project_ids",
       label: "Projects",
       type: "custom",
@@ -648,20 +651,6 @@ const getOpportunityFormConfig = (selectedProjectId) => ({
           defaultProjectIds={selectedProjectId ? [selectedProjectId] : []}
         />
       ),
-    },
-    {
-      name: "title",
-      label: "Title",
-      type: "text",
-      required: true,
-      placeholder: "e.g., Acme Corp - Website Redesign",
-    },
-    {
-      name: "opportunity_name",
-      label: "Opportunity Name",
-      type: "text",
-      required: true,
-      placeholder: "e.g., Website Redesign Project",
     },
     {
       name: "estimated_value",
@@ -757,15 +746,12 @@ const getOpportunityFormConfig = (selectedProjectId) => ({
 
     // Account (Organization or Individual) is required
     if (!formData.account || formData.account.trim() === "") {
-      errors.account = accountType === "Individual" ? "Individual is required" : "Organization is required";
-    }
-
-    if (!formData.title) {
-      errors.title = "Title is required";
+      errors.account =
+        accountType === "Individual" ? "Individual is required" : "Organization is required";
     }
 
     if (!formData.opportunity_name) {
-      errors.opportunity_name = "Opportunity Name is required";
+      errors.opportunity_name = "Name is required";
     }
 
     return Object.keys(errors).length > 0 ? errors : null;
@@ -790,9 +776,8 @@ const getPartnershipFormConfig = (selectedProjectId) => ({
     {
       name: "Partnership Info",
       fieldNames: [
-        "project_ids",
-        "title",
         "partnership_name",
+        "project_ids",
         "partnership_type",
         "start_date",
         "end_date",
@@ -812,6 +797,13 @@ const getPartnershipFormConfig = (selectedProjectId) => ({
 
   fields: [
     {
+      name: "partnership_name",
+      label: "Name",
+      type: "text",
+      required: true,
+      placeholder: "e.g., Acme Corp - Technology Partnership",
+    },
+    {
       name: "project_ids",
       label: "Projects",
       type: "custom",
@@ -823,20 +815,6 @@ const getPartnershipFormConfig = (selectedProjectId) => ({
           defaultProjectIds={selectedProjectId ? [selectedProjectId] : []}
         />
       ),
-    },
-    {
-      name: "title",
-      label: "Title",
-      type: "text",
-      required: true,
-      placeholder: "e.g., Acme Corp - Technology Partnership",
-    },
-    {
-      name: "partnership_name",
-      label: "Partnership Name",
-      type: "text",
-      required: true,
-      placeholder: "e.g., Cloud Infrastructure Partnership",
     },
     {
       name: "partnership_type",
@@ -935,15 +913,12 @@ const getPartnershipFormConfig = (selectedProjectId) => ({
 
     // Account (Organization or Individual) is required
     if (!formData.account || formData.account.trim() === "") {
-      errors.account = accountType === "Individual" ? "Individual is required" : "Organization is required";
-    }
-
-    if (!formData.title) {
-      errors.title = "Title is required";
+      errors.account =
+        accountType === "Individual" ? "Individual is required" : "Organization is required";
     }
 
     if (!formData.partnership_name) {
-      errors.partnership_name = "Partnership Name is required";
+      errors.partnership_name = "Name is required";
     }
 
     return Object.keys(errors).length > 0 ? errors : null;

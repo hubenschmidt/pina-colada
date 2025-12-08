@@ -101,30 +101,23 @@ const getJobLeadConfig = (selectedProjectId) => {
       },
     },
     {
-      header: "Resume",
-      accessor: "resume",
-      sortable: true,
-      sortKey: "resume",
-      width: "10%",
-      render: (job) => job.formatted_resume_date || <EmptyCell />,
-    },
-    {
       header: "URL",
       accessor: "job_url",
       width: "8%",
-      render: (job) =>
-        job.job_url ? (
+      render: (job) => {
+        if (!job.job_url) return <EmptyCell />;
+        const url = job.job_url.startsWith("http") ? job.job_url : `https://${job.job_url}`;
+        return (
           <a
-            href={job.job_url}
+            href={url}
             target="_blank"
             rel="noopener noreferrer"
             className="p-1 text-blue-600 hover:bg-blue-50 rounded"
             title="View job posting">
             <ExternalLink size={16} />
           </a>
-        ) : (
-          <EmptyCell />
-        ),
+        );
+      },
     },
     {
       header: "Created",

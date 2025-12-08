@@ -54,8 +54,8 @@ const TasksSection = ({ entityType, entityId, pendingTasks, onPendingTasksChange
           getTaskStatuses(),
           getTaskPriorities(),
         ]);
-        setStatuses(statusData);
-        setPriorities(priorityData);
+        setStatuses(statusData ?? []);
+        setPriorities(priorityData ?? []);
       } catch (err) {
         console.error("Failed to load task options:", err);
       }
@@ -74,7 +74,7 @@ const TasksSection = ({ entityType, entityId, pendingTasks, onPendingTasksChange
     setIsLoading(true);
     try {
       const data = await getTasksByEntity(entityType, entityId);
-      setTasks(data.items);
+      setTasks(data?.items ?? []);
     } catch (err) {
       console.error("Failed to fetch tasks:", err);
     } finally {

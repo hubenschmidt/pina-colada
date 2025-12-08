@@ -69,40 +69,40 @@ services:
         max-file: "3"
 
     # --- LangGraph agent ---
-  # agent:
-  #   build:
-  #     context: ./modules/agent
-  #     dockerfile: Dockerfile
-  #     target: dev
-  #   env_file:
-  #     - ./modules/agent/.env
-  #   environment:
-  #     - NODE_ENV=development
-  #     - HOST=0.0.0.0
-  #     - LANGFUSE_HOST=http://langfuse:3000 # app talks to Langfuse over the compose network
-  #     - UV_LINK_MODE=copy # Suppress hardlink warning from uv package manager
-  #   dns:
-  #     - 8.8.8.8
-  #     - 8.8.4.4
-  #   volumes:
-  #     # Mount source code with consistency mode for better performance
-  #     - ./modules/agent:/app:delegated
-  #     # Mount migrations directory
-  #     - ./modules/agent/migrations:/app/migrations:ro
-  #     # Exclude these from the mount to avoid conflicts
-  #     - /app/__pycache__
-  #     - /app/.pytest_cache
-  #   ports:
-  #     - "2024:2024" # LangGraph API to host
-  #     - "8000:8000" # FastAPI server.py
-  #   depends_on:
-  #     app-postgres:
-  #       condition: service_healthy
-  #   logging:
-  #     driver: "json-file"
-  #     options:
-  #       max-size: "10m"
-  #       max-file: "3"
+  agent:
+    build:
+      context: ./modules/agent
+      dockerfile: Dockerfile
+      target: dev
+    env_file:
+      - ./modules/agent/.env
+    environment:
+      - NODE_ENV=development
+      - HOST=0.0.0.0
+      # - LANGFUSE_HOST=http://langfuse:3000 # app talks to Langfuse over the compose network
+      - UV_LINK_MODE=copy # Suppress hardlink warning from uv package manager
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    volumes:
+      # Mount source code with consistency mode for better performance
+      - ./modules/agent:/app:delegated
+      # Mount migrations directory
+      - ./modules/agent/migrations:/app/migrations:ro
+      # Exclude these from the mount to avoid conflicts
+      - /app/__pycache__
+      - /app/.pytest_cache
+    ports:
+      # - "2024:2024" # LangGraph API to host
+      - "8000:8000" # FastAPI server.py
+    depends_on:
+      app-postgres:
+        condition: service_healthy
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
   # --- Go agent (new) ---
   agent-go:
@@ -118,7 +118,7 @@ services:
       - PORT=8080
       - ENV=development
       - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@app-postgres:5432/${COMPOSE_PROJECT_NAME:-pina_colada}
-      - LANGFUSE_HOST=http://langfuse:3000
+      # - LANGFUSE_HOST=http://langfuse:3000
     ports:
       - "8080:8080"
     depends_on:

@@ -4,6 +4,7 @@ import (
 	"errors"
 
 	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
 )
 
@@ -83,4 +84,94 @@ func (s *OrganizationService) DeleteOrganization(id int64) error {
 	}
 
 	return s.orgRepo.Delete(id)
+}
+
+// UpdateOrganization updates an organization
+func (s *OrganizationService) UpdateOrganization(id int64, input schemas.OrganizationUpdate, userID int64) (*serializers.OrganizationDetailResponse, error) {
+	org, err := s.orgRepo.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if org == nil {
+		return nil, errors.New("organization not found")
+	}
+
+	updates := buildOrgUpdates(input)
+	if len(updates) > 0 {
+		if err := s.orgRepo.Update(org, updates); err != nil {
+			return nil, err
+		}
+	}
+
+	// Handle industry updates if provided
+	if input.IndustryIDs != nil && org.AccountID != nil {
+		if err := s.orgRepo.UpdateAccountIndustries(*org.AccountID, input.IndustryIDs); err != nil {
+			return nil, err
+		}
+	}
+
+	return s.GetOrganization(id)
+}
+
+func buildOrgUpdates(input schemas.OrganizationUpdate) map[string]interface{} {
+	updates := make(map[string]interface{})
+	if input.Name != nil {
+		updates["name"] = *input.Name
+	}
+	if input.Website != nil {
+		updates["website"] = *input.Website
+	}
+	if input.Phone != nil {
+		updates["phone"] = *input.Phone
+	}
+	if input.EmployeeCount != nil {
+		updates["employee_count"] = *input.EmployeeCount
+	}
+	if input.Description != nil {
+		updates["description"] = *input.Description
+	}
+	if input.LinkedInURL != nil {
+		updates["linkedin_url"] = *input.LinkedInURL
+	}
+	if input.FoundingYear != nil {
+		updates["founded"] = *input.FoundingYear
+	}
+	if input.HeadquartersCity != nil {
+		updates["headquarters"] = *input.HeadquartersCity
+	}
+	return updates
+}
+
+// AddContactToOrganization adds a contact to an organization
+func (s *OrganizationService) AddContactToOrganization(orgID int64, input schemas.OrgContactCreate, userID int64, tenantID int64) (*serializers.ContactResponse, error) {
+	org, err := s.orgRepo.FindByID(orgID)
+	if err != nil {
+		return nil, err
+	}
+	if org == nil || org.AccountID == nil {
+		return nil, errors.New("organization not found")
+	}
+
+	repoInput := repositories.OrgContactInput{
+		FirstName: input.FirstName,
+		LastName:  input.LastName,
+		Email:     input.Email,
+		Phone:     input.Phone,
+		Title:     input.Title,
+		IsPrimary: input.IsPrimary,
+	}
+
+	contact, err := s.orgRepo.CreateContactForAccount(*org.AccountID, repoInput, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &serializers.ContactResponse{
+		ID:        contact.ID,
+		FirstName: contact.FirstName,
+		LastName:  contact.LastName,
+		Email:     contact.Email,
+		Phone:     contact.Phone,
+		Title:     contact.Title,
+	}, nil
 }

@@ -127,6 +127,31 @@ func (c *TaskController) UpdateTask(w http.ResponseWriter, r *http.Request) {
 	writeTaskResponse(w, http.StatusOK, result, err)
 }
 
+// GetTasksByEntity handles GET /tasks/entity/{entityType}/{entityID}
+func (c *TaskController) GetTasksByEntity(w http.ResponseWriter, r *http.Request) {
+	entityType := chi.URLParam(r, "entityType")
+	entityIDStr := chi.URLParam(r, "entityID")
+
+	entityID, err := strconv.ParseInt(entityIDStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid entity ID")
+		return
+	}
+
+	var tenantID *int64
+	if tid, ok := middleware.GetTenantID(r.Context()); ok {
+		tenantID = &tid
+	}
+
+	tasks, err := c.taskService.GetTasksByEntity(entityType, entityID, tenantID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"items": tasks})
+}
+
 func writeTaskResponse(w http.ResponseWriter, successStatus int, result *serializers.TaskResponse, err error) {
 	if errors.Is(err, services.ErrTaskNotFound) {
 		writeError(w, http.StatusNotFound, err.Error())

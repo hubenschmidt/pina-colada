@@ -122,7 +122,6 @@ async def create_partnership(data: Dict[str, Any]) -> Partnership:
     async with async_get_session() as session:
         try:
             account_id = data.get("account_id")
-            account_name = data.get("account_name", "Unknown")
             tenant_id = data.get("tenant_id")
             deal_id = data.get("deal_id")
             status_id = data.get("current_status_id")
@@ -132,12 +131,9 @@ async def create_partnership(data: Dict[str, Any]) -> Partnership:
             if not deal_id:
                 raise ValueError("deal_id is required")
 
-            title = data.get("title") or f"{account_name} - {data.get('partnership_name', 'Partnership')}"
-
             lead_data: Dict[str, Any] = {
                 "deal_id": deal_id,
                 "type": "Partnership",
-                "title": title,
                 "description": data.get("description"),
                 "source": data.get("source", "manual"),
                 "current_status_id": status_id,
@@ -202,8 +198,6 @@ async def update_partnership(partnership_id: int, data: Dict[str, Any]) -> Optio
                     partnership.lead.description = data["description"]
 
             if partnership.lead:
-                if "title" in data and data["title"] is not None:
-                    partnership.lead.title = data["title"]
                 if "current_status_id" in data and data["current_status_id"] is not None:
                     partnership.lead.current_status_id = data["current_status_id"]
                 if "source" in data and data["source"] is not None:

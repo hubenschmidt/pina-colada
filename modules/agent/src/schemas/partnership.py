@@ -11,7 +11,6 @@ class PartnershipCreate(BaseModel):
     contacts: Optional[List[dict]] = None
     industry: Optional[List[str]] = None
     industry_ids: Optional[List[int]] = None
-    title: str
     partnership_name: str
     partnership_type: Optional[str] = None
     start_date: Optional[str] = None
@@ -25,7 +24,6 @@ class PartnershipCreate(BaseModel):
 class PartnershipUpdate(BaseModel):
     account: Optional[str] = None
     contacts: Optional[List[dict]] = None
-    title: Optional[str] = None
     partnership_name: Optional[str] = None
     partnership_type: Optional[str] = None
     start_date: Optional[str] = None

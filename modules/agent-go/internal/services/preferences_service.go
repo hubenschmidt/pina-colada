@@ -3,7 +3,6 @@ package services
 import (
 	"errors"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 )
 
@@ -25,31 +24,22 @@ type UserPreferencesResponse struct {
 }
 
 func (s *PreferencesService) GetUserPreferences(userID int64) (*UserPreferencesResponse, error) {
-	user, tenant, err := s.prefsRepo.GetUserWithTenant(userID)
+	userTenant, err := s.prefsRepo.GetUserWithTenant(userID)
 	if err != nil {
 		return nil, ErrPreferencesUserNotFound
 	}
 
-	prefs, err := s.prefsRepo.GetUserPreferences(userID)
+	prefs, err := s.prefsRepo.FindOrCreateUserPreferences(userID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Create prefs if not exists
-	if prefs == nil {
-		prefs = &models.UserPreferences{UserID: userID}
-		if err := s.prefsRepo.CreateUserPreferences(prefs); err != nil {
-			return nil, err
-		}
-	}
-
-	effectiveTheme := s.resolveTheme(prefs, tenant)
+	effectiveTheme := s.resolveTheme(prefs.Theme, userTenant.TenantID)
 	timezone := "America/New_York"
 	if prefs.Timezone != nil {
 		timezone = *prefs.Timezone
 	}
 
-	_ = user // suppress unused warning for now
 	return &UserPreferencesResponse{
 		Theme:          prefs.Theme,
 		Timezone:       timezone,
@@ -59,16 +49,10 @@ func (s *PreferencesService) GetUserPreferences(userID int64) (*UserPreferencesR
 }
 
 func (s *PreferencesService) UpdateUserPreferences(userID int64, theme, timezone *string) (*UserPreferencesResponse, error) {
-	prefs, err := s.prefsRepo.GetUserPreferences(userID)
+	// Ensure prefs exist
+	_, err := s.prefsRepo.FindOrCreateUserPreferences(userID)
 	if err != nil {
 		return nil, err
-	}
-
-	if prefs == nil {
-		prefs = &models.UserPreferences{UserID: userID}
-		if err := s.prefsRepo.CreateUserPreferences(prefs); err != nil {
-			return nil, err
-		}
 	}
 
 	updates := make(map[string]interface{})
@@ -88,13 +72,13 @@ func (s *PreferencesService) UpdateUserPreferences(userID int64, theme, timezone
 	return s.GetUserPreferences(userID)
 }
 
-func (s *PreferencesService) resolveTheme(prefs *models.UserPreferences, tenant *models.Tenant) string {
-	if prefs != nil && prefs.Theme != nil {
-		return *prefs.Theme
+func (s *PreferencesService) resolveTheme(userTheme *string, tenantID *int64) string {
+	if userTheme != nil {
+		return *userTheme
 	}
 
-	if tenant != nil {
-		tenantPrefs, _ := s.prefsRepo.GetTenantPreferences(tenant.ID)
+	if tenantID != nil {
+		tenantPrefs, _ := s.prefsRepo.GetTenantPreferences(*tenantID)
 		if tenantPrefs != nil && tenantPrefs.Theme != "" {
 			return tenantPrefs.Theme
 		}

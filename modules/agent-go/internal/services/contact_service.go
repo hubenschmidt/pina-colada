@@ -3,7 +3,6 @@ package services
 import (
 	"errors"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
@@ -61,7 +60,8 @@ func (s *ContactService) CreateContact(input schemas.ContactCreate, userID int64
 		return nil, ErrContactNameRequired
 	}
 
-	contact := &models.Contact{
+	repoInput := repositories.ContactCreateInput{
+		UserID:     userID,
 		FirstName:  input.FirstName,
 		LastName:   input.LastName,
 		Email:      input.Email,
@@ -71,22 +71,15 @@ func (s *ContactService) CreateContact(input schemas.ContactCreate, userID int64
 		Role:       input.Role,
 		Notes:      input.Notes,
 		IsPrimary:  input.IsPrimary,
-		CreatedBy:  userID,
-		UpdatedBy:  userID,
+		AccountIDs: input.AccountIDs,
 	}
 
-	if err := s.contactRepo.Create(contact); err != nil {
+	contactID, err := s.contactRepo.Create(repoInput)
+	if err != nil {
 		return nil, err
 	}
 
-	// Link to accounts if provided
-	if len(input.AccountIDs) > 0 {
-		if err := s.contactRepo.LinkToAccounts(contact.ID, input.AccountIDs, input.IsPrimary); err != nil {
-			return nil, err
-		}
-	}
-
-	return s.GetContact(contact.ID)
+	return s.GetContact(contactID)
 }
 
 // UpdateContact updates an existing contact
@@ -101,7 +94,7 @@ func (s *ContactService) UpdateContact(id int64, input schemas.ContactUpdate, us
 
 	updates := buildContactUpdates(input, userID)
 	if len(updates) > 1 { // more than just updated_by
-		if err := s.contactRepo.Update(contact, updates); err != nil {
+		if err := s.contactRepo.Update(id, updates); err != nil {
 			return nil, err
 		}
 	}

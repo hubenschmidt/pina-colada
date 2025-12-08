@@ -19,7 +19,6 @@ class OpportunityCreate(BaseModel):
     contacts: Optional[List[dict]] = None
     industry: Optional[List[str]] = None
     industry_ids: Optional[List[int]] = None
-    title: str
     opportunity_name: str
     estimated_value: Optional[float] = None
     probability: Optional[int] = Field(default=None, ge=0, le=100)
@@ -39,7 +38,6 @@ class OpportunityUpdate(BaseModel):
     """Model for updating an opportunity."""
     account: Optional[str] = None
     contacts: Optional[List[dict]] = None
-    title: Optional[str] = None
     opportunity_name: Optional[str] = None
     estimated_value: Optional[float] = None
     probability: Optional[int] = Field(default=None, ge=0, le=100)

@@ -87,9 +87,13 @@ func (c *JobController) UpdateJob(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var tenantID *int64
+	if tid, ok := middleware.GetTenantID(r.Context()); ok {
+		tenantID = &tid
+	}
 	userID, _ := middleware.GetUserID(r.Context())
 
-	result, err := c.jobService.UpdateJob(id, input, userID)
+	result, err := c.jobService.UpdateJob(id, input, tenantID, userID)
 	writeJobResponse(w, http.StatusOK, result, err)
 }
 

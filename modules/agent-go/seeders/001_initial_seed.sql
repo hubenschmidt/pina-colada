@@ -458,13 +458,12 @@ BEGIN
 
     -- Create Opportunity Lead for TechVentures
     IF deal_techventures_id IS NOT NULL AND acc_techventures_id IS NOT NULL THEN
-        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
+        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
         VALUES (
             v_tenant_id,
             deal_techventures_id,
             acc_techventures_id,
             'Opportunity',
-            'TechVentures - Product Strategy Consulting',
             'Opportunity to provide product strategy consulting for their portfolio companies. Potential for ongoing engagement.',
             'referral',
             status_proposal_id,
@@ -491,13 +490,12 @@ BEGIN
 
     -- Create Partnership Lead for CloudScale
     IF deal_cloudscale_id IS NOT NULL AND acc_cloudscale_id IS NOT NULL THEN
-        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
+        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
         VALUES (
             v_tenant_id,
             deal_cloudscale_id,
             acc_cloudscale_id,
             'Partnership',
-            'CloudScale - Technical Partnership',
             'Technical partnership to integrate services. They have strong infrastructure we could leverage.',
             'outbound',
             status_qualified_id,
@@ -523,13 +521,12 @@ BEGIN
 
     -- Create Opportunity Lead for DataFlow
     IF deal_cloudscale_id IS NOT NULL AND acc_dataflow_id IS NOT NULL THEN
-        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
+        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
         VALUES (
             v_tenant_id,
             deal_cloudscale_id,
             acc_dataflow_id,
             'Opportunity',
-            'DataFlow - Analytics Consulting',
             'Consulting opportunity for data analytics strategy. Growing company with budget.',
             'inbound',
             status_nurturing_id,
@@ -556,13 +553,12 @@ BEGIN
 
     -- Create Partnership Lead for SecureNet
     IF deal_securenet_id IS NOT NULL AND acc_securenet_id IS NOT NULL THEN
-        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, title, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
+        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
         VALUES (
             v_tenant_id,
             deal_securenet_id,
             acc_securenet_id,
             'Partnership',
-            'SecureNet - Security Integration Partnership',
             'Partnership to integrate security capabilities. Potential for joint go-to-market.',
             'referral',
             status_qualified_id,
@@ -609,25 +605,29 @@ BEGIN
     -- Get bootstrap user and tenant
     SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
     SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada' LIMIT 1;
-    -- Get Lead IDs
+    -- Get Lead IDs via Opportunity/Partnership names
     SELECT l.id INTO lead_techventures_id
     FROM "Lead" l
-    WHERE l.title = 'TechVentures - Product Strategy Consulting'
+    JOIN "Opportunity" o ON o.id = l.id
+    WHERE o.opportunity_name = 'Product Strategy Consulting - Q1 2026'
     LIMIT 1;
 
     SELECT l.id INTO lead_cloudscale_id
     FROM "Lead" l
-    WHERE l.title = 'CloudScale - Technical Partnership'
+    JOIN "Partnership" p ON p.id = l.id
+    WHERE p.partnership_name = 'CloudScale Infrastructure Integration'
     LIMIT 1;
 
     SELECT l.id INTO lead_dataflow_id
     FROM "Lead" l
-    WHERE l.title = 'DataFlow - Analytics Consulting'
+    JOIN "Opportunity" o ON o.id = l.id
+    WHERE o.opportunity_name = 'Data Analytics Strategy - Q2 2026'
     LIMIT 1;
 
     SELECT l.id INTO lead_securenet_id
     FROM "Lead" l
-    WHERE l.title = 'SecureNet - Security Integration Partnership'
+    JOIN "Partnership" p ON p.id = l.id
+    WHERE p.partnership_name = 'SecureNet Security Integration'
     LIMIT 1;
 
     -- Get Status IDs
@@ -755,15 +755,17 @@ DECLARE
     lead_techventures_id BIGINT;
     lead_cloudscale_id BIGINT;
 BEGIN
-    -- Get Lead IDs
+    -- Get Lead IDs via Opportunity/Partnership names
     SELECT l.id INTO lead_techventures_id
     FROM "Lead" l
-    WHERE l.title = 'TechVentures - Product Strategy Consulting'
+    JOIN "Opportunity" o ON o.id = l.id
+    WHERE o.opportunity_name = 'Product Strategy Consulting - Q1 2026'
     LIMIT 1;
 
     SELECT l.id INTO lead_cloudscale_id
     FROM "Lead" l
-    WHERE l.title = 'CloudScale - Technical Partnership'
+    JOIN "Partnership" p ON p.id = l.id
+    WHERE p.partnership_name = 'CloudScale Infrastructure Integration'
     LIMIT 1;
 
     -- Create Activities for TechVentures

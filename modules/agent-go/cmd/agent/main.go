@@ -15,13 +15,11 @@ import (
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/routes"
 	"github.com/pina-colada-co/agent-go/internal/services"
+	"github.com/pina-colada-co/agent-go/internal/storage"
 	"github.com/pina-colada-co/agent-go/pkg/db"
-	"github.com/pina-colada-co/agent-go/pkg/s3"
 )
 
 func main() {
-	ctx := context.Background()
-
 	// Load configuration
 	cfg := config.Load()
 	log.Printf("Starting agent-go in %s mode on port %s", cfg.Env, cfg.Port)
@@ -34,12 +32,9 @@ func main() {
 	sqlDB, _ := database.DB()
 	defer sqlDB.Close()
 
-	// Initialize S3 client
-	s3Client, err := s3.NewClient(ctx, cfg.AWSRegion, cfg.S3Bucket)
-	if err != nil {
-		log.Printf("Warning: Failed to initialize S3 client: %v", err)
-	}
-	_ = s3Client // Will be used by document services
+	// Initialize storage backend
+	storageBackend := storage.GetStorage()
+	log.Printf("Initialized storage backend")
 
 	// Initialize repositories
 	userRepo := repositories.NewUserRepository(database)
@@ -49,15 +44,31 @@ func main() {
 	taskRepo := repositories.NewTaskRepository(database)
 	contactRepo := repositories.NewContactRepository(database)
 	prefsRepo := repositories.NewPreferencesRepository(database)
+	projectRepo := repositories.NewProjectRepository(database)
+	convRepo := repositories.NewConversationRepository(database)
+	lookupRepo := repositories.NewLookupRepository(database)
+	noteRepo := repositories.NewNoteRepository(database)
+	commentRepo := repositories.NewCommentRepository(database)
+	docRepo := repositories.NewDocumentRepository(database)
+	accountRepo := repositories.NewAccountRepository(database)
+	leadRepo := repositories.NewLeadRepository(database)
 
 	// Initialize services
 	authService := services.NewAuthService(userRepo)
-	jobService := services.NewJobService(jobRepo)
+	jobService := services.NewJobService(jobRepo, orgRepo, indRepo, lookupRepo)
 	orgService := services.NewOrganizationService(orgRepo)
 	indService := services.NewIndividualService(indRepo)
 	taskService := services.NewTaskService(taskRepo)
 	contactService := services.NewContactService(contactRepo)
 	prefsService := services.NewPreferencesService(prefsRepo)
+	projectService := services.NewProjectService(projectRepo)
+	convService := services.NewConversationService(convRepo)
+	lookupService := services.NewLookupService(lookupRepo)
+	noteService := services.NewNoteService(noteRepo)
+	commentService := services.NewCommentService(commentRepo)
+	docService := services.NewDocumentService(docRepo, storageBackend)
+	accountService := services.NewAccountService(accountRepo)
+	leadService := services.NewLeadService(leadRepo)
 
 	// Initialize controllers
 	ctrls := &routes.Controllers{
@@ -68,6 +79,15 @@ func main() {
 		Task:         controllers.NewTaskController(taskService),
 		Contact:      controllers.NewContactController(contactService),
 		Preferences:  controllers.NewPreferencesController(prefsService),
+		Notification: controllers.NewNotificationController(),
+		Project:      controllers.NewProjectController(projectService),
+		Conversation: controllers.NewConversationController(convService),
+		Lookup:       controllers.NewLookupController(lookupService),
+		Note:         controllers.NewNoteController(noteService),
+		Comment:      controllers.NewCommentController(commentService),
+		Document:     controllers.NewDocumentController(docService),
+		Account:      controllers.NewAccountController(accountService),
+		Lead:         controllers.NewLeadController(leadService),
 	}
 
 	// Initialize router and register routes

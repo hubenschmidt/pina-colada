@@ -2,6 +2,8 @@ package services
 
 import (
 	"errors"
+	"fmt"
+	"strings"
 
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
@@ -35,7 +37,8 @@ func (s *TaskService) GetTasks(page, pageSize int, orderBy, order, search string
 
 	items := make([]serializers.TaskResponse, len(result.Items))
 	for i := range result.Items {
-		items[i] = serializers.TaskToResponse(&result.Items[i])
+		entityInfo := s.resolveEntityInfo(&result.Items[i])
+		items[i] = serializers.TaskToResponseWithEntity(&result.Items[i], entityInfo)
 	}
 
 	resp := serializers.NewPagedResponse(items, result.TotalCount, result.Page, result.PageSize, result.TotalPages)
@@ -52,7 +55,8 @@ func (s *TaskService) GetTask(id int64) (*serializers.TaskResponse, error) {
 		return nil, errors.New("task not found")
 	}
 
-	resp := serializers.TaskToResponse(task)
+	entityInfo := s.resolveEntityInfo(task)
+	resp := serializers.TaskToResponseWithEntity(task, entityInfo)
 	return &resp, nil
 }
 
@@ -75,8 +79,9 @@ func (s *TaskService) CreateTask(input schemas.TaskCreate, tenantID *int64, user
 		return nil, ErrTaskTitleRequired
 	}
 
-	task := &models.Task{
+	repoInput := repositories.TaskCreateInput{
 		TenantID:               tenantID,
+		UserID:                 userID,
 		Title:                  input.Title,
 		Description:            input.Description,
 		TaskableType:           input.TaskableType,
@@ -85,34 +90,32 @@ func (s *TaskService) CreateTask(input schemas.TaskCreate, tenantID *int64, user
 		PriorityID:             input.PriorityID,
 		Complexity:             input.Complexity,
 		AssignedToIndividualID: input.AssignedToIndividualID,
-		CreatedBy:              userID,
-		UpdatedBy:              userID,
 	}
 
 	if input.SortOrder != nil {
-		task.SortOrder = *input.SortOrder
+		repoInput.SortOrder = *input.SortOrder
 	}
-
 	if input.StartDate != nil {
-		task.StartDate = parseDate(input.StartDate)
+		repoInput.StartDate = parseDate(input.StartDate)
 	}
 	if input.DueDate != nil {
-		task.DueDate = parseDate(input.DueDate)
+		repoInput.DueDate = parseDate(input.DueDate)
 	}
 	if input.EstimatedHours != nil {
 		d := decimal.NewFromFloat(*input.EstimatedHours)
-		task.EstimatedHours = &d
+		repoInput.EstimatedHours = &d
 	}
 	if input.ActualHours != nil {
 		d := decimal.NewFromFloat(*input.ActualHours)
-		task.ActualHours = &d
+		repoInput.ActualHours = &d
 	}
 
-	if err := s.taskRepo.Create(task); err != nil {
+	taskID, err := s.taskRepo.Create(repoInput)
+	if err != nil {
 		return nil, err
 	}
 
-	return s.GetTask(task.ID)
+	return s.GetTask(taskID)
 }
 
 // UpdateTask updates an existing task
@@ -127,15 +130,30 @@ func (s *TaskService) UpdateTask(id int64, input schemas.TaskUpdate, userID int6
 
 	updates := buildTaskUpdates(input, userID)
 	if len(updates) == 0 {
-		resp := serializers.TaskToResponse(task)
+		entityInfo := s.resolveEntityInfo(task)
+		resp := serializers.TaskToResponseWithEntity(task, entityInfo)
 		return &resp, nil
 	}
 
-	if err := s.taskRepo.Update(task, updates); err != nil {
+	if err := s.taskRepo.Update(id, updates); err != nil {
 		return nil, err
 	}
 
 	return s.GetTask(id)
+}
+
+// GetTasksByEntity returns tasks for a specific entity
+func (s *TaskService) GetTasksByEntity(entityType string, entityID int64, tenantID *int64) ([]serializers.TaskResponse, error) {
+	tasks, err := s.taskRepo.FindByEntity(entityType, entityID, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]serializers.TaskResponse, len(tasks))
+	for i := range tasks {
+		entityInfo := s.resolveEntityInfo(&tasks[i])
+		result[i] = serializers.TaskToResponseWithEntity(&tasks[i], entityInfo)
+	}
+	return result, nil
 }
 
 func buildTaskUpdates(input schemas.TaskUpdate, userID int64) map[string]interface{} {
@@ -189,3 +207,71 @@ func buildTaskUpdates(input schemas.TaskUpdate, userID int64) map[string]interfa
 	return updates
 }
 
+// resolveEntityInfo resolves entity display info for a task
+func (s *TaskService) resolveEntityInfo(task *models.Task) *serializers.TaskEntityInfo {
+	if task.TaskableType == nil || task.TaskableID == nil {
+		return nil
+	}
+
+	taskableType := *task.TaskableType
+	taskableID := *task.TaskableID
+
+	displayName := s.taskRepo.GetEntityDisplayName(taskableType, taskableID)
+	url, leadType := s.buildEntityURL(taskableType, taskableID)
+
+	return &serializers.TaskEntityInfo{
+		Type:        &taskableType,
+		ID:          &taskableID,
+		DisplayName: displayName,
+		URL:         url,
+		LeadType:    leadType,
+	}
+}
+
+// buildEntityURL builds URL and lead_type for an entity
+func (s *TaskService) buildEntityURL(taskableType string, taskableID int64) (*string, *string) {
+	urlMap := map[string]string{
+		"Project":      fmt.Sprintf("/projects/%d", taskableID),
+		"Deal":         fmt.Sprintf("/leads/deals/%d", taskableID),
+		"Individual":   fmt.Sprintf("/accounts/individuals/%d", taskableID),
+		"Organization": fmt.Sprintf("/accounts/organizations/%d", taskableID),
+	}
+
+	if url, ok := urlMap[taskableType]; ok {
+		return &url, nil
+	}
+
+	if taskableType == "Lead" {
+		leadType := s.taskRepo.GetLeadType(taskableID)
+		if leadType == nil {
+			return nil, nil
+		}
+		var leadTypePlural string
+		if *leadType == "Opportunity" {
+			leadTypePlural = "opportunities"
+		} else {
+			leadTypePlural = strings.ToLower(*leadType) + "s"
+		}
+		url := fmt.Sprintf("/leads/%s/%d", leadTypePlural, taskableID)
+		return &url, leadType
+	}
+
+	if taskableType == "Account" {
+		entityType, entityID := s.taskRepo.GetAccountEntity(taskableID)
+		if entityType == nil || entityID == nil {
+			return nil, nil
+		}
+		pathMap := map[string]string{
+			"Individual":   "individuals",
+			"Organization": "organizations",
+		}
+		path, ok := pathMap[*entityType]
+		if !ok {
+			return nil, nil
+		}
+		url := fmt.Sprintf("/accounts/%s/%d", path, *entityID)
+		return &url, nil
+	}
+
+	return nil, nil
+}

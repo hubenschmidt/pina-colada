@@ -1,12 +1,18 @@
 """Serializers for account-related models."""
 
+from sqlalchemy import inspect
+
 
 def get_account_type_and_entity_id(account) -> tuple:
     """Determine account type and entity ID from linked records."""
-    if account.organizations:
-        return "organization", account.organizations[0].id
-    if account.individuals:
-        return "individual", account.individuals[0].id
+    state = inspect(account)
+
+    # Check if organizations is loaded and has data
+    if "organizations" in state.dict and state.dict["organizations"]:
+        return "organization", state.dict["organizations"][0].id
+    # Check if individuals is loaded and has data
+    if "individuals" in state.dict and state.dict["individuals"]:
+        return "individual", state.dict["individuals"][0].id
     return "unknown", account.id
 
 

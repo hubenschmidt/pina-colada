@@ -77,8 +77,16 @@ async def find_contacts_by_account(account_id: int) -> List[Contact]:
 
 async def find_contact_by_id(contact_id: int) -> Optional[Contact]:
     """Find a contact by ID."""
+    from models.Account import Account
     async with async_get_session() as session:
-        stmt = select(Contact).options(selectinload(Contact.accounts)).where(Contact.id == contact_id)
+        stmt = (
+            select(Contact)
+            .options(
+                selectinload(Contact.accounts).selectinload(Account.organizations),
+                selectinload(Contact.accounts).selectinload(Account.individuals),
+            )
+            .where(Contact.id == contact_id)
+        )
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 

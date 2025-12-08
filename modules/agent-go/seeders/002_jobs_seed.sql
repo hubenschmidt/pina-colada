@@ -80,13 +80,12 @@ BEGIN
   -- Job 1: Acme Corp - Senior Full Stack Engineer (Applied)
   SELECT o.id, o.account_id INTO org_id, account_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('Acme Corp') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, title, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
     VALUES (
       v_tenant_id,
       account_id,
       default_deal_id,
       'Job',
-      'Acme Corp - Senior Full Stack Engineer',
       'Building next-generation e-commerce platform',
       'manual',
       job_status_applied_id,
@@ -111,13 +110,12 @@ BEGIN
   -- Job 2: TechStartup Inc - Software Engineer (Interviewing)
   SELECT o.id, o.account_id INTO org_id, account_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('TechStartup Inc') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, title, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
     VALUES (
       v_tenant_id,
       account_id,
       default_deal_id,
       'Job',
-      'TechStartup Inc - Software Engineer',
       'Early-stage startup building developer tools',
       'referral',
       job_status_interviewing_id,
@@ -143,13 +141,12 @@ BEGIN
   -- Job 3: DataSystems Ltd - Backend Engineer (Applied)
   SELECT o.id, o.account_id INTO org_id, account_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('DataSystems Ltd') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, title, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
     VALUES (
       v_tenant_id,
       account_id,
       default_deal_id,
       'Job',
-      'DataSystems Ltd - Backend Engineer',
       'Work on high-performance data processing systems',
       'manual',
       job_status_applied_id,
@@ -174,13 +171,12 @@ BEGIN
   -- Job 4: CloudWorks - DevOps Engineer (Rejected)
   SELECT o.id, o.account_id INTO org_id, account_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('CloudWorks') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, title, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
     VALUES (
       v_tenant_id,
       account_id,
       default_deal_id,
       'Job',
-      'CloudWorks - DevOps Engineer',
       'Infrastructure and deployment automation',
       'manual',
       job_status_rejected_id,
@@ -205,13 +201,12 @@ BEGIN
   -- Job 5: AI Innovations - ML Engineer (Applied)
   SELECT o.id, o.account_id INTO org_id, account_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('AI Innovations') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, title, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
     VALUES (
       v_tenant_id,
       account_id,
       default_deal_id,
       'Job',
-      'AI Innovations - ML Engineer',
       'Building cutting-edge machine learning models',
       'manual',
       job_status_applied_id,

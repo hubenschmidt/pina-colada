@@ -17,6 +17,9 @@ type Contact struct {
 	UpdatedAt  time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 	CreatedBy  int64     `gorm:"not null" json:"created_by"`
 	UpdatedBy  int64     `gorm:"not null" json:"updated_by"`
+
+	// Relationships - loaded manually, not via GORM many2many
+	Accounts []Account `gorm:"-"`
 }
 
 func (Contact) TableName() string {

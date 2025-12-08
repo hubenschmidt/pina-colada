@@ -25,14 +25,8 @@ type Organization struct {
 	HeadquartersState   *string `json:"headquarters_state"`
 	HeadquartersCountry *string `gorm:"default:USA" json:"headquarters_country"`
 	CompanyType         *string `json:"company_type"` // private, public, nonprofit, government
-	LinkedInURL         *string `json:"linkedin_url"`
-	CrunchbaseURL       *string `json:"crunchbase_url"`
-	Domain              *string `json:"domain"`
-	TwitterURL          *string `json:"twitter_url"`
-	GithubURL           *string `json:"github_url"`
-	Founded             *int    `json:"founded"`
-	Headquarters        *string `json:"headquarters"`
-	Revenue             *string `json:"revenue"`
+	LinkedInURL   *string `gorm:"column:linkedin_url" json:"linkedin_url"`
+	CrunchbaseURL *string `gorm:"column:crunchbase_url" json:"crunchbase_url"`
 
 	// Relations
 	Account       *Account                 `gorm:"foreignKey:AccountID" json:"account,omitempty"`
