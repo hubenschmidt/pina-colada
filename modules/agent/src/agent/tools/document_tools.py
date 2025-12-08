@@ -24,6 +24,21 @@ logger = logging.getLogger(__name__)
 # Max chars to return (token optimization)
 MAX_CONTENT_CHARS = 15000
 
+# Entity type normalization (lowercase -> PascalCase)
+ENTITY_TYPE_MAP = {
+    "individual": "Individual",
+    "organization": "Organization",
+    "project": "Project",
+    "lead": "Lead",
+}
+
+
+def _normalize_entity_type(entity_type: str) -> str:
+    """Normalize entity_type to PascalCase for database queries."""
+    if not entity_type:
+        return entity_type
+    return ENTITY_TYPE_MAP.get(entity_type.lower(), entity_type)
+
 # TTL Caches for tool results
 _document_content_cache: TTLCache = TTLCache(maxsize=100, ttl=300)  # 5 min
 _search_cache: TTLCache = TTLCache(maxsize=200, ttl=120)  # 2 min
@@ -164,7 +179,9 @@ async def search_documents(
     if not tenant_id:
         return "Error: No tenant context available. Cannot search documents."
 
-    return await _search_documents_cached(tenant_id, query, tags, entity_type, entity_id, limit)
+    # Normalize entity_type to PascalCase
+    normalized_type = _normalize_entity_type(entity_type) if entity_type else None
+    return await _search_documents_cached(tenant_id, query, tags, normalized_type, entity_id, limit)
 
 
 async def _get_document_content_cached(tenant_id: int, document_id: int) -> str:

@@ -144,16 +144,20 @@ async def crm_list(entity_type: str) -> str:
 # --- Agent Definitions ---
 
 def _create_agents(schema_context: str = ""):
-    """Create all agents with current context."""
-    # Create workers with their tool sets
+    """Create all agents with current context.
+
+    Tool sets are minimized to reduce token usage from schemas.
+    Each worker gets only the tools it needs for its core function.
+    """
+    # Create workers with minimal tool sets (token optimization)
     general_worker = create_general_worker(
         model=GPT_5,
-        tools=[web_search, read_document, list_documents],
+        tools=[read_document, list_documents],  # Removed web_search (rarely needed)
     )
 
     job_search_worker = create_job_search_worker(
         model=GPT_5,
-        tools=[job_search, check_applied_jobs, update_job_status, send_email, web_search],
+        tools=[job_search, check_applied_jobs, send_email],  # Minimal: search + filter + email
     )
 
     cover_letter_worker = create_cover_letter_worker(
@@ -163,7 +167,7 @@ def _create_agents(schema_context: str = ""):
 
     crm_worker = create_crm_worker(
         model=GPT_5,
-        tools=[crm_lookup, crm_count, crm_list, search_entity_documents, read_document, list_documents, web_search],
+        tools=[crm_lookup, search_entity_documents, list_documents, read_document],  # Minimal CRM tools
         schema_context=schema_context,
     )
 
@@ -264,16 +268,22 @@ async def create_orchestrator() -> Dict[str, Callable]:
         try:
             triage = await _get_triage_agent()
 
-            # Load recent conversation context
+            # Detect simple queries for token optimization
+            simple_patterns = ["look up", "find", "list", "count", "search for", "get"]
+            is_simple = any(p in message.lower() for p in simple_patterns)
+
+            # Load recent conversation context (reduced for simple queries)
             context_parts = []
             if thread_id:
-                history = await load_messages(thread_id, max_messages=6)
+                max_messages = 2 if is_simple else 6  # Token optimization
+                max_chars = 200 if is_simple else 500  # Token optimization
+                history = await load_messages(thread_id, max_messages=max_messages)
                 for msg in history:
                     role = msg.get("role", "user")
                     content = msg.get("content", "")
                     if role in ("user", "assistant") and content:
                         prefix = "User" if role == "user" else "Assistant"
-                        context_parts.append(f"{prefix}: {content[:500]}")
+                        context_parts.append(f"{prefix}: {content[:max_chars]}")
 
             # Build input with context if available
             if context_parts:

@@ -462,6 +462,21 @@ def _enhance_job_query(query: str) -> str:
     return f'{query} careers OR jobs site:*.com {exclusions}'
 
 
+def _extract_company_from_title(title: str) -> tuple[str, str]:
+    """Extract company from title string. Returns (company, cleaned_title)."""
+    company = "Unknown Company"
+    if " at " in title:
+        parts = title.split(" at ")
+        if len(parts) >= 2:
+            company = parts[-1].strip()
+            title = parts[0].strip()
+    elif " - " in title:
+        parts = title.split(" - ")
+        if len(parts) >= 2:
+            company = parts[0].strip()
+    return company, title
+
+
 def _format_serper_results(results: dict) -> str:
     """Format Serper structured results into readable job listings."""
     organic = results.get("organic", [])
@@ -474,19 +489,7 @@ def _format_serper_results(results: dict) -> str:
         link = item.get("link", "")
         snippet = item.get("snippet", "")
 
-        # Try to extract company name from title or snippet
-        # Common pattern: "Job Title at Company" or "Company - Job Title"
-        company = "Unknown Company"
-        if " at " in title:
-            parts = title.split(" at ")
-            if len(parts) >= 2:
-                company = parts[-1].strip()
-                title = parts[0].strip()
-        elif " - " in title:
-            parts = title.split(" - ")
-            if len(parts) >= 2:
-                # Could be "Company - Title" or "Title - Company"
-                company = parts[0].strip()
+        company, title = _extract_company_from_title(title)
 
         lines.append(f"{i}. {company} - {title}")
         if link:
@@ -494,6 +497,22 @@ def _format_serper_results(results: dict) -> str:
         if snippet:
             lines.append(f"   {snippet[:150]}...")
         lines.append("")
+
+    return "\n".join(lines)
+
+
+def _format_serper_results_compact(results: dict, max_results: int = 5) -> str:
+    """Compact format - URLs only, no snippets. Token-optimized."""
+    organic = results.get("organic", [])
+    if not organic:
+        return "No jobs found."
+
+    lines = []
+    for i, item in enumerate(organic[:max_results], 1):
+        title = item.get("title", "Unknown")
+        link = item.get("link", "")
+        company, _ = _extract_company_from_title(title)
+        lines.append(f"{i}. {company} - {link}")
 
     return "\n".join(lines)
 
@@ -537,9 +556,9 @@ async def job_search_with_filter(query: str) -> str:
         response.raise_for_status()
         raw_results = response.json()
 
-        # Format results as structured list with URLs
-        formatted = _format_serper_results(raw_results)
-        logger.info(f"Formatted {len(raw_results.get('organic', []))} search results")
+        # Format results as compact list (token-optimized: URLs only, max 5 results)
+        formatted = _format_serper_results_compact(raw_results, max_results=5)
+        logger.info(f"Formatted {len(raw_results.get('organic', []))} search results (compact)")
 
         if not all_jobs:
             logger.info("No jobs found in database - returning unfiltered results")

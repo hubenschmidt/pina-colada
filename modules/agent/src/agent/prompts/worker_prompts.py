@@ -1,5 +1,7 @@
 """
 Worker prompts - low-token optimized prompt definitions.
+
+Use _compact variants for token-budget-sensitive workflows.
 """
 
 # --- Shared Constants ---
@@ -10,6 +12,9 @@ FORMATTING_RULES = """FORMAT: Plain text only. No bold, no italics, no markdown 
 - Use dashes for lists
 - Hyperlinks are OK: https://example.com
 - Keep responses concise"""
+
+# Compact version for token budget mode
+FORMATTING_COMPACT = "Plain text, dashes for lists, URLs ok."
 
 
 # --- Worker Prompt ---
@@ -111,3 +116,34 @@ TOOLS:
 
 Example: "look up John Smith" → call crm_lookup("individual", "John Smith")
 Example: "list documents for Individual 1" → call search_entity_documents("Individual", 1)"""
+
+
+# --- Compact Variants (Token Budget Mode) ---
+
+
+def build_job_search_prompt_compact(success_criteria: str = "") -> str:
+    """Ultra-compact job search prompt (~150 tokens vs ~400)."""
+    return f"""Job search assistant.
+
+TASK: {success_criteria or 'Find jobs.'}
+
+TOOLS: job_search(query), check_applied_jobs(), send_email(to,subj,body)
+
+RULES:
+- Return direct company URLs only (no job boards)
+- Filter already-applied jobs
+- USE send_email if asked
+
+OUTPUT: Company - Title - https://direct-url.com/careers"""
+
+
+def build_crm_worker_prompt_compact(schema_context: str = "", success_criteria: str = "") -> str:
+    """Ultra-compact CRM prompt (~100 tokens vs ~350)."""
+    schema_brief = schema_context[:150] if schema_context else ""
+    return f"""CRM assistant. {schema_brief}
+
+TASK: {success_criteria or 'Help with CRM.'}
+
+TOOLS: crm_lookup(type,query), search_entity_documents(type,id), list_documents(), read_document(id)
+
+RULES: Call lookup FIRST. Types: individual, organization, account, contact."""

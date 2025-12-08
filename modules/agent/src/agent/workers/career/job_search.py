@@ -2,7 +2,7 @@
 
 from agents import Agent
 
-from agent.prompts.worker_prompts import build_job_search_prompt
+from agent.prompts.worker_prompts import build_job_search_prompt_compact
 
 
 def create_job_search_worker(model: str, tools: list) -> Agent:
@@ -10,6 +10,6 @@ def create_job_search_worker(model: str, tools: list) -> Agent:
     return Agent(
         name="job_search",
         model=model,
-        instructions=build_job_search_prompt("Find relevant jobs for the user."),
+        instructions=build_job_search_prompt_compact("Find relevant jobs for the user."),
         tools=tools,
     )
