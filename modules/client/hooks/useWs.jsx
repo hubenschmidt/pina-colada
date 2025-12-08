@@ -142,11 +142,8 @@ export const useWs = (url, { threadId: initialThreadId = null, onError = null } 
   const userId = userState?.user?.id;
   const tenantId = userState?.user?.tenant_id;
 
-  // Use provided threadId or generate new one
-  const uuid = useMemo(
-    () => initialThreadId || crypto.randomUUID(),
-    [initialThreadId]
-  );
+  // Thread ID - use provided or generate new one on mount
+  const [uuid] = useState(() => initialThreadId || crypto.randomUUID());
 
   useEffect(() => {
     const socket = new WebSocket(url);

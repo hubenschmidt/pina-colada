@@ -54,10 +54,14 @@ async def get_usage_by_node(tenant_id: int, period: str = "monthly") -> List[Dic
         if node not in node_totals:
             node_totals[node] = {
                 "node_name": node,
+                "request_count": 0,
+                "conversation_count": 0,
                 "input_tokens": 0,
                 "output_tokens": 0,
                 "total_tokens": 0,
             }
+        node_totals[node]["request_count"] += record.get("request_count", 0)
+        node_totals[node]["conversation_count"] += record.get("conversation_count", 0)
         node_totals[node]["input_tokens"] += record.get("input_tokens", 0)
         node_totals[node]["output_tokens"] += record.get("output_tokens", 0)
         node_totals[node]["total_tokens"] += record.get("total_tokens", 0)
@@ -101,6 +105,7 @@ async def log_usage_records(
     tenant_id: int,
     user_id: int,
     records: List[Dict],
+    conversation_id: Optional[int] = None,
 ) -> None:
     """Log usage records with model and node info."""
     logger.info(f"log_usage_records: tenant={tenant_id}, user={user_id}, count={len(records)}")
@@ -113,6 +118,7 @@ async def log_usage_records(
             "total_tokens": r.get("total", 0),
             "model_name": r.get("model_name"),
             "node_name": r.get("node_name"),
+            "conversation_id": conversation_id,
         }
         for r in records
         if r.get("total", 0) > 0

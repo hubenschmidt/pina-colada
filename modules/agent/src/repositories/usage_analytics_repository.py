@@ -186,6 +186,10 @@ async def get_usage_by_node(tenant_id: int, period: str) -> List[Dict]:
             select(
                 UsageAnalytics.node_name,
                 UsageAnalytics.model_name,
+                func.count().label("request_count"),
+                func.count(func.distinct(UsageAnalytics.conversation_id)).label(
+                    "conversation_count"
+                ),
                 func.sum(UsageAnalytics.input_tokens).label("input_tokens"),
                 func.sum(UsageAnalytics.output_tokens).label("output_tokens"),
                 func.sum(UsageAnalytics.total_tokens).label("total_tokens"),
@@ -205,6 +209,8 @@ async def get_usage_by_node(tenant_id: int, period: str) -> List[Dict]:
             {
                 "node_name": row.node_name,
                 "model_name": row.model_name,
+                "request_count": row.request_count,
+                "conversation_count": row.conversation_count,
                 "input_tokens": row.input_tokens or 0,
                 "output_tokens": row.output_tokens or 0,
                 "total_tokens": row.total_tokens or 0,
@@ -253,6 +259,10 @@ async def get_usage_by_model(tenant_id: int, period: str) -> List[Dict]:
         stmt = (
             select(
                 UsageAnalytics.model_name,
+                func.count().label("request_count"),
+                func.count(func.distinct(UsageAnalytics.conversation_id)).label(
+                    "conversation_count"
+                ),
                 func.sum(UsageAnalytics.input_tokens).label("input_tokens"),
                 func.sum(UsageAnalytics.output_tokens).label("output_tokens"),
                 func.sum(UsageAnalytics.total_tokens).label("total_tokens"),
@@ -271,6 +281,8 @@ async def get_usage_by_model(tenant_id: int, period: str) -> List[Dict]:
         return [
             {
                 "model_name": row.model_name,
+                "request_count": row.request_count,
+                "conversation_count": row.conversation_count,
                 "input_tokens": row.input_tokens or 0,
                 "output_tokens": row.output_tokens or 0,
                 "total_tokens": row.total_tokens or 0,

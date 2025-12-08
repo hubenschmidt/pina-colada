@@ -418,10 +418,12 @@ async def create_orchestrator():
         # Check if this is a new conversation (for title generation)
         is_new_conversation = False
         thread_uuid = None
+        conversation_id = None
         if user_id and tenant_id:
             try:
                 thread_uuid = UUID(thread_id)
                 existing = await conversation_service.get_conversation(thread_uuid)
+                conversation_id = existing.id if existing else None
             except Exception:
                 existing = None
                 is_new_conversation = True
@@ -592,6 +594,7 @@ async def create_orchestrator():
                             tenant_id=tenant_id,
                             user_id=user_id,
                             records=usage_records,
+                            conversation_id=conversation_id,
                         )
                         logger.info(f"✓ Usage analytics logged: {len(usage_records)} record(s)")
                     except Exception as e:

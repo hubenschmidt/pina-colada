@@ -5,10 +5,13 @@ import { env } from "next-runtime-env";
 import { AlertCircle, X } from "lucide-react";
 import Chat from "../../components/Chat/Chat";
 import { usePageLoading } from "../../context/pageLoadingContext";
+import { useConversationContext } from "../../context/conversationContext";
 import styles from "./page.module.css";
 
 const ChatPage = () => {
   const { dispatchPageLoading } = usePageLoading();
+  const { conversationState } = useConversationContext();
+  const { newChatKey } = conversationState;
   const [error, setError] = useState(null);
   const isVerbose = env("NEXT_PUBLIC_VERBOSE_ERRORS") === "true";
 
@@ -48,6 +51,7 @@ const ChatPage = () => {
         </div>
       )}
       <Chat
+        key={newChatKey}
         variant="page"
         onConnectionChange={handleConnectionChange}
         error={error}

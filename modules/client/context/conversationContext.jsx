@@ -14,6 +14,7 @@ const initialState = {
   activeThreadId: null,
   isLoading: false,
   error: null,
+  newChatKey: 0,
 };
 
 const conversationReducer = (state, action) => {
@@ -47,6 +48,8 @@ const conversationReducer = (state, action) => {
       };
     case "CLEAR_ACTIVE":
       return { ...state, activeConversation: null, activeThreadId: null };
+    case "NEW_CHAT":
+      return { ...state, activeConversation: null, activeThreadId: null, newChatKey: state.newChatKey + 1 };
     default:
       return state;
   }
@@ -57,6 +60,7 @@ export const ConversationContext = createContext({
   loadConversations: async () => {},
   selectConversation: async () => {},
   createNewConversation: () => {},
+  startNewChat: () => {},
   archiveConversation: async () => {},
   clearActiveConversation: () => {},
 });
@@ -125,6 +129,10 @@ export const ConversationProvider = ({ children }) => {
     dispatch({ type: "CLEAR_ACTIVE" });
   }, []);
 
+  const startNewChat = useCallback(() => {
+    dispatch({ type: "NEW_CHAT" });
+  }, []);
+
   // Load conversations on auth
   useEffect(() => {
     if (userState.isAuthed) {
@@ -139,6 +147,7 @@ export const ConversationProvider = ({ children }) => {
         loadConversations,
         selectConversation,
         createNewConversation,
+        startNewChat,
         archiveConversation,
         clearActiveConversation,
       }}>

@@ -17,7 +17,7 @@ const truncateTitle = (title, maxLen = 28) => {
 export const ChatHistory = ({ collapsed = false }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const { conversationState, archiveConversation } = useConversationContext();
+  const { conversationState, archiveConversation, startNewChat } = useConversationContext();
 
   const { conversations, isLoading } = conversationState;
   const [hoveredId, setHoveredId] = useState(null);
@@ -27,6 +27,7 @@ export const ChatHistory = ({ collapsed = false }) => {
   const currentThreadId = pathname?.startsWith("/chat/") ? pathname.split("/")[2] : null;
 
   const handleNewChat = () => {
+    startNewChat();
     router.push("/chat");
   };
 

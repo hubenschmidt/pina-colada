@@ -299,13 +299,13 @@ const Chat = ({
     }
   }, [urlThreadId, selectConversation]);
 
-  // Load messages when a conversation is selected
+  // Load messages when a conversation is selected (only on thread routes)
   useEffect(() => {
-    if (activeConversation?.messages) {
+    if (urlThreadId && activeConversation?.messages) {
       loadMessages(activeConversation.messages);
       hasRefreshedRef.current = true; // Don't trigger refresh for loaded conversations
     }
-  }, [activeConversation, loadMessages]);
+  }, [urlThreadId, activeConversation, loadMessages]);
 
   // --- Send rich user context as soon as WS opens (testing-only) ---
   useEffect(() => {

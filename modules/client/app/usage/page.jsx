@@ -72,6 +72,11 @@ const UsageCard = ({ title, icon: Icon, data, loading }) => (
   </Paper>
 );
 
+const formatAvg = (total, count) => {
+  if (!count) return "—";
+  return formatTokens(Math.round(total / count));
+};
+
 const AnalyticsTable = ({ data, labelKey, labelTitle }) => {
   if (!data?.length) {
     return (
@@ -86,7 +91,10 @@ const AnalyticsTable = ({ data, labelKey, labelTitle }) => {
       <Table.Thead>
         <Table.Tr>
           <Table.Th>{labelTitle}</Table.Th>
+          <Table.Th ta="right">Requests</Table.Th>
+          <Table.Th ta="right">Convos</Table.Th>
           <Table.Th ta="right">Total</Table.Th>
+          <Table.Th ta="right">Avg/Req</Table.Th>
           <Table.Th ta="right">Input</Table.Th>
           <Table.Th ta="right">Output</Table.Th>
         </Table.Tr>
@@ -95,7 +103,10 @@ const AnalyticsTable = ({ data, labelKey, labelTitle }) => {
         {data.map((row, i) => (
           <Table.Tr key={i}>
             <Table.Td>{row[labelKey] || "Unknown"}</Table.Td>
+            <Table.Td ta="right">{row.request_count?.toLocaleString() || 0}</Table.Td>
+            <Table.Td ta="right">{row.conversation_count?.toLocaleString() || 0}</Table.Td>
             <Table.Td ta="right">{formatTokens(row.total_tokens)}</Table.Td>
+            <Table.Td ta="right">{formatAvg(row.total_tokens, row.request_count)}</Table.Td>
             <Table.Td ta="right">{formatTokens(row.input_tokens)}</Table.Td>
             <Table.Td ta="right">{formatTokens(row.output_tokens)}</Table.Td>
           </Table.Tr>

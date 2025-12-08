@@ -261,3 +261,51 @@ export const useDeveloperAnalytics = (period, filters) => { ... }
 3. Should developer analytics be a separate route (/developer/analytics) or a tab on /usage?
 4. Export functionality: CSV/JSON export of usage data?
 5. How often should we verify/update model pricing? (suggest: monthly check against provider pricing pages)
+
+---
+
+## Enhancement: Add Request Count & Avg Tokens
+
+### Goal
+Add `request_count` and `conversation_count` columns to By Node and By Model analytics tables, enabling avg tokens per request calculation.
+
+### Backend Changes: `usage_analytics_repository.py`
+
+**`get_usage_by_node()`:**
+```python
+select(
+    UsageAnalytics.node_name,
+    UsageAnalytics.model_name,
+    func.count().label("request_count"),
+    func.count(func.distinct(UsageAnalytics.conversation_id)).label("conversation_count"),
+    func.sum(UsageAnalytics.input_tokens).label("input_tokens"),
+    func.sum(UsageAnalytics.output_tokens).label("output_tokens"),
+    func.sum(UsageAnalytics.total_tokens).label("total_tokens"),
+)
+```
+
+**`get_usage_by_model()`:**
+```python
+select(
+    UsageAnalytics.model_name,
+    func.count().label("request_count"),
+    func.count(func.distinct(UsageAnalytics.conversation_id)).label("conversation_count"),
+    func.sum(UsageAnalytics.input_tokens).label("input_tokens"),
+    func.sum(UsageAnalytics.output_tokens).label("output_tokens"),
+    func.sum(UsageAnalytics.total_tokens).label("total_tokens"),
+)
+```
+
+### Frontend Changes: `app/usage/page.jsx`
+
+Add columns to both analytics tables:
+- **Requests** - raw LLM call count
+- **Conversations** - unique conversation count
+- **Avg Tokens** - computed: `total_tokens / request_count`
+
+### Files to Modify
+
+| File | Change |
+|------|--------|
+| `modules/agent/src/repositories/usage_analytics_repository.py` | Add count() to queries |
+| `modules/client/app/usage/page.jsx` | Add Requests, Conversations, Avg Tokens columns |
