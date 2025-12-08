@@ -953,13 +953,25 @@
         {
           "name": "Get User Tenant",
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{bearer_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "GET",
             "header": [],
             "url": {
               "raw": "{{base_url}}/users/:email/tenant",
               "host": ["{{base_url}}"],
               "path": ["users", ":email", "tenant"],
-              "variable": [{ "key": "email", "value": "user@example.com" }]
+              "variable": [
+                { "key": "email", "value": "whubenschmidt@gmail.com" }
+              ]
             }
           },
           "response": []

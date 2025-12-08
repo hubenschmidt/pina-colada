@@ -7,6 +7,21 @@ import axios from "axios";
 import { env } from "next-runtime-env";
 import { fetchBearerToken } from "../lib/fetch-bearer-token";
 
+const BACKENDS = {
+  agent: "http://localhost:8000",
+  "agent-go": "http://localhost:8080",
+};
+
+const getApiUrl = () => {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("pina-colada-backend");
+    if (stored && BACKENDS[stored]) {
+      return BACKENDS[stored];
+    }
+  }
+  return env("NEXT_PUBLIC_API_URL");
+};
+
 const getClient = () => axios.create();
 
 const makeRequest = async (client, method, url, data, config) => {
@@ -21,7 +36,7 @@ const apiRequest = async (method, path, data, config) => {
   const client = getClient();
   const authHeaders = await fetchBearerToken();
   const mergedConfig = { ...authHeaders, ...config };
-  const apiUrl = env("NEXT_PUBLIC_API_URL");
+  const apiUrl = getApiUrl();
   const url = `${apiUrl}${path}`;
 
   return makeRequest(client, method, url, data, mergedConfig)

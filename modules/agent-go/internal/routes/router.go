@@ -9,7 +9,6 @@ import (
 
 	"github.com/pina-colada-co/agent-go/internal/controllers"
 	appMiddleware "github.com/pina-colada-co/agent-go/internal/middleware"
-	"github.com/pina-colada-co/agent-go/internal/repositories"
 )
 
 // Controllers holds all controller instances
@@ -19,6 +18,8 @@ type Controllers struct {
 	Organization *controllers.OrganizationController
 	Individual   *controllers.IndividualController
 	Task         *controllers.TaskController
+	Contact      *controllers.ContactController
+	Preferences  *controllers.PreferencesController
 }
 
 // NewRouter creates and configures the Chi router
@@ -62,11 +63,11 @@ func NewRouter() *chi.Mux {
 }
 
 // RegisterRoutes registers all API routes with controllers
-func RegisterRoutes(r *chi.Mux, c *Controllers, userRepo *repositories.UserRepository) {
+func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoader) {
 	// Protected routes (require auth)
 	r.Group(func(r chi.Router) {
 		r.Use(appMiddleware.AuthMiddleware)
-		r.Use(appMiddleware.UserLoaderMiddleware(userRepo))
+		r.Use(appMiddleware.UserLoaderMiddleware(userLoader))
 
 		// Auth routes
 		r.Route("/auth", func(r chi.Router) {
@@ -101,8 +102,31 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userRepo *repositories.UserRepos
 		// Tasks routes
 		r.Route("/tasks", func(r chi.Router) {
 			r.Get("/", c.Task.GetTasks)
+			r.Post("/", c.Task.CreateTask)
 			r.Get("/{id}", c.Task.GetTask)
+			r.Put("/{id}", c.Task.UpdateTask)
 			r.Delete("/{id}", c.Task.DeleteTask)
+		})
+
+		// Contacts routes
+		r.Route("/contacts", func(r chi.Router) {
+			r.Get("/", c.Contact.GetContacts)
+			r.Get("/search", c.Contact.SearchContacts)
+			r.Post("/", c.Contact.CreateContact)
+			r.Get("/{id}", c.Contact.GetContact)
+			r.Put("/{id}", c.Contact.UpdateContact)
+			r.Delete("/{id}", c.Contact.DeleteContact)
+		})
+
+		// Users routes
+		r.Route("/users", func(r chi.Router) {
+			r.Get("/{email}/tenant", c.Auth.GetUserTenant)
+		})
+
+		// Preferences routes
+		r.Route("/preferences", func(r chi.Router) {
+			r.Get("/user", c.Preferences.GetUserPreferences)
+			r.Patch("/user", c.Preferences.UpdateUserPreferences)
 		})
 	})
 }

@@ -8,6 +8,7 @@ import HeaderAuthed from "../HeaderAuthed/HeaderAuthed";
 import NotificationBell from "../NotificationBell/NotificationBell";
 import { Menu, Button } from "@mantine/core";
 import { ChevronDown, Settings, LogOut, BarChart2 } from "lucide-react";
+import BackendSwitcher from "../BackendSwitcher/BackendSwitcher";
 
 const Header = () => {
   const { dispatchNav } = useNavContext();
@@ -98,6 +99,7 @@ const Header = () => {
           {/* Login/Account Menu */}
           {user ? (
             <div className="flex items-center gap-2">
+              <BackendSwitcher />
               <NotificationBell />
               <Menu shadow="md" width={200}>
                 <Menu.Target>

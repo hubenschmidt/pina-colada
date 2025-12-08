@@ -47,6 +47,8 @@ func main() {
 	orgRepo := repositories.NewOrganizationRepository(database)
 	indRepo := repositories.NewIndividualRepository(database)
 	taskRepo := repositories.NewTaskRepository(database)
+	contactRepo := repositories.NewContactRepository(database)
+	prefsRepo := repositories.NewPreferencesRepository(database)
 
 	// Initialize services
 	authService := services.NewAuthService(userRepo)
@@ -54,6 +56,8 @@ func main() {
 	orgService := services.NewOrganizationService(orgRepo)
 	indService := services.NewIndividualService(indRepo)
 	taskService := services.NewTaskService(taskRepo)
+	contactService := services.NewContactService(contactRepo)
+	prefsService := services.NewPreferencesService(prefsRepo)
 
 	// Initialize controllers
 	ctrls := &routes.Controllers{
@@ -62,11 +66,13 @@ func main() {
 		Organization: controllers.NewOrganizationController(orgService),
 		Individual:   controllers.NewIndividualController(indService),
 		Task:         controllers.NewTaskController(taskService),
+		Contact:      controllers.NewContactController(contactService),
+		Preferences:  controllers.NewPreferencesController(prefsService),
 	}
 
 	// Initialize router and register routes
 	router := routes.NewRouter()
-	routes.RegisterRoutes(router, ctrls, userRepo)
+	routes.RegisterRoutes(router, ctrls, authService)
 
 	// Create HTTP server
 	server := &http.Server{

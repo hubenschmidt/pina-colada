@@ -1,8 +1,12 @@
 package services
 
 import (
+	"errors"
+
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 )
+
+var ErrUserNotFound = errors.New("user not found")
 
 // AuthService handles authentication business logic
 type AuthService struct {
@@ -31,8 +35,17 @@ type TenantInfo struct {
 	Role string `json:"role"`
 }
 
-// GetOrCreateUser finds or creates a user by Auth0 sub
-func (s *AuthService) GetOrCreateUser(auth0Sub, email string) (*UserResponse, error) {
+// GetOrCreateUser finds or creates a user by Auth0 sub - implements middleware.UserLoader
+func (s *AuthService) GetOrCreateUser(auth0Sub, email string) (int64, error) {
+	user, err := s.userRepo.GetOrCreate(auth0Sub, email)
+	if err != nil {
+		return 0, err
+	}
+	return user.ID, nil
+}
+
+// GetOrCreateUserFull finds or creates a user by Auth0 sub and returns full response
+func (s *AuthService) GetOrCreateUserFull(auth0Sub, email string) (*UserResponse, error) {
 	user, err := s.userRepo.GetOrCreate(auth0Sub, email)
 	if err != nil {
 		return nil, err
@@ -75,7 +88,7 @@ type MeResponse struct {
 
 // GetMe returns current user with tenants
 func (s *AuthService) GetMe(auth0Sub, email string) (*MeResponse, error) {
-	user, err := s.GetOrCreateUser(auth0Sub, email)
+	user, err := s.GetOrCreateUserFull(auth0Sub, email)
 	if err != nil {
 		return nil, err
 	}
@@ -89,4 +102,35 @@ func (s *AuthService) GetMe(auth0Sub, email string) (*MeResponse, error) {
 		User:    *user,
 		Tenants: tenants,
 	}, nil
+}
+
+// GetUserTenantByEmail returns tenant info for a user by email
+func (s *AuthService) GetUserTenantByEmail(email string) (*UserTenantResponse, error) {
+	user, err := s.userRepo.FindByEmail(email)
+	if err != nil {
+		return nil, err
+	}
+	if user == nil {
+		return nil, ErrUserNotFound
+	}
+
+	tenants, err := s.GetUserTenants(user.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &UserTenantResponse{
+		UserID:   user.ID,
+		Email:    user.Email,
+		TenantID: user.TenantID,
+		Tenants:  tenants,
+	}, nil
+}
+
+// UserTenantResponse represents the /users/{email}/tenant response
+type UserTenantResponse struct {
+	UserID   int64        `json:"user_id"`
+	Email    string       `json:"email"`
+	TenantID *int64       `json:"tenant_id"`
+	Tenants  []TenantInfo `json:"tenants"`
 }

@@ -11,7 +11,6 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/pina-colada-co/agent-go/internal/repositories"
 )
 
 type contextKey string
@@ -207,8 +206,13 @@ func GetTenantID(ctx context.Context) (int64, bool) {
 	return id, ok
 }
 
+// UserLoader interface for loading users - implemented by AuthService
+type UserLoader interface {
+	GetOrCreateUser(auth0Sub, email string) (userID int64, err error)
+}
+
 // UserLoaderMiddleware loads user from DB and sets UserID in context
-func UserLoaderMiddleware(userRepo *repositories.UserRepository) func(http.Handler) http.Handler {
+func UserLoaderMiddleware(loader UserLoader) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
@@ -221,13 +225,13 @@ func UserLoaderMiddleware(userRepo *repositories.UserRepository) func(http.Handl
 
 			email, _ := ctx.Value(EmailKey).(string)
 
-			user, err := userRepo.GetOrCreate(auth0Sub, email)
+			userID, err := loader.GetOrCreateUser(auth0Sub, email)
 			if err != nil {
 				writeError(w, http.StatusInternalServerError, "failed to load user")
 				return
 			}
 
-			ctx = context.WithValue(ctx, UserIDKey, user.ID)
+			ctx = context.WithValue(ctx, UserIDKey, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
