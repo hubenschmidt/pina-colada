@@ -22,9 +22,7 @@ def lead_to_response(lead) -> dict:
     """Convert lead to response dict."""
     return {
         "id": lead.id,
-        "title": lead.title,
         "type": lead.type,
-        "description": lead.description,
         "source": lead.source,
         "current_status": lead.current_status.name if lead.current_status else None,
         "account_name": lead.account.name if lead.account else None,

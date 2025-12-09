@@ -137,3 +137,86 @@ func (s *DocumentService) UploadDocument(input UploadDocumentInput) (*repositori
 
 	return doc, nil
 }
+
+// GetDocumentVersions returns all versions of a document
+func (s *DocumentService) GetDocumentVersions(documentID int64, tenantID int64) ([]repositories.DocumentDTO, int64, error) {
+	versions, err := s.docRepo.FindDocumentVersions(documentID, tenantID)
+	if err != nil {
+		return nil, 0, err
+	}
+	count := int64(len(versions))
+	return versions, count, nil
+}
+
+// CreateDocumentVersionInput holds data for creating a new version
+type CreateDocumentVersionInput struct {
+	DocumentID  int64
+	TenantID    int64
+	UserID      int64
+	Filename    string
+	ContentType string
+	Data        io.Reader
+	Size        int64
+}
+
+// CreateDocumentVersion creates a new version of an existing document
+func (s *DocumentService) CreateDocumentVersion(input CreateDocumentVersionInput) (*repositories.DocumentDTO, int64, error) {
+	if input.Size > MaxFileSize {
+		return nil, 0, fmt.Errorf("file exceeds 10MB limit")
+	}
+
+	// Verify the parent document exists
+	parent, err := s.docRepo.FindDocumentByID(input.DocumentID)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to find parent document: %w", err)
+	}
+	if parent == nil {
+		return nil, 0, fmt.Errorf("document not found")
+	}
+	if parent.TenantID != input.TenantID {
+		return nil, 0, fmt.Errorf("document not found")
+	}
+
+	// Generate storage path
+	timestamp := time.Now().UnixMilli()
+	storagePath := fmt.Sprintf("%d/%d/%s", input.TenantID, timestamp, input.Filename)
+
+	// Upload to storage
+	if err := s.storage.Upload(storagePath, input.Data, input.ContentType, input.Size); err != nil {
+		return nil, 0, fmt.Errorf("failed to upload file: %w", err)
+	}
+
+	// Create new version in database
+	doc, err := s.docRepo.CreateNewVersion(repositories.CreateVersionInput{
+		ParentID:    input.DocumentID,
+		TenantID:    input.TenantID,
+		UserID:      input.UserID,
+		StoragePath: storagePath,
+		FileSize:    input.Size,
+		ContentType: input.ContentType,
+	})
+	if err != nil {
+		s.storage.Delete(storagePath)
+		return nil, 0, fmt.Errorf("failed to create version: %w", err)
+	}
+
+	// Get version count
+	count, _ := s.docRepo.GetVersionCount(doc.ID, input.TenantID)
+
+	return doc, count, nil
+}
+
+// SetCurrentVersion marks a specific version as the current version
+func (s *DocumentService) SetCurrentVersion(documentID int64, tenantID int64) (*repositories.DocumentDTO, int64, error) {
+	doc, err := s.docRepo.SetCurrentVersion(documentID, tenantID)
+	if err != nil {
+		return nil, 0, err
+	}
+	if doc == nil {
+		return nil, 0, fmt.Errorf("document not found")
+	}
+
+	count, _ := s.docRepo.GetVersionCount(documentID, tenantID)
+
+	return doc, count, nil
+}

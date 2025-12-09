@@ -10,6 +10,7 @@ const FormActions = ({
   isFormComplete = false,
   onClose,
   onDelete,
+  onSubmit,
   submitButtonText,
   cancelButtonText,
   variant = "default",
@@ -32,7 +33,8 @@ const FormActions = ({
   return (
     <div className={`flex gap-3 ${marginTop}`}>
       <button
-        type="submit"
+        type={onSubmit ? "button" : "submit"}
+        onClick={onSubmit}
         disabled={isSubmitting}
         className={`flex items-center gap-2 px-6 ${paddingY} ${rounded} font-semibold disabled:opacity-50 disabled:cursor-not-allowed ${
           showGreen

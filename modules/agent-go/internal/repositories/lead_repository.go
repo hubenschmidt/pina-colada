@@ -72,7 +72,7 @@ func (r *LeadRepository) FindAllOpportunities(params PaginationParams, tenantID 
 	var totalCount int64
 
 	query := r.db.Table(`"Opportunity"`).
-		Select(`"Opportunity".*, "Lead".description as lead_description, "Lead".current_status_id, "Lead".account_id, "Lead".tenant_id, "Organization".name as organization_name, "Individual".first_name, "Individual".last_name, "Status".name as status_name`).
+		Select(`"Opportunity".*, "Lead".current_status_id, "Lead".account_id, "Lead".tenant_id, "Organization".name as organization_name, "Individual".first_name, "Individual".last_name, "Status".name as status_name`).
 		Joins(`LEFT JOIN "Lead" ON "Opportunity".id = "Lead".id`).
 		Joins(`LEFT JOIN "Account" ON "Account".id = "Lead".account_id`).
 		Joins(`LEFT JOIN "Organization" ON "Organization".account_id = "Account".id`).
@@ -136,7 +136,7 @@ func (r *LeadRepository) FindOpportunityByID(id int64) (*OpportunityWithLead, er
 	var opp OpportunityWithLead
 
 	err := r.db.Table(`"Opportunity"`).
-		Select(`"Opportunity".*, "Lead".description as lead_description, "Lead".current_status_id, "Lead".account_id, "Lead".tenant_id`).
+		Select(`"Opportunity".*, "Lead".current_status_id, "Lead".account_id, "Lead".tenant_id`).
 		Joins(`LEFT JOIN "Lead" ON "Opportunity".id = "Lead".id`).
 		Where(`"Opportunity".id = ?`, id).
 		First(&opp).Error
@@ -157,7 +157,7 @@ func (r *LeadRepository) FindAllPartnerships(params PaginationParams, tenantID *
 	var totalCount int64
 
 	query := r.db.Table(`"Partnership"`).
-		Select(`"Partnership".*, "Lead".description as lead_description, "Lead".current_status_id, "Lead".account_id, "Lead".tenant_id, "Organization".name as organization_name, "Individual".first_name, "Individual".last_name, "Status".name as status_name`).
+		Select(`"Partnership".*, "Lead".current_status_id, "Lead".account_id, "Lead".tenant_id, "Organization".name as organization_name, "Individual".first_name, "Individual".last_name, "Status".name as status_name`).
 		Joins(`LEFT JOIN "Lead" ON "Partnership".id = "Lead".id`).
 		Joins(`LEFT JOIN "Account" ON "Account".id = "Lead".account_id`).
 		Joins(`LEFT JOIN "Organization" ON "Organization".account_id = "Account".id`).
@@ -221,7 +221,7 @@ func (r *LeadRepository) FindPartnershipByID(id int64) (*PartnershipWithLead, er
 	var partnership PartnershipWithLead
 
 	err := r.db.Table(`"Partnership"`).
-		Select(`"Partnership".*, "Lead".description as lead_description, "Lead".current_status_id, "Lead".account_id, "Lead".tenant_id`).
+		Select(`"Partnership".*, "Lead".current_status_id, "Lead".account_id, "Lead".tenant_id`).
 		Joins(`LEFT JOIN "Lead" ON "Partnership".id = "Lead".id`).
 		Where(`"Partnership".id = ?`, id).
 		First(&partnership).Error

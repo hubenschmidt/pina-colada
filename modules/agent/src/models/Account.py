@@ -24,3 +24,4 @@ class Account(Base):
     industries = relationship("Industry", secondary="Account_Industry", back_populates="accounts")
     projects = relationship("Project", secondary="Account_Project", backref="accounts")
     contacts = relationship("Contact", secondary="Contact_Account", back_populates="accounts", lazy="selectin")
+    signals = relationship("Signal", back_populates="account", lazy="selectin", cascade="all, delete-orphan", passive_deletes=True)

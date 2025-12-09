@@ -1,12 +1,11 @@
 """Service layer for comment notifications."""
 
 import logging
-from typing import Optional, List
+from typing import TYPE_CHECKING, Optional, List
 
-from sqlalchemy import text
+if TYPE_CHECKING:
+    from models.Comment import Comment
 
-from lib.db import get_session
-from models.Comment import Comment
 from repositories.notification_repository import (
     create_notification,
     get_thread_participants,
@@ -14,6 +13,8 @@ from repositories.notification_repository import (
     get_notifications as repo_get_notifications,
     mark_as_read as repo_mark_as_read,
     mark_entity_as_read as repo_mark_entity_as_read,
+    get_entity_project_id_sync,
+    get_lead_type_sync,
     MarkReadRequest,
     MarkEntityReadRequest,
 )
@@ -33,77 +34,11 @@ ENTITY_URL_MAP = {
 }
 
 
-def _get_entity_project_id(entity_type: str, entity_id: int) -> Optional[int]:
-    """Get project_id for an entity. Returns first project if multiple."""
-    if not entity_type or not entity_id:
-        return None
-
-    session = get_session()
-    try:
-        if entity_type == "Deal":
-            result = session.execute(
-                text('SELECT project_id FROM "Deal" WHERE id = :id'),
-                {"id": entity_id}
-            ).fetchone()
-            return result[0] if result else None
-
-        if entity_type == "Task":
-            result = session.execute(
-                text('SELECT taskable_type, taskable_id FROM "Task" WHERE id = :id'),
-                {"id": entity_id}
-            ).fetchone()
-            if result and result[0] and result[1]:
-                return _get_entity_project_id(result[0], result[1])
-            return None
-
-        if entity_type == "Lead":
-            result = session.execute(
-                text('SELECT project_id FROM "Lead_Project" WHERE lead_id = :id LIMIT 1'),
-                {"id": entity_id}
-            ).fetchone()
-            return result[0] if result else None
-
-        if entity_type not in ("Individual", "Organization"):
-            return None
-
-        result = session.execute(
-            text(f'SELECT account_id FROM "{entity_type}" WHERE id = :id'),
-            {"id": entity_id}
-        ).fetchone()
-        if not result or not result[0]:
-            return None
-
-        proj_result = session.execute(
-            text('SELECT project_id FROM "Account_Project" WHERE account_id = :id LIMIT 1'),
-            {"id": result[0]}
-        ).fetchone()
-        return proj_result[0] if proj_result else None
-    finally:
-        session.close()
-
-
-def _get_lead_url(entity_id: int) -> str:
-    """Get URL for a Lead entity by looking up its type."""
-    session = get_session()
-    try:
-        result = session.execute(
-            text('SELECT type FROM "Lead" WHERE id = :id'),
-            {"id": entity_id}
-        ).fetchone()
-        if not result or not result[0]:
-            return f"/leads/{entity_id}"
-        lead_type = result[0].lower() + "s"
-        if lead_type == "opportunitys":
-            lead_type = "opportunities"
-        return f"/leads/{lead_type}/{entity_id}"
-    finally:
-        session.close()
-
-
 def get_entity_url(entity_type: str, entity_id: int, comment_id: Optional[int] = None) -> str:
     """Get URL for an entity, optionally with comment anchor."""
     if entity_type == "Lead":
-        url = _get_lead_url(entity_id)
+        lead_type = get_lead_type_sync(entity_id)
+        url = f"/leads/{lead_type}/{entity_id}"
     else:
         base_path = ENTITY_URL_MAP.get(entity_type, f"/{entity_type.lower()}s")
         url = f"{base_path}/{entity_id}"
@@ -115,7 +50,7 @@ def get_entity_url(entity_type: str, entity_id: int, comment_id: Optional[int] =
 
 def get_entity_project_id(entity_type: str, entity_id: int) -> Optional[int]:
     """Public accessor for entity project lookup."""
-    return _get_entity_project_id(entity_type, entity_id)
+    return get_entity_project_id_sync(entity_type, entity_id)
 
 
 async def get_unread_count(user_id: int, tenant_id: int) -> int:
@@ -138,7 +73,7 @@ async def mark_entity_as_read(user_id: int, tenant_id: int, entity_type: str, en
     return await repo_mark_entity_as_read(user_id, tenant_id, entity_type, entity_id)
 
 
-async def create_comment_notifications(comment: Comment) -> None:
+async def create_comment_notifications(comment: "Comment") -> None:
     """
     Create notifications when a comment is created.
 

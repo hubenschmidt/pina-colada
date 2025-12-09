@@ -1,8 +1,11 @@
 """Authentication service for user and tenant management."""
 
 import re
-from typing import Dict, Any, List
-from models.User import User
+from typing import TYPE_CHECKING, Dict, Any, List
+
+if TYPE_CHECKING:
+    from models.User import User
+
 from repositories.user_repository import find_user_by_auth0_sub, find_user_by_email, create_user, update_user
 from repositories.tenant_repository import (
     find_or_create_tenant_with_user,
@@ -16,7 +19,7 @@ from repositories.tenant_repository import (
 __all__ = ["TenantCreate"]
 
 
-async def get_or_create_user(auth0_sub: str, email: str) -> User:
+async def get_or_create_user(auth0_sub: str, email: str) -> "User":
     """Get or create user from Auth0 sub."""
     user = await find_user_by_auth0_sub(auth0_sub)
     if user:

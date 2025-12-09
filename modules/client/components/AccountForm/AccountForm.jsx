@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import ContactSection from "../ContactSection/ContactSection";
 import RelationshipsSection from "../RelationshipsSection/RelationshipsSection";
+import TechnologiesSection from "../TechnologiesSection/TechnologiesSection";
+import SignalsSection from "../SignalsSection/SignalsSection";
 import NotesSection from "../NotesSection/NotesSection";
 import TasksSection from "../TasksSection/TasksSection";
 import CommentsSection from "../CommentsSection/CommentsSection";
@@ -555,7 +557,20 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100 mb-6">{title}</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">{title}</h1>
+        <FormActions
+          isEditMode={isEditMode}
+          isSubmitting={isSubmitting}
+          isDeleting={isDeleting}
+          hasPendingChanges={hasPendingChanges}
+          isFormComplete={isFormComplete}
+          onClose={onClose}
+          onDelete={onDelete ? handleDelete : undefined}
+          onSubmit={handleSubmit}
+          variant="compact"
+        />
+      </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {renderFormFields()}
@@ -600,6 +615,21 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
           />
         </div>
 
+        {isOrganization && isEditMode && account?.id && (
+          <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
+            <TechnologiesSection organizationId={account.id} />
+          </div>
+        )}
+
+        {isEditMode && account?.id && (
+          <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
+            <SignalsSection
+              entityType={isOrganization ? "organization" : "individual"}
+              entityId={account.id}
+            />
+          </div>
+        )}
+
         <div className="border-t border-zinc-300 dark:border-zinc-700 pt-4 mt-4">
           <NotesSection
             entityType={isOrganization ? "organization" : "individual"}
@@ -624,19 +654,6 @@ const AccountForm = ({ type, onClose, onAdd, account, onUpdate, onDelete }) => {
             entityId={isEditMode ? (account?.id ?? null) : null}
             pendingDocumentIds={!isEditMode ? pendingDocumentIds : undefined}
             onPendingDocumentIdsChange={!isEditMode ? setPendingDocumentIds : undefined}
-          />
-        </div>
-
-        <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">
-          <FormActions
-            isEditMode={isEditMode}
-            isSubmitting={isSubmitting}
-            isDeleting={isDeleting}
-            hasPendingChanges={hasPendingChanges}
-            isFormComplete={isFormComplete}
-            onClose={onClose}
-            onDelete={onDelete ? handleDelete : undefined}
-            variant="compact"
           />
         </div>
 

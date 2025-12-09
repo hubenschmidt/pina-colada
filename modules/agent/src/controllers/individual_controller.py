@@ -163,3 +163,45 @@ async def delete_individual_relationship(individual_id: int, relationship_id: in
 
     await delete_rel_service(individual_id, relationship_id)
     return {"success": True}
+
+
+# Signal management
+
+@handle_http_exceptions
+async def get_individual_signals(
+    individual_id: int,
+    signal_type: Optional[str] = None,
+    limit: int = 20,
+) -> list:
+    """Get signals for an individual."""
+    from services.individual_service import get_individual_signals as get_signals_service
+
+    return await get_signals_service(individual_id, signal_type, limit)
+
+
+@handle_http_exceptions
+async def create_individual_signal(individual_id: int, data: dict) -> dict:
+    """Create a signal for an individual."""
+    from services.individual_service import create_individual_signal as create_signal_service
+
+    signal = await create_signal_service(individual_id, data)
+    return {
+        "id": signal.id,
+        "signal_type": signal.signal_type,
+        "headline": signal.headline,
+        "description": signal.description,
+        "signal_date": str(signal.signal_date) if signal.signal_date else None,
+        "source": signal.source,
+        "source_url": signal.source_url,
+        "sentiment": signal.sentiment,
+        "relevance_score": float(signal.relevance_score) if signal.relevance_score else None,
+    }
+
+
+@handle_http_exceptions
+async def delete_individual_signal(individual_id: int, signal_id: int) -> dict:
+    """Delete a signal."""
+    from services.individual_service import delete_individual_signal as delete_signal_service
+
+    await delete_signal_service(individual_id, signal_id)
+    return {"success": True}

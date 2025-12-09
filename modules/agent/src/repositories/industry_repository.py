@@ -29,3 +29,13 @@ async def find_industry_by_name(name: str) -> Optional[Industry]:
         stmt = select(Industry).where(Industry.name.ilike(name))
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
+
+
+async def create_industry(name: str) -> Industry:
+    """Create a new industry."""
+    async with async_get_session() as session:
+        industry = Industry(name=name)
+        session.add(industry)
+        await session.commit()
+        await session.refresh(industry)
+        return industry

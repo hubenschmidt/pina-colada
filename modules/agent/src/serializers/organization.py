@@ -42,7 +42,7 @@ def signal_to_dict(s) -> dict:
     """Convert signal ORM to response dictionary."""
     return {
         "id": s.id,
-        "organization_id": s.organization_id,
+        "account_id": s.account_id,
         "signal_type": s.signal_type,
         "headline": s.headline,
         "description": s.description,
@@ -135,6 +135,8 @@ def org_to_detail_response(org, contacts=None, include_research=False) -> dict:
     if include_research:
         result["technologies"] = [technology_to_dict(t) for t in (org.technologies or [])]
         result["funding_rounds"] = [funding_round_to_dict(fr) for fr in (org.funding_rounds or [])]
-        result["signals"] = [signal_to_dict(s) for s in (org.signals or [])]
+        # Signals are now on the Account level
+        account_signals = org.account.signals if org.account else []
+        result["signals"] = [signal_to_dict(s) for s in (account_signals or [])]
 
     return result

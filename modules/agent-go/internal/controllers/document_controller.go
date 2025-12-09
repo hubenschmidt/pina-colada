@@ -213,3 +213,109 @@ func (c *DocumentController) UnlinkDocument(w http.ResponseWriter, r *http.Reque
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "deleted"})
 }
+
+// GetDocumentVersions handles GET /assets/documents/{id}/versions
+func (c *DocumentController) GetDocumentVersions(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid document ID")
+		return
+	}
+
+	var tenantID int64 = 0
+	if tid, ok := middleware.GetTenantID(r.Context()); ok {
+		tenantID = tid
+	}
+
+	versions, count, err := c.docService.GetDocumentVersions(id, tenantID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"versions":      versions,
+		"version_count": count,
+	})
+}
+
+// CreateDocumentVersion handles POST /assets/documents/{id}/versions
+func (c *DocumentController) CreateDocumentVersion(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid document ID")
+		return
+	}
+
+	// Parse multipart form (10MB max)
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		writeError(w, http.StatusBadRequest, "failed to parse multipart form: "+err.Error())
+		return
+	}
+
+	file, header, err := r.FormFile("file")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "file is required")
+		return
+	}
+	defer file.Close()
+
+	var tenantID int64 = 0
+	if tid, ok := middleware.GetTenantID(r.Context()); ok {
+		tenantID = tid
+	}
+
+	userID, _ := middleware.GetUserID(r.Context())
+
+	contentType := header.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+
+	doc, count, err := c.docService.CreateDocumentVersion(services.CreateDocumentVersionInput{
+		DocumentID:  id,
+		TenantID:    tenantID,
+		UserID:      userID,
+		Filename:    header.Filename,
+		ContentType: contentType,
+		Data:        file,
+		Size:        header.Size,
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, map[string]interface{}{
+		"document":      doc,
+		"version_count": count,
+	})
+}
+
+// SetCurrentVersion handles PATCH /assets/documents/{id}/set-current
+func (c *DocumentController) SetCurrentVersion(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid document ID")
+		return
+	}
+
+	var tenantID int64 = 0
+	if tid, ok := middleware.GetTenantID(r.Context()); ok {
+		tenantID = tid
+	}
+
+	doc, count, err := c.docService.SetCurrentVersion(id, tenantID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{
+		"document":      doc,
+		"version_count": count,
+	})
+}

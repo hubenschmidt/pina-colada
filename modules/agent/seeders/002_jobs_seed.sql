@@ -80,13 +80,12 @@ BEGIN
   -- Job 1: Acme Corp - Senior Full Stack Engineer (Applied)
   SELECT o.id, o.account_id INTO org_id, account_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('Acme Corp') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, source, current_status_id, created_by, updated_by, created_at, updated_at)
     VALUES (
       v_tenant_id,
       account_id,
       default_deal_id,
       'Job',
-      'Building next-generation e-commerce platform',
       'manual',
       job_status_applied_id,
       v_user_id,
@@ -96,12 +95,13 @@ BEGIN
     )
     RETURNING id INTO new_lead_id;
 
-    INSERT INTO "Job" (id, job_title, job_url, salary_range, created_at, updated_at)
+    INSERT INTO "Job" (id, job_title, job_url, salary_range, description, created_at, updated_at)
     VALUES (
       new_lead_id,
       'Senior Full Stack Engineer',
       'https://acme.example.com/careers/senior-fullstack',
       '$120k - $160k',
+      'Building next-generation e-commerce platform',
       NOW() - INTERVAL '5 days',
       NOW() - INTERVAL '5 days'
     );
@@ -110,13 +110,12 @@ BEGIN
   -- Job 2: TechStartup Inc - Software Engineer (Interviewing)
   SELECT o.id, o.account_id INTO org_id, account_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('TechStartup Inc') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, source, current_status_id, created_by, updated_by, created_at, updated_at)
     VALUES (
       v_tenant_id,
       account_id,
       default_deal_id,
       'Job',
-      'Early-stage startup building developer tools',
       'referral',
       job_status_interviewing_id,
       v_user_id,
@@ -126,12 +125,13 @@ BEGIN
     )
     RETURNING id INTO new_lead_id;
 
-    INSERT INTO "Job" (id, job_title, job_url, salary_range, resume_date, created_at, updated_at)
+    INSERT INTO "Job" (id, job_title, job_url, salary_range, description, resume_date, created_at, updated_at)
     VALUES (
       new_lead_id,
       'Software Engineer',
       'https://techstartup.example.com/jobs/swe',
       '$100k - $140k',
+      'Early-stage startup building developer tools',
       NOW() - INTERVAL '8 days',
       NOW() - INTERVAL '10 days',
       NOW() - INTERVAL '2 days'
@@ -141,13 +141,12 @@ BEGIN
   -- Job 3: DataSystems Ltd - Backend Engineer (Applied)
   SELECT o.id, o.account_id INTO org_id, account_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('DataSystems Ltd') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, source, current_status_id, created_by, updated_by, created_at, updated_at)
     VALUES (
       v_tenant_id,
       account_id,
       default_deal_id,
       'Job',
-      'Work on high-performance data processing systems',
       'manual',
       job_status_applied_id,
       v_user_id,
@@ -157,12 +156,13 @@ BEGIN
     )
     RETURNING id INTO new_lead_id;
 
-    INSERT INTO "Job" (id, job_title, job_url, salary_range, created_at, updated_at)
+    INSERT INTO "Job" (id, job_title, job_url, salary_range, description, created_at, updated_at)
     VALUES (
       new_lead_id,
       'Backend Engineer',
       'https://datasystems.example.com/careers/backend',
       '$110k - $150k',
+      'Work on high-performance data processing systems',
       NOW() - INTERVAL '3 days',
       NOW() - INTERVAL '3 days'
     );
@@ -171,13 +171,12 @@ BEGIN
   -- Job 4: CloudWorks - DevOps Engineer (Rejected)
   SELECT o.id, o.account_id INTO org_id, account_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('CloudWorks') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, source, current_status_id, created_by, updated_by, created_at, updated_at)
     VALUES (
       v_tenant_id,
       account_id,
       default_deal_id,
       'Job',
-      'Infrastructure and deployment automation',
       'manual',
       job_status_rejected_id,
       v_user_id,
@@ -187,12 +186,13 @@ BEGIN
     )
     RETURNING id INTO new_lead_id;
 
-    INSERT INTO "Job" (id, job_title, job_url, salary_range, created_at, updated_at)
+    INSERT INTO "Job" (id, job_title, job_url, salary_range, description, created_at, updated_at)
     VALUES (
       new_lead_id,
       'DevOps Engineer',
       'https://cloudworks.example.com/jobs/devops',
       '$115k - $155k',
+      'Infrastructure and deployment automation',
       NOW() - INTERVAL '15 days',
       NOW() - INTERVAL '7 days'
     );
@@ -201,13 +201,12 @@ BEGIN
   -- Job 5: AI Innovations - ML Engineer (Applied)
   SELECT o.id, o.account_id INTO org_id, account_id FROM "Organization" o WHERE LOWER(o.name) = LOWER('AI Innovations') LIMIT 1;
   IF org_id IS NOT NULL THEN
-    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, description, source, current_status_id, created_by, updated_by, created_at, updated_at)
+    INSERT INTO "Lead" (tenant_id, account_id, deal_id, type, source, current_status_id, created_by, updated_by, created_at, updated_at)
     VALUES (
       v_tenant_id,
       account_id,
       default_deal_id,
       'Job',
-      'Building cutting-edge machine learning models',
       'manual',
       job_status_applied_id,
       v_user_id,
@@ -217,12 +216,13 @@ BEGIN
     )
     RETURNING id INTO new_lead_id;
 
-    INSERT INTO "Job" (id, job_title, job_url, salary_range, resume_date, created_at, updated_at)
+    INSERT INTO "Job" (id, job_title, job_url, salary_range, description, resume_date, created_at, updated_at)
     VALUES (
       new_lead_id,
       'ML Engineer',
       'https://aiinnovations.example.com/careers/ml',
       '$130k - $180k',
+      'Building cutting-edge machine learning models',
       NOW() - INTERVAL '1 day',
       NOW() - INTERVAL '1 day',
       NOW() - INTERVAL '1 day'

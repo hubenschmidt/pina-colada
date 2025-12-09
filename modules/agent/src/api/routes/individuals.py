@@ -7,10 +7,13 @@ from fastapi import APIRouter, Request, Query
 from controllers.individual_controller import (
     create_individual,
     create_individual_contact,
+    create_individual_signal,
     delete_individual,
     delete_individual_contact,
+    delete_individual_signal,
     get_individual,
     get_individual_contacts,
+    get_individual_signals,
     get_individuals,
     search_individuals,
     update_individual,
@@ -98,3 +101,28 @@ async def update_individual_contact_route(request: Request, individual_id: int, 
 async def delete_individual_contact_route(request: Request, individual_id: int, contact_id: int):
     """Remove a contact from an individual."""
     return await delete_individual_contact(individual_id, contact_id)
+
+
+# Signal management
+
+@router.get("/{individual_id}/signals")
+async def get_individual_signals_route(
+    request: Request,
+    individual_id: int,
+    signal_type: Optional[str] = Query(None),
+    limit: int = Query(20, ge=1, le=100),
+):
+    """Get signals for an individual."""
+    return await get_individual_signals(individual_id, signal_type, limit)
+
+
+@router.post("/{individual_id}/signals")
+async def create_individual_signal_route(request: Request, individual_id: int, data: dict):
+    """Create a signal for an individual."""
+    return await create_individual_signal(individual_id, data)
+
+
+@router.delete("/{individual_id}/signals/{signal_id}")
+async def delete_individual_signal_route(request: Request, individual_id: int, signal_id: int):
+    """Delete a signal."""
+    return await delete_individual_signal(individual_id, signal_id)

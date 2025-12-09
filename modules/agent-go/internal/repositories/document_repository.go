@@ -19,6 +19,7 @@ type DocumentDTO struct {
 	FileSize         int64   `json:"file_size"`
 	IsCurrentVersion bool    `json:"is_current_version"`
 	VersionNumber    int     `json:"version_number"`
+	ParentID         *int64  `json:"parent_id"`
 }
 
 type DocumentRepository struct {
@@ -237,4 +238,202 @@ func (r *DocumentRepository) FindAll(entityType *string, entityID *int64, tenant
 		PageSize:   params.PageSize,
 		TotalPages: CalculateTotalPages(totalCount, params.PageSize),
 	}, nil
+}
+
+// FindDocumentVersions returns all versions of a document (whether id is root or child)
+func (r *DocumentRepository) FindDocumentVersions(documentID int64, tenantID int64) ([]DocumentDTO, error) {
+	// First get the document to determine root ID
+	var asset models.Asset
+	err := r.db.Where("id = ? AND tenant_id = ?", documentID, tenantID).First(&asset).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Determine root ID
+	rootID := documentID
+	if asset.ParentID != nil {
+		rootID = *asset.ParentID
+	}
+
+	// Find all versions: root + all children
+	var docs []DocumentDTO
+	err = r.db.Table(`"Asset"`).
+		Select(`"Asset".id, "Asset".asset_type, "Asset".tenant_id, "Asset".user_id,
+			"Asset".filename, "Asset".content_type, "Asset".description,
+			"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
+			"Asset".parent_id,
+			"Document".storage_path, "Document".file_size`).
+		Joins(`INNER JOIN "Document" ON "Document".id = "Asset".id`).
+		Where(`"Asset".tenant_id = ? AND ("Asset".id = ? OR "Asset".parent_id = ?)`, tenantID, rootID, rootID).
+		Order("version_number DESC").
+		Scan(&docs).Error
+
+	return docs, err
+}
+
+// GetVersionCount returns the total number of versions for a document
+func (r *DocumentRepository) GetVersionCount(documentID int64, tenantID int64) (int64, error) {
+	var asset models.Asset
+	err := r.db.Where("id = ? AND tenant_id = ?", documentID, tenantID).First(&asset).Error
+	if err != nil {
+		return 0, err
+	}
+
+	rootID := documentID
+	if asset.ParentID != nil {
+		rootID = *asset.ParentID
+	}
+
+	var count int64
+	err = r.db.Table(`"Asset"`).
+		Where(`tenant_id = ? AND (id = ? OR parent_id = ?)`, tenantID, rootID, rootID).
+		Count(&count).Error
+
+	return count, err
+}
+
+// CreateVersionInput holds data for creating a new version
+type CreateVersionInput struct {
+	ParentID    int64
+	TenantID    int64
+	UserID      int64
+	StoragePath string
+	FileSize    int64
+	ContentType string
+}
+
+// CreateNewVersion creates a new version of an existing document
+func (r *DocumentRepository) CreateNewVersion(input CreateVersionInput) (*DocumentDTO, error) {
+	tx := r.db.Begin()
+
+	// Get the parent document to copy metadata
+	var parentAsset models.Asset
+	err := tx.Where("id = ? AND tenant_id = ?", input.ParentID, input.TenantID).First(&parentAsset).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	// Determine the actual root ID
+	rootID := input.ParentID
+	if parentAsset.ParentID != nil {
+		rootID = *parentAsset.ParentID
+	}
+
+	// Get max version number
+	var maxVersion int
+	err = tx.Table(`"Asset"`).
+		Select("COALESCE(MAX(version_number), 0)").
+		Where(`tenant_id = ? AND (id = ? OR parent_id = ?)`, input.TenantID, rootID, rootID).
+		Scan(&maxVersion).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	// Mark all existing versions as not current
+	err = tx.Table(`"Asset"`).
+		Where(`tenant_id = ? AND (id = ? OR parent_id = ?)`, input.TenantID, rootID, rootID).
+		Update("is_current_version", false).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	// Create new Asset (version)
+	newAsset := &models.Asset{
+		AssetType:        "document",
+		TenantID:         input.TenantID,
+		UserID:           input.UserID,
+		Filename:         parentAsset.Filename,
+		ContentType:      input.ContentType,
+		Description:      parentAsset.Description,
+		CreatedBy:        input.UserID,
+		UpdatedBy:        input.UserID,
+		ParentID:         &rootID,
+		VersionNumber:    maxVersion + 1,
+		IsCurrentVersion: true,
+	}
+
+	if err := tx.Create(newAsset).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	// Create Document record
+	doc := &models.Document{
+		ID:          newAsset.ID,
+		StoragePath: input.StoragePath,
+		FileSize:    input.FileSize,
+	}
+
+	if err := tx.Create(doc).Error; err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	return &DocumentDTO{
+		ID:               newAsset.ID,
+		AssetType:        newAsset.AssetType,
+		TenantID:         newAsset.TenantID,
+		UserID:           newAsset.UserID,
+		Filename:         newAsset.Filename,
+		ContentType:      newAsset.ContentType,
+		Description:      newAsset.Description,
+		CreatedAt:        newAsset.CreatedAt.Format("2006-01-02T15:04:05Z"),
+		UpdatedAt:        newAsset.UpdatedAt.Format("2006-01-02T15:04:05Z"),
+		StoragePath:      doc.StoragePath,
+		FileSize:         doc.FileSize,
+		IsCurrentVersion: newAsset.IsCurrentVersion,
+		VersionNumber:    newAsset.VersionNumber,
+		ParentID:         newAsset.ParentID,
+	}, nil
+}
+
+// SetCurrentVersion marks a specific version as current and others as not current
+func (r *DocumentRepository) SetCurrentVersion(documentID int64, tenantID int64) (*DocumentDTO, error) {
+	tx := r.db.Begin()
+
+	// Get the document
+	var asset models.Asset
+	err := tx.Where("id = ? AND tenant_id = ?", documentID, tenantID).First(&asset).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	// Determine root ID
+	rootID := documentID
+	if asset.ParentID != nil {
+		rootID = *asset.ParentID
+	}
+
+	// Mark all versions as not current
+	err = tx.Table(`"Asset"`).
+		Where(`tenant_id = ? AND (id = ? OR parent_id = ?)`, tenantID, rootID, rootID).
+		Update("is_current_version", false).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	// Mark the target version as current
+	err = tx.Table(`"Asset"`).
+		Where("id = ?", documentID).
+		Update("is_current_version", true).Error
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		return nil, err
+	}
+
+	// Fetch and return the updated document
+	return r.FindDocumentByID(documentID)
 }

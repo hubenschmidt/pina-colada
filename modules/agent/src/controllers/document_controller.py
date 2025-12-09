@@ -91,16 +91,17 @@ async def upload_document(
     content: bytes,
     content_type: str,
     description: Optional[str] = None,
+    tags: Optional[str] = None,
     entity_type: Optional[str] = None,
     entity_id: Optional[int] = None,
 ) -> dict:
     """Upload a new document."""
     tenant_id = request.state.tenant_id
     user_id = request.state.user_id
-    document, entities, tags = await upload_document_service(
-        tenant_id, user_id, filename, content, content_type, description, entity_type, entity_id
+    document, entities, doc_tags = await upload_document_service(
+        tenant_id, user_id, filename, content, content_type, description, tags, entity_type, entity_id
     )
-    return document_to_detail_response(document, entities, tags)
+    return document_to_detail_response(document, entities, doc_tags)
 
 
 @handle_http_exceptions

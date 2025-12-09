@@ -22,14 +22,6 @@ __all__ = ["JobCreate", "JobUpdate"]
 logger = logging.getLogger(__name__)
 
 
-def _update_job_description(job: Job, description: str) -> None:
-    """Update job description and lead description."""
-    job.description = description
-    if not job.lead:
-        return
-    job.lead.description = description
-
-
 def _update_lead_status(lead: Lead, data: Dict[str, Any]) -> None:
     """Update lead status from data. Expects current_status_id to be resolved by service."""
     if "current_status_id" not in data:
@@ -187,7 +179,6 @@ async def create_job(data: Dict[str, Any]) -> Job:
             lead_data: Dict[str, Any] = {
                 "deal_id": deal_id,
                 "type": "Job",
-                "description": data.get("description"),
                 "source": data.get("source", "manual"),
                 "current_status_id": status_id,
                 "account_id": account_id,
@@ -262,7 +253,7 @@ async def update_job(job_id: int, data: Dict[str, Any]) -> Optional[Job]:
             if "job_url" in data:
                 job.job_url = data["job_url"]
             if "description" in data:
-                _update_job_description(job, data["description"])
+                job.description = data["description"]
             if "resume_date" in data:
                 job.resume_date = data["resume_date"]
             if "salary_range" in data:

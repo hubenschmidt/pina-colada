@@ -10,8 +10,11 @@ from models.Contact import Contact
 from models.Document import Document
 from models.EntityAsset import EntityAsset
 from models.Individual import Individual
+from models.Job import Job
 from models.Lead import Lead
+from models.Opportunity import Opportunity
 from models.Organization import Organization
+from models.Partnership import Partnership
 from models.Project import Project
 from models.Tag import EntityTag, Tag
 from schemas.document import DocumentUpdate, EntityLink
@@ -224,12 +227,28 @@ async def unlink_document_from_entity(
             raise
 
 
+async def _get_lead_name(session, lead_id: int) -> Optional[str]:
+    """Get lead name from Job, Opportunity, or Partnership."""
+    result = await session.execute(select(Job.job_title).where(Job.id == lead_id))
+    name = result.scalar()
+    if name:
+        return name
+    result = await session.execute(select(Opportunity.opportunity_name).where(Opportunity.id == lead_id))
+    name = result.scalar()
+    if name:
+        return name
+    result = await session.execute(select(Partnership.partnership_name).where(Partnership.id == lead_id))
+    return result.scalar()
+
+
 async def _get_entity_name(session, entity_type: str, entity_id: int) -> Optional[str]:
     """Get entity name by type and id."""
+    if entity_type == "Lead":
+        return await _get_lead_name(session, entity_id)
+
     name_queries = {
         "Organization": lambda eid: select(Organization.name).where(Organization.id == eid),
         "Project": lambda eid: select(Project.name).where(Project.id == eid),
-        "Lead": lambda eid: select(Lead.title).where(Lead.id == eid),
     }
     composite_name_queries = {
         "Individual": lambda eid: select(Individual.first_name, Individual.last_name).where(Individual.id == eid),
@@ -329,7 +348,28 @@ async def get_documents_entities_batch(document_ids: List[int]) -> Dict[int, Lis
             elif entity_type == "Project":
                 stmt = select(Project.id, Project.name).where(Project.id.in_(type_ids))
             elif entity_type == "Lead":
-                stmt = select(Lead.id, Lead.title).where(Lead.id.in_(type_ids))
+                # Query from subtype tables since Lead.title was removed
+                for lead_id in type_ids:
+                    entity_lookups[("Lead", lead_id)] = None
+                # Job names
+                job_result = await session.execute(
+                    select(Job.id, Job.job_title).where(Job.id.in_(type_ids))
+                )
+                for row in job_result.fetchall():
+                    entity_lookups[("Lead", row[0])] = row[1]
+                # Opportunity names
+                opp_result = await session.execute(
+                    select(Opportunity.id, Opportunity.opportunity_name).where(Opportunity.id.in_(type_ids))
+                )
+                for row in opp_result.fetchall():
+                    entity_lookups[("Lead", row[0])] = row[1]
+                # Partnership names
+                partner_result = await session.execute(
+                    select(Partnership.id, Partnership.partnership_name).where(Partnership.id.in_(type_ids))
+                )
+                for row in partner_result.fetchall():
+                    entity_lookups[("Lead", row[0])] = row[1]
+                continue
             elif entity_type == "Individual":
                 stmt = select(Individual.id, Individual.first_name, Individual.last_name).where(Individual.id.in_(type_ids))
             elif entity_type == "Contact":
@@ -481,6 +521,48 @@ async def find_existing_document_by_filename(
         result = await session.execute(stmt)
         return result.scalar_one_or_none()
 
+
+async def link_tags_to_document(document_id: int, tag_names: List[str]) -> None:
+    """Link tags to a document, creating new tags if they don't exist."""
+    if not tag_names:
+        return
+
+    async with async_get_session() as session:
+        for tag_name in tag_names:
+            tag_name = tag_name.strip()
+            if not tag_name:
+                continue
+
+            # Find or create tag
+            stmt = select(Tag).where(Tag.name == tag_name)
+            result = await session.execute(stmt)
+            tag = result.scalar_one_or_none()
+
+            if not tag:
+                tag = Tag(name=tag_name)
+                session.add(tag)
+                await session.flush()
+
+            # Check if link already exists
+            link_stmt = select(EntityTag).where(
+                and_(
+                    EntityTag.tag_id == tag.id,
+                    EntityTag.entity_type == "Asset",
+                    EntityTag.entity_id == document_id,
+                )
+            )
+            link_result = await session.execute(link_stmt)
+            existing_link = link_result.scalar_one_or_none()
+
+            if not existing_link:
+                entity_tag = EntityTag(
+                    tag_id=tag.id,
+                    entity_type="Asset",
+                    entity_id=document_id,
+                )
+                session.add(entity_tag)
+
+        await session.commit()
 
 async def create_new_version(
     parent_id: int, tenant_id: int, user_id: int, storage_path: str,

@@ -9,9 +9,12 @@ from models.Account import Account
 from models.AccountProject import AccountProject
 from models.Deal import Deal
 from models.Individual import Individual
+from models.Job import Job
 from models.Lead import Lead
 from models.LeadProject import LeadProject
+from models.Opportunity import Opportunity
 from models.Organization import Organization
+from models.Partnership import Partnership
 from models.Project import Project
 from models.Status import Status
 from models.Task import Task
@@ -195,16 +198,35 @@ async def find_tasks_by_entity(entity_type: str, entity_id: int) -> List[Task]:
         return list(result.scalars().all())
 
 
+async def get_lead_display_name(session, lead_id: int) -> Optional[str]:
+    """Get display name for a lead from its subtype table."""
+    # Try Job first
+    result = await session.execute(select(Job.job_title).where(Job.id == lead_id))
+    name = result.scalar_one_or_none()
+    if name:
+        return name
+    # Try Opportunity
+    result = await session.execute(select(Opportunity.opportunity_name).where(Opportunity.id == lead_id))
+    name = result.scalar_one_or_none()
+    if name:
+        return name
+    # Try Partnership
+    result = await session.execute(select(Partnership.partnership_name).where(Partnership.id == lead_id))
+    return result.scalar_one_or_none()
+
+
 async def get_entity_display_name(entity_type: str, entity_id: int) -> Optional[str]:
     """Get display name for an entity."""
     if entity_type not in ("Project", "Deal", "Lead", "Account"):
         return None
 
     async with async_get_session() as session:
+        if entity_type == "Lead":
+            return await get_lead_display_name(session, entity_id)
+
         stmt_map = {
             "Project": select(Project.name).where(Project.id == entity_id),
             "Deal": select(Deal.name).where(Deal.id == entity_id),
-            "Lead": select(Lead.title).where(Lead.id == entity_id),
             "Account": select(Account.name).where(Account.id == entity_id),
         }
         result = await session.execute(stmt_map[entity_type])
@@ -298,8 +320,17 @@ async def batch_get_entity_display_names(entities: List[Tuple[str, int]]) -> Dic
                 result_map[("Deal", row[0])] = row[1]
         
         if "Lead" in by_type:
-            stmt = select(Lead.id, Lead.title).where(Lead.id.in_(by_type["Lead"]))
-            result = await session.execute(stmt)
+            lead_ids = by_type["Lead"]
+            # Get names from Job
+            result = await session.execute(select(Job.id, Job.job_title).where(Job.id.in_(lead_ids)))
+            for row in result.fetchall():
+                result_map[("Lead", row[0])] = row[1]
+            # Get names from Opportunity
+            result = await session.execute(select(Opportunity.id, Opportunity.opportunity_name).where(Opportunity.id.in_(lead_ids)))
+            for row in result.fetchall():
+                result_map[("Lead", row[0])] = row[1]
+            # Get names from Partnership
+            result = await session.execute(select(Partnership.id, Partnership.partnership_name).where(Partnership.id.in_(lead_ids)))
             for row in result.fetchall():
                 result_map[("Lead", row[0])] = row[1]
         

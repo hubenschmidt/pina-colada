@@ -458,13 +458,12 @@ BEGIN
 
     -- Create Opportunity Lead for TechVentures
     IF deal_techventures_id IS NOT NULL AND acc_techventures_id IS NOT NULL THEN
-        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
+        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, source, current_status_id, created_at, updated_at, created_by, updated_by)
         VALUES (
             v_tenant_id,
             deal_techventures_id,
             acc_techventures_id,
             'Opportunity',
-            'Opportunity to provide product strategy consulting for their portfolio companies. Potential for ongoing engagement.',
             'referral',
             status_proposal_id,
             NOW(),
@@ -490,13 +489,12 @@ BEGIN
 
     -- Create Partnership Lead for CloudScale
     IF deal_cloudscale_id IS NOT NULL AND acc_cloudscale_id IS NOT NULL THEN
-        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
+        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, source, current_status_id, created_at, updated_at, created_by, updated_by)
         VALUES (
             v_tenant_id,
             deal_cloudscale_id,
             acc_cloudscale_id,
             'Partnership',
-            'Technical partnership to integrate services. They have strong infrastructure we could leverage.',
             'outbound',
             status_qualified_id,
             NOW(),
@@ -521,13 +519,12 @@ BEGIN
 
     -- Create Opportunity Lead for DataFlow
     IF deal_cloudscale_id IS NOT NULL AND acc_dataflow_id IS NOT NULL THEN
-        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
+        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, source, current_status_id, created_at, updated_at, created_by, updated_by)
         VALUES (
             v_tenant_id,
             deal_cloudscale_id,
             acc_dataflow_id,
             'Opportunity',
-            'Consulting opportunity for data analytics strategy. Growing company with budget.',
             'inbound',
             status_nurturing_id,
             NOW(),
@@ -553,13 +550,12 @@ BEGIN
 
     -- Create Partnership Lead for SecureNet
     IF deal_securenet_id IS NOT NULL AND acc_securenet_id IS NOT NULL THEN
-        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, description, source, current_status_id, created_at, updated_at, created_by, updated_by)
+        INSERT INTO "Lead" (tenant_id, deal_id, account_id, type, source, current_status_id, created_at, updated_at, created_by, updated_by)
         VALUES (
             v_tenant_id,
             deal_securenet_id,
             acc_securenet_id,
             'Partnership',
-            'Partnership to integrate security capabilities. Potential for joint go-to-market.',
             'referral',
             status_qualified_id,
             NOW(),

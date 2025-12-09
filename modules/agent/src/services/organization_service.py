@@ -4,13 +4,7 @@ import logging
 from typing import Dict, List, Optional, Any
 
 from fastapi import HTTPException
-from sqlalchemy import select, delete, update
-from sqlalchemy.exc import IntegrityError
 
-from lib.db import async_get_session
-from models.Account import Account
-from models.Industry import AccountIndustry
-from models.AccountProject import AccountProject
 from repositories.contact_repository import (
     create_contact as create_contact_repo,
     update_contact as update_contact_repo,
@@ -29,6 +23,14 @@ from repositories.organization_repository import (
     delete_organization as delete_organization_repo,
     search_organizations as search_organizations_repo,
     get_organization_account_id,
+    create_account_for_organization,
+    update_account_industries,
+    update_account_projects,
+    find_organization_relationships as find_organization_relationships_repo,
+    find_organization_relationship,
+    create_organization_relationship as create_organization_relationship_repo,
+    find_organization_relationship_by_id,
+    delete_organization_relationship_by_id,
     OrganizationCreate,
     OrganizationUpdate,
     OrgContactCreate,
@@ -60,8 +62,8 @@ from repositories.funding_round_repository import (
     delete_funding_round as delete_funding_round_repo,
     find_funding_round_by_id,
 )
-from repositories.company_signal_repository import (
-    find_signals_by_org,
+from repositories.signal_repository import (
+    find_signals_by_account,
     create_signal as create_signal_repo,
     delete_signal as delete_signal_repo,
     find_signal_by_id,
@@ -112,37 +114,19 @@ async def create_organization(
     """Create organization with associated account, industries, and projects."""
     # Create an Account for the Organization if not provided
     if not org_data.get("account_id"):
-        async with async_get_session() as session:
-            account = Account(
-                tenant_id=tenant_id,
-                name=org_data.get("name", ""),
-                created_by=org_data.get("created_by"),
-                updated_by=org_data.get("updated_by"),
-            )
-            session.add(account)
-            await session.flush()
-
-            # Link industries to the account
-            if industry_ids:
-                for industry_id in industry_ids:
-                    session.add(AccountIndustry(
-                        account_id=account.id,
-                        industry_id=industry_id
-                    ))
-
-            # Link projects to the account
-            if project_ids:
-                for project_id in project_ids:
-                    account_project = AccountProject(account_id=account.id, project_id=project_id)
-                    session.add(account_project)
-
-            await session.commit()
-            await session.refresh(account)
-            org_data["account_id"] = account.id
+        account_id = await create_account_for_organization(
+            tenant_id=tenant_id,
+            account_name=org_data.get("name", ""),
+            created_by=org_data.get("created_by"),
+            updated_by=org_data.get("updated_by"),
+            industry_ids=industry_ids,
+            project_ids=project_ids,
+        )
+        org_data["account_id"] = account_id
 
     try:
         return await create_organization_repo(org_data)
-    except IntegrityError as e:
+    except Exception as e:
         if "idx_organization_name_lower" in str(e):
             raise HTTPException(status_code=400, detail="An organization with this name already exists")
         raise
@@ -162,28 +146,11 @@ async def update_organization(
 
     # Update industries if provided
     if industry_ids is not None and org.account_id:
-        async with async_get_session() as session:
-            await session.execute(
-                delete(AccountIndustry).where(AccountIndustry.account_id == org.account_id)
-            )
-            for industry_id in industry_ids:
-                session.add(AccountIndustry(
-                    account_id=org.account_id,
-                    industry_id=industry_id
-                ))
-            await session.commit()
+        await update_account_industries(org.account_id, industry_ids)
 
     # Update projects if explicitly provided
     if project_ids_provided and org.account_id:
-        async with async_get_session() as session:
-            await session.execute(
-                delete(AccountProject).where(AccountProject.account_id == org.account_id)
-            )
-            if project_ids:
-                for project_id in project_ids:
-                    account_project = AccountProject(account_id=org.account_id, project_id=project_id)
-                    session.add(account_project)
-            await session.commit()
+        await update_account_projects(org.account_id, project_ids)
 
     # Re-fetch to get updated data
     return await find_organization_by_id(org_id)
@@ -366,20 +333,24 @@ async def delete_funding_round(org_id: int, round_id: int):
 # Signal management
 
 async def get_signals(org_id: int, signal_type: Optional[str], limit: int):
-    """Get signals for an organization."""
+    """Get signals for an organization (via its account)."""
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
-    return await find_signals_by_org(org_id, signal_type=signal_type, limit=limit)
+    if not org.account_id:
+        return []
+    return await find_signals_by_account(org.account_id, signal_type=signal_type, limit=limit)
 
 
 async def create_signal(org_id: int, signal_data: Dict[str, Any]):
-    """Create a signal for an organization."""
+    """Create a signal for an organization (via its account)."""
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
+    if not org.account_id:
+        raise HTTPException(status_code=400, detail="Organization has no account")
     return await create_signal_repo(
-        org_id=org_id,
+        account_id=org.account_id,
         signal_type=signal_data.get("signal_type"),
         headline=signal_data.get("headline"),
         description=signal_data.get("description"),
@@ -393,8 +364,11 @@ async def create_signal(org_id: int, signal_data: Dict[str, Any]):
 
 async def delete_signal(org_id: int, signal_id: int):
     """Delete a signal."""
+    org = await find_organization_by_id(org_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
     signal = await find_signal_by_id(signal_id)
-    if not signal or signal.organization_id != org_id:
+    if not signal or signal.account_id != org.account_id:
         raise HTTPException(status_code=404, detail="Signal not found")
     await delete_signal_repo(signal_id)
     return True
@@ -404,33 +378,11 @@ async def delete_signal(org_id: int, signal_id: int):
 
 async def get_organization_relationships(org_id: int):
     """Get all relationships for an organization (both directions)."""
-    from sqlalchemy.orm import selectinload
-    from models.OrganizationRelationship import OrganizationRelationship
-
     org = await find_organization_by_id(org_id)
     if not org:
         raise HTTPException(status_code=404, detail="Organization not found")
 
-    async with async_get_session() as session:
-        # Get outgoing relationships
-        stmt = (
-            select(OrganizationRelationship)
-            .options(selectinload(OrganizationRelationship.to_organization))
-            .where(OrganizationRelationship.from_organization_id == org_id)
-        )
-        result = await session.execute(stmt)
-        outgoing = list(result.scalars().all())
-
-        # Get incoming relationships
-        stmt = (
-            select(OrganizationRelationship)
-            .options(selectinload(OrganizationRelationship.from_organization))
-            .where(OrganizationRelationship.to_organization_id == org_id)
-        )
-        result = await session.execute(stmt)
-        incoming = list(result.scalars().all())
-
-        return outgoing, incoming
+    return await find_organization_relationships_repo(org_id)
 
 
 async def create_organization_relationship(
@@ -440,9 +392,6 @@ async def create_organization_relationship(
     notes: str = None,
 ):
     """Create a relationship between two organizations."""
-    from sqlalchemy import or_
-    from models.OrganizationRelationship import OrganizationRelationship
-
     if from_org_id == to_org_id:
         raise HTTPException(status_code=400, detail="Cannot create relationship with self")
 
@@ -454,46 +403,23 @@ async def create_organization_relationship(
     if not to_org:
         raise HTTPException(status_code=404, detail="Target organization not found")
 
-    async with async_get_session() as session:
-        # Check if relationship already exists
-        stmt = select(OrganizationRelationship).where(
-            OrganizationRelationship.from_organization_id == from_org_id,
-            OrganizationRelationship.to_organization_id == to_org_id,
-        )
-        result = await session.execute(stmt)
-        if result.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="Relationship already exists")
+    # Check if relationship already exists
+    if await find_organization_relationship(from_org_id, to_org_id):
+        raise HTTPException(status_code=400, detail="Relationship already exists")
 
-        relationship = OrganizationRelationship(
-            from_organization_id=from_org_id,
-            to_organization_id=to_org_id,
-            relationship_type=relationship_type,
-            notes=notes,
-        )
-        session.add(relationship)
-        await session.commit()
-        await session.refresh(relationship)
-        return relationship
+    return await create_organization_relationship_repo(
+        from_org_id=from_org_id,
+        to_org_id=to_org_id,
+        relationship_type=relationship_type,
+        notes=notes,
+    )
 
 
 async def delete_organization_relationship(from_org_id: int, relationship_id: int):
     """Delete a relationship."""
-    from sqlalchemy import or_
-    from models.OrganizationRelationship import OrganizationRelationship
+    relationship = await find_organization_relationship_by_id(relationship_id, from_org_id)
+    if not relationship:
+        raise HTTPException(status_code=404, detail="Relationship not found")
 
-    async with async_get_session() as session:
-        stmt = select(OrganizationRelationship).where(
-            OrganizationRelationship.id == relationship_id,
-            or_(
-                OrganizationRelationship.from_organization_id == from_org_id,
-                OrganizationRelationship.to_organization_id == from_org_id,
-            )
-        )
-        result = await session.execute(stmt)
-        relationship = result.scalar_one_or_none()
-        if not relationship:
-            raise HTTPException(status_code=404, detail="Relationship not found")
-
-        await session.delete(relationship)
-        await session.commit()
-        return True
+    await delete_organization_relationship_by_id(relationship_id)
+    return True

@@ -4,13 +4,7 @@ import logging
 from typing import Dict, List, Optional, Any
 
 from fastapi import HTTPException
-from sqlalchemy import select, delete, func, or_, update
-from sqlalchemy.orm import selectinload
 
-from lib.db import async_get_session
-from models.Account import Account
-from models.Industry import AccountIndustry
-from models.AccountProject import AccountProject
 from repositories.contact_repository import (
     create_contact as create_contact_repo,
     update_contact as update_contact_repo,
@@ -30,6 +24,15 @@ from repositories.individual_repository import (
     delete_individual as delete_individual_repo,
     search_individuals as search_individuals_repo,
     get_individual_account_id,
+    check_duplicate_individual,
+    create_account_for_individual,
+    update_account_industries,
+    update_account_projects,
+    find_individual_relationships,
+    find_individual_relationship,
+    create_individual_relationship as create_individual_relationship_repo,
+    find_individual_relationship_by_id,
+    delete_individual_relationship_by_id,
     IndividualCreate,
     IndividualUpdate,
     IndContactCreate,
@@ -57,36 +60,6 @@ def _normalize_linkedin_url(url: str | None) -> str | None:
     if url.startswith("http://") or url.startswith("https://"):
         return url
     return f"https://{url}"
-
-
-async def _check_duplicate_individual(
-    first_name: str,
-    last_name: str,
-    email: str | None,
-    linkedin_url: str | None,
-    phone: str | None,
-) -> bool:
-    """Check if an individual with same name and (email, linkedin, or phone) already exists."""
-    if not email and not linkedin_url and not phone:
-        return False
-
-    async with async_get_session() as session:
-        conditions = [
-            func.lower(Individual.first_name) == first_name.lower(),
-            func.lower(Individual.last_name) == last_name.lower(),
-        ]
-
-        match_conditions = []
-        if email:
-            match_conditions.append(func.lower(Individual.email) == email.lower())
-        if linkedin_url:
-            match_conditions.append(func.lower(Individual.linkedin_url) == linkedin_url.lower())
-        if phone:
-            match_conditions.append(Individual.phone == phone)
-
-        stmt = select(Individual).where(*conditions, or_(*match_conditions))
-        result = await session.execute(stmt)
-        return result.scalar_one_or_none() is not None
 
 
 async def get_individuals_paginated(
@@ -134,7 +107,7 @@ async def create_individual(
         ind_data["linkedin_url"] = _normalize_linkedin_url(ind_data["linkedin_url"])
 
     # Check for duplicate individual
-    is_duplicate = await _check_duplicate_individual(
+    is_duplicate = await check_duplicate_individual(
         ind_data.get("first_name", ""),
         ind_data.get("last_name", ""),
         ind_data.get("email"),
@@ -146,34 +119,16 @@ async def create_individual(
 
     # Create an Account for the Individual if not provided
     if not ind_data.get("account_id"):
-        async with async_get_session() as session:
-            account_name = f"{ind_data.get('first_name', '')} {ind_data.get('last_name', '')}".strip()
-            account = Account(
-                tenant_id=tenant_id,
-                name=account_name,
-                created_by=ind_data.get("created_by"),
-                updated_by=ind_data.get("updated_by"),
-            )
-            session.add(account)
-            await session.flush()
-
-            # Link industries to the account
-            if industry_ids:
-                for industry_id in industry_ids:
-                    session.add(AccountIndustry(
-                        account_id=account.id,
-                        industry_id=industry_id
-                    ))
-
-            # Link projects to the account
-            if project_ids:
-                for project_id in project_ids:
-                    account_project = AccountProject(account_id=account.id, project_id=project_id)
-                    session.add(account_project)
-
-            await session.commit()
-            await session.refresh(account)
-            ind_data["account_id"] = account.id
+        account_name = f"{ind_data.get('first_name', '')} {ind_data.get('last_name', '')}".strip()
+        account_id = await create_account_for_individual(
+            tenant_id=tenant_id,
+            account_name=account_name,
+            created_by=ind_data.get("created_by"),
+            updated_by=ind_data.get("updated_by"),
+            industry_ids=industry_ids,
+            project_ids=project_ids,
+        )
+        ind_data["account_id"] = account_id
 
     individual = await create_individual_repo(ind_data)
     # Re-fetch to ensure relationships are loaded
@@ -198,28 +153,11 @@ async def update_individual(
 
     # Update industries if provided
     if industry_ids is not None and individual.account_id:
-        async with async_get_session() as session:
-            await session.execute(
-                delete(AccountIndustry).where(AccountIndustry.account_id == individual.account_id)
-            )
-            for industry_id in industry_ids:
-                session.add(AccountIndustry(
-                    account_id=individual.account_id,
-                    industry_id=industry_id
-                ))
-            await session.commit()
+        await update_account_industries(individual.account_id, industry_ids)
 
     # Update projects if explicitly provided
     if project_ids_provided and individual.account_id:
-        async with async_get_session() as session:
-            await session.execute(
-                delete(AccountProject).where(AccountProject.account_id == individual.account_id)
-            )
-            if project_ids:
-                for project_id in project_ids:
-                    account_project = AccountProject(account_id=individual.account_id, project_id=project_id)
-                    session.add(account_project)
-            await session.commit()
+        await update_account_projects(individual.account_id, project_ids)
 
     # Re-fetch to get updated data
     return await find_individual_by_id(individual_id)
@@ -338,32 +276,11 @@ async def delete_individual_contact(individual_id: int, contact_id: int):
 
 async def get_individual_relationships(individual_id: int):
     """Get all relationships for an individual (both directions)."""
-    from models.IndividualRelationship import IndividualRelationship
-
     individual = await find_individual_by_id(individual_id)
     if not individual:
         raise HTTPException(status_code=404, detail="Individual not found")
 
-    async with async_get_session() as session:
-        # Get outgoing relationships
-        stmt = (
-            select(IndividualRelationship)
-            .options(selectinload(IndividualRelationship.to_individual))
-            .where(IndividualRelationship.from_individual_id == individual_id)
-        )
-        result = await session.execute(stmt)
-        outgoing = list(result.scalars().all())
-
-        # Get incoming relationships
-        stmt = (
-            select(IndividualRelationship)
-            .options(selectinload(IndividualRelationship.from_individual))
-            .where(IndividualRelationship.to_individual_id == individual_id)
-        )
-        result = await session.execute(stmt)
-        incoming = list(result.scalars().all())
-
-        return outgoing, incoming
+    return await find_individual_relationships(individual_id)
 
 
 async def create_individual_relationship(
@@ -373,8 +290,6 @@ async def create_individual_relationship(
     notes: Optional[str] = None,
 ):
     """Create a relationship between two individuals."""
-    from models.IndividualRelationship import IndividualRelationship
-
     if from_individual_id == to_individual_id:
         raise HTTPException(status_code=400, detail="Cannot create relationship with self")
 
@@ -386,45 +301,73 @@ async def create_individual_relationship(
     if not to_ind:
         raise HTTPException(status_code=404, detail="Target individual not found")
 
-    async with async_get_session() as session:
-        # Check if relationship already exists
-        stmt = select(IndividualRelationship).where(
-            IndividualRelationship.from_individual_id == from_individual_id,
-            IndividualRelationship.to_individual_id == to_individual_id,
-        )
-        result = await session.execute(stmt)
-        if result.scalar_one_or_none():
-            raise HTTPException(status_code=400, detail="Relationship already exists")
+    # Check if relationship already exists
+    if await find_individual_relationship(from_individual_id, to_individual_id):
+        raise HTTPException(status_code=400, detail="Relationship already exists")
 
-        relationship = IndividualRelationship(
-            from_individual_id=from_individual_id,
-            to_individual_id=to_individual_id,
-            relationship_type=relationship_type,
-            notes=notes,
-        )
-        session.add(relationship)
-        await session.commit()
-        await session.refresh(relationship)
-        return relationship
+    return await create_individual_relationship_repo(
+        from_individual_id=from_individual_id,
+        to_individual_id=to_individual_id,
+        relationship_type=relationship_type,
+        notes=notes,
+    )
 
 
 async def delete_individual_relationship(from_individual_id: int, relationship_id: int):
     """Delete a relationship."""
-    from models.IndividualRelationship import IndividualRelationship
+    relationship = await find_individual_relationship_by_id(relationship_id, from_individual_id)
+    if not relationship:
+        raise HTTPException(status_code=404, detail="Relationship not found")
 
-    async with async_get_session() as session:
-        stmt = select(IndividualRelationship).where(
-            IndividualRelationship.id == relationship_id,
-            or_(
-                IndividualRelationship.from_individual_id == from_individual_id,
-                IndividualRelationship.to_individual_id == from_individual_id,
-            )
-        )
-        result = await session.execute(stmt)
-        relationship = result.scalar_one_or_none()
-        if not relationship:
-            raise HTTPException(status_code=404, detail="Relationship not found")
+    await delete_individual_relationship_by_id(relationship_id)
+    return True
 
-        await session.delete(relationship)
-        await session.commit()
-        return True
+
+# Signal management
+
+async def get_individual_signals(individual_id: int, signal_type: Optional[str], limit: int):
+    """Get signals for an individual (via its account)."""
+    from repositories.signal_repository import find_signals_by_account
+
+    individual = await find_individual_by_id(individual_id)
+    if not individual:
+        raise HTTPException(status_code=404, detail="Individual not found")
+    if not individual.account_id:
+        return []
+    return await find_signals_by_account(individual.account_id, signal_type=signal_type, limit=limit)
+
+
+async def create_individual_signal(individual_id: int, signal_data: Dict[str, Any]):
+    """Create a signal for an individual (via its account)."""
+    from repositories.signal_repository import create_signal as create_signal_repo
+
+    individual = await find_individual_by_id(individual_id)
+    if not individual:
+        raise HTTPException(status_code=404, detail="Individual not found")
+    if not individual.account_id:
+        raise HTTPException(status_code=400, detail="Individual has no account")
+    return await create_signal_repo(
+        account_id=individual.account_id,
+        signal_type=signal_data.get("signal_type"),
+        headline=signal_data.get("headline"),
+        description=signal_data.get("description"),
+        signal_date=signal_data.get("signal_date"),
+        source=signal_data.get("source"),
+        source_url=signal_data.get("source_url"),
+        sentiment=signal_data.get("sentiment"),
+        relevance_score=signal_data.get("relevance_score")
+    )
+
+
+async def delete_individual_signal(individual_id: int, signal_id: int):
+    """Delete a signal."""
+    from repositories.signal_repository import find_signal_by_id, delete_signal as delete_signal_repo
+
+    individual = await find_individual_by_id(individual_id)
+    if not individual:
+        raise HTTPException(status_code=404, detail="Individual not found")
+    signal = await find_signal_by_id(signal_id)
+    if not signal or signal.account_id != individual.account_id:
+        raise HTTPException(status_code=404, detail="Signal not found")
+    await delete_signal_repo(signal_id)
+    return True

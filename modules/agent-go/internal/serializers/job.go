@@ -68,7 +68,6 @@ type JobDetailResponse struct {
 // LeadResponse represents a lead
 type LeadResponse struct {
 	ID            int64        `json:"id"`
-	Description   *string      `json:"description"`
 	Source        *string      `json:"source"`
 	Type          string       `json:"type"`
 	CurrentStatus *StatusBrief `json:"current_status"`
@@ -206,13 +205,12 @@ func leadToResponse(lead *models.Lead) *LeadResponse {
 	}
 
 	resp := &LeadResponse{
-		ID:          lead.ID,
-		Description: lead.Description,
-		Source:      lead.Source,
-		Type:        lead.Type,
-		TenantID:    lead.TenantID,
-		CreatedAt:   lead.CreatedAt,
-		UpdatedAt:   lead.UpdatedAt,
+		ID:        lead.ID,
+		Source:    lead.Source,
+		Type:      lead.Type,
+		TenantID:  lead.TenantID,
+		CreatedAt: lead.CreatedAt,
+		UpdatedAt: lead.UpdatedAt,
 	}
 
 	if lead.CurrentStatus != nil {

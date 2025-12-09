@@ -24,6 +24,7 @@ from repositories.document_repository import (
     find_existing_document_by_filename,
     create_new_version as create_new_version_repo,
     set_current_version as set_current_version_repo,
+    link_tags_to_document,
     DocumentUpdate,
     EntityLink,
 )
@@ -115,6 +116,7 @@ async def upload_document(
     content: bytes,
     content_type: str,
     description: Optional[str] = None,
+    tags: Optional[str] = None,
     entity_type: Optional[str] = None,
     entity_id: Optional[int] = None,
 ):
@@ -146,9 +148,14 @@ async def upload_document(
         normalized_type = _normalize_entity_type(entity_type)
         await link_document_to_entity(document.id, normalized_type, entity_id)
 
+    # Link tags if provided (comma-separated string)
+    if tags:
+        tag_list = [t.strip() for t in tags.split(",") if t.strip()]
+        await link_tags_to_document(document.id, tag_list)
+
     entities = await get_document_entities(document.id)
-    tags = await get_document_tags(document.id)
-    return document, entities, tags
+    doc_tags = await get_document_tags(document.id)
+    return document, entities, doc_tags
 
 
 async def download_document(document_id: int, tenant_id: int):

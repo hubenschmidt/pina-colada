@@ -214,6 +214,9 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 			r.Post("/documents", c.Document.UploadDocument)
 			r.Post("/documents/{id}/link", c.Document.LinkDocument)
 			r.Delete("/documents/{id}/link", c.Document.UnlinkDocument)
+			r.Get("/documents/{id}/versions", c.Document.GetDocumentVersions)
+			r.Post("/documents/{id}/versions", c.Document.CreateDocumentVersion)
+			r.Patch("/documents/{id}/set-current", c.Document.SetCurrentVersion)
 		})
 
 		// Tags routes

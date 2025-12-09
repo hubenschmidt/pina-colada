@@ -2,33 +2,28 @@
 
 from typing import List, Dict, Any
 
-from sqlalchemy import select
-
-from lib.db import async_get_session
-from models.Reasoning import Reasoning
+from repositories.reasoning_repository import (
+    find_reasoning_table_names,
+    find_reasoning_by_type,
+)
 
 
 async def get_reasoning_tables(reasoning_type: str) -> List[str]:
     """Get all table names for a reasoning context."""
-    async with async_get_session() as session:
-        stmt = select(Reasoning.table_name).where(Reasoning.type == reasoning_type)
-        result = await session.execute(stmt)
-        return [row[0] for row in result.fetchall()]
+    return await find_reasoning_table_names(reasoning_type)
 
 
 async def get_reasoning_schema(reasoning_type: str) -> List[Dict[str, Any]]:
     """Get tables with descriptions and schema hints for richer context."""
-    async with async_get_session() as session:
-        stmt = select(Reasoning).where(Reasoning.type == reasoning_type)
-        result = await session.execute(stmt)
-        return [
-            {
-                "table": r.table_name,
-                "description": r.description,
-                "hints": r.schema_hint,
-            }
-            for r in result.scalars().all()
-        ]
+    records = await find_reasoning_by_type(reasoning_type)
+    return [
+        {
+            "table": r.table_name,
+            "description": r.description,
+            "hints": r.schema_hint,
+        }
+        for r in records
+    ]
 
 
 def format_schema_context(schema_data: List[Dict[str, Any]]) -> str:

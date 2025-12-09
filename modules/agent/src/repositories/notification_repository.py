@@ -3,9 +3,9 @@
 import logging
 from datetime import datetime, timedelta
 from typing import List, Optional
-from sqlalchemy import and_, delete, func, select, update
+from sqlalchemy import and_, delete, func, select, text, update
 from sqlalchemy.orm import joinedload
-from lib.db import async_get_session
+from lib.db import async_get_session, get_session
 from models.Comment import Comment
 from models.CommentNotification import CommentNotification
 from schemas.notification import MarkEntityReadRequest, MarkReadRequest
@@ -187,3 +187,70 @@ async def cleanup_old_notifications(days: int = 30) -> int:
             await session.rollback()
             logger.error(f"Failed to cleanup old notifications: {e}")
             raise
+
+
+def get_lead_type_sync(entity_id: int) -> str:
+    """Get Lead type (Job, Opportunity, Partnership) synchronously for URL building."""
+    session = get_session()
+    try:
+        result = session.execute(
+            text('SELECT type FROM "Lead" WHERE id = :id'),
+            {"id": entity_id}
+        ).fetchone()
+        if not result or not result[0]:
+            return "leads"
+        lead_type = result[0].lower() + "s"
+        if lead_type == "opportunitys":
+            lead_type = "opportunities"
+        return lead_type
+    finally:
+        session.close()
+
+
+def get_entity_project_id_sync(entity_type: str, entity_id: int) -> Optional[int]:
+    """Get project_id for an entity synchronously. Returns first project if multiple."""
+    if not entity_type or not entity_id:
+        return None
+
+    session = get_session()
+    try:
+        if entity_type == "Deal":
+            result = session.execute(
+                text('SELECT project_id FROM "Deal" WHERE id = :id'),
+                {"id": entity_id}
+            ).fetchone()
+            return result[0] if result else None
+
+        if entity_type == "Task":
+            result = session.execute(
+                text('SELECT taskable_type, taskable_id FROM "Task" WHERE id = :id'),
+                {"id": entity_id}
+            ).fetchone()
+            if result and result[0] and result[1]:
+                return get_entity_project_id_sync(result[0], result[1])
+            return None
+
+        if entity_type == "Lead":
+            result = session.execute(
+                text('SELECT project_id FROM "Lead_Project" WHERE lead_id = :id LIMIT 1'),
+                {"id": entity_id}
+            ).fetchone()
+            return result[0] if result else None
+
+        if entity_type not in ("Individual", "Organization"):
+            return None
+
+        result = session.execute(
+            text(f'SELECT account_id FROM "{entity_type}" WHERE id = :id'),
+            {"id": entity_id}
+        ).fetchone()
+        if not result or not result[0]:
+            return None
+
+        proj_result = session.execute(
+            text('SELECT project_id FROM "Account_Project" WHERE account_id = :id LIMIT 1'),
+            {"id": result[0]}
+        ).fetchone()
+        return proj_result[0] if proj_result else None
+    finally:
+        session.close()

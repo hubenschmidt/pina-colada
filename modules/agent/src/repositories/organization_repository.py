@@ -2,12 +2,15 @@
 
 import logging
 from typing import Any, Dict, List, Optional
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import selectinload
 from lib.db import async_get_session
 from models.Account import Account
+from models.AccountProject import AccountProject
+from models.AccountRelationship import AccountRelationship
 from models.Industry import AccountIndustry
 from models.Organization import Organization
+from models.OrganizationRelationship import OrganizationRelationship
 from models.OrganizationTechnology import OrganizationTechnology
 from schemas.organization import (
 
@@ -97,14 +100,13 @@ async def find_all_organizations(
 
 async def find_organization_by_id(org_id: int) -> Optional[Organization]:
     """Find organization by ID with all relationships for detail view."""
-    from models.AccountRelationship import AccountRelationship
-
     async with async_get_session() as session:
         stmt = (
             select(Organization)
             .options(
                 selectinload(Organization.account).selectinload(Account.industries),
                 selectinload(Organization.account).selectinload(Account.projects),
+                selectinload(Organization.account).selectinload(Account.signals),
                 selectinload(Organization.account).selectinload(Account.outgoing_relationships).selectinload(AccountRelationship.to_account).selectinload(Account.organizations),
                 selectinload(Organization.account).selectinload(Account.outgoing_relationships).selectinload(AccountRelationship.to_account).selectinload(Account.individuals),
                 selectinload(Organization.account).selectinload(Account.incoming_relationships).selectinload(AccountRelationship.from_account).selectinload(Account.organizations),
@@ -114,7 +116,6 @@ async def find_organization_by_id(org_id: int) -> Optional[Organization]:
                 selectinload(Organization.revenue_range),
                 selectinload(Organization.technologies).selectinload(OrganizationTechnology.technology),
                 selectinload(Organization.funding_rounds),
-                selectinload(Organization.signals),
             )
             .where(Organization.id == org_id)
         )
@@ -265,3 +266,133 @@ async def get_organization_account_id(org_id: int) -> Optional[int]:
     """Get the account_id for an organization."""
     org = await find_organization_by_id(org_id)
     return org.account_id if org else None
+
+
+async def create_account_for_organization(
+    tenant_id: Optional[int],
+    account_name: str,
+    created_by: Optional[int],
+    updated_by: Optional[int],
+    industry_ids: Optional[List[int]] = None,
+    project_ids: Optional[List[int]] = None,
+) -> int:
+    """Create an account for an organization with industries and projects."""
+    async with async_get_session() as session:
+        account = Account(
+            tenant_id=tenant_id,
+            name=account_name,
+            created_by=created_by,
+            updated_by=updated_by,
+        )
+        session.add(account)
+        await session.flush()
+
+        if industry_ids:
+            for industry_id in industry_ids:
+                session.add(AccountIndustry(account_id=account.id, industry_id=industry_id))
+
+        if project_ids:
+            for project_id in project_ids:
+                session.add(AccountProject(account_id=account.id, project_id=project_id))
+
+        await session.commit()
+        return account.id
+
+
+async def update_account_industries(account_id: int, industry_ids: List[int]) -> None:
+    """Replace industries for an account."""
+    async with async_get_session() as session:
+        await session.execute(delete(AccountIndustry).where(AccountIndustry.account_id == account_id))
+        for industry_id in industry_ids:
+            session.add(AccountIndustry(account_id=account_id, industry_id=industry_id))
+        await session.commit()
+
+
+async def update_account_projects(account_id: int, project_ids: Optional[List[int]]) -> None:
+    """Replace projects for an account."""
+    async with async_get_session() as session:
+        await session.execute(delete(AccountProject).where(AccountProject.account_id == account_id))
+        if project_ids:
+            for project_id in project_ids:
+                session.add(AccountProject(account_id=account_id, project_id=project_id))
+        await session.commit()
+
+
+async def find_organization_relationships(org_id: int) -> tuple[List, List]:
+    """Find all relationships for an organization (outgoing and incoming)."""
+    async with async_get_session() as session:
+        # Get outgoing relationships
+        stmt = (
+            select(OrganizationRelationship)
+            .options(selectinload(OrganizationRelationship.to_organization))
+            .where(OrganizationRelationship.from_organization_id == org_id)
+        )
+        result = await session.execute(stmt)
+        outgoing = list(result.scalars().all())
+
+        # Get incoming relationships
+        stmt = (
+            select(OrganizationRelationship)
+            .options(selectinload(OrganizationRelationship.from_organization))
+            .where(OrganizationRelationship.to_organization_id == org_id)
+        )
+        result = await session.execute(stmt)
+        incoming = list(result.scalars().all())
+
+        return outgoing, incoming
+
+
+async def find_organization_relationship(from_id: int, to_id: int) -> bool:
+    """Check if a relationship exists between two organizations."""
+    async with async_get_session() as session:
+        stmt = select(OrganizationRelationship).where(
+            OrganizationRelationship.from_organization_id == from_id,
+            OrganizationRelationship.to_organization_id == to_id,
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
+
+async def create_organization_relationship(
+    from_org_id: int,
+    to_org_id: int,
+    relationship_type: Optional[str] = None,
+    notes: Optional[str] = None,
+):
+    """Create a relationship between two organizations."""
+    async with async_get_session() as session:
+        relationship = OrganizationRelationship(
+            from_organization_id=from_org_id,
+            to_organization_id=to_org_id,
+            relationship_type=relationship_type,
+            notes=notes,
+        )
+        session.add(relationship)
+        await session.commit()
+        await session.refresh(relationship)
+        return relationship
+
+
+async def find_organization_relationship_by_id(relationship_id: int, org_id: int):
+    """Find relationship by ID where org is either from or to."""
+    async with async_get_session() as session:
+        stmt = select(OrganizationRelationship).where(
+            OrganizationRelationship.id == relationship_id,
+            or_(
+                OrganizationRelationship.from_organization_id == org_id,
+                OrganizationRelationship.to_organization_id == org_id,
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none()
+
+
+async def delete_organization_relationship_by_id(relationship_id: int) -> bool:
+    """Delete an organization relationship by ID."""
+    async with async_get_session() as session:
+        rel = await session.get(OrganizationRelationship, relationship_id)
+        if not rel:
+            return False
+        await session.delete(rel)
+        await session.commit()
+        return True

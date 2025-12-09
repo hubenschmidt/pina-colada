@@ -2,7 +2,7 @@
 
 import logging
 from typing import Any, Dict, List, Optional
-from sqlalchemy import func as sql_func, or_, select
+from sqlalchemy import delete, func as sql_func, or_, select
 from sqlalchemy.orm import joinedload
 from lib.db import async_get_session
 from models.Account import Account
@@ -72,7 +72,6 @@ async def find_all_opportunities(
                 or_(
                     sql_func.lower(Organization.name).contains(search_lower),
                     sql_func.lower(Opportunity.opportunity_name).contains(search_lower),
-                    sql_func.lower(Lead.title).contains(search_lower)
                 )
             )
 
@@ -134,7 +133,6 @@ async def create_opportunity(data: Dict[str, Any]) -> Opportunity:
             lead_data: Dict[str, Any] = {
                 "deal_id": deal_id,
                 "type": "Opportunity",
-                "description": data.get("description"),
                 "source": data.get("source", "manual"),
                 "current_status_id": status_id,
                 "account_id": account_id,
@@ -194,8 +192,6 @@ async def update_opportunity(opp_id: int, data: Dict[str, Any]) -> Optional[Oppo
                 opp.expected_close_date = data["expected_close_date"]
             if "description" in data:
                 opp.description = data["description"]
-                if opp.lead:
-                    opp.lead.description = data["description"]
 
             if opp.lead:
                 if "current_status_id" in data and data["current_status_id"] is not None:
@@ -204,8 +200,6 @@ async def update_opportunity(opp_id: int, data: Dict[str, Any]) -> Optional[Oppo
                     opp.lead.source = data["source"]
 
                 if "project_ids" in data:
-                    from models.LeadProject import LeadProject
-                    from sqlalchemy import delete
                     await session.execute(
                         delete(LeadProject).where(LeadProject.lead_id == opp.lead.id)
                     )

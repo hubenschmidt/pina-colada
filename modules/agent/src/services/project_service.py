@@ -5,15 +5,20 @@ from datetime import date
 from typing import Optional, Dict, Any, List
 
 from fastapi import HTTPException
-from sqlalchemy import select, func
-from sqlalchemy.orm import selectinload
 
-from lib.db import async_get_session
-from models.Project import Project
-from models.Deal import Deal
-from models.Lead import Lead
-from models.LeadProject import LeadProject
-from repositories.project_repository import ProjectCreate, ProjectUpdate
+from repositories.project_repository import (
+    find_all_projects,
+    find_project_by_id,
+    count_project_deals,
+    count_project_leads,
+    create_project as create_project_repo,
+    update_project as update_project_repo,
+    delete_project as delete_project_repo,
+    find_project_leads,
+    find_project_deals,
+    ProjectCreate,
+    ProjectUpdate,
+)
 
 # Re-export Pydantic models for controllers
 __all__ = ["ProjectCreate", "ProjectUpdate"]
@@ -30,37 +35,20 @@ def _parse_date(date_str: Optional[str]) -> Optional[date]:
 
 async def get_projects(tenant_id: Optional[int]) -> List:
     """Get all projects for tenant."""
-    async with async_get_session() as session:
-        stmt = select(Project).order_by(Project.name)
-        if tenant_id:
-            stmt = stmt.where(Project.tenant_id == tenant_id)
-        result = await session.execute(stmt)
-        return list(result.scalars().all())
+    return await find_all_projects(tenant_id)
 
 
 async def get_project(project_id: int, tenant_id: Optional[int]):
     """Get project by ID with related counts."""
-    async with async_get_session() as session:
-        stmt = select(Project).where(Project.id == project_id)
-        if tenant_id:
-            stmt = stmt.where(Project.tenant_id == tenant_id)
-        result = await session.execute(stmt)
-        project = result.scalar_one_or_none()
+    project = await find_project_by_id(project_id, tenant_id)
 
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
 
-        deals_count_result = await session.execute(
-            select(func.count(Deal.id)).where(Deal.project_id == project_id)
-        )
-        deals_count = deals_count_result.scalar() or 0
+    deals_count = await count_project_deals(project_id)
+    leads_count = await count_project_leads(project_id)
 
-        leads_count_result = await session.execute(
-            select(func.count(LeadProject.lead_id)).where(LeadProject.project_id == project_id)
-        )
-        leads_count = leads_count_result.scalar() or 0
-
-        return project, deals_count, leads_count
+    return project, deals_count, leads_count
 
 
 async def create_project(
@@ -69,22 +57,16 @@ async def create_project(
     user_id: Optional[int],
 ):
     """Create a new project."""
-    async with async_get_session() as session:
-        project = Project(
-            tenant_id=tenant_id,
-            name=project_data.get("name"),
-            description=project_data.get("description"),
-            status=project_data.get("status"),
-            current_status_id=project_data.get("current_status_id"),
-            start_date=_parse_date(project_data.get("start_date")),
-            end_date=_parse_date(project_data.get("end_date")),
-            created_by=user_id,
-            updated_by=user_id,
-        )
-        session.add(project)
-        await session.commit()
-        await session.refresh(project)
-        return project
+    return await create_project_repo(
+        tenant_id=tenant_id,
+        name=project_data.get("name"),
+        description=project_data.get("description"),
+        status=project_data.get("status"),
+        current_status_id=project_data.get("current_status_id"),
+        start_date=_parse_date(project_data.get("start_date")),
+        end_date=_parse_date(project_data.get("end_date")),
+        user_id=user_id,
+    )
 
 
 async def update_project(
@@ -94,78 +76,36 @@ async def update_project(
     user_id: Optional[int],
 ):
     """Update a project."""
-    async with async_get_session() as session:
-        stmt = select(Project).where(Project.id == project_id)
-        if tenant_id:
-            stmt = stmt.where(Project.tenant_id == tenant_id)
-        result = await session.execute(stmt)
-        project = result.scalar_one_or_none()
+    # Parse dates before passing to repository
+    data = dict(project_data)
+    if data.get("start_date") is not None:
+        data["start_date"] = _parse_date(data["start_date"])
+    if data.get("end_date") is not None:
+        data["end_date"] = _parse_date(data["end_date"])
 
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
+    project = await update_project_repo(project_id, tenant_id, data, user_id)
 
-        if project_data.get("name") is not None:
-            project.name = project_data["name"]
-        if project_data.get("description") is not None:
-            project.description = project_data["description"]
-        if project_data.get("status") is not None:
-            project.status = project_data["status"]
-        if project_data.get("current_status_id") is not None:
-            project.current_status_id = project_data["current_status_id"]
-        if project_data.get("start_date") is not None:
-            project.start_date = _parse_date(project_data["start_date"])
-        if project_data.get("end_date") is not None:
-            project.end_date = _parse_date(project_data["end_date"])
-        project.updated_by = user_id
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
 
-        await session.commit()
-        await session.refresh(project)
-        return project
+    return project
 
 
 async def delete_project(project_id: int, tenant_id: Optional[int]):
     """Delete a project."""
-    async with async_get_session() as session:
-        stmt = select(Project).where(Project.id == project_id)
-        if tenant_id:
-            stmt = stmt.where(Project.tenant_id == tenant_id)
-        result = await session.execute(stmt)
-        project = result.scalar_one_or_none()
+    deleted = await delete_project_repo(project_id, tenant_id)
 
-        if not project:
-            raise HTTPException(status_code=404, detail="Project not found")
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Project not found")
 
-        await session.delete(project)
-        await session.commit()
-        return True
+    return True
 
 
 async def get_project_leads(project_id: int, tenant_id: Optional[int]) -> List:
     """Get leads for a project."""
-    async with async_get_session() as session:
-        stmt = (
-            select(Lead)
-            .options(selectinload(Lead.current_status), selectinload(Lead.account))
-            .join(LeadProject, Lead.id == LeadProject.lead_id)
-            .where(LeadProject.project_id == project_id)
-            .order_by(Lead.created_at.desc())
-        )
-        if tenant_id:
-            stmt = stmt.where(Lead.tenant_id == tenant_id)
-        result = await session.execute(stmt)
-        return list(result.scalars().all())
+    return await find_project_leads(project_id, tenant_id)
 
 
 async def get_project_deals(project_id: int, tenant_id: Optional[int]) -> List:
     """Get deals for a project."""
-    async with async_get_session() as session:
-        stmt = (
-            select(Deal)
-            .options(selectinload(Deal.current_status))
-            .where(Deal.project_id == project_id)
-            .order_by(Deal.created_at.desc())
-        )
-        if tenant_id:
-            stmt = stmt.where(Deal.tenant_id == tenant_id)
-        result = await session.execute(stmt)
-        return list(result.scalars().all())
+    return await find_project_deals(project_id, tenant_id)

@@ -136,7 +136,6 @@ func (r *JobRepository) Create(input JobCreateInput) (int64, error) {
 			TenantID:        input.TenantID,
 			DealID:          deal.ID,
 			Type:            "Job",
-			Description:     input.Description,
 			Source:          &input.Source,
 			AccountID:       input.AccountID,
 			CurrentStatusID: input.CurrentStatusID,

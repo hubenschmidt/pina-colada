@@ -4,14 +4,14 @@ import logging
 from typing import Optional, List, Dict, Any
 
 from fastapi import HTTPException
-from sqlalchemy import select, delete as sql_delete
 
-from lib.db import async_get_session
-from models.Contact import Contact, ContactAccount
 from repositories.contact_repository import (
     search_contacts_and_individuals,
     delete_contact as delete_contact_repo,
     find_all_contacts_paginated,
+    find_contact_by_id,
+    create_contact_with_accounts,
+    update_contact_with_accounts,
     ContactCreate,
     ContactUpdate,
 )
@@ -20,11 +20,6 @@ from repositories.contact_repository import (
 __all__ = ["ContactCreate", "ContactUpdate"]
 
 logger = logging.getLogger(__name__)
-
-
-def _empty_to_none(value: Optional[str]) -> Optional[str]:
-    """Convert empty string to None."""
-    return None if value == "" else value
 
 
 async def get_contacts_paginated(
@@ -51,13 +46,10 @@ async def search_contacts(query: str, tenant_id: Optional[int]):
 
 async def get_contact(contact_id: int):
     """Get contact by ID."""
-    async with async_get_session() as session:
-        stmt = select(Contact).where(Contact.id == contact_id)
-        result = await session.execute(stmt)
-        contact = result.scalar_one_or_none()
-        if not contact:
-            raise HTTPException(status_code=404, detail="Contact not found")
-        return contact
+    contact = await find_contact_by_id(contact_id)
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return contact
 
 
 async def create_contact(
@@ -66,33 +58,20 @@ async def create_contact(
     account_ids: Optional[List[int]],
 ):
     """Create a contact with optional account links."""
-    async with async_get_session() as session:
-        contact = Contact(
-            first_name=contact_data.get("first_name"),
-            last_name=contact_data.get("last_name"),
-            email=_empty_to_none(contact_data.get("email")),
-            phone=_empty_to_none(contact_data.get("phone")),
-            title=_empty_to_none(contact_data.get("title")),
-            department=_empty_to_none(contact_data.get("department")),
-            role=_empty_to_none(contact_data.get("role")),
-            notes=contact_data.get("notes"),
-            is_primary=contact_data.get("is_primary", False),
-            created_by=user_id,
-            updated_by=user_id,
-        )
-        session.add(contact)
-        await session.flush()
-
-        if account_ids:
-            for acc_id in account_ids:
-                link = ContactAccount(contact_id=contact.id, account_id=acc_id)
-                session.add(link)
-
-        await session.commit()
-
-        stmt = select(Contact).where(Contact.id == contact.id)
-        result = await session.execute(stmt)
-        return result.scalar_one()
+    data = {
+        "first_name": contact_data.get("first_name"),
+        "last_name": contact_data.get("last_name"),
+        "email": contact_data.get("email"),
+        "phone": contact_data.get("phone"),
+        "title": contact_data.get("title"),
+        "department": contact_data.get("department"),
+        "role": contact_data.get("role"),
+        "notes": contact_data.get("notes"),
+        "is_primary": contact_data.get("is_primary", False),
+        "created_by": user_id,
+        "updated_by": user_id,
+    }
+    return await create_contact_with_accounts(data, account_ids)
 
 
 async def update_contact(
@@ -102,34 +81,13 @@ async def update_contact(
     account_ids: Optional[List[int]],
 ):
     """Update a contact with account links."""
-    async with async_get_session() as session:
-        stmt = select(Contact).where(Contact.id == contact_id)
-        result = await session.execute(stmt)
-        contact = result.scalar_one_or_none()
-        if not contact:
-            raise HTTPException(status_code=404, detail="Contact not found")
+    data = dict(contact_data)
+    data["updated_by"] = user_id
 
-        sanitize_fields = {"email", "phone", "title", "department", "role"}
-        updateable_fields = ["first_name", "last_name", "email", "phone", "title", "department", "role", "notes", "is_primary"]
-        for field in (f for f in updateable_fields if f in contact_data):
-            value = _empty_to_none(contact_data[field]) if field in sanitize_fields else contact_data[field]
-            setattr(contact, field, value)
-
-        contact.updated_by = user_id
-
-        if account_ids is not None:
-            await session.execute(
-                sql_delete(ContactAccount).where(ContactAccount.contact_id == contact_id)
-            )
-            for acc_id in account_ids:
-                link = ContactAccount(contact_id=contact_id, account_id=acc_id)
-                session.add(link)
-
-        await session.commit()
-
-        stmt = select(Contact).where(Contact.id == contact_id)
-        result = await session.execute(stmt)
-        return result.scalar_one()
+    contact = await update_contact_with_accounts(contact_id, data, account_ids)
+    if not contact:
+        raise HTTPException(status_code=404, detail="Contact not found")
+    return contact
 
 
 async def delete_contact(contact_id: int):

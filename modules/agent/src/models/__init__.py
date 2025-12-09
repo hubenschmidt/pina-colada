@@ -43,7 +43,7 @@ from models.RevenueRange import RevenueRange
 from models.Technology import Technology
 from models.OrganizationTechnology import OrganizationTechnology
 from models.FundingRound import FundingRound
-from models.CompanySignal import CompanySignal
+from models.Signal import Signal
 from models.DataProvenance import DataProvenance
 from models.SavedReport import SavedReport
 from models.SavedReportProject import SavedReportProject
@@ -92,7 +92,7 @@ __all__ = [
     "Technology",
     "OrganizationTechnology",
     "FundingRound",
-    "CompanySignal",
+    "Signal",
     "DataProvenance",
     "SavedReport",
     "SavedReportProject",

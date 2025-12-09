@@ -509,6 +509,12 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     saveContacts(newContacts);
   };
 
+  const handleRemoveContact = (index) => {
+    const newContacts = contacts.filter((_, i) => i !== index);
+    setContacts(newContacts);
+    saveContacts(newContacts);
+  };
+
   const handleUpdateContact = (index, updatedContact) => {
     const newContacts = contacts.map((c, i) => (i === index ? updatedContact : c));
     setContacts(newContacts);
@@ -555,6 +561,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
                   <ContactSection
                     contacts={contacts}
                     onAdd={handleAddContact}
+                    onRemove={handleRemoveContact}
                     onUpdate={handleUpdateContact}
                     onSetPrimary={handleSetPrimaryContact}
                     fields={contactFields}
@@ -638,7 +645,27 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
         />
       </div>
 
-      <div className="border-t border-zinc-200 dark:border-zinc-700 pt-4 mt-4">
+      {isEditMode && lead && <Timestamps createdAt={lead.created_at} updatedAt={lead.updated_at} />}
+    </form>
+  );
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+            {isEditMode ? config.title.replace("Add New", "Edit") : config.title}
+          </h1>
+          {selectedProject ? (
+            <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
+              {selectedProject.name}
+            </Badge>
+          ) : (
+            <Badge variant="light" color="gray">
+              Global
+            </Badge>
+          )}
+        </div>
         <FormActions
           isEditMode={isEditMode}
           isSubmitting={isSubmitting}
@@ -647,30 +674,11 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
           isFormComplete={isFormComplete}
           onClose={onClose}
           onDelete={onDelete ? handleDelete : undefined}
+          onSubmit={handleSubmit}
           cancelButtonText={config.cancelButtonText}
+          variant="compact"
         />
       </div>
-
-      {isEditMode && lead && <Timestamps createdAt={lead.created_at} updatedAt={lead.updated_at} />}
-    </form>
-  );
-
-  return (
-    <div>
-      <Group justify="space-between" mb="md">
-        <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-          {isEditMode ? config.title.replace("Add New", "Edit") : config.title}
-        </h1>
-        {selectedProject ? (
-          <Badge variant="light" color="lime" leftSection={<FolderKanban className="h-3 w-3" />}>
-            {selectedProject.name}
-          </Badge>
-        ) : (
-          <Badge variant="light" color="gray">
-            Global
-          </Badge>
-        )}
-      </Group>
       {formContent}
       {errors._form && (
         <div className="mt-4 p-3 bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 rounded">

@@ -2,9 +2,12 @@
 
 from typing import List
 
-from lib.db import async_get_session
-from models.Industry import Industry
-from repositories.industry_repository import find_all_industries, find_industry_by_name, IndustryCreate
+from repositories.industry_repository import (
+    find_all_industries,
+    find_industry_by_name,
+    create_industry as create_industry_repo,
+    IndustryCreate,
+)
 
 # Re-export Pydantic models for controllers
 __all__ = ["IndustryCreate"]
@@ -28,9 +31,4 @@ async def create_industry(name: str):
     if existing:
         return existing
 
-    async with async_get_session() as session:
-        industry = Industry(name=normalized_name)
-        session.add(industry)
-        await session.commit()
-        await session.refresh(industry)
-        return industry
+    return await create_industry_repo(normalized_name)

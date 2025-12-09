@@ -63,6 +63,7 @@ async def upload_document_route(
     request: Request,
     file: UploadFile = File(...),
     description: Optional[str] = Form(None),
+    tags: Optional[str] = Form(None),
     entity_type: Optional[str] = Form(None),
     entity_id: Optional[int] = Form(None),
 ):
@@ -70,7 +71,7 @@ async def upload_document_route(
     content = await file.read()
     content_type = file.content_type or "application/octet-stream"
     return await upload_document(
-        request, file.filename, content, content_type, description, entity_type, entity_id
+        request, file.filename, content, content_type, description, tags, entity_type, entity_id
     )
 
 

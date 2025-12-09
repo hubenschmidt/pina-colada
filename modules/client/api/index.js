@@ -686,6 +686,31 @@ export const deleteOrganizationSignal = async (orgId, signalId) => {
   await apiDelete(`/organizations/${orgId}/signals/${signalId}`);
 };
 
+/**
+ * Get signals for an individual
+ */
+export const getIndividualSignals = async (individualId, options) => {
+  const params = new URLSearchParams();
+  if (options?.signal_type) params.append("signal_type", options.signal_type);
+  if (options?.limit) params.append("limit", options.limit.toString());
+  const query = params.toString() ? `?${params}` : "";
+  return apiGet(`/individuals/${individualId}/signals${query}`);
+};
+
+/**
+ * Create a signal for an individual
+ */
+export const createIndividualSignal = async (individualId, data) => {
+  return apiPost(`/individuals/${individualId}/signals`, data);
+};
+
+/**
+ * Delete a signal from an individual
+ */
+export const deleteIndividualSignal = async (individualId, signalId) => {
+  await apiDelete(`/individuals/${individualId}/signals/${signalId}`);
+};
+
 // ==============================================
 // Extended Organization Type (with research data)
 // ==============================================

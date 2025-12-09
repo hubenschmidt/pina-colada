@@ -2,7 +2,7 @@
 
 import logging
 from typing import Any, Dict, List, Optional
-from sqlalchemy import func as sql_func, or_, select
+from sqlalchemy import delete, func as sql_func, or_, select
 from sqlalchemy.orm import joinedload
 from lib.db import async_get_session
 from models.Account import Account
@@ -72,7 +72,6 @@ async def find_all_partnerships(
                 or_(
                     sql_func.lower(Organization.name).contains(search_lower),
                     sql_func.lower(Partnership.partnership_name).contains(search_lower),
-                    sql_func.lower(Lead.title).contains(search_lower)
                 )
             )
 
@@ -134,7 +133,6 @@ async def create_partnership(data: Dict[str, Any]) -> Partnership:
             lead_data: Dict[str, Any] = {
                 "deal_id": deal_id,
                 "type": "Partnership",
-                "description": data.get("description"),
                 "source": data.get("source", "manual"),
                 "current_status_id": status_id,
                 "account_id": account_id,
@@ -194,8 +192,6 @@ async def update_partnership(partnership_id: int, data: Dict[str, Any]) -> Optio
                 partnership.end_date = data["end_date"]
             if "description" in data:
                 partnership.description = data["description"]
-                if partnership.lead:
-                    partnership.lead.description = data["description"]
 
             if partnership.lead:
                 if "current_status_id" in data and data["current_status_id"] is not None:
@@ -204,8 +200,6 @@ async def update_partnership(partnership_id: int, data: Dict[str, Any]) -> Optio
                     partnership.lead.source = data["source"]
 
                 if "project_ids" in data:
-                    from models.LeadProject import LeadProject
-                    from sqlalchemy import delete
                     await session.execute(
                         delete(LeadProject).where(LeadProject.lead_id == partnership.lead.id)
                     )

@@ -40,9 +40,8 @@ class Organization(Base):
     employee_count_range = relationship("EmployeeCountRange")
     funding_stage = relationship("FundingStage")
     revenue_range = relationship("RevenueRange")
-    technologies = relationship("OrganizationTechnology", back_populates="organization", lazy="selectin")
-    funding_rounds = relationship("FundingRound", back_populates="organization", lazy="selectin")
-    signals = relationship("CompanySignal", back_populates="organization", lazy="selectin")
+    technologies = relationship("OrganizationTechnology", back_populates="organization", lazy="selectin", cascade="all, delete-orphan", passive_deletes=True)
+    funding_rounds = relationship("FundingRound", back_populates="organization", lazy="selectin", cascade="all, delete-orphan", passive_deletes=True)
 
     __table_args__ = (
         Index('idx_organization_name_lower', func.lower(name), unique=True),

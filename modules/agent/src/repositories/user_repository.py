@@ -5,6 +5,8 @@ from sqlalchemy import select
 from models.User import User
 from models.Individual import Individual
 from models.Account import Account
+from models.Project import Project
+from models.Tenant import Tenant
 from lib.db import async_get_session
 
 async def find_user_by_auth0_sub(auth0_sub: str) -> Optional[User]:
@@ -94,3 +96,21 @@ async def get_selected_project_id(user_id: int) -> Optional[int]:
     async with async_get_session() as session:
         user = await session.get(User, user_id)
         return user.selected_project_id if user else None
+
+
+async def find_tenant_by_id(tenant_id: int):
+    """Find tenant by ID."""
+    async with async_get_session() as session:
+        return await session.get(Tenant, tenant_id)
+
+
+async def find_individual_by_id(individual_id: int) -> Optional[Individual]:
+    """Find individual by ID."""
+    async with async_get_session() as session:
+        return await session.get(Individual, individual_id)
+
+
+async def find_project_by_id(project_id: int):
+    """Find project by ID."""
+    async with async_get_session() as session:
+        return await session.get(Project, project_id)

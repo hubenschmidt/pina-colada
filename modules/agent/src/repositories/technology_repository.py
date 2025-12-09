@@ -2,6 +2,7 @@
 
 from typing import List, Optional
 from sqlalchemy import select
+from sqlalchemy.orm import joinedload
 from lib.db import async_get_session
 from models.OrganizationTechnology import OrganizationTechnology
 from models.Technology import Technology
@@ -41,6 +42,7 @@ async def find_organization_technologies(org_id: int) -> List[OrganizationTechno
     async with async_get_session() as session:
         stmt = (
             select(OrganizationTechnology)
+            .options(joinedload(OrganizationTechnology.technology))
             .where(OrganizationTechnology.organization_id == org_id)
             .order_by(OrganizationTechnology.detected_at.desc())
         )
@@ -64,8 +66,17 @@ async def add_organization_technology(
         )
         session.add(org_tech)
         await session.commit()
-        await session.refresh(org_tech)
-        return org_tech
+        # Re-fetch with eagerly loaded technology relationship
+        stmt = (
+            select(OrganizationTechnology)
+            .options(joinedload(OrganizationTechnology.technology))
+            .where(
+                OrganizationTechnology.organization_id == org_id,
+                OrganizationTechnology.technology_id == tech_id
+            )
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one()
 
 
 async def remove_organization_technology(org_id: int, tech_id: int) -> bool:

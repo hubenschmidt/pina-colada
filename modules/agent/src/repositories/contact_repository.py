@@ -2,9 +2,10 @@
 
 import logging
 from typing import Any, Dict, List, Optional, Tuple
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete as sql_delete, func, or_, select, update as sql_update
 from sqlalchemy.orm import selectinload
 from lib.db import async_get_session
+from models.Account import Account
 from models.Contact import Contact, ContactAccount
 from models.Individual import Individual
 from models.Organization import Organization
@@ -77,7 +78,6 @@ async def find_contacts_by_account(account_id: int) -> List[Contact]:
 
 async def find_contact_by_id(contact_id: int) -> Optional[Contact]:
     """Find a contact by ID."""
-    from models.Account import Account
     async with async_get_session() as session:
         stmt = (
             select(Contact)
@@ -277,9 +277,9 @@ async def get_or_create_contact(
                     await session.refresh(contact)
                     return contact
 
-            # Try to find existing contact by email
+            # Try to find existing contact by email (use first() since there may be duplicates)
             if email:
-                stmt = select(Contact).where(func.lower(Contact.email) == email.lower())
+                stmt = select(Contact).where(func.lower(Contact.email) == email.lower()).limit(1)
                 result = await session.execute(stmt)
                 existing = result.scalar_one_or_none()
                 if existing:
@@ -371,9 +371,76 @@ async def find_other_contact_ids_for_account(account_id: int, exclude_contact_id
 async def clear_primary_contacts_for_account(account_id: int, exclude_contact_id: int) -> None:
     """Clear is_primary flag for all contacts of an account except one."""
     async with async_get_session() as session:
-        from sqlalchemy import update as sql_update
         contact_ids = await find_other_contact_ids_for_account(account_id, exclude_contact_id)
         if contact_ids:
             stmt = sql_update(Contact).where(Contact.id.in_(contact_ids)).values(is_primary=False)
             await session.execute(stmt)
             await session.commit()
+
+
+async def create_contact_with_accounts(
+    data: Dict[str, Any],
+    account_ids: Optional[List[int]] = None,
+) -> Contact:
+    """Create a contact and link to accounts."""
+    async with async_get_session() as session:
+        try:
+            sanitized = _sanitize_contact_data(data)
+            contact = Contact(**sanitized)
+            session.add(contact)
+            await session.flush()
+
+            if account_ids:
+                for acc_id in account_ids:
+                    link = ContactAccount(contact_id=contact.id, account_id=acc_id)
+                    session.add(link)
+
+            await session.commit()
+
+            # Re-fetch with relationships
+            stmt = select(Contact).where(Contact.id == contact.id)
+            result = await session.execute(stmt)
+            return result.scalar_one()
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to create contact with accounts: {e}")
+            raise
+
+
+async def update_contact_with_accounts(
+    contact_id: int,
+    data: Dict[str, Any],
+    account_ids: Optional[List[int]] = None,
+) -> Optional[Contact]:
+    """Update a contact and optionally replace account links."""
+    async with async_get_session() as session:
+        try:
+            stmt = select(Contact).where(Contact.id == contact_id)
+            result = await session.execute(stmt)
+            contact = result.scalar_one_or_none()
+            if not contact:
+                return None
+
+            sanitized = _sanitize_contact_data(data)
+            for key, value in sanitized.items():
+                if hasattr(contact, key):
+                    setattr(contact, key, value)
+
+            if account_ids is not None:
+                await session.execute(
+                    sql_delete(ContactAccount).where(ContactAccount.contact_id == contact_id)
+                )
+                for acc_id in account_ids:
+                    link = ContactAccount(contact_id=contact_id, account_id=acc_id)
+                    session.add(link)
+
+            await session.commit()
+
+            # Re-fetch
+            stmt = select(Contact).where(Contact.id == contact_id)
+            result = await session.execute(stmt)
+            return result.scalar_one()
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"Failed to update contact with accounts: {e}")
+            raise
