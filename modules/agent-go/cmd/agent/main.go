@@ -52,6 +52,10 @@ func main() {
 	docRepo := repositories.NewDocumentRepository(database)
 	accountRepo := repositories.NewAccountRepository(database)
 	leadRepo := repositories.NewLeadRepository(database)
+	provenanceRepo := repositories.NewProvenanceRepository(database)
+	techRepo := repositories.NewTechnologyRepository(database)
+	usageRepo := repositories.NewUsageRepository(database)
+	reportRepo := repositories.NewReportRepository(database)
 
 	// Initialize services
 	authService := services.NewAuthService(userRepo)
@@ -69,6 +73,11 @@ func main() {
 	docService := services.NewDocumentService(docRepo, storageBackend)
 	accountService := services.NewAccountService(accountRepo)
 	leadService := services.NewLeadService(leadRepo)
+	costsService := services.NewCostsService()
+	provenanceService := services.NewProvenanceService(provenanceRepo)
+	techService := services.NewTechnologyService(techRepo)
+	usageService := services.NewUsageService(usageRepo, userRepo)
+	reportService := services.NewReportService(reportRepo)
 
 	// Initialize controllers
 	ctrls := &routes.Controllers{
@@ -88,6 +97,12 @@ func main() {
 		Document:     controllers.NewDocumentController(docService),
 		Account:      controllers.NewAccountController(accountService),
 		Lead:         controllers.NewLeadController(leadService),
+		Costs:        controllers.NewCostsController(costsService),
+		Provenance:   controllers.NewProvenanceController(provenanceService),
+		Technology:   controllers.NewTechnologyController(techService),
+		Leads:        controllers.NewLeadsController(jobService),
+		Usage:        controllers.NewUsageController(usageService),
+		Report:       controllers.NewReportController(reportService),
 	}
 
 	// Initialize router and register routes

@@ -101,3 +101,23 @@ func OrganizationToDetailResponse(org *models.Organization) OrganizationDetailRe
 
 	return resp
 }
+
+// OrgTechnologyResponse represents a technology linked to an organization
+type OrgTechnologyResponse struct {
+	OrganizationID int64    `json:"organization_id"`
+	TechnologyID   int64    `json:"technology_id"`
+	Source         *string  `json:"source"`
+	Confidence     *float64 `json:"confidence"`
+	DetectedAt     string   `json:"detected_at"`
+}
+
+// FundingRoundResponse represents a funding round in API responses
+type FundingRoundResponse struct {
+	ID             int64   `json:"id"`
+	OrganizationID int64   `json:"organization_id"`
+	RoundType      string  `json:"round_type"`
+	Amount         *int64  `json:"amount"`
+	AnnouncedDate  *string `json:"announced_date"`
+	LeadInvestor   *string `json:"lead_investor"`
+	SourceURL      *string `json:"source_url"`
+}

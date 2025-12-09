@@ -86,3 +86,38 @@ func (s *PreferencesService) resolveTheme(userTheme *string, tenantID *int64) st
 
 	return "light"
 }
+
+var ErrTenantNotSet = errors.New("tenant not set")
+
+// TenantPreferencesResponse represents the tenant preferences response
+type TenantPreferencesResponse struct {
+	Theme string `json:"theme"`
+}
+
+// GetTenantPreferences returns tenant preferences
+func (s *PreferencesService) GetTenantPreferences(tenantID int64) (*TenantPreferencesResponse, error) {
+	prefs, err := s.prefsRepo.FindOrCreateTenantPreferences(tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TenantPreferencesResponse{
+		Theme: prefs.Theme,
+	}, nil
+}
+
+// UpdateTenantPreferences updates tenant preferences
+func (s *PreferencesService) UpdateTenantPreferences(tenantID int64, theme string) (*TenantPreferencesResponse, error) {
+	// Ensure prefs exist
+	_, err := s.prefsRepo.FindOrCreateTenantPreferences(tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	updates := map[string]interface{}{"theme": theme}
+	if err := s.prefsRepo.UpdateTenantPreferences(tenantID, updates); err != nil {
+		return nil, err
+	}
+
+	return s.GetTenantPreferences(tenantID)
+}

@@ -2,8 +2,11 @@ package services
 
 import (
 	"errors"
+	"regexp"
+	"strings"
 
 	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"github.com/pina-colada-co/agent-go/internal/schemas"
 )
 
 var ErrUserNotFound = errors.New("user not found")
@@ -155,4 +158,61 @@ func (s *AuthService) SetSelectedProject(userID int64, tenantID int64, projectID
 	}
 
 	return projectID, nil
+}
+
+// TenantCreateResponse represents the response for tenant creation
+type TenantCreateResponse struct {
+	Tenant TenantDetail `json:"tenant"`
+}
+
+// TenantDetail contains tenant details in response
+type TenantDetail struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+	Plan string `json:"plan"`
+	Role string `json:"role"`
+}
+
+// CreateTenant creates a new tenant and assigns the user as owner
+func (s *AuthService) CreateTenant(userID int64, input schemas.TenantCreate) (*TenantCreateResponse, error) {
+	slug := s.generateSlug(input.Name, input.Slug)
+	plan := input.Plan
+	if plan == "" {
+		plan = "free"
+	}
+
+	repoInput := repositories.TenantCreateInput{
+		UserID: userID,
+		Name:   input.Name,
+		Slug:   slug,
+		Plan:   plan,
+	}
+
+	result, err := s.userRepo.CreateTenantWithUser(repoInput)
+	if err != nil {
+		return nil, err
+	}
+
+	return &TenantCreateResponse{
+		Tenant: TenantDetail{
+			ID:   result.TenantID,
+			Name: result.TenantName,
+			Slug: result.TenantSlug,
+			Plan: result.TenantPlan,
+			Role: result.RoleName,
+		},
+	}, nil
+}
+
+func (s *AuthService) generateSlug(name string, providedSlug *string) string {
+	if providedSlug != nil && *providedSlug != "" {
+		return *providedSlug
+	}
+	// Convert to lowercase, replace non-alphanumeric with hyphens, trim
+	slug := strings.ToLower(name)
+	re := regexp.MustCompile(`[^a-z0-9]+`)
+	slug = re.ReplaceAllString(slug, "-")
+	slug = strings.Trim(slug, "-")
+	return slug
 }

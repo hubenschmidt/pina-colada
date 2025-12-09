@@ -224,6 +224,25 @@ func (r *JobRepository) Count() (int64, error) {
 	return count, err
 }
 
+// GetRecentResumeDate returns the most recent resume date from all jobs
+func (r *JobRepository) GetRecentResumeDate() (*time.Time, error) {
+	var job models.Job
+	err := r.db.
+		Preload("Lead").
+		Joins(`JOIN "Lead" ON "Lead".id = "Job".id`).
+		Where(`"Job".resume_date IS NOT NULL`).
+		Order(`"Lead".created_at DESC`).
+		First(&job).Error
+
+	if err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return job.ResumeDate, nil
+}
+
 func mapJobOrderColumn(orderBy string) string {
 	switch orderBy {
 	case "date", "application_date":
@@ -237,4 +256,53 @@ func mapJobOrderColumn(orderBy string) string {
 	default:
 		return `"Lead".updated_at`
 	}
+}
+
+// FindAllStatuses returns all job-related statuses
+func (r *JobRepository) FindAllStatuses() ([]models.Status, error) {
+	var statuses []models.Status
+	err := r.db.Where("category = ?", "job").Order("id ASC").Find(&statuses).Error
+	return statuses, err
+}
+
+// FindJobsByStatusNames returns jobs filtered by status names
+func (r *JobRepository) FindJobsByStatusNames(statusNames []string, tenantID *int64) ([]models.Job, error) {
+	var jobs []models.Job
+
+	query := r.db.Model(&models.Job{}).
+		Preload("Lead").
+		Preload("Lead.CurrentStatus").
+		Preload("Lead.Account").
+		Preload("Lead.Account.Organizations").
+		Preload("Lead.Account.Individuals").
+		Preload("Lead.Projects").
+		Preload("SalaryRangeRef").
+		Joins(`JOIN "Lead" ON "Lead".id = "Job".id`).
+		Joins(`LEFT JOIN "Status" ON "Status".id = "Lead".current_status_id`)
+
+	if tenantID != nil {
+		query = query.Where(`"Lead".tenant_id = ?`, *tenantID)
+	}
+
+	if len(statusNames) > 0 {
+		query = query.Where(`"Status".name IN ?`, statusNames)
+	}
+
+	query = query.Order(`"Lead".updated_at DESC`)
+
+	err := query.Find(&jobs).Error
+	return jobs, err
+}
+
+// UpdateJobStatus updates the status of a job's lead by status name
+func (r *JobRepository) UpdateJobStatus(jobID int64, statusName string, userID int64) error {
+	var status models.Status
+	if err := r.db.Where("name = ? AND category = ?", statusName, "job").First(&status).Error; err != nil {
+		return err
+	}
+
+	return r.db.Model(&models.Lead{}).Where("id = ?", jobID).Updates(map[string]interface{}{
+		"current_status_id": status.ID,
+		"updated_by":        userID,
+	}).Error
 }

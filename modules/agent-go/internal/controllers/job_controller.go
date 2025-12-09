@@ -117,6 +117,15 @@ func (c *JobController) DeleteJob(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, serializers.SuccessResponse{Success: true})
 }
 
+func (c *JobController) GetRecentResumeDate(w http.ResponseWriter, r *http.Request) {
+	resumeDate, err := c.jobService.GetRecentResumeDate()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]*string{"resume_date": resumeDate})
+}
+
 func writeJobResponse(w http.ResponseWriter, successStatus int, result *serializers.JobDetailResponse, err error) {
 	if errors.Is(err, services.ErrJobNotFound) {
 		writeError(w, http.StatusNotFound, err.Error())

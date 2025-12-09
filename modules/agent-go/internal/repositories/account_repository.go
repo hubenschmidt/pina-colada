@@ -13,15 +13,46 @@ func NewAccountRepository(db *gorm.DB) *AccountRepository {
 	return &AccountRepository{db: db}
 }
 
-func (r *AccountRepository) Search(query string, tenantID *int64, limit int) ([]models.Account, error) {
+// AccountSearchResult represents an account search result
+type AccountSearchResult struct {
+	ID        int64
+	AccountID int64
+	Name      string
+	Type      string
+}
+
+func (r *AccountRepository) Search(query string, tenantID *int64, limit int) ([]AccountSearchResult, error) {
 	var accounts []models.Account
 	q := r.db.Preload("Organizations").Preload("Individuals").
 		Where("LOWER(name) LIKE LOWER(?)", "%"+query+"%")
 	if tenantID != nil {
 		q = q.Where("tenant_id = ?", *tenantID)
 	}
-	err := q.Order("name").Limit(limit).Find(&accounts).Error
-	return accounts, err
+	if err := q.Order("name").Limit(limit).Find(&accounts).Error; err != nil {
+		return nil, err
+	}
+
+	results := make([]AccountSearchResult, len(accounts))
+	for i, a := range accounts {
+		accountType, entityID := getAccountTypeAndEntityID(a)
+		results[i] = AccountSearchResult{
+			ID:        entityID,
+			AccountID: a.ID,
+			Name:      a.Name,
+			Type:      accountType,
+		}
+	}
+	return results, nil
+}
+
+func getAccountTypeAndEntityID(account models.Account) (string, int64) {
+	if len(account.Organizations) > 0 {
+		return "organization", account.Organizations[0].ID
+	}
+	if len(account.Individuals) > 0 {
+		return "individual", account.Individuals[0].ID
+	}
+	return "unknown", account.ID
 }
 
 // CreateRelationship creates a relationship between two accounts

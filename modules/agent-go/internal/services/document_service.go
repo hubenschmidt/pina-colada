@@ -220,3 +220,90 @@ func (s *DocumentService) SetCurrentVersion(documentID int64, tenantID int64) (*
 
 	return doc, count, nil
 }
+
+// DownloadDocumentResult holds the result of a download request
+type DownloadDocumentResult struct {
+	Document    *repositories.DocumentDTO
+	RedirectURL *string
+	Content     []byte
+}
+
+// DownloadDocument gets a document's content for download
+func (s *DocumentService) DownloadDocument(documentID int64, tenantID int64) (*DownloadDocumentResult, error) {
+	doc, err := s.docRepo.FindDocumentByID(documentID)
+	if err != nil {
+		return nil, err
+	}
+	if doc == nil || doc.TenantID != tenantID {
+		return nil, fmt.Errorf("document not found")
+	}
+
+	// Get URL from storage backend - R2 returns presigned URL, local returns file URL
+	url := s.storage.GetURL(doc.StoragePath)
+	if url != "" && !strings.HasPrefix(url, "file://") {
+		// It's a remote URL (presigned), use redirect
+		return &DownloadDocumentResult{
+			Document:    doc,
+			RedirectURL: &url,
+		}, nil
+	}
+
+	// Fall back to downloading content (local storage)
+	content, err := s.storage.Download(doc.StoragePath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to download file: %w", err)
+	}
+
+	return &DownloadDocumentResult{
+		Document: doc,
+		Content:  content,
+	}, nil
+}
+
+// UpdateDocumentInput holds data for updating a document
+type UpdateDocumentInput struct {
+	Description *string `json:"description"`
+}
+
+// UpdateDocument updates a document's metadata
+func (s *DocumentService) UpdateDocument(documentID int64, tenantID int64, userID int64, input UpdateDocumentInput) (*repositories.DocumentDTO, error) {
+	doc, err := s.docRepo.FindDocumentByID(documentID)
+	if err != nil {
+		return nil, err
+	}
+	if doc == nil || doc.TenantID != tenantID {
+		return nil, fmt.Errorf("document not found")
+	}
+
+	updates := map[string]interface{}{
+		"updated_by": userID,
+	}
+	if input.Description != nil {
+		updates["description"] = *input.Description
+	}
+
+	if err := s.docRepo.UpdateDocument(documentID, updates); err != nil {
+		return nil, err
+	}
+
+	return s.docRepo.FindDocumentByID(documentID)
+}
+
+// DeleteDocument deletes a document and its storage file
+func (s *DocumentService) DeleteDocument(documentID int64, tenantID int64) error {
+	doc, err := s.docRepo.FindDocumentByID(documentID)
+	if err != nil {
+		return err
+	}
+	if doc == nil || doc.TenantID != tenantID {
+		return fmt.Errorf("document not found")
+	}
+
+	// Delete from storage
+	if doc.StoragePath != "" {
+		s.storage.Delete(doc.StoragePath)
+	}
+
+	// Delete from database
+	return s.docRepo.DeleteDocument(documentID)
+}

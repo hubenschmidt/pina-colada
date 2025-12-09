@@ -1,8 +1,10 @@
 package controllers
 
 import (
+	"encoding/json"
 	"net/http"
 
+	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
 
@@ -75,4 +77,25 @@ func (c *LookupController) GetSalaryRanges(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	writeJSON(w, http.StatusOK, ranges)
+}
+
+func (c *LookupController) CreateIndustry(w http.ResponseWriter, r *http.Request) {
+	var input schemas.IndustryCreate
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if input.Name == "" {
+		writeError(w, http.StatusBadRequest, "name is required")
+		return
+	}
+
+	industry, err := c.lookupService.CreateIndustry(input.Name)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, industry)
 }

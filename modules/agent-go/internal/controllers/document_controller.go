@@ -319,3 +319,100 @@ func (c *DocumentController) SetCurrentVersion(w http.ResponseWriter, r *http.Re
 		"version_count": count,
 	})
 }
+
+// DownloadDocument handles GET /assets/documents/{id}/download
+func (c *DocumentController) DownloadDocument(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid document ID")
+		return
+	}
+
+	var tenantID int64 = 0
+	if tid, ok := middleware.GetTenantID(r.Context()); ok {
+		tenantID = tid
+	}
+
+	result, err := c.docService.DownloadDocument(id, tenantID)
+	if err != nil {
+		if err.Error() == "document not found" {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// If we have a redirect URL, send redirect
+	if result.RedirectURL != nil {
+		http.Redirect(w, r, *result.RedirectURL, http.StatusTemporaryRedirect)
+		return
+	}
+
+	// Otherwise, send the content directly
+	w.Header().Set("Content-Type", result.Document.ContentType)
+	w.Header().Set("Content-Disposition", "attachment; filename=\""+result.Document.Filename+"\"")
+	w.WriteHeader(http.StatusOK)
+	w.Write(result.Content)
+}
+
+// UpdateDocument handles PUT /assets/documents/{id}
+func (c *DocumentController) UpdateDocument(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid document ID")
+		return
+	}
+
+	var input services.UpdateDocumentInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	var tenantID int64 = 0
+	if tid, ok := middleware.GetTenantID(r.Context()); ok {
+		tenantID = tid
+	}
+	userID, _ := middleware.GetUserID(r.Context())
+
+	doc, err := c.docService.UpdateDocument(id, tenantID, userID, input)
+	if err != nil {
+		if err.Error() == "document not found" {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, doc)
+}
+
+// DeleteDocument handles DELETE /assets/documents/{id}
+func (c *DocumentController) DeleteDocument(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid document ID")
+		return
+	}
+
+	var tenantID int64 = 0
+	if tid, ok := middleware.GetTenantID(r.Context()); ok {
+		tenantID = tid
+	}
+
+	if err := c.docService.DeleteDocument(id, tenantID); err != nil {
+		if err.Error() == "document not found" {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]bool{"success": true})
+}

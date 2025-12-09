@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
@@ -37,7 +36,7 @@ func (s *TaskService) GetTasks(page, pageSize int, orderBy, order, search string
 
 	items := make([]serializers.TaskResponse, len(result.Items))
 	for i := range result.Items {
-		entityInfo := s.resolveEntityInfo(&result.Items[i])
+		entityInfo := s.resolveEntityInfo(result.Items[i].TaskableType, result.Items[i].TaskableID)
 		items[i] = serializers.TaskToResponseWithEntity(&result.Items[i], entityInfo)
 	}
 
@@ -55,7 +54,7 @@ func (s *TaskService) GetTask(id int64) (*serializers.TaskResponse, error) {
 		return nil, errors.New("task not found")
 	}
 
-	entityInfo := s.resolveEntityInfo(task)
+	entityInfo := s.resolveEntityInfo(task.TaskableType, task.TaskableID)
 	resp := serializers.TaskToResponseWithEntity(task, entityInfo)
 	return &resp, nil
 }
@@ -130,7 +129,7 @@ func (s *TaskService) UpdateTask(id int64, input schemas.TaskUpdate, userID int6
 
 	updates := buildTaskUpdates(input, userID)
 	if len(updates) == 0 {
-		entityInfo := s.resolveEntityInfo(task)
+		entityInfo := s.resolveEntityInfo(task.TaskableType, task.TaskableID)
 		resp := serializers.TaskToResponseWithEntity(task, entityInfo)
 		return &resp, nil
 	}
@@ -150,7 +149,7 @@ func (s *TaskService) GetTasksByEntity(entityType string, entityID int64, tenant
 	}
 	result := make([]serializers.TaskResponse, len(tasks))
 	for i := range tasks {
-		entityInfo := s.resolveEntityInfo(&tasks[i])
+		entityInfo := s.resolveEntityInfo(tasks[i].TaskableType, tasks[i].TaskableID)
 		result[i] = serializers.TaskToResponseWithEntity(&tasks[i], entityInfo)
 	}
 	return result, nil
@@ -208,20 +207,20 @@ func buildTaskUpdates(input schemas.TaskUpdate, userID int64) map[string]interfa
 }
 
 // resolveEntityInfo resolves entity display info for a task
-func (s *TaskService) resolveEntityInfo(task *models.Task) *serializers.TaskEntityInfo {
-	if task.TaskableType == nil || task.TaskableID == nil {
+func (s *TaskService) resolveEntityInfo(taskableType *string, taskableID *int64) *serializers.TaskEntityInfo {
+	if taskableType == nil || taskableID == nil {
 		return nil
 	}
 
-	taskableType := *task.TaskableType
-	taskableID := *task.TaskableID
+	tType := *taskableType
+	tID := *taskableID
 
-	displayName := s.taskRepo.GetEntityDisplayName(taskableType, taskableID)
-	url, leadType := s.buildEntityURL(taskableType, taskableID)
+	displayName := s.taskRepo.GetEntityDisplayName(tType, tID)
+	url, leadType := s.buildEntityURL(tType, tID)
 
 	return &serializers.TaskEntityInfo{
-		Type:        &taskableType,
-		ID:          &taskableID,
+		Type:        &tType,
+		ID:          &tID,
 		DisplayName: displayName,
 		URL:         url,
 		LeadType:    leadType,

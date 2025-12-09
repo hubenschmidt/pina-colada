@@ -79,3 +79,23 @@ func (r *PreferencesRepository) GetUserWithTenant(userID int64) (*UserTenantDTO,
 	}
 	return &UserTenantDTO{UserID: user.ID, TenantID: user.TenantID}, nil
 }
+
+// FindOrCreateTenantPreferences finds or creates tenant preferences
+func (r *PreferencesRepository) FindOrCreateTenantPreferences(tenantID int64) (*TenantPrefsDTO, error) {
+	var prefs models.TenantPreferences
+	err := r.db.Where("tenant_id = ?", tenantID).First(&prefs).Error
+	if err == gorm.ErrRecordNotFound {
+		prefs = models.TenantPreferences{TenantID: tenantID, Theme: "light"}
+		if err := r.db.Create(&prefs).Error; err != nil {
+			return nil, err
+		}
+	} else if err != nil {
+		return nil, err
+	}
+	return &TenantPrefsDTO{Theme: prefs.Theme}, nil
+}
+
+// UpdateTenantPreferences updates tenant preferences
+func (r *PreferencesRepository) UpdateTenantPreferences(tenantID int64, updates map[string]interface{}) error {
+	return r.db.Model(&models.TenantPreferences{}).Where("tenant_id = ?", tenantID).Updates(updates).Error
+}

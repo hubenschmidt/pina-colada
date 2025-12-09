@@ -394,6 +394,36 @@ func (r *DocumentRepository) CreateNewVersion(input CreateVersionInput) (*Docume
 	}, nil
 }
 
+// UpdateDocument updates a document's metadata
+func (r *DocumentRepository) UpdateDocument(documentID int64, updates map[string]interface{}) error {
+	return r.db.Table(`"Asset"`).Where("id = ?", documentID).Updates(updates).Error
+}
+
+// DeleteDocument deletes a document and its associated records
+func (r *DocumentRepository) DeleteDocument(documentID int64) error {
+	tx := r.db.Begin()
+
+	// Delete entity links
+	if err := tx.Where("asset_id = ?", documentID).Delete(&models.EntityAsset{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Delete Document record
+	if err := tx.Where("id = ?", documentID).Delete(&models.Document{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Delete Asset record
+	if err := tx.Where("id = ?", documentID).Delete(&models.Asset{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
+}
+
 // SetCurrentVersion marks a specific version as current and others as not current
 func (r *DocumentRepository) SetCurrentVersion(documentID int64, tenantID int64) (*DocumentDTO, error) {
 	tx := r.db.Begin()

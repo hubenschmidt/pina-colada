@@ -138,9 +138,160 @@ func (r *UserRepository) SetSelectedProject(userID int64, projectID *int64) erro
 	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("selected_project_id", projectID).Error
 }
 
+// HasRole checks if a user has a specific role (across all tenants)
+func (r *UserRepository) HasRole(userID int64, roleName string) (bool, error) {
+	var count int64
+	err := r.db.Table(`"User_Role"`).
+		Joins(`JOIN "Role" ON "Role".id = "User_Role".role_id`).
+		Where(`"User_Role".user_id = ? AND LOWER("Role".name) = LOWER(?)`, userID, roleName).
+		Count(&count).Error
+	return count > 0, err
+}
+
 // ProjectBelongsToTenant checks if a project belongs to a tenant
 func (r *UserRepository) ProjectBelongsToTenant(projectID int64, tenantID int64) (bool, error) {
 	var count int64
 	err := r.db.Table(`"Project"`).Where("id = ? AND tenant_id = ?", projectID, tenantID).Count(&count).Error
 	return count > 0, err
+}
+
+// TenantCreateInput contains data needed to create a tenant
+type TenantCreateInput struct {
+	UserID int64
+	Name   string
+	Slug   string
+	Plan   string
+}
+
+// TenantCreateResult contains the result of creating a tenant
+type TenantCreateResult struct {
+	TenantID   int64
+	TenantName string
+	TenantSlug string
+	TenantPlan string
+	RoleName   string
+}
+
+// CreateTenantWithUser creates a new tenant and assigns the user as owner
+func (r *UserRepository) CreateTenantWithUser(input TenantCreateInput) (*TenantCreateResult, error) {
+	// Check if tenant with slug already exists
+	var existing models.Tenant
+	err := r.db.Where("slug = ?", input.Slug).First(&existing).Error
+	if err == nil {
+		// Tenant exists - check if user already has a role
+		return r.assignUserToExistingTenant(input.UserID, &existing)
+	}
+	if err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	// Create new tenant with owner role
+	return r.createNewTenantWithOwner(input)
+}
+
+func (r *UserRepository) assignUserToExistingTenant(userID int64, tenant *models.Tenant) (*TenantCreateResult, error) {
+	// Check if user already has role in this tenant
+	var existingRole models.Role
+	err := r.db.Table(`"Role"`).
+		Joins(`JOIN "User_Role" ON "User_Role".role_id = "Role".id`).
+		Where(`"Role".tenant_id = ? AND "User_Role".user_id = ?`, tenant.ID, userID).
+		First(&existingRole).Error
+
+	if err == nil {
+		// User already has role - return existing
+		return &TenantCreateResult{
+			TenantID:   tenant.ID,
+			TenantName: tenant.Name,
+			TenantSlug: tenant.Slug,
+			TenantPlan: tenant.Plan,
+			RoleName:   existingRole.Name,
+		}, nil
+	}
+	if err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	// Find owner role for this tenant
+	var ownerRole models.Role
+	err = r.db.Where("tenant_id = ? AND name = ?", tenant.ID, "Owner").First(&ownerRole).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Assign user as owner
+	userRole := models.UserRole{UserID: userID, RoleID: ownerRole.ID}
+	if err := r.db.Create(&userRole).Error; err != nil {
+		return nil, err
+	}
+
+	return &TenantCreateResult{
+		TenantID:   tenant.ID,
+		TenantName: tenant.Name,
+		TenantSlug: tenant.Slug,
+		TenantPlan: tenant.Plan,
+		RoleName:   ownerRole.Name,
+	}, nil
+}
+
+func (r *UserRepository) createNewTenantWithOwner(input TenantCreateInput) (*TenantCreateResult, error) {
+	var result *TenantCreateResult
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		// Create tenant
+		tenant := &models.Tenant{
+			Name: input.Name,
+			Slug: input.Slug,
+			Plan: input.Plan,
+		}
+		if err := tx.Create(tenant).Error; err != nil {
+			return err
+		}
+
+		// Create Account for default organization
+		account := &models.Account{
+			Name:     input.Name,
+			TenantID: &tenant.ID,
+		}
+		if err := tx.Create(account).Error; err != nil {
+			return err
+		}
+
+		// Create default Organization
+		org := &models.Organization{
+			AccountID: &account.ID,
+			Name:      input.Name,
+		}
+		if err := tx.Create(org).Error; err != nil {
+			return err
+		}
+
+		// Create default roles for tenant
+		roles := []models.Role{
+			{TenantID: &tenant.ID, Name: "Owner"},
+			{TenantID: &tenant.ID, Name: "Admin"},
+			{TenantID: &tenant.ID, Name: "Member"},
+		}
+		for i := range roles {
+			if err := tx.Create(&roles[i]).Error; err != nil {
+				return err
+			}
+		}
+
+		// Assign user as owner (first role)
+		userRole := models.UserRole{UserID: input.UserID, RoleID: roles[0].ID}
+		if err := tx.Create(&userRole).Error; err != nil {
+			return err
+		}
+
+		result = &TenantCreateResult{
+			TenantID:   tenant.ID,
+			TenantName: tenant.Name,
+			TenantSlug: tenant.Slug,
+			TenantPlan: tenant.Plan,
+			RoleName:   roles[0].Name,
+		}
+		return nil
+	})
+
+	return result, err
 }

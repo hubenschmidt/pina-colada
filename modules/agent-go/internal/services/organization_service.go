@@ -2,10 +2,12 @@ package services
 
 import (
 	"errors"
+	"time"
 
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
+	"github.com/shopspring/decimal"
 )
 
 // OrganizationService handles organization business logic
@@ -174,4 +176,323 @@ func (s *OrganizationService) AddContactToOrganization(orgID int64, input schema
 		Phone:     contact.Phone,
 		Title:     contact.Title,
 	}, nil
+}
+
+// GetOrganizationContacts returns contacts for an organization
+func (s *OrganizationService) GetOrganizationContacts(orgID int64) ([]serializers.ContactResponse, error) {
+	org, err := s.orgRepo.FindByID(orgID)
+	if err != nil {
+		return nil, err
+	}
+	if org == nil || org.AccountID == nil {
+		return nil, errors.New("organization not found")
+	}
+
+	contacts, err := s.orgRepo.GetContactsForAccount(*org.AccountID)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]serializers.ContactResponse, len(contacts))
+	for i, c := range contacts {
+		results[i] = serializers.ContactResponse{
+			ID:        c.ID,
+			FirstName: c.FirstName,
+			LastName:  c.LastName,
+			Email:     c.Email,
+			Phone:     c.Phone,
+			Title:     c.Title,
+		}
+	}
+	return results, nil
+}
+
+// UpdateOrganizationContact updates a contact for an organization
+func (s *OrganizationService) UpdateOrganizationContact(orgID int64, contactID int64, input schemas.OrgContactUpdate, userID int64) (*serializers.ContactResponse, error) {
+	org, err := s.orgRepo.FindByID(orgID)
+	if err != nil {
+		return nil, err
+	}
+	if org == nil || org.AccountID == nil {
+		return nil, errors.New("organization not found")
+	}
+
+	updates := buildOrgContactUpdates(input, userID)
+	if len(updates) > 0 {
+		if err := s.orgRepo.UpdateContact(contactID, updates); err != nil {
+			return nil, err
+		}
+	}
+
+	// For now return minimal response
+	return &serializers.ContactResponse{ID: contactID}, nil
+}
+
+func buildOrgContactUpdates(input schemas.OrgContactUpdate, userID int64) map[string]interface{} {
+	updates := map[string]interface{}{"updated_by": userID}
+	if input.FirstName != nil {
+		updates["first_name"] = *input.FirstName
+	}
+	if input.LastName != nil {
+		updates["last_name"] = *input.LastName
+	}
+	if input.Email != nil {
+		updates["email"] = *input.Email
+	}
+	if input.Phone != nil {
+		updates["phone"] = *input.Phone
+	}
+	if input.Title != nil {
+		updates["title"] = *input.Title
+	}
+	return updates
+}
+
+// DeleteOrganizationContact deletes a contact from an organization
+func (s *OrganizationService) DeleteOrganizationContact(orgID int64, contactID int64) error {
+	org, err := s.orgRepo.FindByID(orgID)
+	if err != nil {
+		return err
+	}
+	if org == nil || org.AccountID == nil {
+		return errors.New("organization not found")
+	}
+
+	return s.orgRepo.DeleteContactFromAccount(*org.AccountID, contactID)
+}
+
+// GetOrganizationTechnologies returns technologies for an organization
+func (s *OrganizationService) GetOrganizationTechnologies(orgID int64) ([]serializers.OrgTechnologyResponse, error) {
+	org, err := s.orgRepo.FindByID(orgID)
+	if err != nil {
+		return nil, err
+	}
+	if org == nil {
+		return nil, errors.New("organization not found")
+	}
+
+	techs, err := s.orgRepo.GetTechnologiesForOrg(orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]serializers.OrgTechnologyResponse, len(techs))
+	for i, t := range techs {
+		results[i] = serializers.OrgTechnologyResponse{
+			OrganizationID: t.OrganizationID,
+			TechnologyID:   t.TechnologyID,
+			Source:         t.Source,
+			DetectedAt:     t.DetectedAt.Format("2006-01-02T15:04:05Z"),
+		}
+		if t.Confidence != nil {
+			f, _ := t.Confidence.Float64()
+			results[i].Confidence = &f
+		}
+	}
+	return results, nil
+}
+
+// AddTechnologyToOrganization adds a technology to an organization
+func (s *OrganizationService) AddTechnologyToOrganization(orgID int64, input schemas.OrgTechnologyCreate) error {
+	org, err := s.orgRepo.FindByID(orgID)
+	if err != nil {
+		return err
+	}
+	if org == nil {
+		return errors.New("organization not found")
+	}
+
+	return s.orgRepo.AddTechnologyToOrg(orgID, input.TechnologyID, input.Source, input.Confidence)
+}
+
+// RemoveTechnologyFromOrganization removes a technology from an organization
+func (s *OrganizationService) RemoveTechnologyFromOrganization(orgID int64, techID int64) error {
+	return s.orgRepo.RemoveTechnologyFromOrg(orgID, techID)
+}
+
+// GetOrganizationFundingRounds returns funding rounds for an organization
+func (s *OrganizationService) GetOrganizationFundingRounds(orgID int64) ([]serializers.FundingRoundResponse, error) {
+	org, err := s.orgRepo.FindByID(orgID)
+	if err != nil {
+		return nil, err
+	}
+	if org == nil {
+		return nil, errors.New("organization not found")
+	}
+
+	rounds, err := s.orgRepo.GetFundingRoundsForOrg(orgID)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]serializers.FundingRoundResponse, len(rounds))
+	for i, r := range rounds {
+		results[i] = serializers.FundingRoundResponse{
+			ID:             r.ID,
+			OrganizationID: r.OrganizationID,
+			RoundType:      r.RoundType,
+			Amount:         r.Amount,
+			LeadInvestor:   r.LeadInvestor,
+			SourceURL:      r.SourceURL,
+		}
+		if r.AnnouncedDate != nil {
+			d := r.AnnouncedDate.Format("2006-01-02")
+			results[i].AnnouncedDate = &d
+		}
+	}
+	return results, nil
+}
+
+// CreateOrganizationFundingRound creates a funding round for an organization
+func (s *OrganizationService) CreateOrganizationFundingRound(orgID int64, input schemas.FundingRoundCreate) (*serializers.FundingRoundResponse, error) {
+	org, err := s.orgRepo.FindByID(orgID)
+	if err != nil {
+		return nil, err
+	}
+	if org == nil {
+		return nil, errors.New("organization not found")
+	}
+
+	round := &repositories.FundingRoundInput{
+		OrganizationID: orgID,
+		RoundType:      input.RoundType,
+		Amount:         input.Amount,
+		LeadInvestor:   input.LeadInvestor,
+		SourceURL:      input.SourceURL,
+		AnnouncedDate:  input.AnnouncedDate,
+	}
+
+	created, err := s.orgRepo.CreateFundingRoundFromInput(round)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := &serializers.FundingRoundResponse{
+		ID:             created.ID,
+		OrganizationID: created.OrganizationID,
+		RoundType:      created.RoundType,
+		Amount:         created.Amount,
+		LeadInvestor:   created.LeadInvestor,
+		SourceURL:      created.SourceURL,
+	}
+	if created.AnnouncedDate != nil {
+		d := created.AnnouncedDate.Format("2006-01-02")
+		resp.AnnouncedDate = &d
+	}
+	return resp, nil
+}
+
+// DeleteOrganizationFundingRound deletes a funding round
+func (s *OrganizationService) DeleteOrganizationFundingRound(orgID int64, roundID int64) error {
+	return s.orgRepo.DeleteFundingRound(roundID)
+}
+
+// GetOrganizationSignals returns signals for an organization
+func (s *OrganizationService) GetOrganizationSignals(orgID int64, signalType *string, limit int) ([]serializers.SignalResponse, error) {
+	org, err := s.orgRepo.FindByID(orgID)
+	if err != nil {
+		return nil, err
+	}
+	if org == nil || org.AccountID == nil {
+		return nil, errors.New("organization not found")
+	}
+
+	if limit <= 0 {
+		limit = 20
+	}
+
+	signals, err := s.orgRepo.GetSignalsForAccount(*org.AccountID, signalType, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	return serializers.SignalsToResponse(signals), nil
+}
+
+// CreateOrganizationSignal creates a signal for an organization
+func (s *OrganizationService) CreateOrganizationSignal(orgID int64, input schemas.SignalCreate, userID int64) (*serializers.SignalResponse, error) {
+	org, err := s.orgRepo.FindByID(orgID)
+	if err != nil {
+		return nil, err
+	}
+	if org == nil || org.AccountID == nil {
+		return nil, errors.New("organization not found")
+	}
+
+	signalInput := repositories.SignalCreateInput{
+		SignalType:  input.SignalType,
+		Headline:    input.Headline,
+		Description: input.Description,
+		Source:      input.Source,
+		SourceURL:   input.SourceURL,
+		Sentiment:   input.Sentiment,
+	}
+	if input.SignalDate != nil {
+		if t, err := time.Parse("2006-01-02", *input.SignalDate); err == nil {
+			signalInput.SignalDate = &t
+		}
+	}
+	if input.RelevanceScore != nil {
+		dec := decimal.NewFromFloat(*input.RelevanceScore)
+		signalInput.RelevanceScore = &dec
+	}
+
+	created, err := s.orgRepo.CreateSignalForAccount(*org.AccountID, signalInput)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := serializers.SignalToResponse(created)
+	return &resp, nil
+}
+
+// DeleteOrganizationSignal deletes a signal
+func (s *OrganizationService) DeleteOrganizationSignal(orgID int64, signalID int64) error {
+	return s.orgRepo.DeleteSignal(signalID)
+}
+
+// CreateOrganization creates a new organization
+func (s *OrganizationService) CreateOrganization(input schemas.OrganizationCreate, userID int64, tenantID *int64) (*serializers.OrganizationDetailResponse, error) {
+	// Create or use existing account
+	var accountID int64
+	if input.AccountID != nil {
+		accountID = *input.AccountID
+	} else {
+		// Create new account for this org
+		account, err := s.orgRepo.CreateAccount(input.Name, tenantID, userID)
+		if err != nil {
+			return nil, err
+		}
+		accountID = account.ID
+	}
+
+	org, err := s.orgRepo.CreateOrganization(repositories.OrganizationCreateInput{
+		AccountID:            accountID,
+		Name:                 input.Name,
+		Website:              input.Website,
+		Phone:                input.Phone,
+		EmployeeCount:        input.EmployeeCount,
+		EmployeeCountRangeID: input.EmployeeCountRangeID,
+		FundingStageID:       input.FundingStageID,
+		Description:          input.Description,
+		RevenueRangeID:       input.RevenueRangeID,
+		FoundingYear:         input.FoundingYear,
+		HeadquartersCity:     input.HeadquartersCity,
+		HeadquartersState:    input.HeadquartersState,
+		HeadquartersCountry:  input.HeadquartersCountry,
+		CompanyType:          input.CompanyType,
+		LinkedInURL:          input.LinkedInURL,
+		CrunchbaseURL:        input.CrunchbaseURL,
+		UserID:               userID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	// Handle industry associations if provided
+	if len(input.IndustryIDs) > 0 {
+		s.orgRepo.UpdateAccountIndustries(accountID, input.IndustryIDs)
+	}
+
+	return s.GetOrganization(org.ID)
 }

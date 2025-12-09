@@ -61,8 +61,9 @@ type JobListResponse struct {
 // JobDetailResponse represents a job in detail view
 type JobDetailResponse struct {
 	JobListResponse
-	Lead     *LeadResponse    `json:"lead"`
-	Projects []ProjectBrief   `json:"projects"`
+	Lead       *LeadResponse   `json:"lead"`
+	Projects   []ProjectBrief  `json:"projects"`
+	LeadStatus StatusResponse  `json:"lead_status,omitempty"`
 }
 
 // LeadResponse represents a lead
@@ -95,6 +96,29 @@ type StatusBrief struct {
 	ID       int64   `json:"id"`
 	Name     string  `json:"name"`
 	Category *string `json:"category"`
+}
+
+// StatusResponse represents a full status
+type StatusResponse struct {
+	ID          int64   `json:"id"`
+	Name        string  `json:"name"`
+	Description *string `json:"description"`
+	Category    *string `json:"category"`
+	IsTerminal  bool    `json:"is_terminal"`
+}
+
+// StatusToResponse converts a Status model to response
+func StatusToResponse(status *models.Status) StatusResponse {
+	if status == nil {
+		return StatusResponse{}
+	}
+	return StatusResponse{
+		ID:          status.ID,
+		Name:        status.Name,
+		Description: status.Description,
+		Category:    status.Category,
+		IsTerminal:  status.IsTerminal,
+	}
 }
 
 // ProjectBrief represents project summary

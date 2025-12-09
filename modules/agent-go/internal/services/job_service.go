@@ -302,6 +302,19 @@ func buildLeadUpdates(input schemas.JobUpdate, userID int64) map[string]interfac
 	return updates
 }
 
+// GetRecentResumeDate returns the most recent resume date as a string
+func (s *JobService) GetRecentResumeDate() (*string, error) {
+	resumeDate, err := s.jobRepo.GetRecentResumeDate()
+	if err != nil {
+		return nil, err
+	}
+	if resumeDate == nil {
+		return nil, nil
+	}
+	dateStr := resumeDate.Format("2006-01-02")
+	return &dateStr, nil
+}
+
 func parseDate(dateStr *string) *time.Time {
 	if dateStr == nil || *dateStr == "" {
 		return nil
@@ -311,4 +324,69 @@ func parseDate(dateStr *string) *time.Time {
 		return nil
 	}
 	return &t
+}
+
+// GetLeadStatuses returns all job-related statuses
+func (s *JobService) GetLeadStatuses() ([]serializers.StatusResponse, error) {
+	statuses, err := s.jobRepo.FindAllStatuses()
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]serializers.StatusResponse, len(statuses))
+	for i := range statuses {
+		resp[i] = serializers.StatusToResponse(&statuses[i])
+	}
+	return resp, nil
+}
+
+// GetLeads returns job leads optionally filtered by status names
+func (s *JobService) GetLeads(statusNames []string, tenantID *int64) ([]serializers.JobDetailResponse, error) {
+	jobs, err := s.jobRepo.FindJobsByStatusNames(statusNames, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := make([]serializers.JobDetailResponse, len(jobs))
+	for i := range jobs {
+		resp[i] = serializers.JobToDetailResponse(&jobs[i])
+		if jobs[i].Lead != nil && jobs[i].Lead.CurrentStatus != nil {
+			resp[i].LeadStatus = serializers.StatusToResponse(jobs[i].Lead.CurrentStatus)
+		}
+	}
+	return resp, nil
+}
+
+// MarkLeadAsApplied marks a job lead as applied
+func (s *JobService) MarkLeadAsApplied(jobID int64, userID int64) (*serializers.JobDetailResponse, error) {
+	job, err := s.jobRepo.FindByID(jobID)
+	if err != nil {
+		return nil, err
+	}
+	if job == nil {
+		return nil, ErrJobNotFound
+	}
+
+	if err := s.jobRepo.UpdateJobStatus(jobID, "applied", userID); err != nil {
+		return nil, err
+	}
+
+	return s.GetJob(jobID)
+}
+
+// MarkLeadAsDoNotApply marks a job lead as do not apply
+func (s *JobService) MarkLeadAsDoNotApply(jobID int64, userID int64) (*serializers.JobDetailResponse, error) {
+	job, err := s.jobRepo.FindByID(jobID)
+	if err != nil {
+		return nil, err
+	}
+	if job == nil {
+		return nil, ErrJobNotFound
+	}
+
+	if err := s.jobRepo.UpdateJobStatus(jobID, "do_not_apply", userID); err != nil {
+		return nil, err
+	}
+
+	return s.GetJob(jobID)
 }

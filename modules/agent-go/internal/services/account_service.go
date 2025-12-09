@@ -1,7 +1,6 @@
 package services
 
 import (
-	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 )
 
@@ -24,32 +23,21 @@ func (s *AccountService) SearchAccounts(query string, tenantID *int64, limit int
 	if limit <= 0 {
 		limit = 20
 	}
-	accounts, err := s.accountRepo.Search(query, tenantID, limit)
+	repoResults, err := s.accountRepo.Search(query, tenantID, limit)
 	if err != nil {
 		return nil, err
 	}
 
-	results := make([]AccountSearchResult, len(accounts))
-	for i, a := range accounts {
-		accountType, entityID := getAccountTypeAndEntityID(a)
+	results := make([]AccountSearchResult, len(repoResults))
+	for i, r := range repoResults {
 		results[i] = AccountSearchResult{
-			ID:        entityID,
-			AccountID: a.ID,
-			Name:      a.Name,
-			Type:      accountType,
+			ID:        r.ID,
+			AccountID: r.AccountID,
+			Name:      r.Name,
+			Type:      r.Type,
 		}
 	}
 	return results, nil
-}
-
-func getAccountTypeAndEntityID(account models.Account) (string, int64) {
-	if len(account.Organizations) > 0 {
-		return "organization", account.Organizations[0].ID
-	}
-	if len(account.Individuals) > 0 {
-		return "individual", account.Individuals[0].ID
-	}
-	return "unknown", account.ID
 }
 
 // RelationshipCreateInput holds data for creating a relationship

@@ -95,3 +95,53 @@ func (c *PreferencesController) GetTimezones(w http.ResponseWriter, r *http.Requ
 	}
 	writePrefsJSON(w, http.StatusOK, map[string][]string{"timezones": timezones})
 }
+
+// GetTenantPreferences handles GET /preferences/tenant
+func (c *PreferencesController) GetTenantPreferences(w http.ResponseWriter, r *http.Request) {
+	tenantID, ok := middleware.GetTenantID(r.Context())
+	if !ok {
+		writePrefsError(w, http.StatusBadRequest, "tenant not set")
+		return
+	}
+
+	result, err := c.prefsService.GetTenantPreferences(tenantID)
+	if err != nil {
+		writePrefsError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writePrefsJSON(w, http.StatusOK, result)
+}
+
+// UpdateTenantPreferencesRequest represents the request body for updating tenant preferences
+type UpdateTenantPreferencesRequest struct {
+	Theme string `json:"theme"`
+}
+
+// UpdateTenantPreferences handles PATCH /preferences/tenant
+func (c *PreferencesController) UpdateTenantPreferences(w http.ResponseWriter, r *http.Request) {
+	tenantID, ok := middleware.GetTenantID(r.Context())
+	if !ok {
+		writePrefsError(w, http.StatusBadRequest, "tenant not set")
+		return
+	}
+
+	var input UpdateTenantPreferencesRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writePrefsError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if input.Theme == "" {
+		writePrefsError(w, http.StatusBadRequest, "theme is required")
+		return
+	}
+
+	result, err := c.prefsService.UpdateTenantPreferences(tenantID, input.Theme)
+	if err != nil {
+		writePrefsError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writePrefsJSON(w, http.StatusOK, result)
+}

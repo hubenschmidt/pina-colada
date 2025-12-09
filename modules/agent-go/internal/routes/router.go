@@ -29,6 +29,12 @@ type Controllers struct {
 	Document     *controllers.DocumentController
 	Account      *controllers.AccountController
 	Lead         *controllers.LeadController
+	Costs        *controllers.CostsController
+	Provenance   *controllers.ProvenanceController
+	Technology   *controllers.TechnologyController
+	Leads        *controllers.LeadsController
+	Usage        *controllers.UsageController
+	Report       *controllers.ReportController
 }
 
 // NewRouter creates and configures the Chi router
@@ -81,12 +87,14 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 		// Auth routes
 		r.Route("/auth", func(r chi.Router) {
 			r.Get("/me", c.Auth.GetMe)
+			r.Post("/tenant/create", c.Auth.CreateTenant)
 		})
 
 		// Jobs routes
 		r.Route("/jobs", func(r chi.Router) {
 			r.Get("/", c.Job.GetJobs)
 			r.Post("/", c.Job.CreateJob)
+			r.Get("/recent-resume-date", c.Job.GetRecentResumeDate)
 			r.Get("/{id}", c.Job.GetJob)
 			r.Put("/{id}", c.Job.UpdateJob)
 			r.Delete("/{id}", c.Job.DeleteJob)
@@ -95,21 +103,41 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 		// Organizations routes
 		r.Route("/organizations", func(r chi.Router) {
 			r.Get("/", c.Organization.GetOrganizations)
+			r.Post("/", c.Organization.CreateOrganization)
 			r.Get("/search", c.Organization.SearchOrganizations)
 			r.Get("/{id}", c.Organization.GetOrganization)
 			r.Put("/{id}", c.Organization.UpdateOrganization)
 			r.Delete("/{id}", c.Organization.DeleteOrganization)
+			r.Get("/{id}/contacts", c.Organization.GetOrganizationContacts)
 			r.Post("/{id}/contacts", c.Organization.AddOrganizationContact)
+			r.Put("/{id}/contacts/{contactId}", c.Organization.UpdateOrganizationContact)
+			r.Delete("/{id}/contacts/{contactId}", c.Organization.DeleteOrganizationContact)
+			r.Get("/{id}/technologies", c.Organization.GetOrganizationTechnologies)
+			r.Post("/{id}/technologies", c.Organization.AddOrganizationTechnology)
+			r.Delete("/{id}/technologies/{techId}", c.Organization.RemoveOrganizationTechnology)
+			r.Get("/{id}/funding-rounds", c.Organization.GetOrganizationFundingRounds)
+			r.Post("/{id}/funding-rounds", c.Organization.CreateOrganizationFundingRound)
+			r.Delete("/{id}/funding-rounds/{roundId}", c.Organization.DeleteOrganizationFundingRound)
+			r.Get("/{id}/signals", c.Organization.GetOrganizationSignals)
+			r.Post("/{id}/signals", c.Organization.CreateOrganizationSignal)
+			r.Delete("/{id}/signals/{signalId}", c.Organization.DeleteOrganizationSignal)
 		})
 
 		// Individuals routes
 		r.Route("/individuals", func(r chi.Router) {
 			r.Get("/", c.Individual.GetIndividuals)
+			r.Post("/", c.Individual.CreateIndividual)
 			r.Get("/search", c.Individual.SearchIndividuals)
 			r.Get("/{id}", c.Individual.GetIndividual)
 			r.Put("/{id}", c.Individual.UpdateIndividual)
 			r.Delete("/{id}", c.Individual.DeleteIndividual)
+			r.Get("/{id}/contacts", c.Individual.GetContacts)
 			r.Post("/{id}/contacts", c.Individual.AddContact)
+			r.Put("/{id}/contacts/{contactId}", c.Individual.UpdateContact)
+			r.Delete("/{id}/contacts/{contactId}", c.Individual.DeleteContact)
+			r.Get("/{id}/signals", c.Individual.GetSignals)
+			r.Post("/{id}/signals", c.Individual.CreateSignal)
+			r.Delete("/{id}/signals/{signalId}", c.Individual.DeleteSignal)
 		})
 
 		// Tasks routes
@@ -145,6 +173,8 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 			r.Get("/user", c.Preferences.GetUserPreferences)
 			r.Patch("/user", c.Preferences.UpdateUserPreferences)
 			r.Get("/timezones", c.Preferences.GetTimezones)
+			r.Get("/tenant", c.Preferences.GetTenantPreferences)
+			r.Patch("/tenant", c.Preferences.UpdateTenantPreferences)
 		})
 
 		// Notifications routes
@@ -155,11 +185,23 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 		// Projects routes
 		r.Route("/projects", func(r chi.Router) {
 			r.Get("/", c.Project.GetProjects)
+			r.Post("/", c.Project.CreateProject)
+			r.Get("/{id}", c.Project.GetProject)
+			r.Put("/{id}", c.Project.UpdateProject)
+			r.Delete("/{id}", c.Project.DeleteProject)
+			r.Get("/{id}/leads", c.Project.GetProjectLeads)
+			r.Get("/{id}/deals", c.Project.GetProjectDeals)
 		})
 
 		// Conversations routes
 		r.Route("/conversations", func(r chi.Router) {
 			r.Get("/", c.Conversation.GetConversations)
+			r.Get("/all", c.Conversation.GetTenantConversations)
+			r.Get("/{thread_id}", c.Conversation.GetConversation)
+			r.Patch("/{thread_id}", c.Conversation.UpdateConversationTitle)
+			r.Delete("/{thread_id}", c.Conversation.ArchiveConversation)
+			r.Post("/{thread_id}/unarchive", c.Conversation.UnarchiveConversation)
+			r.Delete("/{thread_id}/permanent", c.Conversation.DeleteConversationPermanent)
 		})
 
 		// Opportunities routes
@@ -182,11 +224,26 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 		})
 
 		// Lookup routes
-		r.Get("/industries", c.Lookup.GetIndustries)
+		r.Route("/industries", func(r chi.Router) {
+			r.Get("/", c.Lookup.GetIndustries)
+			r.Post("/", c.Lookup.CreateIndustry)
+		})
 		r.Get("/employee-count-ranges", c.Lookup.GetEmployeeCountRanges)
 		r.Get("/revenue-ranges", c.Lookup.GetRevenueRanges)
 		r.Get("/funding-stages", c.Lookup.GetFundingStages)
 		r.Get("/salary-ranges", c.Lookup.GetSalaryRanges)
+
+		// Costs routes
+		r.Route("/costs", func(r chi.Router) {
+			r.Get("/summary", c.Costs.GetCostsSummary)
+			r.Get("/org", c.Costs.GetOrgCosts)
+		})
+
+		// Provenance routes
+		r.Route("/provenance", func(r chi.Router) {
+			r.Get("/{entityType}/{entityID}", c.Provenance.GetProvenance)
+			r.Post("/", c.Provenance.CreateProvenance)
+		})
 
 		// Notes routes
 		r.Route("/notes", func(r chi.Router) {
@@ -211,7 +268,10 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 			r.Get("/documents", c.Document.GetDocuments)
 			r.Get("/documents/check-filename", c.Document.CheckFilename)
 			r.Get("/documents/{id}", c.Document.GetDocument)
+			r.Get("/documents/{id}/download", c.Document.DownloadDocument)
 			r.Post("/documents", c.Document.UploadDocument)
+			r.Put("/documents/{id}", c.Document.UpdateDocument)
+			r.Delete("/documents/{id}", c.Document.DeleteDocument)
 			r.Post("/documents/{id}/link", c.Document.LinkDocument)
 			r.Delete("/documents/{id}/link", c.Document.UnlinkDocument)
 			r.Get("/documents/{id}/versions", c.Document.GetDocumentVersions)
@@ -219,11 +279,58 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 			r.Patch("/documents/{id}/set-current", c.Document.SetCurrentVersion)
 		})
 
+		// Technologies routes
+		r.Route("/technologies", func(r chi.Router) {
+			r.Get("/", c.Technology.GetTechnologies)
+			r.Get("/{id}", c.Technology.GetTechnology)
+			r.Post("/", c.Technology.CreateTechnology)
+		})
+
+		// Usage routes
+		r.Route("/usage", func(r chi.Router) {
+			r.Get("/user", c.Usage.GetUserUsage)
+			r.Get("/tenant", c.Usage.GetTenantUsage)
+			r.Get("/timeseries", c.Usage.GetUsageTimeseries)
+			r.Get("/analytics", c.Usage.GetDeveloperAnalytics)
+			r.Get("/developer-access", c.Usage.CheckDeveloperAccess)
+		})
+
+		// Leads routes (job leads)
+		r.Route("/leads", func(r chi.Router) {
+			r.Get("/", c.Leads.GetLeads)
+			r.Get("/statuses", c.Leads.GetStatuses)
+			r.Post("/{job_id}/apply", c.Leads.MarkAsApplied)
+			r.Post("/{job_id}/do-not-apply", c.Leads.MarkAsDoNotApply)
+		})
+
 		// Tags routes
 		r.Get("/tags", func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusOK)
 			w.Write([]byte(`[]`))
+		})
+
+		// Reports routes
+		r.Route("/reports", func(r chi.Router) {
+			// Canned reports
+			r.Get("/canned/lead-pipeline", c.Report.GetLeadPipeline)
+			r.Get("/canned/account-overview", c.Report.GetAccountOverview)
+			r.Get("/canned/contact-coverage", c.Report.GetContactCoverage)
+			r.Get("/canned/notes-activity", c.Report.GetNotesActivity)
+			r.Get("/canned/user-audit", c.Report.GetUserAudit)
+
+			// Custom report execution
+			r.Get("/fields/{entity}", c.Report.GetEntityFields)
+			r.Post("/custom/preview", c.Report.PreviewCustomReport)
+			r.Post("/custom/run", c.Report.RunCustomReport)
+			r.Post("/custom/export", c.Report.ExportCustomReport)
+
+			// Saved reports CRUD
+			r.Get("/saved", c.Report.ListSavedReports)
+			r.Post("/saved", c.Report.CreateSavedReport)
+			r.Get("/saved/{report_id}", c.Report.GetSavedReport)
+			r.Put("/saved/{report_id}", c.Report.UpdateSavedReport)
+			r.Delete("/saved/{report_id}", c.Report.DeleteSavedReport)
 		})
 	})
 }

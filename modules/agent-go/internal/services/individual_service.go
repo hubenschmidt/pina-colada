@@ -2,9 +2,12 @@ package services
 
 import (
 	"errors"
+	"time"
 
 	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
+	"github.com/shopspring/decimal"
 )
 
 // IndividualService handles individual business logic
@@ -228,4 +231,184 @@ func buildIndividualUpdates(input IndividualUpdateInput, userID int64) map[strin
 	}
 	updates["updated_by"] = userID
 	return updates
+}
+
+// CreateIndividual creates a new individual
+func (s *IndividualService) CreateIndividual(input schemas.IndividualCreate, tenantID *int64, userID int64) (*serializers.IndividualDetailResponse, error) {
+	repoInput := repositories.IndividualCreateInput{
+		FirstName:       input.FirstName,
+		LastName:        input.LastName,
+		Email:           input.Email,
+		Phone:           input.Phone,
+		LinkedInURL:     input.LinkedInURL,
+		Title:           input.Title,
+		Description:     input.Description,
+		AccountID:       input.AccountID,
+		TwitterURL:      input.TwitterURL,
+		GithubURL:       input.GithubURL,
+		Bio:             input.Bio,
+		SeniorityLevel:  input.SeniorityLevel,
+		Department:      input.Department,
+		IsDecisionMaker: input.IsDecisionMaker,
+		ReportsToID:     input.ReportsToID,
+		TenantID:        tenantID,
+		UserID:          userID,
+		IndustryIDs:     input.IndustryIDs,
+		ProjectIDs:      input.ProjectIDs,
+	}
+
+	ind, err := s.indRepo.CreateIndividual(repoInput)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := serializers.IndividualToDetailResponse(ind)
+	return &resp, nil
+}
+
+// GetContacts returns contacts for an individual
+func (s *IndividualService) GetContacts(individualID int64) ([]serializers.ContactBrief, error) {
+	contacts, err := s.indRepo.GetContactsForIndividual(individualID)
+	if err != nil {
+		return nil, err
+	}
+	if contacts == nil {
+		return nil, errors.New("individual not found")
+	}
+
+	result := make([]serializers.ContactBrief, len(contacts))
+	for i, c := range contacts {
+		result[i] = serializers.ContactBrief{
+			ID:        c.ID,
+			FirstName: c.FirstName,
+			LastName:  c.LastName,
+			Email:     c.Email,
+			Phone:     c.Phone,
+			Title:     c.Title,
+		}
+	}
+	return result, nil
+}
+
+// UpdateContact updates a contact for an individual
+func (s *IndividualService) UpdateContact(individualID, contactID int64, input schemas.IndContactUpdate, userID int64) (*serializers.ContactBrief, error) {
+	ind, err := s.indRepo.FindByID(individualID)
+	if err != nil {
+		return nil, err
+	}
+	if ind == nil {
+		return nil, errors.New("individual not found")
+	}
+
+	updates := buildIndContactUpdates(input, userID)
+	if len(updates) > 0 {
+		if err := s.indRepo.UpdateContact(contactID, updates); err != nil {
+			return nil, err
+		}
+	}
+
+	contact, err := s.indRepo.GetContactByID(contactID)
+	if err != nil {
+		return nil, err
+	}
+	if contact == nil {
+		return nil, errors.New("contact not found")
+	}
+
+	return &serializers.ContactBrief{
+		ID:        contact.ID,
+		FirstName: contact.FirstName,
+		LastName:  contact.LastName,
+		Email:     contact.Email,
+		Phone:     contact.Phone,
+		Title:     contact.Title,
+	}, nil
+}
+
+func buildIndContactUpdates(input schemas.IndContactUpdate, userID int64) map[string]interface{} {
+	updates := make(map[string]interface{})
+	if input.FirstName != nil {
+		updates["first_name"] = *input.FirstName
+	}
+	if input.LastName != nil {
+		updates["last_name"] = *input.LastName
+	}
+	if input.Email != nil {
+		updates["email"] = *input.Email
+	}
+	if input.Phone != nil {
+		updates["phone"] = *input.Phone
+	}
+	if input.Title != nil {
+		updates["title"] = *input.Title
+	}
+	updates["updated_by"] = userID
+	return updates
+}
+
+// DeleteContact deletes a contact from an individual
+func (s *IndividualService) DeleteContact(individualID, contactID int64) error {
+	ind, err := s.indRepo.FindByID(individualID)
+	if err != nil {
+		return err
+	}
+	if ind == nil {
+		return errors.New("individual not found")
+	}
+
+	return s.indRepo.DeleteContactFromAccount(individualID, contactID)
+}
+
+// GetSignals returns signals for an individual
+func (s *IndividualService) GetSignals(individualID int64, signalType *string, limit int) ([]serializers.SignalResponse, error) {
+	if limit <= 0 {
+		limit = 20
+	}
+
+	signals, err := s.indRepo.GetSignalsForIndividual(individualID, signalType, limit)
+	if err != nil {
+		return nil, err
+	}
+	if signals == nil {
+		return nil, errors.New("individual not found")
+	}
+
+	return serializers.SignalsToResponse(signals), nil
+}
+
+// CreateSignal creates a signal for an individual
+func (s *IndividualService) CreateSignal(individualID int64, input schemas.SignalCreate) (*serializers.SignalResponse, error) {
+	repoInput := repositories.SignalCreateInput{
+		SignalType:  input.SignalType,
+		Headline:    input.Headline,
+		Description: input.Description,
+		Source:      input.Source,
+		SourceURL:   input.SourceURL,
+		Sentiment:   input.Sentiment,
+	}
+
+	if input.SignalDate != nil {
+		t, err := time.Parse("2006-01-02", *input.SignalDate)
+		if err == nil {
+			repoInput.SignalDate = &t
+		}
+	}
+
+	if input.RelevanceScore != nil {
+		d := decimal.NewFromFloat(*input.RelevanceScore)
+		repoInput.RelevanceScore = &d
+	}
+
+	signal, err := s.indRepo.CreateSignalForIndividual(individualID, repoInput)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := serializers.SignalToResponse(signal)
+	return &resp, nil
+}
+
+// DeleteSignal deletes a signal from an individual
+func (s *IndividualService) DeleteSignal(individualID, signalID int64) error {
+	return s.indRepo.DeleteSignal(individualID, signalID)
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/pina-colada-co/agent-go/internal/middleware"
+	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
@@ -168,6 +169,198 @@ func (c *IndividualController) DeleteIndividual(w http.ResponseWriter, r *http.R
 			writeError(w, http.StatusNotFound, err.Error())
 			return
 		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, serializers.SuccessResponse{Success: true})
+}
+
+// CreateIndividual handles POST /individuals
+func (c *IndividualController) CreateIndividual(w http.ResponseWriter, r *http.Request) {
+	var input schemas.IndividualCreate
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	var tenantID *int64
+	if tid, ok := middleware.GetTenantID(r.Context()); ok {
+		tenantID = &tid
+	}
+	userID, _ := middleware.GetUserID(r.Context())
+
+	result, err := c.indService.CreateIndividual(input, tenantID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, result)
+}
+
+// GetContacts handles GET /individuals/{id}/contacts
+func (c *IndividualController) GetContacts(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid individual ID")
+		return
+	}
+
+	contacts, err := c.indService.GetContacts(id)
+	if err != nil {
+		if err.Error() == "individual not found" {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, contacts)
+}
+
+// UpdateContact handles PUT /individuals/{id}/contacts/{contactId}
+func (c *IndividualController) UpdateContact(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid individual ID")
+		return
+	}
+
+	contactIDStr := chi.URLParam(r, "contactId")
+	contactID, err := strconv.ParseInt(contactIDStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid contact ID")
+		return
+	}
+
+	var input schemas.IndContactUpdate
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	userID, _ := middleware.GetUserID(r.Context())
+
+	result, err := c.indService.UpdateContact(id, contactID, input, userID)
+	if err != nil {
+		if err.Error() == "individual not found" || err.Error() == "contact not found" {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
+// DeleteContact handles DELETE /individuals/{id}/contacts/{contactId}
+func (c *IndividualController) DeleteContact(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid individual ID")
+		return
+	}
+
+	contactIDStr := chi.URLParam(r, "contactId")
+	contactID, err := strconv.ParseInt(contactIDStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid contact ID")
+		return
+	}
+
+	if err := c.indService.DeleteContact(id, contactID); err != nil {
+		if err.Error() == "individual not found" {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, serializers.SuccessResponse{Success: true})
+}
+
+// GetSignals handles GET /individuals/{id}/signals
+func (c *IndividualController) GetSignals(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid individual ID")
+		return
+	}
+
+	var signalType *string
+	if st := r.URL.Query().Get("signal_type"); st != "" {
+		signalType = &st
+	}
+
+	limit := 20
+	if l := r.URL.Query().Get("limit"); l != "" {
+		if parsed, err := strconv.Atoi(l); err == nil {
+			limit = parsed
+		}
+	}
+
+	signals, err := c.indService.GetSignals(id, signalType, limit)
+	if err != nil {
+		if err.Error() == "individual not found" {
+			writeError(w, http.StatusNotFound, err.Error())
+			return
+		}
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, signals)
+}
+
+// CreateSignal handles POST /individuals/{id}/signals
+func (c *IndividualController) CreateSignal(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid individual ID")
+		return
+	}
+
+	var input schemas.SignalCreate
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	result, err := c.indService.CreateSignal(id, input)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, result)
+}
+
+// DeleteSignal handles DELETE /individuals/{id}/signals/{signalId}
+func (c *IndividualController) DeleteSignal(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid individual ID")
+		return
+	}
+
+	signalIDStr := chi.URLParam(r, "signalId")
+	signalID, err := strconv.ParseInt(signalIDStr, 10, 64)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid signal ID")
+		return
+	}
+
+	if err := c.indService.DeleteSignal(id, signalID); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

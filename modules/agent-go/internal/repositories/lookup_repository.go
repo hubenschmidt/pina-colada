@@ -67,3 +67,12 @@ func (r *LookupRepository) FindStatusByName(name, category string) (*models.Stat
 	}
 	return &status, nil
 }
+
+// CreateIndustry creates a new industry
+func (r *LookupRepository) CreateIndustry(name string) (*models.Industry, error) {
+	industry := &models.Industry{Name: name}
+	if err := r.db.Create(industry).Error; err != nil {
+		return nil, err
+	}
+	return industry, nil
+}
