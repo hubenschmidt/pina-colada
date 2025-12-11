@@ -7,7 +7,7 @@
 
 ---
 
-# !Important - when implementing, please follow /csr-code-rules and /go-code-rules
+# Important - when implementing, please follow /csr-code-rules and /go-code-rules
 
 ## Summary by Resource
 

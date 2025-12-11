@@ -3,11 +3,17 @@
 import { useEffect, useState } from "react";
 import { Stack, Center, Loader, Text, Card, SimpleGrid, Table } from "@mantine/core";
 import { getAccountOverviewReport } from "../../../../api";
+import { usePageLoading } from "../../../../context/pageLoadingContext";
 
 const AccountOverviewPage = () => {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const { dispatchPageLoading } = usePageLoading();
+
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+  }, [dispatchPageLoading]);
 
   useEffect(() => {
     const fetchReport = async () => {

@@ -10,6 +10,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/pina-colada-co/agent-go/internal/agent"
 	"github.com/pina-colada-co/agent-go/internal/config"
 	"github.com/pina-colada-co/agent-go/internal/controllers"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
@@ -79,6 +80,22 @@ func main() {
 	usageService := services.NewUsageService(usageRepo, userRepo)
 	reportService := services.NewReportService(reportRepo)
 
+	// Initialize ADK agent orchestrator (only if Gemini API key is configured)
+	var agentOrchestrator *agent.Orchestrator
+	if cfg.GeminiAPIKey != "" {
+		ctx := context.Background()
+		var err error
+		agentOrchestrator, err = agent.NewOrchestrator(ctx, cfg, indService, orgService)
+		if err != nil {
+			log.Printf("Warning: Failed to initialize agent orchestrator: %v", err)
+			log.Printf("Agent endpoints will return errors until configured")
+		} else {
+			log.Println("ADK agent orchestrator initialized successfully")
+		}
+	} else {
+		log.Println("GEMINI_API_KEY not configured - agent endpoints disabled")
+	}
+
 	// Initialize controllers
 	ctrls := &routes.Controllers{
 		Auth:         controllers.NewAuthController(authService),
@@ -103,6 +120,7 @@ func main() {
 		Leads:        controllers.NewLeadsController(jobService),
 		Usage:        controllers.NewUsageController(usageService),
 		Report:       controllers.NewReportController(reportService),
+		Agent:        controllers.NewAgentController(agentOrchestrator),
 	}
 
 	// Initialize router and register routes

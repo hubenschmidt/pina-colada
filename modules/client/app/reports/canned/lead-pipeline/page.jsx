@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Stack, Center, Loader, Text, Card, SimpleGrid, Table, Badge, Group } from "@mantine/core";
 import { getLeadPipelineReport } from "../../../../api";
 import { useProjectContext } from "../../../../context/projectContext";
+import { usePageLoading } from "../../../../context/pageLoadingContext";
 
 const LeadPipelinePage = () => {
   const [report, setReport] = useState(null);
@@ -11,6 +12,12 @@ const LeadPipelinePage = () => {
   const [error, setError] = useState(null);
   const { projectState } = useProjectContext();
   const { selectedProject } = projectState;
+
+  const { dispatchPageLoading } = usePageLoading();
+
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+  }, [dispatchPageLoading]);
 
   useEffect(() => {
     const fetchReport = async () => {

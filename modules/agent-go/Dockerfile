@@ -1,5 +1,5 @@
 # Dev stage with hot-reload
-FROM golang:1.23-alpine AS dev
+FROM golang:1.24-alpine AS dev
 WORKDIR /app
 RUN apk add --no-cache git ca-certificates
 RUN go install github.com/air-verse/air@v1.52.3
@@ -7,7 +7,7 @@ EXPOSE 8080
 CMD ["air", "-c", ".air.toml"]
 
 # Build stage
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 WORKDIR /app
 
 # Install build dependencies

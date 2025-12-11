@@ -16,6 +16,7 @@ import {
 } from "@mantine/core";
 import { getNotesActivityReport } from "../../../../api";
 import { useProjectContext } from "../../../../context/projectContext";
+import { usePageLoading } from "../../../../context/pageLoadingContext";
 
 const NotesActivityPage = () => {
   const [report, setReport] = useState(null);
@@ -23,6 +24,11 @@ const NotesActivityPage = () => {
   const [error, setError] = useState(null);
   const { projectState } = useProjectContext();
   const { selectedProject } = projectState;
+  const { dispatchPageLoading } = usePageLoading();
+
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+  }, [dispatchPageLoading]);
 
   useEffect(() => {
     const fetchReport = async () => {

@@ -35,6 +35,7 @@ type Controllers struct {
 	Leads        *controllers.LeadsController
 	Usage        *controllers.UsageController
 	Report       *controllers.ReportController
+	Agent        *controllers.AgentController
 }
 
 // NewRouter creates and configures the Chi router
@@ -331,6 +332,12 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 			r.Get("/saved/{report_id}", c.Report.GetSavedReport)
 			r.Put("/saved/{report_id}", c.Report.UpdateSavedReport)
 			r.Delete("/saved/{report_id}", c.Report.DeleteSavedReport)
+		})
+
+		// Agent routes (ADK-powered chat)
+		r.Route("/agent", func(r chi.Router) {
+			r.Post("/chat", c.Agent.Chat)
+			r.Get("/health", c.Agent.HealthCheck)
 		})
 	})
 }

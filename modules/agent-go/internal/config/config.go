@@ -16,6 +16,8 @@ type Config struct {
 	// LLM Providers
 	OpenAIAPIKey    string
 	AnthropicAPIKey string
+	GeminiAPIKey    string
+	GeminiModel     string
 
 	// AWS S3
 	AWSRegion          string
@@ -36,6 +38,8 @@ func Load() *Config {
 		DatabaseURL:        getEnv("DATABASE_URL", ""),
 		OpenAIAPIKey:       getEnv("OPENAI_API_KEY", ""),
 		AnthropicAPIKey:    getEnv("ANTHROPIC_API_KEY", ""),
+		GeminiAPIKey:       getEnv("GEMINI_API_KEY", ""),
+		GeminiModel:        getEnv("GEMINI_MODEL", "gemini-2.0-flash"),
 		AWSRegion:          getEnv("AWS_REGION", "us-east-1"),
 		AWSAccessKeyID:     getEnv("AWS_ACCESS_KEY_ID", ""),
 		AWSSecretAccessKey: getEnv("AWS_SECRET_ACCESS_KEY", ""),

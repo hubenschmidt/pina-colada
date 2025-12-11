@@ -71,7 +71,7 @@ var entityFields = map[string][]string{
 	"organizations": {"id", "name", "website", "phone", "employee_count", "description", "founding_year", "headquarters_city", "headquarters_state", "headquarters_country", "company_type", "linkedin_url", "crunchbase_url", "created_at", "updated_at"},
 	"individuals":   {"id", "first_name", "last_name", "email", "phone", "title", "department", "seniority_level", "linkedin_url", "twitter_url", "github_url", "bio", "is_decision_maker", "created_at", "updated_at"},
 	"contacts":      {"id", "first_name", "last_name", "email", "phone", "title", "department", "role", "is_primary", "notes", "created_at", "updated_at"},
-	"leads":         {"id", "title", "description", "source", "type", "created_at", "updated_at"},
+	"leads":         {"id", "source", "type", "deal_id", "current_status_id", "created_at", "updated_at"},
 	"notes":         {"id", "entity_type", "entity_id", "content", "created_at", "updated_at"},
 }
 
@@ -338,20 +338,27 @@ func (s *ReportService) GetLeadPipelineReport(tenantID int64, dateFrom, dateTo *
 		return nil, err
 	}
 
-	// Group by type
-	typeCounts := make(map[string]int)
+	// Group by type and source
+	byType := make(map[string]int)
+	bySource := make(map[string]int)
 	for _, row := range data {
 		leadType, _ := row["type"].(string)
 		if leadType == "" {
-			leadType = "unknown"
+			leadType = "Unknown"
 		}
-		typeCounts[leadType]++
+		byType[leadType]++
+
+		source, _ := row["source"].(string)
+		if source == "" {
+			source = "Unknown"
+		}
+		bySource[source]++
 	}
 
 	return CannedReportResponse{
-		"leads":       data,
-		"type_counts": typeCounts,
-		"total":       len(data),
+		"total_leads": len(data),
+		"by_type":     byType,
+		"by_source":   bySource,
 	}, nil
 }
 

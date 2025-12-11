@@ -143,7 +143,7 @@ func (r *ReportRepository) SetProjectsForReport(reportID int64, projectIDs []int
 // GetLeadPipelineData returns data for the lead pipeline canned report
 func (r *ReportRepository) GetLeadPipelineData(tenantID int64, dateFrom, dateTo *string, projectID *int64) ([]map[string]interface{}, error) {
 	query := r.db.Table(`"Lead"`).
-		Select(`"Lead".id, "Lead".title, "Lead".source, "Lead".type, "Lead".created_at, "Account".name as account_name`).
+		Select(`"Lead".id, "Lead".source, "Lead".type, "Lead".created_at, "Account".name as account_name`).
 		Joins(`LEFT JOIN "Account" ON "Lead".account_id = "Account".id`).
 		Where(`"Account".tenant_id = ?`, tenantID)
 
