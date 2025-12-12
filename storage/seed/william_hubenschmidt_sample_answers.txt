@@ -1,0 +1,25 @@
+QUESTION #1: Describe a recent project where you had to document a decision (like building a new interface, introducing an architecture pattern, or choosing a third-party service). Explain the type of documentation, the audience, and how you used it in your process.
+
+ANSWER: For a recent project at Cumulus Consulting, I documented the architectural decision to introduce a message queue pattern using Azure IoT Hub to synchronize on-prem PLC data with our ERP integration platform. The documentation was written in Confluence and followed an Architecture Decision Record format, detailing the problem statement, alternatives considered, rationale for the chosen approach, and most importantly an estimate of scope.
+
+The audience included company leadership, my project manager, and new developers onboarding to the project. This documentation became a living reference for subsequent microservice designs and was used during sprint planning to align cross-functional teams on implementation details and expected system behavior.  
+
+After approval, work sub-divided within Jira tickets and Sprints using best-practices in Kanban methodology.
+
+QUESTION #2: Describe a recent project where you had to modify a data model being used in a production environment. Explain your approach to defining the changes, how you approached testing, and how you handled data migrations.
+
+ANSWER: At Cumulus, I modified a production data model that supported supplier quality management records within Plex ERP, to be consumed within our Helios platform. The change involved normalizing inspection data in Plex into a new table with foreign key relationships to support traceability across manufacturing sites. I first defined the schema revisions in a migration script using Sequelize, created staging data for validation, and ran automated tests to confirm relational integrity. Then a production SQL script was submitted for deployment to Plex.
+
+Before deployment, I executed a dry-run migration in a staging environment using production snapshots, validated report outputs, and scheduled a zero-downtime migration window with the client. This ensured data consistency while maintaining uninterrupted service.  
+
+QUESTION #3: Describe a time where you had to develop a testing strategy for a feature or system. Walk us through the types of automated and/or manual tests implemented, how you identified the test cases, and how they were built into the dev lifecycle.*
+
+ANSWER: When leading development of Helios, I established a testing strategy combining unit, integration, and end-to-end tests with a four-tier deployment strategy (Dev, Test, Staging, and Production environments). We used Jest for unit tests on business logic and for integration tests on the API. End-to-end testing was conducted in our Test and Staging environments.
+
+I identified test cases by mapping critical user stories and failure points observed in prior releases. The tests were integrated into our CI/CD pipeline in Azure DevOps, with coverage thresholds enforced before merges. This strategy shifted quality control earlier in the lifecycle and eliminated customer-reported defects post-release.  
+
+QUESTION #4: Describe a recent project where you introduced a feature leveraging AI capabilities. Explain what problem you were solving for users, what AI technology you used (like LLMs, embeddings, or ML APIs), and how you integrated it into your application. *
+
+ANSWER: In a recent project, I bootstrapped a LangGraph‑React (https://github.com/hubenschmidt/langgraph-react) stack that combined LangGraph, a FastAPI WebSocket server, a Next.js client, and self‑hosted Langfuse observability using Docker Compose. This enables self-hosted LLM observability in a Docker container, leveraging React's frontend as a highly portable interactive chat interface, and making use of the emerging LangChain and LangGraph agentic AI ecosystem.
+
+The intended audience was both AI engineers and full‑stack developers contributing to the agentic framework. This helped standardize a Docker-friendly environment setup for observability tracing, and offered an alternative to LangSmith, which would have otherwise required an enterprise license in order to self-host.
