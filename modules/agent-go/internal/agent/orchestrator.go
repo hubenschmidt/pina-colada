@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
@@ -9,14 +10,14 @@ import (
 
 	"github.com/pina-colada-co/agent-go/internal/agent/workers"
 	"github.com/pina-colada-co/agent-go/internal/config"
+	openaimodel "github.com/pina-colada-co/agent-go/internal/model/openai"
 	"github.com/pina-colada-co/agent-go/internal/services"
 	"github.com/pina-colada-co/agent-go/internal/tools"
 	adkagent "google.golang.org/adk/agent"
+	"google.golang.org/adk/model"
 	"google.golang.org/adk/model/gemini"
 	"google.golang.org/adk/runner"
 	"google.golang.org/adk/session"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/agenttool"
 	"google.golang.org/genai"
 )
 
@@ -33,18 +34,39 @@ var (
 	sessionTokenMu     sync.RWMutex
 )
 
+// WorkerType identifies which specialized worker to use
+type WorkerType string
+
+const (
+	WorkerJobSearch WorkerType = "job_search"
+	WorkerCRM       WorkerType = "crm"
+	WorkerGeneral   WorkerType = "general"
+)
+
 // Orchestrator coordinates the agent system
 type Orchestrator struct {
-	triageAgent adkagent.Agent
-	runner      *runner.Runner
-	sessionSvc  session.Service
-	appName     string
+	// Triage model for routing decisions
+	triageModel model.LLM
+
+	// Worker runners
+	jobSearchRunner *runner.Runner
+	crmRunner       *runner.Runner
+	generalRunner   *runner.Runner
+
+	sessionSvc session.Service
+	appName    string
 }
 
-// NewOrchestrator creates and wires up the agent orchestrator
+// TriageDecision represents the triage agent's routing decision
+type TriageDecision struct {
+	Worker string `json:"worker"` // "job_search", "crm", or "general"
+	Reason string `json:"reason"` // Brief explanation
+}
+
+// NewOrchestrator creates the agent orchestrator with triage-based routing
 func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService) (*Orchestrator, error) {
-	// Initialize Gemini model
-	model, err := gemini.NewModel(ctx, cfg.GeminiModel, &genai.ClientConfig{
+	// Initialize Gemini model for triage and workers
+	geminiModel, err := gemini.NewModel(ctx, cfg.GeminiModel, &genai.ClientConfig{
 		APIKey: cfg.GeminiAPIKey,
 	})
 	if err != nil {
@@ -65,61 +87,149 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 		return nil, fmt.Errorf("failed to build document tools: %w", err)
 	}
 
-	// Combine CRM and document tools for CRM worker
+	// Combine CRM and document tools
 	allCRMTools := append(crmToolList, docToolList...)
 
-	// Create workers - all workers get CRM tools since this is a CRM-focused app
-	crmWorker, err := workers.NewCRMWorker(model, allCRMTools)
+	// Create OpenAI model for job search worker
+	openaiModel, err := openaimodel.NewModel(cfg.OpenAIAPIKey, "gpt-4.1-2025-04-14")
 	if err != nil {
-		return nil, fmt.Errorf("failed to create CRM worker: %w", err)
+		return nil, fmt.Errorf("failed to create OpenAI model: %w", err)
 	}
 
-	generalWorker, err := workers.NewGeneralWorker(model, allCRMTools)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create general worker: %w", err)
-	}
-
-	// Create job search worker with Serper API + CRM tools for resume matching
-	jobSearchWorker, err := workers.NewJobSearchWorker(model, cfg.SerperAPIKey, allCRMTools)
+	// Create workers
+	jobSearchWorker, err := workers.NewJobSearchWorker(openaiModel, cfg.SerperAPIKey, allCRMTools)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job search worker: %w", err)
 	}
 
-	// Wrap specialized agents as agenttool for clean separation of concerns
-	// Each worker handles a specific domain (job search, CRM, general)
-	agentTools := []tool.Tool{
-		agenttool.New(jobSearchWorker, nil), // Serper-based job search
-		agenttool.New(crmWorker, nil),       // CRM tools
-		agenttool.New(generalWorker, nil),   // General assistance
-	}
-
-	// Create triage agent with worker agents wrapped as tools
-	triageAgent, err := NewTriageAgentWithTools(model, agentTools)
+	crmWorker, err := workers.NewCRMWorker(geminiModel, allCRMTools)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create triage agent: %w", err)
+		return nil, fmt.Errorf("failed to create CRM worker: %w", err)
 	}
 
-	// Create in-memory session service
-	sessionSvc := session.InMemoryService()
+	generalWorker, err := workers.NewGeneralWorker(geminiModel, allCRMTools)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create general worker: %w", err)
+	}
 
+	// Shared session service for all workers
+	sessionSvc := session.InMemoryService()
 	appName := "pina-colada-agent"
 
-	// Create runner
-	r, err := runner.New(runner.Config{
+	// Create runners for each worker
+	jobSearchRunner, err := runner.New(runner.Config{
 		AppName:        appName,
-		Agent:          triageAgent,
+		Agent:          jobSearchWorker,
 		SessionService: sessionSvc,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to create runner: %w", err)
+		return nil, fmt.Errorf("failed to create job search runner: %w", err)
 	}
 
+	crmRunner, err := runner.New(runner.Config{
+		AppName:        appName,
+		Agent:          crmWorker,
+		SessionService: sessionSvc,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create CRM runner: %w", err)
+	}
+
+	generalRunner, err := runner.New(runner.Config{
+		AppName:        appName,
+		Agent:          generalWorker,
+		SessionService: sessionSvc,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create general runner: %w", err)
+	}
+
+	log.Printf("ADK orchestrator initialized with triage routing")
+
 	return &Orchestrator{
-		triageAgent: triageAgent,
-		runner:      r,
-		sessionSvc:  sessionSvc,
-		appName:     appName,
+		triageModel:     geminiModel,
+		jobSearchRunner: jobSearchRunner,
+		crmRunner:       crmRunner,
+		generalRunner:   generalRunner,
+		sessionSvc:      sessionSvc,
+		appName:         appName,
 	}, nil
+}
+
+// triage uses the LLM to decide which worker should handle the request
+func (o *Orchestrator) triage(ctx context.Context, message string) (WorkerType, error) {
+	prompt := fmt.Sprintf(`You are a routing agent. Decide which worker should handle this request.
+
+WORKERS:
+- job_search: For job searches, career opportunities, finding positions, employment. This worker ALSO has CRM access, so use it when the request involves BOTH CRM lookups AND job searching.
+- crm: For CRM-ONLY tasks (contacts, individuals, organizations, accounts, documents) with NO job searching involved.
+- general: For general questions, conversation, anything else.
+
+IMPORTANT: If the request mentions job search, careers, or employment as the END GOAL, route to job_search even if CRM lookups are needed first. The job_search worker can do both.
+
+USER REQUEST: %s
+
+Respond with JSON only: {"worker": "job_search|crm|general", "reason": "brief explanation"}`, message)
+
+	req := &model.LLMRequest{
+		Contents: []*genai.Content{
+			{Role: "user", Parts: []*genai.Part{{Text: prompt}}},
+		},
+	}
+
+	var decision TriageDecision
+	for resp, err := range o.triageModel.GenerateContent(ctx, req, false) {
+		if err != nil {
+			log.Printf("Triage error: %v, defaulting to general", err)
+			return WorkerGeneral, nil
+		}
+		if resp.Content != nil {
+			for _, part := range resp.Content.Parts {
+				if part.Text != "" {
+					// Try to parse JSON from response
+					text := part.Text
+					// Find JSON in response
+					start := -1
+					end := -1
+					for i, c := range text {
+						if c == '{' && start == -1 {
+							start = i
+						}
+						if c == '}' {
+							end = i + 1
+						}
+					}
+					if start >= 0 && end > start {
+						if err := json.Unmarshal([]byte(text[start:end]), &decision); err == nil {
+							log.Printf("🔀 TRIAGE: %s → %s", decision.Reason, decision.Worker)
+							switch decision.Worker {
+							case "job_search":
+								return WorkerJobSearch, nil
+							case "crm":
+								return WorkerCRM, nil
+							default:
+								return WorkerGeneral, nil
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	return WorkerGeneral, nil
+}
+
+// getRunner returns the runner for a worker type
+func (o *Orchestrator) getRunner(workerType WorkerType) *runner.Runner {
+	switch workerType {
+	case WorkerJobSearch:
+		return o.jobSearchRunner
+	case WorkerCRM:
+		return o.crmRunner
+	default:
+		return o.generalRunner
+	}
 }
 
 // RunRequest represents a request to run the agent
@@ -152,7 +262,7 @@ type StreamEvent struct {
 	// Text streaming
 	Text string `json:"text,omitempty"`
 
-	// Token usage (cumulative during turn)
+	// Token usage
 	Tokens *TokenUsage `json:"tokens,omitempty"`
 
 	// Timing
@@ -177,40 +287,27 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 	log.Printf("   Message: %s", req.Message)
 
 	// Get or create session
-	sessResp, err := o.sessionSvc.Get(ctx, &session.GetRequest{
-		AppName:   o.appName,
-		UserID:    req.UserID,
-		SessionID: req.SessionID,
-	})
-
-	sessionID := req.SessionID
-	if err != nil || sessResp == nil || sessResp.Session == nil {
-		// Create new session
-		createResp, err := o.sessionSvc.Create(ctx, &session.CreateRequest{
-			AppName:   o.appName,
-			UserID:    req.UserID,
-			SessionID: req.SessionID,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create session: %w", err)
-		}
-		sessionID = createResp.Session.ID()
-	} else {
-		sessionID = sessResp.Session.ID()
+	sessionID, err := o.getOrCreateSession(ctx, req.UserID, req.SessionID)
+	if err != nil {
+		return nil, err
 	}
 
-	// Build user message content
+	// Triage: LLM decides which worker
+	workerType, err := o.triage(ctx, req.Message)
+	if err != nil {
+		return nil, fmt.Errorf("triage failed: %w", err)
+	}
+	selectedRunner := o.getRunner(workerType)
+	log.Printf("Selected worker: %s", workerType)
+
+	// Run the worker
 	userMsg := &genai.Content{
-		Role: "user",
-		Parts: []*genai.Part{
-			{Text: req.Message},
-		},
+		Role:  "user",
+		Parts: []*genai.Part{{Text: req.Message}},
 	}
 
-	// Run the agent - returns an iterator
-	events := o.runner.Run(ctx, req.UserID, sessionID, userMsg, adkagent.RunConfig{})
+	events := selectedRunner.Run(ctx, req.UserID, sessionID, userMsg, adkagent.RunConfig{})
 
-	// Collect events and final response
 	var collectedEvents []Event
 	var finalResponse string
 	var turnTokens TokenUsage
@@ -222,7 +319,6 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 			return nil, fmt.Errorf("agent event error: %w", err)
 		}
 
-		// Log agent transitions (handoffs)
 		if event.Author != "" && event.Author != lastAuthor {
 			if lastAuthor != "" {
 				LogHandoff(lastAuthor, event.Author)
@@ -232,14 +328,12 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 			lastAuthor = event.Author
 		}
 
-		// Log function calls (tool invocations)
 		if event.Content != nil {
 			for _, part := range event.Content.Parts {
 				if part.FunctionCall != nil {
 					LogToolStart(part.FunctionCall.Name)
 				}
 				if part.FunctionResponse != nil {
-					// Extract result preview from function response
 					resultPreview := ""
 					if part.FunctionResponse.Response != nil {
 						if textVal, ok := part.FunctionResponse.Response["text"].(string); ok {
@@ -253,14 +347,12 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 			}
 		}
 
-		// Accumulate token usage from events
 		if event.UsageMetadata != nil {
 			turnTokens.Input += event.UsageMetadata.PromptTokenCount
 			turnTokens.Output += event.UsageMetadata.CandidatesTokenCount
 			turnTokens.Total += event.UsageMetadata.TotalTokenCount
 		}
 
-		// Extract text content from event
 		if event.Content != nil {
 			for _, part := range event.Content.Parts {
 				if part.Text != "" {
@@ -275,12 +367,11 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 		}
 	}
 
-	// Log final agent end
 	if lastAuthor != "" {
 		LogAgentEnd(lastAuthor, finalResponse, &turnTokens)
 	}
 
-	// Update cumulative tokens for this session
+	// Update cumulative tokens
 	sessionTokenMu.Lock()
 	if sessionTokenTotals[sessionID] == nil {
 		sessionTokenTotals[sessionID] = &TokenUsage{}
@@ -305,7 +396,7 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 	}, nil
 }
 
-// RunWithStreaming executes the agent and streams events in real-time via a channel
+// RunWithStreaming executes the agent and streams events via channel
 func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eventCh chan<- StreamEvent) {
 	startTime := time.Now()
 	defer close(eventCh)
@@ -313,7 +404,6 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	log.Printf("Starting streaming agent for thread: %s", req.SessionID)
 	log.Printf("   Message: %s", req.Message)
 
-	// Helper to send event with elapsed time
 	sendEvent := func(evt StreamEvent) {
 		evt.ElapsedMs = time.Since(startTime).Milliseconds()
 		select {
@@ -323,38 +413,28 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	}
 
 	// Get or create session
-	sessResp, err := o.sessionSvc.Get(ctx, &session.GetRequest{
-		AppName:   o.appName,
-		UserID:    req.UserID,
-		SessionID: req.SessionID,
-	})
-
-	sessionID := req.SessionID
-	if err != nil || sessResp == nil || sessResp.Session == nil {
-		createResp, err := o.sessionSvc.Create(ctx, &session.CreateRequest{
-			AppName:   o.appName,
-			UserID:    req.UserID,
-			SessionID: req.SessionID,
-		})
-		if err != nil {
-			sendEvent(StreamEvent{Type: "error", Error: fmt.Sprintf("failed to create session: %v", err)})
-			return
-		}
-		sessionID = createResp.Session.ID()
-	} else {
-		sessionID = sessResp.Session.ID()
+	sessionID, err := o.getOrCreateSession(ctx, req.UserID, req.SessionID)
+	if err != nil {
+		sendEvent(StreamEvent{Type: "error", Error: err.Error()})
+		return
 	}
 
-	// Build user message content
+	// Triage: LLM decides which worker
+	workerType, err := o.triage(ctx, req.Message)
+	if err != nil {
+		sendEvent(StreamEvent{Type: "error", Error: fmt.Sprintf("triage failed: %v", err)})
+		return
+	}
+	selectedRunner := o.getRunner(workerType)
+	log.Printf("Selected worker: %s", workerType)
+
+	// Run the worker
 	userMsg := &genai.Content{
-		Role: "user",
-		Parts: []*genai.Part{
-			{Text: req.Message},
-		},
+		Role:  "user",
+		Parts: []*genai.Part{{Text: req.Message}},
 	}
 
-	// Run the agent - returns an iterator
-	events := o.runner.Run(ctx, req.UserID, sessionID, userMsg, adkagent.RunConfig{})
+	events := selectedRunner.Run(ctx, req.UserID, sessionID, userMsg, adkagent.RunConfig{})
 
 	var finalResponse string
 	var turnTokens TokenUsage
@@ -367,7 +447,6 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 			return
 		}
 
-		// Handle agent transitions
 		if event.Author != "" && event.Author != lastAuthor {
 			if lastAuthor != "" {
 				LogHandoff(lastAuthor, event.Author)
@@ -378,7 +457,6 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 			lastAuthor = event.Author
 		}
 
-		// Handle function calls and responses
 		if event.Content != nil {
 			for _, part := range event.Content.Parts {
 				if part.FunctionCall != nil {
@@ -400,36 +478,30 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 			}
 		}
 
-		// Accumulate and stream token usage
 		if event.UsageMetadata != nil {
 			turnTokens.Input += event.UsageMetadata.PromptTokenCount
 			turnTokens.Output += event.UsageMetadata.CandidatesTokenCount
 			turnTokens.Total += event.UsageMetadata.TotalTokenCount
-
-			// Send token update
 			sendEvent(StreamEvent{
 				Type:   "tokens",
 				Tokens: &TokenUsage{Input: turnTokens.Input, Output: turnTokens.Output, Total: turnTokens.Total},
 			})
 		}
 
-		// Stream text content
 		if event.Content != nil {
 			for _, part := range event.Content.Parts {
 				if part.Text != "" {
 					finalResponse = part.Text
-					sendEvent(StreamEvent{Type: "text", Text: part.Text})
 				}
 			}
 		}
 	}
 
-	// Log final agent end
 	if lastAuthor != "" {
 		LogAgentEnd(lastAuthor, finalResponse, &turnTokens)
 	}
 
-	// Update cumulative tokens for this session
+	// Update cumulative tokens
 	sessionTokenMu.Lock()
 	if sessionTokenTotals[sessionID] == nil {
 		sessionTokenTotals[sessionID] = &TokenUsage{}
@@ -445,11 +517,36 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 		cumulativeTokens.Input, cumulativeTokens.Output, cumulativeTokens.Total)
 	log.Println("Agent execution completed")
 
-	// Send final done event
+	// Stream final response
+	sendEvent(StreamEvent{Type: "text", Text: finalResponse})
+
+	// Send done event
 	sendEvent(StreamEvent{
 		Type:             "done",
 		Response:         finalResponse,
 		TurnTokens:       &turnTokens,
 		CumulativeTokens: &cumulativeTokens,
 	})
+}
+
+// getOrCreateSession gets existing session or creates new one
+func (o *Orchestrator) getOrCreateSession(ctx context.Context, userID, sessionID string) (string, error) {
+	sessResp, err := o.sessionSvc.Get(ctx, &session.GetRequest{
+		AppName:   o.appName,
+		UserID:    userID,
+		SessionID: sessionID,
+	})
+
+	if err != nil || sessResp == nil || sessResp.Session == nil {
+		createResp, err := o.sessionSvc.Create(ctx, &session.CreateRequest{
+			AppName:   o.appName,
+			UserID:    userID,
+			SessionID: sessionID,
+		})
+		if err != nil {
+			return "", fmt.Errorf("failed to create session: %w", err)
+		}
+		return createResp.Session.ID(), nil
+	}
+	return sessResp.Session.ID(), nil
 }

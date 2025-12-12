@@ -40,7 +40,8 @@ type JobSearchResult struct {
 // --- Serper API Types ---
 
 type serperRequest struct {
-	Q string `json:"q"`
+	Q   string `json:"q"`
+	Num int    `json:"num,omitempty"` // Number of results to request (default 10)
 }
 
 type serperResponse struct {
@@ -66,8 +67,8 @@ func (t *SerperTools) JobSearch(ctx tool.Context, params JobSearchParams) (*JobS
 	enhancedQuery := enhanceJobQuery(params.Query)
 	log.Printf("job_search query: %s", enhancedQuery)
 
-	// Call Serper API
-	reqBody := serperRequest{Q: enhancedQuery}
+	// Call Serper API - request 20 results (max allowed on standard tier)
+	reqBody := serperRequest{Q: enhancedQuery, Num: 20}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return &JobSearchResult{Results: fmt.Sprintf("Error encoding request: %v", err)}, nil
@@ -110,63 +111,105 @@ func (t *SerperTools) JobSearch(ctx tool.Context, params JobSearchParams) (*JobS
 	}, nil
 }
 
-// enhanceJobQuery adds keywords and exclusions to find direct company career pages
-// Excludes job boards (LinkedIn, Indeed, etc.) but allows ATS platforms (Greenhouse, Lever, Ashby)
+// enhanceJobQuery adds keywords and minimal exclusions to find company career pages
+// Only exclude top job boards in query (Google ignores too many -site: operators)
+// Post-filtering handles the rest
 func enhanceJobQuery(query string) string {
-	// Job boards to exclude (recruiter spam, aggregators)
-	excludedDomains := []string{
+	// Only top 8 job boards - Google ignores too many -site: operators
+	// Post-filtering catches the rest
+	topJobBoards := []string{
 		"linkedin.com",
 		"indeed.com",
 		"glassdoor.com",
 		"ziprecruiter.com",
 		"monster.com",
-		"careerbuilder.com",
 		"dice.com",
-		"simplyhired.com",
-		"snagajob.com",
-		"wellfound.com", // formerly AngelList Talent
+		"wellfound.com",
 		"builtin.com",
-		"otta.com",
 	}
 
-	// Build exclusion string
 	var exclusions []string
-	for _, domain := range excludedDomains {
+	for _, domain := range topJobBoards {
 		exclusions = append(exclusions, fmt.Sprintf("-site:%s", domain))
 	}
 
-	return fmt.Sprintf(`%s "careers" OR "jobs" %s`, query, strings.Join(exclusions, " "))
+	return fmt.Sprintf(`%s careers OR jobs %s`, query, strings.Join(exclusions, " "))
 }
 
 // formatSerperResults formats organic results into readable job listings
+// Post-filters to exclude job board domains that made it through query exclusions
 func formatSerperResults(organic []serperOrganicResult, maxResults int) string {
 	if len(organic) == 0 {
 		return "No job listings found for this search."
 	}
 
+	// Filter out job board domains that slipped through query exclusions
+	filtered := filterJobBoardResults(organic)
+	if len(filtered) == 0 {
+		return "No direct company career pages found. Try a different search."
+	}
+
 	limit := maxResults
-	if len(organic) < limit {
-		limit = len(organic)
+	if len(filtered) < limit {
+		limit = len(filtered)
 	}
 
 	var lines []string
-	for i, item := range organic[:limit] {
+	lines = append(lines, fmt.Sprintf("Found %d job listings. Return ALL of these to the user:", limit))
+	lines = append(lines, "")
+
+	for i, item := range filtered[:limit] {
 		company, title := extractCompanyFromTitle(item.Title)
-		lines = append(lines, fmt.Sprintf("%d. %s - %s", i+1, company, title))
-		if item.Link != "" {
-			lines = append(lines, fmt.Sprintf("   URL: %s", item.Link))
-		}
-		if item.Snippet != "" {
-			snippet := item.Snippet
-			if len(snippet) > 150 {
-				snippet = snippet[:150] + "..."
-			}
-			lines = append(lines, fmt.Sprintf("   %s", snippet))
-		}
-		lines = append(lines, "")
+		// Simple format: number. Company - Title - URL
+		lines = append(lines, fmt.Sprintf("%d. %s - %s - %s", i+1, company, title, item.Link))
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+// filterJobBoardResults removes results from job board domains
+// NOTE: ATS platforms (Lever, Greenhouse, Ashby) are KEPT - they are direct application links
+func filterJobBoardResults(results []serperOrganicResult) []serperOrganicResult {
+	// Job boards and aggregators to exclude
+	// ATS platforms (lever.co, greenhouse.io, ashbyhq.com) are ALLOWED - they're direct company apps
+	excludedDomains := []string{
+		// Major job boards
+		"linkedin.com", "indeed.com", "glassdoor.com", "ziprecruiter.com",
+		"monster.com", "careerbuilder.com", "dice.com", "simplyhired.com",
+		"snagajob.com",
+		// Startup/tech aggregators (not direct applications)
+		"wellfound.com", "angellist.com", "angel.co",
+		"builtin.com", "builtinnyc.com", "builtinla.com", "builtinchicago.com",
+		"builtinaustin.com", "builtinboston.com", "builtincolorado.com",
+		"builtinsf.com", "builtinseattle.com",
+		"ycombinator.com", "workatastartup.com",
+		"triplebyte.com", "hired.com", "otta.com",
+		// Recruiter/staffing aggregators
+		"jobright.ai", "technyc.org", "getclera.com", "jobtarget.com",
+		"startup.jobs", "levels.fyi", "remoterocketship.com", "standout.work",
+		"roberthalf.com", "motionrecruitment.com", "theladders.com",
+		"hello.cv", "gem.com", "tallo.com", "talent.com", "careerjet.com",
+		"jooble.org", "neuvoo.com", "lensa.com", "jobcase.com",
+	}
+
+	var filtered []serperOrganicResult
+	for _, result := range results {
+		linkLower := strings.ToLower(result.Link)
+		excluded := false
+		for _, domain := range excludedDomains {
+			if strings.Contains(linkLower, domain) {
+				log.Printf("   Filtered out job board: %s", result.Link)
+				excluded = true
+				break
+			}
+		}
+		if !excluded {
+			filtered = append(filtered, result)
+		}
+	}
+
+	log.Printf("Post-filter: %d/%d results kept", len(filtered), len(results))
+	return filtered
 }
 
 // extractCompanyFromTitle extracts company name from title string

@@ -1,10 +1,12 @@
 package tools
 
 import (
+	"bytes"
 	"fmt"
 	"log"
 	"strings"
 
+	"github.com/ledongthuc/pdf"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/services"
 	"google.golang.org/adk/tool"
@@ -44,6 +46,80 @@ type ReadDocumentParams struct {
 type ReadDocumentResult struct {
 	Content  string `json:"content"`
 	Filename string `json:"filename"`
+}
+
+// --- Helper Functions ---
+
+// extractPDFText extracts text content from PDF bytes
+func extractPDFText(data []byte) (string, error) {
+	reader, err := pdf.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return "", fmt.Errorf("failed to open PDF: %w", err)
+	}
+
+	var text strings.Builder
+	for i := 1; i <= reader.NumPage(); i++ {
+		page := reader.Page(i)
+		if page.V.IsNull() {
+			continue
+		}
+		pageText, err := page.GetPlainText(nil)
+		if err != nil {
+			log.Printf("⚠️ Failed to extract text from page %d: %v", i, err)
+			continue
+		}
+		text.WriteString(pageText)
+		text.WriteString("\n")
+	}
+
+	return text.String(), nil
+}
+
+// extractContent extracts readable content from a document based on its type
+func extractContent(doc *repositories.DocumentDTO, result *services.DownloadDocumentResult) string {
+	const maxChars = 15000
+
+	if result.Content == nil && result.RedirectURL != nil {
+		return fmt.Sprintf("[Document available at: %s]", *result.RedirectURL)
+	}
+	if result.Content == nil {
+		return "Unable to retrieve document content"
+	}
+
+	content := extractByContentType(doc.ContentType, result.Content)
+
+	if len(content) > maxChars {
+		return content[:maxChars] + fmt.Sprintf("\n\n[Truncated - %d total chars]", len(content))
+	}
+	return content
+}
+
+// extractByContentType returns content string based on MIME type
+func extractByContentType(contentType string, data []byte) string {
+	if strings.Contains(contentType, "text/") || strings.Contains(contentType, "application/json") {
+		return string(data)
+	}
+
+	if strings.Contains(contentType, "pdf") {
+		return extractPDFContent(data)
+	}
+
+	return fmt.Sprintf("[Binary content - %s, %d bytes]", contentType, len(data))
+}
+
+// extractPDFContent extracts text from PDF data with error handling
+func extractPDFContent(data []byte) string {
+	pdfText, err := extractPDFText(data)
+	if err != nil {
+		log.Printf("⚠️ PDF extraction failed: %v", err)
+		return fmt.Sprintf("[PDF extraction failed: %v]", err)
+	}
+
+	if strings.TrimSpace(pdfText) == "" {
+		return "[PDF contains no extractable text - may be image-based]"
+	}
+
+	return pdfText
 }
 
 // --- Tool Functions ---
@@ -125,7 +201,6 @@ func (t *DocumentTools) ReadDocument(ctx tool.Context, params ReadDocumentParams
 		return &ReadDocumentResult{Content: "Document service not configured. Unable to read document."}, nil
 	}
 
-	// Get document metadata
 	doc, err := t.docService.GetDocumentByID(params.DocumentID)
 	if err != nil {
 		log.Printf("❌ Document lookup failed: %v", err)
@@ -135,35 +210,13 @@ func (t *DocumentTools) ReadDocument(ctx tool.Context, params ReadDocumentParams
 		return &ReadDocumentResult{Content: fmt.Sprintf("Document %d not found", params.DocumentID)}, nil
 	}
 
-	// Download content (using tenant ID 1 as default for now - should be passed via context)
 	result, err := t.docService.DownloadDocument(params.DocumentID, doc.TenantID)
 	if err != nil {
 		log.Printf("❌ Document download failed: %v", err)
 		return &ReadDocumentResult{Content: fmt.Sprintf("Error downloading document: %v", err)}, nil
 	}
 
-	var content string
-	if result.Content != nil {
-		// For text files, return content directly
-		if strings.Contains(doc.ContentType, "text/") || strings.Contains(doc.ContentType, "application/json") {
-			content = string(result.Content)
-		} else if strings.Contains(doc.ContentType, "pdf") {
-			// TODO: Add PDF text extraction
-			content = "[PDF content - text extraction not yet implemented]"
-		} else {
-			content = fmt.Sprintf("[Binary content - %s, %d bytes]", doc.ContentType, len(result.Content))
-		}
-	} else if result.RedirectURL != nil {
-		content = fmt.Sprintf("[Document available at: %s]", *result.RedirectURL)
-	} else {
-		content = "Unable to retrieve document content"
-	}
-
-	// Truncate for token optimization
-	const maxChars = 15000
-	if len(content) > maxChars {
-		content = content[:maxChars] + fmt.Sprintf("\n\n[Truncated - %d total chars]", len(content))
-	}
+	content := extractContent(doc, result)
 
 	log.Printf("📖 read_document returning content for '%s' (%d chars)", doc.Filename, len(content))
 	return &ReadDocumentResult{

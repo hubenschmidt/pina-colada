@@ -1,0 +1,1 @@
+Look up William Hubenschmidt's Individual record in the CRM, list all the Documents linked to his record, and then conduct a job search for Senior Software Engineer and AI Engineer roles at NYC startups (seed through Series C funding) that match his resume. Exclude ML-focused roles and job boards - return direct links to job postings only. Return 5 results.
