@@ -32,9 +32,10 @@ var (
 
 // Orchestrator coordinates the agent system using openai-agents-go SDK
 type Orchestrator struct {
-	triageAgent  *agents.Agent
-	stateManager state.StateManager
-	model        string
+	triageAgent     *agents.Agent
+	stateManager    state.StateManager
+	model           string
+	anthropicAPIKey string
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
@@ -52,7 +53,8 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 	crmTools := tools.NewCRMTools(indService, orgService)
 	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter)
 	docTools := tools.NewDocumentTools(docService)
-	allTools := tools.BuildAgentTools(crmTools, serperTools, docTools)
+	emailTools := tools.NewEmailTools(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFromEmail)
+	allTools := tools.BuildAgentTools(crmTools, serperTools, docTools, emailTools)
 
 	// Create worker agents
 	jobSearchWorker := workers.NewJobSearchWorker(model, allTools)
@@ -72,17 +74,19 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 	log.Printf("OpenAI Agents SDK orchestrator initialized with triage routing")
 
 	return &Orchestrator{
-		triageAgent:  triageAgent,
-		stateManager: stateMgr,
-		model:        model,
+		triageAgent:     triageAgent,
+		stateManager:    stateMgr,
+		model:           model,
+		anthropicAPIKey: cfg.AnthropicAPIKey,
 	}, nil
 }
 
 // RunRequest represents a request to run the agent
 type RunRequest struct {
-	SessionID string
-	UserID    string
-	Message   string
+	SessionID    string
+	UserID       string
+	Message      string
+	UseEvaluator bool
 }
 
 // RunResponse represents the agent's response
@@ -103,7 +107,7 @@ type Event struct {
 
 // StreamEvent represents a real-time event sent during agent execution
 type StreamEvent struct {
-	Type string `json:"type"` // "text", "tokens", "tool_start", "tool_end", "agent_start", "agent_end", "done", "error"
+	Type string `json:"type"` // "start", "text", "tokens", "tool_start", "tool_end", "agent_start", "agent_end", "done", "error", "eval"
 
 	// Text streaming
 	Text string `json:"text,omitempty"`
@@ -125,6 +129,9 @@ type StreamEvent struct {
 
 	// Error (on "error")
 	Error string `json:"error,omitempty"`
+
+	// Evaluation result (on "eval")
+	EvalResult *EvaluatorResult `json:"eval_result,omitempty"`
 }
 
 // Run executes the agent with the given message (non-streaming)
@@ -149,8 +156,9 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 	// Create usage context for token tracking
 	ctx = usage.NewContext(ctx, usage.NewUsage())
 
-	// Run the triage agent (SDK handles handoffs automatically)
-	result, err := agents.Run(ctx, o.triageAgent, input)
+	// Run the triage agent with increased turn limit (SDK handles handoffs automatically)
+	runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20}}
+	result, err := runner.Run(ctx, o.triageAgent, input)
 	if err != nil {
 		LogError("Agent run error: %v", err)
 		return nil, fmt.Errorf("agent run error: %w", err)
@@ -221,8 +229,12 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	// Create usage context for token tracking
 	ctx = usage.NewContext(ctx, usage.NewUsage())
 
-	// Run streamed
-	eventsChan, errChan, err := agents.RunStreamedChan(ctx, o.triageAgent, input)
+	// Send start event so frontend can begin timer
+	sendEvent(StreamEvent{Type: "start"})
+
+	// Run streamed with increased turn limit
+	runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20}}
+	eventsChan, errChan, err := runner.RunStreamedChan(ctx, o.triageAgent, input)
 	if err != nil {
 		sendEvent(StreamEvent{Type: "error", Error: err.Error()})
 		return
@@ -231,6 +243,7 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	var finalOutput string
 	var turnTokens TokenUsage
 	var currentAgent string
+	var bufferedText string // Buffer text when evaluator is enabled
 
 	// Process events
 	for event := range eventsChan {
@@ -275,9 +288,13 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 			}
 
 		case agents.RawResponsesStreamEvent:
-			// Stream text deltas as they arrive
+			// Handle text deltas - buffer if evaluator enabled, stream otherwise
 			if e.Data.Type == "response.output_text.delta" && e.Data.Delta != "" {
-				sendEvent(StreamEvent{Type: "text", Text: e.Data.Delta})
+				if req.UseEvaluator {
+					bufferedText += e.Data.Delta
+				} else {
+					sendEvent(StreamEvent{Type: "text", Text: e.Data.Delta})
+				}
 			}
 			// Extract token usage from completed response
 			if e.Data.Type == "response.completed" && e.Data.Response.Usage.TotalTokens > 0 {
@@ -299,8 +316,20 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 		return
 	}
 
+	// Use buffered text for final output when evaluator is enabled
+	if req.UseEvaluator && bufferedText != "" {
+		finalOutput = bufferedText
+	}
+
 	if currentAgent != "" {
 		LogAgentEnd(currentAgent, finalOutput, &turnTokens)
+	}
+
+	// Run evaluator if enabled - evaluate first, then send response
+	if req.UseEvaluator && finalOutput != "" && o.anthropicAPIKey != "" {
+		finalOutput = o.runEvaluation(ctx, req, input, finalOutput, currentAgent, sendEvent)
+		// Send the final response after evaluation completes
+		sendEvent(StreamEvent{Type: "text", Text: finalOutput})
 	}
 
 	// Store messages
@@ -455,4 +484,63 @@ func (a *jobServiceAdapter) GetLeads(statusNames []string, tenantID *int64) ([]t
 		}
 	}
 	return result, nil
+}
+
+// workerToEvaluatorType maps worker agent names to evaluator types
+func workerToEvaluatorType(workerName string) EvaluatorType {
+	if workerName == "job_search" {
+		return CareerEvaluator
+	}
+	if workerName == "crm_worker" {
+		return CRMEvaluator
+	}
+	return GeneralEvaluator
+}
+
+// runEvaluation runs the evaluator and handles retry logic
+// Returns the final output (original or retried) after evaluation completes
+func (o *Orchestrator) runEvaluation(ctx context.Context, req RunRequest, input, finalOutput, currentAgent string, sendEvent func(StreamEvent)) string {
+	evalType := workerToEvaluatorType(currentAgent)
+	evaluator := NewEvaluator(o.anthropicAPIKey, evalType)
+
+	sendEvent(StreamEvent{Type: "eval_start"})
+
+	evalResult, err := evaluator.Evaluate(ctx, req.Message, finalOutput, "")
+	if err != nil {
+		log.Printf("Evaluator error: %v", err)
+		return finalOutput
+	}
+
+	// Pass if score >= 60 or user input needed
+	if evalResult.Score >= 60 || evalResult.UserInputNeeded {
+		log.Printf("✅ Evaluator PASSED (score: %d)", evalResult.Score)
+		sendEvent(StreamEvent{Type: "eval", EvalResult: evalResult})
+		return finalOutput
+	}
+
+	log.Printf("⚠️ Evaluator REJECTED response - agent will retry!")
+
+	// Retry needed
+	log.Printf("Evaluation failed (score: %d), retrying...", evalResult.Score)
+	log.Printf("📝 FEEDBACK TO AGENT: %s", evalResult.Feedback)
+	evaluator.IncrementRetry()
+
+	retryInput := fmt.Sprintf("%s\n\nPrevious attempt feedback: %s\nPlease improve the response.", input, evalResult.Feedback)
+	retryResult, retryErr := agents.Run(ctx, o.triageAgent, retryInput)
+	if retryErr != nil {
+		log.Printf("Retry error: %v", retryErr)
+		sendEvent(StreamEvent{Type: "eval", EvalResult: evalResult})
+		return finalOutput
+	}
+
+	retryOutput := extractFinalOutput(retryResult)
+	if retryOutput == "" {
+		sendEvent(StreamEvent{Type: "eval", EvalResult: evalResult})
+		return finalOutput
+	}
+
+	// Re-evaluate the retry output
+	evalResult, _ = evaluator.Evaluate(ctx, req.Message, retryOutput, "")
+	sendEvent(StreamEvent{Type: "eval", EvalResult: evalResult})
+	return retryOutput
 }

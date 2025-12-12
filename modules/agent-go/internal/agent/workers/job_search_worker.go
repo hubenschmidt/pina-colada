@@ -14,6 +14,7 @@ func NewJobSearchWorker(model string, allTools []agents.Tool) *agents.Agent {
 		"crm_lookup",
 		"search_entity_documents",
 		"read_document",
+		"send_email",
 	)
 
 	return agents.New("job_search").

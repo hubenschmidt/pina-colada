@@ -7,8 +7,8 @@ import (
 	"github.com/nlpodyssey/openai-agents-go/agents"
 )
 
-// BuildAgentTools creates openai-agents-go compatible tools from CRM, Serper, and Document tools.
-func BuildAgentTools(crm *CRMTools, serper *SerperTools, doc *DocumentTools) []agents.Tool {
+// BuildAgentTools creates openai-agents-go compatible tools from CRM, Serper, Document, and Email tools.
+func BuildAgentTools(crm *CRMTools, serper *SerperTools, doc *DocumentTools, email *EmailTools) []agents.Tool {
 	var tools []agents.Tool
 
 	// CRM tools
@@ -76,6 +76,21 @@ func BuildAgentTools(crm *CRMTools, serper *SerperTools, doc *DocumentTools) []a
 					return "", err
 				}
 				return fmt.Sprintf("%s\n\n%s", result.Filename, result.Content), nil
+			},
+		))
+	}
+
+	// Email tools
+	if email != nil {
+		tools = append(tools, agents.NewFunctionTool(
+			"send_email",
+			"Send an email to a single recipient. Parameters: to_email (string), subject (string), body (string). Call once per recipient if sending to multiple people.",
+			func(ctx context.Context, args SendEmailParams) (string, error) {
+				result, err := email.SendEmailCtx(ctx, args)
+				if err != nil {
+					return "", err
+				}
+				return result.Message, nil
 			},
 		))
 	}

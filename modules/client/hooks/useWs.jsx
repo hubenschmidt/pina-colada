@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useCallback, useRef, useContext } from "react";
+import { useEffect, useState, useCallback, useContext, useRef } from "react";
 import { UserContext } from "../context/userContext";
 
 const GREETING = "Welcome to your CRM assistant. I can help you look up contacts, organizations, accounts, and documents. What would you like to find?";
@@ -57,6 +57,7 @@ const parseTokenUsage = (obj) => {
       output: cumulative.output || 0,
       total: cumulative.total || 0,
     },
+    elapsedMs: current.elapsed_ms || 0,
   };
 };
 
@@ -67,13 +68,21 @@ const parseStreamingTokens = (obj) => {
     input: obj.on_token_stream.input || 0,
     output: obj.on_token_stream.output || 0,
     total: obj.on_token_stream.total || 0,
+    elapsedMs: obj.on_token_stream.elapsed_ms || 0,
   };
 };
 
 const handleParsedMessage = (obj, ctx) => {
+  // Timer started - reset elapsed time
+  if (obj.on_timer_start) {
+    ctx.setElapsedTime(0);
+    return true;
+  }
+
   // Start of new assistant turn - reset turn tokens but keep cumulative
   if (obj.on_chat_model_start === true) {
     ctx.setIsThinking(true);
+    ctx.setElapsedTime(0);
     // Reset turn tokens to 0, keep cumulative from previous
     ctx.setTokenUsage((prev) => prev ? {
       current: { input: 0, output: 0, total: 0 },
@@ -87,12 +96,14 @@ const handleParsedMessage = (obj, ctx) => {
   const tokenData = parseTokenUsage(obj);
   if (tokenData) {
     ctx.setTokenUsage(tokenData);
+    if (tokenData.elapsedMs > 0) ctx.setElapsedTime(tokenData.elapsedMs);
     return true;
   }
 
   // Real-time streaming token updates
   const streamingTokens = parseStreamingTokens(obj);
   if (streamingTokens) {
+    if (streamingTokens.elapsedMs > 0) ctx.setElapsedTime(streamingTokens.elapsedMs);
     ctx.setTokenUsage((prev) => {
       const prevCumulative = prev?.cumulative || { input: 0, output: 0, total: 0 };
       return {
@@ -147,6 +158,19 @@ const handleParsedMessage = (obj, ctx) => {
     return true;
   }
 
+  // Evaluation started
+  if (obj.type === "eval_start") {
+    ctx.setIsEvaluating(true);
+    return true;
+  }
+
+  // Evaluation result from backend
+  if (obj.type === "eval" && obj.eval_result && ctx.setEvalResult) {
+    ctx.setIsEvaluating(false);
+    ctx.setEvalResult(obj.eval_result);
+    return true;
+  }
+
   return false;
 };
 
@@ -165,7 +189,11 @@ const handleUiEvents = (obj, ctx) => {
 export const useWs = (url, { threadId: initialThreadId = null, onError = null, onTitleUpdate = null } = {}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
   const [tokenUsage, setTokenUsage] = useState(null);
+  const [useEvaluator, setUseEvaluator] = useState(false);
+  const [evalResult, setEvalResult] = useState(null);
+  const [elapsedTime, setElapsedTime] = useState(null); // Elapsed time in ms from backend
   const [messages, setMessages] = useState([
     {
       user: "PinaColada",
@@ -216,11 +244,10 @@ export const useWs = (url, { threadId: initialThreadId = null, onError = null, o
       }
 
       if (parsed === null || typeof parsed !== "object") return;
-      const obj = parsed;
-      const ctx = { setIsThinking, setTokenUsage, setMessages, onError, onTitleUpdate };
 
-      if (handleParsedMessage(obj, ctx)) return;
-      handleUiEvents(obj, ctx);
+      const ctx = { setIsThinking, setIsEvaluating, setTokenUsage, setMessages, setEvalResult, setElapsedTime, onError, onTitleUpdate };
+      if (handleParsedMessage(parsed, ctx)) return;
+      handleUiEvents(parsed, ctx);
     };
 
     return () => {
@@ -240,15 +267,16 @@ export const useWs = (url, { threadId: initialThreadId = null, onError = null, o
 
       setMessages((prev) => [...prev, { user: "User", msg: t }]);
       setIsThinking(true); // Start thinking when user sends message
+      setEvalResult(null); // Clear previous eval result
 
-      // Include user_id and tenant_id for message persistence
-      const payload = { uuid, message: t };
+      // Include user_id, tenant_id, and use_evaluator for message processing
+      const payload = { uuid, message: t, use_evaluator: useEvaluator };
       if (userId) payload.user_id = userId;
       if (tenantId) payload.tenant_id = tenantId;
 
       s.send(JSON.stringify(payload));
     },
-    [uuid, userId, tenantId]
+    [uuid, userId, tenantId, useEvaluator]
   );
 
   // NEW: silent JSON sender (no UI echo)
@@ -285,12 +313,17 @@ export const useWs = (url, { threadId: initialThreadId = null, onError = null, o
   return {
     isOpen,
     isThinking,
+    isEvaluating,
     tokenUsage,
+    elapsedTime,
     messages,
     sendMessage,
     sendControl,
     reset,
     loadMessages,
     threadId: uuid,
+    useEvaluator,
+    setUseEvaluator,
+    evalResult,
   };
 };

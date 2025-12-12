@@ -4,8 +4,10 @@ package prompts
 const EvalBase = `Evaluate the assistant's response. Return structured JSON:
 - feedback: brief assessment (1-2 sentences)
 - success_criteria_met: true if score>=60 and task addressed
-- user_input_needed: true if user must respond before continuing
+- user_input_needed: true ONLY if user must provide NEW information (e.g., missing criteria, ambiguous request). FALSE if agent can improve by trying harder or rephrasing.
 - score: 0-100
+
+IMPORTANT: user_input_needed should almost always be FALSE. Only set TRUE when the request itself is unclear or requires info the user hasn't provided. If agent just returned too few results or wrong format, set FALSE - agent can retry.
 
 Be LENIENT: pass if main question was answered. Focus on what's provided, not what's missing.`
 
@@ -16,14 +18,15 @@ CAREER-SPECIFIC CHECKS:
 - Job search: Must include actual job URLs (not just company homepages)
 - Must include CRM record info if requested (name, id, email)
 - Must list documents if requested (with IDs)
-- Must return EXACTLY the number of results requested (e.g., 5 results = 5 URLs)
-- URLs must be direct company career pages, NOT job boards (LinkedIn, Indeed, BuiltIn, etc.)
+- Should return the number of results requested (some variation OK if hard to find)
+- URLs should be company career pages or ATS links, avoid major job boards (LinkedIn, Indeed)
 - Cover letters: tailored to job, professional tone
 
 STRICT FAILURES (score < 50):
 - Missing CRM data when requested
-- Wrong number of results (asked for 5, returned 10)
-- Includes job board URLs (linkedin.com, indeed.com, builtinnyc.com, lever.co, greenhouse.io, etc.)
+- Returns nothing when results were requested
+- Includes major job boards: linkedin.com, indeed.com, glassdoor.com, ziprecruiter.com, motionrecruitment.com
+- NOTE: ATS platforms (lever.co, greenhouse.io, ashbyhq.com) and startup aggregators (ycombinator.com/jobs, wellfound.com, builtinnyc.com) are OK
 
 CRITICAL: If user asked to look up CRM record AND search jobs, response MUST include BOTH.`
 

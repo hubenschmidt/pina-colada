@@ -32,6 +32,13 @@ type Config struct {
 
 	// External APIs
 	SerperAPIKey string
+
+	// SMTP Email
+	SMTPHost      string
+	SMTPPort      int
+	SMTPUsername  string
+	SMTPPassword  string
+	SMTPFromEmail string
 }
 
 func Load() *Config {
@@ -51,6 +58,11 @@ func Load() *Config {
 		LangfuseSecretKey:  getEnv("LANGFUSE_SECRET_KEY", ""),
 		LangfuseHost:       getEnv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
 		SerperAPIKey:       getEnv("SERPER_API_KEY", ""),
+		SMTPHost:           getEnv("SMTP_HOST", "smtp.gmail.com"),
+		SMTPPort:           getEnvInt("SMTP_PORT", 587),
+		SMTPUsername:       getEnv("SMTP_USERNAME", ""),
+		SMTPPassword:       getEnv("SMTP_PASSWORD", ""),
+		SMTPFromEmail:      getEnv("SMTP_FROM_EMAIL", ""),
 	}
 }
 

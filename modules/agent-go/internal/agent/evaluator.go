@@ -52,16 +52,13 @@ func NewEvaluator(apiKey string, evalType EvaluatorType) *Evaluator {
 
 // getPrompt returns the appropriate evaluator prompt
 func (e *Evaluator) getPrompt() string {
-	switch e.evalType {
-	case CareerEvaluator:
+	if e.evalType == CareerEvaluator {
 		return prompts.CareerEvaluatorPrompt
-	case CRMEvaluator:
-		return prompts.CRMEvaluatorPrompt
-	case GeneralEvaluator:
-		return prompts.GeneralEvaluatorPrompt
-	default:
-		return prompts.GeneralEvaluatorPrompt
 	}
+	if e.evalType == CRMEvaluator {
+		return prompts.CRMEvaluatorPrompt
+	}
+	return prompts.GeneralEvaluatorPrompt
 }
 
 // Evaluate checks the agent response against criteria using Claude
@@ -245,10 +242,8 @@ func (e *Evaluator) ShouldRetry(result *EvaluatorResult) bool {
 	if result.SuccessCriteriaMet || result.UserInputNeeded {
 		return false
 	}
-	if result.Score < 30 {
-		return e.retryCount < e.maxRetries
-	}
-	return false
+	// Retry if score is below 60 (pass threshold)
+	return result.Score < 60 && e.retryCount < e.maxRetries
 }
 
 // DetermineEvaluatorType determines which evaluator to use based on the request

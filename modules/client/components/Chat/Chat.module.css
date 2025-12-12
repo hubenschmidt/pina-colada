@@ -205,6 +205,40 @@
   background-color: var(--active-background);
 }
 
+.evaluatorToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.evaluatorToggle input[type="checkbox"] {
+  cursor: pointer;
+}
+
+.evaluatorToggleInline {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #a3a3a3);
+  cursor: pointer;
+  user-select: none;
+}
+
+.evaluatorToggleInline input[type="checkbox"] {
+  cursor: pointer;
+  width: 12px;
+  height: 12px;
+}
+
+.evaluatorToggleInline span {
+  font-weight: 500;
+}
+
 .leadsBadge {
   background-color: #ef4444;
   color: white;
@@ -596,6 +630,14 @@
   font-weight: 300;
   color: #a3a3a3; /* neutral-400 - subtle gray */
   font-size: 0.75rem;
+}
+
+.elapsedTime {
+  font-style: italic;
+  font-weight: 400;
+  color: #60a5fa; /* blue-400 - distinguishable from token usage */
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums; /* Prevent layout shift from changing numbers */
 }
 
 /* DEMO MODE SPLIT VIEW ---------------------------------------------------- */

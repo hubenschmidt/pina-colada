@@ -286,14 +286,26 @@ const Chat = ({
   const {
     isOpen,
     isThinking,
+    isEvaluating,
     tokenUsage,
+    elapsedTime,
     messages,
     sendMessage,
     sendControl,
     reset,
     loadMessages,
     threadId,
+    useEvaluator,
+    setUseEvaluator,
+    evalResult,
   } = useWs(getWsUrl(), { threadId: urlThreadId, onError: handleWsError, onTitleUpdate: handleTitleUpdate });
+
+  // Format elapsed time for display
+  const formatElapsedTime = (ms) => {
+    if (ms === null) return null;
+    if (ms < 1000) return `${ms}ms`;
+    return `${(ms / 1000).toFixed(1)}s`;
+  };
 
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
@@ -482,7 +494,14 @@ const Chat = ({
                 </button>
                 {toolsDropdownOpen && (
                   <div className={styles.toolsMenu}>
-                    <div className="px-4 py-3 text-sm text-zinc-500 italic">Big things coming!</div>
+                    <label className={styles.evaluatorToggle}>
+                      <input
+                        type="checkbox"
+                        checked={useEvaluator}
+                        onChange={(e) => setUseEvaluator(e.target.checked)}
+                      />
+                      <span>Use evaluator</span>
+                    </label>
                   </div>
                 )}
               </div>
@@ -584,10 +603,15 @@ const Chat = ({
           {/* input */}
           <form className={styles.inputForm} onSubmit={onSubmit}>
             {/* Typing indicator above input */}
-            {(isThinking || tokenUsage || variant === "page") && (
+            {(isThinking || tokenUsage || elapsedTime !== null || variant === "page") && (
               <div className={styles.thinkingIndicator}>
-                <span className={styles.thinkingText}>{isThinking ? "thinking" : ""}</span>
+                <span className={styles.thinkingText}>{isEvaluating ? "evaluating" : isThinking ? "thinking" : ""}</span>
                 <div className={styles.indicatorRight}>
+                  {elapsedTime !== null && (
+                    <span className={styles.elapsedTime} title="Elapsed time">
+                      {formatElapsedTime(elapsedTime)}
+                    </span>
+                  )}
                   {tokenUsage && (
                     <span
                       className={styles.tokenUsage}
@@ -612,10 +636,20 @@ const Chat = ({
                     </span>
                   )}
                   {variant === "page" && (
-                    <div
-                      className={`${styles.statusSmall} ${isOpen ? styles.statusOnline : styles.statusOffline}`}
-                      title={isOpen ? "Connected" : "Disconnected"}
-                    />
+                    <>
+                      <label className={styles.evaluatorToggleInline} title="Run quality evaluator after response">
+                        <input
+                          type="checkbox"
+                          checked={useEvaluator}
+                          onChange={(e) => setUseEvaluator(e.target.checked)}
+                        />
+                        <span>Eval</span>
+                      </label>
+                      <div
+                        className={`${styles.statusSmall} ${isOpen ? styles.statusOnline : styles.statusOffline}`}
+                        title={isOpen ? "Connected" : "Disconnected"}
+                      />
+                    </>
                   )}
                 </div>
               </div>

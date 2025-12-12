@@ -153,6 +153,7 @@ func enhanceJobQuery(query string) string {
 		"dice.com",
 		"builtin.com",
 		"jobright.ai",
+		"motionrecruitment.com",
 	}
 
 	var exclusions []string
