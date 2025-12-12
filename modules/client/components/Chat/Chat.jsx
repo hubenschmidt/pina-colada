@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useState, useRef, useCallback } from "react";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { useWs } from "../../hooks/useWs";
 import { useConversationContext } from "../../context/conversationContext";
 import styles from "./Chat.module.css";
@@ -540,6 +541,7 @@ const Chat = ({
                         ) : (
                           <div className={styles.markdown}>
                             <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
                               components={{
                                 a: ({ href, children }) => (
                                   <a href={href} target="_blank" rel="noopener noreferrer" className={styles.link}>

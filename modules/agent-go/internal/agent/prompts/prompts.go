@@ -88,9 +88,16 @@ CRITICAL RULES:
 - Use exact URLs from job_search output - never make up URLs
 - Do not second-guess whether results "match" - job_search already filtered
 
-OUTPUT FORMAT:
+OUTPUT FORMAT (compact, single-line spacing only):
+**CRM Record Found:**
+- Name: [name]
+- ID: [id]
+- Email: [email]
 
-Include in your response:
-1. CRM record found (name, id, email)
-2. Documents found (list with IDs)
-3. Job results as: Company - Title - URL`
+**Documents Found:**
+- [filename] (ID: [id])
+
+**Job Results:**
+1. [Company] - [Title] - [URL]
+
+Do NOT add extra blank lines between sections.`

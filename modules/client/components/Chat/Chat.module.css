@@ -332,7 +332,7 @@
 /* MESSAGE CONTENT - ChatGPT/Claude style */
 .bubble {
   display: inline-block;
-  white-space: pre-wrap;
+  /* white-space: pre-wrap; */
   overflow-wrap: anywhere;
   font-feature-settings:
     "ss01",
@@ -428,16 +428,16 @@
 
 /* MESSAGE BODY TEXT */
 .bubbleText {
-  font-size: 0.9375rem;
+  /* font-size: 0.9375rem; */
   line-height: 1.6;
   font-weight: 400;
   color: var(--text-primary);
 }
 
 /* Only preserve whitespace for user messages, not markdown */
-.bubbleUser .bubbleText {
+/* .bubbleUser .bubbleText {
   white-space: pre-wrap;
-}
+} */
 
 /* ERROR TEXT STYLING */
 .bubbleText .errorText {
@@ -734,16 +734,16 @@
 }
 
 /* MARKDOWN STYLES ---------------------------------------------------------- */
-.markdown {
+/* .markdown {
   line-height: 1.6;
-}
+} */
 
 /* Collapse consecutive breaks */
-.markdown br + br {
+/* .markdown br + br {
   display: none;
-}
+} */
 
-.markdown h1,
+/* .markdown h1,
 .markdown h2,
 .markdown h3,
 .markdown h4,
@@ -777,10 +777,10 @@
 
 .markdown h4 {
   font-size: 1rem;
-}
+} */
 
-.markdown p {
-  margin: 0.5em 0;
+/* .markdown p {
+  margin: 0.25em 0;
 }
 
 .markdown p:first-child {
@@ -789,22 +789,31 @@
 
 .markdown p:last-child {
   margin-bottom: 0;
-}
+} */
+
+/* Tighten spacing when paragraph precedes a list */
+/* .markdown p + ul,
+.markdown p + ol {
+  margin-top: 0.25em;
+} */
 
 /* Remove extra spacing from empty paragraphs */
-.markdown p:empty {
+/* .markdown p:empty {
   display: none;
-}
+  margin: 0;
+  padding: 0;
+  line-height: 0;
+} */
 
 .markdown ul,
 .markdown ol {
-  margin: 0.75em 0;
+  margin: 0.5em 0;
   padding-left: 1.5em;
 }
 
-.markdown li {
+/* .markdown li {
   margin: 0.25em 0;
-}
+} */
 
 .markdown li > p {
   margin: 0;
@@ -823,15 +832,15 @@
   list-style-type: circle;
 }
 
-.markdown strong {
+/* .markdown strong {
   font-weight: 600;
-}
+} */
 
-.markdown em {
+/* .markdown em {
   font-style: italic;
-}
+} */
 
-.markdown code {
+/* .markdown code {
   background-color: var(--surface-tertiary);
   padding: 0.125em 0.375em;
   border-radius: 0.25rem;
@@ -845,9 +854,9 @@
   border-radius: 0.5rem;
   overflow-x: auto;
   margin: 0.75em 0;
-}
+} */
 
-.markdown pre code {
+/* .markdown pre code {
   background-color: transparent;
   padding: 0;
   font-size: 0.8125rem;
@@ -883,7 +892,7 @@
 .markdown th {
   background-color: var(--surface-secondary);
   font-weight: 600;
-}
+} */
 
 .markdown a {
   color: #60a5fa;
