@@ -3,7 +3,7 @@ package workers
 import (
 	"github.com/nlpodyssey/openai-agents-go/agents"
 	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
-	"github.com/pina-colada-co/agent-go/internal/tools"
+	"github.com/pina-colada-co/agent-go/internal/agent/tools"
 )
 
 // NewJobSearchWorker creates the job search specialist agent.

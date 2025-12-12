@@ -84,7 +84,7 @@ func main() {
 	if cfg.GeminiAPIKey != "" {
 		ctx := context.Background()
 		var err error
-		agentOrchestrator, err = agent.NewOrchestrator(ctx, cfg, indService, orgService, docService)
+		agentOrchestrator, err = agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService)
 		if err != nil {
 			log.Printf("Warning: Failed to initialize agent orchestrator: %v", err)
 			log.Printf("Agent endpoints will return errors until configured")

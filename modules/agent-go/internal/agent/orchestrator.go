@@ -11,10 +11,10 @@ import (
 	"github.com/nlpodyssey/openai-agents-go/usage"
 	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
 	"github.com/pina-colada-co/agent-go/internal/agent/state"
+	"github.com/pina-colada-co/agent-go/internal/agent/tools"
 	"github.com/pina-colada-co/agent-go/internal/agent/workers"
 	"github.com/pina-colada-co/agent-go/internal/config"
 	"github.com/pina-colada-co/agent-go/internal/services"
-	"github.com/pina-colada-co/agent-go/internal/tools"
 )
 
 // TokenUsage tracks token consumption for a turn or session
@@ -38,13 +38,19 @@ type Orchestrator struct {
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
-func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService) (*Orchestrator, error) {
+func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService) (*Orchestrator, error) {
 	// Use OpenAI model (SDK defaults to OpenAI provider)
 	model := "gpt-4.1-2025-04-14"
 
+	// Create job service adapter for filtering applied jobs
+	var jobAdapter tools.JobServiceInterface
+	if jobService != nil {
+		jobAdapter = &jobServiceAdapter{jobService: jobService}
+	}
+
 	// Create all tools using the adapter
 	crmTools := tools.NewCRMTools(indService, orgService)
-	serperTools := tools.NewSerperTools(cfg.SerperAPIKey)
+	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter)
 	docTools := tools.NewDocumentTools(docService)
 	allTools := tools.BuildAgentTools(crmTools, serperTools, docTools)
 
@@ -428,4 +434,25 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "..."
+}
+
+// jobServiceAdapter adapts JobService to JobServiceInterface for serper tools
+type jobServiceAdapter struct {
+	jobService *services.JobService
+}
+
+func (a *jobServiceAdapter) GetLeads(statusNames []string, tenantID *int64) ([]tools.JobInfo, error) {
+	leads, err := a.jobService.GetLeads(statusNames, tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]tools.JobInfo, len(leads))
+	for i, lead := range leads {
+		result[i] = tools.JobInfo{
+			JobTitle: lead.JobTitle,
+			Account:  lead.Account,
+		}
+	}
+	return result, nil
 }
