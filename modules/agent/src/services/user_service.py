@@ -11,6 +11,7 @@ from repositories.user_repository import (
     find_project_by_id,
     get_selected_project_id as get_selected_project_id_repo,
     set_selected_project as set_selected_project_repo,
+    get_tenant_users as get_tenant_users_repo,
 )
 
 
@@ -55,3 +56,15 @@ async def set_selected_project(user_id: int, tenant_id: int, project_id: Optiona
 async def get_selected_project_id(user_id: int) -> Optional[int]:
     """Get user's selected project ID."""
     return await get_selected_project_id_repo(user_id)
+
+
+async def get_tenant_users(tenant_id: int) -> list:
+    """Get all users belonging to a tenant."""
+    users = await get_tenant_users_repo(tenant_id)
+    result = []
+    for u in users:
+        name = f"{u.first_name or ''} {u.last_name or ''}".strip()
+        if not name:
+            name = u.email
+        result.append({"id": u.id, "name": name})
+    return result

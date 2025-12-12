@@ -756,7 +756,7 @@ export const getNotesActivityReport = async (projectId) => {
 // Tenant Users
 
 export const getTenantUsers = async () => {
-  return apiGet("/users");
+  return apiGet("/users/");
 };
 
 // User Audit Report

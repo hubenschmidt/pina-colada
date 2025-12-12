@@ -114,3 +114,21 @@ async def find_project_by_id(project_id: int):
     """Find project by ID."""
     async with async_get_session() as session:
         return await session.get(Project, project_id)
+
+
+async def get_tenant_users(tenant_id: int):
+    """Get all users belonging to a tenant."""
+    from models.Role import Role
+    from models.UserRole import UserRole
+
+    async with async_get_session() as session:
+        stmt = (
+            select(User)
+            .distinct()
+            .join(UserRole, UserRole.user_id == User.id)
+            .join(Role, Role.id == UserRole.role_id)
+            .where(Role.tenant_id == tenant_id)
+            .order_by(User.first_name, User.last_name)
+        )
+        result = await session.execute(stmt)
+        return result.scalars().all()

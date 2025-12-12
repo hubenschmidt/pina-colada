@@ -1,5 +1,6 @@
 """Common decorators for controllers and other layers."""
 
+import asyncio
 import logging
 from typing import Callable
 from functools import wraps
@@ -17,16 +18,28 @@ def handle_http_exceptions(func: Callable) -> Callable:
 
     Usage:
         @handle_http_exceptions
-        def my_controller_method(param: str) -> dict:
-            result = my_service_method(param)
+        async def my_controller_method(param: str) -> dict:
+            result = await my_service_method(param)
             return result
     """
+    if asyncio.iscoroutinefunction(func):
+        @wraps(func)
+        async def async_wrapper(*args, **kwargs):
+            try:
+                return await func(*args, **kwargs)
+            except HTTPException:
+                raise
+            except Exception as e:
+                logger.error(f"Unexpected error in {func.__name__}: {e}", exc_info=True)
+                raise HTTPException(status_code=500, detail="Internal server error")
+        return async_wrapper
+
     @wraps(func)
     def wrapper(*args, **kwargs):
         try:
             return func(*args, **kwargs)
         except HTTPException:
-            raise  # Pass through expected HTTP errors
+            raise
         except Exception as e:
             logger.error(f"Unexpected error in {func.__name__}: {e}", exc_info=True)
             raise HTTPException(status_code=500, detail="Internal server error")
