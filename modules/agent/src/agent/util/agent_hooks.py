@@ -18,8 +18,7 @@ class LoggingHooks(RunHooks):
 
     async def on_agent_end(self, context: RunContextWrapper, agent: Agent, output: Any) -> None:
         """Log when an agent completes with output."""
-        output_preview = str(output)[:100] + "..." if len(str(output)) > 100 else str(output)
-        logger.info(f"✅ AGENT END: {agent.name} → {output_preview}")
+        logger.info(f"✅ AGENT END: {agent.name} → {output}")
 
         # Log token usage if available
         try:
@@ -48,8 +47,7 @@ class LoggingHooks(RunHooks):
         self, context: RunContextWrapper, agent: Agent, tool: Tool, result: str
     ) -> None:
         """Log when a tool completes."""
-        result_preview = result[:80] + "..." if len(result) > 80 else result
-        logger.info(f"🔧 TOOL END: {tool.name} → {result_preview}")
+        logger.info(f"🔧 TOOL END: {tool.name} → {result}")
 
     async def on_llm_start(
         self, context: RunContextWrapper, agent: Agent, *args, **kwargs

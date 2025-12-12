@@ -63,6 +63,6 @@ Thumbs.db
 !.env.example
 !**/.env.example
 
-# Local document storage (dev only)
-storage/
+# Local document storage (dev only) - root level only
+/storage/
 

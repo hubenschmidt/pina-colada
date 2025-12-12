@@ -12,6 +12,8 @@ import (
 	"google.golang.org/adk/model/gemini"
 	"google.golang.org/adk/runner"
 	"google.golang.org/adk/session"
+	"google.golang.org/adk/tool"
+	"google.golang.org/adk/tool/agenttool"
 	"google.golang.org/genai"
 )
 
@@ -51,15 +53,24 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 		return nil, fmt.Errorf("failed to create general worker: %w", err)
 	}
 
-	// Create job search worker with Google Search + CRM tools
-	jobSearchWorker, err := workers.NewJobSearchWorker(model, crmToolList)
+	// Create job search worker with ONLY Google Search (no function tools)
+	// Due to Gemini API limitations, GoogleSearch cannot be mixed with function tools
+	jobSearchWorker, err := workers.NewJobSearchWorker(model, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job search worker: %w", err)
 	}
 
-	// Create triage agent with workers as sub-agents
-	workerAgents := []adkagent.Agent{jobSearchWorker, crmWorker, generalWorker}
-	triageAgent, err := NewTriageAgent(model, workerAgents)
+	// WORKAROUND: To combine GoogleSearch with function tools, we wrap
+	// specialized agents as agenttool and give them to a root agent.
+	// See: google.golang.org/adk/examples/tools/multipletools
+	agentTools := []tool.Tool{
+		agenttool.New(jobSearchWorker, nil), // Has GoogleSearch
+		agenttool.New(crmWorker, nil),       // Has function tools
+		agenttool.New(generalWorker, nil),   // No tools
+	}
+
+	// Create triage agent with worker agents wrapped as tools
+	triageAgent, err := NewTriageAgentWithTools(model, agentTools)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create triage agent: %w", err)
 	}

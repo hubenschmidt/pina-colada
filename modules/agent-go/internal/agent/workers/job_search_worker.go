@@ -10,14 +10,17 @@ import (
 )
 
 // NewJobSearchWorker creates the job search specialist agent with Google Search
+// Note: GoogleSearch cannot be mixed with custom function tools, so we only use GoogleSearch here
 func NewJobSearchWorker(m model.LLM, additionalTools []tool.Tool) (adkagent.Agent, error) {
-	// Start with Google Search as the primary tool
+	// GoogleSearch is a special grounding tool - use it alone
 	tools := []tool.Tool{
 		geminitool.GoogleSearch{},
 	}
 
-	// Add any additional tools (like CRM lookup for resume)
-	tools = append(tools, additionalTools...)
+	// NOTE: We intentionally do NOT add additionalTools here because
+	// geminitool.GoogleSearch cannot be combined with functiontool tools
+	// The job search worker should delegate CRM lookups back to the CRM worker
+	_ = additionalTools // suppress unused warning
 
 	return llmagent.New(llmagent.Config{
 		Name:        "job_search",
