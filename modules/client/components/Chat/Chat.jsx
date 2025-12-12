@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useState, useRef, useCallback } from "react";
+import ReactMarkdown from "react-markdown";
 import { useWs } from "../../hooks/useWs";
 import { useConversationContext } from "../../context/conversationContext";
 import styles from "./Chat.module.css";
@@ -533,7 +534,24 @@ const Chat = ({
                       className={`${styles.bubble} ${
                         isUser ? styles.bubbleUser : styles.bubbleBot
                       }`}>
-                      <div className={styles.bubbleText}>{renderWithLinks(m.msg.trim())}</div>
+                      <div className={styles.bubbleText}>
+                        {isUser ? (
+                          renderWithLinks(m.msg.trim())
+                        ) : (
+                          <div className={styles.markdown}>
+                            <ReactMarkdown
+                              components={{
+                                a: ({ href, children }) => (
+                                  <a href={href} target="_blank" rel="noopener noreferrer" className={styles.link}>
+                                    {children}
+                                  </a>
+                                ),
+                              }}>
+                              {m.msg.trim()}
+                            </ReactMarkdown>
+                          </div>
+                        )}
+                      </div>
                     </div>
                     <div
                       className={`${styles.copyButtonWrapper} ${

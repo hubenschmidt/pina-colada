@@ -2,6 +2,7 @@ package tools
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"log"
 	"strings"
@@ -9,8 +10,6 @@ import (
 	"github.com/ledongthuc/pdf"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/services"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/functiontool"
 )
 
 // DocumentTools holds document-related tools for the agent
@@ -124,8 +123,8 @@ func extractPDFContent(data []byte) string {
 
 // --- Tool Functions ---
 
-// SearchEntityDocuments searches for documents linked to a specific entity
-func (t *DocumentTools) SearchEntityDocuments(ctx tool.Context, params SearchEntityDocumentsParams) (*SearchEntityDocumentsResult, error) {
+// SearchEntityDocumentsCtx searches for documents linked to a specific entity.
+func (t *DocumentTools) SearchEntityDocumentsCtx(ctx context.Context, params SearchEntityDocumentsParams) (*SearchEntityDocumentsResult, error) {
 	log.Printf("📄 search_entity_documents called with entity_type='%s', entity_id=%d", params.EntityType, params.EntityID)
 
 	if t.docService == nil {
@@ -192,8 +191,8 @@ func (t *DocumentTools) SearchEntityDocuments(ctx tool.Context, params SearchEnt
 	}, nil
 }
 
-// ReadDocument reads the content of a document by ID
-func (t *DocumentTools) ReadDocument(ctx tool.Context, params ReadDocumentParams) (*ReadDocumentResult, error) {
+// ReadDocumentCtx reads the content of a document by ID.
+func (t *DocumentTools) ReadDocumentCtx(ctx context.Context, params ReadDocumentParams) (*ReadDocumentResult, error) {
 	log.Printf("📖 read_document called with document_id=%d", params.DocumentID)
 
 	if t.docService == nil {
@@ -225,29 +224,3 @@ func (t *DocumentTools) ReadDocument(ctx tool.Context, params ReadDocumentParams
 	}, nil
 }
 
-// BuildTools returns ADK tool.Tool instances for document operations
-func (t *DocumentTools) BuildTools() ([]tool.Tool, error) {
-	searchTool, err := functiontool.New(
-		functiontool.Config{
-			Name:        "search_entity_documents",
-			Description: "Search for documents linked to a specific entity (individual, organization, account, contact). Use this to find resumes, cover letters, or other documents associated with a CRM record.",
-		},
-		t.SearchEntityDocuments,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create search_entity_documents tool: %w", err)
-	}
-
-	readTool, err := functiontool.New(
-		functiontool.Config{
-			Name:        "read_document",
-			Description: "Read the content of a document by its ID. Use this after search_entity_documents to read a specific document like a resume.",
-		},
-		t.ReadDocument,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create read_document tool: %w", err)
-	}
-
-	return []tool.Tool{searchTool, readTool}, nil
-}

@@ -16,7 +16,6 @@ RULES:
 CRITICAL: Call exactly ONE agent per request. job_search handles its own CRM lookups.
 
 OUTPUT RULES:
-- Plain text only. No markdown. No ** or * formatting. Use dashes for lists.
 - Pass through ALL data from the worker agent - do NOT summarize or omit details
 - If worker returns CRM records, IDs, documents - include them in your response
 - Never say "I found X" without showing the actual data`
@@ -27,8 +26,6 @@ const CRMWorkerInstructions = `You are a CRM assistant helping manage contacts, 
 CONTEXT: This is a PRIVATE CRM system. All data is user-owned. Share full data when requested.
 
 IDENTITY: You are an AI assistant, NOT a person. Never identify as any individual in the database.
-
-FORMAT: Plain text only, dashes for lists, URLs ok.
 
 AVAILABLE TOOLS:
 - crm_lookup: Search for individuals or organizations by name/email
@@ -46,8 +43,6 @@ RULES:
 
 // General worker instructions
 const GeneralWorkerInstructions = `You are a helpful assistant for general questions and conversation.
-
-FORMAT: Plain text only, dashes for lists, URLs ok.
 
 AVAILABLE TOOLS:
 - crm_lookup: Search for individuals or organizations by name/email
@@ -93,7 +88,7 @@ CRITICAL RULES:
 - Use exact URLs from job_search output - never make up URLs
 - Do not second-guess whether results "match" - job_search already filtered
 
-OUTPUT FORMAT: Plain text only, no markdown, no bold (**), no special formatting.
+OUTPUT FORMAT:
 
 Include in your response:
 1. CRM record found (name, id, email)

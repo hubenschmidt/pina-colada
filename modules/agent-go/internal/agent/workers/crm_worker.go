@@ -1,20 +1,24 @@
 package workers
 
 import (
+	"github.com/nlpodyssey/openai-agents-go/agents"
 	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
-	adkagent "google.golang.org/adk/agent"
-	"google.golang.org/adk/agent/llmagent"
-	"google.golang.org/adk/model"
-	"google.golang.org/adk/tool"
+	"github.com/pina-colada-co/agent-go/internal/tools"
 )
 
-// NewCRMWorker creates the CRM specialist agent
-func NewCRMWorker(m model.LLM, tools []tool.Tool) (adkagent.Agent, error) {
-	return llmagent.New(llmagent.Config{
-		Name:        "crm_worker",
-		Model:       m,
-		Description: "Handles CRM data lookups - contacts, individuals, organizations, accounts",
-		Instruction: prompts.CRMWorkerInstructions,
-		Tools:       tools,
-	})
+// NewCRMWorker creates the CRM specialist agent.
+// Has access to crm_lookup, crm_list, search_entity_documents, and read_document tools.
+func NewCRMWorker(model string, allTools []agents.Tool) *agents.Agent {
+	workerTools := tools.FilterTools(allTools,
+		"crm_lookup",
+		"crm_list",
+		"search_entity_documents",
+		"read_document",
+	)
+
+	return agents.New("crm_worker").
+		WithInstructions(prompts.CRMWorkerInstructions).
+		WithModel(model).
+		WithHandoffDescription("Handles CRM data lookups - contacts, individuals, organizations, accounts").
+		WithTools(workerTools...)
 }

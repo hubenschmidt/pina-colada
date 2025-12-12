@@ -2,6 +2,7 @@ package tools
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -9,9 +10,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/functiontool"
 )
 
 // SerperTools holds Serper API-based tools
@@ -56,8 +54,8 @@ type serperOrganicResult struct {
 
 // --- Tool Functions ---
 
-// JobSearch searches for jobs using Serper API with domain exclusions
-func (t *SerperTools) JobSearch(ctx tool.Context, params JobSearchParams) (*JobSearchResult, error) {
+// JobSearchCtx searches for jobs using Serper API with domain exclusions.
+func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) (*JobSearchResult, error) {
 	if t.apiKey == "" {
 		log.Printf("SERPER_API_KEY not configured")
 		return &JobSearchResult{Results: "Job search not configured. SERPER_API_KEY required."}, nil
@@ -234,18 +232,3 @@ func extractCompanyFromTitle(title string) (string, string) {
 	return company, title
 }
 
-// BuildTools returns ADK tool.Tool instances for Serper operations
-func (t *SerperTools) BuildTools() ([]tool.Tool, error) {
-	jobSearchTool, err := functiontool.New(
-		functiontool.Config{
-			Name:        "job_search",
-			Description: "Search for job listings. Returns direct company career pages and ATS-hosted pages (Greenhouse, Lever, Ashby). Excludes job boards like LinkedIn, Indeed, Glassdoor. Use this for any job search request.",
-		},
-		t.JobSearch,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create job_search tool: %w", err)
-	}
-
-	return []tool.Tool{jobSearchTool}, nil
-}

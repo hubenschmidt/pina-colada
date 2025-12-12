@@ -1,13 +1,12 @@
 package tools
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"strings"
 
 	"github.com/pina-colada-co/agent-go/internal/services"
-	"google.golang.org/adk/tool"
-	"google.golang.org/adk/tool/functiontool"
 )
 
 // CRMTools holds CRM-related tools for the agent
@@ -63,8 +62,8 @@ type CRMListResult struct {
 
 // --- Tool Functions ---
 
-// Lookup searches for CRM entities by type and query
-func (t *CRMTools) Lookup(ctx tool.Context, params CRMLookupParams) (*CRMLookupResult, error) {
+// LookupCtx searches for CRM entities by type and query.
+func (t *CRMTools) LookupCtx(ctx context.Context, params CRMLookupParams) (*CRMLookupResult, error) {
 	entityType := strings.ToLower(params.EntityType)
 	log.Printf("🔍 crm_lookup called with entity_type='%s', query='%s'", entityType, params.Query)
 
@@ -128,8 +127,8 @@ func (t *CRMTools) Lookup(ctx tool.Context, params CRMLookupParams) (*CRMLookupR
 	}
 }
 
-// List returns entities of a given type
-func (t *CRMTools) List(ctx tool.Context, params CRMListParams) (*CRMListResult, error) {
+// ListCtx returns entities of a given type.
+func (t *CRMTools) ListCtx(ctx context.Context, params CRMListParams) (*CRMListResult, error) {
 	entityType := strings.ToLower(params.EntityType)
 	limit := params.Limit
 	if limit <= 0 {
@@ -195,31 +194,4 @@ func (t *CRMTools) List(ctx tool.Context, params CRMListParams) (*CRMListResult,
 			Results: fmt.Sprintf("Unknown entity type: %s. Supported: individual, organization", entityType),
 		}, nil
 	}
-}
-
-// BuildTools returns ADK tool.Tool instances for CRM operations
-func (t *CRMTools) BuildTools() ([]tool.Tool, error) {
-	lookupTool, err := functiontool.New(
-		functiontool.Config{
-			Name:        "crm_lookup",
-			Description: "Search for CRM entities (individuals, organizations) by name, email, or other attributes. Use this to find specific contacts or companies.",
-		},
-		t.Lookup,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create lookup tool: %w", err)
-	}
-
-	listTool, err := functiontool.New(
-		functiontool.Config{
-			Name:        "crm_list",
-			Description: "List CRM entities of a specific type. Use this to see all individuals or organizations in the system.",
-		},
-		t.List,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create list tool: %w", err)
-	}
-
-	return []tool.Tool{lookupTool, listTool}, nil
 }

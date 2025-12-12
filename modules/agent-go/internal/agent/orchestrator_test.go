@@ -30,9 +30,9 @@ func loadTestPrompt(t *testing.T, filename string) string {
 // Run with: go test -v -run TestJobSearchReturnsResults ./internal/agent/
 func TestJobSearchReturnsResults(t *testing.T) {
 	// Skip if no API key
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		t.Skip("GEMINI_API_KEY not set, skipping integration test")
+		t.Skip("OPENAI_API_KEY not set, skipping integration test")
 	}
 
 	serperKey := os.Getenv("SERPER_API_KEY")
@@ -153,9 +153,9 @@ func TestJobSearchWithResumeStub(t *testing.T) {
 // TestCRMDocumentLookup tests looking up an individual and their linked documents
 // Run with: go test -v -run TestCRMDocumentLookup ./internal/agent/
 func TestCRMDocumentLookup(t *testing.T) {
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		t.Skip("GEMINI_API_KEY not set, skipping integration test")
+		t.Skip("OPENAI_API_KEY not set, skipping integration test")
 	}
 
 	dbURL := os.Getenv("DATABASE_URL")
@@ -250,9 +250,9 @@ func TestCRMDocumentLookup(t *testing.T) {
 // TestJobSearchURLsAreValid tests that job search returns valid, reachable URLs
 // This test validates URLs similarly to Python agent's test_job_url_validation.py
 func TestJobSearchURLsAreValid(t *testing.T) {
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		t.Skip("GEMINI_API_KEY not set, skipping integration test")
+		t.Skip("OPENAI_API_KEY not set, skipping integration test")
 	}
 
 	serperKey := os.Getenv("SERPER_API_KEY")
@@ -350,11 +350,11 @@ func TestJobSearchURLsAreValid(t *testing.T) {
 }
 
 // TestJobSearchWithResume tests the full workflow: CRM lookup → read resume → job search
-// Run with: GEMINI_API_KEY=... SERPER_API_KEY=... DATABASE_URL=... go test -v -run TestJobSearchWithResume ./internal/agent/
+// Run with: OPENAI_API_KEY=... SERPER_API_KEY=... DATABASE_URL=... go test -v -run TestJobSearchWithResume ./internal/agent/
 func TestJobSearchWithResume(t *testing.T) {
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		t.Skip("GEMINI_API_KEY not set, skipping integration test")
+		t.Skip("OPENAI_API_KEY not set, skipping integration test")
 	}
 
 	serperKey := os.Getenv("SERPER_API_KEY")
