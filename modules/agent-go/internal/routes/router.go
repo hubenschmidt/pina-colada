@@ -171,6 +171,7 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 
 		// Users routes
 		r.Route("/users", func(r chi.Router) {
+			r.Get("/", c.Auth.GetTenantUsers)
 			r.Get("/{email}/tenant", c.Auth.GetUserTenant)
 			r.Put("/me/selected-project", c.Auth.SetSelectedProject)
 		})

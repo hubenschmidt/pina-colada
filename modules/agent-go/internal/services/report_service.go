@@ -377,10 +377,7 @@ func (s *ReportService) GetContactCoverageReport(tenantID int64) (CannedReportRe
 	if err != nil {
 		return nil, err
 	}
-	return CannedReportResponse{
-		"organizations": data,
-		"total":         len(data),
-	}, nil
+	return CannedReportResponse(data), nil
 }
 
 // GetNotesActivityReport returns the notes activity canned report
@@ -389,10 +386,7 @@ func (s *ReportService) GetNotesActivityReport(tenantID int64, projectID *int64)
 	if err != nil {
 		return nil, err
 	}
-	return CannedReportResponse{
-		"notes": data,
-		"total": len(data),
-	}, nil
+	return CannedReportResponse(data), nil
 }
 
 // GetUserAuditReport returns the user audit canned report

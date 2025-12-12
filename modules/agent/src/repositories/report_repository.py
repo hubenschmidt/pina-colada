@@ -320,11 +320,21 @@ async def get_user_by_id(user_id: int) -> Optional[Dict[str, Any]]:
 
 
 def get_audit_models() -> list:
-    """Dynamically discover all models with created_by/updated_by columns."""
+    """Dynamically discover all models with created_by/updated_by columns (not relationships)."""
+    from sqlalchemy.orm import ColumnProperty
     audit_models = []
     for mapper in Base.registry.mappers:
         model = mapper.class_
-        if hasattr(model, "created_by") and hasattr(model, "updated_by"):
+        # Check if created_by and updated_by are actual columns, not relationships
+        has_created_by_col = any(
+            isinstance(prop, ColumnProperty) and prop.key == "created_by"
+            for prop in mapper.iterate_properties
+        )
+        has_updated_by_col = any(
+            isinstance(prop, ColumnProperty) and prop.key == "updated_by"
+            for prop in mapper.iterate_properties
+        )
+        if has_created_by_col and has_updated_by_col:
             table_name = model.__name__
             audit_models.append((table_name, model))
     audit_models.sort(key=lambda x: x[0])
@@ -343,7 +353,7 @@ async def get_audit_counts_by_table(
     async with async_get_session() as session:
         for table_name, model in audit_models:
             # Count created_by
-            created_stmt = select(func.count(model.id)).where(model.created_by.isnot(None))
+            created_stmt = select(func.count(model.id)).where(model.created_by != None)
             if hasattr(model, "tenant_id"):
                 created_stmt = created_stmt.where(model.tenant_id == tenant_id)
             if user_id:
@@ -353,7 +363,7 @@ async def get_audit_counts_by_table(
             created_count = created_result.scalar() or 0
 
             # Count updated_by
-            updated_stmt = select(func.count(model.id)).where(model.updated_by.isnot(None))
+            updated_stmt = select(func.count(model.id)).where(model.updated_by != None)
             if hasattr(model, "tenant_id"):
                 updated_stmt = updated_stmt.where(model.tenant_id == tenant_id)
             if user_id:

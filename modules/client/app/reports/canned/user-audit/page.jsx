@@ -11,16 +11,18 @@ import {
   Table,
   Badge,
   Group,
-  NumberInput,
+  Select,
 } from "@mantine/core";
-import { getUserAuditReport } from "../../../../api";
+import { getUserAuditReport, getTenantUsers } from "../../../../api";
 import { usePageLoading } from "../../../../context/pageLoadingContext";
 
 const UserAuditPage = () => {
   const [report, setReport] = useState(null);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [userId, setUserId] = useState(1); // Default to user 1
+  const [userId, setUserId] = useState(null);
+  const [searchValue, setSearchValue] = useState("");
   const { dispatchPageLoading } = usePageLoading();
 
   useEffect(() => {
@@ -28,10 +30,28 @@ const UserAuditPage = () => {
   }, [dispatchPageLoading]);
 
   useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const data = await getTenantUsers();
+        setUsers(data);
+        setLoading(false);
+      } catch (err) {
+        console.error("Failed to load users:", err);
+        setLoading(false);
+      }
+    };
+    fetchUsers();
+  }, []);
+
+  useEffect(() => {
+    if (!userId) {
+      setReport(null);
+      return;
+    }
     const fetchReport = async () => {
       setLoading(true);
       try {
-        const data = await getUserAuditReport(userId);
+        const data = await getUserAuditReport(parseInt(userId, 10));
         setReport(data);
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load report");
@@ -74,6 +94,34 @@ const UserAuditPage = () => {
     );
   }
 
+  if (!userId) {
+    return (
+      <Stack gap="lg">
+        <Group justify="space-between">
+          <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">User Audit Report</h1>
+          <Select
+            label="User"
+            placeholder="Search users..."
+            data={users.map((u) => ({ value: u.id.toString(), label: u.name }))}
+            value={userId}
+            onChange={(val) => setUserId(val || null)}
+            searchValue={searchValue}
+            onSearchChange={setSearchValue}
+            onDropdownOpen={() => setSearchValue("")}
+            size="sm"
+            w={250}
+            searchable
+            clearable
+            nothingFoundMessage="No users found"
+          />
+        </Group>
+        <Center mih={200}>
+          <Text c="dimmed">Select a user to view their audit report</Text>
+        </Center>
+      </Stack>
+    );
+  }
+
   if (!report) {
     return null;
   }
@@ -82,26 +130,21 @@ const UserAuditPage = () => {
     <Stack gap="lg">
       <Group justify="space-between">
         <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">User Audit Report</h1>
-        <Group>
-          <NumberInput
-            label="User ID"
-            value={userId ?? undefined}
-            onChange={(val) => setUserId(typeof val === "number" ? val : null)}
-            min={1}
-            size="xs"
-            w={100}
-          />
-
-          {report.user ? (
-            <Badge variant="light" color="lime" size="lg">
-              {report.user.name}
-            </Badge>
-          ) : (
-            <Badge variant="light" color="gray" size="lg">
-              All Users
-            </Badge>
-          )}
-        </Group>
+        <Select
+          label="User"
+          placeholder="Search users..."
+          data={users.map((u) => ({ value: u.id.toString(), label: u.name }))}
+          value={userId}
+          onChange={(val) => setUserId(val || null)}
+          searchValue={searchValue}
+          onSearchChange={setSearchValue}
+          onDropdownOpen={() => setSearchValue("")}
+          size="sm"
+          w={250}
+          searchable
+          clearable
+          nothingFoundMessage="No users found"
+        />
       </Group>
 
       <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="lg">

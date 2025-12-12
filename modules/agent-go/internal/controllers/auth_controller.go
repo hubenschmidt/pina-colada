@@ -99,6 +99,23 @@ func (c *AuthController) SetSelectedProject(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, map[string]*int64{"selected_project_id": result})
 }
 
+// GetTenantUsers handles GET /users
+func (c *AuthController) GetTenantUsers(w http.ResponseWriter, r *http.Request) {
+	tenantID, ok := middleware.GetTenantID(r.Context())
+	if !ok {
+		writeError(w, http.StatusBadRequest, "tenant not set")
+		return
+	}
+
+	users, err := c.authService.GetTenantUsers(tenantID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, users)
+}
+
 // CreateTenant handles POST /auth/tenant/create
 func (c *AuthController) CreateTenant(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())

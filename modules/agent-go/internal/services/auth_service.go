@@ -216,3 +216,31 @@ func (s *AuthService) generateSlug(name string, providedSlug *string) string {
 	slug = strings.Trim(slug, "-")
 	return slug
 }
+
+// TenantUserResponse represents a user in the tenant for API responses
+type TenantUserResponse struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// GetTenantUsers returns all users belonging to a tenant
+func (s *AuthService) GetTenantUsers(tenantID int64) ([]TenantUserResponse, error) {
+	users, err := s.userRepo.GetTenantUsers(tenantID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]TenantUserResponse, len(users))
+	for i, u := range users {
+		name := strings.TrimSpace(u.FirstName + " " + u.LastName)
+		if name == "" {
+			name = u.Email
+		}
+		result[i] = TenantUserResponse{
+			ID:   u.ID,
+			Name: name,
+		}
+	}
+
+	return result, nil
+}

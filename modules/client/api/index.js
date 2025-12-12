@@ -753,6 +753,12 @@ export const getNotesActivityReport = async (projectId) => {
   return apiGet(`/reports/canned/notes-activity${query}`);
 };
 
+// Tenant Users
+
+export const getTenantUsers = async () => {
+  return apiGet("/users");
+};
+
 // User Audit Report
 
 export const getUserAuditReport = async (userId) => {

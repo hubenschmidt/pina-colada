@@ -295,3 +295,30 @@ func (r *UserRepository) createNewTenantWithOwner(input TenantCreateInput) (*Ten
 
 	return result, err
 }
+
+// TenantUser represents a user in a tenant
+type TenantUser struct {
+	ID        int64  `json:"id"`
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
+// GetTenantUsers returns all users belonging to a tenant
+func (r *UserRepository) GetTenantUsers(tenantID int64) ([]TenantUser, error) {
+	var users []TenantUser
+
+	err := r.db.Table(`"User"`).
+		Select(`DISTINCT "User".id, "User".email, "User".first_name, "User".last_name`).
+		Joins(`JOIN "User_Role" ON "User_Role".user_id = "User".id`).
+		Joins(`JOIN "Role" ON "Role".id = "User_Role".role_id`).
+		Where(`"Role".tenant_id = ?`, tenantID).
+		Order(`"User".first_name, "User".last_name`).
+		Scan(&users).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
