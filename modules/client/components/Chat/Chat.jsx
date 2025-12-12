@@ -232,13 +232,24 @@ export const renderWithLinks = (text) => {
 
 // ---------- Runtime configuration ----------
 
-const API_URL = env("NEXT_PUBLIC_API_URL") || "http://localhost:8000";
-
-const getWsUrl = () => {
-  return API_URL.replace(/^http/, "ws") + "/ws";
+const BACKENDS = {
+  agent: "http://localhost:8000",
+  "agent-go": "http://localhost:8080",
 };
 
-const WS_URL = getWsUrl();
+const getApiUrl = () => {
+  if (typeof window !== "undefined") {
+    const stored = localStorage.getItem("pina-colada-backend");
+    if (stored && BACKENDS[stored]) {
+      return BACKENDS[stored];
+    }
+  }
+  return env("NEXT_PUBLIC_API_URL") || "http://localhost:8000";
+};
+
+const getWsUrl = () => {
+  return getApiUrl().replace(/^http/, "ws") + "/ws";
+};
 
 const Chat = ({
   variant = "embedded",
@@ -280,7 +291,7 @@ const Chat = ({
     reset,
     loadMessages,
     threadId,
-  } = useWs(WS_URL, { threadId: urlThreadId, onError: handleWsError, onTitleUpdate: handleTitleUpdate });
+  } = useWs(getWsUrl(), { threadId: urlThreadId, onError: handleWsError, onTitleUpdate: handleTitleUpdate });
 
   const [input, setInput] = useState("");
   const [composing, setComposing] = useState(false);
@@ -288,7 +299,7 @@ const Chat = ({
   const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
   const [demoDropdownOpen, setDemoDropdownOpen] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
-  const [demoIframeUrl, setDemoIframeUrl] = useState(`${API_URL}/mocks/401k-rollover/`);
+  const [demoIframeUrl, setDemoIframeUrl] = useState(`${getApiUrl()}/mocks/401k-rollover/`);
   const hasRefreshedRef = useRef(false);
 
   const listId = useId();

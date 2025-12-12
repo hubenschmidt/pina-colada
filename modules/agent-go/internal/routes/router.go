@@ -36,6 +36,7 @@ type Controllers struct {
 	Usage        *controllers.UsageController
 	Report       *controllers.ReportController
 	Agent        *controllers.AgentController
+	WebSocket    *controllers.WebSocketController
 }
 
 // NewRouter creates and configures the Chi router
@@ -80,6 +81,11 @@ func NewRouter() *chi.Mux {
 
 // RegisterRoutes registers all API routes with controllers
 func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoader) {
+	// WebSocket route (no auth middleware - handles its own auth via messages)
+	if c.WebSocket != nil {
+		r.Get("/ws", c.WebSocket.HandleWS)
+	}
+
 	// Protected routes (require auth)
 	r.Group(func(r chi.Router) {
 		r.Use(appMiddleware.AuthMiddleware)

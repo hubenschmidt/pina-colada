@@ -2,6 +2,7 @@ package tools
 
 import (
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/pina-colada-co/agent-go/internal/services"
@@ -65,13 +66,20 @@ type CRMListResult struct {
 // Lookup searches for CRM entities by type and query
 func (t *CRMTools) Lookup(ctx tool.Context, params CRMLookupParams) (*CRMLookupResult, error) {
 	entityType := strings.ToLower(params.EntityType)
+	log.Printf("🔍 crm_lookup called with entity_type='%s', query='%s'", entityType, params.Query)
 
 	switch entityType {
 	case "individual":
+		if t.indService == nil {
+			log.Printf("⚠️ IndividualService not configured")
+			return &CRMLookupResult{Results: "CRM service not configured. Unable to look up individuals."}, nil
+		}
 		results, err := t.indService.SearchIndividuals(params.Query, nil, 10)
 		if err != nil {
+			log.Printf("❌ Individual lookup failed: %v", err)
 			return &CRMLookupResult{Results: fmt.Sprintf("Error: %v", err)}, nil
 		}
+		log.Printf("🔍 crm_lookup found %d individuals", len(results))
 		if len(results) == 0 {
 			return &CRMLookupResult{Results: fmt.Sprintf("No individuals found matching '%s'", params.Query)}, nil
 		}
@@ -90,10 +98,16 @@ func (t *CRMTools) Lookup(ctx tool.Context, params CRMLookupParams) (*CRMLookupR
 		}, nil
 
 	case "organization":
+		if t.orgService == nil {
+			log.Printf("⚠️ OrganizationService not configured")
+			return &CRMLookupResult{Results: "CRM service not configured. Unable to look up organizations."}, nil
+		}
 		results, err := t.orgService.SearchOrganizations(params.Query, nil, 10)
 		if err != nil {
+			log.Printf("❌ Organization lookup failed: %v", err)
 			return &CRMLookupResult{Results: fmt.Sprintf("Error: %v", err)}, nil
 		}
+		log.Printf("🔍 crm_lookup found %d organizations", len(results))
 		if len(results) == 0 {
 			return &CRMLookupResult{Results: fmt.Sprintf("No organizations found matching '%s'", params.Query)}, nil
 		}
@@ -107,6 +121,7 @@ func (t *CRMTools) Lookup(ctx tool.Context, params CRMLookupParams) (*CRMLookupR
 		}, nil
 
 	default:
+		log.Printf("⚠️  Unknown entity type: %s", entityType)
 		return &CRMLookupResult{
 			Results: fmt.Sprintf("Unknown entity type: %s. Supported: individual, organization", entityType),
 		}, nil
@@ -120,13 +135,20 @@ func (t *CRMTools) List(ctx tool.Context, params CRMListParams) (*CRMListResult,
 	if limit <= 0 {
 		limit = 20
 	}
+	log.Printf("📋 crm_list called with entity_type='%s', limit=%d", entityType, limit)
 
 	switch entityType {
 	case "individual":
+		if t.indService == nil {
+			log.Printf("⚠️ IndividualService not configured")
+			return &CRMListResult{Results: "CRM service not configured. Unable to list individuals."}, nil
+		}
 		results, err := t.indService.SearchIndividuals("", nil, limit)
 		if err != nil {
+			log.Printf("❌ Individual list failed: %v", err)
 			return &CRMListResult{Results: fmt.Sprintf("Error: %v", err)}, nil
 		}
+		log.Printf("📋 crm_list found %d individuals", len(results))
 		if len(results) == 0 {
 			return &CRMListResult{Results: "No individuals found."}, nil
 		}
@@ -145,10 +167,16 @@ func (t *CRMTools) List(ctx tool.Context, params CRMListParams) (*CRMListResult,
 		}, nil
 
 	case "organization":
+		if t.orgService == nil {
+			log.Printf("⚠️ OrganizationService not configured")
+			return &CRMListResult{Results: "CRM service not configured. Unable to list organizations."}, nil
+		}
 		results, err := t.orgService.SearchOrganizations("", nil, limit)
 		if err != nil {
+			log.Printf("❌ Organization list failed: %v", err)
 			return &CRMListResult{Results: fmt.Sprintf("Error: %v", err)}, nil
 		}
+		log.Printf("📋 crm_list found %d organizations", len(results))
 		if len(results) == 0 {
 			return &CRMListResult{Results: "No organizations found."}, nil
 		}
@@ -162,6 +190,7 @@ func (t *CRMTools) List(ctx tool.Context, params CRMListParams) (*CRMListResult,
 		}, nil
 
 	default:
+		log.Printf("⚠️  Unknown entity type: %s", entityType)
 		return &CRMListResult{
 			Results: fmt.Sprintf("Unknown entity type: %s. Supported: individual, organization", entityType),
 		}, nil

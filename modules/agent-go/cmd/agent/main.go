@@ -16,7 +16,6 @@ import (
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/routes"
 	"github.com/pina-colada-co/agent-go/internal/services"
-	"github.com/pina-colada-co/agent-go/internal/storage"
 	"github.com/pina-colada-co/agent-go/pkg/db"
 )
 
@@ -33,9 +32,9 @@ func main() {
 	sqlDB, _ := database.DB()
 	defer sqlDB.Close()
 
-	// Initialize storage backend
-	storageBackend := storage.GetStorage()
-	log.Printf("Initialized storage backend")
+	// Initialize storage repository
+	storageRepo := repositories.GetStorageRepository()
+	log.Printf("Initialized storage repository")
 
 	// Initialize repositories
 	userRepo := repositories.NewUserRepository(database)
@@ -71,7 +70,7 @@ func main() {
 	lookupService := services.NewLookupService(lookupRepo)
 	noteService := services.NewNoteService(noteRepo)
 	commentService := services.NewCommentService(commentRepo)
-	docService := services.NewDocumentService(docRepo, storageBackend)
+	docService := services.NewDocumentService(docRepo, storageRepo)
 	accountService := services.NewAccountService(accountRepo)
 	leadService := services.NewLeadService(leadRepo)
 	costsService := services.NewCostsService()
@@ -85,7 +84,7 @@ func main() {
 	if cfg.GeminiAPIKey != "" {
 		ctx := context.Background()
 		var err error
-		agentOrchestrator, err = agent.NewOrchestrator(ctx, cfg, indService, orgService)
+		agentOrchestrator, err = agent.NewOrchestrator(ctx, cfg, indService, orgService, docService)
 		if err != nil {
 			log.Printf("Warning: Failed to initialize agent orchestrator: %v", err)
 			log.Printf("Agent endpoints will return errors until configured")
@@ -121,6 +120,7 @@ func main() {
 		Usage:        controllers.NewUsageController(usageService),
 		Report:       controllers.NewReportController(reportService),
 		Agent:        controllers.NewAgentController(agentOrchestrator),
+		WebSocket:    controllers.NewWebSocketController(agentOrchestrator),
 	}
 
 	// Initialize router and register routes

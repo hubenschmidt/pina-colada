@@ -783,7 +783,7 @@ export const runCustomReport = async (query) => {
 export const exportCustomReport = async (query) => {
   const client = axios.create();
   const authHeaders = await fetchBearerToken();
-  const apiUrl = env("NEXT_PUBLIC_API_URL");
+  const apiUrl = getApiUrl();
   const response = await client.post(`${apiUrl}/reports/custom/export`, query, {
     ...authHeaders,
     responseType: "blob",
@@ -1109,7 +1109,7 @@ export const deleteDocument = async (id) => {
 };
 
 export const downloadDocument = async (id, filename) => {
-  const apiUrl = env("NEXT_PUBLIC_API_URL");
+  const apiUrl = getApiUrl();
   const { headers } = await fetchBearerToken();
 
   const response = await fetch(`${apiUrl}/assets/documents/${id}/download`, {
@@ -1134,7 +1134,7 @@ export const downloadDocument = async (id, filename) => {
 };
 
 export const getDocumentPreviewUrl = async (id) => {
-  const apiUrl = env("NEXT_PUBLIC_API_URL");
+  const apiUrl = getApiUrl();
   const { headers } = await fetchBearerToken();
 
   const response = await fetch(`${apiUrl}/assets/documents/${id}/download`, {

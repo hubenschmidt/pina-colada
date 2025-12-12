@@ -8,7 +8,6 @@ import (
 
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
-	"github.com/pina-colada-co/agent-go/internal/storage"
 )
 
 const MaxFileSize = 10 * 1024 * 1024 // 10MB
@@ -30,12 +29,12 @@ func normalizeEntityType(entityType string) string {
 }
 
 type DocumentService struct {
-	docRepo *repositories.DocumentRepository
-	storage storage.Backend
+	docRepo    *repositories.DocumentRepository
+	storageRepo repositories.StorageRepository
 }
 
-func NewDocumentService(docRepo *repositories.DocumentRepository, storageBackend storage.Backend) *DocumentService {
-	return &DocumentService{docRepo: docRepo, storage: storageBackend}
+func NewDocumentService(docRepo *repositories.DocumentRepository, storageRepo repositories.StorageRepository) *DocumentService {
+	return &DocumentService{docRepo: docRepo, storageRepo: storageRepo}
 }
 
 func (s *DocumentService) GetDocumentsByEntity(entityType string, entityID int64, tenantID *int64, page, pageSize int, orderBy, order string) (*serializers.PagedResponse, error) {
@@ -107,7 +106,7 @@ func (s *DocumentService) UploadDocument(input UploadDocumentInput) (*repositori
 	storagePath := fmt.Sprintf("%d/%d/%s", input.TenantID, timestamp, input.Filename)
 
 	// Upload to storage
-	if err := s.storage.Upload(storagePath, input.Data, input.ContentType, input.Size); err != nil {
+	if err := s.storageRepo.Upload(storagePath, input.Data, input.ContentType, input.Size); err != nil {
 		return nil, fmt.Errorf("failed to upload file: %w", err)
 	}
 
@@ -123,7 +122,7 @@ func (s *DocumentService) UploadDocument(input UploadDocumentInput) (*repositori
 	})
 	if err != nil {
 		// Try to clean up the uploaded file
-		s.storage.Delete(storagePath)
+		s.storageRepo.Delete(storagePath)
 		return nil, fmt.Errorf("failed to create document record: %w", err)
 	}
 
@@ -182,7 +181,7 @@ func (s *DocumentService) CreateDocumentVersion(input CreateDocumentVersionInput
 	storagePath := fmt.Sprintf("%d/%d/%s", input.TenantID, timestamp, input.Filename)
 
 	// Upload to storage
-	if err := s.storage.Upload(storagePath, input.Data, input.ContentType, input.Size); err != nil {
+	if err := s.storageRepo.Upload(storagePath, input.Data, input.ContentType, input.Size); err != nil {
 		return nil, 0, fmt.Errorf("failed to upload file: %w", err)
 	}
 
@@ -196,7 +195,7 @@ func (s *DocumentService) CreateDocumentVersion(input CreateDocumentVersionInput
 		ContentType: input.ContentType,
 	})
 	if err != nil {
-		s.storage.Delete(storagePath)
+		s.storageRepo.Delete(storagePath)
 		return nil, 0, fmt.Errorf("failed to create version: %w", err)
 	}
 
@@ -239,7 +238,7 @@ func (s *DocumentService) DownloadDocument(documentID int64, tenantID int64) (*D
 	}
 
 	// Get URL from storage backend - R2 returns presigned URL, local returns file URL
-	url := s.storage.GetURL(doc.StoragePath)
+	url := s.storageRepo.GetURL(doc.StoragePath)
 	if url != "" && !strings.HasPrefix(url, "file://") {
 		// It's a remote URL (presigned), use redirect
 		return &DownloadDocumentResult{
@@ -249,7 +248,7 @@ func (s *DocumentService) DownloadDocument(documentID int64, tenantID int64) (*D
 	}
 
 	// Fall back to downloading content (local storage)
-	content, err := s.storage.Download(doc.StoragePath)
+	content, err := s.storageRepo.Download(doc.StoragePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download file: %w", err)
 	}
@@ -301,7 +300,7 @@ func (s *DocumentService) DeleteDocument(documentID int64, tenantID int64) error
 
 	// Delete from storage
 	if doc.StoragePath != "" {
-		s.storage.Delete(doc.StoragePath)
+		s.storageRepo.Delete(doc.StoragePath)
 	}
 
 	// Delete from database

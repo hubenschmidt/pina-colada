@@ -29,6 +29,9 @@ type Config struct {
 	LangfusePublicKey string
 	LangfuseSecretKey string
 	LangfuseHost      string
+
+	// External APIs
+	SerperAPIKey string
 }
 
 func Load() *Config {
@@ -47,6 +50,7 @@ func Load() *Config {
 		LangfusePublicKey:  getEnv("LANGFUSE_PUBLIC_KEY", ""),
 		LangfuseSecretKey:  getEnv("LANGFUSE_SECRET_KEY", ""),
 		LangfuseHost:       getEnv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
+		SerperAPIKey:       getEnv("SERPER_API_KEY", ""),
 	}
 }
 

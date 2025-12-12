@@ -151,11 +151,12 @@ func (r *IndividualRepository) Search(query string, tenantID *int64, limit int) 
 	var individuals []models.Individual
 	searchTerm := "%" + query + "%"
 
+	// Also search by concatenated first+last name for queries like "William Hubenschmidt"
 	q := r.db.Model(&models.Individual{}).
 		Preload("Account").
 		Where(
-			`LOWER("Individual".first_name) LIKE LOWER(?) OR LOWER("Individual".last_name) LIKE LOWER(?) OR LOWER("Individual".email) LIKE LOWER(?)`,
-			searchTerm, searchTerm, searchTerm,
+			`LOWER("Individual".first_name) LIKE LOWER(?) OR LOWER("Individual".last_name) LIKE LOWER(?) OR LOWER("Individual".email) LIKE LOWER(?) OR LOWER(CONCAT("Individual".first_name, ' ', "Individual".last_name)) LIKE LOWER(?)`,
+			searchTerm, searchTerm, searchTerm, searchTerm,
 		)
 
 	if tenantID != nil {

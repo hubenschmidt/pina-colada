@@ -5,14 +5,17 @@ import (
 	adkagent "google.golang.org/adk/agent"
 	"google.golang.org/adk/agent/llmagent"
 	"google.golang.org/adk/model"
+	"google.golang.org/adk/tool"
 )
 
 // NewGeneralWorker creates the general-purpose assistant agent
-func NewGeneralWorker(m model.LLM) (adkagent.Agent, error) {
+// Has access to CRM tools for looking up records and documents
+func NewGeneralWorker(m model.LLM, crmTools []tool.Tool) (adkagent.Agent, error) {
 	return llmagent.New(llmagent.Config{
 		Name:        "general_worker",
 		Model:       m,
-		Description: "Handles general questions, conversation, resume analysis, and everything else",
+		Description: "Handles general questions, conversation, resume analysis, and everything else. Can look up CRM records and documents.",
 		Instruction: prompts.GeneralWorkerInstructions,
+		Tools:       crmTools,
 	})
 }

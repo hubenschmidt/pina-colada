@@ -11,22 +11,22 @@ services:
   #     mkdir -p /logs &&
   #     rm -f /logs/*.log &&
   #     echo "Container logs started, saved to logs/ directory" &&
-  #     docker logs -f pina_colada-client-1 2>&1 | while IFS= read -r line; do
+  #     docker logs -f pina-colada-client-1 2>&1 | while IFS= read -r line; do
   #       DATE=$$(date +%Y-%m-%d)
   #       echo "[client] $$line" >> /logs/client-$$DATE.log
   #       echo "[client] $$line" >> /logs/docker-compose-$$DATE.log
   #     done &
-  #     docker logs -f pina_colada-agent-1 2>&1 | while IFS= read -r line; do
+  #     docker logs -f pina-colada-agent-1 2>&1 | while IFS= read -r line; do
   #       DATE=$$(date +%Y-%m-%d)
   #       echo "[agent] $$line" >> /logs/agent-$$DATE.log
   #       echo "[agent] $$line" >> /logs/docker-compose-$$DATE.log
   #     done &
-  #     docker logs -f pina_colada-postgres-1 2>&1 | while IFS= read -r line; do
+  #     docker logs -f pina-colada-postgres-1 2>&1 | while IFS= read -r line; do
   #       DATE=$$(date +%Y-%m-%d)
   #       echo "[langfuse-postgres] $$line" >> /logs/langfuse-postgres-$$DATE.log
   #       echo "[langfuse-postgres] $$line" >> /logs/docker-compose-$$DATE.log
   #     done &
-  #     docker logs -f pina_colada-app-postgres-1 2>&1 | while IFS= read -r line; do
+  #     docker logs -f pina-colada-app-postgres-1 2>&1 | while IFS= read -r line; do
   #       DATE=$$(date +%Y-%m-%d)
   #       echo "[app-postgres] $$line" >> /logs/app-postgres-$$DATE.log
   #       echo "[app-postgres] $$line" >> /logs/docker-compose-$$DATE.log
@@ -56,7 +56,7 @@ services:
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
-      POSTGRES_DB: ${COMPOSE_PROJECT_NAME:-pina_colada}
+      POSTGRES_DB: ${COMPOSE_PROJECT_NAME:-pina-colada}
     depends_on:
       app-postgres:
         condition: service_healthy
@@ -81,6 +81,7 @@ services:
       - HOST=0.0.0.0
       # - LANGFUSE_HOST=http://langfuse:3000 # app talks to Langfuse over the compose network
       - UV_LINK_MODE=copy # Suppress hardlink warning from uv package manager
+      - STORAGE_PATH=/storage  # Use shared storage path
     dns:
       - 8.8.8.8
       - 8.8.4.4
@@ -89,6 +90,8 @@ services:
       - ./modules/agent:/app:delegated
       # Mount migrations directory
       - ./modules/agent/migrations:/app/migrations:ro
+      # Shared storage volume
+      - ./storage:/storage
       # Exclude these from the mount to avoid conflicts
       - /app/__pycache__
       - /app/.pytest_cache
@@ -112,12 +115,14 @@ services:
       target: dev
     volumes:
       - ./modules/agent-go:/app
+      - ./storage:/storage  # Shared storage volume
     env_file:
       - ./modules/agent-go/.env
     environment:
       - PORT=8080
       - ENV=development
-      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@app-postgres:5432/${COMPOSE_PROJECT_NAME:-pina_colada}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@app-postgres:5432/${COMPOSE_PROJECT_NAME:-pina-colada}
+      - STORAGE_PATH=/storage  # Use shared storage path
       # - LANGFUSE_HOST=http://langfuse:3000
     ports:
       - "8080:8080"
@@ -311,7 +316,7 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres} # CHANGEME
-      POSTGRES_DB: ${COMPOSE_PROJECT_NAME:-pina_colada}
+      POSTGRES_DB: ${COMPOSE_PROJECT_NAME:-pina-colada}
       TZ: UTC
       PGTZ: UTC
     ports:
@@ -323,7 +328,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    # App-only Postgres instance (pina_colada database)
+    # App-only Postgres instance (pina-colada database)
 
 volumes:
   app_postgres_data:
