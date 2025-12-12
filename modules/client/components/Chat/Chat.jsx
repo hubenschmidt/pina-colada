@@ -571,16 +571,24 @@ const Chat = ({
                   {tokenUsage && (
                     <span
                       className={styles.tokenUsage}
-                      title="Tokens used: last message / total this session">
+                      title={`Turn: ${tokenUsage.current.input} in / ${tokenUsage.current.output} out | Total: ${tokenUsage.cumulative.input} in / ${tokenUsage.cumulative.output} out`}>
                       turn:{" "}
-                      {tokenUsage.current.total >= 1000
-                        ? `${(tokenUsage.current.total / 1000).toFixed(1)}k`
-                        : tokenUsage.current.total}
+                      {tokenUsage.current.input >= 1000
+                        ? `${(tokenUsage.current.input / 1000).toFixed(1)}k`
+                        : tokenUsage.current.input}
+                      /
+                      {tokenUsage.current.output >= 1000
+                        ? `${(tokenUsage.current.output / 1000).toFixed(1)}k`
+                        : tokenUsage.current.output}
                       {" · "}
                       total:{" "}
-                      {tokenUsage.cumulative.total >= 1000
-                        ? `${(tokenUsage.cumulative.total / 1000).toFixed(1)}k`
-                        : tokenUsage.cumulative.total}
+                      {tokenUsage.cumulative.input >= 1000
+                        ? `${(tokenUsage.cumulative.input / 1000).toFixed(1)}k`
+                        : tokenUsage.cumulative.input}
+                      /
+                      {tokenUsage.cumulative.output >= 1000
+                        ? `${(tokenUsage.cumulative.output / 1000).toFixed(1)}k`
+                        : tokenUsage.cumulative.output}
                     </span>
                   )}
                   {variant === "page" && (

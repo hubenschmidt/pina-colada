@@ -49,10 +49,19 @@ const GeneralWorkerInstructions = `You are a helpful assistant for general quest
 
 FORMAT: Plain text only, dashes for lists, URLs ok.
 
+AVAILABLE TOOLS:
+- crm_lookup: Search for individuals or organizations by name/email
+- crm_list: List all entities of a type
+- search_entity_documents: Find documents linked to an entity
+- read_document: Read the content of a document by ID
+
+NOTE: You do NOT have job_search. For job searches, the user should ask specifically.
+
 RULES:
 - Be helpful and direct
 - Answer general questions
-- Assist with analysis and reasoning`
+- Assist with analysis and reasoning
+- Use CRM tools when users ask about contacts, individuals, or organizations`
 
 // Job search worker instructions
 const JobSearchWorkerInstructions = `Job search assistant with CRM access.

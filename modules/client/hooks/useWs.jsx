@@ -60,19 +60,50 @@ const parseTokenUsage = (obj) => {
   };
 };
 
+// Parse streaming token updates (real-time during generation)
+const parseStreamingTokens = (obj) => {
+  if (!obj.on_token_stream || typeof obj.on_token_stream !== "object") return null;
+  return {
+    input: obj.on_token_stream.input || 0,
+    output: obj.on_token_stream.output || 0,
+    total: obj.on_token_stream.total || 0,
+  };
+};
+
 const handleParsedMessage = (obj, ctx) => {
-  // Start of new assistant turn
+  // Start of new assistant turn - reset turn tokens but keep cumulative
   if (obj.on_chat_model_start === true) {
     ctx.setIsThinking(true);
-    ctx.setTokenUsage(null);
+    // Reset turn tokens to 0, keep cumulative from previous
+    ctx.setTokenUsage((prev) => prev ? {
+      current: { input: 0, output: 0, total: 0 },
+      cumulative: prev.cumulative,
+    } : null);
     ctx.setMessages((prev) => applyStartOfTurn(prev));
     return true;
   }
 
-  // Token usage update
+  // Final token usage update (end of turn)
   const tokenData = parseTokenUsage(obj);
   if (tokenData) {
     ctx.setTokenUsage(tokenData);
+    return true;
+  }
+
+  // Real-time streaming token updates
+  const streamingTokens = parseStreamingTokens(obj);
+  if (streamingTokens) {
+    ctx.setTokenUsage((prev) => {
+      const prevCumulative = prev?.cumulative || { input: 0, output: 0, total: 0 };
+      return {
+        current: streamingTokens,
+        cumulative: {
+          input: prevCumulative.input + streamingTokens.input - (prev?.current?.input || 0),
+          output: prevCumulative.output + streamingTokens.output - (prev?.current?.output || 0),
+          total: prevCumulative.total + streamingTokens.total - (prev?.current?.total || 0),
+        },
+      };
+    });
     return true;
   }
 

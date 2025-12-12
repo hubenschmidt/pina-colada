@@ -48,13 +48,15 @@ type Orchestrator struct {
 	// Triage model for routing decisions
 	triageModel model.LLM
 
-	// Worker runners
+	// Worker runners (each has its own isolated session service)
 	jobSearchRunner *runner.Runner
 	crmRunner       *runner.Runner
 	generalRunner   *runner.Runner
 
-	sessionSvc session.Service
-	appName    string
+	// Session services per worker (for creating sessions)
+	jobSearchSessionSvc session.Service
+	crmSessionSvc       session.Service
+	generalSessionSvc   session.Service
 }
 
 // TriageDecision represents the triage agent's routing decision
@@ -112,33 +114,35 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 		return nil, fmt.Errorf("failed to create general worker: %w", err)
 	}
 
-	// Shared session service for all workers
-	sessionSvc := session.InMemoryService()
-	appName := "pina-colada-agent"
+	// Separate session services per worker to avoid cross-contamination of tool calls
+	// Each worker sees only its own conversation history
+	jobSearchSessionSvc := session.InMemoryService()
+	crmSessionSvc := session.InMemoryService()
+	generalSessionSvc := session.InMemoryService()
 
-	// Create runners for each worker
+	// Create runners for each worker with isolated sessions
 	jobSearchRunner, err := runner.New(runner.Config{
-		AppName:        appName,
+		AppName:        "pina-colada-job-search",
 		Agent:          jobSearchWorker,
-		SessionService: sessionSvc,
+		SessionService: jobSearchSessionSvc,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create job search runner: %w", err)
 	}
 
 	crmRunner, err := runner.New(runner.Config{
-		AppName:        appName,
+		AppName:        "pina-colada-crm",
 		Agent:          crmWorker,
-		SessionService: sessionSvc,
+		SessionService: crmSessionSvc,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create CRM runner: %w", err)
 	}
 
 	generalRunner, err := runner.New(runner.Config{
-		AppName:        appName,
+		AppName:        "pina-colada-general",
 		Agent:          generalWorker,
-		SessionService: sessionSvc,
+		SessionService: generalSessionSvc,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create general runner: %w", err)
@@ -147,12 +151,13 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 	log.Printf("ADK orchestrator initialized with triage routing")
 
 	return &Orchestrator{
-		triageModel:     geminiModel,
-		jobSearchRunner: jobSearchRunner,
-		crmRunner:       crmRunner,
-		generalRunner:   generalRunner,
-		sessionSvc:      sessionSvc,
-		appName:         appName,
+		triageModel:         geminiModel,
+		jobSearchRunner:     jobSearchRunner,
+		crmRunner:           crmRunner,
+		generalRunner:       generalRunner,
+		jobSearchSessionSvc: jobSearchSessionSvc,
+		crmSessionSvc:       crmSessionSvc,
+		generalSessionSvc:   generalSessionSvc,
 	}, nil
 }
 
@@ -232,6 +237,44 @@ func (o *Orchestrator) getRunner(workerType WorkerType) *runner.Runner {
 	}
 }
 
+// getSessionServiceAndAppName returns the session service and app name for a worker type
+func (o *Orchestrator) getSessionServiceAndAppName(workerType WorkerType) (session.Service, string) {
+	switch workerType {
+	case WorkerJobSearch:
+		return o.jobSearchSessionSvc, "pina-colada-job-search"
+	case WorkerCRM:
+		return o.crmSessionSvc, "pina-colada-crm"
+	default:
+		return o.generalSessionSvc, "pina-colada-general"
+	}
+}
+
+// ensureSession creates a session if it doesn't exist for the given worker
+func (o *Orchestrator) ensureSession(ctx context.Context, workerType WorkerType, userID, sessionID string) error {
+	svc, appName := o.getSessionServiceAndAppName(workerType)
+
+	// Try to get existing session
+	_, err := svc.Get(ctx, &session.GetRequest{
+		AppName:   appName,
+		UserID:    userID,
+		SessionID: sessionID,
+	})
+	if err == nil {
+		return nil // Session exists
+	}
+
+	// Create new session
+	_, err = svc.Create(ctx, &session.CreateRequest{
+		AppName:   appName,
+		UserID:    userID,
+		SessionID: sessionID,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create session: %w", err)
+	}
+	return nil
+}
+
 // RunRequest represents a request to run the agent
 type RunRequest struct {
 	SessionID string
@@ -286,12 +329,6 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 	log.Printf("Starting agent for thread: %s", req.SessionID)
 	log.Printf("   Message: %s", req.Message)
 
-	// Get or create session
-	sessionID, err := o.getOrCreateSession(ctx, req.UserID, req.SessionID)
-	if err != nil {
-		return nil, err
-	}
-
 	// Triage: LLM decides which worker
 	workerType, err := o.triage(ctx, req.Message)
 	if err != nil {
@@ -300,13 +337,18 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 	selectedRunner := o.getRunner(workerType)
 	log.Printf("Selected worker: %s", workerType)
 
+	// Ensure session exists for this worker
+	if err := o.ensureSession(ctx, workerType, req.UserID, req.SessionID); err != nil {
+		return nil, err
+	}
+
 	// Run the worker
 	userMsg := &genai.Content{
 		Role:  "user",
 		Parts: []*genai.Part{{Text: req.Message}},
 	}
 
-	events := selectedRunner.Run(ctx, req.UserID, sessionID, userMsg, adkagent.RunConfig{})
+	events := selectedRunner.Run(ctx, req.UserID, req.SessionID, userMsg, adkagent.RunConfig{})
 
 	var collectedEvents []Event
 	var finalResponse string
@@ -373,13 +415,13 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 
 	// Update cumulative tokens
 	sessionTokenMu.Lock()
-	if sessionTokenTotals[sessionID] == nil {
-		sessionTokenTotals[sessionID] = &TokenUsage{}
+	if sessionTokenTotals[req.SessionID] == nil {
+		sessionTokenTotals[req.SessionID] = &TokenUsage{}
 	}
-	sessionTokenTotals[sessionID].Input += turnTokens.Input
-	sessionTokenTotals[sessionID].Output += turnTokens.Output
-	sessionTokenTotals[sessionID].Total += turnTokens.Total
-	cumulativeTokens := *sessionTokenTotals[sessionID]
+	sessionTokenTotals[req.SessionID].Input += turnTokens.Input
+	sessionTokenTotals[req.SessionID].Output += turnTokens.Output
+	sessionTokenTotals[req.SessionID].Total += turnTokens.Total
+	cumulativeTokens := *sessionTokenTotals[req.SessionID]
 	sessionTokenMu.Unlock()
 
 	log.Printf("Token usage - turn: in=%d out=%d total=%d, cumulative: in=%d out=%d total=%d",
@@ -389,7 +431,7 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 
 	return &RunResponse{
 		Response:         finalResponse,
-		SessionID:        sessionID,
+		SessionID:        req.SessionID,
 		Events:           collectedEvents,
 		TurnTokens:       turnTokens,
 		CumulativeTokens: cumulativeTokens,
@@ -412,13 +454,6 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 		}
 	}
 
-	// Get or create session
-	sessionID, err := o.getOrCreateSession(ctx, req.UserID, req.SessionID)
-	if err != nil {
-		sendEvent(StreamEvent{Type: "error", Error: err.Error()})
-		return
-	}
-
 	// Triage: LLM decides which worker
 	workerType, err := o.triage(ctx, req.Message)
 	if err != nil {
@@ -428,13 +463,19 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	selectedRunner := o.getRunner(workerType)
 	log.Printf("Selected worker: %s", workerType)
 
+	// Ensure session exists for this worker
+	if err := o.ensureSession(ctx, workerType, req.UserID, req.SessionID); err != nil {
+		sendEvent(StreamEvent{Type: "error", Error: err.Error()})
+		return
+	}
+
 	// Run the worker
 	userMsg := &genai.Content{
 		Role:  "user",
 		Parts: []*genai.Part{{Text: req.Message}},
 	}
 
-	events := selectedRunner.Run(ctx, req.UserID, sessionID, userMsg, adkagent.RunConfig{})
+	events := selectedRunner.Run(ctx, req.UserID, req.SessionID, userMsg, adkagent.RunConfig{})
 
 	var finalResponse string
 	var turnTokens TokenUsage
@@ -503,13 +544,13 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 
 	// Update cumulative tokens
 	sessionTokenMu.Lock()
-	if sessionTokenTotals[sessionID] == nil {
-		sessionTokenTotals[sessionID] = &TokenUsage{}
+	if sessionTokenTotals[req.SessionID] == nil {
+		sessionTokenTotals[req.SessionID] = &TokenUsage{}
 	}
-	sessionTokenTotals[sessionID].Input += turnTokens.Input
-	sessionTokenTotals[sessionID].Output += turnTokens.Output
-	sessionTokenTotals[sessionID].Total += turnTokens.Total
-	cumulativeTokens := *sessionTokenTotals[sessionID]
+	sessionTokenTotals[req.SessionID].Input += turnTokens.Input
+	sessionTokenTotals[req.SessionID].Output += turnTokens.Output
+	sessionTokenTotals[req.SessionID].Total += turnTokens.Total
+	cumulativeTokens := *sessionTokenTotals[req.SessionID]
 	sessionTokenMu.Unlock()
 
 	log.Printf("Token usage - turn: in=%d out=%d total=%d, cumulative: in=%d out=%d total=%d",
@@ -527,26 +568,4 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 		TurnTokens:       &turnTokens,
 		CumulativeTokens: &cumulativeTokens,
 	})
-}
-
-// getOrCreateSession gets existing session or creates new one
-func (o *Orchestrator) getOrCreateSession(ctx context.Context, userID, sessionID string) (string, error) {
-	sessResp, err := o.sessionSvc.Get(ctx, &session.GetRequest{
-		AppName:   o.appName,
-		UserID:    userID,
-		SessionID: sessionID,
-	})
-
-	if err != nil || sessResp == nil || sessResp.Session == nil {
-		createResp, err := o.sessionSvc.Create(ctx, &session.CreateRequest{
-			AppName:   o.appName,
-			UserID:    userID,
-			SessionID: sessionID,
-		})
-		if err != nil {
-			return "", fmt.Errorf("failed to create session: %w", err)
-		}
-		return createResp.Session.ID(), nil
-	}
-	return sessResp.Session.ID(), nil
 }
