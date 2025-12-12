@@ -143,10 +143,7 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 
 // enhanceJobQuery adds keywords and minimal exclusions to find company career pages
 // Only exclude top job boards in query (Google ignores too many -site: operators)
-// Post-filtering handles the rest
 func enhanceJobQuery(query string) string {
-	// Only top 8 job boards - Google ignores too many -site: operators
-	// Post-filtering catches the rest
 	topJobBoards := []string{
 		"linkedin.com",
 		"indeed.com",
@@ -154,8 +151,8 @@ func enhanceJobQuery(query string) string {
 		"ziprecruiter.com",
 		"monster.com",
 		"dice.com",
-		"wellfound.com",
 		"builtin.com",
+		"jobright.ai",
 	}
 
 	var exclusions []string
@@ -180,6 +177,11 @@ func formatSerperResultsWithFilter(organic []serperOrganicResult, maxResults int
 			break
 		}
 		company, title := extractCompanyFromTitle(item.Title)
+
+		// Fallback to URL-based company extraction
+		if company == "" {
+			company = extractCompanyFromURL(item.Link)
+		}
 
 		// Skip if matches an applied/do_not_apply job
 		if matchesAppliedJob(company, title, appliedJobs) {
@@ -221,23 +223,116 @@ func matchesAppliedJob(company, title string, appliedJobs []JobInfo) bool {
 
 // extractCompanyFromTitle extracts company name from title string
 func extractCompanyFromTitle(title string) (string, string) {
-	company := "Unknown Company"
-
 	// Try " at " pattern (e.g., "Software Engineer at Google")
 	if strings.Contains(title, " at ") {
 		parts := strings.Split(title, " at ")
 		if len(parts) >= 2 {
-			company = strings.TrimSpace(parts[len(parts)-1])
-			title = strings.TrimSpace(parts[0])
-		}
-	} else if strings.Contains(title, " - ") {
-		// Try " - " pattern (e.g., "Google - Software Engineer")
-		parts := strings.Split(title, " - ")
-		if len(parts) >= 2 {
-			company = strings.TrimSpace(parts[0])
+			company := strings.TrimSpace(parts[len(parts)-1])
+			if !looksLikeJobTitle(company) {
+				return company, strings.TrimSpace(parts[0])
+			}
 		}
 	}
 
-	return company, title
+	// Try " @ " pattern (e.g., "Senior Software Engineer @ Crosby")
+	if strings.Contains(title, " @ ") {
+		parts := strings.Split(title, " @ ")
+		if len(parts) >= 2 {
+			company := strings.TrimSpace(parts[len(parts)-1])
+			if !looksLikeJobTitle(company) {
+				return company, strings.TrimSpace(parts[0])
+			}
+		}
+	}
+
+	// Try " | " pattern (e.g., "AI Agent Security | Senior Software Engineer")
+	if strings.Contains(title, " | ") {
+		parts := strings.Split(title, " | ")
+		if len(parts) >= 2 {
+			company := strings.TrimSpace(parts[0])
+			if !looksLikeJobTitle(company) {
+				return company, strings.TrimSpace(parts[len(parts)-1])
+			}
+		}
+	}
+
+	// Try em-dash " – " pattern (e.g., "Senior AI Engineer – Core AI")
+	if strings.Contains(title, " – ") {
+		parts := strings.Split(title, " – ")
+		if len(parts) >= 2 {
+			company := strings.TrimSpace(parts[0])
+			if !looksLikeJobTitle(company) {
+				return company, strings.TrimSpace(parts[len(parts)-1])
+			}
+		}
+	}
+
+	// Try " - " pattern (e.g., "Google - Software Engineer")
+	if strings.Contains(title, " - ") {
+		parts := strings.Split(title, " - ")
+		if len(parts) >= 2 {
+			company := strings.TrimSpace(parts[0])
+			if !looksLikeJobTitle(company) {
+				return company, title
+			}
+		}
+	}
+
+	return "", title
+}
+
+// looksLikeJobTitle returns true if the string appears to be a job title or generic page name
+func looksLikeJobTitle(s string) bool {
+	lower := strings.ToLower(s)
+	keywords := []string{
+		// Job titles
+		"engineer", "developer", "manager", "director", "analyst",
+		"architect", "designer", "specialist", "consultant", "lead",
+		"senior", "junior", "staff", "principal", "head of",
+		"vp ", "vice president", "chief", "officer", "coordinator",
+		"administrator", "intern", "associate", "scientist", "researcher",
+		// Generic page names (not company names)
+		"careers", "jobs", "openings", "opportunities", "hiring",
+	}
+	for _, kw := range keywords {
+		if strings.Contains(lower, kw) {
+			return true
+		}
+	}
+	return false
+}
+
+// extractCompanyFromURL extracts company name from URL domain as fallback
+func extractCompanyFromURL(url string) string {
+	// Remove protocol
+	url = strings.TrimPrefix(url, "https://")
+	url = strings.TrimPrefix(url, "http://")
+
+	// Get domain part
+	parts := strings.Split(url, "/")
+	if len(parts) == 0 {
+		return ""
+	}
+	domain := parts[0]
+
+	// Remove common prefixes
+	domain = strings.TrimPrefix(domain, "www.")
+	domain = strings.TrimPrefix(domain, "careers.")
+	domain = strings.TrimPrefix(domain, "jobs.")
+
+	// Get base domain (remove TLD)
+	domainParts := strings.Split(domain, ".")
+	if len(domainParts) == 0 {
+		return ""
+	}
+
+	company := domainParts[0]
+
+	// Capitalize first letter
+	if len(company) > 0 {
+		company = strings.ToUpper(string(company[0])) + company[1:]
+	}
+
+	return company
 }
 
