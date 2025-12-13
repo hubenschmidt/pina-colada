@@ -16,7 +16,7 @@ type OpportunityResponse struct {
 	ExpectedCloseDate          *string          `json:"expected_close_date"`
 	FormattedExpectedCloseDate string           `json:"formatted_expected_close_date"`
 	Status                     string           `json:"status"`
-	Notes                      *string          `json:"notes"`
+	Description                *string          `json:"description"`
 	CreatedAt                  time.Time        `json:"created_at"`
 	UpdatedAt                  time.Time        `json:"updated_at"`
 	FormattedUpdatedAt         string           `json:"formatted_updated_at"`
@@ -33,7 +33,7 @@ type PartnershipResponse struct {
 	FormattedStartDate string    `json:"formatted_start_date"`
 	EndDate            *string   `json:"end_date"`
 	FormattedEndDate   string    `json:"formatted_end_date"`
-	Notes              *string   `json:"notes"`
+	Description        *string   `json:"description"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 	FormattedUpdatedAt string    `json:"formatted_updated_at"`

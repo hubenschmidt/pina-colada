@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -16,6 +17,7 @@ import (
 	"github.com/pina-colada-co/agent-go/internal/agent/utils"
 	"github.com/pina-colada-co/agent-go/internal/agent/workers"
 	"github.com/pina-colada-co/agent-go/internal/config"
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
 
@@ -461,12 +463,13 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 
 // ensureSession creates a session if it doesn't exist
 func (o *Orchestrator) ensureSession(ctx context.Context, userID, sessionID string) error {
-	session, err := o.stateManager.GetSession(ctx, userID, sessionID)
-	if err != nil {
-		return fmt.Errorf("get session: %w", err)
-	}
-	if session != nil {
+	_, err := o.stateManager.GetSession(ctx, userID, sessionID)
+	if err == nil {
 		return nil
+	}
+
+	if !errors.Is(err, apperrors.ErrSessionNotFound) {
+		return fmt.Errorf("get session: %w", err)
 	}
 
 	_, err = o.stateManager.CreateSession(ctx, userID, sessionID)

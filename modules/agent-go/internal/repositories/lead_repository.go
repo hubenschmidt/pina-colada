@@ -48,8 +48,7 @@ func (r *LeadRepository) FindAllOpportunities(params PaginationParams, tenantID,
 
 	query = r.applyOpportunityFilters(query, tenantID, projectID, params.Search)
 
-	countQuery := r.db.Model(&models.Opportunity{}).
-		Joins("LEFT JOIN \"Lead\" ON \"Opportunity\".id = \"Lead\".id")
+	countQuery := r.db.Model(&models.Opportunity{})
 	countQuery = r.applyOpportunityFilters(countQuery, tenantID, projectID, params.Search)
 	if err := countQuery.Count(&totalCount).Error; err != nil {
 		return nil, err
@@ -146,8 +145,7 @@ func (r *LeadRepository) FindAllPartnerships(params PaginationParams, tenantID *
 
 	query = r.applyPartnershipFilters(query, tenantID, params.Search)
 
-	countQuery := r.db.Model(&models.Partnership{}).
-		Joins("LEFT JOIN \"Lead\" ON \"Partnership\".id = \"Lead\".id")
+	countQuery := r.db.Model(&models.Partnership{})
 	countQuery = r.applyPartnershipFilters(countQuery, tenantID, params.Search)
 	if err := countQuery.Count(&totalCount).Error; err != nil {
 		return nil, err
