@@ -60,17 +60,26 @@ func (r *ProvenanceRepository) Create(input ProvenanceCreateInput) (*models.Data
 		provenance.Confidence = &conf
 	}
 
-	if input.RawValue != nil {
-		rawBytes, err := json.Marshal(input.RawValue)
-		if err != nil {
-			return nil, err
-		}
-		provenance.RawValue = datatypes.JSON(rawBytes)
+	rawJSON, err := marshalRawValue(input.RawValue)
+	if err != nil {
+		return nil, err
 	}
+	provenance.RawValue = rawJSON
 
 	if err := r.db.Create(provenance).Error; err != nil {
 		return nil, err
 	}
 
 	return provenance, nil
+}
+
+func marshalRawValue(rawValue interface{}) (datatypes.JSON, error) {
+	if rawValue == nil {
+		return nil, nil
+	}
+	rawBytes, err := json.Marshal(rawValue)
+	if err != nil {
+		return nil, err
+	}
+	return datatypes.JSON(rawBytes), nil
 }

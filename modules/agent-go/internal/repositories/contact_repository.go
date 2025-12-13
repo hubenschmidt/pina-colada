@@ -58,50 +58,7 @@ func (r *ContactRepository) FindAll(params PaginationParams, tenantID *int64) (*
 		return nil, err
 	}
 
-	// Load accounts for all contacts
-	if len(contacts) > 0 {
-		contactIDs := make([]int64, len(contacts))
-		for i, c := range contacts {
-			contactIDs[i] = c.ID
-		}
-
-		// Get all contact-account links
-		var links []models.ContactAccount
-		r.db.Where("contact_id IN ?", contactIDs).Find(&links)
-
-		// Get unique account IDs
-		accountIDSet := make(map[int64]bool)
-		for _, link := range links {
-			accountIDSet[link.AccountID] = true
-		}
-		accountIDs := make([]int64, 0, len(accountIDSet))
-		for id := range accountIDSet {
-			accountIDs = append(accountIDs, id)
-		}
-
-		// Load all accounts
-		var accounts []models.Account
-		if len(accountIDs) > 0 {
-			r.db.Where("id IN ?", accountIDs).Find(&accounts)
-		}
-		accountMap := make(map[int64]models.Account)
-		for _, acc := range accounts {
-			accountMap[acc.ID] = acc
-		}
-
-		// Build contact ID -> accounts mapping
-		contactAccounts := make(map[int64][]models.Account)
-		for _, link := range links {
-			if acc, ok := accountMap[link.AccountID]; ok {
-				contactAccounts[link.ContactID] = append(contactAccounts[link.ContactID], acc)
-			}
-		}
-
-		// Assign accounts to contacts
-		for i := range contacts {
-			contacts[i].Accounts = contactAccounts[contacts[i].ID]
-		}
-	}
+	r.loadContactAccounts(contacts)
 
 	return &PaginatedResult[models.Contact]{
 		Items:      contacts,
@@ -227,4 +184,62 @@ func (r *ContactRepository) LinkToAccounts(contactID int64, accountIDs []int64, 
 		}
 		return nil
 	})
+}
+
+func (r *ContactRepository) loadContactAccounts(contacts []models.Contact) {
+	if len(contacts) == 0 {
+		return
+	}
+
+	contactIDs := make([]int64, len(contacts))
+	for i, c := range contacts {
+		contactIDs[i] = c.ID
+	}
+
+	var links []models.ContactAccount
+	r.db.Where("contact_id IN ?", contactIDs).Find(&links)
+
+	accountIDs := extractUniqueAccountIDs(links)
+	accountMap := r.loadAccountMap(accountIDs)
+	contactAccounts := buildContactAccountsMap(links, accountMap)
+
+	for i := range contacts {
+		contacts[i].Accounts = contactAccounts[contacts[i].ID]
+	}
+}
+
+func extractUniqueAccountIDs(links []models.ContactAccount) []int64 {
+	accountIDSet := make(map[int64]bool)
+	for _, link := range links {
+		accountIDSet[link.AccountID] = true
+	}
+	accountIDs := make([]int64, 0, len(accountIDSet))
+	for id := range accountIDSet {
+		accountIDs = append(accountIDs, id)
+	}
+	return accountIDs
+}
+
+func (r *ContactRepository) loadAccountMap(accountIDs []int64) map[int64]models.Account {
+	accountMap := make(map[int64]models.Account)
+	if len(accountIDs) == 0 {
+		return accountMap
+	}
+	var accounts []models.Account
+	r.db.Where("id IN ?", accountIDs).Find(&accounts)
+	for _, acc := range accounts {
+		accountMap[acc.ID] = acc
+	}
+	return accountMap
+}
+
+func buildContactAccountsMap(links []models.ContactAccount, accountMap map[int64]models.Account) map[int64][]models.Account {
+	contactAccounts := make(map[int64][]models.Account)
+	for _, link := range links {
+		acc, ok := accountMap[link.AccountID]
+		if ok {
+			contactAccounts[link.ContactID] = append(contactAccounts[link.ContactID], acc)
+		}
+	}
+	return contactAccounts
 }

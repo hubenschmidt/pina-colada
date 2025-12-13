@@ -29,15 +29,20 @@ type LocalStorageRepository struct {
 
 // NewLocalStorageRepository creates a new local storage repository
 func NewLocalStorageRepository(basePath string) *LocalStorageRepository {
-	if basePath == "" {
-		basePath = os.Getenv("STORAGE_PATH")
-		if basePath == "" {
-			basePath = "/app/storage/documents"
-		}
-	}
+	basePath = resolveBasePath(basePath)
 	os.MkdirAll(basePath, 0755)
 	log.Printf("📁 LocalStorageRepository initialized with basePath: %s", basePath)
 	return &LocalStorageRepository{basePath: basePath}
+}
+
+func resolveBasePath(basePath string) string {
+	if basePath != "" {
+		return basePath
+	}
+	if envPath := os.Getenv("STORAGE_PATH"); envPath != "" {
+		return envPath
+	}
+	return "/app/storage/documents"
 }
 
 func (r *LocalStorageRepository) Upload(path string, data io.Reader, contentType string, size int64) error {
@@ -170,20 +175,21 @@ func (r *R2StorageRepository) Exists(path string) (bool, error) {
 
 // GetStorageRepository returns the appropriate storage repository based on environment
 func GetStorageRepository() StorageRepository {
-	backend := os.Getenv("STORAGE_BACKEND")
-
-	if backend == "r2" {
-		repo, err := NewR2StorageRepository(
-			os.Getenv("R2_ACCOUNT_ID"),
-			os.Getenv("R2_ACCESS_KEY_ID"),
-			os.Getenv("R2_SECRET_ACCESS_KEY"),
-			os.Getenv("R2_BUCKET_NAME"),
-		)
-		if err != nil {
-			panic(fmt.Sprintf("failed to initialize R2 storage: %v", err))
-		}
-		return repo
+	if os.Getenv("STORAGE_BACKEND") == "r2" {
+		return mustInitR2Storage()
 	}
-
 	return NewLocalStorageRepository("")
+}
+
+func mustInitR2Storage() *R2StorageRepository {
+	repo, err := NewR2StorageRepository(
+		os.Getenv("R2_ACCOUNT_ID"),
+		os.Getenv("R2_ACCESS_KEY_ID"),
+		os.Getenv("R2_SECRET_ACCESS_KEY"),
+		os.Getenv("R2_BUCKET_NAME"),
+	)
+	if err != nil {
+		panic(fmt.Sprintf("failed to initialize R2 storage: %v", err))
+	}
+	return repo
 }

@@ -47,15 +47,9 @@ func (r *PreferenceRepository) GetUserPreferences(userID int64) (*UserPrefsDTO, 
 
 func (r *PreferenceRepository) FindOrCreateUserPreferences(userID int64) (*UserPrefsDTO, error) {
 	var prefs models.UserPreferences
-	err := r.db.Where("user_id = ?", userID).First(&prefs).Error
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	err := r.db.Where("user_id = ?", userID).FirstOrCreate(&prefs, models.UserPreferences{UserID: userID}).Error
+	if err != nil {
 		return nil, err
-	}
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		prefs = models.UserPreferences{UserID: userID}
-		if err := r.db.Create(&prefs).Error; err != nil {
-			return nil, err
-		}
 	}
 	return &UserPrefsDTO{Theme: prefs.Theme, Timezone: prefs.Timezone}, nil
 }
@@ -87,15 +81,10 @@ func (r *PreferenceRepository) GetUserWithTenant(userID int64) (*UserTenantDTO, 
 // FindOrCreateTenantPreferences finds or creates tenant preferences
 func (r *PreferenceRepository) FindOrCreateTenantPreferences(tenantID int64) (*TenantPrefsDTO, error) {
 	var prefs models.TenantPreferences
-	err := r.db.Where("tenant_id = ?", tenantID).First(&prefs).Error
-	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+	defaults := models.TenantPreferences{TenantID: tenantID, Theme: "light"}
+	err := r.db.Where("tenant_id = ?", tenantID).FirstOrCreate(&prefs, defaults).Error
+	if err != nil {
 		return nil, err
-	}
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		prefs = models.TenantPreferences{TenantID: tenantID, Theme: "light"}
-		if err := r.db.Create(&prefs).Error; err != nil {
-			return nil, err
-		}
 	}
 	return &TenantPrefsDTO{Theme: prefs.Theme}, nil
 }

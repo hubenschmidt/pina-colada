@@ -246,28 +246,7 @@ func (r *DocumentRepository) FindAll(entityType *string, entityID *int64, tenant
 		return nil, err
 	}
 
-	// Populate entities and tags
-	if len(docs) > 0 {
-		docIDs := make([]int64, len(docs))
-		for i, d := range docs {
-			docIDs[i] = d.ID
-		}
-
-		entitiesMap := r.GetDocumentsEntities(docIDs)
-		tagsMap := r.GetDocumentsTags(docIDs)
-
-		for i := range docs {
-			docs[i].Entities = []EntityLinkDTO{}
-			docs[i].Tags = []string{}
-
-			if entities, ok := entitiesMap[docs[i].ID]; ok {
-				docs[i].Entities = entities
-			}
-			if tags, ok := tagsMap[docs[i].ID]; ok {
-				docs[i].Tags = tags
-			}
-		}
-	}
+	r.populateDocumentEntitiesAndTags(docs)
 
 	return &PaginatedResult[DocumentDTO]{
 		Items:      docs,
@@ -661,4 +640,29 @@ func (r *DocumentRepository) GetDocumentsTags(docIDs []int64) map[int64][]string
 	}
 
 	return result
+}
+
+func (r *DocumentRepository) populateDocumentEntitiesAndTags(docs []DocumentDTO) {
+	if len(docs) == 0 {
+		return
+	}
+
+	docIDs := make([]int64, len(docs))
+	for i, d := range docs {
+		docIDs[i] = d.ID
+	}
+
+	entitiesMap := r.GetDocumentsEntities(docIDs)
+	tagsMap := r.GetDocumentsTags(docIDs)
+
+	for i := range docs {
+		docs[i].Entities = entitiesMap[docs[i].ID]
+		docs[i].Tags = tagsMap[docs[i].ID]
+		if docs[i].Entities == nil {
+			docs[i].Entities = []EntityLinkDTO{}
+		}
+		if docs[i].Tags == nil {
+			docs[i].Tags = []string{}
+		}
+	}
 }

@@ -237,31 +237,9 @@ type IndividualCreateInput struct {
 
 // CreateIndividual creates a new individual with account
 func (r *IndividualRepository) CreateIndividual(input IndividualCreateInput) (*models.Individual, error) {
-	// Use existing account if provided
-	accountID := input.AccountID
-
-	// Create new account if not provided
-	if accountID == nil {
-		fullName := input.FirstName + " " + input.LastName
-		account := &models.Account{
-			TenantID:  input.TenantID,
-			Name:      fullName,
-			CreatedBy: input.UserID,
-			UpdatedBy: input.UserID,
-		}
-		if err := r.db.Create(account).Error; err != nil {
-			return nil, err
-		}
-		accountID = &account.ID
-
-		// Add industries to account if provided
-		for _, industryID := range input.IndustryIDs {
-			link := &models.AccountIndustry{
-				AccountID:  account.ID,
-				IndustryID: industryID,
-			}
-			r.db.Create(link)
-		}
+	accountID, err := r.resolveAccountID(input)
+	if err != nil {
+		return nil, err
 	}
 
 	ind := &models.Individual{
@@ -451,4 +429,34 @@ func (r *IndividualRepository) GetContactByID(contactID int64) (*models.Contact,
 		return nil, err
 	}
 	return &contact, nil
+}
+
+func (r *IndividualRepository) resolveAccountID(input IndividualCreateInput) (*int64, error) {
+	if input.AccountID != nil {
+		return input.AccountID, nil
+	}
+
+	fullName := input.FirstName + " " + input.LastName
+	account := &models.Account{
+		TenantID:  input.TenantID,
+		Name:      fullName,
+		CreatedBy: input.UserID,
+		UpdatedBy: input.UserID,
+	}
+	if err := r.db.Create(account).Error; err != nil {
+		return nil, err
+	}
+
+	r.linkAccountIndustries(account.ID, input.IndustryIDs)
+	return &account.ID, nil
+}
+
+func (r *IndividualRepository) linkAccountIndustries(accountID int64, industryIDs []int64) {
+	for _, industryID := range industryIDs {
+		link := &models.AccountIndustry{
+			AccountID:  accountID,
+			IndustryID: industryID,
+		}
+		r.db.Create(link)
+	}
 }

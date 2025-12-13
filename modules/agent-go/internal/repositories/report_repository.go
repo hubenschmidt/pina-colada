@@ -41,17 +41,7 @@ func (r *ReportRepository) FindSavedReports(tenantID int64, projectID *int64, in
 
 	query := r.db.Model(&models.SavedReport{}).Where("tenant_id = ?", tenantID)
 
-	if projectID != nil {
-		subquery := r.db.Table(`"Saved_Report_Project"`).Select("saved_report_id").Where("project_id = ?", *projectID)
-		if !includeGlobal {
-			query = query.Where("id IN (?)", subquery)
-		}
-		if includeGlobal {
-			// Include reports with this project OR reports with no project associations
-			noProjectSubquery := r.db.Table(`"Saved_Report_Project"`).Select("saved_report_id")
-			query = query.Where("id IN (?) OR id NOT IN (?)", subquery, noProjectSubquery)
-		}
-	}
+	query = r.applyProjectFilter(query, projectID, includeGlobal)
 
 	if search != "" {
 		searchTerm := "%" + search + "%"
@@ -488,26 +478,7 @@ func (r *ReportRepository) applyAuditTenantFilter(query *gorm.DB, table string, 
 func (r *ReportRepository) GetUserAuditData(tenantID int64, userID *int64) (map[string]interface{}, error) {
 	result := make(map[string]interface{})
 
-	// Get user info if filtering by user ID
-	if userID != nil {
-		var user struct {
-			ID        int64
-			Email     string
-			FirstName string
-			LastName  string
-		}
-		err := r.db.Table(`"User"`).
-			Select("id, email, first_name, last_name").
-			Where("id = ? AND tenant_id = ?", *userID, tenantID).
-			First(&user).Error
-		if err == nil {
-			result["user"] = map[string]interface{}{
-				"id":    user.ID,
-				"email": user.Email,
-				"name":  user.FirstName + " " + user.LastName,
-			}
-		}
-	}
+	r.loadAuditUserInfo(result, tenantID, userID)
 
 	// Tables to audit with created_by/updated_by columns (13 total, Document inherits from Asset)
 	tables := []string{"Account", "Account_Relationship", "Asset", "Comment", "Contact", "Deal", "Document", "Individual", "Lead", "Note", "Organization", "Project", "Task"}
@@ -695,4 +666,44 @@ func applyFilter(query *gorm.DB, table, field, operator string, value interface{
 		return applier(query, fullField, value)
 	}
 	return query
+}
+
+func (r *ReportRepository) applyProjectFilter(query *gorm.DB, projectID *int64, includeGlobal bool) *gorm.DB {
+	if projectID == nil {
+		return query
+	}
+
+	subquery := r.db.Table(`"Saved_Report_Project"`).Select("saved_report_id").Where("project_id = ?", *projectID)
+	if !includeGlobal {
+		return query.Where("id IN (?)", subquery)
+	}
+
+	noProjectSubquery := r.db.Table(`"Saved_Report_Project"`).Select("saved_report_id")
+	return query.Where("id IN (?) OR id NOT IN (?)", subquery, noProjectSubquery)
+}
+
+func (r *ReportRepository) loadAuditUserInfo(result map[string]interface{}, tenantID int64, userID *int64) {
+	if userID == nil {
+		return
+	}
+
+	var user struct {
+		ID        int64
+		Email     string
+		FirstName string
+		LastName  string
+	}
+	err := r.db.Table(`"User"`).
+		Select("id, email, first_name, last_name").
+		Where("id = ? AND tenant_id = ?", *userID, tenantID).
+		First(&user).Error
+	if err != nil {
+		return
+	}
+
+	result["user"] = map[string]interface{}{
+		"id":    user.ID,
+		"email": user.Email,
+		"name":  user.FirstName + " " + user.LastName,
+	}
 }

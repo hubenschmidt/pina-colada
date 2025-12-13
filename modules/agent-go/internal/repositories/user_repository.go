@@ -86,11 +86,7 @@ func (r *UserRepository) GetOrCreate(auth0Sub, email string) (*models.User, erro
 		return nil, err
 	}
 	if user != nil {
-		// Update with auth0_sub
-		if err := r.Update(user, map[string]interface{}{"auth0_sub": auth0Sub}); err != nil {
-			return nil, err
-		}
-		return user, nil
+		return r.linkAuth0Sub(user, auth0Sub)
 	}
 
 	// Create new user
@@ -320,4 +316,11 @@ func (r *UserRepository) GetTenantUsers(tenantID int64) ([]TenantUser, error) {
 	}
 
 	return users, nil
+}
+
+func (r *UserRepository) linkAuth0Sub(user *models.User, auth0Sub string) (*models.User, error) {
+	if err := r.Update(user, map[string]interface{}{"auth0_sub": auth0Sub}); err != nil {
+		return nil, err
+	}
+	return user, nil
 }

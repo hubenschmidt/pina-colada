@@ -16,6 +16,9 @@ type Opportunity struct {
 	Notes             *string          `json:"notes"`
 	CreatedAt         time.Time        `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt         time.Time        `gorm:"autoUpdateTime" json:"updated_at"`
+
+	// Relations
+	Lead *Lead `gorm:"foreignKey:ID;references:ID" json:"lead,omitempty"`
 }
 
 func (Opportunity) TableName() string {
