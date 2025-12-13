@@ -49,6 +49,7 @@ func (c *AgentController) Chat(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, "unauthorized")
 		return
 	}
+	tenantID, _ := middleware.GetTenantID(r.Context())
 
 	var req ChatRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -74,6 +75,7 @@ func (c *AgentController) Chat(w http.ResponseWriter, r *http.Request) {
 	result, err := c.orchestrator.Run(r.Context(), agent.RunRequest{
 		SessionID: sessionID,
 		UserID:    strconv.FormatInt(userID, 10),
+		TenantID:  tenantID,
 		Message:   req.Message,
 	})
 	if err != nil {

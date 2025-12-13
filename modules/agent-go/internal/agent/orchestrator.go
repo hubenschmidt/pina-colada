@@ -1,15 +1,21 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/nlpodyssey/openai-agents-go/agents"
 	"github.com/nlpodyssey/openai-agents-go/usage"
+	"gorm.io/datatypes"
 
 	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
 	"github.com/pina-colada-co/agent-go/internal/agent/state"
@@ -40,10 +46,11 @@ type Orchestrator struct {
 	stateManager    state.StateManager
 	model           string
 	anthropicAPIKey string
+	convService     *services.ConversationService
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
-func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService) (*Orchestrator, error) {
+func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService) (*Orchestrator, error) {
 	// Use OpenAI model (SDK defaults to OpenAI provider)
 	model := "gpt-4.1-2025-04-14"
 
@@ -82,6 +89,7 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 		stateManager:    stateMgr,
 		model:           model,
 		anthropicAPIKey: cfg.AnthropicAPIKey,
+		convService:     convService,
 	}, nil
 }
 
@@ -89,6 +97,7 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 type RunRequest struct {
 	SessionID    string
 	UserID       string
+	TenantID     int64
 	Message      string
 	UseEvaluator bool
 }
@@ -174,13 +183,16 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 	// Get token usage from context
 	turnTokens := extractTokenUsage(ctx)
 
-	// Store messages
+	// Store messages in memory
 	if err := o.stateManager.AddMessage(ctx, req.SessionID, state.Message{Role: "user", Content: req.Message}); err != nil {
 		log.Printf("Warning: failed to store user message: %v", err)
 	}
 	if err := o.stateManager.AddMessage(ctx, req.SessionID, state.Message{Role: "assistant", Content: finalOutput}); err != nil {
 		log.Printf("Warning: failed to store assistant message: %v", err)
 	}
+
+	// Persist messages to database
+	o.persistMessages(req, turnTokens, finalOutput)
 
 	// Update cumulative tokens
 	cumulativeTokens := updateCumulativeTokens(req.SessionID, turnTokens)
@@ -436,13 +448,16 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 		sendEvent(StreamEvent{Type: "text", Text: finalOutput})
 	}
 
-	// Store messages
+	// Store messages in memory
 	if err := o.stateManager.AddMessage(ctx, req.SessionID, state.Message{Role: "user", Content: req.Message}); err != nil {
 		log.Printf("Warning: failed to store user message: %v", err)
 	}
 	if err := o.stateManager.AddMessage(ctx, req.SessionID, state.Message{Role: "assistant", Content: finalOutput}); err != nil {
 		log.Printf("Warning: failed to store assistant message: %v", err)
 	}
+
+	// Persist messages to database
+	o.persistMessages(req, turnTokens, finalOutput)
 
 	// Update cumulative tokens
 	cumulativeTokens := updateCumulativeTokens(req.SessionID, turnTokens)
@@ -568,6 +583,157 @@ func truncateString(s string, maxLen int) string {
 		return s
 	}
 	return s[:maxLen] + "..."
+}
+
+// persistMessages saves user and assistant messages to the database
+func (o *Orchestrator) persistMessages(req RunRequest, turnTokens TokenUsage, finalOutput string) {
+	if o.convService == nil {
+		return
+	}
+
+	userID, err := strconv.ParseInt(req.UserID, 10, 64)
+	if err != nil {
+		log.Printf("Warning: invalid user ID for persistence: %v", err)
+		return
+	}
+
+	// Build token usage JSON
+	tokenUsageJSON := buildTokenUsageJSON(turnTokens)
+
+	// Persist user message
+	result, err := o.convService.SaveMessage(req.SessionID, userID, req.TenantID, "user", req.Message, nil)
+	if err != nil {
+		log.Printf("Warning: failed to persist user message: %v", err)
+		return
+	}
+
+	// Persist assistant message with token usage
+	if _, err := o.convService.SaveMessage(req.SessionID, userID, req.TenantID, "assistant", finalOutput, tokenUsageJSON); err != nil {
+		log.Printf("Warning: failed to persist assistant message: %v", err)
+	}
+
+	// Generate title for new conversations
+	if result != nil && result.IsNewConversation {
+		o.generateConversationTitle(req.SessionID, req.Message, finalOutput)
+	}
+}
+
+// generateConversationTitle creates a short title for a conversation using Claude Haiku
+func (o *Orchestrator) generateConversationTitle(sessionID, userMessage, assistantResponse string) {
+	title := o.callHaikuForTitle(userMessage, assistantResponse)
+	if title == "" {
+		// Fallback to simple truncation
+		title = userMessage
+		if len(title) > 50 {
+			title = title[:47] + "..."
+		}
+	}
+
+	if err := o.convService.SetTitle(sessionID, title); err != nil {
+		log.Printf("Warning: failed to set conversation title: %v", err)
+		return
+	}
+	log.Printf("Set conversation title: %s", title)
+}
+
+// callHaikuForTitle uses Claude Haiku to generate a concise title
+func (o *Orchestrator) callHaikuForTitle(userMessage, assistantResponse string) string {
+	if o.anthropicAPIKey == "" {
+		return ""
+	}
+
+	// Truncate inputs for the prompt
+	userSnippet := truncateString(userMessage, 200)
+	assistantSnippet := truncateString(assistantResponse, 200)
+
+	prompt := fmt.Sprintf(`Generate a 3-5 word title summarizing this conversation. Return ONLY the title, no quotes or punctuation.
+
+User: %s
+Assistant: %s
+
+Title:`, userSnippet, assistantSnippet)
+
+	title, err := callAnthropicAPI(o.anthropicAPIKey, prompt)
+	if err != nil {
+		log.Printf("Warning: failed to generate title with Haiku: %v", err)
+		return ""
+	}
+
+	// Clean up the title
+	title = strings.TrimSpace(title)
+	title = strings.Trim(title, `"'`)
+	if len(title) > 100 {
+		title = title[:97] + "..."
+	}
+
+	return title
+}
+
+// callAnthropicAPI makes a request to Claude Haiku for title generation
+func callAnthropicAPI(apiKey, prompt string) (string, error) {
+	reqBody := map[string]interface{}{
+		"model":      "claude-haiku-4-5-20251001",
+		"max_tokens": 30,
+		"system":     "You generate short, descriptive titles. Return only the title text.",
+		"messages": []map[string]string{
+			{"role": "user", "content": prompt},
+		},
+	}
+
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequest("POST", "https://api.anthropic.com/v1/messages", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-api-key", apiKey)
+	req.Header.Set("anthropic-version", "2023-06-01")
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("anthropic API returned status %d", resp.StatusCode)
+	}
+
+	var result struct {
+		Content []struct {
+			Text string `json:"text"`
+		} `json:"content"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", err
+	}
+
+	if len(result.Content) == 0 {
+		return "", fmt.Errorf("no content in response")
+	}
+
+	return result.Content[0].Text, nil
+}
+
+// buildTokenUsageJSON creates a JSON representation of token usage
+func buildTokenUsageJSON(tokens TokenUsage) datatypes.JSON {
+	data := map[string]int32{
+		"input":  tokens.Input,
+		"output": tokens.Output,
+		"total":  tokens.Total,
+	}
+	jsonBytes, err := json.Marshal(data)
+	if err != nil {
+		return nil
+	}
+	return datatypes.JSON(jsonBytes)
 }
 
 // jobServiceAdapter adapts JobService to JobServiceInterface for serper tools

@@ -1,10 +1,12 @@
 package services
 
 import (
+	"log"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"gorm.io/datatypes"
 )
 
 // ConversationService handles conversation business logic
@@ -65,8 +67,10 @@ type ConversationDetailResponse struct {
 
 // TenantConversationsResponse represents paginated conversations
 type TenantConversationsResponse struct {
-	Conversations []ConversationResponse `json:"conversations"`
-	Total         int64                  `json:"total"`
+	Data   []ConversationResponse `json:"data"`
+	Total  int64                  `json:"total"`
+	Limit  int                    `json:"limit"`
+	Offset int                    `json:"offset"`
 }
 
 // GetTenantConversations returns all conversations for a tenant
@@ -89,8 +93,10 @@ func (s *ConversationService) GetTenantConversations(tenantID int64, search stri
 	}
 
 	return &TenantConversationsResponse{
-		Conversations: results,
-		Total:         total,
+		Data:   results,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
 	}, nil
 }
 
@@ -192,4 +198,44 @@ func (s *ConversationService) DeleteConversation(threadID string, userID int64) 
 	}
 
 	return s.convRepo.Delete(conv.ID)
+}
+
+// SaveMessageResult contains the result of saving a message
+type SaveMessageResult struct {
+	IsNewConversation bool
+}
+
+// SaveMessage saves a message to a conversation, creating the conversation if needed
+func (s *ConversationService) SaveMessage(threadID string, userID, tenantID int64, role, content string, tokenUsage datatypes.JSON) (*SaveMessageResult, error) {
+	parsedUUID, err := uuid.Parse(threadID)
+	if err != nil {
+		log.Printf("Invalid thread ID format: %v", err)
+		return nil, err
+	}
+
+	conv, isNew, err := s.convRepo.GetOrCreateConversation(userID, tenantID, parsedUUID)
+	if err != nil {
+		log.Printf("Failed to get or create conversation: %v", err)
+		return nil, err
+	}
+
+	if err := s.convRepo.AddMessage(conv.ID, role, content, tokenUsage); err != nil {
+		log.Printf("Failed to add message: %v", err)
+		return nil, err
+	}
+
+	if err := s.convRepo.TouchConversation(parsedUUID); err != nil {
+		log.Printf("Failed to touch conversation: %v", err)
+	}
+
+	return &SaveMessageResult{IsNewConversation: isNew}, nil
+}
+
+// SetTitle sets the title for a conversation
+func (s *ConversationService) SetTitle(threadID, title string) error {
+	parsedUUID, err := uuid.Parse(threadID)
+	if err != nil {
+		return err
+	}
+	return s.convRepo.UpdateTitleByThreadID(parsedUUID, title)
 }

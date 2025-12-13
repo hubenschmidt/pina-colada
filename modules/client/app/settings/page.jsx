@@ -11,6 +11,7 @@ import {
   updateTenantPreferences,
   getTimezones,
 } from "../../api";
+import { usePageLoading } from "../../context/pageLoadingContext";
 
 const SettingsPage = () => {
   const { userState, dispatchUser } = useUserContext();
@@ -19,6 +20,11 @@ const SettingsPage = () => {
   const [timezoneOptions, setTimezoneOptions] = useState([]);
   const [tenantTheme, setTenantTheme] = useState("light");
   const [loading, setLoading] = useState(true);
+  const { dispatchPageLoading } = usePageLoading();
+
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+  }, [dispatchPageLoading]);
 
   useEffect(() => {
     const fetchPrefs = async () => {

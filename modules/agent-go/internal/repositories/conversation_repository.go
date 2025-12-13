@@ -3,8 +3,10 @@ package repositories
 import (
 	"errors"
 
+	"github.com/google/uuid"
 	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/models"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -149,4 +151,55 @@ func (r *ConversationRepository) Delete(conversationID int64) error {
 	}
 
 	return tx.Commit().Error
+}
+
+// GetOrCreateConversation returns an existing conversation by thread ID or creates a new one
+// Returns the conversation, whether it was newly created, and any error
+func (r *ConversationRepository) GetOrCreateConversation(userID, tenantID int64, threadID uuid.UUID) (*models.Conversation, bool, error) {
+	var conv models.Conversation
+	err := r.db.Where("thread_id = ?", threadID).First(&conv).Error
+	if err == nil {
+		return &conv, false, nil
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, false, err
+	}
+
+	// Create new conversation
+	conv = models.Conversation{
+		TenantID:    tenantID,
+		UserID:      userID,
+		ThreadID:    threadID,
+		CreatedByID: userID,
+		UpdatedByID: userID,
+	}
+	if err := r.db.Create(&conv).Error; err != nil {
+		return nil, false, err
+	}
+	return &conv, true, nil
+}
+
+// AddMessage adds a message to a conversation
+func (r *ConversationRepository) AddMessage(conversationID int64, role, content string, tokenUsage datatypes.JSON) error {
+	msg := models.ConversationMessage{
+		ConversationID: conversationID,
+		Role:           role,
+		Content:        content,
+		TokenUsage:     tokenUsage,
+	}
+	return r.db.Create(&msg).Error
+}
+
+// TouchConversation updates the updated_at timestamp for a conversation
+func (r *ConversationRepository) TouchConversation(threadID uuid.UUID) error {
+	return r.db.Model(&models.Conversation{}).
+		Where("thread_id = ?", threadID).
+		Update("updated_at", gorm.Expr("NOW()")).Error
+}
+
+// UpdateTitleByThreadID updates the title of a conversation by thread ID
+func (r *ConversationRepository) UpdateTitleByThreadID(threadID uuid.UUID, title string) error {
+	return r.db.Model(&models.Conversation{}).
+		Where("thread_id = ?", threadID).
+		Update("title", title).Error
 }

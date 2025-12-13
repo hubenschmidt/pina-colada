@@ -77,23 +77,24 @@ func writePrefsError(w http.ResponseWriter, status int, message string) {
 
 // GetTimezones handles GET /preferences/timezones
 func (c *PreferenceController) GetTimezones(w http.ResponseWriter, r *http.Request) {
-	timezones := []string{
-		"America/New_York",
-		"America/Chicago",
-		"America/Denver",
-		"America/Los_Angeles",
-		"America/Anchorage",
-		"Pacific/Honolulu",
-		"Europe/London",
-		"Europe/Paris",
-		"Europe/Berlin",
-		"Asia/Tokyo",
-		"Asia/Shanghai",
-		"Asia/Singapore",
-		"Australia/Sydney",
-		"UTC",
+	timezones := []map[string]string{
+		{"value": "UTC", "label": "UTC"},
+		{"value": "America/New_York", "label": "Eastern Time (ET)"},
+		{"value": "America/Chicago", "label": "Central Time (CT)"},
+		{"value": "America/Denver", "label": "Mountain Time (MT)"},
+		{"value": "America/Los_Angeles", "label": "Pacific Time (PT)"},
+		{"value": "America/Phoenix", "label": "Arizona (no DST)"},
+		{"value": "America/Anchorage", "label": "Alaska (AKT)"},
+		{"value": "Pacific/Honolulu", "label": "Hawaii (HST)"},
+		{"value": "Europe/London", "label": "London (GMT/BST)"},
+		{"value": "Europe/Paris", "label": "Central European (CET)"},
+		{"value": "Europe/Berlin", "label": "Berlin (CET)"},
+		{"value": "Asia/Tokyo", "label": "Japan (JST)"},
+		{"value": "Asia/Shanghai", "label": "China (CST)"},
+		{"value": "Asia/Singapore", "label": "Singapore (SGT)"},
+		{"value": "Australia/Sydney", "label": "Sydney (AEST)"},
 	}
-	writePrefsJSON(w, http.StatusOK, map[string][]string{"timezones": timezones})
+	writePrefsJSON(w, http.StatusOK, timezones)
 }
 
 // GetTenantPreferences handles GET /preferences/tenant

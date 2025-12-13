@@ -43,10 +43,11 @@ type WSMessage struct {
 
 // Client represents a connected WebSocket client
 type Client struct {
-	conn   *websocket.Conn
-	uuid   string
-	userID int64
-	mu     sync.Mutex
+	conn     *websocket.Conn
+	uuid     string
+	userID   int64
+	tenantID int64
+	mu       sync.Mutex
 }
 
 // SendJSON sends a JSON message to the client
@@ -104,6 +105,9 @@ func (wc *WebSocketController) processWSMessage(ctx context.Context, client *Cli
 	if msg.UserID > 0 {
 		client.userID = msg.UserID
 	}
+	if msg.TenantID > 0 {
+		client.tenantID = msg.TenantID
+	}
 
 	// Process chat message
 	if msg.Message != "" {
@@ -137,6 +141,7 @@ func (wc *WebSocketController) handleChatMessage(ctx context.Context, client *Cl
 	go wc.orchestrator.RunWithStreaming(ctx, agent.RunRequest{
 		SessionID:    client.uuid,
 		UserID:       userID,
+		TenantID:     client.tenantID,
 		Message:      msg.Message,
 		UseEvaluator: msg.UseEvaluator,
 	}, eventCh)
