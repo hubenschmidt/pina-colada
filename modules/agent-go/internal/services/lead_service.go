@@ -16,11 +16,11 @@ func NewLeadService(leadRepo *repositories.LeadRepository) *LeadService {
 }
 
 // GetOpportunities returns paginated opportunities
-func (s *LeadService) GetOpportunities(page, pageSize int, orderBy, order, search string, tenantID *int64) (*serializers.PagedResponse, error) {
+func (s *LeadService) GetOpportunities(page, pageSize int, orderBy, order, search string, tenantID, projectID *int64) (*serializers.PagedResponse, error) {
 	params := repositories.NewPaginationParams(page, pageSize, orderBy, order)
 	params.Search = search
 
-	result, err := s.leadRepo.FindAllOpportunities(params, tenantID)
+	result, err := s.leadRepo.FindAllOpportunities(params, tenantID, projectID)
 	if err != nil {
 		return nil, err
 	}

@@ -8,14 +8,15 @@ import (
 
 // OrganizationListResponse represents an organization in list view
 type OrganizationListResponse struct {
-	ID            int64    `json:"id"`
-	Name          string   `json:"name"`
-	Website       *string  `json:"website"`
-	Description   *string  `json:"description"`
-	EmployeeCount *int     `json:"employee_count"`
-	Industries    []string `json:"industries"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID                 int64     `json:"id"`
+	Name               string    `json:"name"`
+	Website            *string   `json:"website"`
+	Description        *string   `json:"description"`
+	EmployeeCountRange *string   `json:"employee_count_range"`
+	FundingStage       *string   `json:"funding_stage"`
+	Industries         []string  `json:"industries"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // OrganizationDetailResponse represents an organization in detail view
@@ -58,13 +59,20 @@ type FundingBrief struct {
 // OrganizationToListResponse converts Organization model to list response
 func OrganizationToListResponse(org *models.Organization) OrganizationListResponse {
 	resp := OrganizationListResponse{
-		ID:            org.ID,
-		Name:          org.Name,
-		Website:       org.Website,
-		Description:   org.Description,
-		EmployeeCount: org.EmployeeCount,
-		CreatedAt:     org.CreatedAt,
-		UpdatedAt:     org.UpdatedAt,
+		ID:          org.ID,
+		Name:        org.Name,
+		Website:     org.Website,
+		Description: org.Description,
+		CreatedAt:   org.CreatedAt,
+		UpdatedAt:   org.UpdatedAt,
+	}
+
+	if org.EmployeeCountRange != nil {
+		resp.EmployeeCountRange = &org.EmployeeCountRange.Label
+	}
+
+	if org.FundingStage != nil {
+		resp.FundingStage = &org.FundingStage.Label
 	}
 
 	// Get industries from Account relation

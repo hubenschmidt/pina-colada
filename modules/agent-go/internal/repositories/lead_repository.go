@@ -67,7 +67,7 @@ func resolveAccountName(orgName *string, firstName *string, lastName *string) (s
 }
 
 // FindAllOpportunities returns paginated opportunities with lead data
-func (r *LeadRepository) FindAllOpportunities(params PaginationParams, tenantID *int64) (*PaginatedResult[OpportunityWithLead], error) {
+func (r *LeadRepository) FindAllOpportunities(params PaginationParams, tenantID, projectID *int64) (*PaginatedResult[OpportunityWithLead], error) {
 	var opportunities []OpportunityWithLead
 	var totalCount int64
 
@@ -83,6 +83,11 @@ func (r *LeadRepository) FindAllOpportunities(params PaginationParams, tenantID 
 		query = query.Where(`"Lead".tenant_id = ?`, *tenantID)
 	}
 
+	if projectID != nil {
+		query = query.Joins(`INNER JOIN "Lead_Project" ON "Lead_Project".lead_id = "Lead".id`).
+			Where(`"Lead_Project".project_id = ?`, *projectID)
+	}
+
 	if params.Search != "" {
 		searchTerm := "%" + params.Search + "%"
 		query = query.Where(`LOWER("Opportunity".opportunity_name) LIKE LOWER(?)`, searchTerm)
@@ -93,6 +98,10 @@ func (r *LeadRepository) FindAllOpportunities(params PaginationParams, tenantID 
 		Joins(`LEFT JOIN "Lead" ON "Opportunity".id = "Lead".id`)
 	if tenantID != nil {
 		countQuery = countQuery.Where(`"Lead".tenant_id = ?`, *tenantID)
+	}
+	if projectID != nil {
+		countQuery = countQuery.Joins(`INNER JOIN "Lead_Project" ON "Lead_Project".lead_id = "Lead".id`).
+			Where(`"Lead_Project".project_id = ?`, *projectID)
 	}
 	if params.Search != "" {
 		searchTerm := "%" + params.Search + "%"

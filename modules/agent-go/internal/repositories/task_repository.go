@@ -38,7 +38,7 @@ func NewTaskRepository(db *gorm.DB) *TaskRepository {
 }
 
 // FindAll returns paginated tasks
-func (r *TaskRepository) FindAll(params PaginationParams, tenantID *int64, taskableType *string, taskableID *int64) (*PaginatedResult[models.Task], error) {
+func (r *TaskRepository) FindAll(params PaginationParams, tenantID *int64, taskableType *string, taskableID *int64, projectID *int64) (*PaginatedResult[models.Task], error) {
 	var tasks []models.Task
 	var totalCount int64
 
@@ -57,6 +57,10 @@ func (r *TaskRepository) FindAll(params PaginationParams, tenantID *int64, taska
 
 	if taskableID != nil {
 		query = query.Where(`"Task".taskable_id = ?`, *taskableID)
+	}
+
+	if projectID != nil {
+		query = r.applyProjectFilter(query, *projectID)
 	}
 
 	if params.Search != "" {
@@ -81,6 +85,36 @@ func (r *TaskRepository) FindAll(params PaginationParams, tenantID *int64, taska
 		PageSize:   params.PageSize,
 		TotalPages: CalculateTotalPages(totalCount, params.PageSize),
 	}, nil
+}
+
+// applyProjectFilter filters tasks for a project scope
+func (r *TaskRepository) applyProjectFilter(query *gorm.DB, projectID int64) *gorm.DB {
+	// Get Deal IDs for this project
+	var dealIDs []int64
+	r.db.Table(`"Deal"`).Select("id").Where("project_id = ?", projectID).Pluck("id", &dealIDs)
+
+	// Get Lead IDs linked to this project
+	var leadIDs []int64
+	r.db.Table(`"Lead_Project"`).Select("lead_id").Where("project_id = ?", projectID).Pluck("lead_id", &leadIDs)
+
+	// Get Account IDs linked to this project
+	var accountIDs []int64
+	r.db.Table(`"Account_Project"`).Select("account_id").Where("project_id = ?", projectID).Pluck("account_id", &accountIDs)
+
+	// Build OR conditions for project scope
+	conditions := r.db.Where(`"Task".taskable_type = ? AND "Task".taskable_id = ?`, "Project", projectID)
+
+	if len(dealIDs) > 0 {
+		conditions = conditions.Or(`"Task".taskable_type = ? AND "Task".taskable_id IN ?`, "Deal", dealIDs)
+	}
+	if len(leadIDs) > 0 {
+		conditions = conditions.Or(`"Task".taskable_type = ? AND "Task".taskable_id IN ?`, "Lead", leadIDs)
+	}
+	if len(accountIDs) > 0 {
+		conditions = conditions.Or(`"Task".taskable_type = ? AND "Task".taskable_id IN ?`, "Account", accountIDs)
+	}
+
+	return query.Where(conditions)
 }
 
 // FindByID returns a task by ID
@@ -152,26 +186,51 @@ func (r *TaskRepository) FindByEntity(entityType string, entityID int64, tenantI
 
 // GetEntityDisplayName returns display name for an entity
 func (r *TaskRepository) GetEntityDisplayName(entityType string, entityID int64) *string {
-	var name string
-	var err error
+	if entityType == "Lead" {
+		return r.getLeadDisplayName(entityID)
+	}
 
-	switch entityType {
-	case "Project":
-		err = r.db.Table(`"Project"`).Select("name").Where("id = ?", entityID).Scan(&name).Error
-	case "Deal":
-		err = r.db.Table(`"Deal"`).Select("name").Where("id = ?", entityID).Scan(&name).Error
-	case "Lead":
-		err = r.db.Table(`"Lead"`).Select("title").Where("id = ?", entityID).Scan(&name).Error
-	case "Account":
-		err = r.db.Table(`"Account"`).Select("name").Where("id = ?", entityID).Scan(&name).Error
-	default:
+	tableSelect := map[string]string{
+		"Project":      "name",
+		"Deal":         "name",
+		"Account":      "name",
+		"Individual":   "first_name || ' ' || last_name",
+		"Organization": "name",
+	}
+
+	selectField, ok := tableSelect[entityType]
+	if !ok {
 		return nil
 	}
 
+	var name string
+	err := r.db.Table(`"`+entityType+`"`).Select(selectField).Where("id = ?", entityID).Scan(&name).Error
 	if err != nil || name == "" {
 		return nil
 	}
 	return &name
+}
+
+// getLeadDisplayName gets display name from Lead subtype tables (Job, Opportunity, Partnership)
+func (r *TaskRepository) getLeadDisplayName(leadID int64) *string {
+	var name string
+
+	// Try Job
+	if err := r.db.Table(`"Job"`).Select("job_title").Where("id = ?", leadID).Scan(&name).Error; err == nil && name != "" {
+		return &name
+	}
+
+	// Try Opportunity
+	if err := r.db.Table(`"Opportunity"`).Select("opportunity_name").Where("id = ?", leadID).Scan(&name).Error; err == nil && name != "" {
+		return &name
+	}
+
+	// Try Partnership
+	if err := r.db.Table(`"Partnership"`).Select("partnership_name").Where("id = ?", leadID).Scan(&name).Error; err == nil && name != "" {
+		return &name
+	}
+
+	return nil
 }
 
 // GetLeadType returns the type of a lead

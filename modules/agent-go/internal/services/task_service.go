@@ -25,11 +25,17 @@ func NewTaskService(taskRepo *repositories.TaskRepository) *TaskService {
 }
 
 // GetTasks returns paginated tasks
-func (s *TaskService) GetTasks(page, pageSize int, orderBy, order, search string, tenantID *int64, taskableType *string, taskableID *int64) (*serializers.PagedResponse, error) {
+func (s *TaskService) GetTasks(page, pageSize int, orderBy, order, search, scope string, tenantID *int64, taskableType *string, taskableID *int64, projectID *int64) (*serializers.PagedResponse, error) {
 	params := repositories.NewPaginationParams(page, pageSize, orderBy, order)
 	params.Search = search
 
-	result, err := s.taskRepo.FindAll(params, tenantID, taskableType, taskableID)
+	// Only apply project filter when scope is "project"
+	var effectiveProjectID *int64
+	if scope == "project" && projectID != nil {
+		effectiveProjectID = projectID
+	}
+
+	result, err := s.taskRepo.FindAll(params, tenantID, taskableType, taskableID, effectiveProjectID)
 	if err != nil {
 		return nil, err
 	}

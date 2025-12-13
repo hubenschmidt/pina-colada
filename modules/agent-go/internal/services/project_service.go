@@ -27,6 +27,8 @@ type ProjectResponse struct {
 	Name        string  `json:"name"`
 	Description *string `json:"description"`
 	Status      *string `json:"status"`
+	StartDate   *string `json:"start_date"`
+	EndDate     *string `json:"end_date"`
 }
 
 // ProjectDetailResponse represents a project with counts
@@ -35,6 +37,8 @@ type ProjectDetailResponse struct {
 	Name        string  `json:"name"`
 	Description *string `json:"description"`
 	Status      *string `json:"status"`
+	StartDate   *string `json:"start_date"`
+	EndDate     *string `json:"end_date"`
 	DealsCount  int64   `json:"deals_count"`
 	LeadsCount  int64   `json:"leads_count"`
 }
@@ -56,15 +60,29 @@ func (s *ProjectService) GetProjects(tenantID *int64) ([]ProjectResponse, error)
 
 	results := make([]ProjectResponse, len(projects))
 	for i, p := range projects {
-		results[i] = ProjectResponse{
-			ID:          p.ID,
-			Name:        p.Name,
-			Description: p.Description,
-			Status:      p.Status,
-		}
+		results[i] = projectToResponse(&p)
 	}
 
 	return results, nil
+}
+
+func formatDate(t *time.Time) *string {
+	if t == nil {
+		return nil
+	}
+	s := t.Format("2006-01-02")
+	return &s
+}
+
+func projectToResponse(p *models.Project) ProjectResponse {
+	return ProjectResponse{
+		ID:          p.ID,
+		Name:        p.Name,
+		Description: p.Description,
+		Status:      p.Status,
+		StartDate:   formatDate(p.StartDate),
+		EndDate:     formatDate(p.EndDate),
+	}
 }
 
 // GetProject returns a project by ID with counts
@@ -90,6 +108,8 @@ func (s *ProjectService) GetProject(id int64, tenantID *int64) (*ProjectDetailRe
 		Name:        project.Name,
 		Description: project.Description,
 		Status:      project.Status,
+		StartDate:   formatDate(project.StartDate),
+		EndDate:     formatDate(project.EndDate),
 		DealsCount:  dealsCount,
 		LeadsCount:  leadsCount,
 	}, nil
@@ -124,12 +144,8 @@ func (s *ProjectService) CreateProject(input schemas.ProjectCreate, tenantID *in
 		return nil, err
 	}
 
-	return &ProjectResponse{
-		ID:          project.ID,
-		Name:        project.Name,
-		Description: project.Description,
-		Status:      project.Status,
-	}, nil
+	resp := projectToResponse(project)
+	return &resp, nil
 }
 
 // UpdateProject updates a project
@@ -156,12 +172,8 @@ func (s *ProjectService) UpdateProject(id int64, input schemas.ProjectUpdate, te
 
 	// Refetch
 	project, _ = s.projectRepo.FindByID(id)
-	return &ProjectResponse{
-		ID:          project.ID,
-		Name:        project.Name,
-		Description: project.Description,
-		Status:      project.Status,
-	}, nil
+	resp := projectToResponse(project)
+	return &resp, nil
 }
 
 func buildProjectUpdates(input schemas.ProjectUpdate, userID int64) map[string]interface{} {

@@ -1,25 +1,35 @@
 package repositories
 
 import (
+	"fmt"
+
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
 
 type DocumentDTO struct {
-	ID               int64   `json:"id"`
-	AssetType        string  `json:"asset_type"`
-	TenantID         int64   `json:"tenant_id"`
-	UserID           int64   `json:"user_id"`
-	Filename         string  `json:"filename"`
-	ContentType      string  `json:"content_type"`
-	Description      *string `json:"description"`
-	CreatedAt        string  `json:"created_at"`
-	UpdatedAt        string  `json:"updated_at"`
-	StoragePath      string  `json:"storage_path"`
-	FileSize         int64   `json:"file_size"`
-	IsCurrentVersion bool    `json:"is_current_version"`
-	VersionNumber    int     `json:"version_number"`
-	ParentID         *int64  `json:"parent_id"`
+	ID               int64           `json:"id"`
+	AssetType        string          `json:"asset_type"`
+	TenantID         int64           `json:"tenant_id"`
+	UserID           int64           `json:"user_id"`
+	Filename         string          `json:"filename"`
+	ContentType      string          `json:"content_type"`
+	Description      *string         `json:"description"`
+	CreatedAt        string          `json:"created_at"`
+	UpdatedAt        string          `json:"updated_at"`
+	StoragePath      string          `json:"storage_path"`
+	FileSize         int64           `json:"file_size"`
+	IsCurrentVersion bool            `json:"is_current_version"`
+	VersionNumber    int             `json:"version_number"`
+	ParentID         *int64          `json:"parent_id"`
+	Entities         []EntityLinkDTO `json:"entities" gorm:"-"`
+	Tags             []string        `json:"tags" gorm:"-"`
+}
+
+type EntityLinkDTO struct {
+	EntityType string `json:"entity_type"`
+	EntityID   int64  `json:"entity_id"`
+	EntityName string `json:"entity_name"`
 }
 
 type DocumentRepository struct {
@@ -229,6 +239,29 @@ func (r *DocumentRepository) FindAll(entityType *string, entityID *int64, tenant
 
 	if err := query.Scan(&docs).Error; err != nil {
 		return nil, err
+	}
+
+	// Populate entities and tags
+	if len(docs) > 0 {
+		docIDs := make([]int64, len(docs))
+		for i, d := range docs {
+			docIDs[i] = d.ID
+		}
+
+		entitiesMap := r.GetDocumentsEntities(docIDs)
+		tagsMap := r.GetDocumentsTags(docIDs)
+
+		for i := range docs {
+			docs[i].Entities = []EntityLinkDTO{}
+			docs[i].Tags = []string{}
+
+			if entities, ok := entitiesMap[docs[i].ID]; ok {
+				docs[i].Entities = entities
+			}
+			if tags, ok := tagsMap[docs[i].ID]; ok {
+				docs[i].Tags = tags
+			}
+		}
 	}
 
 	return &PaginatedResult[DocumentDTO]{
@@ -466,4 +499,154 @@ func (r *DocumentRepository) SetCurrentVersion(documentID int64, tenantID int64)
 
 	// Fetch and return the updated document
 	return r.FindDocumentByID(documentID)
+}
+
+// GetDocumentsEntities returns linked entities for multiple documents
+func (r *DocumentRepository) GetDocumentsEntities(docIDs []int64) map[int64][]EntityLinkDTO {
+	result := make(map[int64][]EntityLinkDTO)
+	if len(docIDs) == 0 {
+		return result
+	}
+
+	var links []struct {
+		AssetID    int64  `gorm:"column:asset_id"`
+		EntityType string `gorm:"column:entity_type"`
+		EntityID   int64  `gorm:"column:entity_id"`
+	}
+	r.db.Table(`"Entity_Asset"`).
+		Select("asset_id, entity_type, entity_id").
+		Where("asset_id IN ?", docIDs).
+		Scan(&links)
+
+	// Group by document and collect unique entity lookups
+	entityLookups := make(map[string]string) // "Type:ID" -> name
+	for _, link := range links {
+		key := fmt.Sprintf("%s:%d", link.EntityType, link.EntityID)
+		entityLookups[key] = ""
+	}
+
+	// Batch fetch entity names
+	r.batchFetchEntityNames(links, entityLookups)
+
+	// Build result map
+	for _, link := range links {
+		key := fmt.Sprintf("%s:%d", link.EntityType, link.EntityID)
+		name := entityLookups[key]
+		if name == "" {
+			name = fmt.Sprintf("%s #%d", link.EntityType, link.EntityID)
+		}
+		result[link.AssetID] = append(result[link.AssetID], EntityLinkDTO{
+			EntityType: link.EntityType,
+			EntityID:   link.EntityID,
+			EntityName: name,
+		})
+	}
+
+	return result
+}
+
+func (r *DocumentRepository) batchFetchEntityNames(links []struct {
+	AssetID    int64  `gorm:"column:asset_id"`
+	EntityType string `gorm:"column:entity_type"`
+	EntityID   int64  `gorm:"column:entity_id"`
+}, entityLookups map[string]string) {
+	// Collect IDs by type
+	idsByType := make(map[string][]int64)
+	for _, link := range links {
+		idsByType[link.EntityType] = append(idsByType[link.EntityType], link.EntityID)
+	}
+
+	tableSelectMap := map[string]struct {
+		table  string
+		column string
+	}{
+		"Organization": {`"Organization"`, "id, name"},
+		"Project":      {`"Project"`, "id, name"},
+		"Individual":   {`"Individual"`, "id, first_name || ' ' || last_name as name"},
+		"Contact":      {`"Contact"`, "id, first_name || ' ' || last_name as name"},
+	}
+
+	for entityType, ids := range idsByType {
+		if len(ids) == 0 {
+			continue
+		}
+
+		if entityType == "Lead" {
+			r.fetchLeadNames(ids, entityLookups)
+			continue
+		}
+
+		cfg, ok := tableSelectMap[entityType]
+		if !ok {
+			continue
+		}
+
+		var rows []struct {
+			ID   int64  `gorm:"column:id"`
+			Name string `gorm:"column:name"`
+		}
+		r.db.Table(cfg.table).Select(cfg.column).Where("id IN ?", ids).Scan(&rows)
+
+		for _, row := range rows {
+			key := fmt.Sprintf("%s:%d", entityType, row.ID)
+			entityLookups[key] = row.Name
+		}
+	}
+}
+
+func (r *DocumentRepository) fetchLeadNames(ids []int64, entityLookups map[string]string) {
+	// Try Job
+	var jobs []struct {
+		ID   int64  `gorm:"column:id"`
+		Name string `gorm:"column:job_title"`
+	}
+	r.db.Table(`"Job"`).Select("id, job_title").Where("id IN ?", ids).Scan(&jobs)
+	for _, j := range jobs {
+		entityLookups[fmt.Sprintf("Lead:%d", j.ID)] = j.Name
+	}
+
+	// Try Opportunity
+	var opps []struct {
+		ID   int64  `gorm:"column:id"`
+		Name string `gorm:"column:opportunity_name"`
+	}
+	r.db.Table(`"Opportunity"`).Select("id, opportunity_name").Where("id IN ?", ids).Scan(&opps)
+	for _, o := range opps {
+		entityLookups[fmt.Sprintf("Lead:%d", o.ID)] = o.Name
+	}
+
+	// Try Partnership
+	var parts []struct {
+		ID   int64  `gorm:"column:id"`
+		Name string `gorm:"column:partnership_name"`
+	}
+	r.db.Table(`"Partnership"`).Select("id, partnership_name").Where("id IN ?", ids).Scan(&parts)
+	for _, p := range parts {
+		entityLookups[fmt.Sprintf("Lead:%d", p.ID)] = p.Name
+	}
+}
+
+// GetDocumentsTags returns tags for multiple documents
+func (r *DocumentRepository) GetDocumentsTags(docIDs []int64) map[int64][]string {
+	result := make(map[int64][]string)
+	if len(docIDs) == 0 {
+		return result
+	}
+
+	var rows []struct {
+		EntityID int64  `gorm:"column:entity_id"`
+		TagName  string `gorm:"column:name"`
+	}
+	r.db.Table(`"Entity_Tag"`).
+		Select(`"Entity_Tag".entity_id, "Tag".name`).
+		Joins(`INNER JOIN "Tag" ON "Tag".id = "Entity_Tag".tag_id`).
+		Where(`"Entity_Tag".entity_type = ? AND "Entity_Tag".entity_id IN ?`, "Asset", docIDs).
+		Order(`"Entity_Tag".entity_id, "Tag".name`).
+		Scan(&rows)
+
+	for _, row := range rows {
+		result[row.EntityID] = append(result[row.EntityID], row.TagName)
+	}
+
+	return result
 }

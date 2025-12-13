@@ -30,11 +30,13 @@ func (c *LeadController) GetOpportunities(w http.ResponseWriter, r *http.Request
 		tenantID = &tid
 	}
 
+	projectID := parseOptionalInt64(r.URL.Query().Get("projectId"))
+
 	result, err := c.leadService.GetOpportunities(
 		page, limit,
 		r.URL.Query().Get("orderBy"),
 		r.URL.Query().Get("order"),
-		search, tenantID,
+		search, tenantID, projectID,
 	)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())

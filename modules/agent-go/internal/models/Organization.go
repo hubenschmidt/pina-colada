@@ -29,9 +29,11 @@ type Organization struct {
 	CrunchbaseURL *string `gorm:"column:crunchbase_url" json:"crunchbase_url"`
 
 	// Relations
-	Account       *Account                 `gorm:"foreignKey:AccountID" json:"account,omitempty"`
-	Technologies  []OrganizationTechnology `gorm:"foreignKey:OrganizationID" json:"technologies,omitempty"`
-	FundingRounds []FundingRound           `gorm:"foreignKey:OrganizationID" json:"funding_rounds,omitempty"`
+	Account            *Account                 `gorm:"foreignKey:AccountID" json:"account,omitempty"`
+	Technologies       []OrganizationTechnology `gorm:"foreignKey:OrganizationID" json:"technologies,omitempty"`
+	FundingRounds      []FundingRound           `gorm:"foreignKey:OrganizationID" json:"funding_rounds,omitempty"`
+	EmployeeCountRange *EmployeeCountRange      `gorm:"foreignKey:EmployeeCountRangeID" json:"employee_count_range,omitempty"`
+	FundingStage       *FundingStage            `gorm:"foreignKey:FundingStageID" json:"funding_stage,omitempty"`
 }
 
 func (Organization) TableName() string {

@@ -26,7 +26,9 @@ func (r *OrganizationRepository) FindAll(params PaginationParams, tenantID *int6
 	query := r.db.Model(&models.Organization{}).
 		Preload("Account").
 		Preload("Account.Industries").
-		Preload("Technologies")
+		Preload("Technologies").
+		Preload("EmployeeCountRange").
+		Preload("FundingStage")
 
 	// Filter by tenant (through Account)
 	if tenantID != nil {

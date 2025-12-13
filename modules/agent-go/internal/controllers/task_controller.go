@@ -30,6 +30,7 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 	orderBy := r.URL.Query().Get("orderBy")
 	order := r.URL.Query().Get("order")
 	search := r.URL.Query().Get("search")
+	scope := r.URL.Query().Get("scope")
 
 	var tenantID *int64
 	if tid, ok := middleware.GetTenantID(r.Context()); ok {
@@ -42,8 +43,9 @@ func (c *TaskController) GetTasks(w http.ResponseWriter, r *http.Request) {
 	}
 
 	taskableID := parseOptionalInt64(r.URL.Query().Get("taskable_id"))
+	projectID := parseOptionalInt64(r.URL.Query().Get("projectId"))
 
-	result, err := c.taskService.GetTasks(page, limit, orderBy, order, search, tenantID, taskableType, taskableID)
+	result, err := c.taskService.GetTasks(page, limit, orderBy, order, search, scope, tenantID, taskableType, taskableID, projectID)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return

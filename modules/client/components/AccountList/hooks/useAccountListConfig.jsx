@@ -184,8 +184,8 @@ const getContactConfig = () => {
       header: "Account",
       sortable: false,
       render: (c) =>
-        c.organizations && c.organizations.length > 0
-          ? c.organizations.map((o) => o.name).join(", ")
+        c.accounts && c.accounts.length > 0
+          ? c.accounts.map((a) => a.name).join(", ")
           : "-",
     },
     {

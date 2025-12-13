@@ -55,6 +55,51 @@ func (r *ContactRepository) FindAll(params PaginationParams, tenantID *int64) (*
 		return nil, err
 	}
 
+	// Load accounts for all contacts
+	if len(contacts) > 0 {
+		contactIDs := make([]int64, len(contacts))
+		for i, c := range contacts {
+			contactIDs[i] = c.ID
+		}
+
+		// Get all contact-account links
+		var links []models.ContactAccount
+		r.db.Where("contact_id IN ?", contactIDs).Find(&links)
+
+		// Get unique account IDs
+		accountIDSet := make(map[int64]bool)
+		for _, link := range links {
+			accountIDSet[link.AccountID] = true
+		}
+		accountIDs := make([]int64, 0, len(accountIDSet))
+		for id := range accountIDSet {
+			accountIDs = append(accountIDs, id)
+		}
+
+		// Load all accounts
+		var accounts []models.Account
+		if len(accountIDs) > 0 {
+			r.db.Where("id IN ?", accountIDs).Find(&accounts)
+		}
+		accountMap := make(map[int64]models.Account)
+		for _, acc := range accounts {
+			accountMap[acc.ID] = acc
+		}
+
+		// Build contact ID -> accounts mapping
+		contactAccounts := make(map[int64][]models.Account)
+		for _, link := range links {
+			if acc, ok := accountMap[link.AccountID]; ok {
+				contactAccounts[link.ContactID] = append(contactAccounts[link.ContactID], acc)
+			}
+		}
+
+		// Assign accounts to contacts
+		for i := range contacts {
+			contacts[i].Accounts = contactAccounts[contacts[i].ID]
+		}
+	}
+
 	return &PaginatedResult[models.Contact]{
 		Items:      contacts,
 		TotalCount: totalCount,
