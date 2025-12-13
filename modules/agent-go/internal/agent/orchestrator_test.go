@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/pina-colada-co/agent-go/internal/agent"
+	"github.com/pina-colada-co/agent-go/internal/agent/utils"
 	"github.com/pina-colada-co/agent-go/internal/config"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/services"
@@ -300,7 +301,7 @@ func TestJobSearchURLsAreValid(t *testing.T) {
 	t.Logf("Response:\n%s", resp.Response)
 
 	// Extract URLs from response
-	urls := agent.ExtractURLs(resp.Response)
+	urls := utils.ExtractURLs(resp.Response)
 	t.Logf("Found %d URLs in response", len(urls))
 
 	if len(urls) == 0 {
@@ -309,7 +310,7 @@ func TestJobSearchURLsAreValid(t *testing.T) {
 
 	// Validate URL structure for all URLs
 	for _, url := range urls {
-		if err := agent.ValidateURLStructure(url); err != nil {
+		if err := utils.ValidateURLStructure(url); err != nil {
 			t.Errorf("URL structure invalid: %s - %v", url, err)
 		}
 	}
@@ -318,7 +319,7 @@ func TestJobSearchURLsAreValid(t *testing.T) {
 	maxToCheck := min(5, len(urls))
 
 	urlsToCheck := urls[:maxToCheck]
-	results := agent.ValidateURLs(ctx, urlsToCheck)
+	results := utils.ValidateURLs(ctx, urlsToCheck)
 
 	// Count valid URLs
 	validCount := 0
@@ -338,7 +339,7 @@ func TestJobSearchURLsAreValid(t *testing.T) {
 	}
 
 	// Calculate validity rate
-	validityRate := agent.CalculateValidityRate(results)
+	validityRate := utils.CalculateValidityRate(results)
 	t.Logf("Validity rate: %.1f%% (%d/%d)", validityRate*100, validCount, len(results))
 
 	// Assert at least 50% validity rate (matching Python agent's threshold)
@@ -446,7 +447,7 @@ func TestJobSearchWithResume(t *testing.T) {
 	}
 
 	// Should contain job search results (URLs)
-	urls := agent.ExtractURLs(resp.Response)
+	urls := utils.ExtractURLs(resp.Response)
 	t.Logf("Found %d URLs in response", len(urls))
 
 	if len(urls) == 0 {
@@ -473,7 +474,7 @@ func TestJobSearchWithResume(t *testing.T) {
 	// Validate URL structure
 	validURLCount := 0
 	for _, url := range urls {
-		if err := agent.ValidateURLStructure(url); err == nil {
+		if err := utils.ValidateURLStructure(url); err == nil {
 			validURLCount++
 		}
 	}
@@ -501,7 +502,7 @@ func TestURLExtraction(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		urls := agent.ExtractURLs(tc.text)
+		urls := utils.ExtractURLs(tc.text)
 		if len(urls) != len(tc.expected) {
 			t.Errorf("Expected %d URLs, got %d for text: %s", len(tc.expected), len(urls), tc.text)
 		}
@@ -522,7 +523,7 @@ func TestURLStructureValidation(t *testing.T) {
 	}
 
 	for _, url := range validURLs {
-		if err := agent.ValidateURLStructure(url); err != nil {
+		if err := utils.ValidateURLStructure(url); err != nil {
 			t.Errorf("Expected valid URL %s, got error: %v", url, err)
 		}
 	}
@@ -537,7 +538,7 @@ func TestURLStructureValidation(t *testing.T) {
 	}
 
 	for _, tc := range invalidURLs {
-		if err := agent.ValidateURLStructure(tc.url); err == nil {
+		if err := utils.ValidateURLStructure(tc.url); err == nil {
 			t.Errorf("Expected invalid URL %s (%s), but got no error", tc.url, tc.reason)
 		}
 	}

@@ -1,4 +1,4 @@
-package agent
+package utils
 
 import (
 	"context"
@@ -87,12 +87,12 @@ func ValidateURLReachable(ctx context.Context, rawURL string) error {
 
 // URLValidationResult holds the result of URL validation
 type URLValidationResult struct {
-	URL             string
-	StructureValid  bool
-	StructureError  string
-	Reachable       bool
-	ReachableError  string
-	StatusCode      int
+	URL            string
+	StructureValid bool
+	StructureError string
+	Reachable      bool
+	ReachableError string
+	StatusCode     int
 }
 
 // ValidateURLs validates a list of URLs for both structure and reachability

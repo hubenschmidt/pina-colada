@@ -117,12 +117,7 @@ func (c *DocumentController) UploadDocument(w http.ResponseWriter, r *http.Reque
 	if entityType != "" {
 		entityTypePtr = &entityType
 	}
-	if entityIDStr != "" {
-		id, err := strconv.ParseInt(entityIDStr, 10, 64)
-		if err == nil {
-			entityIDPtr = &id
-		}
-	}
+	entityIDPtr = parseOptionalInt64(entityIDStr)
 
 	// Get tenant and user ID from context
 	var tenantID int64 = 0

@@ -8,12 +8,12 @@ import (
 	"time"
 )
 
-// CostsService handles provider costs business logic
-type CostsService struct{}
+// CostService handles provider costs business logic
+type CostService struct{}
 
-// NewCostsService creates a new costs service
-func NewCostsService() *CostsService {
-	return &CostsService{}
+// NewCostService creates a new costs service
+func NewCostService() *CostService {
+	return &CostService{}
 }
 
 // ProviderCosts represents costs from a single provider
@@ -44,7 +44,7 @@ type OrgCostsResponse struct {
 }
 
 // GetCombinedCosts fetches costs from all providers
-func (s *CostsService) GetCombinedCosts(period string) (*CombinedCostsResponse, error) {
+func (s *CostService) GetCombinedCosts(period string) (*CombinedCostsResponse, error) {
 	if period == "" {
 		period = "monthly"
 	}
@@ -70,7 +70,7 @@ func (s *CostsService) GetCombinedCosts(period string) (*CombinedCostsResponse, 
 }
 
 // GetOrgCosts fetches org-wide costs
-func (s *CostsService) GetOrgCosts(period string) (*OrgCostsResponse, error) {
+func (s *CostService) GetOrgCosts(period string) (*OrgCostsResponse, error) {
 	if period == "" {
 		period = "monthly"
 	}
@@ -98,7 +98,7 @@ var costPeriodOffsets = map[string][3]int{
 	"monthly":   {0, 0, -30},
 }
 
-func (s *CostsService) getPeriodTimestamps(period string) (time.Time, time.Time) {
+func (s *CostService) getPeriodTimestamps(period string) (time.Time, time.Time) {
 	now := time.Now().UTC()
 	offset, ok := costPeriodOffsets[period]
 	if !ok {
@@ -107,7 +107,7 @@ func (s *CostsService) getPeriodTimestamps(period string) (time.Time, time.Time)
 	return now.AddDate(offset[0], offset[1], offset[2]), now
 }
 
-func (s *CostsService) fetchOpenAICosts(period string) *ProviderCosts {
+func (s *CostService) fetchOpenAICosts(period string) *ProviderCosts {
 	adminKey := os.Getenv("OPENAI_ADMIN_KEY")
 	if adminKey == "" {
 		return nil
@@ -168,7 +168,7 @@ func (s *CostsService) fetchOpenAICosts(period string) *ProviderCosts {
 	}
 }
 
-func (s *CostsService) fetchAnthropicCosts(period string) *ProviderCosts {
+func (s *CostService) fetchAnthropicCosts(period string) *ProviderCosts {
 	adminKey := os.Getenv("ANTHROPIC_ADMIN_KEY")
 	if adminKey == "" {
 		return nil

@@ -19,7 +19,7 @@ type Controllers struct {
 	Individual   *controllers.IndividualController
 	Task         *controllers.TaskController
 	Contact      *controllers.ContactController
-	Preferences  *controllers.PreferencesController
+	Preferences  *controllers.PreferenceController
 	Notification *controllers.NotificationController
 	Project      *controllers.ProjectController
 	Conversation *controllers.ConversationController
@@ -29,10 +29,9 @@ type Controllers struct {
 	Document     *controllers.DocumentController
 	Account      *controllers.AccountController
 	Lead         *controllers.LeadController
-	Costs        *controllers.CostsController
+	Costs        *controllers.CostController
 	Provenance   *controllers.ProvenanceController
 	Technology   *controllers.TechnologyController
-	Leads        *controllers.LeadsController
 	Usage        *controllers.UsageController
 	Report       *controllers.ReportController
 	Agent        *controllers.AgentController
@@ -305,10 +304,10 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 
 		// Leads routes (job leads)
 		r.Route("/leads", func(r chi.Router) {
-			r.Get("/", c.Leads.GetLeads)
-			r.Get("/statuses", c.Leads.GetStatuses)
-			r.Post("/{job_id}/apply", c.Leads.MarkAsApplied)
-			r.Post("/{job_id}/do-not-apply", c.Leads.MarkAsDoNotApply)
+			r.Get("/", c.Lead.GetLeads)
+			r.Get("/statuses", c.Lead.GetStatuses)
+			r.Post("/{job_id}/apply", c.Lead.MarkAsApplied)
+			r.Post("/{job_id}/do-not-apply", c.Lead.MarkAsDoNotApply)
 		})
 
 		// Tags routes

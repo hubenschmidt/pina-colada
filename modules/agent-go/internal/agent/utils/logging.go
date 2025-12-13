@@ -1,4 +1,4 @@
-package agent
+package utils
 
 import "log"
 
@@ -10,10 +10,10 @@ func LogAgentStart(agentName string) {
 }
 
 // LogAgentEnd logs when an agent completes execution with output and token usage
-func LogAgentEnd(agentName string, output string, tokens *TokenUsage) {
+func LogAgentEnd(agentName string, output string, inputTokens, outputTokens, totalTokens int32) {
 	log.Printf("✅ AGENT END: %s → %s", agentName, output)
-	if tokens != nil && tokens.Total > 0 {
-		log.Printf("📊 TOKENS [%s]: in=%d out=%d total=%d", agentName, tokens.Input, tokens.Output, tokens.Total)
+	if totalTokens > 0 {
+		log.Printf("📊 TOKENS [%s]: in=%d out=%d total=%d", agentName, inputTokens, outputTokens, totalTokens)
 	}
 }
 

@@ -43,7 +43,7 @@ func main() {
 	indRepo := repositories.NewIndividualRepository(database)
 	taskRepo := repositories.NewTaskRepository(database)
 	contactRepo := repositories.NewContactRepository(database)
-	prefsRepo := repositories.NewPreferencesRepository(database)
+	prefsRepo := repositories.NewPreferenceRepository(database)
 	projectRepo := repositories.NewProjectRepository(database)
 	convRepo := repositories.NewConversationRepository(database)
 	lookupRepo := repositories.NewLookupRepository(database)
@@ -64,7 +64,7 @@ func main() {
 	indService := services.NewIndividualService(indRepo)
 	taskService := services.NewTaskService(taskRepo)
 	contactService := services.NewContactService(contactRepo)
-	prefsService := services.NewPreferencesService(prefsRepo)
+	prefsService := services.NewPreferenceService(prefsRepo)
 	projectService := services.NewProjectService(projectRepo)
 	convService := services.NewConversationService(convRepo)
 	lookupService := services.NewLookupService(lookupRepo)
@@ -73,7 +73,7 @@ func main() {
 	docService := services.NewDocumentService(docRepo, storageRepo)
 	accountService := services.NewAccountService(accountRepo)
 	leadService := services.NewLeadService(leadRepo)
-	costsService := services.NewCostsService()
+	costsService := services.NewCostService()
 	provenanceService := services.NewProvenanceService(provenanceRepo)
 	techService := services.NewTechnologyService(techRepo)
 	usageService := services.NewUsageService(usageRepo, userRepo)
@@ -105,7 +105,7 @@ func main() {
 		Individual:   controllers.NewIndividualController(indService),
 		Task:         controllers.NewTaskController(taskService),
 		Contact:      controllers.NewContactController(contactService),
-		Preferences:  controllers.NewPreferencesController(prefsService),
+		Preferences:  controllers.NewPreferenceController(prefsService),
 		Notification: controllers.NewNotificationController(),
 		Project:      controllers.NewProjectController(projectService),
 		Conversation: controllers.NewConversationController(convService),
@@ -114,11 +114,10 @@ func main() {
 		Comment:      controllers.NewCommentController(commentService),
 		Document:     controllers.NewDocumentController(docService),
 		Account:      controllers.NewAccountController(accountService),
-		Lead:         controllers.NewLeadController(leadService),
-		Costs:        controllers.NewCostsController(costsService),
+		Lead:         controllers.NewLeadController(leadService, jobService),
+		Costs:        controllers.NewCostController(costsService),
 		Provenance:   controllers.NewProvenanceController(provenanceService),
 		Technology:   controllers.NewTechnologyController(techService),
-		Leads:        controllers.NewLeadsController(jobService),
 		Usage:        controllers.NewUsageController(usageService),
 		Report:       controllers.NewReportController(reportService),
 		Agent:        controllers.NewAgentController(agentOrchestrator),

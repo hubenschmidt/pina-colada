@@ -207,23 +207,7 @@ func handleStreamEvent(client *Client, evt agent.StreamEvent, lastText string) s
 	if evt.Type == "done" {
 		log.Printf("WS sending done event (on_chat_model_end)")
 		client.SendJSON(map[string]bool{"on_chat_model_end": true})
-		if evt.TurnTokens != nil && evt.CumulativeTokens != nil {
-			client.SendJSON(map[string]interface{}{
-				"on_token_usage": map[string]interface{}{
-					"input":      evt.TurnTokens.Input,
-					"output":     evt.TurnTokens.Output,
-					"total":      evt.TurnTokens.Total,
-					"elapsed_ms": evt.ElapsedMs,
-				},
-				"on_token_cumulative": map[string]interface{}{
-					"input":  evt.CumulativeTokens.Input,
-					"output": evt.CumulativeTokens.Output,
-					"total":  evt.CumulativeTokens.Total,
-				},
-			})
-			log.Printf("WS sending final token usage: turn=%+v cumulative=%+v elapsed=%dms",
-				evt.TurnTokens, evt.CumulativeTokens, evt.ElapsedMs)
-		}
+		sendFinalTokenUsage(client, evt)
 		return lastText
 	}
 
@@ -267,4 +251,25 @@ func handleStreamEvent(client *Client, evt agent.StreamEvent, lastText string) s
 	}
 
 	return lastText
+}
+
+func sendFinalTokenUsage(client *Client, evt agent.StreamEvent) {
+	if evt.TurnTokens == nil || evt.CumulativeTokens == nil {
+		return
+	}
+	client.SendJSON(map[string]interface{}{
+		"on_token_usage": map[string]interface{}{
+			"input":      evt.TurnTokens.Input,
+			"output":     evt.TurnTokens.Output,
+			"total":      evt.TurnTokens.Total,
+			"elapsed_ms": evt.ElapsedMs,
+		},
+		"on_token_cumulative": map[string]interface{}{
+			"input":  evt.CumulativeTokens.Input,
+			"output": evt.CumulativeTokens.Output,
+			"total":  evt.CumulativeTokens.Total,
+		},
+	})
+	log.Printf("WS sending final token usage: turn=%+v cumulative=%+v elapsed=%dms",
+		evt.TurnTokens, evt.CumulativeTokens, evt.ElapsedMs)
 }

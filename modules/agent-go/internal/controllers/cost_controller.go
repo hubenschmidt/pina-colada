@@ -6,18 +6,18 @@ import (
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
 
-// CostsController handles costs HTTP requests
-type CostsController struct {
-	costsService *services.CostsService
+// CostController handles costs HTTP requests
+type CostController struct {
+	costsService *services.CostService
 }
 
-// NewCostsController creates a new costs controller
-func NewCostsController(costsService *services.CostsService) *CostsController {
-	return &CostsController{costsService: costsService}
+// NewCostController creates a new costs controller
+func NewCostController(costsService *services.CostService) *CostController {
+	return &CostController{costsService: costsService}
 }
 
 // GetCostsSummary handles GET /costs/summary
-func (c *CostsController) GetCostsSummary(w http.ResponseWriter, r *http.Request) {
+func (c *CostController) GetCostsSummary(w http.ResponseWriter, r *http.Request) {
 	period := r.URL.Query().Get("period")
 	if period == "" {
 		period = "monthly"
@@ -33,7 +33,7 @@ func (c *CostsController) GetCostsSummary(w http.ResponseWriter, r *http.Request
 }
 
 // GetOrgCosts handles GET /costs/org
-func (c *CostsController) GetOrgCosts(w http.ResponseWriter, r *http.Request) {
+func (c *CostController) GetOrgCosts(w http.ResponseWriter, r *http.Request) {
 	period := r.URL.Query().Get("period")
 	if period == "" {
 		period = "monthly"

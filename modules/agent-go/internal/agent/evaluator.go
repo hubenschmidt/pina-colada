@@ -171,21 +171,25 @@ func (e *Evaluator) parseClaudeResponse(resp *anthropic.Message) (*EvaluatorResu
 
 // extractFromCodeBlock extracts content from markdown code blocks
 func extractFromCodeBlock(text string) string {
-	if strings.Contains(text, "```json") {
-		start := strings.Index(text, "```json") + 7
-		end := strings.LastIndex(text, "```")
-		if end > start {
-			return strings.TrimSpace(text[start:end])
-		}
+	if extracted := tryExtractCodeBlock(text, "```json", 7); extracted != "" {
+		return extracted
 	}
-	if strings.Contains(text, "```") {
-		start := strings.Index(text, "```") + 3
-		end := strings.LastIndex(text, "```")
-		if end > start {
-			return strings.TrimSpace(text[start:end])
-		}
+	if extracted := tryExtractCodeBlock(text, "```", 3); extracted != "" {
+		return extracted
 	}
 	return text
+}
+
+func tryExtractCodeBlock(text, marker string, offset int) string {
+	if !strings.Contains(text, marker) {
+		return ""
+	}
+	start := strings.Index(text, marker) + offset
+	end := strings.LastIndex(text, "```")
+	if end <= start {
+		return ""
+	}
+	return strings.TrimSpace(text[start:end])
 }
 
 // applyRetryLogic forces approval if stuck in retry loop
@@ -253,32 +257,26 @@ func (e *Evaluator) ShouldRetry(result *EvaluatorResult) bool {
 	return result.Score < 60 && e.retryCount < e.maxRetries
 }
 
+var careerKeywords = []string{"job", "career", "resume", "cover letter", "hiring", "position", "role", "employment"}
+var crmKeywords = []string{"crm", "contact", "account", "organization", "individual", "lookup", "record"}
+
 // DetermineEvaluatorType determines which evaluator to use based on the request
 func DetermineEvaluatorType(userMessage string) EvaluatorType {
 	lower := strings.ToLower(userMessage)
-
-	// Career-related keywords
-	careerKeywords := []string{"job", "career", "resume", "cover letter", "hiring", "position", "role", "employment"}
-	for _, kw := range careerKeywords {
-		if strings.Contains(lower, kw) {
-			return CareerEvaluator
-		}
+	if containsAnyKeyword(lower, careerKeywords) {
+		return CareerEvaluator
 	}
-
-	// CRM-related keywords
-	crmKeywords := []string{"crm", "contact", "account", "organization", "individual", "lookup", "record"}
-	for _, kw := range crmKeywords {
-		if strings.Contains(lower, kw) {
-			return CRMEvaluator
-		}
+	if containsAnyKeyword(lower, crmKeywords) {
+		return CRMEvaluator
 	}
-
 	return GeneralEvaluator
 }
 
-func min(a, b int) int {
-	if a < b {
-		return a
+func containsAnyKeyword(s string, keywords []string) bool {
+	for _, kw := range keywords {
+		if strings.Contains(s, kw) {
+			return true
+		}
 	}
-	return b
+	return false
 }

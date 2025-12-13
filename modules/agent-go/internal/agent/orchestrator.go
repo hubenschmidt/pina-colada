@@ -9,9 +9,11 @@ import (
 
 	"github.com/nlpodyssey/openai-agents-go/agents"
 	"github.com/nlpodyssey/openai-agents-go/usage"
+
 	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
 	"github.com/pina-colada-co/agent-go/internal/agent/state"
 	"github.com/pina-colada-co/agent-go/internal/agent/tools"
+	"github.com/pina-colada-co/agent-go/internal/agent/utils"
 	"github.com/pina-colada-co/agent-go/internal/agent/workers"
 	"github.com/pina-colada-co/agent-go/internal/config"
 	"github.com/pina-colada-co/agent-go/internal/services"
@@ -160,7 +162,7 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 	runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20}}
 	result, err := runner.Run(ctx, o.triageAgent, input)
 	if err != nil {
-		LogError("Agent run error: %v", err)
+		utils.LogError("Agent run error: %v", err)
 		return nil, fmt.Errorf("agent run error: %w", err)
 	}
 
@@ -211,20 +213,22 @@ func (s *streamState) handleAgentUpdated(e agents.AgentUpdatedStreamEvent) {
 	if e.NewAgent.Name == s.currentAgent {
 		return
 	}
-
-	if s.currentAgent == "" {
-		LogAgentStart(e.NewAgent.Name)
-	}
-	if s.currentAgent != "" {
-		LogHandoff(s.currentAgent, e.NewAgent.Name)
-	}
+	s.logAgentTransition(e.NewAgent.Name)
 	s.sendEvent(StreamEvent{Type: "agent_start", AgentName: e.NewAgent.Name})
 	s.currentAgent = e.NewAgent.Name
 }
 
+func (s *streamState) logAgentTransition(newAgent string) {
+	if s.currentAgent == "" {
+		utils.LogAgentStart(newAgent)
+		return
+	}
+	utils.LogHandoff(s.currentAgent, newAgent)
+}
+
 func (s *streamState) handleToolCalled(item agents.ToolCallItem) {
 	toolName := extractToolName(item)
-	LogToolStart(toolName)
+	utils.LogToolStart(toolName)
 	s.sendEvent(StreamEvent{Type: "tool_start", ToolName: toolName})
 }
 
@@ -234,7 +238,7 @@ func (s *streamState) handleToolOutput(item agents.ToolCallOutputItem) {
 	if str, ok := item.Output.(string); ok {
 		outputStr = truncateString(str, 100)
 	}
-	LogToolEnd(toolName, outputStr)
+	utils.LogToolEnd(toolName, outputStr)
 	s.sendEvent(StreamEvent{Type: "tool_end", ToolName: toolName})
 }
 
@@ -248,30 +252,40 @@ func (s *streamState) handleMessageOutput(item agents.MessageOutputItem) {
 
 func (s *streamState) handleRunItemEvent(e agents.RunItemStreamEvent) {
 	if e.Name == agents.StreamEventToolCalled {
-		item, ok := e.Item.(agents.ToolCallItem)
-		if !ok {
-			return
-		}
-		s.handleToolCalled(item)
+		s.tryHandleToolCalled(e.Item)
 		return
 	}
-
 	if e.Name == agents.StreamEventToolOutput {
-		item, ok := e.Item.(agents.ToolCallOutputItem)
-		if !ok {
-			return
-		}
-		s.handleToolOutput(item)
+		s.tryHandleToolOutput(e.Item)
 		return
 	}
-
 	if e.Name == agents.StreamEventMessageOutputCreated {
-		item, ok := e.Item.(agents.MessageOutputItem)
-		if !ok {
-			return
-		}
-		s.handleMessageOutput(item)
+		s.tryHandleMessageOutput(e.Item)
 	}
+}
+
+func (s *streamState) tryHandleToolCalled(item any) {
+	toolCall, ok := item.(agents.ToolCallItem)
+	if !ok {
+		return
+	}
+	s.handleToolCalled(toolCall)
+}
+
+func (s *streamState) tryHandleToolOutput(item any) {
+	toolOutput, ok := item.(agents.ToolCallOutputItem)
+	if !ok {
+		return
+	}
+	s.handleToolOutput(toolOutput)
+}
+
+func (s *streamState) tryHandleMessageOutput(item any) {
+	msgOutput, ok := item.(agents.MessageOutputItem)
+	if !ok {
+		return
+	}
+	s.handleMessageOutput(msgOutput)
 }
 
 func (s *streamState) handleTextDelta(delta string) {
@@ -297,23 +311,43 @@ func (s *streamState) handleRawResponse(e agents.RawResponsesStreamEvent) {
 		s.handleTextDelta(e.Data.Delta)
 		return
 	}
-	if e.Data.Type == "response.completed" && e.Data.Response.Usage.TotalTokens > 0 {
-		s.handleResponseCompleted(e)
+	if e.Data.Type != "response.completed" {
+		return
 	}
+	if e.Data.Response.Usage.TotalTokens == 0 {
+		return
+	}
+	s.handleResponseCompleted(e)
 }
 
 func (s *streamState) handleStreamEvent(event agents.StreamEvent) {
-	if e, ok := event.(agents.AgentUpdatedStreamEvent); ok {
-		s.handleAgentUpdated(e)
+	s.tryHandleAgentUpdated(event)
+	s.tryHandleRunItem(event)
+	s.tryHandleRawResponses(event)
+}
+
+func (s *streamState) tryHandleAgentUpdated(event agents.StreamEvent) {
+	e, ok := event.(agents.AgentUpdatedStreamEvent)
+	if !ok {
 		return
 	}
-	if e, ok := event.(agents.RunItemStreamEvent); ok {
-		s.handleRunItemEvent(e)
+	s.handleAgentUpdated(e)
+}
+
+func (s *streamState) tryHandleRunItem(event agents.StreamEvent) {
+	e, ok := event.(agents.RunItemStreamEvent)
+	if !ok {
 		return
 	}
-	if e, ok := event.(agents.RawResponsesStreamEvent); ok {
-		s.handleRawResponse(e)
+	s.handleRunItemEvent(e)
+}
+
+func (s *streamState) tryHandleRawResponses(event agents.StreamEvent) {
+	e, ok := event.(agents.RawResponsesStreamEvent)
+	if !ok {
+		return
 	}
+	s.handleRawResponse(e)
 }
 
 // RunWithStreaming executes the agent and streams events via channel
@@ -379,7 +413,7 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 
 	// Check for streaming error
 	if streamErr := <-errChan; streamErr != nil {
-		LogError("Streaming error: %v", streamErr)
+		utils.LogError("Streaming error: %v", streamErr)
 		sendEvent(StreamEvent{Type: "error", Error: streamErr.Error()})
 		return
 	}
@@ -390,7 +424,7 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	}
 
 	if currentAgent != "" {
-		LogAgentEnd(currentAgent, finalOutput, &turnTokens)
+		utils.LogAgentEnd(currentAgent, finalOutput, turnTokens.Input, turnTokens.Output, turnTokens.Total)
 	}
 
 	// Run evaluator if enabled - evaluate first, then send response

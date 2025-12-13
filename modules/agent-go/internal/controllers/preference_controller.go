@@ -10,15 +10,15 @@ import (
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
 
-type PreferencesController struct {
-	prefsService *services.PreferencesService
+type PreferenceController struct {
+	prefsService *services.PreferenceService
 }
 
-func NewPreferencesController(prefsService *services.PreferencesService) *PreferencesController {
-	return &PreferencesController{prefsService: prefsService}
+func NewPreferenceController(prefsService *services.PreferenceService) *PreferenceController {
+	return &PreferenceController{prefsService: prefsService}
 }
 
-func (c *PreferencesController) GetUserPreferences(w http.ResponseWriter, r *http.Request) {
+func (c *PreferenceController) GetUserPreferences(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		writePrefsError(w, http.StatusUnauthorized, "unauthorized")
@@ -43,7 +43,7 @@ type UpdatePreferencesRequest struct {
 	Timezone *string `json:"timezone"`
 }
 
-func (c *PreferencesController) UpdateUserPreferences(w http.ResponseWriter, r *http.Request) {
+func (c *PreferenceController) UpdateUserPreferences(w http.ResponseWriter, r *http.Request) {
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		writePrefsError(w, http.StatusUnauthorized, "unauthorized")
@@ -76,7 +76,7 @@ func writePrefsError(w http.ResponseWriter, status int, message string) {
 }
 
 // GetTimezones handles GET /preferences/timezones
-func (c *PreferencesController) GetTimezones(w http.ResponseWriter, r *http.Request) {
+func (c *PreferenceController) GetTimezones(w http.ResponseWriter, r *http.Request) {
 	timezones := []string{
 		"America/New_York",
 		"America/Chicago",
@@ -97,7 +97,7 @@ func (c *PreferencesController) GetTimezones(w http.ResponseWriter, r *http.Requ
 }
 
 // GetTenantPreferences handles GET /preferences/tenant
-func (c *PreferencesController) GetTenantPreferences(w http.ResponseWriter, r *http.Request) {
+func (c *PreferenceController) GetTenantPreferences(w http.ResponseWriter, r *http.Request) {
 	tenantID, ok := middleware.GetTenantID(r.Context())
 	if !ok {
 		writePrefsError(w, http.StatusBadRequest, "tenant not set")
@@ -119,7 +119,7 @@ type UpdateTenantPreferencesRequest struct {
 }
 
 // UpdateTenantPreferences handles PATCH /preferences/tenant
-func (c *PreferencesController) UpdateTenantPreferences(w http.ResponseWriter, r *http.Request) {
+func (c *PreferenceController) UpdateTenantPreferences(w http.ResponseWriter, r *http.Request) {
 	tenantID, ok := middleware.GetTenantID(r.Context())
 	if !ok {
 		writePrefsError(w, http.StatusBadRequest, "tenant not set")

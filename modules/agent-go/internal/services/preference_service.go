@@ -8,12 +8,12 @@ import (
 
 var ErrPreferencesUserNotFound = errors.New("user not found")
 
-type PreferencesService struct {
-	prefsRepo *repositories.PreferencesRepository
+type PreferenceService struct {
+	prefsRepo *repositories.PreferenceRepository
 }
 
-func NewPreferencesService(prefsRepo *repositories.PreferencesRepository) *PreferencesService {
-	return &PreferencesService{prefsRepo: prefsRepo}
+func NewPreferenceService(prefsRepo *repositories.PreferenceRepository) *PreferenceService {
+	return &PreferenceService{prefsRepo: prefsRepo}
 }
 
 type UserPreferencesResponse struct {
@@ -23,7 +23,7 @@ type UserPreferencesResponse struct {
 	CanEditTenant  bool    `json:"can_edit_tenant"`
 }
 
-func (s *PreferencesService) GetUserPreferences(userID int64) (*UserPreferencesResponse, error) {
+func (s *PreferenceService) GetUserPreferences(userID int64) (*UserPreferencesResponse, error) {
 	userTenant, err := s.prefsRepo.GetUserWithTenant(userID)
 	if err != nil {
 		return nil, ErrPreferencesUserNotFound
@@ -48,7 +48,7 @@ func (s *PreferencesService) GetUserPreferences(userID int64) (*UserPreferencesR
 	}, nil
 }
 
-func (s *PreferencesService) UpdateUserPreferences(userID int64, theme, timezone *string) (*UserPreferencesResponse, error) {
+func (s *PreferenceService) UpdateUserPreferences(userID int64, theme, timezone *string) (*UserPreferencesResponse, error) {
 	// Ensure prefs exist
 	_, err := s.prefsRepo.FindOrCreateUserPreferences(userID)
 	if err != nil {
@@ -74,7 +74,7 @@ func (s *PreferencesService) UpdateUserPreferences(userID int64, theme, timezone
 	return s.GetUserPreferences(userID)
 }
 
-func (s *PreferencesService) resolveTheme(userTheme *string, tenantID *int64) string {
+func (s *PreferenceService) resolveTheme(userTheme *string, tenantID *int64) string {
 	if userTheme != nil {
 		return *userTheme
 	}
@@ -99,7 +99,7 @@ type TenantPreferencesResponse struct {
 }
 
 // GetTenantPreferences returns tenant preferences
-func (s *PreferencesService) GetTenantPreferences(tenantID int64) (*TenantPreferencesResponse, error) {
+func (s *PreferenceService) GetTenantPreferences(tenantID int64) (*TenantPreferencesResponse, error) {
 	prefs, err := s.prefsRepo.FindOrCreateTenantPreferences(tenantID)
 	if err != nil {
 		return nil, err
@@ -111,7 +111,7 @@ func (s *PreferencesService) GetTenantPreferences(tenantID int64) (*TenantPrefer
 }
 
 // UpdateTenantPreferences updates tenant preferences
-func (s *PreferencesService) UpdateTenantPreferences(tenantID int64, theme string) (*TenantPreferencesResponse, error) {
+func (s *PreferenceService) UpdateTenantPreferences(tenantID int64, theme string) (*TenantPreferencesResponse, error) {
 	// Ensure prefs exist
 	_, err := s.prefsRepo.FindOrCreateTenantPreferences(tenantID)
 	if err != nil {

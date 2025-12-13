@@ -79,10 +79,6 @@ func (c *TechnologyController) CreateTechnology(w http.ResponseWriter, r *http.R
 	writeJSON(w, http.StatusCreated, tech)
 }
 
-func parseTechIDParam(r *http.Request, param string) (int64, error) {
-	return parseIDParam(r, param)
-}
-
 // Note: parseIDParam is defined in job_controller.go and should be shared
 func init() {
 	// ensure chi is imported for URLParam
