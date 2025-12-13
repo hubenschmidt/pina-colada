@@ -70,43 +70,47 @@ func (wc *WebSocketController) HandleWS(w http.ResponseWriter, r *http.Request) 
 
 	for {
 		_, message, err := conn.ReadMessage()
+		if err != nil && websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+			log.Printf("WebSocket error: %v", err)
+		}
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WebSocket error: %v", err)
-			}
 			break
 		}
 
-		var msg WSMessage
-		if err := json.Unmarshal(message, &msg); err != nil {
-			log.Printf("Invalid message format: %v", err)
-			continue
-		}
-
-		// Handle init message
-		if msg.Init {
-			client.uuid = msg.UUID
-			log.Printf("WebSocket initialized with UUID: %s", client.uuid)
-			continue
-		}
-
-		// Handle user context messages (ignore for now)
-		if msg.Type == "user_context" || msg.Type == "user_context_update" {
-			continue
-		}
-
-		// Store user/tenant IDs if provided
-		if msg.UserID > 0 {
-			client.userID = msg.UserID
-		}
-
-		// Process chat message
-		if msg.Message != "" {
-			wc.handleChatMessage(r.Context(), client, msg)
-		}
+		wc.processWSMessage(r.Context(), client, message)
 	}
 
 	log.Printf("WebSocket client disconnected: %s", client.uuid)
+}
+
+func (wc *WebSocketController) processWSMessage(ctx context.Context, client *Client, message []byte) {
+	var msg WSMessage
+	if err := json.Unmarshal(message, &msg); err != nil {
+		log.Printf("Invalid message format: %v", err)
+		return
+	}
+
+	// Handle init message
+	if msg.Init {
+		client.uuid = msg.UUID
+		log.Printf("WebSocket initialized with UUID: %s", client.uuid)
+		return
+	}
+
+	// Handle user context messages (ignore for now)
+	if msg.Type == "user_context" || msg.Type == "user_context_update" {
+		return
+	}
+
+	// Store user/tenant IDs if provided
+	if msg.UserID > 0 {
+		client.userID = msg.UserID
+	}
+
+	// Process chat message
+	if msg.Message != "" {
+		wc.handleChatMessage(ctx, client, msg)
+	}
 }
 
 // handleChatMessage processes a chat message and streams the response in real-time

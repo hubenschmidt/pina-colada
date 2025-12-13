@@ -81,6 +81,9 @@ func main() {
 
 	// Initialize ADK agent orchestrator (only if Gemini API key is configured)
 	var agentOrchestrator *agent.Orchestrator
+	if cfg.GeminiAPIKey == "" {
+		log.Println("GEMINI_API_KEY not configured - agent endpoints disabled")
+	}
 	if cfg.GeminiAPIKey != "" {
 		ctx := context.Background()
 		var err error
@@ -88,11 +91,10 @@ func main() {
 		if err != nil {
 			log.Printf("Warning: Failed to initialize agent orchestrator: %v", err)
 			log.Printf("Agent endpoints will return errors until configured")
-		} else {
+		}
+		if err == nil {
 			log.Println("ADK agent orchestrator initialized successfully")
 		}
-	} else {
-		log.Println("GEMINI_API_KEY not configured - agent endpoints disabled")
 	}
 
 	// Initialize controllers

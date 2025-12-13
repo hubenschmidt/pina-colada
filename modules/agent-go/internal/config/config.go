@@ -74,10 +74,13 @@ func getEnv(key, fallback string) string {
 }
 
 func getEnvInt(key string, fallback int) int {
-	if value, ok := os.LookupEnv(key); ok {
-		if i, err := strconv.Atoi(value); err == nil {
-			return i
-		}
+	value, ok := os.LookupEnv(key)
+	if !ok {
+		return fallback
 	}
-	return fallback
+	i, err := strconv.Atoi(value)
+	if err != nil {
+		return fallback
+	}
+	return i
 }

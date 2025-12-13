@@ -330,14 +330,16 @@ func TestJobSearchURLsAreValid(t *testing.T) {
 	// Count valid URLs
 	validCount := 0
 	for _, result := range results {
-		if result.StructureValid && result.Reachable {
+		isValid := result.StructureValid && result.Reachable
+		if isValid {
 			validCount++
 			t.Logf("✅ Valid URL: %s", result.URL)
-		} else {
-			reason := result.StructureError
-			if reason == "" {
-				reason = result.ReachableError
-			}
+		}
+		reason := result.StructureError
+		if reason == "" {
+			reason = result.ReachableError
+		}
+		if !isValid {
 			t.Logf("❌ Invalid URL: %s - %s", result.URL, reason)
 		}
 	}

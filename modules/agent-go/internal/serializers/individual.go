@@ -118,45 +118,35 @@ func getAccountRelationships(account *models.Account, ownerAccountID int64) []Re
 
 	// Outgoing relationships
 	for _, rel := range account.OutgoingRelationships {
-		if rel.ToAccount == nil {
-			continue
-		}
-		accountType, entityID := getAccountTypeAndEntityID(*rel.ToAccount)
-		key := accountType + string(rune(entityID))
-		if !seen[key] {
-			seen[key] = true
-			relationships = append(relationships, RelationshipBrief{
-				ID:               entityID,
-				AccountID:        rel.ToAccount.ID,
-				Name:             rel.ToAccount.Name,
-				Type:             accountType,
-				RelationshipID:   rel.ID,
-				RelationshipType: rel.RelationshipType,
-			})
-		}
+		addRelationshipIfNew(rel.ToAccount, rel.ID, rel.RelationshipType, seen, &relationships)
 	}
 
 	// Incoming relationships
 	for _, rel := range account.IncomingRelationships {
-		if rel.FromAccount == nil {
-			continue
-		}
-		accountType, entityID := getAccountTypeAndEntityID(*rel.FromAccount)
-		key := accountType + string(rune(entityID))
-		if !seen[key] {
-			seen[key] = true
-			relationships = append(relationships, RelationshipBrief{
-				ID:               entityID,
-				AccountID:        rel.FromAccount.ID,
-				Name:             rel.FromAccount.Name,
-				Type:             accountType,
-				RelationshipID:   rel.ID,
-				RelationshipType: rel.RelationshipType,
-			})
-		}
+		addRelationshipIfNew(rel.FromAccount, rel.ID, rel.RelationshipType, seen, &relationships)
 	}
 
 	return relationships
+}
+
+func addRelationshipIfNew(relAccount *models.Account, relID int64, relType *string, seen map[string]bool, relationships *[]RelationshipBrief) {
+	if relAccount == nil {
+		return
+	}
+	accountType, entityID := getAccountTypeAndEntityID(*relAccount)
+	key := accountType + string(rune(entityID))
+	if seen[key] {
+		return
+	}
+	seen[key] = true
+	*relationships = append(*relationships, RelationshipBrief{
+		ID:               entityID,
+		AccountID:        relAccount.ID,
+		Name:             relAccount.Name,
+		Type:             accountType,
+		RelationshipID:   relID,
+		RelationshipType: relType,
+	})
 }
 
 // getAccountTypeAndEntityID determines the type and entity ID from an account

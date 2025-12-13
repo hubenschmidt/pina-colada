@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/pina-colada-co/agent-go/internal/lib"
 	"github.com/pina-colada-co/agent-go/internal/middleware"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
@@ -22,17 +23,12 @@ func NewDocumentController(docService *services.DocumentService) *DocumentContro
 
 func (c *DocumentController) GetDocuments(w http.ResponseWriter, r *http.Request) {
 	entityType := r.URL.Query().Get("entity_type")
-	entityIDStr := r.URL.Query().Get("entity_id")
 	search := r.URL.Query().Get("search")
 
-	var entityID *int64
-	if entityIDStr != "" {
-		id, err := strconv.ParseInt(entityIDStr, 10, 64)
-		if err != nil {
-			writeError(w, http.StatusBadRequest, "invalid entity_id")
-			return
-		}
-		entityID = &id
+	entityID, err := lib.ParseOptionalInt64Param(r, "entity_id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid entity_id")
+		return
 	}
 
 	var entityTypePtr *string

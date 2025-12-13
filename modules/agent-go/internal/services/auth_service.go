@@ -142,14 +142,16 @@ var ErrProjectNotInTenant = errors.New("project does not belong to tenant")
 
 // SetSelectedProject sets the user's selected project
 func (s *AuthService) SetSelectedProject(userID int64, tenantID int64, projectID *int64) (*int64, error) {
+	var validateErr error
+	belongs := true // default for nil projectID
 	if projectID != nil {
-		belongs, err := s.userRepo.ProjectBelongsToTenant(*projectID, tenantID)
-		if err != nil {
-			return nil, err
-		}
-		if !belongs {
-			return nil, ErrProjectNotInTenant
-		}
+		belongs, validateErr = s.userRepo.ProjectBelongsToTenant(*projectID, tenantID)
+	}
+	if validateErr != nil {
+		return nil, validateErr
+	}
+	if !belongs {
+		return nil, ErrProjectNotInTenant
 	}
 
 	if err := s.userRepo.SetSelectedProject(userID, projectID); err != nil {

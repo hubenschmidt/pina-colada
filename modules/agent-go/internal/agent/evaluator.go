@@ -152,19 +152,7 @@ func (e *Evaluator) parseClaudeResponse(resp *anthropic.Message) (*EvaluatorResu
 	text = strings.TrimSpace(text)
 
 	// Handle markdown code blocks
-	if strings.Contains(text, "```json") {
-		start := strings.Index(text, "```json") + 7
-		end := strings.LastIndex(text, "```")
-		if end > start {
-			text = strings.TrimSpace(text[start:end])
-		}
-	} else if strings.Contains(text, "```") {
-		start := strings.Index(text, "```") + 3
-		end := strings.LastIndex(text, "```")
-		if end > start {
-			text = strings.TrimSpace(text[start:end])
-		}
-	}
+	text = extractFromCodeBlock(text)
 
 	// Find JSON object bounds
 	startIdx := strings.Index(text, "{")
@@ -179,6 +167,25 @@ func (e *Evaluator) parseClaudeResponse(resp *anthropic.Message) (*EvaluatorResu
 	}
 
 	return &result, nil
+}
+
+// extractFromCodeBlock extracts content from markdown code blocks
+func extractFromCodeBlock(text string) string {
+	if strings.Contains(text, "```json") {
+		start := strings.Index(text, "```json") + 7
+		end := strings.LastIndex(text, "```")
+		if end > start {
+			return strings.TrimSpace(text[start:end])
+		}
+	}
+	if strings.Contains(text, "```") {
+		start := strings.Index(text, "```") + 3
+		end := strings.LastIndex(text, "```")
+		if end > start {
+			return strings.TrimSpace(text[start:end])
+		}
+	}
+	return text
 }
 
 // applyRetryLogic forces approval if stuck in retry loop

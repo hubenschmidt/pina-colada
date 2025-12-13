@@ -59,9 +59,11 @@ func resolveAccountName(orgName *string, firstName *string, lastName *string) (s
 		}
 		if ln != "" && fn != "" {
 			return ln + ", " + fn, "Individual"
-		} else if ln != "" {
+		}
+		if ln != "" {
 			return ln, "Individual"
-		} else if fn != "" {
+		}
+		if fn != "" {
 			return fn, "Individual"
 		}
 	}
@@ -126,10 +128,9 @@ func (r *LeadRepository) FindAllOpportunities(params PaginationParams, tenantID,
 			opportunities[i].FirstName,
 			opportunities[i].LastName,
 		)
+		opportunities[i].StatusName = "Qualifying"
 		if opportunities[i].CurrentStatus != nil {
 			opportunities[i].StatusName = *opportunities[i].CurrentStatus
-		} else {
-			opportunities[i].StatusName = "Qualifying"
 		}
 	}
 
@@ -209,10 +210,9 @@ func (r *LeadRepository) FindAllPartnerships(params PaginationParams, tenantID *
 			partnerships[i].FirstName,
 			partnerships[i].LastName,
 		)
+		partnerships[i].StatusName = "Exploring"
 		if partnerships[i].CurrentStatus != nil {
 			partnerships[i].StatusName = *partnerships[i].CurrentStatus
-		} else {
-			partnerships[i].StatusName = "Exploring"
 		}
 	}
 

@@ -80,7 +80,8 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		jobs, err := t.jobService.GetLeads([]string{"applied", "do_not_apply"}, nil)
 		if err != nil {
 			log.Printf("Warning: could not load applied jobs for filtering: %v", err)
-		} else {
+		}
+		if err == nil {
 			appliedJobs = jobs
 			log.Printf("Loaded %d applied/do_not_apply jobs for filtering", len(appliedJobs))
 		}
@@ -184,14 +185,14 @@ func formatSerperResultsWithFilter(organic []serperOrganicResult, maxResults int
 			company = extractCompanyFromURL(item.Link)
 		}
 
-		// Skip if matches an applied/do_not_apply job
-		if matchesAppliedJob(company, title, appliedJobs) {
+		matched := matchesAppliedJob(company, title, appliedJobs)
+		if matched {
 			log.Printf("   Filtered out applied job: %s at %s", title, company)
-			continue
 		}
-
-		count++
-		lines = append(lines, fmt.Sprintf("%d. %s - %s - %s", count, company, title, item.Link))
+		if !matched {
+			count++
+			lines = append(lines, fmt.Sprintf("%d. %s - %s - %s", count, company, title, item.Link))
+		}
 	}
 
 	if len(lines) == 0 {

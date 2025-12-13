@@ -42,12 +42,13 @@ func (r *ReportRepository) FindSavedReports(tenantID int64, projectID *int64, in
 
 	if projectID != nil {
 		subquery := r.db.Table(`"Saved_Report_Project"`).Select("saved_report_id").Where("project_id = ?", *projectID)
+		if !includeGlobal {
+			query = query.Where("id IN (?)", subquery)
+		}
 		if includeGlobal {
 			// Include reports with this project OR reports with no project associations
 			noProjectSubquery := r.db.Table(`"Saved_Report_Project"`).Select("saved_report_id")
 			query = query.Where("id IN (?) OR id NOT IN (?)", subquery, noProjectSubquery)
-		} else {
-			query = query.Where("id IN (?)", subquery)
 		}
 	}
 
@@ -623,24 +624,19 @@ func (r *ReportRepository) ExecuteCustomQuery(tenantID int64, primaryEntity stri
 	// Join with Account for tenant filtering (except for notes which have tenant_id directly)
 	if primaryEntity == "notes" {
 		query = query.Where(`"Note".tenant_id = ?`, tenantID)
-	} else {
+	}
+	if primaryEntity != "notes" {
 		query = query.Joins(`JOIN "Account" ON "` + tableName + `".account_id = "Account".id`).
 			Where(`"Account".tenant_id = ?`, tenantID)
 	}
 
 	// Apply filters
 	for _, f := range filters {
-		field, ok := f["field"].(string)
-		if !ok {
-			continue
+		field, fieldOk := f["field"].(string)
+		operator, opOk := f["operator"].(string)
+		if fieldOk && opOk {
+			query = applyFilter(query, tableName, field, operator, f["value"])
 		}
-		operator, ok := f["operator"].(string)
-		if !ok {
-			continue
-		}
-		value := f["value"]
-
-		query = applyFilter(query, tableName, field, operator, value)
 	}
 
 	// Count total

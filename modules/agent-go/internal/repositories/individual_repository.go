@@ -236,12 +236,11 @@ type IndividualCreateInput struct {
 
 // CreateIndividual creates a new individual with account
 func (r *IndividualRepository) CreateIndividual(input IndividualCreateInput) (*models.Individual, error) {
-	var accountID *int64
+	// Use existing account if provided
+	accountID := input.AccountID
 
-	if input.AccountID != nil {
-		accountID = input.AccountID
-	} else {
-		// Create a new account for this individual
+	// Create new account if not provided
+	if accountID == nil {
 		fullName := input.FirstName + " " + input.LastName
 		account := &models.Account{
 			TenantID:  input.TenantID,
@@ -255,14 +254,12 @@ func (r *IndividualRepository) CreateIndividual(input IndividualCreateInput) (*m
 		accountID = &account.ID
 
 		// Add industries to account if provided
-		if len(input.IndustryIDs) > 0 {
-			for _, industryID := range input.IndustryIDs {
-				link := &models.AccountIndustry{
-					AccountID:  account.ID,
-					IndustryID: industryID,
-				}
-				r.db.Create(link)
+		for _, industryID := range input.IndustryIDs {
+			link := &models.AccountIndustry{
+				AccountID:  account.ID,
+				IndustryID: industryID,
 			}
+			r.db.Create(link)
 		}
 	}
 

@@ -58,20 +58,23 @@ func extractPDFText(data []byte) (string, error) {
 
 	var text strings.Builder
 	for i := 1; i <= reader.NumPage(); i++ {
-		page := reader.Page(i)
-		if page.V.IsNull() {
-			continue
-		}
-		pageText, err := page.GetPlainText(nil)
-		if err != nil {
-			log.Printf("⚠️ Failed to extract text from page %d: %v", i, err)
-			continue
-		}
-		text.WriteString(pageText)
-		text.WriteString("\n")
+		extractPageText(reader.Page(i), i, &text)
 	}
 
 	return text.String(), nil
+}
+
+func extractPageText(page pdf.Page, pageNum int, text *strings.Builder) {
+	if page.V.IsNull() {
+		return
+	}
+	pageText, err := page.GetPlainText(nil)
+	if err != nil {
+		log.Printf("⚠️ Failed to extract text from page %d: %v", pageNum, err)
+		return
+	}
+	text.WriteString(pageText)
+	text.WriteString("\n")
 }
 
 // extractContent extracts readable content from a document based on its type

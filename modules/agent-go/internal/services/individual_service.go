@@ -129,11 +129,12 @@ func (s *IndividualService) UpdateIndividual(id int64, input IndividualUpdateInp
 	}
 
 	updates := buildIndividualUpdates(input, userID)
+	var updateErr error
 	if len(updates) > 0 {
-		err = s.indRepo.Update(ind, updates)
-		if err != nil {
-			return nil, err
-		}
+		updateErr = s.indRepo.Update(ind, updates)
+	}
+	if updateErr != nil {
+		return nil, updateErr
 	}
 
 	// Refetch to get updated data
@@ -312,11 +313,12 @@ func (s *IndividualService) UpdateContact(individualID, contactID int64, input s
 	}
 
 	updates := buildIndContactUpdates(input, userID)
+	var updateErr error
 	if len(updates) > 0 {
-		err := s.indRepo.UpdateContact(contactID, updates)
-		if err != nil {
-			return nil, err
-		}
+		updateErr = s.indRepo.UpdateContact(contactID, updates)
+	}
+	if updateErr != nil {
+		return nil, updateErr
 	}
 
 	contact, err := s.indRepo.GetContactByID(contactID)

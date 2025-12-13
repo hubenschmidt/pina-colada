@@ -98,11 +98,12 @@ func (s *ProjectService) UpdateProject(id int64, input schemas.ProjectUpdate, te
 	}
 
 	updates := buildProjectUpdates(input, userID)
+	var updateErr error
 	if len(updates) > 0 {
-		err := s.projectRepo.Update(id, updates)
-		if err != nil {
-			return nil, err
-		}
+		updateErr = s.projectRepo.Update(id, updates)
+	}
+	if updateErr != nil {
+		return nil, updateErr
 	}
 
 	// Refetch

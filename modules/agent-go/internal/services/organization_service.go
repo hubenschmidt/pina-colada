@@ -103,11 +103,12 @@ func (s *OrganizationService) UpdateOrganization(id int64, input schemas.Organiz
 	}
 
 	updates := buildOrgUpdates(input)
+	var updateErr error
 	if len(updates) > 0 {
-		err := s.orgRepo.Update(org, updates)
-		if err != nil {
-			return nil, err
-		}
+		updateErr = s.orgRepo.Update(org, updates)
+	}
+	if updateErr != nil {
+		return nil, updateErr
 	}
 
 	// Handle industry updates if provided
@@ -224,11 +225,12 @@ func (s *OrganizationService) UpdateOrganizationContact(orgID int64, contactID i
 	}
 
 	updates := buildOrgContactUpdates(input, userID)
+	var updateErr error
 	if len(updates) > 0 {
-		err := s.orgRepo.UpdateContact(contactID, updates)
-		if err != nil {
-			return nil, err
-		}
+		updateErr = s.orgRepo.UpdateContact(contactID, updates)
+	}
+	if updateErr != nil {
+		return nil, updateErr
 	}
 
 	// For now return minimal response
@@ -456,12 +458,14 @@ func (s *OrganizationService) DeleteOrganizationSignal(orgID int64, signalID int
 
 // CreateOrganization creates a new organization
 func (s *OrganizationService) CreateOrganization(input schemas.OrganizationCreate, userID int64, tenantID *int64) (*serializers.OrganizationDetailResponse, error) {
-	// Create or use existing account
-	var accountID int64
+	// Use existing account if provided
+	accountID := int64(0)
 	if input.AccountID != nil {
 		accountID = *input.AccountID
-	} else {
-		// Create new account for this org
+	}
+
+	// Create new account if not provided
+	if accountID == 0 {
 		account, err := s.orgRepo.CreateAccount(input.Name, tenantID, userID)
 		if err != nil {
 			return nil, err

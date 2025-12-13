@@ -187,17 +187,22 @@ func extractCompanyFromAccount(account *models.Account) (string, string) {
 		return account.Organizations[0].Name, "Organization"
 	}
 
-	if len(account.Individuals) > 0 {
-		ind := account.Individuals[0]
-		firstName := ind.FirstName
-		lastName := ind.LastName
-		if lastName != "" && firstName != "" {
-			return lastName + ", " + firstName, "Individual"
-		} else if lastName != "" {
-			return lastName, "Individual"
-		} else if firstName != "" {
-			return firstName, "Individual"
-		}
+	if len(account.Individuals) == 0 {
+		return "", "Organization"
+	}
+
+	ind := account.Individuals[0]
+	firstName := ind.FirstName
+	lastName := ind.LastName
+
+	if lastName != "" && firstName != "" {
+		return lastName + ", " + firstName, "Individual"
+	}
+	if lastName != "" {
+		return lastName, "Individual"
+	}
+	if firstName != "" {
+		return firstName, "Individual"
 	}
 
 	return "", "Organization"
@@ -209,15 +214,19 @@ func JobToDetailResponse(job *models.Job) JobDetailResponse {
 		JobListResponse: JobToListResponse(job),
 	}
 
-	if job.Lead != nil {
-		resp.Lead = leadToResponse(job.Lead)
+	if job.Lead == nil {
+		return resp
+	}
 
-		if job.Lead.Projects != nil {
-			resp.Projects = make([]ProjectBrief, len(job.Lead.Projects))
-			for i, p := range job.Lead.Projects {
-				resp.Projects[i] = ProjectBrief{ID: p.ID, Name: p.Name}
-			}
-		}
+	resp.Lead = leadToResponse(job.Lead)
+
+	if job.Lead.Projects == nil {
+		return resp
+	}
+
+	resp.Projects = make([]ProjectBrief, len(job.Lead.Projects))
+	for i, p := range job.Lead.Projects {
+		resp.Projects[i] = ProjectBrief{ID: p.ID, Name: p.Name}
 	}
 
 	return resp

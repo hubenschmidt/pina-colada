@@ -171,11 +171,12 @@ func (s *ReportService) UpdateSavedReport(reportID int64, tenantID int64, input 
 		updates["query_definition"] = queryDefBytes
 	}
 
+	var updateErr error
 	if len(updates) > 0 {
-		err := s.reportRepo.UpdateSavedReport(reportID, updates)
-		if err != nil {
-			return nil, err
-		}
+		updateErr = s.reportRepo.UpdateSavedReport(reportID, updates)
+	}
+	if updateErr != nil {
+		return nil, updateErr
 	}
 
 	if input.ProjectIDs != nil {

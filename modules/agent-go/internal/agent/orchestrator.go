@@ -194,6 +194,128 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 	}, nil
 }
 
+// streamState holds mutable state for streaming event processing
+type streamState struct {
+	finalOutput  string
+	turnTokens   TokenUsage
+	currentAgent string
+	bufferedText string
+	useEvaluator bool
+	sendEvent    func(StreamEvent)
+}
+
+func (s *streamState) handleAgentUpdated(e agents.AgentUpdatedStreamEvent) {
+	if e.NewAgent == nil {
+		return
+	}
+	if e.NewAgent.Name == s.currentAgent {
+		return
+	}
+
+	if s.currentAgent == "" {
+		LogAgentStart(e.NewAgent.Name)
+	}
+	if s.currentAgent != "" {
+		LogHandoff(s.currentAgent, e.NewAgent.Name)
+	}
+	s.sendEvent(StreamEvent{Type: "agent_start", AgentName: e.NewAgent.Name})
+	s.currentAgent = e.NewAgent.Name
+}
+
+func (s *streamState) handleToolCalled(item agents.ToolCallItem) {
+	toolName := extractToolName(item)
+	LogToolStart(toolName)
+	s.sendEvent(StreamEvent{Type: "tool_start", ToolName: toolName})
+}
+
+func (s *streamState) handleToolOutput(item agents.ToolCallOutputItem) {
+	toolName := extractOutputToolName(item)
+	outputStr := ""
+	if str, ok := item.Output.(string); ok {
+		outputStr = truncateString(str, 100)
+	}
+	LogToolEnd(toolName, outputStr)
+	s.sendEvent(StreamEvent{Type: "tool_end", ToolName: toolName})
+}
+
+func (s *streamState) handleMessageOutput(item agents.MessageOutputItem) {
+	text := extractTextFromMessageOutput(item)
+	if text == "" {
+		return
+	}
+	s.finalOutput = text
+}
+
+func (s *streamState) handleRunItemEvent(e agents.RunItemStreamEvent) {
+	if e.Name == agents.StreamEventToolCalled {
+		item, ok := e.Item.(agents.ToolCallItem)
+		if !ok {
+			return
+		}
+		s.handleToolCalled(item)
+		return
+	}
+
+	if e.Name == agents.StreamEventToolOutput {
+		item, ok := e.Item.(agents.ToolCallOutputItem)
+		if !ok {
+			return
+		}
+		s.handleToolOutput(item)
+		return
+	}
+
+	if e.Name == agents.StreamEventMessageOutputCreated {
+		item, ok := e.Item.(agents.MessageOutputItem)
+		if !ok {
+			return
+		}
+		s.handleMessageOutput(item)
+	}
+}
+
+func (s *streamState) handleTextDelta(delta string) {
+	if s.useEvaluator {
+		s.bufferedText += delta
+		return
+	}
+	s.sendEvent(StreamEvent{Type: "text", Text: delta})
+}
+
+func (s *streamState) handleResponseCompleted(resp agents.RawResponsesStreamEvent) {
+	s.turnTokens.Input = int32(resp.Data.Response.Usage.InputTokens)
+	s.turnTokens.Output = int32(resp.Data.Response.Usage.OutputTokens)
+	s.turnTokens.Total = int32(resp.Data.Response.Usage.TotalTokens)
+	s.sendEvent(StreamEvent{
+		Type:   "tokens",
+		Tokens: &TokenUsage{Input: s.turnTokens.Input, Output: s.turnTokens.Output, Total: s.turnTokens.Total},
+	})
+}
+
+func (s *streamState) handleRawResponse(e agents.RawResponsesStreamEvent) {
+	if e.Data.Type == "response.output_text.delta" && e.Data.Delta != "" {
+		s.handleTextDelta(e.Data.Delta)
+		return
+	}
+	if e.Data.Type == "response.completed" && e.Data.Response.Usage.TotalTokens > 0 {
+		s.handleResponseCompleted(e)
+	}
+}
+
+func (s *streamState) handleStreamEvent(event agents.StreamEvent) {
+	if e, ok := event.(agents.AgentUpdatedStreamEvent); ok {
+		s.handleAgentUpdated(e)
+		return
+	}
+	if e, ok := event.(agents.RunItemStreamEvent); ok {
+		s.handleRunItemEvent(e)
+		return
+	}
+	if e, ok := event.(agents.RawResponsesStreamEvent); ok {
+		s.handleRawResponse(e)
+	}
+}
+
 // RunWithStreaming executes the agent and streams events via channel
 func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eventCh chan<- StreamEvent) {
 	startTime := time.Now()
@@ -240,74 +362,20 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 		return
 	}
 
-	var finalOutput string
-	var turnTokens TokenUsage
-	var currentAgent string
-	var bufferedText string // Buffer text when evaluator is enabled
+	ss := &streamState{
+		useEvaluator: req.UseEvaluator,
+		sendEvent:    sendEvent,
+	}
 
 	// Process events
 	for event := range eventsChan {
-		switch e := event.(type) {
-		case agents.AgentUpdatedStreamEvent:
-			if e.NewAgent != nil && e.NewAgent.Name != currentAgent {
-				if currentAgent != "" {
-					LogHandoff(currentAgent, e.NewAgent.Name)
-				} else {
-					LogAgentStart(e.NewAgent.Name)
-				}
-				sendEvent(StreamEvent{Type: "agent_start", AgentName: e.NewAgent.Name})
-				currentAgent = e.NewAgent.Name
-			}
-
-		case agents.RunItemStreamEvent:
-			switch e.Name {
-			case agents.StreamEventToolCalled:
-				if item, ok := e.Item.(agents.ToolCallItem); ok {
-					toolName := extractToolName(item)
-					LogToolStart(toolName)
-					sendEvent(StreamEvent{Type: "tool_start", ToolName: toolName})
-				}
-			case agents.StreamEventToolOutput:
-				if item, ok := e.Item.(agents.ToolCallOutputItem); ok {
-					toolName := extractOutputToolName(item)
-					outputStr := ""
-					if s, ok := item.Output.(string); ok {
-						outputStr = truncateString(s, 100)
-					}
-					LogToolEnd(toolName, outputStr)
-					sendEvent(StreamEvent{Type: "tool_end", ToolName: toolName})
-				}
-			case agents.StreamEventMessageOutputCreated:
-				// Capture final output (don't stream - we use deltas for streaming)
-				if item, ok := e.Item.(agents.MessageOutputItem); ok {
-					text := extractTextFromMessageOutput(item)
-					if text != "" {
-						finalOutput = text
-					}
-				}
-			}
-
-		case agents.RawResponsesStreamEvent:
-			// Handle text deltas - buffer if evaluator enabled, stream otherwise
-			if e.Data.Type == "response.output_text.delta" && e.Data.Delta != "" {
-				if req.UseEvaluator {
-					bufferedText += e.Data.Delta
-				} else {
-					sendEvent(StreamEvent{Type: "text", Text: e.Data.Delta})
-				}
-			}
-			// Extract token usage from completed response
-			if e.Data.Type == "response.completed" && e.Data.Response.Usage.TotalTokens > 0 {
-				turnTokens.Input = int32(e.Data.Response.Usage.InputTokens)
-				turnTokens.Output = int32(e.Data.Response.Usage.OutputTokens)
-				turnTokens.Total = int32(e.Data.Response.Usage.TotalTokens)
-				sendEvent(StreamEvent{
-					Type:   "tokens",
-					Tokens: &TokenUsage{Input: turnTokens.Input, Output: turnTokens.Output, Total: turnTokens.Total},
-				})
-			}
-		}
+		ss.handleStreamEvent(event)
 	}
+
+	finalOutput := ss.finalOutput
+	turnTokens := ss.turnTokens
+	currentAgent := ss.currentAgent
+	bufferedText := ss.bufferedText
 
 	// Check for streaming error
 	if streamErr := <-errChan; streamErr != nil {

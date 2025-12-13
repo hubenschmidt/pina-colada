@@ -252,11 +252,9 @@ func (s *TaskService) buildEntityURL(taskableType string, taskableID int64) (*st
 		if leadType == nil {
 			return nil, nil
 		}
-		var leadTypePlural string
+		leadTypePlural := strings.ToLower(*leadType) + "s"
 		if *leadType == "Opportunity" {
 			leadTypePlural = "opportunities"
-		} else {
-			leadTypePlural = strings.ToLower(*leadType) + "s"
 		}
 		url := fmt.Sprintf("/leads/%s/%d", leadTypePlural, taskableID)
 		return &url, leadType

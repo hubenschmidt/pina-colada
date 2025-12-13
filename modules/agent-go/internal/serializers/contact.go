@@ -37,7 +37,8 @@ func ContactToResponse(contact *models.Contact) ContactResponse {
 		accountType := "unknown"
 		if len(acc.Organizations) > 0 {
 			accountType = "organization"
-		} else if len(acc.Individuals) > 0 {
+		}
+		if accountType == "unknown" && len(acc.Individuals) > 0 {
 			accountType = "individual"
 		}
 		accounts = append(accounts, ContactAccountBrief{

@@ -98,32 +98,29 @@ type URLValidationResult struct {
 // ValidateURLs validates a list of URLs for both structure and reachability
 func ValidateURLs(ctx context.Context, urls []string) []URLValidationResult {
 	results := make([]URLValidationResult, len(urls))
-
 	for i, rawURL := range urls {
-		result := URLValidationResult{URL: rawURL}
+		results[i] = validateSingleURL(ctx, rawURL)
+	}
+	return results
+}
 
-		// Check structure
-		if err := ValidateURLStructure(rawURL); err != nil {
-			result.StructureValid = false
-			result.StructureError = err.Error()
-		} else {
-			result.StructureValid = true
-		}
+func validateSingleURL(ctx context.Context, rawURL string) URLValidationResult {
+	result := URLValidationResult{URL: rawURL}
 
-		// Only check reachability if structure is valid
-		if result.StructureValid {
-			if err := ValidateURLReachable(ctx, rawURL); err != nil {
-				result.Reachable = false
-				result.ReachableError = err.Error()
-			} else {
-				result.Reachable = true
-			}
-		}
-
-		results[i] = result
+	result.StructureValid = true
+	if err := ValidateURLStructure(rawURL); err != nil {
+		result.StructureValid = false
+		result.StructureError = err.Error()
+		return result
 	}
 
-	return results
+	result.Reachable = true
+	if err := ValidateURLReachable(ctx, rawURL); err != nil {
+		result.Reachable = false
+		result.ReachableError = err.Error()
+	}
+
+	return result
 }
 
 // CalculateValidityRate calculates the percentage of valid (reachable) URLs

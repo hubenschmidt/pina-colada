@@ -571,30 +571,37 @@ func (r *DocumentRepository) batchFetchEntityNames(links []struct {
 	}
 
 	for entityType, ids := range idsByType {
-		if len(ids) == 0 {
-			continue
-		}
+		r.fetchEntityNames(entityType, ids, tableSelectMap, entityLookups)
+	}
+}
 
-		if entityType == "Lead" {
-			r.fetchLeadNames(ids, entityLookups)
-			continue
-		}
+func (r *DocumentRepository) fetchEntityNames(entityType string, ids []int64, tableSelectMap map[string]struct {
+	table  string
+	column string
+}, entityLookups map[string]string) {
+	if len(ids) == 0 {
+		return
+	}
 
-		cfg, ok := tableSelectMap[entityType]
-		if !ok {
-			continue
-		}
+	if entityType == "Lead" {
+		r.fetchLeadNames(ids, entityLookups)
+		return
+	}
 
-		var rows []struct {
-			ID   int64  `gorm:"column:id"`
-			Name string `gorm:"column:name"`
-		}
-		r.db.Table(cfg.table).Select(cfg.column).Where("id IN ?", ids).Scan(&rows)
+	cfg, ok := tableSelectMap[entityType]
+	if !ok {
+		return
+	}
 
-		for _, row := range rows {
-			key := fmt.Sprintf("%s:%d", entityType, row.ID)
-			entityLookups[key] = row.Name
-		}
+	var rows []struct {
+		ID   int64  `gorm:"column:id"`
+		Name string `gorm:"column:name"`
+	}
+	r.db.Table(cfg.table).Select(cfg.column).Where("id IN ?", ids).Scan(&rows)
+
+	for _, row := range rows {
+		key := fmt.Sprintf("%s:%d", entityType, row.ID)
+		entityLookups[key] = row.Name
 	}
 }
 

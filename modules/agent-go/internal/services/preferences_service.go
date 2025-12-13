@@ -63,11 +63,12 @@ func (s *PreferencesService) UpdateUserPreferences(userID int64, theme, timezone
 		updates["timezone"] = *timezone
 	}
 
+	var updateErr error
 	if len(updates) > 0 {
-		err := s.prefsRepo.UpdateUserPreferences(userID, updates)
-		if err != nil {
-			return nil, err
-		}
+		updateErr = s.prefsRepo.UpdateUserPreferences(userID, updates)
+	}
+	if updateErr != nil {
+		return nil, updateErr
 	}
 
 	return s.GetUserPreferences(userID)
@@ -78,11 +79,13 @@ func (s *PreferencesService) resolveTheme(userTheme *string, tenantID *int64) st
 		return *userTheme
 	}
 
-	if tenantID != nil {
-		tenantPrefs, _ := s.prefsRepo.GetTenantPreferences(*tenantID)
-		if tenantPrefs != nil && tenantPrefs.Theme != "" {
-			return tenantPrefs.Theme
-		}
+	if tenantID == nil {
+		return "light"
+	}
+
+	tenantPrefs, _ := s.prefsRepo.GetTenantPreferences(*tenantID)
+	if tenantPrefs != nil && tenantPrefs.Theme != "" {
+		return tenantPrefs.Theme
 	}
 
 	return "light"
