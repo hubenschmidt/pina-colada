@@ -248,34 +248,50 @@ func (s *TaskService) buildEntityURL(taskableType string, taskableID int64) (*st
 	}
 
 	if taskableType == "Lead" {
-		leadType := s.taskRepo.GetLeadType(taskableID)
-		if leadType == nil {
-			return nil, nil
-		}
-		leadTypePlural := strings.ToLower(*leadType) + "s"
-		if *leadType == "Opportunity" {
-			leadTypePlural = "opportunities"
-		}
-		url := fmt.Sprintf("/leads/%s/%d", leadTypePlural, taskableID)
-		return &url, leadType
+		return s.buildLeadURL(taskableID)
 	}
 
 	if taskableType == "Account" {
-		entityType, entityID := s.taskRepo.GetAccountEntity(taskableID)
-		if entityType == nil || entityID == nil {
-			return nil, nil
-		}
-		pathMap := map[string]string{
-			"Individual":   "individuals",
-			"Organization": "organizations",
-		}
-		path, ok := pathMap[*entityType]
-		if !ok {
-			return nil, nil
-		}
-		url := fmt.Sprintf("/accounts/%s/%d", path, *entityID)
-		return &url, nil
+		return s.buildAccountURL(taskableID)
 	}
 
 	return nil, nil
+}
+
+func (s *TaskService) buildLeadURL(taskableID int64) (*string, *string) {
+	leadType := s.taskRepo.GetLeadType(taskableID)
+	if leadType == nil {
+		return nil, nil
+	}
+
+	leadTypePlural := pluralizeLeadType(*leadType)
+	url := fmt.Sprintf("/leads/%s/%d", leadTypePlural, taskableID)
+	return &url, leadType
+}
+
+func pluralizeLeadType(leadType string) string {
+	if leadType == "Opportunity" {
+		return "opportunities"
+	}
+	return strings.ToLower(leadType) + "s"
+}
+
+func (s *TaskService) buildAccountURL(taskableID int64) (*string, *string) {
+	entityType, entityID := s.taskRepo.GetAccountEntity(taskableID)
+	if entityType == nil || entityID == nil {
+		return nil, nil
+	}
+
+	pathMap := map[string]string{
+		"Individual":   "individuals",
+		"Organization": "organizations",
+	}
+
+	path, ok := pathMap[*entityType]
+	if !ok {
+		return nil, nil
+	}
+
+	url := fmt.Sprintf("/accounts/%s/%d", path, *entityID)
+	return &url, nil
 }

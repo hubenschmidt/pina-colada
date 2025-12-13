@@ -6,6 +6,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/pina-colada-co/agent-go/internal/lib"
+	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
@@ -102,24 +103,30 @@ func (s *OrganizationService) UpdateOrganization(id int64, input schemas.Organiz
 		return nil, ErrOrganizationNotFound
 	}
 
-	updates := buildOrgUpdates(input)
-	var updateErr error
-	if len(updates) > 0 {
-		updateErr = s.orgRepo.Update(org, updates)
-	}
-	if updateErr != nil {
-		return nil, updateErr
+	if err := s.applyOrgUpdates(org, input); err != nil {
+		return nil, err
 	}
 
-	// Handle industry updates if provided
-	if input.IndustryIDs != nil && org.AccountID != nil {
-		err := s.orgRepo.UpdateAccountIndustries(*org.AccountID, input.IndustryIDs)
-		if err != nil {
-			return nil, err
-		}
+	if err := s.updateOrgIndustries(org.AccountID, input.IndustryIDs); err != nil {
+		return nil, err
 	}
 
 	return s.GetOrganization(id)
+}
+
+func (s *OrganizationService) applyOrgUpdates(org *models.Organization, input schemas.OrganizationUpdate) error {
+	updates := buildOrgUpdates(input)
+	if len(updates) == 0 {
+		return nil
+	}
+	return s.orgRepo.Update(org, updates)
+}
+
+func (s *OrganizationService) updateOrgIndustries(accountID *int64, industryIDs []int64) error {
+	if industryIDs == nil || accountID == nil {
+		return nil
+	}
+	return s.orgRepo.UpdateAccountIndustries(*accountID, industryIDs)
 }
 
 func buildOrgUpdates(input schemas.OrganizationUpdate) map[string]interface{} {

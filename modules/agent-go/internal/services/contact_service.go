@@ -92,25 +92,38 @@ func (s *ContactService) UpdateContact(id int64, input schemas.ContactUpdate, us
 		return nil, ErrContactNotFound
 	}
 
-	updates := buildContactUpdates(input, userID)
-	if len(updates) > 1 { // more than just updated_by
-		if err := s.contactRepo.Update(id, updates); err != nil {
-			return nil, err
-		}
+	if err := s.applyContactUpdates(id, input, userID); err != nil {
+		return nil, err
 	}
 
-	// Update account links if provided
-	if input.AccountIDs != nil {
-		isPrimary := contact.IsPrimary
-		if input.IsPrimary != nil {
-			isPrimary = *input.IsPrimary
-		}
-		if err := s.contactRepo.LinkToAccounts(id, input.AccountIDs, isPrimary); err != nil {
-			return nil, err
-		}
+	if err := s.updateAccountLinks(id, input, contact.IsPrimary); err != nil {
+		return nil, err
 	}
 
 	return s.GetContact(id)
+}
+
+func (s *ContactService) applyContactUpdates(id int64, input schemas.ContactUpdate, userID int64) error {
+	updates := buildContactUpdates(input, userID)
+	if len(updates) <= 1 {
+		return nil
+	}
+	return s.contactRepo.Update(id, updates)
+}
+
+func (s *ContactService) updateAccountLinks(id int64, input schemas.ContactUpdate, currentIsPrimary bool) error {
+	if input.AccountIDs == nil {
+		return nil
+	}
+	isPrimary := resolvePrimaryFlag(input.IsPrimary, currentIsPrimary)
+	return s.contactRepo.LinkToAccounts(id, input.AccountIDs, isPrimary)
+}
+
+func resolvePrimaryFlag(inputFlag *bool, current bool) bool {
+	if inputFlag != nil {
+		return *inputFlag
+	}
+	return current
 }
 
 // DeleteContact deletes a contact

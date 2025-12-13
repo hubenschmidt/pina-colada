@@ -393,24 +393,14 @@ func (s *IndividualService) GetSignals(individualID int64, signalType *string, l
 // CreateSignal creates a signal for an individual
 func (s *IndividualService) CreateSignal(individualID int64, input schemas.SignalCreate) (*serializers.SignalResponse, error) {
 	repoInput := repositories.SignalCreateInput{
-		SignalType:  input.SignalType,
-		Headline:    input.Headline,
-		Description: input.Description,
-		Source:      input.Source,
-		SourceURL:   input.SourceURL,
-		Sentiment:   input.Sentiment,
-	}
-
-	if input.SignalDate != nil {
-		t, err := time.Parse("2006-01-02", *input.SignalDate)
-		if err == nil {
-			repoInput.SignalDate = &t
-		}
-	}
-
-	if input.RelevanceScore != nil {
-		d := decimal.NewFromFloat(*input.RelevanceScore)
-		repoInput.RelevanceScore = &d
+		SignalType:     input.SignalType,
+		Headline:       input.Headline,
+		Description:    input.Description,
+		Source:         input.Source,
+		SourceURL:      input.SourceURL,
+		Sentiment:      input.Sentiment,
+		SignalDate:     parseSignalDate(input.SignalDate),
+		RelevanceScore: parseRelevanceScore(input.RelevanceScore),
 	}
 
 	signal, err := s.indRepo.CreateSignalForIndividual(individualID, repoInput)
@@ -425,4 +415,23 @@ func (s *IndividualService) CreateSignal(individualID int64, input schemas.Signa
 // DeleteSignal deletes a signal from an individual
 func (s *IndividualService) DeleteSignal(individualID, signalID int64) error {
 	return s.indRepo.DeleteSignal(individualID, signalID)
+}
+
+func parseSignalDate(dateStr *string) *time.Time {
+	if dateStr == nil {
+		return nil
+	}
+	t, err := time.Parse("2006-01-02", *dateStr)
+	if err != nil {
+		return nil
+	}
+	return &t
+}
+
+func parseRelevanceScore(score *float64) *decimal.Decimal {
+	if score == nil {
+		return nil
+	}
+	d := decimal.NewFromFloat(*score)
+	return &d
 }

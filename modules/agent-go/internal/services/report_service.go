@@ -151,27 +151,13 @@ func (s *ReportService) UpdateSavedReport(reportID int64, tenantID int64, input 
 		return nil, err
 	}
 
-	updates := make(map[string]interface{})
-	if input.Name != nil {
-		updates["name"] = *input.Name
-	}
-	if input.Description != nil {
-		updates["description"] = *input.Description
-	}
-	if input.QueryDefinition != nil {
-		queryDefBytes, err := json.Marshal(input.QueryDefinition)
-		if err != nil {
-			return nil, err
-		}
-		updates["query_definition"] = queryDefBytes
+	updates, err := buildReportUpdates(input)
+	if err != nil {
+		return nil, err
 	}
 
-	var updateErr error
-	if len(updates) > 0 {
-		updateErr = s.reportRepo.UpdateSavedReport(reportID, updates)
-	}
-	if updateErr != nil {
-		return nil, updateErr
+	if err := s.applyReportUpdates(reportID, updates); err != nil {
+		return nil, err
 	}
 
 	if input.ProjectIDs != nil {
@@ -179,6 +165,35 @@ func (s *ReportService) UpdateSavedReport(reportID int64, tenantID int64, input 
 	}
 
 	return s.GetSavedReport(reportID, tenantID)
+}
+
+func buildReportUpdates(input schemas.SavedReportUpdate) (map[string]interface{}, error) {
+	updates := make(map[string]interface{})
+
+	if input.Name != nil {
+		updates["name"] = *input.Name
+	}
+	if input.Description != nil {
+		updates["description"] = *input.Description
+	}
+
+	if input.QueryDefinition == nil {
+		return updates, nil
+	}
+
+	queryDefBytes, err := json.Marshal(input.QueryDefinition)
+	if err != nil {
+		return nil, err
+	}
+	updates["query_definition"] = queryDefBytes
+	return updates, nil
+}
+
+func (s *ReportService) applyReportUpdates(reportID int64, updates map[string]interface{}) error {
+	if len(updates) == 0 {
+		return nil
+	}
+	return s.reportRepo.UpdateSavedReport(reportID, updates)
 }
 
 // DeleteSavedReport deletes a saved report

@@ -37,23 +37,36 @@ func CommentToResponse(comment *models.Comment) CommentResponse {
 		UpdatedAt:       comment.UpdatedAt,
 	}
 
-	if comment.Creator != nil {
-		var nameParts []string
-		if comment.Creator.FirstName != nil && *comment.Creator.FirstName != "" {
-			nameParts = append(nameParts, *comment.Creator.FirstName)
-		}
-		if comment.Creator.LastName != nil && *comment.Creator.LastName != "" {
-			nameParts = append(nameParts, *comment.Creator.LastName)
-		}
-		if len(nameParts) > 0 {
-			name := strings.Join(nameParts, " ")
-			resp.CreatedByName = &name
-		}
-		resp.CreatedByEmail = &comment.Creator.Email
-		resp.IndividualID = comment.Creator.IndividualID
-	}
+	resp.CreatedByName, resp.CreatedByEmail, resp.IndividualID = extractCreatorInfo(comment.Creator)
 
 	return resp
+}
+
+func extractCreatorInfo(creator *models.User) (*string, *string, *int64) {
+	if creator == nil {
+		return nil, nil, nil
+	}
+
+	name := buildUserFullName(creator.FirstName, creator.LastName)
+	return name, &creator.Email, creator.IndividualID
+}
+
+func buildUserFullName(firstName, lastName *string) *string {
+	var parts []string
+
+	if firstName != nil && *firstName != "" {
+		parts = append(parts, *firstName)
+	}
+	if lastName != nil && *lastName != "" {
+		parts = append(parts, *lastName)
+	}
+
+	if len(parts) == 0 {
+		return nil
+	}
+
+	name := strings.Join(parts, " ")
+	return &name
 }
 
 // CommentsToResponse converts a slice of Comment models to responses
