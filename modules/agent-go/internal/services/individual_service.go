@@ -4,11 +4,21 @@ import (
 	"errors"
 	"time"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
-	"github.com/shopspring/decimal"
 )
+
+// ErrIndividualNotFound is returned when an individual is not found
+var ErrIndividualNotFound = errors.New("individual not found")
+
+// ErrIndividualNoAccount is returned when an individual has no account
+var ErrIndividualNoAccount = errors.New("individual has no account")
+
+// ErrIndividualContactNotFound is returned when a contact is not found
+var ErrIndividualContactNotFound = errors.New("contact not found")
 
 // IndividualService handles individual business logic
 type IndividualService struct {
@@ -46,7 +56,7 @@ func (s *IndividualService) GetIndividual(id int64) (*serializers.IndividualDeta
 		return nil, err
 	}
 	if ind == nil {
-		return nil, errors.New("individual not found")
+		return nil, ErrIndividualNotFound
 	}
 
 	resp := serializers.IndividualToDetailResponse(ind)
@@ -84,7 +94,7 @@ func (s *IndividualService) DeleteIndividual(id int64) error {
 		return err
 	}
 	if ind == nil {
-		return errors.New("individual not found")
+		return ErrIndividualNotFound
 	}
 
 	return s.indRepo.Delete(id)
@@ -115,12 +125,13 @@ func (s *IndividualService) UpdateIndividual(id int64, input IndividualUpdateInp
 		return nil, err
 	}
 	if ind == nil {
-		return nil, errors.New("individual not found")
+		return nil, ErrIndividualNotFound
 	}
 
 	updates := buildIndividualUpdates(input, userID)
 	if len(updates) > 0 {
-		if err := s.indRepo.Update(ind, updates); err != nil {
+		err = s.indRepo.Update(ind, updates)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -155,10 +166,10 @@ func (s *IndividualService) AddContactToIndividual(individualID int64, input Con
 		return nil, err
 	}
 	if ind == nil {
-		return nil, errors.New("individual not found")
+		return nil, ErrIndividualNotFound
 	}
 	if ind.AccountID == nil {
-		return nil, errors.New("individual has no account")
+		return nil, ErrIndividualNoAccount
 	}
 
 	repoInput := repositories.IndContactInput{
@@ -273,7 +284,7 @@ func (s *IndividualService) GetContacts(individualID int64) ([]serializers.Conta
 		return nil, err
 	}
 	if contacts == nil {
-		return nil, errors.New("individual not found")
+		return nil, ErrIndividualNotFound
 	}
 
 	result := make([]serializers.ContactBrief, len(contacts))
@@ -297,12 +308,13 @@ func (s *IndividualService) UpdateContact(individualID, contactID int64, input s
 		return nil, err
 	}
 	if ind == nil {
-		return nil, errors.New("individual not found")
+		return nil, ErrIndividualNotFound
 	}
 
 	updates := buildIndContactUpdates(input, userID)
 	if len(updates) > 0 {
-		if err := s.indRepo.UpdateContact(contactID, updates); err != nil {
+		err := s.indRepo.UpdateContact(contactID, updates)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -312,7 +324,7 @@ func (s *IndividualService) UpdateContact(individualID, contactID int64, input s
 		return nil, err
 	}
 	if contact == nil {
-		return nil, errors.New("contact not found")
+		return nil, ErrIndividualContactNotFound
 	}
 
 	return &serializers.ContactBrief{
@@ -353,7 +365,7 @@ func (s *IndividualService) DeleteContact(individualID, contactID int64) error {
 		return err
 	}
 	if ind == nil {
-		return errors.New("individual not found")
+		return ErrIndividualNotFound
 	}
 
 	return s.indRepo.DeleteContactFromAccount(individualID, contactID)
@@ -370,7 +382,7 @@ func (s *IndividualService) GetSignals(individualID int64, signalType *string, l
 		return nil, err
 	}
 	if signals == nil {
-		return nil, errors.New("individual not found")
+		return nil, ErrIndividualNotFound
 	}
 
 	return serializers.SignalsToResponse(signals), nil

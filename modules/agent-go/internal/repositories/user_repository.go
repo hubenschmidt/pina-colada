@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"errors"
+
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -19,10 +21,10 @@ func NewUserRepository(db *gorm.DB) *UserRepository {
 func (r *UserRepository) FindByAuth0Sub(auth0Sub string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("auth0_sub = ?", auth0Sub).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &user, nil
@@ -32,10 +34,10 @@ func (r *UserRepository) FindByAuth0Sub(auth0Sub string) (*models.User, error) {
 func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("email = ?", email).First(&user).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &user, nil
@@ -47,10 +49,10 @@ func (r *UserRepository) FindByID(id int64) (*models.User, error) {
 	err := r.db.
 		Preload("Preferences").
 		First(&user, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &user, nil
@@ -127,10 +129,6 @@ type TenantWithRole struct {
 	TenantName string `json:"tenant_name"`
 	TenantSlug string `json:"tenant_slug"`
 	RoleName   string `json:"role_name"`
-}
-
-func stringPtr(s string) *string {
-	return &s
 }
 
 // SetSelectedProject updates user's selected project

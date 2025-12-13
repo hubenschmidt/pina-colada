@@ -2,10 +2,12 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/pina-colada-co/agent-go/internal/middleware"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
@@ -53,11 +55,11 @@ func (c *ProjectController) GetProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	result, err := c.projectService.GetProject(id, tenantID)
+	if errors.Is(err, services.ErrProjectNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "project not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -110,11 +112,11 @@ func (c *ProjectController) UpdateProject(w http.ResponseWriter, r *http.Request
 	userID, _ := middleware.GetUserID(r.Context())
 
 	result, err := c.projectService.UpdateProject(id, input, tenantID, userID)
+	if errors.Is(err, services.ErrProjectNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "project not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -136,11 +138,12 @@ func (c *ProjectController) DeleteProject(w http.ResponseWriter, r *http.Request
 		tenantID = &tid
 	}
 
-	if err := c.projectService.DeleteProject(id, tenantID); err != nil {
-		if err.Error() == "project not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
+	err = c.projectService.DeleteProject(id, tenantID)
+	if errors.Is(err, services.ErrProjectNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

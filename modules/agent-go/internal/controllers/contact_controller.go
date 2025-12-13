@@ -102,11 +102,12 @@ func (c *ContactController) DeleteContact(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := c.contactService.DeleteContact(id); err != nil {
-		if errors.Is(err, services.ErrContactNotFound) {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
+	err = c.contactService.DeleteContact(id)
+	if errors.Is(err, services.ErrContactNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

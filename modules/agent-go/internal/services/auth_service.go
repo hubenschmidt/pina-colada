@@ -138,7 +138,6 @@ type UserTenantResponse struct {
 	Tenants  []TenantInfo `json:"tenants"`
 }
 
-var ErrProjectNotFound = errors.New("project not found")
 var ErrProjectNotInTenant = errors.New("project does not belong to tenant")
 
 // SetSelectedProject sets the user's selected project

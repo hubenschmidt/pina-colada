@@ -1,10 +1,12 @@
 package repositories
 
 import (
-	"time"
+	"errors"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/shopspring/decimal"
+
+	"github.com/pina-colada-co/agent-go/internal/lib"
+	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -73,10 +75,10 @@ func (r *OrganizationRepository) FindByID(id int64) (*models.Organization, error
 		Preload("FundingRounds").
 		First(&org, id).Error
 
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &org, nil
@@ -314,11 +316,7 @@ func (r *OrganizationRepository) CreateFundingRoundFromInput(input *FundingRound
 		LeadInvestor:   input.LeadInvestor,
 		SourceURL:      input.SourceURL,
 	}
-	if input.AnnouncedDate != nil {
-		if t, err := parseDate(*input.AnnouncedDate); err == nil {
-			round.AnnouncedDate = &t
-		}
-	}
+	round.AnnouncedDate = lib.ParseDateString(input.AnnouncedDate)
 	if err := r.db.Create(round).Error; err != nil {
 		return nil, err
 	}
@@ -405,8 +403,4 @@ func (r *OrganizationRepository) CreateOrganization(input OrganizationCreateInpu
 		return nil, err
 	}
 	return org, nil
-}
-
-func parseDate(s string) (time.Time, error) {
-	return time.Parse("2006-01-02", s)
 }

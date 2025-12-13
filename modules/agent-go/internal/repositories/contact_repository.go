@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"errors"
+
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -113,10 +115,10 @@ func (r *ContactRepository) FindAll(params PaginationParams, tenantID *int64) (*
 func (r *ContactRepository) FindByID(id int64) (*models.Contact, error) {
 	var contact models.Contact
 	err := r.db.First(&contact, id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 

@@ -2,10 +2,13 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/pina-colada-co/agent-go/internal/lib"
 	"github.com/pina-colada-co/agent-go/internal/middleware"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
@@ -54,11 +57,11 @@ func (c *IndividualController) GetIndividual(w http.ResponseWriter, r *http.Requ
 	}
 
 	result, err := c.indService.GetIndividual(id)
+	if errors.Is(err, services.ErrIndividualNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "individual not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -79,12 +82,7 @@ func (c *IndividualController) SearchIndividuals(w http.ResponseWriter, r *http.
 		tenantID = &tid
 	}
 
-	limit := 10
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
-	}
+	limit := lib.ParseIntQueryParam(r, "limit", 10)
 
 	results, err := c.indService.SearchIndividuals(query, tenantID, limit)
 	if err != nil {
@@ -113,11 +111,11 @@ func (c *IndividualController) AddContact(w http.ResponseWriter, r *http.Request
 	userID, _ := middleware.GetUserID(r.Context())
 
 	result, err := c.indService.AddContactToIndividual(id, input, userID)
+	if errors.Is(err, services.ErrIndividualNotFound) || errors.Is(err, services.ErrIndividualNoAccount) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "individual not found" || err.Error() == "individual has no account" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -143,11 +141,11 @@ func (c *IndividualController) UpdateIndividual(w http.ResponseWriter, r *http.R
 	userID, _ := middleware.GetUserID(r.Context())
 
 	result, err := c.indService.UpdateIndividual(id, input, userID)
+	if errors.Is(err, services.ErrIndividualNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "individual not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -164,11 +162,12 @@ func (c *IndividualController) DeleteIndividual(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if err := c.indService.DeleteIndividual(id); err != nil {
-		if err.Error() == "individual not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
+	err = c.indService.DeleteIndividual(id)
+	if errors.Is(err, services.ErrIndividualNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -209,11 +208,11 @@ func (c *IndividualController) GetContacts(w http.ResponseWriter, r *http.Reques
 	}
 
 	contacts, err := c.indService.GetContacts(id)
+	if errors.Is(err, services.ErrIndividualNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "individual not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -246,11 +245,11 @@ func (c *IndividualController) UpdateContact(w http.ResponseWriter, r *http.Requ
 	userID, _ := middleware.GetUserID(r.Context())
 
 	result, err := c.indService.UpdateContact(id, contactID, input, userID)
+	if errors.Is(err, services.ErrIndividualNotFound) || errors.Is(err, services.ErrIndividualContactNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "individual not found" || err.Error() == "contact not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -274,11 +273,12 @@ func (c *IndividualController) DeleteContact(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if err := c.indService.DeleteContact(id, contactID); err != nil {
-		if err.Error() == "individual not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
+	err = c.indService.DeleteContact(id, contactID)
+	if errors.Is(err, services.ErrIndividualNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -300,19 +300,14 @@ func (c *IndividualController) GetSignals(w http.ResponseWriter, r *http.Request
 		signalType = &st
 	}
 
-	limit := 20
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
-	}
+	limit := lib.ParseIntQueryParam(r, "limit", 20)
 
 	signals, err := c.indService.GetSignals(id, signalType, limit)
+	if errors.Is(err, services.ErrIndividualNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "individual not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

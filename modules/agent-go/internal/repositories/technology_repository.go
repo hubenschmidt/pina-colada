@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"errors"
+
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -32,7 +34,7 @@ func (r *TechnologyRepository) FindAll(category *string) ([]models.Technology, e
 func (r *TechnologyRepository) FindByID(id int64) (*models.Technology, error) {
 	var tech models.Technology
 	err := r.db.First(&tech, id).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if err != nil {

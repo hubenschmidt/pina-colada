@@ -2,10 +2,12 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/pina-colada-co/agent-go/internal/middleware"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
@@ -335,11 +337,11 @@ func (c *DocumentController) DownloadDocument(w http.ResponseWriter, r *http.Req
 	}
 
 	result, err := c.docService.DownloadDocument(id, tenantID)
+	if errors.Is(err, services.ErrDocumentNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "document not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -379,11 +381,11 @@ func (c *DocumentController) UpdateDocument(w http.ResponseWriter, r *http.Reque
 	userID, _ := middleware.GetUserID(r.Context())
 
 	doc, err := c.docService.UpdateDocument(id, tenantID, userID, input)
+	if errors.Is(err, services.ErrDocumentNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "document not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -405,11 +407,12 @@ func (c *DocumentController) DeleteDocument(w http.ResponseWriter, r *http.Reque
 		tenantID = tid
 	}
 
-	if err := c.docService.DeleteDocument(id, tenantID); err != nil {
-		if err.Error() == "document not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
+	err = c.docService.DeleteDocument(id, tenantID)
+	if errors.Is(err, services.ErrDocumentNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

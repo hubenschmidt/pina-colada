@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"errors"
+
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -26,10 +28,13 @@ func (r *NoteRepository) FindByEntity(entityType string, entityID int64, tenantI
 func (r *NoteRepository) FindByID(id int64) (*models.Note, error) {
 	var note models.Note
 	err := r.db.First(&note, id).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
-	return &note, err
+	if err != nil {
+		return nil, err
+	}
+	return &note, nil
 }
 
 type NoteCreateInput struct {

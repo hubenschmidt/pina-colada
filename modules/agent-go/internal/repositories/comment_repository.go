@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"errors"
+
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -26,10 +28,13 @@ func (r *CommentRepository) FindByEntity(commentableType string, commentableID i
 func (r *CommentRepository) FindByID(id int64) (*models.Comment, error) {
 	var comment models.Comment
 	err := r.db.Preload("Creator").First(&comment, id).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
-	return &comment, err
+	if err != nil {
+		return nil, err
+	}
+	return &comment, nil
 }
 
 type CommentCreateInput struct {

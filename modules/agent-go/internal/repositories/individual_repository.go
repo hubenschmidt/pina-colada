@@ -1,10 +1,12 @@
 package repositories
 
 import (
+	"errors"
 	"time"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/shopspring/decimal"
+
+	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -71,11 +73,10 @@ func (r *IndividualRepository) FindByID(id int64) (*models.Individual, error) {
 		Preload("Account.IncomingRelationships.FromAccount.Organizations").
 		Preload("Account.IncomingRelationships.FromAccount.Individuals").
 		First(&ind, id).Error
-
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &ind, nil
@@ -307,10 +308,11 @@ func (r *IndividualRepository) CreateIndividual(input IndividualCreateInput) (*m
 // GetContactsForIndividual returns contacts for an individual via their account
 func (r *IndividualRepository) GetContactsForIndividual(individualID int64) ([]models.Contact, error) {
 	var ind models.Individual
-	if err := r.db.First(&ind, individualID).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
+	err := r.db.First(&ind, individualID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
 		return nil, err
 	}
 
@@ -319,7 +321,7 @@ func (r *IndividualRepository) GetContactsForIndividual(individualID int64) ([]m
 	}
 
 	var contacts []models.Contact
-	err := r.db.
+	err = r.db.
 		Joins(`INNER JOIN "ContactAccount" ON "ContactAccount".contact_id = "Contact".id`).
 		Where(`"ContactAccount".account_id = ?`, *ind.AccountID).
 		Find(&contacts).Error
@@ -373,10 +375,11 @@ type SignalCreateInput struct {
 // GetSignalsForIndividual returns signals for an individual via their account
 func (r *IndividualRepository) GetSignalsForIndividual(individualID int64, signalType *string, limit int) ([]models.Signal, error) {
 	var ind models.Individual
-	if err := r.db.First(&ind, individualID).Error; err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
+	err := r.db.First(&ind, individualID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
 		return nil, err
 	}
 
@@ -390,7 +393,7 @@ func (r *IndividualRepository) GetSignalsForIndividual(individualID int64, signa
 	}
 
 	var signals []models.Signal
-	err := query.Order("created_at DESC").Limit(limit).Find(&signals).Error
+	err = query.Order("created_at DESC").Limit(limit).Find(&signals).Error
 	return signals, err
 }
 
@@ -443,10 +446,10 @@ func (r *IndividualRepository) DeleteSignal(individualID, signalID int64) error 
 func (r *IndividualRepository) GetContactByID(contactID int64) (*models.Contact, error) {
 	var contact models.Contact
 	err := r.db.First(&contact, contactID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &contact, nil

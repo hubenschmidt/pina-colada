@@ -1,6 +1,9 @@
 package repositories
 
 import (
+	"errors"
+
+	"github.com/pina-colada-co/agent-go/internal/lib"
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -8,6 +11,19 @@ import (
 // ProjectRepository handles project data access
 type ProjectRepository struct {
 	db *gorm.DB
+}
+
+// ProjectCreateInput represents input for creating a project
+type ProjectCreateInput struct {
+	TenantID        *int64
+	Name            string
+	Description     *string
+	Status          *string
+	CurrentStatusID *int64
+	StartDate       *string
+	EndDate         *string
+	CreatedBy       int64
+	UpdatedBy       int64
 }
 
 // NewProjectRepository creates a new project repository
@@ -33,19 +49,34 @@ func (r *ProjectRepository) FindAll(tenantID *int64) ([]models.Project, error) {
 func (r *ProjectRepository) FindByID(id int64) (*models.Project, error) {
 	var project models.Project
 	err := r.db.First(&project, id).Error
-
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &project, nil
 }
 
 // Create creates a new project
-func (r *ProjectRepository) Create(project *models.Project) error {
-	return r.db.Create(project).Error
+func (r *ProjectRepository) Create(input ProjectCreateInput) (*models.Project, error) {
+	project := &models.Project{
+		TenantID:        input.TenantID,
+		Name:            input.Name,
+		Description:     input.Description,
+		Status:          input.Status,
+		CurrentStatusID: input.CurrentStatusID,
+		CreatedBy:       input.CreatedBy,
+		UpdatedBy:       input.UpdatedBy,
+	}
+
+	project.StartDate = lib.ParseDateString(input.StartDate)
+	project.EndDate = lib.ParseDateString(input.EndDate)
+
+	if err := r.db.Create(project).Error; err != nil {
+		return nil, err
+	}
+	return project, nil
 }
 
 // Update updates a project

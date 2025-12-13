@@ -2,10 +2,13 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/pina-colada-co/agent-go/internal/lib"
 	"github.com/pina-colada-co/agent-go/internal/middleware"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
@@ -54,11 +57,11 @@ func (c *OrganizationController) GetOrganization(w http.ResponseWriter, r *http.
 	}
 
 	result, err := c.orgService.GetOrganization(id)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -79,12 +82,7 @@ func (c *OrganizationController) SearchOrganizations(w http.ResponseWriter, r *h
 		tenantID = &tid
 	}
 
-	limit := 10
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
-	}
+	limit := lib.ParseIntQueryParam(r, "limit", 10)
 
 	results, err := c.orgService.SearchOrganizations(query, tenantID, limit)
 	if err != nil {
@@ -104,11 +102,12 @@ func (c *OrganizationController) DeleteOrganization(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if err := c.orgService.DeleteOrganization(id); err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
+	err = c.orgService.DeleteOrganization(id)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -134,11 +133,11 @@ func (c *OrganizationController) UpdateOrganization(w http.ResponseWriter, r *ht
 	userID, _ := middleware.GetUserID(r.Context())
 
 	result, err := c.orgService.UpdateOrganization(id, input, userID)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -165,11 +164,11 @@ func (c *OrganizationController) AddOrganizationContact(w http.ResponseWriter, r
 	tenantID, _ := middleware.GetTenantID(r.Context())
 
 	result, err := c.orgService.AddContactToOrganization(orgID, input, userID, tenantID)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -210,11 +209,11 @@ func (c *OrganizationController) GetOrganizationContacts(w http.ResponseWriter, 
 	}
 
 	result, err := c.orgService.GetOrganizationContacts(orgID)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -247,11 +246,11 @@ func (c *OrganizationController) UpdateOrganizationContact(w http.ResponseWriter
 	userID, _ := middleware.GetUserID(r.Context())
 
 	result, err := c.orgService.UpdateOrganizationContact(orgID, contactID, input, userID)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -275,11 +274,12 @@ func (c *OrganizationController) DeleteOrganizationContact(w http.ResponseWriter
 		return
 	}
 
-	if err := c.orgService.DeleteOrganizationContact(orgID, contactID); err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
+	err = c.orgService.DeleteOrganizationContact(orgID, contactID)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -297,11 +297,11 @@ func (c *OrganizationController) GetOrganizationTechnologies(w http.ResponseWrit
 	}
 
 	result, err := c.orgService.GetOrganizationTechnologies(orgID)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -324,11 +324,12 @@ func (c *OrganizationController) AddOrganizationTechnology(w http.ResponseWriter
 		return
 	}
 
-	if err := c.orgService.AddTechnologyToOrganization(orgID, input); err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
+	err = c.orgService.AddTechnologyToOrganization(orgID, input)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -370,11 +371,11 @@ func (c *OrganizationController) GetOrganizationFundingRounds(w http.ResponseWri
 	}
 
 	result, err := c.orgService.GetOrganizationFundingRounds(orgID)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -398,11 +399,11 @@ func (c *OrganizationController) CreateOrganizationFundingRound(w http.ResponseW
 	}
 
 	result, err := c.orgService.CreateOrganizationFundingRound(orgID, input)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -448,19 +449,14 @@ func (c *OrganizationController) GetOrganizationSignals(w http.ResponseWriter, r
 		signalType = &st
 	}
 
-	limit := 20
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
-	}
+	limit := lib.ParseIntQueryParam(r, "limit", 20)
 
 	result, err := c.orgService.GetOrganizationSignals(orgID, signalType, limit)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -486,11 +482,11 @@ func (c *OrganizationController) CreateOrganizationSignal(w http.ResponseWriter,
 	userID, _ := middleware.GetUserID(r.Context())
 
 	result, err := c.orgService.CreateOrganizationSignal(orgID, input, userID)
+	if errors.Is(err, services.ErrOrganizationNotFound) {
+		writeError(w, http.StatusNotFound, err.Error())
+		return
+	}
 	if err != nil {
-		if err.Error() == "organization not found" {
-			writeError(w, http.StatusNotFound, err.Error())
-			return
-		}
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}

@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/shopspring/decimal"
+
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
-	"github.com/shopspring/decimal"
 )
 
 var ErrTaskNotFound = errors.New("task not found")

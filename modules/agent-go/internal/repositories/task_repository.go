@@ -1,10 +1,12 @@
 package repositories
 
 import (
+	"errors"
 	"time"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/shopspring/decimal"
+
+	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
 
@@ -126,10 +128,10 @@ func (r *TaskRepository) FindByID(id int64) (*models.Task, error) {
 		Preload("AssignedTo").
 		First(&task, id).Error
 
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &task, nil

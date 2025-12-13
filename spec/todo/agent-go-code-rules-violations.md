@@ -3,6 +3,7 @@
 **Date:** 2025-12-12
 **Scope:** `modules/agent-go/internal/`
 **Rules:** go-code-rules, csr-code-rules
+**Status:** RESOLVED
 
 ---
 
@@ -10,16 +11,50 @@
 
 | Category | Status | Count |
 |----------|--------|-------|
-| CSR Import Violations | FAIL | 3 |
-| Guard Clause Violations | FAIL | 15+ |
-| Import Grouping Issues | FAIL | 2 |
+| CSR Import Violations | RESOLVED | 3 → 0 |
+| Guard Clause Violations | RESOLVED | 15+ → 0 |
+| Import Grouping Issues | RESOLVED | 3 → 0 |
 | Large Functions | WARN | 7+ |
 | Naked Returns | PASS | 0 |
 | Panic Usage | PASS | 0 |
 
 ---
 
-## CSR Import Violations (3)
+## Fixes Applied
+
+### CSR Violations
+| File | Fix |
+|------|-----|
+| `services/report_service.go` | Created `serializers/report.go`; service now uses serializers and repository input structs |
+| `services/project_service.go` | Created `serializers/project.go`; service now uses serializers and repository input structs |
+| `serializers/lead.go` | Moved conversion functions to `services/lead_service.go`; serializers now only define response types |
+
+### Guard Clause Violations
+| File | Fix |
+|------|-----|
+| `services/organization_service.go` | Added `ErrOrganizationNotFound` sentinel error |
+| `services/individual_service.go` | Added `ErrIndividualNotFound` sentinel error |
+| `controllers/organization_controller.go` | Replaced nested if/else with `errors.Is()` guard clauses |
+| `controllers/individual_controller.go` | Replaced nested if/else with `errors.Is()` guard clauses |
+
+### Import Grouping
+| File | Fix |
+|------|-----|
+| `services/organization_service.go` | Separated external packages from internal packages |
+| `services/individual_service.go` | Separated external packages from internal packages |
+| `services/task_service.go` | Separated external packages from internal packages |
+
+### Nested Limit Parsing Patterns
+| File | Fix |
+|------|-----|
+| `controllers/job_controller.go` | Added `parseIntQueryParam` helper function |
+| `controllers/account_controller.go` | Replaced nested if with helper function |
+| `controllers/individual_controller.go` | Replaced 2 nested if patterns with helper function |
+| `controllers/organization_controller.go` | Replaced 2 nested if patterns with helper function |
+
+---
+
+## CSR Import Violations (3) - RESOLVED
 
 ### 1. Services Importing Models
 

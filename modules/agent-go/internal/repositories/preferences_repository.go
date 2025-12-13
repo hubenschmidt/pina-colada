@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"errors"
+
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -33,7 +35,7 @@ type UserTenantDTO struct {
 func (r *PreferencesRepository) GetUserPreferences(userID int64) (*UserPrefsDTO, error) {
 	var prefs models.UserPreferences
 	err := r.db.Where("user_id = ?", userID).First(&prefs).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if err != nil {
@@ -45,7 +47,7 @@ func (r *PreferencesRepository) GetUserPreferences(userID int64) (*UserPrefsDTO,
 func (r *PreferencesRepository) FindOrCreateUserPreferences(userID int64) (*UserPrefsDTO, error) {
 	var prefs models.UserPreferences
 	err := r.db.Where("user_id = ?", userID).First(&prefs).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		prefs = models.UserPreferences{UserID: userID}
 		if err := r.db.Create(&prefs).Error; err != nil {
 			return nil, err
@@ -63,7 +65,7 @@ func (r *PreferencesRepository) UpdateUserPreferences(userID int64, updates map[
 func (r *PreferencesRepository) GetTenantPreferences(tenantID int64) (*TenantPrefsDTO, error) {
 	var prefs models.TenantPreferences
 	err := r.db.Where("tenant_id = ?", tenantID).First(&prefs).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if err != nil {
@@ -84,7 +86,7 @@ func (r *PreferencesRepository) GetUserWithTenant(userID int64) (*UserTenantDTO,
 func (r *PreferencesRepository) FindOrCreateTenantPreferences(tenantID int64) (*TenantPrefsDTO, error) {
 	var prefs models.TenantPreferences
 	err := r.db.Where("tenant_id = ?", tenantID).First(&prefs).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		prefs = models.TenantPreferences{TenantID: tenantID, Theme: "light"}
 		if err := r.db.Create(&prefs).Error; err != nil {
 			return nil, err

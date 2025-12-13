@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"errors"
 	"time"
 
 	"github.com/pina-colada-co/agent-go/internal/models"
@@ -108,11 +109,10 @@ func (r *JobRepository) FindByID(id int64) (*models.Job, error) {
 		Preload("Lead.Projects").
 		Preload("SalaryRangeRef").
 		First(&job, id).Error
-
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &job, nil
@@ -233,11 +233,10 @@ func (r *JobRepository) GetRecentResumeDate() (*time.Time, error) {
 		Where(`"Job".resume_date IS NOT NULL`).
 		Order(`"Lead".created_at DESC`).
 		First(&job).Error
-
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return job.ResumeDate, nil

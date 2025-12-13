@@ -2,14 +2,15 @@ package services
 
 import (
 	"errors"
-	"time"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
+	"github.com/pina-colada-co/agent-go/internal/lib"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
+	"github.com/pina-colada-co/agent-go/internal/serializers"
 )
 
-var errProjectNotFound = errors.New("project not found")
+// ErrProjectNotFound is returned when a project is not found
+var ErrProjectNotFound = errors.New("project not found")
 
 // ProjectService handles project business logic
 type ProjectService struct {
@@ -21,158 +22,92 @@ func NewProjectService(projectRepo *repositories.ProjectRepository) *ProjectServ
 	return &ProjectService{projectRepo: projectRepo}
 }
 
-// ProjectResponse represents a project in API responses
-type ProjectResponse struct {
-	ID          int64   `json:"id"`
-	Name        string  `json:"name"`
-	Description *string `json:"description"`
-	Status      *string `json:"status"`
-	StartDate   *string `json:"start_date"`
-	EndDate     *string `json:"end_date"`
-}
-
-// ProjectDetailResponse represents a project with counts
-type ProjectDetailResponse struct {
-	ID          int64   `json:"id"`
-	Name        string  `json:"name"`
-	Description *string `json:"description"`
-	Status      *string `json:"status"`
-	StartDate   *string `json:"start_date"`
-	EndDate     *string `json:"end_date"`
-	DealsCount  int64   `json:"deals_count"`
-	LeadsCount  int64   `json:"leads_count"`
-}
-
-// LeadResponse represents a lead in API responses
-type LeadResponse struct {
-	ID       int64   `json:"id"`
-	DealID   int64   `json:"deal_id"`
-	Type     string  `json:"type"`
-	Source   *string `json:"source"`
-}
-
 // GetProjects returns all projects for a tenant
-func (s *ProjectService) GetProjects(tenantID *int64) ([]ProjectResponse, error) {
+func (s *ProjectService) GetProjects(tenantID *int64) ([]serializers.ProjectResponse, error) {
 	projects, err := s.projectRepo.FindAll(tenantID)
 	if err != nil {
 		return nil, err
 	}
 
-	results := make([]ProjectResponse, len(projects))
+	results := make([]serializers.ProjectResponse, len(projects))
 	for i, p := range projects {
-		results[i] = projectToResponse(&p)
+		results[i] = serializers.ProjectToResponse(&p)
 	}
 
 	return results, nil
 }
 
-func formatDate(t *time.Time) *string {
-	if t == nil {
-		return nil
-	}
-	s := t.Format("2006-01-02")
-	return &s
-}
-
-func projectToResponse(p *models.Project) ProjectResponse {
-	return ProjectResponse{
-		ID:          p.ID,
-		Name:        p.Name,
-		Description: p.Description,
-		Status:      p.Status,
-		StartDate:   formatDate(p.StartDate),
-		EndDate:     formatDate(p.EndDate),
-	}
-}
-
 // GetProject returns a project by ID with counts
-func (s *ProjectService) GetProject(id int64, tenantID *int64) (*ProjectDetailResponse, error) {
+func (s *ProjectService) GetProject(id int64, tenantID *int64) (*serializers.ProjectDetailResponse, error) {
 	project, err := s.projectRepo.FindByID(id)
 	if err != nil {
 		return nil, err
 	}
 	if project == nil {
-		return nil, errProjectNotFound
+		return nil, ErrProjectNotFound
 	}
 
 	// Verify tenant if provided
 	if tenantID != nil && project.TenantID != nil && *project.TenantID != *tenantID {
-		return nil, errProjectNotFound
+		return nil, ErrProjectNotFound
 	}
 
 	dealsCount, _ := s.projectRepo.GetDealsCount(id)
 	leadsCount, _ := s.projectRepo.GetLeadsCount(id)
 
-	return &ProjectDetailResponse{
-		ID:          project.ID,
-		Name:        project.Name,
-		Description: project.Description,
-		Status:      project.Status,
-		StartDate:   formatDate(project.StartDate),
-		EndDate:     formatDate(project.EndDate),
-		DealsCount:  dealsCount,
-		LeadsCount:  leadsCount,
-	}, nil
+	resp := serializers.ProjectToDetailResponse(project, dealsCount, leadsCount)
+	return &resp, nil
 }
 
 // CreateProject creates a new project
-func (s *ProjectService) CreateProject(input schemas.ProjectCreate, tenantID *int64, userID int64) (*ProjectResponse, error) {
-	project := &models.Project{
-		TenantID:    tenantID,
-		Name:        input.Name,
-		Description: input.Description,
-		Status:      input.Status,
-		CreatedBy:   userID,
-		UpdatedBy:   userID,
+func (s *ProjectService) CreateProject(input schemas.ProjectCreate, tenantID *int64, userID int64) (*serializers.ProjectResponse, error) {
+	repoInput := repositories.ProjectCreateInput{
+		TenantID:        tenantID,
+		Name:            input.Name,
+		Description:     input.Description,
+		Status:          input.Status,
+		CurrentStatusID: input.CurrentStatusID,
+		StartDate:       input.StartDate,
+		EndDate:         input.EndDate,
+		CreatedBy:       userID,
+		UpdatedBy:       userID,
 	}
 
-	if input.CurrentStatusID != nil {
-		project.CurrentStatusID = input.CurrentStatusID
-	}
-	if input.StartDate != nil {
-		if t, err := time.Parse("2006-01-02", *input.StartDate); err == nil {
-			project.StartDate = &t
-		}
-	}
-	if input.EndDate != nil {
-		if t, err := time.Parse("2006-01-02", *input.EndDate); err == nil {
-			project.EndDate = &t
-		}
-	}
-
-	if err := s.projectRepo.Create(project); err != nil {
+	project, err := s.projectRepo.Create(repoInput)
+	if err != nil {
 		return nil, err
 	}
 
-	resp := projectToResponse(project)
+	resp := serializers.ProjectToResponse(project)
 	return &resp, nil
 }
 
 // UpdateProject updates a project
-func (s *ProjectService) UpdateProject(id int64, input schemas.ProjectUpdate, tenantID *int64, userID int64) (*ProjectResponse, error) {
+func (s *ProjectService) UpdateProject(id int64, input schemas.ProjectUpdate, tenantID *int64, userID int64) (*serializers.ProjectResponse, error) {
 	project, err := s.projectRepo.FindByID(id)
 	if err != nil {
 		return nil, err
 	}
 	if project == nil {
-		return nil, errProjectNotFound
+		return nil, ErrProjectNotFound
 	}
 
 	// Verify tenant if provided
 	if tenantID != nil && project.TenantID != nil && *project.TenantID != *tenantID {
-		return nil, errProjectNotFound
+		return nil, ErrProjectNotFound
 	}
 
 	updates := buildProjectUpdates(input, userID)
 	if len(updates) > 0 {
-		if err := s.projectRepo.Update(id, updates); err != nil {
+		err := s.projectRepo.Update(id, updates)
+		if err != nil {
 			return nil, err
 		}
 	}
 
 	// Refetch
 	project, _ = s.projectRepo.FindByID(id)
-	resp := projectToResponse(project)
+	resp := serializers.ProjectToResponse(project)
 	return &resp, nil
 }
 
@@ -190,15 +125,11 @@ func buildProjectUpdates(input schemas.ProjectUpdate, userID int64) map[string]i
 	if input.CurrentStatusID != nil {
 		updates["current_status_id"] = *input.CurrentStatusID
 	}
-	if input.StartDate != nil {
-		if t, err := time.Parse("2006-01-02", *input.StartDate); err == nil {
-			updates["start_date"] = t
-		}
+	if t := lib.ParseDateString(input.StartDate); t != nil {
+		updates["start_date"] = *t
 	}
-	if input.EndDate != nil {
-		if t, err := time.Parse("2006-01-02", *input.EndDate); err == nil {
-			updates["end_date"] = t
-		}
+	if t := lib.ParseDateString(input.EndDate); t != nil {
+		updates["end_date"] = *t
 	}
 	return updates
 }
@@ -210,27 +141,27 @@ func (s *ProjectService) DeleteProject(id int64, tenantID *int64) error {
 		return err
 	}
 	if project == nil {
-		return errProjectNotFound
+		return ErrProjectNotFound
 	}
 
 	// Verify tenant if provided
 	if tenantID != nil && project.TenantID != nil && *project.TenantID != *tenantID {
-		return errProjectNotFound
+		return ErrProjectNotFound
 	}
 
 	return s.projectRepo.Delete(id)
 }
 
 // GetProjectLeads returns leads for a project
-func (s *ProjectService) GetProjectLeads(projectID int64, tenantID *int64) ([]LeadResponse, error) {
+func (s *ProjectService) GetProjectLeads(projectID int64, tenantID *int64) ([]serializers.ProjectLeadResponse, error) {
 	leads, err := s.projectRepo.GetProjectLeads(projectID, tenantID)
 	if err != nil {
 		return nil, err
 	}
 
-	results := make([]LeadResponse, len(leads))
+	results := make([]serializers.ProjectLeadResponse, len(leads))
 	for i, l := range leads {
-		results[i] = LeadResponse{
+		results[i] = serializers.ProjectLeadResponse{
 			ID:     l.ID,
 			DealID: l.DealID,
 			Type:   l.Type,
@@ -241,15 +172,15 @@ func (s *ProjectService) GetProjectLeads(projectID int64, tenantID *int64) ([]Le
 }
 
 // GetProjectDeals returns deals for a project
-func (s *ProjectService) GetProjectDeals(projectID int64, tenantID *int64) ([]LeadResponse, error) {
+func (s *ProjectService) GetProjectDeals(projectID int64, tenantID *int64) ([]serializers.ProjectLeadResponse, error) {
 	deals, err := s.projectRepo.GetProjectDeals(projectID, tenantID)
 	if err != nil {
 		return nil, err
 	}
 
-	results := make([]LeadResponse, len(deals))
+	results := make([]serializers.ProjectLeadResponse, len(deals))
 	for i, d := range deals {
-		results[i] = LeadResponse{
+		results[i] = serializers.ProjectLeadResponse{
 			ID:     d.ID,
 			DealID: d.DealID,
 			Type:   d.Type,

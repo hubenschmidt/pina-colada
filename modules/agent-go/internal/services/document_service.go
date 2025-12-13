@@ -1,6 +1,7 @@
 package services
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -11,6 +12,9 @@ import (
 )
 
 const MaxFileSize = 10 * 1024 * 1024 // 10MB
+
+// ErrDocumentNotFound is returned when a document is not found
+var ErrDocumentNotFound = errors.New("document not found")
 
 var entityTypeMap = map[string]string{
 	"project":      "Project",
@@ -170,10 +174,10 @@ func (s *DocumentService) CreateDocumentVersion(input CreateDocumentVersionInput
 		return nil, 0, fmt.Errorf("failed to find parent document: %w", err)
 	}
 	if parent == nil {
-		return nil, 0, fmt.Errorf("document not found")
+		return nil, 0, ErrDocumentNotFound
 	}
 	if parent.TenantID != input.TenantID {
-		return nil, 0, fmt.Errorf("document not found")
+		return nil, 0, ErrDocumentNotFound
 	}
 
 	// Generate storage path
@@ -212,7 +216,7 @@ func (s *DocumentService) SetCurrentVersion(documentID int64, tenantID int64) (*
 		return nil, 0, err
 	}
 	if doc == nil {
-		return nil, 0, fmt.Errorf("document not found")
+		return nil, 0, ErrDocumentNotFound
 	}
 
 	count, _ := s.docRepo.GetVersionCount(documentID, tenantID)
@@ -234,7 +238,7 @@ func (s *DocumentService) DownloadDocument(documentID int64, tenantID int64) (*D
 		return nil, err
 	}
 	if doc == nil || doc.TenantID != tenantID {
-		return nil, fmt.Errorf("document not found")
+		return nil, ErrDocumentNotFound
 	}
 
 	// Get URL from storage backend - R2 returns presigned URL, local returns file URL
@@ -271,7 +275,7 @@ func (s *DocumentService) UpdateDocument(documentID int64, tenantID int64, userI
 		return nil, err
 	}
 	if doc == nil || doc.TenantID != tenantID {
-		return nil, fmt.Errorf("document not found")
+		return nil, ErrDocumentNotFound
 	}
 
 	updates := map[string]interface{}{
@@ -295,7 +299,7 @@ func (s *DocumentService) DeleteDocument(documentID int64, tenantID int64) error
 		return err
 	}
 	if doc == nil || doc.TenantID != tenantID {
-		return fmt.Errorf("document not found")
+		return ErrDocumentNotFound
 	}
 
 	// Delete from storage

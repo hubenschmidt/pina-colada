@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/pina-colada-co/agent-go/internal/models"
@@ -90,10 +91,13 @@ func (r *DocumentRepository) FindByEntity(entityType string, entityID int64, ten
 func (r *DocumentRepository) FindByID(id int64) (*models.Asset, error) {
 	var asset models.Asset
 	err := r.db.First(&asset, id).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
-	return &asset, err
+	if err != nil {
+		return nil, err
+	}
+	return &asset, nil
 }
 
 func (r *DocumentRepository) FindDocumentByID(id int64) (*DocumentDTO, error) {

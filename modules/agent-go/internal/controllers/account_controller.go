@@ -6,6 +6,8 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
+
+	"github.com/pina-colada-co/agent-go/internal/lib"
 	"github.com/pina-colada-co/agent-go/internal/middleware"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
@@ -30,12 +32,7 @@ func (c *AccountController) SearchAccounts(w http.ResponseWriter, r *http.Reques
 		tenantID = &tid
 	}
 
-	limit := 20
-	if l := r.URL.Query().Get("limit"); l != "" {
-		if parsed, err := strconv.Atoi(l); err == nil {
-			limit = parsed
-		}
-	}
+	limit := lib.ParseIntQueryParam(r, "limit", 20)
 
 	results, err := c.accountService.SearchAccounts(query, tenantID, limit)
 	if err != nil {

@@ -2,13 +2,17 @@ package services
 
 import (
 	"errors"
-	"time"
 
+	"github.com/shopspring/decimal"
+
+	"github.com/pina-colada-co/agent-go/internal/lib"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
-	"github.com/shopspring/decimal"
 )
+
+// ErrOrganizationNotFound is returned when an organization is not found
+var ErrOrganizationNotFound = errors.New("organization not found")
 
 // OrganizationService handles organization business logic
 type OrganizationService struct {
@@ -46,7 +50,7 @@ func (s *OrganizationService) GetOrganization(id int64) (*serializers.Organizati
 		return nil, err
 	}
 	if org == nil {
-		return nil, errors.New("organization not found")
+		return nil, ErrOrganizationNotFound
 	}
 
 	resp := serializers.OrganizationToDetailResponse(org)
@@ -82,7 +86,7 @@ func (s *OrganizationService) DeleteOrganization(id int64) error {
 		return err
 	}
 	if org == nil {
-		return errors.New("organization not found")
+		return ErrOrganizationNotFound
 	}
 
 	return s.orgRepo.Delete(id)
@@ -95,19 +99,21 @@ func (s *OrganizationService) UpdateOrganization(id int64, input schemas.Organiz
 		return nil, err
 	}
 	if org == nil {
-		return nil, errors.New("organization not found")
+		return nil, ErrOrganizationNotFound
 	}
 
 	updates := buildOrgUpdates(input)
 	if len(updates) > 0 {
-		if err := s.orgRepo.Update(org, updates); err != nil {
+		err := s.orgRepo.Update(org, updates)
+		if err != nil {
 			return nil, err
 		}
 	}
 
 	// Handle industry updates if provided
 	if input.IndustryIDs != nil && org.AccountID != nil {
-		if err := s.orgRepo.UpdateAccountIndustries(*org.AccountID, input.IndustryIDs); err != nil {
+		err := s.orgRepo.UpdateAccountIndustries(*org.AccountID, input.IndustryIDs)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -151,7 +157,7 @@ func (s *OrganizationService) AddContactToOrganization(orgID int64, input schema
 		return nil, err
 	}
 	if org == nil || org.AccountID == nil {
-		return nil, errors.New("organization not found")
+		return nil, ErrOrganizationNotFound
 	}
 
 	repoInput := repositories.OrgContactInput{
@@ -185,7 +191,7 @@ func (s *OrganizationService) GetOrganizationContacts(orgID int64) ([]serializer
 		return nil, err
 	}
 	if org == nil || org.AccountID == nil {
-		return nil, errors.New("organization not found")
+		return nil, ErrOrganizationNotFound
 	}
 
 	contacts, err := s.orgRepo.GetContactsForAccount(*org.AccountID)
@@ -214,12 +220,13 @@ func (s *OrganizationService) UpdateOrganizationContact(orgID int64, contactID i
 		return nil, err
 	}
 	if org == nil || org.AccountID == nil {
-		return nil, errors.New("organization not found")
+		return nil, ErrOrganizationNotFound
 	}
 
 	updates := buildOrgContactUpdates(input, userID)
 	if len(updates) > 0 {
-		if err := s.orgRepo.UpdateContact(contactID, updates); err != nil {
+		err := s.orgRepo.UpdateContact(contactID, updates)
+		if err != nil {
 			return nil, err
 		}
 	}
@@ -255,7 +262,7 @@ func (s *OrganizationService) DeleteOrganizationContact(orgID int64, contactID i
 		return err
 	}
 	if org == nil || org.AccountID == nil {
-		return errors.New("organization not found")
+		return ErrOrganizationNotFound
 	}
 
 	return s.orgRepo.DeleteContactFromAccount(*org.AccountID, contactID)
@@ -268,7 +275,7 @@ func (s *OrganizationService) GetOrganizationTechnologies(orgID int64) ([]serial
 		return nil, err
 	}
 	if org == nil {
-		return nil, errors.New("organization not found")
+		return nil, ErrOrganizationNotFound
 	}
 
 	techs, err := s.orgRepo.GetTechnologiesForOrg(orgID)
@@ -299,7 +306,7 @@ func (s *OrganizationService) AddTechnologyToOrganization(orgID int64, input sch
 		return err
 	}
 	if org == nil {
-		return errors.New("organization not found")
+		return ErrOrganizationNotFound
 	}
 
 	return s.orgRepo.AddTechnologyToOrg(orgID, input.TechnologyID, input.Source, input.Confidence)
@@ -317,7 +324,7 @@ func (s *OrganizationService) GetOrganizationFundingRounds(orgID int64) ([]seria
 		return nil, err
 	}
 	if org == nil {
-		return nil, errors.New("organization not found")
+		return nil, ErrOrganizationNotFound
 	}
 
 	rounds, err := s.orgRepo.GetFundingRoundsForOrg(orgID)
@@ -350,7 +357,7 @@ func (s *OrganizationService) CreateOrganizationFundingRound(orgID int64, input 
 		return nil, err
 	}
 	if org == nil {
-		return nil, errors.New("organization not found")
+		return nil, ErrOrganizationNotFound
 	}
 
 	round := &repositories.FundingRoundInput{
@@ -394,7 +401,7 @@ func (s *OrganizationService) GetOrganizationSignals(orgID int64, signalType *st
 		return nil, err
 	}
 	if org == nil || org.AccountID == nil {
-		return nil, errors.New("organization not found")
+		return nil, ErrOrganizationNotFound
 	}
 
 	if limit <= 0 {
@@ -416,7 +423,7 @@ func (s *OrganizationService) CreateOrganizationSignal(orgID int64, input schema
 		return nil, err
 	}
 	if org == nil || org.AccountID == nil {
-		return nil, errors.New("organization not found")
+		return nil, ErrOrganizationNotFound
 	}
 
 	signalInput := repositories.SignalCreateInput{
@@ -427,11 +434,7 @@ func (s *OrganizationService) CreateOrganizationSignal(orgID int64, input schema
 		SourceURL:   input.SourceURL,
 		Sentiment:   input.Sentiment,
 	}
-	if input.SignalDate != nil {
-		if t, err := time.Parse("2006-01-02", *input.SignalDate); err == nil {
-			signalInput.SignalDate = &t
-		}
-	}
+	signalInput.SignalDate = lib.ParseDateString(input.SignalDate)
 	if input.RelevanceScore != nil {
 		dec := decimal.NewFromFloat(*input.RelevanceScore)
 		signalInput.RelevanceScore = &dec

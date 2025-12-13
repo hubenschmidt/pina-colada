@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"errors"
+
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -59,7 +61,7 @@ func (r *LookupRepository) FindAllSalaryRanges() ([]models.SalaryRange, error) {
 func (r *LookupRepository) FindStatusByName(name, category string) (*models.Status, error) {
 	var status models.Status
 	err := r.db.Where("LOWER(name) = LOWER(?) AND category = ?", name, category).First(&status).Error
-	if err == gorm.ErrRecordNotFound {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if err != nil {

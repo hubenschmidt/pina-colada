@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/pina-colada-co/agent-go/internal/models"
@@ -21,6 +22,15 @@ func NewReportRepository(db *gorm.DB) *ReportRepository {
 type SavedReportWithProjects struct {
 	models.SavedReport
 	ProjectIDs []int64 `gorm:"-"`
+}
+
+// SavedReportCreateInput represents input for creating a saved report
+type SavedReportCreateInput struct {
+	TenantID        int64
+	Name            string
+	Description     *string
+	QueryDefinition []byte
+	CreatedBy       *int64
 }
 
 // FindSavedReports returns saved reports for a tenant with pagination
@@ -73,10 +83,10 @@ func (r *ReportRepository) FindSavedReports(tenantID int64, projectID *int64, in
 func (r *ReportRepository) FindSavedReportByID(reportID int64, tenantID int64) (*models.SavedReport, error) {
 	var report models.SavedReport
 	err := r.db.Where("id = ? AND tenant_id = ?", reportID, tenantID).First(&report).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &report, nil
@@ -92,8 +102,18 @@ func (r *ReportRepository) GetProjectIDsForReport(reportID int64) ([]int64, erro
 }
 
 // CreateSavedReport creates a new saved report
-func (r *ReportRepository) CreateSavedReport(report *models.SavedReport) error {
-	return r.db.Create(report).Error
+func (r *ReportRepository) CreateSavedReport(input SavedReportCreateInput) (int64, error) {
+	report := &models.SavedReport{
+		TenantID:        input.TenantID,
+		Name:            input.Name,
+		Description:     input.Description,
+		QueryDefinition: input.QueryDefinition,
+		CreatedBy:       input.CreatedBy,
+	}
+	if err := r.db.Create(report).Error; err != nil {
+		return 0, err
+	}
+	return report.ID, nil
 }
 
 // UpdateSavedReport updates a saved report

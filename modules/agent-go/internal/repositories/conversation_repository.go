@@ -1,6 +1,8 @@
 package repositories
 
 import (
+	"errors"
+
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -43,11 +45,10 @@ func (r *ConversationRepository) FindAll(userID int64, tenantID *int64, includeA
 func (r *ConversationRepository) FindByID(id int64) (*models.Conversation, error) {
 	var conv models.Conversation
 	err := r.db.First(&conv, id).Error
-
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &conv, nil
@@ -57,11 +58,10 @@ func (r *ConversationRepository) FindByID(id int64) (*models.Conversation, error
 func (r *ConversationRepository) FindByThreadID(threadID string, userID int64) (*models.Conversation, error) {
 	var conv models.Conversation
 	err := r.db.Where("thread_id = ? AND user_id = ?", threadID, userID).First(&conv).Error
-
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
 	if err != nil {
-		if err == gorm.ErrRecordNotFound {
-			return nil, nil
-		}
 		return nil, err
 	}
 	return &conv, nil

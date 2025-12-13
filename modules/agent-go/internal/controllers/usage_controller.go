@@ -76,10 +76,9 @@ func (c *UsageController) GetUsageTimeseries(w http.ResponseWriter, r *http.Requ
 
 	scope := r.URL.Query().Get("scope")
 	var userID *int64
-	if scope == "user" || scope == "" {
-		if uid, ok := middleware.GetUserID(r.Context()); ok {
-			userID = &uid
-		}
+	uid, ok := middleware.GetUserID(r.Context())
+	if (scope == "user" || scope == "") && ok {
+		userID = &uid
 	}
 
 	result, err := c.usageService.GetUsageTimeseries(tenantID, period, userID)

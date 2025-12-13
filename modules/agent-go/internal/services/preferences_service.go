@@ -64,7 +64,8 @@ func (s *PreferencesService) UpdateUserPreferences(userID int64, theme, timezone
 	}
 
 	if len(updates) > 0 {
-		if err := s.prefsRepo.UpdateUserPreferences(userID, updates); err != nil {
+		err := s.prefsRepo.UpdateUserPreferences(userID, updates)
+		if err != nil {
 			return nil, err
 		}
 	}
