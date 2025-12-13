@@ -70,17 +70,15 @@ func (wc *WebSocketController) HandleWS(w http.ResponseWriter, r *http.Request) 
 
 	for {
 		_, message, err := conn.ReadMessage()
-		if err != nil && websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-			log.Printf("WebSocket error: %v", err)
-		}
 		if err != nil {
-			break
+			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+				log.Printf("WebSocket error: %v", err)
+			}
+			log.Printf("WebSocket client disconnected: %s", client.uuid)
+			return
 		}
-
 		wc.processWSMessage(r.Context(), client, message)
 	}
-
-	log.Printf("WebSocket client disconnected: %s", client.uuid)
 }
 
 func (wc *WebSocketController) processWSMessage(ctx context.Context, client *Client, message []byte) {

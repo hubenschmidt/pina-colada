@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -92,7 +93,7 @@ func (r *DocumentRepository) FindByID(id int64) (*models.Asset, error) {
 	var asset models.Asset
 	err := r.db.First(&asset, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -114,7 +115,7 @@ func (r *DocumentRepository) FindDocumentByID(id int64) (*DocumentDTO, error) {
 		return nil, err
 	}
 	if doc.ID == 0 {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	return &doc, nil
 }

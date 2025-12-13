@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -85,7 +86,7 @@ func (r *ReportRepository) FindSavedReportByID(reportID int64, tenantID int64) (
 	var report models.SavedReport
 	err := r.db.Where("id = ? AND tenant_id = ?", reportID, tenantID).First(&report).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -658,50 +659,40 @@ func (r *ReportRepository) ExecuteCustomQuery(tenantID int64, primaryEntity stri
 	return results, total, err
 }
 
+var entityTableNames = map[string]string{
+	"organizations": "Organization",
+	"individuals":   "Individual",
+	"contacts":      "Contact",
+	"leads":         "Lead",
+	"notes":         "Note",
+}
+
 func getTableName(entity string) string {
-	switch entity {
-	case "organizations":
-		return "Organization"
-	case "individuals":
-		return "Individual"
-	case "contacts":
-		return "Contact"
-	case "leads":
-		return "Lead"
-	case "notes":
-		return "Note"
-	default:
-		return ""
-	}
+	return entityTableNames[entity]
+}
+
+type filterApplier func(query *gorm.DB, fullField string, value interface{}) *gorm.DB
+
+var filterOperators = map[string]filterApplier{
+	"eq":          func(q *gorm.DB, f string, v interface{}) *gorm.DB { return q.Where(f+" = ?", v) },
+	"neq":         func(q *gorm.DB, f string, v interface{}) *gorm.DB { return q.Where(f+" != ?", v) },
+	"gt":          func(q *gorm.DB, f string, v interface{}) *gorm.DB { return q.Where(f+" > ?", v) },
+	"gte":         func(q *gorm.DB, f string, v interface{}) *gorm.DB { return q.Where(f+" >= ?", v) },
+	"lt":          func(q *gorm.DB, f string, v interface{}) *gorm.DB { return q.Where(f+" < ?", v) },
+	"lte":         func(q *gorm.DB, f string, v interface{}) *gorm.DB { return q.Where(f+" <= ?", v) },
+	"contains":    func(q *gorm.DB, f string, v interface{}) *gorm.DB { return q.Where("LOWER("+f+") LIKE LOWER(?)", "%"+v.(string)+"%") },
+	"starts_with": func(q *gorm.DB, f string, v interface{}) *gorm.DB { return q.Where("LOWER("+f+") LIKE LOWER(?)", v.(string)+"%") },
+	"is_null":     func(q *gorm.DB, f string, v interface{}) *gorm.DB { return q.Where(f + " IS NULL") },
+	"is_not_null": func(q *gorm.DB, f string, v interface{}) *gorm.DB { return q.Where(f + " IS NOT NULL") },
+	"in":          func(q *gorm.DB, f string, v interface{}) *gorm.DB { return q.Where(f+" IN ?", v) },
 }
 
 func applyFilter(query *gorm.DB, table, field, operator string, value interface{}) *gorm.DB {
 	fullField := `"` + table + `"."` + field + `"`
 
-	switch operator {
-	case "eq":
-		return query.Where(fullField+" = ?", value)
-	case "neq":
-		return query.Where(fullField+" != ?", value)
-	case "gt":
-		return query.Where(fullField+" > ?", value)
-	case "gte":
-		return query.Where(fullField+" >= ?", value)
-	case "lt":
-		return query.Where(fullField+" < ?", value)
-	case "lte":
-		return query.Where(fullField+" <= ?", value)
-	case "contains":
-		return query.Where("LOWER("+fullField+") LIKE LOWER(?)", "%"+value.(string)+"%")
-	case "starts_with":
-		return query.Where("LOWER("+fullField+") LIKE LOWER(?)", value.(string)+"%")
-	case "is_null":
-		return query.Where(fullField + " IS NULL")
-	case "is_not_null":
-		return query.Where(fullField + " IS NOT NULL")
-	case "in":
-		return query.Where(fullField+" IN ?", value)
-	default:
-		return query
+	applier, ok := filterOperators[operator]
+	if ok {
+		return applier(query, fullField, value)
 	}
+	return query
 }

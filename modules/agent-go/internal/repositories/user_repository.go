@@ -3,6 +3,7 @@ package repositories
 import (
 	"errors"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -22,7 +23,7 @@ func (r *UserRepository) FindByAuth0Sub(auth0Sub string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("auth0_sub = ?", auth0Sub).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -35,7 +36,7 @@ func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	var user models.User
 	err := r.db.Where("email = ?", email).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -50,7 +51,7 @@ func (r *UserRepository) FindByID(id int64) (*models.User, error) {
 		Preload("Preferences").
 		First(&user, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -72,7 +73,7 @@ func (r *UserRepository) Update(user *models.User, updates map[string]interface{
 func (r *UserRepository) GetOrCreate(auth0Sub, email string) (*models.User, error) {
 	// First try by auth0_sub
 	user, err := r.FindByAuth0Sub(auth0Sub)
-	if err != nil {
+	if err != nil && !errors.Is(err, apperrors.ErrNotFound) {
 		return nil, err
 	}
 	if user != nil {
@@ -81,7 +82,7 @@ func (r *UserRepository) GetOrCreate(auth0Sub, email string) (*models.User, erro
 
 	// Try by email (for seeded users without auth0_sub)
 	user, err = r.FindByEmail(email)
-	if err != nil {
+	if err != nil && !errors.Is(err, apperrors.ErrNotFound) {
 		return nil, err
 	}
 	if user != nil {

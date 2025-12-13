@@ -144,43 +144,8 @@ func (t *DocumentTools) SearchEntityDocumentsCtx(ctx context.Context, params Sea
 	}
 
 	// Handle different item types from the paged response
-	var lines []string
-	switch items := resp.Items.(type) {
-	case []repositories.DocumentDTO:
-		if len(items) == 0 {
-			return &SearchEntityDocumentsResult{
-				Results: fmt.Sprintf("No documents found for %s id=%d", params.EntityType, params.EntityID),
-				Count:   0,
-			}, nil
-		}
-		for _, doc := range items {
-			desc := ""
-			if doc.Description != nil && *doc.Description != "" {
-				desc = fmt.Sprintf(" - %s", *doc.Description)
-			}
-			lines = append(lines, fmt.Sprintf("- id=%d: %s%s (%s)", doc.ID, doc.Filename, desc, doc.ContentType))
-		}
-	case []interface{}:
-		if len(items) == 0 {
-			return &SearchEntityDocumentsResult{
-				Results: fmt.Sprintf("No documents found for %s id=%d", params.EntityType, params.EntityID),
-				Count:   0,
-			}, nil
-		}
-		for _, item := range items {
-			if doc, ok := item.(map[string]interface{}); ok {
-				id := doc["id"]
-				filename := doc["filename"]
-				contentType := doc["content_type"]
-				desc := ""
-				if d, ok := doc["description"].(string); ok && d != "" {
-					desc = fmt.Sprintf(" - %s", d)
-				}
-				lines = append(lines, fmt.Sprintf("- id=%v: %v%s (%v)", id, filename, desc, contentType))
-			}
-		}
-	default:
-		log.Printf("⚠️ Unexpected items type: %T", resp.Items)
+	lines := formatDocumentItems(resp.Items)
+	if lines == nil {
 		return &SearchEntityDocumentsResult{
 			Results: fmt.Sprintf("No documents found for %s id=%d", params.EntityType, params.EntityID),
 			Count:   0,
@@ -192,6 +157,55 @@ func (t *DocumentTools) SearchEntityDocumentsCtx(ctx context.Context, params Sea
 		Results: fmt.Sprintf("Found %d documents for %s id=%d:\n%s", len(lines), params.EntityType, params.EntityID, strings.Join(lines, "\n")),
 		Count:   len(lines),
 	}, nil
+}
+
+func formatDocumentItems(items interface{}) []string {
+	if docs, ok := items.([]repositories.DocumentDTO); ok {
+		return formatDocumentDTOs(docs)
+	}
+	if rawItems, ok := items.([]interface{}); ok {
+		return formatRawDocumentItems(rawItems)
+	}
+	log.Printf("⚠️ Unexpected items type: %T", items)
+	return nil
+}
+
+func formatDocumentDTOs(docs []repositories.DocumentDTO) []string {
+	if len(docs) == 0 {
+		return nil
+	}
+	var lines []string
+	for _, doc := range docs {
+		desc := ""
+		if doc.Description != nil && *doc.Description != "" {
+			desc = fmt.Sprintf(" - %s", *doc.Description)
+		}
+		lines = append(lines, fmt.Sprintf("- id=%d: %s%s (%s)", doc.ID, doc.Filename, desc, doc.ContentType))
+	}
+	return lines
+}
+
+func formatRawDocumentItems(items []interface{}) []string {
+	if len(items) == 0 {
+		return nil
+	}
+	var lines []string
+	for _, item := range items {
+		doc, ok := item.(map[string]interface{})
+		if !ok {
+			log.Printf("⚠️ Unexpected item type in slice: %T", item)
+			return nil
+		}
+		id := doc["id"]
+		filename := doc["filename"]
+		contentType := doc["content_type"]
+		desc := ""
+		if d, ok := doc["description"].(string); ok && d != "" {
+			desc = fmt.Sprintf(" - %s", d)
+		}
+		lines = append(lines, fmt.Sprintf("- id=%v: %v%s (%v)", id, filename, desc, contentType))
+	}
+	return lines
 }
 
 // ReadDocumentCtx reads the content of a document by ID.

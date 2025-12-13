@@ -3,6 +3,7 @@ package repositories
 import (
 	"errors"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -36,7 +37,7 @@ func (r *PreferencesRepository) GetUserPreferences(userID int64) (*UserPrefsDTO,
 	var prefs models.UserPreferences
 	err := r.db.Where("user_id = ?", userID).First(&prefs).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -67,7 +68,7 @@ func (r *PreferencesRepository) GetTenantPreferences(tenantID int64) (*TenantPre
 	var prefs models.TenantPreferences
 	err := r.db.Where("tenant_id = ?", tenantID).First(&prefs).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err

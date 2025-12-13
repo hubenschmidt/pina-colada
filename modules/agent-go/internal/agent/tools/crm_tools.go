@@ -6,6 +6,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/pina-colada-co/agent-go/internal/serializers"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
 
@@ -67,64 +68,64 @@ func (t *CRMTools) LookupCtx(ctx context.Context, params CRMLookupParams) (*CRML
 	entityType := strings.ToLower(params.EntityType)
 	log.Printf("🔍 crm_lookup called with entity_type='%s', query='%s'", entityType, params.Query)
 
-	switch entityType {
-	case "individual":
-		if t.indService == nil {
-			log.Printf("⚠️ IndividualService not configured")
-			return &CRMLookupResult{Results: "CRM service not configured. Unable to look up individuals."}, nil
-		}
-		results, err := t.indService.SearchIndividuals(params.Query, nil, 10)
-		if err != nil {
-			log.Printf("❌ Individual lookup failed: %v", err)
-			return &CRMLookupResult{Results: fmt.Sprintf("Error: %v", err)}, nil
-		}
-		log.Printf("🔍 crm_lookup found %d individuals", len(results))
-		if len(results) == 0 {
-			return &CRMLookupResult{Results: fmt.Sprintf("No individuals found matching '%s'", params.Query)}, nil
-		}
-		var lines []string
-		for _, ind := range results {
-			name := strings.TrimSpace(fmt.Sprintf("%s %s", ind.FirstName, ind.LastName))
-			email := "N/A"
-			if ind.Email != nil {
-				email = *ind.Email
-			}
-			lines = append(lines, fmt.Sprintf("- %s (id=%d, email=%s)", name, ind.ID, email))
-		}
-		return &CRMLookupResult{
-			Results: fmt.Sprintf("Found %d individuals:\n%s", len(results), strings.Join(lines, "\n")),
-			Count:   len(results),
-		}, nil
-
-	case "organization":
-		if t.orgService == nil {
-			log.Printf("⚠️ OrganizationService not configured")
-			return &CRMLookupResult{Results: "CRM service not configured. Unable to look up organizations."}, nil
-		}
-		results, err := t.orgService.SearchOrganizations(params.Query, nil, 10)
-		if err != nil {
-			log.Printf("❌ Organization lookup failed: %v", err)
-			return &CRMLookupResult{Results: fmt.Sprintf("Error: %v", err)}, nil
-		}
-		log.Printf("🔍 crm_lookup found %d organizations", len(results))
-		if len(results) == 0 {
-			return &CRMLookupResult{Results: fmt.Sprintf("No organizations found matching '%s'", params.Query)}, nil
-		}
-		var lines []string
-		for _, org := range results {
-			lines = append(lines, fmt.Sprintf("- %s (id=%d)", org.Name, org.ID))
-		}
-		return &CRMLookupResult{
-			Results: fmt.Sprintf("Found %d organizations:\n%s", len(results), strings.Join(lines, "\n")),
-			Count:   len(results),
-		}, nil
-
-	default:
-		log.Printf("⚠️  Unknown entity type: %s", entityType)
-		return &CRMLookupResult{
-			Results: fmt.Sprintf("Unknown entity type: %s. Supported: individual, organization", entityType),
-		}, nil
+	if entityType == "individual" {
+		return t.lookupIndividual(params.Query)
 	}
+	if entityType == "organization" {
+		return t.lookupOrganization(params.Query)
+	}
+	log.Printf("⚠️  Unknown entity type: %s", entityType)
+	return &CRMLookupResult{
+		Results: fmt.Sprintf("Unknown entity type: %s. Supported: individual, organization", entityType),
+	}, nil
+}
+
+func (t *CRMTools) lookupIndividual(query string) (*CRMLookupResult, error) {
+	if t.indService == nil {
+		log.Printf("⚠️ IndividualService not configured")
+		return &CRMLookupResult{Results: "CRM service not configured. Unable to look up individuals."}, nil
+	}
+	results, err := t.indService.SearchIndividuals(query, nil, 10)
+	if err != nil {
+		log.Printf("❌ Individual lookup failed: %v", err)
+		return &CRMLookupResult{Results: fmt.Sprintf("Error: %v", err)}, nil
+	}
+	log.Printf("🔍 crm_lookup found %d individuals", len(results))
+	if len(results) == 0 {
+		return &CRMLookupResult{Results: fmt.Sprintf("No individuals found matching '%s'", query)}, nil
+	}
+	var lines []string
+	for _, ind := range results {
+		lines = append(lines, formatIndividual(ind))
+	}
+	return &CRMLookupResult{
+		Results: fmt.Sprintf("Found %d individuals:\n%s", len(results), strings.Join(lines, "\n")),
+		Count:   len(results),
+	}, nil
+}
+
+func (t *CRMTools) lookupOrganization(query string) (*CRMLookupResult, error) {
+	if t.orgService == nil {
+		log.Printf("⚠️ OrganizationService not configured")
+		return &CRMLookupResult{Results: "CRM service not configured. Unable to look up organizations."}, nil
+	}
+	results, err := t.orgService.SearchOrganizations(query, nil, 10)
+	if err != nil {
+		log.Printf("❌ Organization lookup failed: %v", err)
+		return &CRMLookupResult{Results: fmt.Sprintf("Error: %v", err)}, nil
+	}
+	log.Printf("🔍 crm_lookup found %d organizations", len(results))
+	if len(results) == 0 {
+		return &CRMLookupResult{Results: fmt.Sprintf("No organizations found matching '%s'", query)}, nil
+	}
+	var lines []string
+	for _, org := range results {
+		lines = append(lines, fmt.Sprintf("- %s (id=%d)", org.Name, org.ID))
+	}
+	return &CRMLookupResult{
+		Results: fmt.Sprintf("Found %d organizations:\n%s", len(results), strings.Join(lines, "\n")),
+		Count:   len(results),
+	}, nil
 }
 
 // ListCtx returns entities of a given type.
@@ -136,62 +137,71 @@ func (t *CRMTools) ListCtx(ctx context.Context, params CRMListParams) (*CRMListR
 	}
 	log.Printf("📋 crm_list called with entity_type='%s', limit=%d", entityType, limit)
 
-	switch entityType {
-	case "individual":
-		if t.indService == nil {
-			log.Printf("⚠️ IndividualService not configured")
-			return &CRMListResult{Results: "CRM service not configured. Unable to list individuals."}, nil
-		}
-		results, err := t.indService.SearchIndividuals("", nil, limit)
-		if err != nil {
-			log.Printf("❌ Individual list failed: %v", err)
-			return &CRMListResult{Results: fmt.Sprintf("Error: %v", err)}, nil
-		}
-		log.Printf("📋 crm_list found %d individuals", len(results))
-		if len(results) == 0 {
-			return &CRMListResult{Results: "No individuals found."}, nil
-		}
-		var lines []string
-		for _, ind := range results {
-			name := strings.TrimSpace(fmt.Sprintf("%s %s", ind.FirstName, ind.LastName))
-			email := "N/A"
-			if ind.Email != nil {
-				email = *ind.Email
-			}
-			lines = append(lines, fmt.Sprintf("- %s (id=%d, email=%s)", name, ind.ID, email))
-		}
-		return &CRMListResult{
-			Results: fmt.Sprintf("Found %d individuals:\n%s", len(results), strings.Join(lines, "\n")),
-			Count:   len(results),
-		}, nil
-
-	case "organization":
-		if t.orgService == nil {
-			log.Printf("⚠️ OrganizationService not configured")
-			return &CRMListResult{Results: "CRM service not configured. Unable to list organizations."}, nil
-		}
-		results, err := t.orgService.SearchOrganizations("", nil, limit)
-		if err != nil {
-			log.Printf("❌ Organization list failed: %v", err)
-			return &CRMListResult{Results: fmt.Sprintf("Error: %v", err)}, nil
-		}
-		log.Printf("📋 crm_list found %d organizations", len(results))
-		if len(results) == 0 {
-			return &CRMListResult{Results: "No organizations found."}, nil
-		}
-		var lines []string
-		for _, org := range results {
-			lines = append(lines, fmt.Sprintf("- %s (id=%d)", org.Name, org.ID))
-		}
-		return &CRMListResult{
-			Results: fmt.Sprintf("Found %d organizations:\n%s", len(results), strings.Join(lines, "\n")),
-			Count:   len(results),
-		}, nil
-
-	default:
-		log.Printf("⚠️  Unknown entity type: %s", entityType)
-		return &CRMListResult{
-			Results: fmt.Sprintf("Unknown entity type: %s. Supported: individual, organization", entityType),
-		}, nil
+	if entityType == "individual" {
+		return t.listIndividuals(limit)
 	}
+	if entityType == "organization" {
+		return t.listOrganizations(limit)
+	}
+	log.Printf("⚠️  Unknown entity type: %s", entityType)
+	return &CRMListResult{
+		Results: fmt.Sprintf("Unknown entity type: %s. Supported: individual, organization", entityType),
+	}, nil
+}
+
+func (t *CRMTools) listIndividuals(limit int) (*CRMListResult, error) {
+	if t.indService == nil {
+		log.Printf("⚠️ IndividualService not configured")
+		return &CRMListResult{Results: "CRM service not configured. Unable to list individuals."}, nil
+	}
+	results, err := t.indService.SearchIndividuals("", nil, limit)
+	if err != nil {
+		log.Printf("❌ Individual list failed: %v", err)
+		return &CRMListResult{Results: fmt.Sprintf("Error: %v", err)}, nil
+	}
+	log.Printf("📋 crm_list found %d individuals", len(results))
+	if len(results) == 0 {
+		return &CRMListResult{Results: "No individuals found."}, nil
+	}
+	var lines []string
+	for _, ind := range results {
+		lines = append(lines, formatIndividual(ind))
+	}
+	return &CRMListResult{
+		Results: fmt.Sprintf("Found %d individuals:\n%s", len(results), strings.Join(lines, "\n")),
+		Count:   len(results),
+	}, nil
+}
+
+func (t *CRMTools) listOrganizations(limit int) (*CRMListResult, error) {
+	if t.orgService == nil {
+		log.Printf("⚠️ OrganizationService not configured")
+		return &CRMListResult{Results: "CRM service not configured. Unable to list organizations."}, nil
+	}
+	results, err := t.orgService.SearchOrganizations("", nil, limit)
+	if err != nil {
+		log.Printf("❌ Organization list failed: %v", err)
+		return &CRMListResult{Results: fmt.Sprintf("Error: %v", err)}, nil
+	}
+	log.Printf("📋 crm_list found %d organizations", len(results))
+	if len(results) == 0 {
+		return &CRMListResult{Results: "No organizations found."}, nil
+	}
+	var lines []string
+	for _, org := range results {
+		lines = append(lines, fmt.Sprintf("- %s (id=%d)", org.Name, org.ID))
+	}
+	return &CRMListResult{
+		Results: fmt.Sprintf("Found %d organizations:\n%s", len(results), strings.Join(lines, "\n")),
+		Count:   len(results),
+	}, nil
+}
+
+func formatIndividual(ind serializers.IndividualBrief) string {
+	name := strings.TrimSpace(fmt.Sprintf("%s %s", ind.FirstName, ind.LastName))
+	email := "N/A"
+	if ind.Email != nil {
+		email = *ind.Email
+	}
+	return fmt.Sprintf("- %s (id=%d, email=%s)", name, ind.ID, email)
 }

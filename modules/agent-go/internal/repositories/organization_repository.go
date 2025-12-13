@@ -5,6 +5,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/lib"
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
@@ -76,7 +77,7 @@ func (r *OrganizationRepository) FindByID(id int64) (*models.Organization, error
 		First(&org, id).Error
 
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err

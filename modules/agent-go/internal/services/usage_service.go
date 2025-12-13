@@ -78,13 +78,12 @@ func (s *UsageService) GetDeveloperAnalytics(userID, tenantID int64, period, gro
 	}
 
 	var data interface{}
-	switch groupBy {
-	case "model":
+	if groupBy == "model" {
 		data, err = s.usageRepo.GetUsageByModel(tenantID, period)
-	default:
+	}
+	if groupBy != "model" {
 		data, err = s.usageRepo.GetUsageByNode(tenantID, period)
 	}
-
 	if err != nil {
 		return nil, err
 	}

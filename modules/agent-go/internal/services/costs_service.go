@@ -90,24 +90,21 @@ func (s *CostsService) GetOrgCosts(period string) (*OrgCostsResponse, error) {
 	}, nil
 }
 
+var costPeriodOffsets = map[string][3]int{
+	"daily":     {0, 0, -1},
+	"weekly":    {0, 0, -7},
+	"quarterly": {0, -3, 0},
+	"annual":    {-1, 0, 0},
+	"monthly":   {0, 0, -30},
+}
+
 func (s *CostsService) getPeriodTimestamps(period string) (time.Time, time.Time) {
 	now := time.Now().UTC()
-	var start time.Time
-
-	switch period {
-	case "daily":
-		start = now.AddDate(0, 0, -1)
-	case "weekly":
-		start = now.AddDate(0, 0, -7)
-	case "quarterly":
-		start = now.AddDate(0, -3, 0)
-	case "annual":
-		start = now.AddDate(-1, 0, 0)
-	default: // monthly
-		start = now.AddDate(0, 0, -30)
+	offset, ok := costPeriodOffsets[period]
+	if !ok {
+		offset = costPeriodOffsets["monthly"]
 	}
-
-	return start, now
+	return now.AddDate(offset[0], offset[1], offset[2]), now
 }
 
 func (s *CostsService) fetchOpenAICosts(period string) *ProviderCosts {

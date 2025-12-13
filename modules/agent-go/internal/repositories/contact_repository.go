@@ -3,6 +3,7 @@ package repositories
 import (
 	"errors"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -116,7 +117,7 @@ func (r *ContactRepository) FindByID(id int64) (*models.Contact, error) {
 	var contact models.Contact
 	err := r.db.First(&contact, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err

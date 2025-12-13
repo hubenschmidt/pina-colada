@@ -50,20 +50,20 @@ type ModelUsageRecord struct {
 	TotalTokens  int    `json:"total_tokens"`
 }
 
+var periodOffsets = map[string][3]int{
+	"daily":   {0, 0, -1},
+	"weekly":  {0, 0, -7},
+	"monthly": {0, -1, 0},
+	"yearly":  {-1, 0, 0},
+}
+
 func (r *UsageRepository) getPeriodStart(period string) time.Time {
 	now := time.Now()
-	switch period {
-	case "daily":
-		return now.AddDate(0, 0, -1)
-	case "weekly":
-		return now.AddDate(0, 0, -7)
-	case "monthly":
-		return now.AddDate(0, -1, 0)
-	case "yearly":
-		return now.AddDate(-1, 0, 0)
-	default:
-		return now.AddDate(0, -1, 0) // default to monthly
+	offset, ok := periodOffsets[period]
+	if !ok {
+		offset = periodOffsets["monthly"]
 	}
+	return now.AddDate(offset[0], offset[1], offset[2])
 }
 
 // GetUserUsage returns usage records for a user within the given period

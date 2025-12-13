@@ -3,6 +3,7 @@ package repositories
 import (
 	"errors"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -46,7 +47,7 @@ func (r *ConversationRepository) FindByID(id int64) (*models.Conversation, error
 	var conv models.Conversation
 	err := r.db.First(&conv, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -59,7 +60,7 @@ func (r *ConversationRepository) FindByThreadID(threadID string, userID int64) (
 	var conv models.Conversation
 	err := r.db.Where("thread_id = ? AND user_id = ?", threadID, userID).First(&conv).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err

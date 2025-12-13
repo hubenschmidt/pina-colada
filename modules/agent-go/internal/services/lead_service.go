@@ -107,9 +107,6 @@ func (s *LeadService) GetOpportunity(id int64) (*serializers.OpportunityResponse
 	if err != nil {
 		return nil, err
 	}
-	if opp == nil {
-		return nil, nil
-	}
 
 	resp := opportunityToResponse(opp)
 	return &resp, nil
@@ -139,9 +136,6 @@ func (s *LeadService) GetPartnership(id int64) (*serializers.PartnershipResponse
 	partnership, err := s.leadRepo.FindPartnershipByID(id)
 	if err != nil {
 		return nil, err
-	}
-	if partnership == nil {
-		return nil, nil
 	}
 
 	resp := partnershipToResponse(partnership)

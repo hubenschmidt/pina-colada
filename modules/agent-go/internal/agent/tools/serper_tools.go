@@ -34,6 +34,19 @@ func NewSerperTools(apiKey string, jobService JobServiceInterface) *SerperTools 
 	return &SerperTools{apiKey: apiKey, jobService: jobService}
 }
 
+func (t *SerperTools) loadAppliedJobs() []JobInfo {
+	if t.jobService == nil {
+		return nil
+	}
+	jobs, err := t.jobService.GetLeads([]string{"applied", "do_not_apply"}, nil)
+	if err != nil {
+		log.Printf("Warning: could not load applied jobs for filtering: %v", err)
+		return nil
+	}
+	log.Printf("Loaded %d applied/do_not_apply jobs for filtering", len(jobs))
+	return jobs
+}
+
 // --- Tool Parameter Structs ---
 
 // JobSearchParams defines parameters for job search
@@ -75,17 +88,7 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	}
 
 	// Load applied/do_not_apply jobs for filtering
-	var appliedJobs []JobInfo
-	if t.jobService != nil {
-		jobs, err := t.jobService.GetLeads([]string{"applied", "do_not_apply"}, nil)
-		if err != nil {
-			log.Printf("Warning: could not load applied jobs for filtering: %v", err)
-		}
-		if err == nil {
-			appliedJobs = jobs
-			log.Printf("Loaded %d applied/do_not_apply jobs for filtering", len(appliedJobs))
-		}
-	}
+	appliedJobs := t.loadAppliedJobs()
 
 	// Enhance query with exclusions
 	enhancedQuery := enhanceJobQuery(params.Query)
@@ -176,29 +179,35 @@ func formatSerperResultsWithFilter(organic []serperOrganicResult, maxResults int
 
 	for _, item := range organic {
 		if count >= maxResults {
-			break
+			return buildResultString(lines)
 		}
-		company, title := extractCompanyFromTitle(item.Title)
-
-		// Fallback to URL-based company extraction
-		if company == "" {
-			company = extractCompanyFromURL(item.Link)
-		}
-
-		matched := matchesAppliedJob(company, title, appliedJobs)
-		if matched {
-			log.Printf("   Filtered out applied job: %s at %s", title, company)
-		}
-		if !matched {
-			count++
-			lines = append(lines, fmt.Sprintf("%d. %s - %s - %s", count, company, title, item.Link))
+		line := processJobResult(item, appliedJobs, &count)
+		if line != "" {
+			lines = append(lines, line)
 		}
 	}
 
+	return buildResultString(lines)
+}
+
+func processJobResult(item serperOrganicResult, appliedJobs []JobInfo, count *int) string {
+	company, title := extractCompanyFromTitle(item.Title)
+	if company == "" {
+		company = extractCompanyFromURL(item.Link)
+	}
+	if matchesAppliedJob(company, title, appliedJobs) {
+		log.Printf("   Filtered out applied job: %s at %s", title, company)
+		return ""
+	}
+	*count++
+	return fmt.Sprintf("%d. %s - %s - %s", *count, company, title, item.Link)
+}
+
+// buildResultString formats the job listing lines into a result string.
+func buildResultString(lines []string) string {
 	if len(lines) == 0 {
 		return ""
 	}
-
 	header := fmt.Sprintf("Found %d job listings. Return ALL of these to the user:\n", len(lines))
 	return header + "\n" + strings.Join(lines, "\n")
 }
@@ -223,64 +232,58 @@ func matchesAppliedJob(company, title string, appliedJobs []JobInfo) bool {
 	return false
 }
 
+type titlePattern struct {
+	delimiter    string
+	companyFirst bool   // true = company is parts[0], false = company is parts[last]
+	jobTitle     string // "first", "last", or "original"
+}
+
+var titlePatterns = []titlePattern{
+	{" at ", false, "first"},
+	{" @ ", false, "first"},
+	{" | ", true, "last"},
+	{" – ", true, "last"},
+	{" - ", true, "original"},
+}
+
 // extractCompanyFromTitle extracts company name from title string
 func extractCompanyFromTitle(title string) (string, string) {
-	// Try " at " pattern (e.g., "Software Engineer at Google")
-	if strings.Contains(title, " at ") {
-		parts := strings.Split(title, " at ")
-		if len(parts) >= 2 {
-			company := strings.TrimSpace(parts[len(parts)-1])
-			if !looksLikeJobTitle(company) {
-				return company, strings.TrimSpace(parts[0])
-			}
+	for _, p := range titlePatterns {
+		company, jobTitle := tryExtractByDelimiter(title, p)
+		if company != "" {
+			return company, jobTitle
 		}
 	}
-
-	// Try " @ " pattern (e.g., "Senior Software Engineer @ Crosby")
-	if strings.Contains(title, " @ ") {
-		parts := strings.Split(title, " @ ")
-		if len(parts) >= 2 {
-			company := strings.TrimSpace(parts[len(parts)-1])
-			if !looksLikeJobTitle(company) {
-				return company, strings.TrimSpace(parts[0])
-			}
-		}
-	}
-
-	// Try " | " pattern (e.g., "AI Agent Security | Senior Software Engineer")
-	if strings.Contains(title, " | ") {
-		parts := strings.Split(title, " | ")
-		if len(parts) >= 2 {
-			company := strings.TrimSpace(parts[0])
-			if !looksLikeJobTitle(company) {
-				return company, strings.TrimSpace(parts[len(parts)-1])
-			}
-		}
-	}
-
-	// Try em-dash " – " pattern (e.g., "Senior AI Engineer – Core AI")
-	if strings.Contains(title, " – ") {
-		parts := strings.Split(title, " – ")
-		if len(parts) >= 2 {
-			company := strings.TrimSpace(parts[0])
-			if !looksLikeJobTitle(company) {
-				return company, strings.TrimSpace(parts[len(parts)-1])
-			}
-		}
-	}
-
-	// Try " - " pattern (e.g., "Google - Software Engineer")
-	if strings.Contains(title, " - ") {
-		parts := strings.Split(title, " - ")
-		if len(parts) >= 2 {
-			company := strings.TrimSpace(parts[0])
-			if !looksLikeJobTitle(company) {
-				return company, title
-			}
-		}
-	}
-
 	return "", title
+}
+
+func tryExtractByDelimiter(title string, p titlePattern) (string, string) {
+	if !strings.Contains(title, p.delimiter) {
+		return "", ""
+	}
+	parts := strings.Split(title, p.delimiter)
+	if len(parts) < 2 {
+		return "", ""
+	}
+	company := strings.TrimSpace(parts[0])
+	if !p.companyFirst {
+		company = strings.TrimSpace(parts[len(parts)-1])
+	}
+	if looksLikeJobTitle(company) {
+		return "", ""
+	}
+	jobTitle := getJobTitle(parts, p.jobTitle, title)
+	return company, jobTitle
+}
+
+func getJobTitle(parts []string, mode, original string) string {
+	if mode == "first" {
+		return strings.TrimSpace(parts[0])
+	}
+	if mode == "last" {
+		return strings.TrimSpace(parts[len(parts)-1])
+	}
+	return original
 }
 
 // looksLikeJobTitle returns true if the string appears to be a job title or generic page name

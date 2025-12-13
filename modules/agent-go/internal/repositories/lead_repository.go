@@ -3,6 +3,7 @@ package repositories
 import (
 	"errors"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -153,7 +154,7 @@ func (r *LeadRepository) FindOpportunityByID(id int64) (*OpportunityWithLead, er
 		Where(`"Opportunity".id = ?`, id).
 		First(&opp).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -235,7 +236,7 @@ func (r *LeadRepository) FindPartnershipByID(id int64) (*PartnershipWithLead, er
 		Where(`"Partnership".id = ?`, id).
 		First(&partnership).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err

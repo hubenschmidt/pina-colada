@@ -6,6 +6,7 @@ import (
 
 	"github.com/shopspring/decimal"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -74,7 +75,7 @@ func (r *IndividualRepository) FindByID(id int64) (*models.Individual, error) {
 		Preload("Account.IncomingRelationships.FromAccount.Individuals").
 		First(&ind, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -307,7 +308,7 @@ func (r *IndividualRepository) GetContactsForIndividual(individualID int64) ([]m
 	var ind models.Individual
 	err := r.db.First(&ind, individualID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -374,7 +375,7 @@ func (r *IndividualRepository) GetSignalsForIndividual(individualID int64, signa
 	var ind models.Individual
 	err := r.db.First(&ind, individualID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -444,7 +445,7 @@ func (r *IndividualRepository) GetContactByID(contactID int64) (*models.Contact,
 	var contact models.Contact
 	err := r.db.First(&contact, contactID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err

@@ -100,9 +100,6 @@ func (s *ConversationService) GetConversation(threadID string, userID int64) (*C
 	if err != nil {
 		return nil, err
 	}
-	if conv == nil {
-		return nil, nil
-	}
 
 	messages, err := s.convRepo.GetMessages(conv.ID)
 	if err != nil {
@@ -137,9 +134,6 @@ func (s *ConversationService) UpdateTitle(threadID string, userID int64, title s
 	conv, err := s.convRepo.FindByThreadID(threadID, userID)
 	if err != nil {
 		return nil, err
-	}
-	if conv == nil {
-		return nil, nil
 	}
 
 	if err := s.convRepo.UpdateTitle(conv.ID, title); err != nil {

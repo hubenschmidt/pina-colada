@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
@@ -122,11 +123,11 @@ func (s *JobService) resolveStatusID(statusName string) (*int64, error) {
 		return nil, nil
 	}
 	status, err := s.lookupRepo.FindStatusByName(statusName, "job")
+	if errors.Is(err, apperrors.ErrNotFound) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
-	}
-	if status == nil {
-		return nil, nil
 	}
 	return &status.ID, nil
 }
@@ -305,11 +306,11 @@ func buildLeadUpdates(input schemas.JobUpdate, userID int64) map[string]interfac
 // GetRecentResumeDate returns the most recent resume date as a string
 func (s *JobService) GetRecentResumeDate() (*string, error) {
 	resumeDate, err := s.jobRepo.GetRecentResumeDate()
+	if errors.Is(err, apperrors.ErrNotFound) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
-	}
-	if resumeDate == nil {
-		return nil, nil
 	}
 	dateStr := resumeDate.Format("2006-01-02")
 	return &dateStr, nil

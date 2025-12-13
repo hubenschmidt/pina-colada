@@ -15,6 +15,16 @@ import (
 	"github.com/pina-colada-co/agent-go/pkg/db"
 )
 
+// containsAny returns true if s contains any of the given substrings.
+func containsAny(s string, substrings []string) bool {
+	for _, sub := range substrings {
+		if strings.Contains(s, sub) {
+			return true
+		}
+	}
+	return false
+}
+
 // loadTestPrompt reads a prompt file from internal/test_prompts directory
 func loadTestPrompt(t *testing.T, filename string) string {
 	// test_prompts is sibling to agent directory (both under internal/)
@@ -113,14 +123,7 @@ func TestJobSearchReturnsResults(t *testing.T) {
 
 	// Should contain job-related terms
 	jobTerms := []string{"engineer", "software", "senior", "role", "position", "job"}
-	hasJobTerm := false
-	for _, term := range jobTerms {
-		if strings.Contains(response, term) {
-			hasJobTerm = true
-			break
-		}
-	}
-	if !hasJobTerm {
+	if !containsAny(response, jobTerms) {
 		t.Error("Expected response to contain job-related terms")
 	}
 
@@ -134,14 +137,7 @@ func TestJobSearchReturnsResults(t *testing.T) {
 		"/career",
 		"/opportunities",
 	}
-	hasAcceptableURL := false
-	for _, pattern := range acceptablePatterns {
-		if strings.Contains(response, pattern) {
-			hasAcceptableURL = true
-			break
-		}
-	}
-	if !hasAcceptableURL {
+	if !containsAny(response, acceptablePatterns) {
 		t.Log("Warning: Response may not contain direct career page URLs")
 	}
 }
@@ -319,10 +315,7 @@ func TestJobSearchURLsAreValid(t *testing.T) {
 	}
 
 	// Test reachability for first 5 URLs (to avoid too many requests)
-	maxToCheck := 5
-	if len(urls) < maxToCheck {
-		maxToCheck = len(urls)
-	}
+	maxToCheck := min(5, len(urls))
 
 	urlsToCheck := urls[:maxToCheck]
 	results := agent.ValidateURLs(ctx, urlsToCheck)

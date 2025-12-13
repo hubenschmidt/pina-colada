@@ -3,6 +3,7 @@ package repositories
 import (
 	"errors"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 )
@@ -62,7 +63,7 @@ func (r *LookupRepository) FindStatusByName(name, category string) (*models.Stat
 	var status models.Status
 	err := r.db.Where("LOWER(name) = LOWER(?) AND category = ?", name, category).First(&status).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err

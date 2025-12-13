@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 )
 
 // MemoryStateManager is an in-memory implementation of StateManager.
@@ -27,7 +29,7 @@ func (m *MemoryStateManager) GetSession(ctx context.Context, userID, sessionID s
 
 	session, ok := m.sessions[sessionID]
 	if !ok {
-		return nil, nil
+		return nil, apperrors.ErrSessionNotFound
 	}
 	return session, nil
 }
@@ -64,7 +66,7 @@ func (m *MemoryStateManager) GetMessages(ctx context.Context, sessionID string, 
 
 	session, ok := m.sessions[sessionID]
 	if !ok {
-		return nil, nil
+		return nil, apperrors.ErrSessionNotFound
 	}
 
 	// Estimate tokens: ~4 chars per token
@@ -74,24 +76,28 @@ func (m *MemoryStateManager) GetMessages(ctx context.Context, sessionID string, 
 	// Sliding window: take most recent messages that fit
 	msgs := session.Messages
 	if len(msgs) == 0 {
-		return nil, nil
+		return []Message{}, nil
 	}
 
+	startIdx := findMessageWindowStart(msgs, maxChars)
+	result := make([]Message, len(msgs)-startIdx)
+	copy(result, msgs[startIdx:])
+	return result, nil
+}
+
+// findMessageWindowStart finds the earliest message index that fits within maxChars.
+func findMessageWindowStart(msgs []Message, maxChars int) int {
 	totalChars := 0
 	startIdx := len(msgs)
-
 	for i := len(msgs) - 1; i >= 0; i-- {
 		msgChars := len(msgs[i].Content)
 		if totalChars+msgChars > maxChars {
-			break
+			return startIdx
 		}
 		totalChars += msgChars
 		startIdx = i
 	}
-
-	result := make([]Message, len(msgs)-startIdx)
-	copy(result, msgs[startIdx:])
-	return result, nil
+	return startIdx
 }
 
 func (m *MemoryStateManager) GetUserMemory(ctx context.Context, userID string) ([]UserFact, error) {
@@ -100,7 +106,7 @@ func (m *MemoryStateManager) GetUserMemory(ctx context.Context, userID string) (
 
 	facts, ok := m.userMemory[userID]
 	if !ok {
-		return nil, nil
+		return []UserFact{}, nil
 	}
 
 	result := make([]UserFact, len(facts))

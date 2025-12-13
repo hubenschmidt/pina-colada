@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
@@ -51,7 +52,7 @@ var entityJoins = map[string]map[string]serializers.AvailableJoin{
 func (s *ReportService) GetEntityFields(entity string) (*serializers.EntityFieldsResponse, error) {
 	baseFields, ok := entityFields[entity]
 	if !ok {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 
 	joins := entityJoins[entity]
@@ -110,9 +111,6 @@ func (s *ReportService) GetSavedReport(reportID int64, tenantID int64) (*seriali
 	if err != nil {
 		return nil, err
 	}
-	if report == nil {
-		return nil, nil
-	}
 
 	projectIDs, _ := s.reportRepo.GetProjectIDsForReport(reportID)
 	resp := serializers.SavedReportToResponse(report, projectIDs)
@@ -148,12 +146,9 @@ func (s *ReportService) CreateSavedReport(tenantID int64, userID *int64, input s
 
 // UpdateSavedReport updates a saved report
 func (s *ReportService) UpdateSavedReport(reportID int64, tenantID int64, input schemas.SavedReportUpdate) (*serializers.SavedReportResponse, error) {
-	report, err := s.reportRepo.FindSavedReportByID(reportID, tenantID)
+	_, err := s.reportRepo.FindSavedReportByID(reportID, tenantID)
 	if err != nil {
 		return nil, err
-	}
-	if report == nil {
-		return nil, nil
 	}
 
 	updates := make(map[string]interface{})

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/models"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -110,7 +111,7 @@ func (r *JobRepository) FindByID(id int64) (*models.Job, error) {
 		Preload("SalaryRangeRef").
 		First(&job, id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -234,7 +235,7 @@ func (r *JobRepository) GetRecentResumeDate() (*time.Time, error) {
 		Order(`"Lead".created_at DESC`).
 		First(&job).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+		return nil, apperrors.ErrNotFound
 	}
 	if err != nil {
 		return nil, err
@@ -242,19 +243,20 @@ func (r *JobRepository) GetRecentResumeDate() (*time.Time, error) {
 	return job.ResumeDate, nil
 }
 
+var jobOrderColumns = map[string]string{
+	"date":             `"Lead".created_at`,
+	"application_date": `"Lead".created_at`,
+	"updated_at":       `"Lead".updated_at`,
+	"job_title":        `"Job".job_title`,
+	"resume":           `"Job".resume_date`,
+}
+
 func mapJobOrderColumn(orderBy string) string {
-	switch orderBy {
-	case "date", "application_date":
-		return `"Lead".created_at`
-	case "updated_at":
-		return `"Lead".updated_at`
-	case "job_title":
-		return `"Job".job_title`
-	case "resume":
-		return `"Job".resume_date`
-	default:
+	col, ok := jobOrderColumns[orderBy]
+	if !ok {
 		return `"Lead".updated_at`
 	}
+	return col
 }
 
 // FindAllStatuses returns all job-related statuses
