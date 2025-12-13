@@ -157,6 +157,9 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 		return nil, err
 	}
 
+	// Seed in-memory state from database history if needed
+	o.seedFromDatabaseHistory(ctx, req.SessionID)
+
 	// Get context from state manager
 	contextMsgs, err := o.stateManager.GetMessages(ctx, req.SessionID, 8000)
 	if err != nil {
@@ -386,6 +389,9 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 		return
 	}
 
+	// Seed in-memory state from database history if needed
+	o.seedFromDatabaseHistory(ctx, req.SessionID)
+
 	// Get context from state manager
 	contextMsgs, err := o.stateManager.GetMessages(ctx, req.SessionID, 8000)
 	if err != nil {
@@ -492,6 +498,40 @@ func (o *Orchestrator) ensureSession(ctx context.Context, userID, sessionID stri
 		return fmt.Errorf("create session: %w", err)
 	}
 	return nil
+}
+
+// seedFromDatabaseHistory loads conversation history from database into in-memory state
+func (o *Orchestrator) seedFromDatabaseHistory(ctx context.Context, sessionID string) {
+	if o.convService == nil {
+		return
+	}
+
+	// Check if session already has messages (avoid re-seeding)
+	existingMsgs, err := o.stateManager.GetMessages(ctx, sessionID, 1)
+	if err == nil && len(existingMsgs) > 0 {
+		return
+	}
+
+	// Load last 6 messages from database
+	dbMessages, err := o.convService.LoadMessages(sessionID, 6)
+	if err != nil {
+		log.Printf("Warning: failed to load DB history: %v", err)
+		return
+	}
+
+	if len(dbMessages) == 0 {
+		return
+	}
+
+	log.Printf("Seeding session with %d messages from database", len(dbMessages))
+	for _, msg := range dbMessages {
+		if err := o.stateManager.AddMessage(ctx, sessionID, state.Message{
+			Role:    msg.Role,
+			Content: msg.Content,
+		}); err != nil {
+			log.Printf("Warning: failed to seed message: %v", err)
+		}
+	}
 }
 
 // buildInputWithContext creates the input string with conversation context

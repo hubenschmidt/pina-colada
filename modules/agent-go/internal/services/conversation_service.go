@@ -239,3 +239,28 @@ func (s *ConversationService) SetTitle(threadID, title string) error {
 	}
 	return s.convRepo.UpdateTitleByThreadID(parsedUUID, title)
 }
+
+// LoadMessages returns recent messages for a thread
+func (s *ConversationService) LoadMessages(threadID string, maxMessages int) ([]MessageResponse, error) {
+	parsedUUID, err := uuid.Parse(threadID)
+	if err != nil {
+		return nil, err
+	}
+
+	messages, err := s.convRepo.GetMessagesByThreadID(parsedUUID, maxMessages)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]MessageResponse, len(messages))
+	for i, m := range messages {
+		results[i] = MessageResponse{
+			ID:        m.ID,
+			Role:      m.Role,
+			Content:   m.Content,
+			CreatedAt: m.CreatedAt,
+		}
+	}
+
+	return results, nil
+}

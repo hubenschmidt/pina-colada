@@ -74,7 +74,7 @@ func TestJobSearchReturnsResults(t *testing.T) {
 	var docService *services.DocumentService
 	var jobService *services.JobService
 
-	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService)
+	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, nil)
 	if err != nil {
 		t.Fatalf("Failed to create orchestrator: %v", err)
 	}
@@ -192,7 +192,7 @@ func TestCRMDocumentLookup(t *testing.T) {
 	}
 
 	// Create orchestrator with real services
-	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService)
+	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, nil)
 	if err != nil {
 		t.Fatalf("Failed to create orchestrator: %v", err)
 	}
@@ -281,7 +281,7 @@ func TestJobSearchURLsAreValid(t *testing.T) {
 	var docService *services.DocumentService
 	var jobService *services.JobService
 
-	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService)
+	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, nil)
 	if err != nil {
 		t.Fatalf("Failed to create orchestrator: %v", err)
 	}
@@ -405,7 +405,7 @@ func TestJobSearchWithResume(t *testing.T) {
 	}
 
 	// Create orchestrator with real services
-	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService)
+	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, nil)
 	if err != nil {
 		t.Fatalf("Failed to create orchestrator: %v", err)
 	}

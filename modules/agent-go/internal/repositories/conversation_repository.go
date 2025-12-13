@@ -112,6 +112,34 @@ func (r *ConversationRepository) GetMessages(conversationID int64) ([]models.Con
 	return messages, err
 }
 
+// GetMessagesByThreadID returns recent messages for a conversation by thread ID
+func (r *ConversationRepository) GetMessagesByThreadID(threadID uuid.UUID, limit int) ([]models.ConversationMessage, error) {
+	var conv models.Conversation
+	err := r.db.Where("thread_id = ?", threadID).First(&conv).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return []models.ConversationMessage{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	var messages []models.ConversationMessage
+	err = r.db.Where("conversation_id = ?", conv.ID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&messages).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Reverse to get chronological order
+	for i, j := 0, len(messages)-1; i < j; i, j = i+1, j-1 {
+		messages[i], messages[j] = messages[j], messages[i]
+	}
+
+	return messages, nil
+}
+
 // UpdateTitle updates a conversation's title
 func (r *ConversationRepository) UpdateTitle(conversationID int64, title string) error {
 	return r.db.Model(&models.Conversation{}).
