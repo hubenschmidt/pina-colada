@@ -87,7 +87,7 @@ func (r *ReportRepository) FindSavedReportByID(reportID int64, tenantID int64) (
 // GetProjectIDsForReport returns project IDs associated with a saved report
 func (r *ReportRepository) GetProjectIDsForReport(reportID int64) ([]int64, error) {
 	var projectIDs []int64
-	err := r.db.Table(`"Saved_Report_Project"`).
+	err := r.db.Model(&models.SavedReportProject{}).
 		Where("saved_report_id = ?", reportID).
 		Pluck("project_id", &projectIDs).Error
 	return projectIDs, err
@@ -118,7 +118,7 @@ func (r *ReportRepository) DeleteSavedReport(reportID int64) error {
 	tx := r.db.Begin()
 
 	// Delete project associations
-	if err := tx.Table(`"Saved_Report_Project"`).Where("saved_report_id = ?", reportID).Delete(nil).Error; err != nil {
+	if err := tx.Where("saved_report_id = ?", reportID).Delete(&models.SavedReportProject{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -137,7 +137,7 @@ func (r *ReportRepository) SetProjectsForReport(reportID int64, projectIDs []int
 	tx := r.db.Begin()
 
 	// Delete existing associations
-	if err := tx.Table(`"Saved_Report_Project"`).Where("saved_report_id = ?", reportID).Delete(nil).Error; err != nil {
+	if err := tx.Where("saved_report_id = ?", reportID).Delete(&models.SavedReportProject{}).Error; err != nil {
 		tx.Rollback()
 		return err
 	}
@@ -156,7 +156,7 @@ func (r *ReportRepository) SetProjectsForReport(reportID int64, projectIDs []int
 
 // GetLeadPipelineData returns data for the lead pipeline canned report
 func (r *ReportRepository) GetLeadPipelineData(tenantID int64, dateFrom, dateTo *string, projectID *int64) ([]map[string]interface{}, error) {
-	query := r.db.Table(`"Lead"`).
+	query := r.db.Model(&models.Lead{}).
 		Select(`"Lead".id, "Lead".source, "Lead".type, "Lead".created_at, "Account".name as account_name`).
 		Joins(`LEFT JOIN "Account" ON "Lead".account_id = "Account".id`).
 		Where(`"Account".tenant_id = ?`, tenantID)
@@ -168,8 +168,8 @@ func (r *ReportRepository) GetLeadPipelineData(tenantID int64, dateFrom, dateTo 
 		query = query.Where(`"Lead".created_at <= ?`, *dateTo)
 	}
 	if projectID != nil {
-		query = query.Joins(`INNER JOIN "Lead_Project" ON "Lead".id = "Lead_Project".lead_id`).
-			Where(`"Lead_Project".project_id = ?`, *projectID)
+		leadIDs := r.db.Model(&models.LeadProject{}).Select("lead_id").Where("project_id = ?", *projectID)
+		query = query.Where(`"Lead".id IN (?)`, leadIDs)
 	}
 
 	query = query.Order(`"Lead".created_at DESC`)
@@ -185,7 +185,7 @@ func (r *ReportRepository) GetAccountOverviewData(tenantID int64) (map[string]in
 
 	// Count organizations
 	var orgCount int64
-	r.db.Table(`"Organization"`).
+	r.db.Model(&models.Organization{}).
 		Joins(`JOIN "Account" ON "Organization".account_id = "Account".id`).
 		Where(`"Account".tenant_id = ?`, tenantID).
 		Count(&orgCount)
@@ -193,7 +193,7 @@ func (r *ReportRepository) GetAccountOverviewData(tenantID int64) (map[string]in
 
 	// Count individuals
 	var indCount int64
-	r.db.Table(`"Individual"`).
+	r.db.Model(&models.Individual{}).
 		Joins(`JOIN "Account" ON "Individual".account_id = "Account".id`).
 		Where(`"Account".tenant_id = ?`, tenantID).
 		Count(&indCount)
@@ -201,7 +201,7 @@ func (r *ReportRepository) GetAccountOverviewData(tenantID int64) (map[string]in
 
 	// Count leads
 	var leadCount int64
-	r.db.Table(`"Lead"`).
+	r.db.Model(&models.Lead{}).
 		Joins(`JOIN "Account" ON "Lead".account_id = "Account".id`).
 		Where(`"Account".tenant_id = ?`, tenantID).
 		Count(&leadCount)
@@ -209,7 +209,7 @@ func (r *ReportRepository) GetAccountOverviewData(tenantID int64) (map[string]in
 
 	// Count contacts
 	var contactCount int64
-	r.db.Table(`"Contact"`).
+	r.db.Model(&models.Contact{}).
 		Joins(`JOIN "Account" ON "Contact".account_id = "Account".id`).
 		Where(`"Account".tenant_id = ?`, tenantID).
 		Count(&contactCount)
@@ -220,7 +220,7 @@ func (r *ReportRepository) GetAccountOverviewData(tenantID int64) (map[string]in
 		Country string
 		Count   int64
 	}
-	r.db.Table(`"Organization"`).
+	r.db.Model(&models.Organization{}).
 		Select(`COALESCE("Organization".headquarters_country, 'Unknown') as country, COUNT(*) as count`).
 		Joins(`JOIN "Account" ON "Organization".account_id = "Account".id`).
 		Where(`"Account".tenant_id = ?`, tenantID).
@@ -238,7 +238,7 @@ func (r *ReportRepository) GetAccountOverviewData(tenantID int64) (map[string]in
 		Type  string
 		Count int64
 	}
-	r.db.Table(`"Organization"`).
+	r.db.Model(&models.Organization{}).
 		Select(`COALESCE("Organization".company_type, 'Unknown') as type, COUNT(*) as count`).
 		Joins(`JOIN "Account" ON "Organization".account_id = "Account".id`).
 		Where(`"Account".tenant_id = ?`, tenantID).
@@ -260,7 +260,7 @@ func (r *ReportRepository) GetContactCoverageData(tenantID int64) (map[string]in
 
 	// Get coverage by org
 	var coverageByOrg []map[string]interface{}
-	r.db.Table(`"Organization"`).
+	r.db.Model(&models.Organization{}).
 		Select(`"Organization".id as organization_id, "Organization".name as organization_name, COUNT(DISTINCT "Contact".id) as contact_count`).
 		Joins(`JOIN "Account" ON "Organization".account_id = "Account".id`).
 		Joins(`LEFT JOIN "Contact_Account" ON "Contact_Account".account_id = "Account".id`).
@@ -273,7 +273,7 @@ func (r *ReportRepository) GetContactCoverageData(tenantID int64) (map[string]in
 
 	// Total organizations
 	var totalOrgs int64
-	r.db.Table(`"Organization"`).
+	r.db.Model(&models.Organization{}).
 		Joins(`JOIN "Account" ON "Organization".account_id = "Account".id`).
 		Where(`"Account".tenant_id = ?`, tenantID).
 		Count(&totalOrgs)
@@ -281,7 +281,7 @@ func (r *ReportRepository) GetContactCoverageData(tenantID int64) (map[string]in
 
 	// Total contacts
 	var totalContacts int64
-	r.db.Table(`"Contact"`).
+	r.db.Model(&models.Contact{}).
 		Joins(`JOIN "Contact_Account" ON "Contact".id = "Contact_Account".contact_id`).
 		Joins(`JOIN "Account" ON "Contact_Account".account_id = "Account".id`).
 		Where(`"Account".tenant_id = ?`, tenantID).
@@ -297,7 +297,7 @@ func (r *ReportRepository) GetContactCoverageData(tenantID int64) (map[string]in
 
 	// Decision maker count
 	var decisionMakerCount int64
-	r.db.Table(`"Contact"`).
+	r.db.Model(&models.Contact{}).
 		Joins(`JOIN "Contact_Account" ON "Contact".id = "Contact_Account".contact_id`).
 		Joins(`JOIN "Account" ON "Contact_Account".account_id = "Account".id`).
 		Where(`"Account".tenant_id = ? AND "Contact".is_primary = true`, tenantID).
@@ -330,7 +330,7 @@ func (r *ReportRepository) GetNotesActivityData(tenantID int64, projectID *int64
 
 	// Total notes
 	var totalNotes int64
-	r.db.Table(`"Note"`).
+	r.db.Model(&models.Note{}).
 		Where(`"Note".tenant_id = ?`, tenantID).
 		Count(&totalNotes)
 	result["total_notes"] = totalNotes
@@ -340,7 +340,7 @@ func (r *ReportRepository) GetNotesActivityData(tenantID int64, projectID *int64
 		EntityType string
 		Count      int64
 	}
-	r.db.Table(`"Note"`).
+	r.db.Model(&models.Note{}).
 		Select(`entity_type, COUNT(*) as count`).
 		Where(`tenant_id = ?`, tenantID).
 		Group("entity_type").
@@ -357,7 +357,7 @@ func (r *ReportRepository) GetNotesActivityData(tenantID int64, projectID *int64
 		EntityType string
 		Count      int64
 	}
-	r.db.Table(`"Note"`).
+	r.db.Model(&models.Note{}).
 		Select(`entity_type, COUNT(DISTINCT entity_id) as count`).
 		Where(`tenant_id = ?`, tenantID).
 		Group("entity_type").
@@ -371,7 +371,7 @@ func (r *ReportRepository) GetNotesActivityData(tenantID int64, projectID *int64
 
 	// Recent notes
 	var recentNotes []map[string]interface{}
-	r.db.Table(`"Note"`).
+	r.db.Model(&models.Note{}).
 		Select(`"Note".id, "Note".entity_type, "Note".entity_id, "Note".content, "Note".created_at, "User".email as created_by_email`).
 		Joins(`LEFT JOIN "User" ON "Note".created_by = "User".id`).
 		Where(`"Note".tenant_id = ?`, tenantID).
@@ -408,7 +408,7 @@ func (r *ReportRepository) getAuditTableName(table string) string {
 // getContactAuditCounts returns counts for Contact table with DISTINCT to handle many-to-many
 func (r *ReportRepository) getContactAuditCounts(tenantID int64, userID *int64) (int64, int64) {
 	var count int64
-	query := r.db.Table(`"Contact"`).
+	query := r.db.Model(&models.Contact{}).
 		Select(`COUNT(DISTINCT "Contact".id)`).
 		Joins(`JOIN "Contact_Account" ON "Contact".id = "Contact_Account".contact_id`).
 		Joins(`JOIN "Account" ON "Contact_Account".account_id = "Account".id`).
@@ -673,12 +673,12 @@ func (r *ReportRepository) applyProjectFilter(query *gorm.DB, projectID *int64, 
 		return query
 	}
 
-	subquery := r.db.Table(`"Saved_Report_Project"`).Select("saved_report_id").Where("project_id = ?", *projectID)
+	subquery := r.db.Model(&models.SavedReportProject{}).Select("saved_report_id").Where("project_id = ?", *projectID)
 	if !includeGlobal {
 		return query.Where("id IN (?)", subquery)
 	}
 
-	noProjectSubquery := r.db.Table(`"Saved_Report_Project"`).Select("saved_report_id")
+	noProjectSubquery := r.db.Model(&models.SavedReportProject{}).Select("saved_report_id")
 	return query.Where("id IN (?) OR id NOT IN (?)", subquery, noProjectSubquery)
 }
 
@@ -687,13 +687,8 @@ func (r *ReportRepository) loadAuditUserInfo(result map[string]interface{}, tena
 		return
 	}
 
-	var user struct {
-		ID        int64
-		Email     string
-		FirstName string
-		LastName  string
-	}
-	err := r.db.Table(`"User"`).
+	var user models.User
+	err := r.db.Model(&models.User{}).
 		Select("id, email, first_name, last_name").
 		Where("id = ? AND tenant_id = ?", *userID, tenantID).
 		First(&user).Error
@@ -704,6 +699,24 @@ func (r *ReportRepository) loadAuditUserInfo(result map[string]interface{}, tena
 	result["user"] = map[string]interface{}{
 		"id":    user.ID,
 		"email": user.Email,
-		"name":  user.FirstName + " " + user.LastName,
+		"name":  derefUserName(user.FirstName, user.LastName),
 	}
+}
+
+func derefUserName(firstName, lastName *string) string {
+	fn := ""
+	ln := ""
+	if firstName != nil {
+		fn = *firstName
+	}
+	if lastName != nil {
+		ln = *lastName
+	}
+	if fn != "" && ln != "" {
+		return fn + " " + ln
+	}
+	if fn != "" {
+		return fn
+	}
+	return ln
 }

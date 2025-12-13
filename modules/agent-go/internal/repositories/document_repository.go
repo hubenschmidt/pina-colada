@@ -46,7 +46,7 @@ func (r *DocumentRepository) FindByEntity(entityType string, entityID int64, ten
 	var docs []DocumentDTO
 	var totalCount int64
 
-	query := r.db.Table("\"Asset\"").
+	query := r.db.Model(&models.Asset{}).
 		Select(`"Asset".id, "Asset".asset_type, "Asset".tenant_id, "Asset".user_id,
 			"Asset".filename, "Asset".content_type, "Asset".description,
 			"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
@@ -60,7 +60,7 @@ func (r *DocumentRepository) FindByEntity(entityType string, entityID int64, ten
 		query = query.Where(`"Asset".tenant_id = ?`, *tenantID)
 	}
 
-	countQuery := r.db.Table("\"Asset\"").
+	countQuery := r.db.Model(&models.Asset{}).
 		Joins(`INNER JOIN "Document" ON "Document".id = "Asset".id`).
 		Joins(`INNER JOIN "Entity_Asset" ON "Entity_Asset".asset_id = "Asset".id`).
 		Where(`"Entity_Asset".entity_type = ? AND "Entity_Asset".entity_id = ?`, entityType, entityID).
@@ -103,7 +103,7 @@ func (r *DocumentRepository) FindByID(id int64) (*models.Asset, error) {
 
 func (r *DocumentRepository) FindDocumentByID(id int64) (*DocumentDTO, error) {
 	var doc DocumentDTO
-	err := r.db.Table(`"Asset"`).
+	err := r.db.Model(&models.Asset{}).
 		Select(`"Asset".id, "Asset".asset_type, "Asset".tenant_id, "Asset".user_id,
 			"Asset".filename, "Asset".content_type, "Asset".description,
 			"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
@@ -205,7 +205,7 @@ func (r *DocumentRepository) FindAll(entityType *string, entityID *int64, tenant
 	var docs []DocumentDTO
 	var totalCount int64
 
-	query := r.db.Table("\"Asset\"").
+	query := r.db.Model(&models.Asset{}).
 		Select(`"Asset".id, "Asset".asset_type, "Asset".tenant_id, "Asset".user_id,
 			"Asset".filename, "Asset".content_type, "Asset".description,
 			"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
@@ -213,7 +213,7 @@ func (r *DocumentRepository) FindAll(entityType *string, entityID *int64, tenant
 		Joins(`INNER JOIN "Document" ON "Document".id = "Asset".id`).
 		Where(`"Asset".asset_type = ?`, "document")
 
-	countQuery := r.db.Table("\"Asset\"").
+	countQuery := r.db.Model(&models.Asset{}).
 		Joins(`INNER JOIN "Document" ON "Document".id = "Asset".id`).
 		Where(`"Asset".asset_type = ?`, "document")
 
@@ -274,7 +274,7 @@ func (r *DocumentRepository) FindDocumentVersions(documentID int64, tenantID int
 
 	// Find all versions: root + all children
 	var docs []DocumentDTO
-	err = r.db.Table(`"Asset"`).
+	err = r.db.Model(&models.Asset{}).
 		Select(`"Asset".id, "Asset".asset_type, "Asset".tenant_id, "Asset".user_id,
 			"Asset".filename, "Asset".content_type, "Asset".description,
 			"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
@@ -302,7 +302,7 @@ func (r *DocumentRepository) GetVersionCount(documentID int64, tenantID int64) (
 	}
 
 	var count int64
-	err = r.db.Table(`"Asset"`).
+	err = r.db.Model(&models.Asset{}).
 		Where(`tenant_id = ? AND (id = ? OR parent_id = ?)`, tenantID, rootID, rootID).
 		Count(&count).Error
 
@@ -339,7 +339,7 @@ func (r *DocumentRepository) CreateNewVersion(input CreateVersionInput) (*Docume
 
 	// Get max version number
 	var maxVersion int
-	err = tx.Table(`"Asset"`).
+	err = tx.Model(&models.Asset{}).
 		Select("COALESCE(MAX(version_number), 0)").
 		Where(`tenant_id = ? AND (id = ? OR parent_id = ?)`, input.TenantID, rootID, rootID).
 		Scan(&maxVersion).Error
@@ -349,7 +349,7 @@ func (r *DocumentRepository) CreateNewVersion(input CreateVersionInput) (*Docume
 	}
 
 	// Mark all existing versions as not current
-	err = tx.Table(`"Asset"`).
+	err = tx.Model(&models.Asset{}).
 		Where(`tenant_id = ? AND (id = ? OR parent_id = ?)`, input.TenantID, rootID, rootID).
 		Update("is_current_version", false).Error
 	if err != nil {
@@ -413,7 +413,7 @@ func (r *DocumentRepository) CreateNewVersion(input CreateVersionInput) (*Docume
 
 // UpdateDocument updates a document's metadata
 func (r *DocumentRepository) UpdateDocument(documentID int64, updates map[string]interface{}) error {
-	return r.db.Table(`"Asset"`).Where("id = ?", documentID).Updates(updates).Error
+	return r.db.Model(&models.Asset{}).Where("id = ?", documentID).Updates(updates).Error
 }
 
 // DeleteDocument deletes a document and its associated records
@@ -460,7 +460,7 @@ func (r *DocumentRepository) SetCurrentVersion(documentID int64, tenantID int64)
 	}
 
 	// Mark all versions as not current
-	err = tx.Table(`"Asset"`).
+	err = tx.Model(&models.Asset{}).
 		Where(`tenant_id = ? AND (id = ? OR parent_id = ?)`, tenantID, rootID, rootID).
 		Update("is_current_version", false).Error
 	if err != nil {
@@ -469,7 +469,7 @@ func (r *DocumentRepository) SetCurrentVersion(documentID int64, tenantID int64)
 	}
 
 	// Mark the target version as current
-	err = tx.Table(`"Asset"`).
+	err = tx.Model(&models.Asset{}).
 		Where("id = ?", documentID).
 		Update("is_current_version", true).Error
 	if err != nil {
@@ -497,7 +497,7 @@ func (r *DocumentRepository) GetDocumentsEntities(docIDs []int64) map[int64][]En
 		EntityType string `gorm:"column:entity_type"`
 		EntityID   int64  `gorm:"column:entity_id"`
 	}
-	r.db.Table(`"Entity_Asset"`).
+	r.db.Model(&models.EntityAsset{}).
 		Select("asset_id, entity_type, entity_id").
 		Where("asset_id IN ?", docIDs).
 		Scan(&links)
@@ -540,48 +540,60 @@ func (r *DocumentRepository) batchFetchEntityNames(links []struct {
 		idsByType[link.EntityType] = append(idsByType[link.EntityType], link.EntityID)
 	}
 
-	tableSelectMap := map[string]struct {
-		table  string
-		column string
-	}{
-		"Organization": {`"Organization"`, "id, name"},
-		"Project":      {`"Project"`, "id, name"},
-		"Individual":   {`"Individual"`, "id, first_name || ' ' || last_name as name"},
-		"Contact":      {`"Contact"`, "id, first_name || ' ' || last_name as name"},
-	}
-
 	for entityType, ids := range idsByType {
-		r.fetchEntityNames(entityType, ids, tableSelectMap, entityLookups)
+		r.fetchEntityNamesByType(entityType, ids, entityLookups)
 	}
 }
 
-func (r *DocumentRepository) fetchEntityNames(entityType string, ids []int64, tableSelectMap map[string]struct {
-	table  string
-	column string
-}, entityLookups map[string]string) {
+func (r *DocumentRepository) fetchEntityNamesByType(entityType string, ids []int64, entityLookups map[string]string) {
 	if len(ids) == 0 {
 		return
 	}
 
-	if entityType == "Lead" {
-		r.fetchLeadNames(ids, entityLookups)
-		return
+	fetchers := map[string]func([]int64, map[string]string){
+		"Lead":         r.fetchLeadNames,
+		"Organization": r.fetchOrganizationNames,
+		"Project":      r.fetchProjectNames,
+		"Individual":   r.fetchIndividualNames,
+		"Contact":      r.fetchContactNames,
 	}
 
-	cfg, ok := tableSelectMap[entityType]
+	fetcher, ok := fetchers[entityType]
 	if !ok {
 		return
 	}
+	fetcher(ids, entityLookups)
+}
 
-	var rows []struct {
-		ID   int64  `gorm:"column:id"`
-		Name string `gorm:"column:name"`
+func (r *DocumentRepository) fetchOrganizationNames(ids []int64, entityLookups map[string]string) {
+	var orgs []models.Organization
+	r.db.Model(&models.Organization{}).Select("id, name").Where("id IN ?", ids).Find(&orgs)
+	for _, org := range orgs {
+		entityLookups[fmt.Sprintf("Organization:%d", org.ID)] = org.Name
 	}
-	r.db.Table(cfg.table).Select(cfg.column).Where("id IN ?", ids).Scan(&rows)
+}
 
-	for _, row := range rows {
-		key := fmt.Sprintf("%s:%d", entityType, row.ID)
-		entityLookups[key] = row.Name
+func (r *DocumentRepository) fetchProjectNames(ids []int64, entityLookups map[string]string) {
+	var projects []models.Project
+	r.db.Model(&models.Project{}).Select("id, name").Where("id IN ?", ids).Find(&projects)
+	for _, p := range projects {
+		entityLookups[fmt.Sprintf("Project:%d", p.ID)] = p.Name
+	}
+}
+
+func (r *DocumentRepository) fetchIndividualNames(ids []int64, entityLookups map[string]string) {
+	var individuals []models.Individual
+	r.db.Model(&models.Individual{}).Select("id, first_name, last_name").Where("id IN ?", ids).Find(&individuals)
+	for _, i := range individuals {
+		entityLookups[fmt.Sprintf("Individual:%d", i.ID)] = i.FirstName + " " + i.LastName
+	}
+}
+
+func (r *DocumentRepository) fetchContactNames(ids []int64, entityLookups map[string]string) {
+	var contacts []models.Contact
+	r.db.Model(&models.Contact{}).Select("id, first_name, last_name").Where("id IN ?", ids).Find(&contacts)
+	for _, c := range contacts {
+		entityLookups[fmt.Sprintf("Contact:%d", c.ID)] = c.FirstName + " " + c.LastName
 	}
 }
 
@@ -591,7 +603,7 @@ func (r *DocumentRepository) fetchLeadNames(ids []int64, entityLookups map[strin
 		ID   int64  `gorm:"column:id"`
 		Name string `gorm:"column:job_title"`
 	}
-	r.db.Table(`"Job"`).Select("id, job_title").Where("id IN ?", ids).Scan(&jobs)
+	r.db.Model(&models.Job{}).Select("id, job_title").Where("id IN ?", ids).Scan(&jobs)
 	for _, j := range jobs {
 		entityLookups[fmt.Sprintf("Lead:%d", j.ID)] = j.Name
 	}
@@ -601,7 +613,7 @@ func (r *DocumentRepository) fetchLeadNames(ids []int64, entityLookups map[strin
 		ID   int64  `gorm:"column:id"`
 		Name string `gorm:"column:opportunity_name"`
 	}
-	r.db.Table(`"Opportunity"`).Select("id, opportunity_name").Where("id IN ?", ids).Scan(&opps)
+	r.db.Model(&models.Opportunity{}).Select("id, opportunity_name").Where("id IN ?", ids).Scan(&opps)
 	for _, o := range opps {
 		entityLookups[fmt.Sprintf("Lead:%d", o.ID)] = o.Name
 	}
@@ -611,7 +623,7 @@ func (r *DocumentRepository) fetchLeadNames(ids []int64, entityLookups map[strin
 		ID   int64  `gorm:"column:id"`
 		Name string `gorm:"column:partnership_name"`
 	}
-	r.db.Table(`"Partnership"`).Select("id, partnership_name").Where("id IN ?", ids).Scan(&parts)
+	r.db.Model(&models.Partnership{}).Select("id, partnership_name").Where("id IN ?", ids).Scan(&parts)
 	for _, p := range parts {
 		entityLookups[fmt.Sprintf("Lead:%d", p.ID)] = p.Name
 	}
@@ -628,7 +640,7 @@ func (r *DocumentRepository) GetDocumentsTags(docIDs []int64) map[int64][]string
 		EntityID int64  `gorm:"column:entity_id"`
 		TagName  string `gorm:"column:name"`
 	}
-	r.db.Table(`"Entity_Tag"`).
+	r.db.Model(&models.EntityTag{}).
 		Select(`"Entity_Tag".entity_id, "Tag".name`).
 		Joins(`INNER JOIN "Tag" ON "Tag".id = "Entity_Tag".tag_id`).
 		Where(`"Entity_Tag".entity_type = ? AND "Entity_Tag".entity_id IN ?`, "Asset", docIDs).

@@ -94,15 +94,15 @@ func (r *TaskRepository) FindAll(params PaginationParams, tenantID *int64, taska
 func (r *TaskRepository) applyProjectFilter(query *gorm.DB, projectID int64) *gorm.DB {
 	// Get Deal IDs for this project
 	var dealIDs []int64
-	r.db.Table(`"Deal"`).Select("id").Where("project_id = ?", projectID).Pluck("id", &dealIDs)
+	r.db.Model(&models.Deal{}).Select("id").Where("project_id = ?", projectID).Pluck("id", &dealIDs)
 
 	// Get Lead IDs linked to this project
 	var leadIDs []int64
-	r.db.Table(`"Lead_Project"`).Select("lead_id").Where("project_id = ?", projectID).Pluck("lead_id", &leadIDs)
+	r.db.Model(&models.LeadProject{}).Select("lead_id").Where("project_id = ?", projectID).Pluck("lead_id", &leadIDs)
 
 	// Get Account IDs linked to this project
 	var accountIDs []int64
-	r.db.Table(`"Account_Project"`).Select("account_id").Where("project_id = ?", projectID).Pluck("account_id", &accountIDs)
+	r.db.Model(&models.AccountProject{}).Select("account_id").Where("project_id = ?", projectID).Pluck("account_id", &accountIDs)
 
 	// Build OR conditions for project scope
 	conditions := r.db.Where(`"Task".taskable_type = ? AND "Task".taskable_id = ?`, "Project", projectID)
@@ -189,48 +189,86 @@ func (r *TaskRepository) FindByEntity(entityType string, entityID int64, tenantI
 
 // GetEntityDisplayName returns display name for an entity
 func (r *TaskRepository) GetEntityDisplayName(entityType string, entityID int64) *string {
-	if entityType == "Lead" {
-		return r.getLeadDisplayName(entityID)
+	fetchers := map[string]func(int64) *string{
+		"Lead":         r.getLeadDisplayName,
+		"Project":      r.getProjectDisplayName,
+		"Deal":         r.getDealDisplayName,
+		"Account":      r.getAccountDisplayName,
+		"Individual":   r.getIndividualDisplayName,
+		"Organization": r.getOrganizationDisplayName,
 	}
 
-	tableSelect := map[string]string{
-		"Project":      "name",
-		"Deal":         "name",
-		"Account":      "name",
-		"Individual":   "first_name || ' ' || last_name",
-		"Organization": "name",
-	}
-
-	selectField, ok := tableSelect[entityType]
+	fetcher, ok := fetchers[entityType]
 	if !ok {
 		return nil
 	}
+	return fetcher(entityID)
+}
 
-	var name string
-	err := r.db.Table(`"`+entityType+`"`).Select(selectField).Where("id = ?", entityID).Scan(&name).Error
-	if err != nil || name == "" {
+func (r *TaskRepository) getProjectDisplayName(id int64) *string {
+	var project models.Project
+	err := r.db.Model(&models.Project{}).Select("name").Where("id = ?", id).First(&project).Error
+	if err != nil || project.Name == "" {
 		return nil
 	}
+	return &project.Name
+}
+
+func (r *TaskRepository) getDealDisplayName(id int64) *string {
+	var deal models.Deal
+	err := r.db.Model(&models.Deal{}).Select("name").Where("id = ?", id).First(&deal).Error
+	if err != nil || deal.Name == "" {
+		return nil
+	}
+	return &deal.Name
+}
+
+func (r *TaskRepository) getAccountDisplayName(id int64) *string {
+	var account models.Account
+	err := r.db.Model(&models.Account{}).Select("name").Where("id = ?", id).First(&account).Error
+	if err != nil || account.Name == "" {
+		return nil
+	}
+	return &account.Name
+}
+
+func (r *TaskRepository) getIndividualDisplayName(id int64) *string {
+	var ind models.Individual
+	err := r.db.Model(&models.Individual{}).Select("first_name, last_name").Where("id = ?", id).First(&ind).Error
+	if err != nil {
+		return nil
+	}
+	name := ind.FirstName + " " + ind.LastName
 	return &name
+}
+
+func (r *TaskRepository) getOrganizationDisplayName(id int64) *string {
+	var org models.Organization
+	err := r.db.Model(&models.Organization{}).Select("name").Where("id = ?", id).First(&org).Error
+	if err != nil || org.Name == "" {
+		return nil
+	}
+	return &org.Name
 }
 
 // getLeadDisplayName gets display name from Lead subtype tables (Job, Opportunity, Partnership)
 func (r *TaskRepository) getLeadDisplayName(leadID int64) *string {
-	var name string
-
 	// Try Job
-	if err := r.db.Table(`"Job"`).Select("job_title").Where("id = ?", leadID).Scan(&name).Error; err == nil && name != "" {
-		return &name
+	var job models.Job
+	if err := r.db.Model(&models.Job{}).Select("job_title").Where("id = ?", leadID).First(&job).Error; err == nil && job.JobTitle != "" {
+		return &job.JobTitle
 	}
 
 	// Try Opportunity
-	if err := r.db.Table(`"Opportunity"`).Select("opportunity_name").Where("id = ?", leadID).Scan(&name).Error; err == nil && name != "" {
-		return &name
+	var opp models.Opportunity
+	if err := r.db.Model(&models.Opportunity{}).Select("opportunity_name").Where("id = ?", leadID).First(&opp).Error; err == nil && opp.OpportunityName != "" {
+		return &opp.OpportunityName
 	}
 
 	// Try Partnership
-	if err := r.db.Table(`"Partnership"`).Select("partnership_name").Where("id = ?", leadID).Scan(&name).Error; err == nil && name != "" {
-		return &name
+	var part models.Partnership
+	if err := r.db.Model(&models.Partnership{}).Select("partnership_name").Where("id = ?", leadID).First(&part).Error; err == nil && part.PartnershipName != "" {
+		return &part.PartnershipName
 	}
 
 	return nil
@@ -238,30 +276,30 @@ func (r *TaskRepository) getLeadDisplayName(leadID int64) *string {
 
 // GetLeadType returns the type of a lead
 func (r *TaskRepository) GetLeadType(leadID int64) *string {
-	var leadType string
-	err := r.db.Table(`"Lead"`).Select("type").Where("id = ?", leadID).Scan(&leadType).Error
-	if err != nil || leadType == "" {
+	var lead models.Lead
+	err := r.db.Model(&models.Lead{}).Select("type").Where("id = ?", leadID).First(&lead).Error
+	if err != nil || lead.Type == "" {
 		return nil
 	}
-	return &leadType
+	return &lead.Type
 }
 
 // GetAccountEntity returns the Individual or Organization linked to an Account
 func (r *TaskRepository) GetAccountEntity(accountID int64) (*string, *int64) {
 	// Check for Individual
-	var indID int64
-	err := r.db.Table(`"Individual"`).Select("id").Where("account_id = ?", accountID).Limit(1).Scan(&indID).Error
-	if err == nil && indID > 0 {
+	var ind models.Individual
+	err := r.db.Model(&models.Individual{}).Select("id").Where("account_id = ?", accountID).First(&ind).Error
+	if err == nil && ind.ID > 0 {
 		entityType := "Individual"
-		return &entityType, &indID
+		return &entityType, &ind.ID
 	}
 
 	// Check for Organization
-	var orgID int64
-	err = r.db.Table(`"Organization"`).Select("id").Where("account_id = ?", accountID).Limit(1).Scan(&orgID).Error
-	if err == nil && orgID > 0 {
+	var org models.Organization
+	err = r.db.Model(&models.Organization{}).Select("id").Where("account_id = ?", accountID).First(&org).Error
+	if err == nil && org.ID > 0 {
 		entityType := "Organization"
-		return &entityType, &orgID
+		return &entityType, &org.ID
 	}
 
 	return nil, nil

@@ -80,8 +80,8 @@ func (r *LeadRepository) applyOpportunityFilters(query *gorm.DB, tenantID, proje
 	}
 
 	if projectID != nil {
-		query = query.Joins("INNER JOIN \"Lead_Project\" ON \"Lead_Project\".lead_id = \"Lead\".id").
-			Where("\"Lead_Project\".project_id = ?", *projectID)
+		leadIDs := r.db.Model(&models.LeadProject{}).Select("lead_id").Where("project_id = ?", *projectID)
+		query = query.Where("\"Lead\".id IN (?)", leadIDs)
 	}
 
 	if search != "" {
