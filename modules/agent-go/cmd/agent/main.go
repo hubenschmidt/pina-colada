@@ -56,6 +56,7 @@ func main() {
 	techRepo := repositories.NewTechnologyRepository(database)
 	usageRepo := repositories.NewUsageRepository(database)
 	reportRepo := repositories.NewReportRepository(database)
+	notifRepo := repositories.NewNotificationRepository(database)
 
 	// Initialize services
 	authService := services.NewAuthService(userRepo)
@@ -78,6 +79,7 @@ func main() {
 	techService := services.NewTechnologyService(techRepo)
 	usageService := services.NewUsageService(usageRepo, userRepo)
 	reportService := services.NewReportService(reportRepo)
+	notifService := services.NewNotificationService(notifRepo)
 
 	// Initialize ADK agent orchestrator (only if Gemini API key is configured)
 	var agentOrchestrator *agent.Orchestrator
@@ -106,7 +108,7 @@ func main() {
 		Task:         controllers.NewTaskController(taskService),
 		Contact:      controllers.NewContactController(contactService),
 		Preferences:  controllers.NewPreferenceController(prefsService),
-		Notification: controllers.NewNotificationController(),
+		Notification: controllers.NewNotificationController(notifService),
 		Project:      controllers.NewProjectController(projectService),
 		Conversation: controllers.NewConversationController(convService),
 		Lookup:       controllers.NewLookupController(lookupService),

@@ -186,7 +186,10 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 
 		// Notifications routes
 		r.Route("/notifications", func(r chi.Router) {
+			r.Get("/", c.Notification.GetNotifications)
 			r.Get("/count", c.Notification.GetNotificationCount)
+			r.Post("/mark-read", c.Notification.MarkAsRead)
+			r.Post("/mark-entity-read", c.Notification.MarkEntityAsRead)
 		})
 
 		// Projects routes

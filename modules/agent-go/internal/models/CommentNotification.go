@@ -12,6 +12,9 @@ type CommentNotification struct {
 	CreatedAt        time.Time  `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt        time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
 	ReadAt           *time.Time `json:"read_at"`
+
+	// Relations
+	Comment *Comment `gorm:"foreignKey:CommentID" json:"comment,omitempty"`
 }
 
 func (CommentNotification) TableName() string {
