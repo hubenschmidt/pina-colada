@@ -18,6 +18,8 @@ type SavedReportResponse struct {
 	CreatedAt       time.Time      `json:"created_at"`
 	UpdatedAt       time.Time      `json:"updated_at"`
 	ProjectIDs      []int64        `json:"project_ids"`
+	ProjectNames    []string       `json:"project_names"`
+	IsGlobal        bool           `json:"is_global"`
 }
 
 // SavedReportsListResponse represents paginated saved reports
@@ -54,10 +56,17 @@ type CustomQueryResponse struct {
 type CannedReportResponse map[string]interface{}
 
 // SavedReportToResponse converts a SavedReport model to response
-func SavedReportToResponse(report *models.SavedReport, projectIDs []int64) SavedReportResponse {
+func SavedReportToResponse(report *models.SavedReport, projectIDs []int64, projectNames []string) SavedReportResponse {
 	var queryDef map[string]any
 	if report.QueryDefinition != nil {
 		json.Unmarshal(report.QueryDefinition, &queryDef)
+	}
+
+	if projectIDs == nil {
+		projectIDs = make([]int64, 0)
+	}
+	if projectNames == nil {
+		projectNames = make([]string, 0)
 	}
 
 	return SavedReportResponse{
@@ -70,5 +79,7 @@ func SavedReportToResponse(report *models.SavedReport, projectIDs []int64) Saved
 		CreatedAt:       report.CreatedAt,
 		UpdatedAt:       report.UpdatedAt,
 		ProjectIDs:      projectIDs,
+		ProjectNames:    projectNames,
+		IsGlobal:        len(projectIDs) == 0,
 	}
 }

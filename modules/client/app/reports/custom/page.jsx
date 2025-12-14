@@ -59,7 +59,7 @@ const CustomReportsPage = () => {
     try {
       const result = await getSavedReports(
         selectedProject?.id,
-        true,
+        !selectedProject?.id,
         page,
         limit,
         sortBy,
@@ -151,13 +151,13 @@ const CustomReportsPage = () => {
     {
       header: "Scope",
       render: (report) =>
-        report.query_definition?.primary_entity === "leads" && selectedProject ? (
-          <Badge variant="light" color="lime">
-            {selectedProject.name}
-          </Badge>
-        ) : (
+        report.is_global ? (
           <Badge variant="light" color="gray">
             Global
+          </Badge>
+        ) : (
+          <Badge variant="light" color="lime">
+            {report.project_names?.join(", ") || "Project"}
           </Badge>
         ),
     },

@@ -87,8 +87,8 @@ func (s *ReportService) GetSavedReports(tenantID int64, projectID *int64, includ
 
 	items := make([]serializers.SavedReportResponse, len(reports))
 	for i, r := range reports {
-		projectIDs, _ := s.reportRepo.GetProjectIDsForReport(r.ID)
-		items[i] = serializers.SavedReportToResponse(&r, projectIDs)
+		projectIDs, projectNames, _ := s.reportRepo.GetProjectInfoForReport(r.ID)
+		items[i] = serializers.SavedReportToResponse(&r, projectIDs, projectNames)
 	}
 
 	totalPages := int(total) / limit
@@ -112,8 +112,8 @@ func (s *ReportService) GetSavedReport(reportID int64, tenantID int64) (*seriali
 		return nil, err
 	}
 
-	projectIDs, _ := s.reportRepo.GetProjectIDsForReport(reportID)
-	resp := serializers.SavedReportToResponse(report, projectIDs)
+	projectIDs, projectNames, _ := s.reportRepo.GetProjectInfoForReport(reportID)
+	resp := serializers.SavedReportToResponse(report, projectIDs, projectNames)
 	return &resp, nil
 }
 

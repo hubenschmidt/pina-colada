@@ -93,6 +93,30 @@ func (r *ReportRepository) GetProjectIDsForReport(reportID int64) ([]int64, erro
 	return projectIDs, err
 }
 
+// GetProjectInfoForReport returns project IDs and names for a saved report
+func (r *ReportRepository) GetProjectInfoForReport(reportID int64) ([]int64, []string, error) {
+	var results []struct {
+		ProjectID   int64
+		ProjectName string
+	}
+	err := r.db.Table("\"Saved_Report_Project\" srp").
+		Select("srp.project_id, p.name as project_name").
+		Joins("JOIN \"Project\" p ON p.id = srp.project_id").
+		Where("srp.saved_report_id = ?", reportID).
+		Scan(&results).Error
+	if err != nil {
+		return nil, nil, err
+	}
+
+	ids := make([]int64, len(results))
+	names := make([]string, len(results))
+	for i, r := range results {
+		ids[i] = r.ProjectID
+		names[i] = r.ProjectName
+	}
+	return ids, names, nil
+}
+
 // CreateSavedReport creates a new saved report
 func (r *ReportRepository) CreateSavedReport(input SavedReportCreateInput) (int64, error) {
 	report := &models.SavedReport{
@@ -673,13 +697,11 @@ func (r *ReportRepository) applyProjectFilter(query *gorm.DB, projectID *int64, 
 		return query
 	}
 
-	subquery := r.db.Model(&models.SavedReportProject{}).Select("saved_report_id").Where("project_id = ?", *projectID)
 	if !includeGlobal {
-		return query.Where("id IN (?)", subquery)
+		return query.Where("id IN (SELECT saved_report_id FROM \"Saved_Report_Project\" WHERE project_id = ?)", *projectID)
 	}
 
-	noProjectSubquery := r.db.Model(&models.SavedReportProject{}).Select("saved_report_id")
-	return query.Where("id IN (?) OR id NOT IN (?)", subquery, noProjectSubquery)
+	return query.Where("id IN (SELECT saved_report_id FROM \"Saved_Report_Project\" WHERE project_id = ?) OR id NOT IN (SELECT saved_report_id FROM \"Saved_Report_Project\")", *projectID)
 }
 
 func (r *ReportRepository) loadAuditUserInfo(result map[string]interface{}, tenantID int64, userID *int64) {
