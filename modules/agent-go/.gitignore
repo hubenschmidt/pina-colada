@@ -1,0 +1,24 @@
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+agent
+main
+
+# Build output
+/tmp/
+/bin/
+
+# IDE
+.idea/
+.vscode/
+
+# Environment
+.env.local
+.env
+
+# Misc
+/postman/
