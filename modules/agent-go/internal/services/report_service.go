@@ -56,8 +56,8 @@ func (s *ReportService) GetEntityFields(entity string) (*serializers.EntityField
 	}
 
 	joins := entityJoins[entity]
-	var joinFields []string
-	var availableJoins []serializers.AvailableJoin
+	joinFields := make([]string, 0)
+	availableJoins := make([]serializers.AvailableJoin, 0)
 
 	for _, join := range joins {
 		joinFields = append(joinFields, join.Fields...)

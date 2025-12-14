@@ -6,6 +6,7 @@ import { Stack, Center, Loader, Text, Group, Badge } from "@mantine/core";
 import { ReportBuilder } from "../../../../components/Reports/ReportBuilder";
 import { getSavedReport, updateSavedReport } from "../../../../api";
 import { useProjectContext } from "../../../../context/projectContext";
+import { usePageLoading } from "../../../../context/pageLoadingContext";
 
 const EditReportPage = () => {
   const router = useRouter();
@@ -17,6 +18,12 @@ const EditReportPage = () => {
   const [report, setReport] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const { dispatchPageLoading } = usePageLoading();
+
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+  }, [dispatchPageLoading]);
 
   useEffect(() => {
     const fetchReport = async () => {

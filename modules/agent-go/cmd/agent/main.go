@@ -82,22 +82,7 @@ func main() {
 	notifService := services.NewNotificationService(notifRepo)
 
 	// Initialize ADK agent orchestrator (only if Gemini API key is configured)
-	var agentOrchestrator *agent.Orchestrator
-	if cfg.GeminiAPIKey == "" {
-		log.Println("GEMINI_API_KEY not configured - agent endpoints disabled")
-	}
-	if cfg.GeminiAPIKey != "" {
-		ctx := context.Background()
-		var err error
-		agentOrchestrator, err = agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, convService)
-		if err != nil {
-			log.Printf("Warning: Failed to initialize agent orchestrator: %v", err)
-			log.Printf("Agent endpoints will return errors until configured")
-		}
-		if err == nil {
-			log.Println("ADK agent orchestrator initialized successfully")
-		}
-	}
+	agentOrchestrator := initOrchestrator(cfg, indService, orgService, docService, jobService, convService)
 
 	// Initialize controllers
 	ctrls := &routes.Controllers{
@@ -161,4 +146,23 @@ func main() {
 	}
 
 	log.Println("Server exited")
+}
+
+// initOrchestrator initializes the agent orchestrator if configured
+func initOrchestrator(cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService) *agent.Orchestrator {
+	if cfg.GeminiAPIKey == "" {
+		log.Println("GEMINI_API_KEY not configured - agent endpoints disabled")
+		return nil
+	}
+
+	ctx := context.Background()
+	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, convService)
+	if err != nil {
+		log.Printf("Warning: Failed to initialize agent orchestrator: %v", err)
+		log.Printf("Agent endpoints will return errors until configured")
+		return nil
+	}
+
+	log.Println("ADK agent orchestrator initialized successfully")
+	return orchestrator
 }
