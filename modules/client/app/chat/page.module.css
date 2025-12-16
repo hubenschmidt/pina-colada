@@ -5,7 +5,72 @@
   max-height: calc(100vh - 56px);
   margin: -1.5rem -1.5rem 0 -1.5rem;
   padding: 0 1rem;
-  overflow: hidden;
+}
+
+.pageToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem 0;
+}
+
+.toolsDropdown {
+  position: relative;
+}
+
+.toolsButton {
+  appearance: none;
+  background-color: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.toolsButton:hover {
+  background-color: var(--hover-background);
+}
+
+.toolsButton svg {
+  transition: transform 0.15s ease-in-out;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.toolsMenu {
+  position: absolute;
+  top: calc(100% + 0.25rem);
+  left: 0;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-lg);
+  min-width: 150px;
+  z-index: 100;
+}
+
+.evaluatorToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.evaluatorToggle input[type="checkbox"] {
+  cursor: pointer;
 }
 
 /* ERROR BANNER */

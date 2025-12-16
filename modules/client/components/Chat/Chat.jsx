@@ -261,6 +261,7 @@ const Chat = ({
   error,
   onError,
   onClearError,
+  useEvaluator: useEvaluatorProp,
 }) => {
   const { conversationState, loadConversations, selectConversation, updateConversationTitle } = useConversationContext();
   const { activeConversation } = conversationState;
@@ -321,6 +322,13 @@ const Chat = ({
   const [hasSentContext, setHasSentContext] = useState(false);
   const toolsDropdownId = useId();
   const demoDropdownId = useId();
+
+  // Sync useEvaluator prop with hook state (for page variant)
+  useEffect(() => {
+    if (useEvaluatorProp !== undefined) {
+      setUseEvaluator(useEvaluatorProp);
+    }
+  }, [useEvaluatorProp, setUseEvaluator]);
 
   // Notify parent of connection state changes
   useEffect(() => {
@@ -517,43 +525,6 @@ const Chat = ({
               </button>
             </div>
           </header>
-        )}
-
-        {/* toolbar for page variant */}
-        {variant === "page" && (
-          <div className={styles.pageToolbar}>
-            <div className={styles.toolsDropdown} id={toolsDropdownId}>
-              <button
-                type="button"
-                className={styles.toolsButton}
-                onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}
-                title="Tools">
-                <span>Tools</span>
-                <ChevronDown size={16} className={toolsDropdownOpen ? styles.chevronOpen : ""} />
-              </button>
-              {toolsDropdownOpen && (
-                <div className={styles.toolsMenu}>
-                  <label className={styles.evaluatorToggle}>
-                    <input
-                      type="checkbox"
-                      checked={useEvaluator}
-                      onChange={(e) => setUseEvaluator(e.target.checked)}
-                    />
-                    <span>Use evaluator</span>
-                  </label>
-                </div>
-              )}
-            </div>
-            <AgentConfigMenu />
-            <button
-              type="button"
-              className={styles.exportButton}
-              onClick={exportChat}
-              disabled={!messages.length}
-              title="Export chat to .txt file">
-              <Download size={16} />
-            </button>
-          </div>
         )}
 
         {/* chat panel - always rendered the same */}

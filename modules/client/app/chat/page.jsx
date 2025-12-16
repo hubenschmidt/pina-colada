@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useCallback, useState } from "react";
+import { useEffect, useCallback, useState, useId } from "react";
 import { env } from "next-runtime-env";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, X, ChevronDown } from "lucide-react";
 import Chat from "../../components/Chat/Chat";
+import AgentConfigMenu from "../../components/Chat/AgentConfigMenu";
 import { usePageLoading } from "../../context/pageLoadingContext";
 import { useConversationContext } from "../../context/conversationContext";
 import styles from "./page.module.css";
@@ -13,6 +14,9 @@ const ChatPage = () => {
   const { conversationState } = useConversationContext();
   const { newChatKey } = conversationState;
   const [error, setError] = useState(null);
+  const [useEvaluator, setUseEvaluator] = useState(false);
+  const [toolsDropdownOpen, setToolsDropdownOpen] = useState(false);
+  const toolsDropdownId = useId();
   const isVerbose = env("NEXT_PUBLIC_VERBOSE_ERRORS") === "true";
 
   useEffect(() => {
@@ -34,8 +38,46 @@ const ChatPage = () => {
     setError(null);
   }, []);
 
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      const menu = document.getElementById(toolsDropdownId);
+      if (menu && !menu.contains(event.target)) {
+        setToolsDropdownOpen(false);
+      }
+    };
+
+    if (toolsDropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+      return () => document.removeEventListener("mousedown", handleClickOutside);
+    }
+  }, [toolsDropdownOpen, toolsDropdownId]);
+
   return (
     <div className={styles.chatPageContainer}>
+      <div className={styles.pageToolbar}>
+        <div className={styles.toolsDropdown} id={toolsDropdownId}>
+          <button
+            type="button"
+            className={styles.toolsButton}
+            onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}>
+            <span>Tools</span>
+            <ChevronDown size={16} className={toolsDropdownOpen ? styles.chevronOpen : ""} />
+          </button>
+          {toolsDropdownOpen && (
+            <div className={styles.toolsMenu}>
+              <label className={styles.evaluatorToggle}>
+                <input
+                  type="checkbox"
+                  checked={useEvaluator}
+                  onChange={(e) => setUseEvaluator(e.target.checked)}
+                />
+                <span>Use evaluator</span>
+              </label>
+            </div>
+          )}
+        </div>
+        <AgentConfigMenu />
+      </div>
       {error && (
         <div className={styles.errorBanner}>
           <div className={styles.errorContent}>
@@ -57,6 +99,7 @@ const ChatPage = () => {
         error={error}
         onError={handleError}
         onClearError={clearError}
+        useEvaluator={useEvaluator}
       />
     </div>
   );

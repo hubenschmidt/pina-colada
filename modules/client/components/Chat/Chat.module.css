@@ -68,14 +68,13 @@
   min-height: 0;
   height: 100%;
   max-height: 100%;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .shellCardCentered {
   height: auto;
   max-height: 100%;
   margin: auto 0;
-  overflow: hidden;
 }
 
 .chatPanelFlat {
@@ -106,6 +105,8 @@
 }
 
 .pageToolbar {
+  position: relative;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -113,6 +114,7 @@
   padding: 0.5rem 1rem;
   border-bottom: 1px solid var(--border);
   background-color: var(--surface);
+  overflow: visible;
 }
 
 .title {
