@@ -1,0 +1,145 @@
+.configDropdown {
+  position: relative;
+  display: inline-block;
+}
+
+.configButton {
+  appearance: none;
+  background-color: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.configButton:hover {
+  background-color: var(--hover-background);
+}
+
+.configButton:active {
+  background-color: var(--active-background);
+  transform: scale(0.98);
+}
+
+.configMenu {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 0.5rem;
+  min-width: 380px;
+  max-width: 450px;
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: var(--shadow-lg, 0 10px 15px -3px rgb(0 0 0 / 0.1));
+  z-index: 100;
+  overflow: hidden;
+}
+
+.menuHeader {
+  padding: 0.75rem 1rem;
+  font-weight: 600;
+  font-size: 0.875rem;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--surface-secondary, var(--surface));
+}
+
+.loading,
+.error {
+  padding: 1rem;
+  text-align: center;
+  font-size: 0.875rem;
+}
+
+.error {
+  color: var(--danger, #ef4444);
+}
+
+.nodeList {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.nodeItem {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.nodeItem:last-child {
+  border-bottom: none;
+}
+
+.nodeInfo {
+  margin-bottom: 0.5rem;
+}
+
+.nodeName {
+  display: block;
+  font-weight: 500;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+}
+
+.nodeDesc {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-secondary, #6b7280);
+  margin-top: 0.125rem;
+}
+
+.nodeControls {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.modelSelect {
+  flex: 1;
+  padding: 0.375rem 0.5rem;
+  font-size: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 0.375rem;
+  background-color: var(--surface);
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.modelSelect:focus {
+  outline: none;
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 0 0 2px var(--primary-ring, rgba(59, 130, 246, 0.2));
+}
+
+.modelSelect:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.resetButton {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--text-secondary, #6b7280);
+  background-color: transparent;
+  border: 1px solid var(--border);
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+}
+
+.resetButton:hover:not(:disabled) {
+  background-color: var(--hover-background);
+  color: var(--text-primary);
+}
+
+.resetButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

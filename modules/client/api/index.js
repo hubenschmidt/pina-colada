@@ -1253,12 +1253,26 @@ export const getDeveloperAnalytics = async (period = "monthly", groupBy = "node"
   return apiGet(`/usage/analytics?period=${period}&group_by=${groupBy}`);
 };
 
-export const checkDeveloperAccess = async () => {
-  return apiGet("/usage/developer-access");
-};
-
 // ============== Provider Costs API ==============
 
 export const getProviderCosts = async (period = "monthly") => {
   return apiGet(`/costs/summary?period=${period}`);
+};
+
+// ============== Agent Config API ==============
+
+export const getAgentConfig = async () => {
+  return apiGet("/agent/config");
+};
+
+export const getAvailableModels = async () => {
+  return apiGet("/agent/config/models");
+};
+
+export const updateAgentNodeConfig = async (nodeName, model) => {
+  return apiPut(`/agent/config/${nodeName}`, { model });
+};
+
+export const resetAgentNodeConfig = async (nodeName) => {
+  return apiDelete(`/agent/config/${nodeName}`);
 };

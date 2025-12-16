@@ -34,18 +34,24 @@ const (
 type Evaluator struct {
 	client     anthropic.Client
 	evalType   EvaluatorType
+	model      string
 	maxRetries int
 	retryCount int
 }
 
-// NewEvaluator creates a new evaluator with Claude Sonnet 4.5
-func NewEvaluator(apiKey string, evalType EvaluatorType) *Evaluator {
+// NewEvaluator creates a new evaluator with the specified model
+func NewEvaluator(apiKey string, evalType EvaluatorType, model string) *Evaluator {
 	client := anthropic.NewClient(
 		option.WithAPIKey(apiKey),
 	)
+	// Default to Claude Sonnet 4.5 if no model specified
+	if model == "" {
+		model = "claude-sonnet-4-5-20250514"
+	}
 	return &Evaluator{
 		client:     client,
 		evalType:   evalType,
+		model:      model,
 		maxRetries: 2,
 	}
 }
@@ -78,9 +84,9 @@ func (e *Evaluator) Evaluate(ctx context.Context, userRequest, agentResponse, su
 	systemPrompt := e.getPrompt()
 	userPrompt := e.buildUserPrompt(userRequest, agentResponse, successCriteria)
 
-	// Call Claude Sonnet 4.5
+	// Call Claude with configured model
 	resp, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
-		Model:     anthropic.ModelClaudeSonnet4_5,
+		Model:     anthropic.Model(e.model),
 		MaxTokens: 1024,
 		System: []anthropic.TextBlockParam{
 			{Text: systemPrompt},

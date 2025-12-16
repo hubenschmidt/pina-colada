@@ -143,6 +143,17 @@ func (r *UserRepository) HasRole(userID int64, roleName string) (bool, error) {
 	return count > 0, err
 }
 
+// GetUserGlobalRoles returns global role names for a user (roles with NULL tenant_id)
+func (r *UserRepository) GetUserGlobalRoles(userID int64) ([]string, error) {
+	var roles []string
+	err := r.db.Table(`"Role"`).
+		Select(`"Role".name`).
+		Joins(`JOIN "User_Role" ON "User_Role".role_id = "Role".id`).
+		Where(`"User_Role".user_id = ? AND "Role".tenant_id IS NULL`, userID).
+		Pluck("name", &roles).Error
+	return roles, err
+}
+
 // ProjectBelongsToTenant checks if a project belongs to a tenant
 func (r *UserRepository) ProjectBelongsToTenant(projectID int64, tenantID int64) (bool, error) {
 	var count int64

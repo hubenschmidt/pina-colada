@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useUser } from "@auth0/nextjs-auth0/client";
 import { useUserContext } from "../../context/userContext";
 import { getMe, getUserPreferences } from "../../api";
-import { SET_THEME, SET_LOADING, SET_SELECTED_PROJECT_ID } from "../../reducers/userReducer";
+import { SET_THEME, SET_LOADING, SET_SELECTED_PROJECT_ID, SET_ROLES } from "../../reducers/userReducer";
 
 /**
  * Manages authentication state by syncing Auth0 session with backend user data
@@ -72,6 +72,11 @@ export const AuthStateManager = () => {
             },
           });
         }
+
+        dispatchUser({
+          type: SET_ROLES,
+          payload: response.roles ?? [],
+        });
       } catch (error) {
         console.error("Failed to restore auth state:", error);
         // Still mark as authed if Auth0 session exists - let routes handle errors

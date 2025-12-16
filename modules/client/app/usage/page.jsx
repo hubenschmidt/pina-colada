@@ -16,13 +16,8 @@ import {
 } from "@mantine/core";
 import { BarChart2, User, Building, Code, Cpu, DollarSign } from "lucide-react";
 import { usePageLoading } from "../../context/pageLoadingContext";
-import {
-  getUserUsage,
-  getTenantUsage,
-  getDeveloperAnalytics,
-  checkDeveloperAccess,
-  getProviderCosts,
-} from "../../api";
+import { getUserUsage, getTenantUsage, getDeveloperAnalytics, getProviderCosts } from "../../api";
+import DeveloperFeature from "../../components/DeveloperFeature/DeveloperFeature";
 
 const PERIODS = [
   { value: "daily", label: "Day" },
@@ -164,7 +159,6 @@ const UsagePage = () => {
   const [period, setPeriod] = useState("monthly");
   const [userUsage, setUserUsage] = useState(null);
   const [tenantUsage, setTenantUsage] = useState(null);
-  const [hasDeveloperAccess, setHasDeveloperAccess] = useState(false);
   const [nodeAnalytics, setNodeAnalytics] = useState([]);
   const [modelAnalytics, setModelAnalytics] = useState([]);
   const [providerCosts, setProviderCosts] = useState(null);
@@ -183,16 +177,14 @@ const UsagePage = () => {
 
       setLoadingUsage(true);
       try {
-        const [user, tenant, devAccess, nodes, models] = await Promise.all([
+        const [user, tenant, nodes, models] = await Promise.all([
           getUserUsage(period),
           getTenantUsage(period),
-          checkDeveloperAccess(),
           getDeveloperAnalytics(period, "node"),
           getDeveloperAnalytics(period, "model"),
         ]);
         setUserUsage(user);
         setTenantUsage(tenant);
-        setHasDeveloperAccess(devAccess.has_developer_access);
         setNodeAnalytics(nodes.data || []);
         setModelAnalytics(models.data || []);
       } catch (error) {
@@ -259,10 +251,12 @@ const UsagePage = () => {
           data={tenantUsage}
           loading={loadingUsage}
         />
-        {hasDeveloperAccess && <ProviderCostsCard costs={providerCosts} loading={loadingCosts} />}
+        <DeveloperFeature>
+          <ProviderCostsCard costs={providerCosts} loading={loadingCosts} />
+        </DeveloperFeature>
       </Group>
 
-      {hasDeveloperAccess && (
+      <DeveloperFeature>
         <Paper withBorder p="md" radius="md">
           <Stack gap="md">
             <Group gap="xs">
@@ -293,7 +287,7 @@ const UsagePage = () => {
             </Tabs>
           </Stack>
         </Paper>
-      )}
+      </DeveloperFeature>
     </Stack>
   );
 };

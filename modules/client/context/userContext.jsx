@@ -11,6 +11,7 @@ const initialState = {
   theme: "light",
   canEditTenantTheme: false,
   selectedProjectId: null,
+  roles: [],
 };
 
 export const UserContext = createContext({

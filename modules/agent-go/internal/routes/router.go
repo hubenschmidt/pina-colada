@@ -35,6 +35,7 @@ type Controllers struct {
 	Usage        *controllers.UsageController
 	Report       *controllers.ReportController
 	Agent        *controllers.AgentController
+	AgentConfig  *controllers.AgentConfigController
 	WebSocket    *controllers.WebSocketController
 }
 
@@ -347,6 +348,14 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 		r.Route("/agent", func(r chi.Router) {
 			r.Post("/chat", c.Agent.Chat)
 			r.Get("/health", c.Agent.HealthCheck)
+
+			// Agent config routes (developer only)
+			r.Route("/config", func(r chi.Router) {
+				r.Get("/", c.AgentConfig.GetConfig)
+				r.Get("/models", c.AgentConfig.GetAvailableModels)
+				r.Put("/{node_name}", c.AgentConfig.UpdateNodeConfig)
+				r.Delete("/{node_name}", c.AgentConfig.ResetNodeConfig)
+			})
 		})
 	})
 }

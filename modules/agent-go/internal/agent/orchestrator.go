@@ -47,10 +47,12 @@ type Orchestrator struct {
 	model           string
 	anthropicAPIKey string
 	convService     *services.ConversationService
+	configCache     *ConfigCache
+	allTools        []agents.Tool
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
-func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService) (*Orchestrator, error) {
+func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *ConfigCache) (*Orchestrator, error) {
 	// Use OpenAI model from config (SDK defaults to OpenAI provider)
 	model := cfg.OpenAIModel
 
@@ -67,12 +69,12 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 	emailTools := tools.NewEmailTools(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFromEmail)
 	allTools := tools.BuildAgentTools(crmTools, serperTools, docTools, emailTools)
 
-	// Create worker agents
+	// Create worker agents with default model
 	jobSearchWorker := workers.NewJobSearchWorker(model, allTools)
 	crmWorker := workers.NewCRMWorker(model, allTools)
 	generalWorker := workers.NewGeneralWorker(model, allTools)
 
-	// Create triage agent with handoffs to workers
+	// Create triage agent with handoffs to workers (default config)
 	triageAgent := agents.New("triage").
 		WithInstructions(prompts.TriageInstructionsWithTools).
 		WithModel(model).
@@ -90,7 +92,35 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 		model:           model,
 		anthropicAPIKey: cfg.AnthropicAPIKey,
 		convService:     convService,
+		configCache:     configCache,
+		allTools:        allTools,
 	}, nil
+}
+
+// buildTriageAgentForUser creates a triage agent with user-specific model configuration
+func (o *Orchestrator) buildTriageAgentForUser(userID int64) *agents.Agent {
+	// If no config cache or userID is 0, use default agent
+	if o.configCache == nil || userID == 0 {
+		return o.triageAgent
+	}
+
+	// Get models for each node from cache
+	triageModel := o.configCache.GetModel(userID, "triage_orchestrator")
+	jobSearchModel := o.configCache.GetModel(userID, "job_search_worker")
+	crmModel := o.configCache.GetModel(userID, "crm_worker")
+	generalModel := o.configCache.GetModel(userID, "general_worker")
+
+	// Create workers with user-specific models
+	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, o.allTools)
+	crmWorker := workers.NewCRMWorker(crmModel, o.allTools)
+	generalWorker := workers.NewGeneralWorker(generalModel, o.allTools)
+
+	// Create triage agent with user-specific model
+	return agents.New("triage").
+		WithInstructions(prompts.TriageInstructionsWithTools).
+		WithModel(triageModel).
+		WithHandoffDescription("Routes requests to specialized workers").
+		WithAgentHandoffs(jobSearchWorker, crmWorker, generalWorker)
 }
 
 // RunRequest represents a request to run the agent
@@ -172,9 +202,13 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 	// Create usage context for token tracking
 	ctx = usage.NewContext(ctx, usage.NewUsage())
 
+	// Build triage agent with user-specific models
+	userID, _ := strconv.ParseInt(req.UserID, 10, 64)
+	triageAgent := o.buildTriageAgentForUser(userID)
+
 	// Run the triage agent with increased turn limit (SDK handles handoffs automatically)
 	runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20}}
-	result, err := runner.Run(ctx, o.triageAgent, input)
+	result, err := runner.Run(ctx, triageAgent, input)
 	if err != nil {
 		utils.LogError("Agent run error: %v", err)
 		return nil, fmt.Errorf("agent run error: %w", err)
@@ -408,9 +442,13 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	// Send start event so frontend can begin timer
 	sendEvent(StreamEvent{Type: "start"})
 
+	// Build triage agent with user-specific models
+	userID, _ := strconv.ParseInt(req.UserID, 10, 64)
+	triageAgent := o.buildTriageAgentForUser(userID)
+
 	// Run streamed with increased turn limit
 	runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20}}
-	eventsChan, errChan, err := runner.RunStreamedChan(ctx, o.triageAgent, input)
+	eventsChan, errChan, err := runner.RunStreamedChan(ctx, triageAgent, input)
 	if err != nil {
 		sendEvent(StreamEvent{Type: "error", Error: err.Error()})
 		return
@@ -654,13 +692,13 @@ func (o *Orchestrator) persistMessages(req RunRequest, turnTokens TokenUsage, fi
 
 	// Generate title for new conversations
 	if result != nil && result.IsNewConversation {
-		o.generateConversationTitle(req.SessionID, req.Message, finalOutput)
+		o.generateConversationTitle(req.SessionID, userID, req.Message, finalOutput)
 	}
 }
 
 // generateConversationTitle creates a short title for a conversation using Claude Haiku
-func (o *Orchestrator) generateConversationTitle(sessionID, userMessage, assistantResponse string) {
-	title := o.callHaikuForTitle(userMessage, assistantResponse)
+func (o *Orchestrator) generateConversationTitle(sessionID string, userID int64, userMessage, assistantResponse string) {
+	title := o.callHaikuForTitle(userID, userMessage, assistantResponse)
 	if title == "" {
 		// Fallback to simple truncation
 		title = userMessage
@@ -677,9 +715,15 @@ func (o *Orchestrator) generateConversationTitle(sessionID, userMessage, assista
 }
 
 // callHaikuForTitle uses Claude Haiku to generate a concise title
-func (o *Orchestrator) callHaikuForTitle(userMessage, assistantResponse string) string {
+func (o *Orchestrator) callHaikuForTitle(userID int64, userMessage, assistantResponse string) string {
 	if o.anthropicAPIKey == "" {
 		return ""
+	}
+
+	// Get title generator model from config cache
+	titleModel := "claude-haiku-4-5-20251001" // default
+	if o.configCache != nil && userID > 0 {
+		titleModel = o.configCache.GetModel(userID, "title_generator")
 	}
 
 	// Truncate inputs for the prompt
@@ -693,7 +737,7 @@ Assistant: %s
 
 Title:`, userSnippet, assistantSnippet)
 
-	title, err := callAnthropicAPI(o.anthropicAPIKey, prompt)
+	title, err := callAnthropicAPI(o.anthropicAPIKey, titleModel, prompt)
 	if err != nil {
 		log.Printf("Warning: failed to generate title with Haiku: %v", err)
 		return ""
@@ -709,10 +753,10 @@ Title:`, userSnippet, assistantSnippet)
 	return title
 }
 
-// callAnthropicAPI makes a request to Claude Haiku for title generation
-func callAnthropicAPI(apiKey, prompt string) (string, error) {
+// callAnthropicAPI makes a request to Claude for title generation
+func callAnthropicAPI(apiKey, model, prompt string) (string, error) {
 	reqBody := map[string]interface{}{
-		"model":      "claude-haiku-4-5-20251001",
+		"model":      model,
 		"max_tokens": 30,
 		"system":     "You generate short, descriptive titles. Return only the title text.",
 		"messages": []map[string]string{
@@ -812,7 +856,14 @@ func workerToEvaluatorType(workerName string) EvaluatorType {
 // Returns the final output (original or retried) after evaluation completes
 func (o *Orchestrator) runEvaluation(ctx context.Context, req RunRequest, input, finalOutput, currentAgent string, sendEvent func(StreamEvent)) string {
 	evalType := workerToEvaluatorType(currentAgent)
-	evaluator := NewEvaluator(o.anthropicAPIKey, evalType)
+
+	// Get evaluator model from config cache
+	userID, _ := strconv.ParseInt(req.UserID, 10, 64)
+	evaluatorModel := ""
+	if o.configCache != nil && userID > 0 {
+		evaluatorModel = o.configCache.GetModel(userID, "evaluator")
+	}
+	evaluator := NewEvaluator(o.anthropicAPIKey, evalType, evaluatorModel)
 
 	sendEvent(StreamEvent{Type: "eval_start"})
 
@@ -836,8 +887,11 @@ func (o *Orchestrator) runEvaluation(ctx context.Context, req RunRequest, input,
 	log.Printf("📝 FEEDBACK TO AGENT: %s", evalResult.Feedback)
 	evaluator.IncrementRetry()
 
+	// Build user-specific agent for retry
+	triageAgent := o.buildTriageAgentForUser(userID)
+
 	retryInput := fmt.Sprintf("%s\n\nPrevious attempt feedback: %s\nPlease improve the response.", input, evalResult.Feedback)
-	retryResult, retryErr := agents.Run(ctx, o.triageAgent, retryInput)
+	retryResult, retryErr := agents.Run(ctx, triageAgent, retryInput)
 	if retryErr != nil {
 		log.Printf("Retry error: %v", retryErr)
 		sendEvent(StreamEvent{Type: "eval", EvalResult: evalResult})

@@ -105,6 +105,16 @@
   gap: 0.5rem;
 }
 
+.pageToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background-color: var(--surface);
+}
+
 .title {
   font-weight: 600;
   font-family: var(--font-serif, inherit); /* uses your display font token */

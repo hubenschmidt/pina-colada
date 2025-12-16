@@ -87,9 +87,10 @@ func (s *AuthService) GetUserTenants(userID int64) ([]TenantInfo, error) {
 type MeResponse struct {
 	User    UserResponse `json:"user"`
 	Tenants []TenantInfo `json:"tenants"`
+	Roles   []string     `json:"roles"`
 }
 
-// GetMe returns current user with tenants
+// GetMe returns current user with tenants and roles
 func (s *AuthService) GetMe(auth0Sub, email string) (*MeResponse, error) {
 	user, err := s.GetOrCreateUserFull(auth0Sub, email)
 	if err != nil {
@@ -101,9 +102,15 @@ func (s *AuthService) GetMe(auth0Sub, email string) (*MeResponse, error) {
 		return nil, err
 	}
 
+	roles, err := s.userRepo.GetUserGlobalRoles(user.ID)
+	if err != nil {
+		roles = []string{}
+	}
+
 	return &MeResponse{
 		User:    *user,
 		Tenants: tenants,
+		Roles:   roles,
 	}, nil
 }
 

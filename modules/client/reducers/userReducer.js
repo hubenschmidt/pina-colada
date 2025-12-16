@@ -5,6 +5,7 @@ export const SET_AUTHED = "SET_AUTHED";
 export const SET_THEME = "SET_THEME";
 export const SET_LOADING = "SET_LOADING";
 export const SET_SELECTED_PROJECT_ID = "SET_SELECTED_PROJECT_ID";
+export const SET_ROLES = "SET_ROLES";
 export const CLEAR_USER = "CLEAR_USER";
 
 export default (initialState) => {
@@ -24,6 +25,8 @@ export default (initialState) => {
         return setLoading(state, action.payload);
       case SET_SELECTED_PROJECT_ID:
         return setSelectedProjectId(state, action.payload);
+      case SET_ROLES:
+        return setRoles(state, action.payload);
       case CLEAR_USER:
         return clearUser(state);
       default:
@@ -76,6 +79,11 @@ const setSelectedProjectId = (state, payload) => ({
   selectedProjectId: payload,
 });
 
+const setRoles = (state, payload) => ({
+  ...state,
+  roles: payload,
+});
+
 const clearUser = (state) => ({
   ...state,
   user: null,
@@ -86,4 +94,5 @@ const clearUser = (state) => ({
   theme: "light",
   canEditTenantTheme: false,
   selectedProjectId: null,
+  roles: [],
 });

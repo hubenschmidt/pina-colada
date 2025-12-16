@@ -57,6 +57,7 @@ func main() {
 	usageRepo := repositories.NewUsageRepository(database)
 	reportRepo := repositories.NewReportRepository(database)
 	notifRepo := repositories.NewNotificationRepository(database)
+	agentConfigRepo := repositories.NewAgentConfigRepository(database)
 
 	// Initialize services
 	authService := services.NewAuthService(userRepo)
@@ -80,9 +81,13 @@ func main() {
 	usageService := services.NewUsageService(usageRepo, userRepo)
 	reportService := services.NewReportService(reportRepo)
 	notifService := services.NewNotificationService(notifRepo)
+	agentConfigService := services.NewAgentConfigService(agentConfigRepo)
 
-	// Initialize ADK agent orchestrator (only if Gemini API key is configured)
-	agentOrchestrator := initOrchestrator(cfg, indService, orgService, docService, jobService, convService)
+	// Initialize config cache for agent orchestrator
+	configCache := agent.NewConfigCache(agentConfigService)
+
+	// Initialize ADK agent orchestrator (only if OpenAI API key is configured)
+	agentOrchestrator := initOrchestrator(cfg, indService, orgService, docService, jobService, convService, configCache)
 
 	// Initialize controllers
 	ctrls := &routes.Controllers{
@@ -108,6 +113,7 @@ func main() {
 		Usage:        controllers.NewUsageController(usageService),
 		Report:       controllers.NewReportController(reportService),
 		Agent:        controllers.NewAgentController(agentOrchestrator),
+		AgentConfig:  controllers.NewAgentConfigController(agentConfigService, userRepo, configCache),
 		WebSocket:    controllers.NewWebSocketController(agentOrchestrator),
 	}
 
@@ -149,14 +155,14 @@ func main() {
 }
 
 // initOrchestrator initializes the agent orchestrator if configured
-func initOrchestrator(cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService) *agent.Orchestrator {
+func initOrchestrator(cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *agent.ConfigCache) *agent.Orchestrator {
 	if cfg.OpenAIAPIKey == "" {
 		log.Println("OPENAI_API_KEY not configured - agent endpoints disabled")
 		return nil
 	}
 
 	ctx := context.Background()
-	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, convService)
+	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, convService, configCache)
 	if err != nil {
 		log.Printf("Warning: Failed to initialize agent orchestrator: %v", err)
 		log.Printf("Agent endpoints will return errors until configured")

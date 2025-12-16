@@ -5,6 +5,7 @@ import { useWs } from "../../hooks/useWs";
 import { useConversationContext } from "../../context/conversationContext";
 import styles from "./Chat.module.css";
 import { Copy, Check, Download, ChevronDown, AlertCircle, X } from "lucide-react";
+import AgentConfigMenu from "./AgentConfigMenu";
 import { env } from "next-runtime-env";
 import { Box } from "@mantine/core";
 
@@ -505,6 +506,7 @@ const Chat = ({
                   </div>
                 )}
               </div>
+              <AgentConfigMenu />
               <button
                 type="button"
                 className={styles.exportButton}
@@ -515,6 +517,43 @@ const Chat = ({
               </button>
             </div>
           </header>
+        )}
+
+        {/* toolbar for page variant */}
+        {variant === "page" && (
+          <div className={styles.pageToolbar}>
+            <div className={styles.toolsDropdown} id={toolsDropdownId}>
+              <button
+                type="button"
+                className={styles.toolsButton}
+                onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}
+                title="Tools">
+                <span>Tools</span>
+                <ChevronDown size={16} className={toolsDropdownOpen ? styles.chevronOpen : ""} />
+              </button>
+              {toolsDropdownOpen && (
+                <div className={styles.toolsMenu}>
+                  <label className={styles.evaluatorToggle}>
+                    <input
+                      type="checkbox"
+                      checked={useEvaluator}
+                      onChange={(e) => setUseEvaluator(e.target.checked)}
+                    />
+                    <span>Use evaluator</span>
+                  </label>
+                </div>
+              )}
+            </div>
+            <AgentConfigMenu />
+            <button
+              type="button"
+              className={styles.exportButton}
+              onClick={exportChat}
+              disabled={!messages.length}
+              title="Export chat to .txt file">
+              <Download size={16} />
+            </button>
+          </div>
         )}
 
         {/* chat panel - always rendered the same */}
