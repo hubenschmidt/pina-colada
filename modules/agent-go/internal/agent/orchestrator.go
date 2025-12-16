@@ -110,6 +110,12 @@ func (o *Orchestrator) buildTriageAgentForUser(userID int64) *agents.Agent {
 	crmModel := o.configCache.GetModel(userID, "crm_worker")
 	generalModel := o.configCache.GetModel(userID, "general_worker")
 
+	// Log model configuration for each node
+	log.Printf("[CONFIG] UserID=%d | triage_orchestrator: %s", userID, triageModel)
+	log.Printf("[CONFIG] UserID=%d | job_search_worker: %s", userID, jobSearchModel)
+	log.Printf("[CONFIG] UserID=%d | crm_worker: %s", userID, crmModel)
+	log.Printf("[CONFIG] UserID=%d | general_worker: %s", userID, generalModel)
+
 	// Create workers with user-specific models
 	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, o.allTools)
 	crmWorker := workers.NewCRMWorker(crmModel, o.allTools)
@@ -249,12 +255,15 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 
 // streamState holds mutable state for streaming event processing
 type streamState struct {
-	finalOutput  string
-	turnTokens   TokenUsage
-	currentAgent string
-	bufferedText string
-	useEvaluator bool
-	sendEvent    func(StreamEvent)
+	finalOutput      string
+	turnTokens       TokenUsage
+	currentAgent     string
+	bufferedText     string
+	useEvaluator     bool
+	sendEvent        func(StreamEvent)
+	agentStartTime   time.Time
+	agentTokens      TokenUsage // tokens for current agent only
+	perAgentTokens   map[string]TokenUsage
 }
 
 func (s *streamState) handleAgentUpdated(e agents.AgentUpdatedStreamEvent) {
@@ -272,9 +281,20 @@ func (s *streamState) handleAgentUpdated(e agents.AgentUpdatedStreamEvent) {
 func (s *streamState) logAgentTransition(newAgent string) {
 	if s.currentAgent == "" {
 		utils.LogAgentStart(newAgent)
+		s.agentStartTime = time.Now()
+		s.agentTokens = TokenUsage{}
+		if s.perAgentTokens == nil {
+			s.perAgentTokens = make(map[string]TokenUsage)
+		}
 		return
 	}
-	utils.LogHandoff(s.currentAgent, newAgent)
+	duration := time.Since(s.agentStartTime)
+	// Save tokens for the completing agent
+	s.perAgentTokens[s.currentAgent] = s.agentTokens
+	utils.LogHandoffWithTokens(s.currentAgent, newAgent, duration, s.agentTokens.Input, s.agentTokens.Output, s.agentTokens.Total)
+	// Reset for new agent
+	s.agentStartTime = time.Now()
+	s.agentTokens = TokenUsage{}
 }
 
 func (s *streamState) handleToolCalled(item agents.ToolCallItem) {
@@ -348,9 +368,20 @@ func (s *streamState) handleTextDelta(delta string) {
 }
 
 func (s *streamState) handleResponseCompleted(resp agents.RawResponsesStreamEvent) {
-	s.turnTokens.Input = int32(resp.Data.Response.Usage.InputTokens)
-	s.turnTokens.Output = int32(resp.Data.Response.Usage.OutputTokens)
-	s.turnTokens.Total = int32(resp.Data.Response.Usage.TotalTokens)
+	inputTokens := int32(resp.Data.Response.Usage.InputTokens)
+	outputTokens := int32(resp.Data.Response.Usage.OutputTokens)
+	totalTokens := int32(resp.Data.Response.Usage.TotalTokens)
+
+	// Accumulate tokens across all agent calls
+	s.turnTokens.Input += inputTokens
+	s.turnTokens.Output += outputTokens
+	s.turnTokens.Total += totalTokens
+
+	// Track per-agent tokens
+	s.agentTokens.Input += inputTokens
+	s.agentTokens.Output += outputTokens
+	s.agentTokens.Total += totalTokens
+
 	s.sendEvent(StreamEvent{
 		Type:   "tokens",
 		Tokens: &TokenUsage{Input: s.turnTokens.Input, Output: s.turnTokens.Output, Total: s.turnTokens.Total},
@@ -468,6 +499,8 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	turnTokens := ss.turnTokens
 	currentAgent := ss.currentAgent
 	bufferedText := ss.bufferedText
+	agentStartTime := ss.agentStartTime
+	agentTokens := ss.agentTokens
 
 	// Check for streaming error
 	if streamErr := <-errChan; streamErr != nil {
@@ -482,8 +515,12 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	}
 
 	if currentAgent != "" {
-		utils.LogAgentEnd(currentAgent, finalOutput, turnTokens.Input, turnTokens.Output, turnTokens.Total)
+		duration := time.Since(agentStartTime)
+		utils.LogAgentEndWithDuration(currentAgent, finalOutput, agentTokens.Input, agentTokens.Output, agentTokens.Total, duration)
 	}
+
+	// Log total token usage across all agents
+	log.Printf("📊 TOTAL TOKENS: in=%d out=%d total=%d", turnTokens.Input, turnTokens.Output, turnTokens.Total)
 
 	// Run evaluator if enabled - evaluate first, then send response
 	if req.UseEvaluator && finalOutput != "" && o.anthropicAPIKey != "" {
@@ -724,6 +761,7 @@ func (o *Orchestrator) callHaikuForTitle(userID int64, userMessage, assistantRes
 	titleModel := "claude-haiku-4-5-20251001" // default
 	if o.configCache != nil && userID > 0 {
 		titleModel = o.configCache.GetModel(userID, "title_generator")
+		log.Printf("[CONFIG] UserID=%d | title_generator: %s", userID, titleModel)
 	}
 
 	// Truncate inputs for the prompt
@@ -862,6 +900,7 @@ func (o *Orchestrator) runEvaluation(ctx context.Context, req RunRequest, input,
 	evaluatorModel := ""
 	if o.configCache != nil && userID > 0 {
 		evaluatorModel = o.configCache.GetModel(userID, "evaluator")
+		log.Printf("[CONFIG] UserID=%d | evaluator: %s", userID, evaluatorModel)
 	}
 	evaluator := NewEvaluator(o.anthropicAPIKey, evalType, evaluatorModel)
 

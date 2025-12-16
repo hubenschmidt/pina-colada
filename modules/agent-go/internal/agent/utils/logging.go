@@ -1,6 +1,9 @@
 package utils
 
-import "log"
+import (
+	"log"
+	"time"
+)
 
 // Logging functions that match the Python agent's hooks.py patterns
 
@@ -17,9 +20,30 @@ func LogAgentEnd(agentName string, output string, inputTokens, outputTokens, tot
 	}
 }
 
+// LogAgentEndWithDuration logs agent completion with timing
+func LogAgentEndWithDuration(agentName string, output string, inputTokens, outputTokens, totalTokens int32, duration time.Duration) {
+	log.Printf("✅ AGENT END: %s (%dms) → %s", agentName, duration.Milliseconds(), output)
+	if totalTokens > 0 {
+		log.Printf("📊 TOKENS [%s]: in=%d out=%d total=%d", agentName, inputTokens, outputTokens, totalTokens)
+	}
+}
+
 // LogHandoff logs when control transfers between agents
 func LogHandoff(fromAgent, toAgent string) {
 	log.Printf("🔀 HANDOFF: %s → %s", fromAgent, toAgent)
+}
+
+// LogHandoffWithDuration logs handoff with timing for the completing agent
+func LogHandoffWithDuration(fromAgent, toAgent string, duration time.Duration) {
+	log.Printf("🔀 HANDOFF: %s (%dms) → %s", fromAgent, duration.Milliseconds(), toAgent)
+}
+
+// LogHandoffWithTokens logs handoff with timing and token usage
+func LogHandoffWithTokens(fromAgent, toAgent string, duration time.Duration, inputTokens, outputTokens, totalTokens int32) {
+	log.Printf("🔀 HANDOFF: %s (%dms, %d tokens) → %s", fromAgent, duration.Milliseconds(), totalTokens, toAgent)
+	if totalTokens > 0 {
+		log.Printf("📊 TOKENS [%s]: in=%d out=%d total=%d", fromAgent, inputTokens, outputTokens, totalTokens)
+	}
 }
 
 // LogToolStart logs when a tool begins execution
