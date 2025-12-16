@@ -37,7 +37,6 @@
     "jest-junit": "^16.0.0",
     "prettier": "^3.7.4",
     "supabase": ">=1.8.1",
-    "tailwindcss": "^4",
-    "typescript": "5.9.3"
+    "tailwindcss": "^4"
   }
 }
