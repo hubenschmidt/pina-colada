@@ -40,7 +40,7 @@ type ChatResponse struct {
 // Chat handles POST /agent/chat
 func (c *AgentController) Chat(w http.ResponseWriter, r *http.Request) {
 	if c.orchestrator == nil {
-		writeError(w, http.StatusServiceUnavailable, "agent not configured - GEMINI_API_KEY required")
+		writeError(w, http.StatusServiceUnavailable, "agent not configured - OPENAI_API_KEY required")
 		return
 	}
 

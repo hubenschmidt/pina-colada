@@ -15,9 +15,8 @@ type Config struct {
 
 	// LLM Providers
 	OpenAIAPIKey    string
+	OpenAIModel     string
 	AnthropicAPIKey string
-	GeminiAPIKey    string
-	GeminiModel     string
 
 	// AWS S3
 	AWSRegion          string
@@ -47,9 +46,8 @@ func Load() *Config {
 		Env:               getEnv("ENV", "development"),
 		DatabaseURL:       getEnv("DATABASE_URL", ""),
 		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
+		OpenAIModel:       getEnv("OPENAI_MODEL", "gpt-5.2"),
 		AnthropicAPIKey:   getEnv("ANTHROPIC_API_KEY", ""),
-		GeminiAPIKey:      getEnv("GEMINI_API_KEY", ""),
-		GeminiModel:       getEnv("GEMINI_MODEL", "gemini-2.5-flash"),
 		LangfusePublicKey: getEnv("LANGFUSE_PUBLIC_KEY", ""),
 		LangfuseSecretKey: getEnv("LANGFUSE_SECRET_KEY", ""),
 		LangfuseHost:      getEnv("LANGFUSE_HOST", "https://cloud.langfuse.com"),

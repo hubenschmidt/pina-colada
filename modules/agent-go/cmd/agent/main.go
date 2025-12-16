@@ -150,8 +150,8 @@ func main() {
 
 // initOrchestrator initializes the agent orchestrator if configured
 func initOrchestrator(cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService) *agent.Orchestrator {
-	if cfg.GeminiAPIKey == "" {
-		log.Println("GEMINI_API_KEY not configured - agent endpoints disabled")
+	if cfg.OpenAIAPIKey == "" {
+		log.Println("OPENAI_API_KEY not configured - agent endpoints disabled")
 		return nil
 	}
 

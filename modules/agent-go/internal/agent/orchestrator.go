@@ -51,8 +51,8 @@ type Orchestrator struct {
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
 func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService) (*Orchestrator, error) {
-	// Use OpenAI model (SDK defaults to OpenAI provider)
-	model := "gpt-4.1-2025-04-14"
+	// Use OpenAI model from config (SDK defaults to OpenAI provider)
+	model := cfg.OpenAIModel
 
 	// Create job service adapter for filtering applied jobs
 	var jobAdapter tools.JobServiceInterface
