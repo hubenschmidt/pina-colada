@@ -18,7 +18,7 @@
     "@supabase/supabase-js": "^2.39.0",
     "axios": "^1.7.9",
     "lucide-react": "^0.546.0",
-    "next": "15.5.5",
+    "next": "15.5.9",
     "next-runtime-env": "^3.3.0",
     "pg": "^8.11.3",
     "react": "19.1.0",
@@ -37,6 +37,7 @@
     "jest-junit": "^16.0.0",
     "prettier": "^3.7.4",
     "supabase": ">=1.8.1",
-    "tailwindcss": "^4"
+    "tailwindcss": "^4",
+    "typescript": "5.9.3"
   }
 }
