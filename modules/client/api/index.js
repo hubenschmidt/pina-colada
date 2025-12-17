@@ -1269,10 +1269,34 @@ export const getAvailableModels = async () => {
   return apiGet("/agent/config/models");
 };
 
-export const updateAgentNodeConfig = async (nodeName, model) => {
-  return apiPut(`/agent/config/${nodeName}`, { model });
+export const updateAgentNodeConfig = async (nodeName, config) => {
+  const body = { model: config.model };
+  if (config.temperature !== undefined) body.temperature = config.temperature;
+  if (config.max_tokens !== undefined) body.max_tokens = config.max_tokens;
+  if (config.top_p !== undefined) body.top_p = config.top_p;
+  if (config.top_k !== undefined) body.top_k = config.top_k;
+  if (config.frequency_penalty !== undefined) body.frequency_penalty = config.frequency_penalty;
+  if (config.presence_penalty !== undefined) body.presence_penalty = config.presence_penalty;
+  return apiPut(`/agent/config/${nodeName}`, body);
 };
 
 export const resetAgentNodeConfig = async (nodeName) => {
   return apiDelete(`/agent/config/${nodeName}`);
+};
+
+// Agent Config Presets
+export const getAgentConfigPresets = async () => {
+  return apiGet("/agent/config/presets");
+};
+
+export const createAgentConfigPreset = async (preset) => {
+  return apiPost("/agent/config/presets", preset);
+};
+
+export const deleteAgentConfigPreset = async (presetId) => {
+  return apiDelete(`/agent/config/presets/${presetId}`);
+};
+
+export const applyAgentConfigPreset = async (presetId) => {
+  return apiPost(`/agent/config/presets/${presetId}/apply`);
 };

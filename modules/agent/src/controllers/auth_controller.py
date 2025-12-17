@@ -10,6 +10,7 @@ from schemas.tenant import TenantCreate
 from services.auth_service import (
     get_user_tenants as get_user_tenants_service,
     create_tenant_for_user as create_tenant_service,
+    get_user_global_roles as get_user_global_roles_service,
 )
 
 # Re-export for routes
@@ -22,10 +23,12 @@ async def get_current_user_with_tenants(request: Request) -> Dict[str, Any]:
     user = request.state.user
     tenant_id = request.state.tenant_id
     tenants = await get_user_tenants_service(user.id)
+    roles = await get_user_global_roles_service(user.id)
 
     return {
         "user": model_to_dict(user, include_relationships=False),
         "tenants": tenants,
+        "roles": roles,
         "current_tenant_id": tenant_id,
         "selected_project_id": user.selected_project_id,
     }

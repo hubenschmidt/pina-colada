@@ -1,10 +1,8 @@
--- Agent node model configuration per user
-CREATE TABLE IF NOT EXISTS "Agent_Node_Config" (
+-- Agent config presets for saving/applying LLM parameter settings
+CREATE TABLE IF NOT EXISTS "Agent_Config_Preset" (
     id BIGSERIAL PRIMARY KEY,
     user_id BIGINT NOT NULL REFERENCES "User"(id) ON DELETE CASCADE,
-    node_name TEXT NOT NULL,
-    model TEXT NOT NULL,
-    provider TEXT NOT NULL DEFAULT 'openai',
+    name VARCHAR(100) NOT NULL,
     temperature DECIMAL(3,2),
     max_tokens INTEGER,
     top_p DECIMAL(3,2),
@@ -13,7 +11,7 @@ CREATE TABLE IF NOT EXISTS "Agent_Node_Config" (
     presence_penalty DECIMAL(3,2),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    CONSTRAINT agent_node_config_user_node_unique UNIQUE (user_id, node_name)
+    CONSTRAINT agent_config_preset_user_name_unique UNIQUE (user_id, name)
 );
 
-CREATE INDEX IF NOT EXISTS ix_agent_node_config_user_id ON "Agent_Node_Config"(user_id);
+CREATE INDEX IF NOT EXISTS ix_agent_config_preset_user_id ON "Agent_Config_Preset"(user_id);

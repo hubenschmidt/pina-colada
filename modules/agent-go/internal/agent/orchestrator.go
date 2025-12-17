@@ -14,7 +14,9 @@ import (
 	"time"
 
 	"github.com/nlpodyssey/openai-agents-go/agents"
+	"github.com/nlpodyssey/openai-agents-go/modelsettings"
 	"github.com/nlpodyssey/openai-agents-go/usage"
+	"github.com/openai/openai-go/v2/packages/param"
 	"gorm.io/datatypes"
 
 	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
@@ -69,10 +71,10 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 	emailTools := tools.NewEmailTools(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFromEmail)
 	allTools := tools.BuildAgentTools(crmTools, serperTools, docTools, emailTools)
 
-	// Create worker agents with default model
-	jobSearchWorker := workers.NewJobSearchWorker(model, allTools)
-	crmWorker := workers.NewCRMWorker(model, allTools)
-	generalWorker := workers.NewGeneralWorker(model, allTools)
+	// Create worker agents with default model (no custom settings)
+	jobSearchWorker := workers.NewJobSearchWorker(model, nil, allTools)
+	crmWorker := workers.NewCRMWorker(model, nil, allTools)
+	generalWorker := workers.NewGeneralWorker(model, nil, allTools)
 
 	// Create triage agent with handoffs to workers (default config)
 	triageAgent := agents.New("triage").
@@ -97,8 +99,66 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 	}, nil
 }
 
+// buildModelSettings creates ModelSettings from LLMSettings
+func buildModelSettings(settings LLMSettings) *modelsettings.ModelSettings {
+	if settings.Temperature == nil && settings.MaxTokens == nil && settings.TopP == nil &&
+		settings.FrequencyPenalty == nil && settings.PresencePenalty == nil {
+		return nil
+	}
+
+	ms := &modelsettings.ModelSettings{}
+	if settings.Temperature != nil {
+		ms.Temperature = param.NewOpt(*settings.Temperature)
+	}
+	if settings.MaxTokens != nil {
+		ms.MaxTokens = param.NewOpt(int64(*settings.MaxTokens))
+	}
+	if settings.TopP != nil {
+		ms.TopP = param.NewOpt(*settings.TopP)
+	}
+	if settings.FrequencyPenalty != nil {
+		ms.FrequencyPenalty = param.NewOpt(*settings.FrequencyPenalty)
+	}
+	if settings.PresencePenalty != nil {
+		ms.PresencePenalty = param.NewOpt(*settings.PresencePenalty)
+	}
+	return ms
+}
+
+// logNodeConfig logs model and settings for a node
+func logNodeConfig(userID int64, nodeName, model string, settings LLMSettings) {
+	settingsStr := buildSettingsLogString(settings)
+	log.Printf("[CONFIG] UserID=%d | %s: %s%s", userID, nodeName, model, settingsStr)
+}
+
+func buildSettingsLogString(settings LLMSettings) string {
+	var parts []string
+	if settings.Temperature != nil {
+		parts = append(parts, fmt.Sprintf("temp=%.2f", *settings.Temperature))
+	}
+	if settings.MaxTokens != nil {
+		parts = append(parts, fmt.Sprintf("max_tokens=%d", *settings.MaxTokens))
+	}
+	if settings.TopP != nil {
+		parts = append(parts, fmt.Sprintf("top_p=%.2f", *settings.TopP))
+	}
+	if settings.TopK != nil {
+		parts = append(parts, fmt.Sprintf("top_k=%d", *settings.TopK))
+	}
+	if settings.FrequencyPenalty != nil {
+		parts = append(parts, fmt.Sprintf("freq_pen=%.2f", *settings.FrequencyPenalty))
+	}
+	if settings.PresencePenalty != nil {
+		parts = append(parts, fmt.Sprintf("pres_pen=%.2f", *settings.PresencePenalty))
+	}
+	if len(parts) == 0 {
+		return " (defaults)"
+	}
+	return " " + strings.Join(parts, " ")
+}
+
 // buildTriageAgentForUser creates a triage agent with user-specific model configuration
-func (o *Orchestrator) buildTriageAgentForUser(userID int64) *agents.Agent {
+func (o *Orchestrator) buildTriageAgentForUser(userID int64, skipSettings bool) *agents.Agent {
 	// If no config cache or userID is 0, use default agent
 	if o.configCache == nil || userID == 0 {
 		return o.triageAgent
@@ -110,23 +170,38 @@ func (o *Orchestrator) buildTriageAgentForUser(userID int64) *agents.Agent {
 	crmModel := o.configCache.GetModel(userID, "crm_worker")
 	generalModel := o.configCache.GetModel(userID, "general_worker")
 
+	// Get settings (empty if skipSettings)
+	var triageSettings, jobSearchSettings, crmSettings, generalSettings LLMSettings
+	if !skipSettings {
+		triageSettings = o.configCache.GetSettings(userID, "triage_orchestrator")
+		jobSearchSettings = o.configCache.GetSettings(userID, "job_search_worker")
+		crmSettings = o.configCache.GetSettings(userID, "crm_worker")
+		generalSettings = o.configCache.GetSettings(userID, "general_worker")
+	}
+
 	// Log model configuration for each node
-	log.Printf("[CONFIG] UserID=%d | triage_orchestrator: %s", userID, triageModel)
-	log.Printf("[CONFIG] UserID=%d | job_search_worker: %s", userID, jobSearchModel)
-	log.Printf("[CONFIG] UserID=%d | crm_worker: %s", userID, crmModel)
-	log.Printf("[CONFIG] UserID=%d | general_worker: %s", userID, generalModel)
+	logNodeConfig(userID, "triage_orchestrator", triageModel, triageSettings)
+	logNodeConfig(userID, "job_search_worker", jobSearchModel, jobSearchSettings)
+	logNodeConfig(userID, "crm_worker", crmModel, crmSettings)
+	logNodeConfig(userID, "general_worker", generalModel, generalSettings)
 
-	// Create workers with user-specific models
-	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, o.allTools)
-	crmWorker := workers.NewCRMWorker(crmModel, o.allTools)
-	generalWorker := workers.NewGeneralWorker(generalModel, o.allTools)
+	// Create workers with user-specific models and settings
+	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, buildModelSettings(jobSearchSettings), o.allTools)
+	crmWorker := workers.NewCRMWorker(crmModel, buildModelSettings(crmSettings), o.allTools)
+	generalWorker := workers.NewGeneralWorker(generalModel, buildModelSettings(generalSettings), o.allTools)
 
-	// Create triage agent with user-specific model
-	return agents.New("triage").
+	// Create triage agent with user-specific model and settings
+	triageAgent := agents.New("triage").
 		WithInstructions(prompts.TriageInstructionsWithTools).
 		WithModel(triageModel).
 		WithHandoffDescription("Routes requests to specialized workers").
 		WithAgentHandoffs(jobSearchWorker, crmWorker, generalWorker)
+
+	if ms := buildModelSettings(triageSettings); ms != nil {
+		triageAgent = triageAgent.WithModelSettings(*ms)
+	}
+
+	return triageAgent
 }
 
 // RunRequest represents a request to run the agent
@@ -156,10 +231,13 @@ type Event struct {
 
 // StreamEvent represents a real-time event sent during agent execution
 type StreamEvent struct {
-	Type string `json:"type"` // "start", "text", "tokens", "tool_start", "tool_end", "agent_start", "agent_end", "done", "error", "eval"
+	Type string `json:"type"` // "start", "text", "tokens", "tool_start", "tool_end", "agent_start", "agent_end", "done", "error", "warning", "eval"
 
 	// Text streaming
 	Text string `json:"text,omitempty"`
+
+	// Warning message (non-fatal)
+	Warning string `json:"warning,omitempty"`
 
 	// Token usage
 	Tokens *TokenUsage `json:"tokens,omitempty"`
@@ -210,7 +288,7 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 
 	// Build triage agent with user-specific models
 	userID, _ := strconv.ParseInt(req.UserID, 10, 64)
-	triageAgent := o.buildTriageAgentForUser(userID)
+	triageAgent := o.buildTriageAgentForUser(userID, false)
 
 	// Run the triage agent with increased turn limit (SDK handles handoffs automatically)
 	runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20}}
@@ -432,6 +510,29 @@ func (s *streamState) tryHandleRawResponses(event agents.StreamEvent) {
 	s.handleRawResponse(e)
 }
 
+// runAgentStream runs the agent and returns the stream state and any error
+func (o *Orchestrator) runAgentStream(ctx context.Context, userID int64, input string, useEvaluator bool, sendEvent func(StreamEvent), skipSettings bool) (*streamState, error) {
+	triageAgent := o.buildTriageAgentForUser(userID, skipSettings)
+
+	runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20}}
+	eventsChan, errChan, err := runner.RunStreamedChan(ctx, triageAgent, input)
+	if err != nil {
+		return nil, err
+	}
+
+	ss := &streamState{
+		useEvaluator: useEvaluator,
+		sendEvent:    sendEvent,
+	}
+
+	for event := range eventsChan {
+		ss.handleStreamEvent(event)
+	}
+
+	streamErr := <-errChan
+	return ss, streamErr
+}
+
 // RunWithStreaming executes the agent and streams events via channel
 func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eventCh chan<- StreamEvent) {
 	startTime := time.Now()
@@ -473,26 +574,25 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	// Send start event so frontend can begin timer
 	sendEvent(StreamEvent{Type: "start"})
 
-	// Build triage agent with user-specific models
 	userID, _ := strconv.ParseInt(req.UserID, 10, 64)
-	triageAgent := o.buildTriageAgentForUser(userID)
 
-	// Run streamed with increased turn limit
-	runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20}}
-	eventsChan, errChan, err := runner.RunStreamedChan(ctx, triageAgent, input)
-	if err != nil {
-		sendEvent(StreamEvent{Type: "error", Error: err.Error()})
+	// Try running with settings first
+	ss, streamErr := o.runAgentStream(ctx, userID, input, req.UseEvaluator, sendEvent, false)
+
+	// Retry without settings if unsupported parameter error
+	if streamErr != nil && strings.Contains(streamErr.Error(), "Unsupported parameter") {
+		utils.LogInfo("Retrying without LLM settings due to unsupported parameter")
+		sendEvent(StreamEvent{
+			Type:    "warning",
+			Warning: "This model doesn't support some LLM settings (temperature, top_p). Retrying without custom settings.",
+		})
+		ss, streamErr = o.runAgentStream(ctx, userID, input, req.UseEvaluator, sendEvent, true)
+	}
+
+	if streamErr != nil {
+		utils.LogError("Streaming error: %v", streamErr)
+		sendEvent(StreamEvent{Type: "error", Error: streamErr.Error()})
 		return
-	}
-
-	ss := &streamState{
-		useEvaluator: req.UseEvaluator,
-		sendEvent:    sendEvent,
-	}
-
-	// Process events
-	for event := range eventsChan {
-		ss.handleStreamEvent(event)
 	}
 
 	finalOutput := ss.finalOutput
@@ -501,13 +601,6 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	bufferedText := ss.bufferedText
 	agentStartTime := ss.agentStartTime
 	agentTokens := ss.agentTokens
-
-	// Check for streaming error
-	if streamErr := <-errChan; streamErr != nil {
-		utils.LogError("Streaming error: %v", streamErr)
-		sendEvent(StreamEvent{Type: "error", Error: streamErr.Error()})
-		return
-	}
 
 	// Use buffered text for final output when evaluator is enabled
 	if req.UseEvaluator && bufferedText != "" {
@@ -895,14 +988,16 @@ func workerToEvaluatorType(workerName string) EvaluatorType {
 func (o *Orchestrator) runEvaluation(ctx context.Context, req RunRequest, input, finalOutput, currentAgent string, sendEvent func(StreamEvent)) string {
 	evalType := workerToEvaluatorType(currentAgent)
 
-	// Get evaluator model from config cache
+	// Get evaluator model and settings from config cache
 	userID, _ := strconv.ParseInt(req.UserID, 10, 64)
 	evaluatorModel := ""
+	var evaluatorSettings LLMSettings
 	if o.configCache != nil && userID > 0 {
 		evaluatorModel = o.configCache.GetModel(userID, "evaluator")
-		log.Printf("[CONFIG] UserID=%d | evaluator: %s", userID, evaluatorModel)
+		evaluatorSettings = o.configCache.GetSettings(userID, "evaluator")
+		logNodeConfig(userID, "evaluator", evaluatorModel, evaluatorSettings)
 	}
-	evaluator := NewEvaluator(o.anthropicAPIKey, evalType, evaluatorModel)
+	evaluator := NewEvaluator(o.anthropicAPIKey, evalType, evaluatorModel, evaluatorSettings)
 
 	sendEvent(StreamEvent{Type: "eval_start"})
 
@@ -927,7 +1022,7 @@ func (o *Orchestrator) runEvaluation(ctx context.Context, req RunRequest, input,
 	evaluator.IncrementRetry()
 
 	// Build user-specific agent for retry
-	triageAgent := o.buildTriageAgentForUser(userID)
+	triageAgent := o.buildTriageAgentForUser(userID, false)
 
 	retryInput := fmt.Sprintf("%s\n\nPrevious attempt feedback: %s\nPlease improve the response.", input, evalResult.Feedback)
 	retryResult, retryErr := agents.Run(ctx, triageAgent, retryInput)

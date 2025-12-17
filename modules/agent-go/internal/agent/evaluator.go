@@ -35,12 +35,13 @@ type Evaluator struct {
 	client     anthropic.Client
 	evalType   EvaluatorType
 	model      string
+	settings   LLMSettings
 	maxRetries int
 	retryCount int
 }
 
-// NewEvaluator creates a new evaluator with the specified model
-func NewEvaluator(apiKey string, evalType EvaluatorType, model string) *Evaluator {
+// NewEvaluator creates a new evaluator with the specified model and settings
+func NewEvaluator(apiKey string, evalType EvaluatorType, model string, settings LLMSettings) *Evaluator {
 	client := anthropic.NewClient(
 		option.WithAPIKey(apiKey),
 	)
@@ -52,6 +53,7 @@ func NewEvaluator(apiKey string, evalType EvaluatorType, model string) *Evaluato
 		client:     client,
 		evalType:   evalType,
 		model:      model,
+		settings:   settings,
 		maxRetries: 2,
 	}
 }
@@ -84,17 +86,33 @@ func (e *Evaluator) Evaluate(ctx context.Context, userRequest, agentResponse, su
 	systemPrompt := e.getPrompt()
 	userPrompt := e.buildUserPrompt(userRequest, agentResponse, successCriteria)
 
-	// Call Claude with configured model
-	resp, err := e.client.Messages.New(ctx, anthropic.MessageNewParams{
+	// Build request params with configured model and settings
+	maxTokens := int64(1024)
+	if e.settings.MaxTokens != nil {
+		maxTokens = int64(*e.settings.MaxTokens)
+	}
+
+	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(e.model),
-		MaxTokens: 1024,
+		MaxTokens: maxTokens,
 		System: []anthropic.TextBlockParam{
 			{Text: systemPrompt},
 		},
 		Messages: []anthropic.MessageParam{
 			anthropic.NewUserMessage(anthropic.NewTextBlock(userPrompt)),
 		},
-	})
+	}
+
+	// Apply optional settings
+	if e.settings.Temperature != nil {
+		params.Temperature = anthropic.Float(*e.settings.Temperature)
+	}
+	if e.settings.TopP != nil {
+		params.TopP = anthropic.Float(*e.settings.TopP)
+	}
+
+	// Call Claude with configured model and settings
+	resp, err := e.client.Messages.New(ctx, params)
 	if err != nil {
 		log.Printf("❌ Claude evaluator call failed: %v", err)
 		return e.defaultApproval("Evaluation error, defaulting to approval"), nil

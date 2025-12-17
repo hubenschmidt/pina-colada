@@ -6,7 +6,13 @@ from typing import TYPE_CHECKING, Dict, Any, List
 if TYPE_CHECKING:
     from models.User import User
 
-from repositories.user_repository import find_user_by_auth0_sub, find_user_by_email, create_user, update_user
+from repositories.user_repository import (
+    find_user_by_auth0_sub,
+    find_user_by_email,
+    create_user,
+    update_user,
+    get_user_global_roles as get_user_global_roles_repo,
+)
 from repositories.tenant_repository import (
     find_or_create_tenant_with_user,
     get_user_tenants_with_roles,
@@ -72,3 +78,8 @@ async def add_user_to_tenant(user_id: int, tenant_id: int, role_name: str) -> No
 
     # Create UserRole assignment
     await create_user_role(user_id, role.id)
+
+
+async def get_user_global_roles(user_id: int) -> List[str]:
+    """Get global role names for a user (roles with NULL tenant_id)."""
+    return await get_user_global_roles_repo(user_id)

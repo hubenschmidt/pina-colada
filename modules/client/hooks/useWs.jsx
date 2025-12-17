@@ -142,6 +142,14 @@ const handleParsedMessage = (obj, ctx) => {
     return true;
   }
 
+  // Warning from backend (non-fatal)
+  if (obj.type === "warning") {
+    if (ctx.onError) {
+      ctx.onError({ message: obj.warning, isWarning: true });
+    }
+    return true;
+  }
+
   // Error from backend
   if (obj.type === "error") {
     ctx.setIsThinking(false);

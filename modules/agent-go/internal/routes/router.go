@@ -355,6 +355,12 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 				r.Get("/models", c.AgentConfig.GetAvailableModels)
 				r.Put("/{node_name}", c.AgentConfig.UpdateNodeConfig)
 				r.Delete("/{node_name}", c.AgentConfig.ResetNodeConfig)
+
+				// Presets
+				r.Get("/presets", c.AgentConfig.ListPresets)
+				r.Post("/presets", c.AgentConfig.CreatePreset)
+				r.Delete("/presets/{id}", c.AgentConfig.DeletePreset)
+				r.Post("/presets/{id}/apply", c.AgentConfig.ApplyPreset)
 			})
 		})
 	})

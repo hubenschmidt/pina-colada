@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback, useState, useId } from "react";
 import { env } from "next-runtime-env";
-import { AlertCircle, X, ChevronDown } from "lucide-react";
+import { AlertCircle, AlertTriangle, X, ChevronDown } from "lucide-react";
 import Chat from "../../components/Chat/Chat";
 import AgentConfigMenu from "../../components/Chat/AgentConfigMenu";
 import { usePageLoading } from "../../context/pageLoadingContext";
@@ -79,11 +79,15 @@ const ChatPage = () => {
         <AgentConfigMenu />
       </div>
       {error && (
-        <div className={styles.errorBanner}>
-          <div className={styles.errorContent}>
-            <AlertCircle size={16} className={styles.errorIcon} />
-            <div className={styles.errorText}>{error.message}</div>
-            <button className={styles.errorDismiss} onClick={clearError}>
+        <div className={error.isWarning ? styles.warningBanner : styles.errorBanner}>
+          <div className={error.isWarning ? styles.warningContent : styles.errorContent}>
+            {error.isWarning ? (
+              <AlertTriangle size={16} className={styles.warningIcon} />
+            ) : (
+              <AlertCircle size={16} className={styles.errorIcon} />
+            )}
+            <div className={error.isWarning ? styles.warningText : styles.errorText}>{error.message}</div>
+            <button className={error.isWarning ? styles.warningDismiss : styles.errorDismiss} onClick={clearError}>
               <X size={14} />
             </button>
           </div>

@@ -3,13 +3,19 @@ package models
 import "time"
 
 type AgentNodeConfig struct {
-	ID        int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID    int64     `gorm:"not null" json:"user_id"`
-	NodeName  string    `gorm:"not null" json:"node_name"`
-	Model     string    `gorm:"not null" json:"model"`
-	Provider  string    `gorm:"not null;default:openai" json:"provider"`
-	CreatedAt time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID               int64     `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID           int64     `gorm:"not null" json:"user_id"`
+	NodeName         string    `gorm:"not null" json:"node_name"`
+	Model            string    `gorm:"not null" json:"model"`
+	Provider         string    `gorm:"not null;default:openai" json:"provider"`
+	Temperature      *float64  `gorm:"column:temperature" json:"temperature,omitempty"`
+	MaxTokens        *int      `gorm:"column:max_tokens" json:"max_tokens,omitempty"`
+	TopP             *float64  `gorm:"column:top_p" json:"top_p,omitempty"`
+	TopK             *int      `gorm:"column:top_k" json:"top_k,omitempty"`
+	FrequencyPenalty *float64  `gorm:"column:frequency_penalty" json:"frequency_penalty,omitempty"`
+	PresencePenalty  *float64  `gorm:"column:presence_penalty" json:"presence_penalty,omitempty"`
+	CreatedAt        time.Time `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt        time.Time `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 func (AgentNodeConfig) TableName() string {

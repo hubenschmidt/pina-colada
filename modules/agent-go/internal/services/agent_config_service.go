@@ -2,9 +2,7 @@ package services
 
 import (
 	"errors"
-	"slices"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 )
 
@@ -21,12 +19,18 @@ func NewAgentConfigService(configRepo *repositories.AgentConfigRepository) *Agen
 
 // NodeConfigResponse represents a single node's configuration
 type NodeConfigResponse struct {
-	NodeName    string `json:"node_name"`
-	DisplayName string `json:"display_name"`
-	Description string `json:"description"`
-	Model       string `json:"model"`
-	Provider    string `json:"provider"`
-	IsDefault   bool   `json:"is_default"`
+	NodeName         string   `json:"node_name"`
+	DisplayName      string   `json:"display_name"`
+	Description      string   `json:"description"`
+	Model            string   `json:"model"`
+	Provider         string   `json:"provider"`
+	Temperature      *float64 `json:"temperature,omitempty"`
+	MaxTokens        *int     `json:"max_tokens,omitempty"`
+	TopP             *float64 `json:"top_p,omitempty"`
+	TopK             *int     `json:"top_k,omitempty"`
+	FrequencyPenalty *float64 `json:"frequency_penalty,omitempty"`
+	PresencePenalty  *float64 `json:"presence_penalty,omitempty"`
+	IsDefault        bool     `json:"is_default"`
 }
 
 // AgentConfigResponse contains all node configurations
@@ -54,65 +58,111 @@ func (s *AgentConfigService) GetAgentConfig(userID int64) (*AgentConfigResponse,
 	}
 
 	// Build response with all nodes
-	nodes := make([]NodeConfigResponse, 0, len(models.AllNodeNames))
-	for _, nodeName := range models.AllNodeNames {
-		defaultCfg := models.DefaultModels[nodeName]
+	nodes := make([]NodeConfigResponse, 0, len(repositories.AllNodeNames))
+	for _, nodeName := range repositories.AllNodeNames {
+		defaultCfg := repositories.DefaultModels[nodeName]
 		isDefault := true
 		model := defaultCfg.Model
 		provider := defaultCfg.Provider
 
+		var temperature *float64
+		var maxTokens *int
+		var topP *float64
+		var topK *int
+		var frequencyPenalty *float64
+		var presencePenalty *float64
+
 		if override, ok := overrides[nodeName]; ok {
 			model = override.Model
 			provider = override.Provider
+			temperature = override.Temperature
+			maxTokens = override.MaxTokens
+			topP = override.TopP
+			topK = override.TopK
+			frequencyPenalty = override.FrequencyPenalty
+			presencePenalty = override.PresencePenalty
 			isDefault = false
 		}
 
 		nodes = append(nodes, NodeConfigResponse{
-			NodeName:    nodeName,
-			DisplayName: models.NodeDisplayNames[nodeName],
-			Description: models.NodeDescriptions[nodeName],
-			Model:       model,
-			Provider:    provider,
-			IsDefault:   isDefault,
+			NodeName:         nodeName,
+			DisplayName:      repositories.NodeDisplayNames[nodeName],
+			Description:      repositories.NodeDescriptions[nodeName],
+			Model:            model,
+			Provider:         provider,
+			Temperature:      temperature,
+			MaxTokens:        maxTokens,
+			TopP:             topP,
+			TopK:             topK,
+			FrequencyPenalty: frequencyPenalty,
+			PresencePenalty:  presencePenalty,
+			IsDefault:        isDefault,
 		})
 	}
 
 	return &AgentConfigResponse{Nodes: nodes}, nil
 }
 
+// NodeConfigUpdateRequest contains fields for updating a node configuration
+type NodeConfigUpdateRequest struct {
+	Model            string
+	Temperature      *float64
+	MaxTokens        *int
+	TopP             *float64
+	TopK             *int
+	FrequencyPenalty *float64
+	PresencePenalty  *float64
+}
+
 // UpdateNodeConfig updates a single node's model configuration
-func (s *AgentConfigService) UpdateNodeConfig(userID int64, nodeName, model string) (*NodeConfigResponse, error) {
+func (s *AgentConfigService) UpdateNodeConfig(userID int64, nodeName string, req NodeConfigUpdateRequest) (*NodeConfigResponse, error) {
 	// Validate node name
-	if !slices.Contains(models.AllNodeNames, nodeName) {
+	if !repositories.IsValidNodeName(nodeName) {
 		return nil, ErrInvalidNodeName
 	}
 
 	// Determine provider from model
-	provider := s.getProviderForModel(model)
+	provider := repositories.GetProviderForModel(req.Model)
 	if provider == "" {
 		return nil, ErrInvalidModel
 	}
 
 	// Upsert the config
-	err := s.configRepo.UpsertNodeConfig(userID, nodeName, model, provider)
+	update := repositories.NodeConfigUpdate{
+		Model:            req.Model,
+		Provider:         provider,
+		Temperature:      req.Temperature,
+		MaxTokens:        req.MaxTokens,
+		TopP:             req.TopP,
+		TopK:             req.TopK,
+		FrequencyPenalty: req.FrequencyPenalty,
+		PresencePenalty:  req.PresencePenalty,
+	}
+	err := s.configRepo.UpsertNodeConfig(userID, nodeName, update)
 	if err != nil {
 		return nil, err
 	}
 
 	return &NodeConfigResponse{
-		NodeName:    nodeName,
-		DisplayName: models.NodeDisplayNames[nodeName],
-		Description: models.NodeDescriptions[nodeName],
-		Model:       model,
-		Provider:    provider,
-		IsDefault:   false,
+		NodeName:         nodeName,
+		DisplayName:      repositories.NodeDisplayNames[nodeName],
+		Description:      repositories.NodeDescriptions[nodeName],
+		Model:            req.Model,
+		Provider:         provider,
+		Temperature:      req.Temperature,
+		MaxTokens:        req.MaxTokens,
+		TopP:             req.TopP,
+		TopK:             req.TopK,
+		FrequencyPenalty: req.FrequencyPenalty,
+		PresencePenalty:  req.PresencePenalty,
+		IsDefault:        false,
 	}, nil
 }
 
 // ResetNodeConfig removes user override and reverts to default
 func (s *AgentConfigService) ResetNodeConfig(userID int64, nodeName string) (*NodeConfigResponse, error) {
 	// Validate node name
-	if !slices.Contains(models.AllNodeNames, nodeName) {
+	if !repositories.IsValidNodeName(nodeName) {
 		return nil, ErrInvalidNodeName
 	}
 
@@ -120,11 +170,11 @@ func (s *AgentConfigService) ResetNodeConfig(userID int64, nodeName string) (*No
 	_ = s.configRepo.DeleteNodeConfig(userID, nodeName)
 
 	// Return default config
-	defaultCfg := models.DefaultModels[nodeName]
+	defaultCfg := repositories.DefaultModels[nodeName]
 	return &NodeConfigResponse{
 		NodeName:    nodeName,
-		DisplayName: models.NodeDisplayNames[nodeName],
-		Description: models.NodeDescriptions[nodeName],
+		DisplayName: repositories.NodeDisplayNames[nodeName],
+		Description: repositories.NodeDescriptions[nodeName],
 		Model:       defaultCfg.Model,
 		Provider:    defaultCfg.Provider,
 		IsDefault:   true,
@@ -134,8 +184,8 @@ func (s *AgentConfigService) ResetNodeConfig(userID int64, nodeName string) (*No
 // GetAvailableModels returns all available models grouped by provider
 func (s *AgentConfigService) GetAvailableModels() *AvailableModelsResponse {
 	return &AvailableModelsResponse{
-		OpenAI:    models.AvailableModels["openai"],
-		Anthropic: models.AvailableModels["anthropic"],
+		OpenAI:    repositories.AvailableModels["openai"],
+		Anthropic: repositories.AvailableModels["anthropic"],
 	}
 }
 
@@ -144,18 +194,106 @@ func (s *AgentConfigService) GetModelForNode(userID int64, nodeName string) (mod
 	cfg, err := s.configRepo.GetNodeConfig(userID, nodeName)
 	if err != nil || cfg == nil {
 		// Return default
-		defaultCfg := models.DefaultModels[nodeName]
+		defaultCfg := repositories.DefaultModels[nodeName]
 		return defaultCfg.Model, defaultCfg.Provider
 	}
 	return cfg.Model, cfg.Provider
 }
 
-// getProviderForModel determines which provider a model belongs to
-func (s *AgentConfigService) getProviderForModel(model string) string {
-	for provider, modelList := range models.AvailableModels {
-		if slices.Contains(modelList, model) {
-			return provider
+// PresetResponse represents a preset for API responses
+type PresetResponse struct {
+	ID               int64    `json:"id"`
+	Name             string   `json:"name"`
+	Temperature      *float64 `json:"temperature,omitempty"`
+	MaxTokens        *int     `json:"max_tokens,omitempty"`
+	TopP             *float64 `json:"top_p,omitempty"`
+	TopK             *int     `json:"top_k,omitempty"`
+	FrequencyPenalty *float64 `json:"frequency_penalty,omitempty"`
+	PresencePenalty  *float64 `json:"presence_penalty,omitempty"`
+	IsGlobal         bool     `json:"is_global"`
+}
+
+// PresetCreateRequest contains fields for creating a preset
+type PresetCreateRequest struct {
+	Name             string
+	Temperature      *float64
+	MaxTokens        *int
+	TopP             *float64
+	TopK             *int
+	FrequencyPenalty *float64
+	PresencePenalty  *float64
+}
+
+// ListPresets returns all presets for a user
+func (s *AgentConfigService) ListPresets(userID int64) ([]PresetResponse, error) {
+	presets, err := s.configRepo.GetUserPresets(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]PresetResponse, len(presets))
+	for i, p := range presets {
+		result[i] = PresetResponse{
+			ID:               p.ID,
+			Name:             p.Name,
+			Temperature:      p.Temperature,
+			MaxTokens:        p.MaxTokens,
+			TopP:             p.TopP,
+			TopK:             p.TopK,
+			FrequencyPenalty: p.FrequencyPenalty,
+			PresencePenalty:  p.PresencePenalty,
+			IsGlobal:         p.UserID == nil,
 		}
 	}
-	return ""
+	return result, nil
+}
+
+// CreatePreset creates a new preset
+func (s *AgentConfigService) CreatePreset(userID int64, req PresetCreateRequest) (*PresetResponse, error) {
+	input := repositories.PresetCreateInput{
+		UserID:           userID,
+		Name:             req.Name,
+		Temperature:      req.Temperature,
+		MaxTokens:        req.MaxTokens,
+		TopP:             req.TopP,
+		TopK:             req.TopK,
+		FrequencyPenalty: req.FrequencyPenalty,
+		PresencePenalty:  req.PresencePenalty,
+	}
+	presetID, err := s.configRepo.CreatePreset(input)
+	if err != nil {
+		return nil, err
+	}
+
+	return &PresetResponse{
+		ID:               presetID,
+		Name:             req.Name,
+		Temperature:      req.Temperature,
+		MaxTokens:        req.MaxTokens,
+		TopP:             req.TopP,
+		TopK:             req.TopK,
+		FrequencyPenalty: req.FrequencyPenalty,
+		PresencePenalty:  req.PresencePenalty,
+		IsGlobal:         false,
+	}, nil
+}
+
+// DeletePreset deletes a preset
+func (s *AgentConfigService) DeletePreset(userID, presetID int64) error {
+	return s.configRepo.DeletePreset(userID, presetID)
+}
+
+// ApplyPreset applies a preset to all nodes and returns updated config
+func (s *AgentConfigService) ApplyPreset(userID, presetID int64) (*AgentConfigResponse, error) {
+	preset, err := s.configRepo.GetPresetByID(userID, presetID)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.configRepo.ApplyPresetToNodes(userID, *preset)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetAgentConfig(userID)
 }
