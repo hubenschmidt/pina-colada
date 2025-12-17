@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useId } from "react";
-import { Settings, ChevronDown, ChevronUp, Info, Save, Trash2 } from "lucide-react";
+import { Settings, ChevronDown, ChevronUp, Info, Save } from "lucide-react";
 import {
   getAgentConfig,
   getAvailableModels,
@@ -7,8 +7,9 @@ import {
   resetAgentNodeConfig,
   getAgentConfigPresets,
   createAgentConfigPreset,
-  deleteAgentConfigPreset,
   applyAgentConfigPreset,
+  getCostTiers,
+  applyCostTier,
 } from "../../api";
 import { useUserContext } from "../../context/userContext";
 import DeveloperFeature from "../DeveloperFeature/DeveloperFeature";
@@ -27,6 +28,8 @@ const AgentConfigMenu = () => {
   const [presetName, setPresetName] = useState("");
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [savingPreset, setSavingPreset] = useState(false);
+  const [costTiers, setCostTiers] = useState([]);
+  const [applyingCostTier, setApplyingCostTier] = useState(false);
   const menuId = useId();
 
   useEffect(() => {
@@ -35,11 +38,12 @@ const AgentConfigMenu = () => {
     setLoading(true);
     setError(null);
 
-    Promise.all([getAgentConfig(), getAvailableModels(), getAgentConfigPresets()])
-      .then(([configRes, modelsRes, presetsRes]) => {
+    Promise.all([getAgentConfig(), getAvailableModels(), getAgentConfigPresets(), getCostTiers()])
+      .then(([configRes, modelsRes, presetsRes, tiersRes]) => {
         setConfig(configRes);
         setAvailableModels(modelsRes);
         setPresets(presetsRes || []);
+        setCostTiers(tiersRes || []);
       })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
@@ -182,12 +186,15 @@ const AgentConfigMenu = () => {
     }
   };
 
-  const handleDeletePreset = async (presetId) => {
+  const handleApplyCostTier = async (tier) => {
+    setApplyingCostTier(true);
     try {
-      await deleteAgentConfigPreset(presetId);
-      setPresets((prev) => prev.filter((p) => p.id !== presetId));
+      const updatedConfig = await applyCostTier(tier);
+      setConfig(updatedConfig);
     } catch (err) {
       setError(err.message);
+    } finally {
+      setApplyingCostTier(false);
     }
   };
 
@@ -220,11 +227,24 @@ const AgentConfigMenu = () => {
                 <div className={styles.presetRow}>
                   <select
                     className={styles.presetSelect}
+                    disabled={applyingCostTier || costTiers.length === 0}
+                    value={config?.selected_cost_tier || "standard"}
+                    onChange={(e) => handleApplyCostTier(e.target.value)}>
+                    {costTiers.map((tier) => (
+                      <option key={tier.tier} value={tier.tier}>
+                        {tier.tier.charAt(0).toUpperCase() + tier.tier.slice(1)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className={styles.presetRow}>
+                  <select
+                    className={styles.presetSelect}
                     disabled={savingPreset || presets.length === 0}
-                    defaultValue=""
+                    value={config?.selected_param_preset_id || ""}
                     onChange={(e) => e.target.value && handleApplyPreset(parseInt(e.target.value, 10))}>
-                    <option value="" disabled>
-                      {presets.length === 0 ? "No presets" : "Apply preset..."}
+                    <option value="">
+                      {presets.length === 0 ? "No presets" : "Presets..."}
                     </option>
                     {presets.map((preset) => (
                       <option key={preset.id} value={preset.id}>
@@ -240,24 +260,6 @@ const AgentConfigMenu = () => {
                     <Save size={14} />
                   </button>
                 </div>
-                {presets.length > 0 && (
-                  <div className={styles.presetList}>
-                    {presets.map((preset) => (
-                      <div key={preset.id} className={styles.presetItem}>
-                        <span className={styles.presetName}>{preset.name}</span>
-                        {!preset.is_global && (
-                          <button
-                            type="button"
-                            className={styles.presetDeleteButton}
-                            onClick={() => handleDeletePreset(preset.id)}
-                            title="Delete preset">
-                            <Trash2 size={12} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
                 {showSavePreset && (
                   <div className={styles.savePresetRow}>
                     <input

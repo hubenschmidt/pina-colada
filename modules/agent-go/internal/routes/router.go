@@ -361,6 +361,10 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 				r.Post("/presets", c.AgentConfig.CreatePreset)
 				r.Delete("/presets/{id}", c.AgentConfig.DeletePreset)
 				r.Post("/presets/{id}/apply", c.AgentConfig.ApplyPreset)
+
+				// Cost tiers
+				r.Get("/cost-tiers", c.AgentConfig.GetCostTiers)
+				r.Post("/cost-tier", c.AgentConfig.ApplyCostTier)
 			})
 		})
 	})

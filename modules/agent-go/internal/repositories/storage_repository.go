@@ -31,7 +31,7 @@ type LocalStorageRepository struct {
 func NewLocalStorageRepository(basePath string) *LocalStorageRepository {
 	basePath = resolveBasePath(basePath)
 	os.MkdirAll(basePath, 0755)
-	log.Printf("📁 LocalStorageRepository initialized with basePath: %s", basePath)
+	log.Printf("LocalStorageRepository initialized with basePath: %s", basePath)
 	return &LocalStorageRepository{basePath: basePath}
 }
 
@@ -47,32 +47,32 @@ func resolveBasePath(basePath string) string {
 
 func (r *LocalStorageRepository) Upload(path string, data io.Reader, contentType string, size int64) error {
 	fullPath := filepath.Join(r.basePath, path)
-	log.Printf("📁 LocalStorageRepository.Upload: basePath=%s path=%s fullPath=%s", r.basePath, path, fullPath)
+	log.Printf("LocalStorageRepository.Upload: basePath=%s path=%s fullPath=%s", r.basePath, path, fullPath)
 
 	if err := os.MkdirAll(filepath.Dir(fullPath), 0755); err != nil {
-		log.Printf("❌ LocalStorageRepository.Upload: MkdirAll failed: %v", err)
+		log.Printf("LocalStorageRepository.Upload: MkdirAll failed: %v", err)
 		return err
 	}
 
 	file, err := os.Create(fullPath)
 	if err != nil {
-		log.Printf("❌ LocalStorageRepository.Upload: Create failed: %v", err)
+		log.Printf("LocalStorageRepository.Upload: Create failed: %v", err)
 		return err
 	}
 	defer file.Close()
 
 	written, err := io.Copy(file, data)
 	if err != nil {
-		log.Printf("❌ LocalStorageRepository.Upload: Copy failed: %v", err)
+		log.Printf("LocalStorageRepository.Upload: Copy failed: %v", err)
 		return err
 	}
-	log.Printf("✅ LocalStorageRepository.Upload: wrote %d bytes to %s", written, fullPath)
+	log.Printf("LocalStorageRepository.Upload: wrote %d bytes to %s", written, fullPath)
 	return nil
 }
 
 func (r *LocalStorageRepository) Download(path string) ([]byte, error) {
 	fullPath := filepath.Join(r.basePath, path)
-	log.Printf("📁 LocalStorageRepository.Download: %s", fullPath)
+	log.Printf("LocalStorageRepository.Download: %s", fullPath)
 	return os.ReadFile(fullPath)
 }
 

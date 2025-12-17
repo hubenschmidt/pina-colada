@@ -1300,3 +1300,12 @@ export const deleteAgentConfigPreset = async (presetId) => {
 export const applyAgentConfigPreset = async (presetId) => {
   return apiPost(`/agent/config/presets/${presetId}/apply`);
 };
+
+// Agent Config Cost Tiers
+export const getCostTiers = async () => {
+  return apiGet("/agent/config/cost-tiers");
+};
+
+export const applyCostTier = async (tier) => {
+  return apiPost("/agent/config/cost-tier", { tier });
+};

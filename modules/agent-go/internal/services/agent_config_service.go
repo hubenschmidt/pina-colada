@@ -8,6 +8,7 @@ import (
 
 var ErrInvalidNodeName = errors.New("invalid node name")
 var ErrInvalidModel = errors.New("invalid model for provider")
+var ErrInvalidCostTier = errors.New("invalid cost tier")
 
 type AgentConfigService struct {
 	configRepo *repositories.AgentConfigRepository
@@ -35,7 +36,9 @@ type NodeConfigResponse struct {
 
 // AgentConfigResponse contains all node configurations
 type AgentConfigResponse struct {
-	Nodes []NodeConfigResponse `json:"nodes"`
+	Nodes                 []NodeConfigResponse `json:"nodes"`
+	SelectedParamPresetID *int64               `json:"selected_param_preset_id,omitempty"`
+	SelectedCostTier      string               `json:"selected_cost_tier"`
 }
 
 // AvailableModelsResponse contains models grouped by provider
@@ -47,6 +50,11 @@ type AvailableModelsResponse struct {
 // GetAgentConfig returns all node configurations for a user, merged with defaults
 func (s *AgentConfigService) GetAgentConfig(userID int64) (*AgentConfigResponse, error) {
 	userConfigs, err := s.configRepo.GetUserConfigs(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	selection, err := s.configRepo.GetUserSelection(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -100,7 +108,11 @@ func (s *AgentConfigService) GetAgentConfig(userID int64) (*AgentConfigResponse,
 		})
 	}
 
-	return &AgentConfigResponse{Nodes: nodes}, nil
+	return &AgentConfigResponse{
+		Nodes:                 nodes,
+		SelectedParamPresetID: selection.SelectedParamPresetID,
+		SelectedCostTier:      selection.SelectedCostTier,
+	}, nil
 }
 
 // NodeConfigUpdateRequest contains fields for updating a node configuration
@@ -291,6 +303,53 @@ func (s *AgentConfigService) ApplyPreset(userID, presetID int64) (*AgentConfigRe
 	}
 
 	err = s.configRepo.ApplyPresetToNodes(userID, *preset)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.configRepo.SetSelectedParamPreset(userID, &presetID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.GetAgentConfig(userID)
+}
+
+// CostTierResponse represents a cost tier for API responses
+type CostTierResponse struct {
+	Tier        string `json:"tier"`
+	Description string `json:"description"`
+	OpenAI      string `json:"openai_model"`
+	Anthropic   string `json:"anthropic_model"`
+}
+
+// GetCostTiers returns all available cost tiers
+func (s *AgentConfigService) GetCostTiers() []CostTierResponse {
+	result := make([]CostTierResponse, len(repositories.AllCostTiers))
+	for i, tier := range repositories.AllCostTiers {
+		models := repositories.CostTierModels[tier]
+		result[i] = CostTierResponse{
+			Tier:        tier,
+			Description: repositories.CostTierDescriptions[tier],
+			OpenAI:      models.OpenAI,
+			Anthropic:   models.Anthropic,
+		}
+	}
+	return result
+}
+
+// ApplyCostTier applies a cost tier to all nodes and returns updated config
+func (s *AgentConfigService) ApplyCostTier(userID int64, tier string) (*AgentConfigResponse, error) {
+	if !repositories.IsValidCostTier(tier) {
+		return nil, ErrInvalidCostTier
+	}
+
+	err := s.configRepo.ApplyCostTierToNodes(userID, tier)
+	if err != nil {
+		return nil, err
+	}
+
+	err = s.configRepo.SetSelectedCostTier(userID, tier)
 	if err != nil {
 		return nil, err
 	}

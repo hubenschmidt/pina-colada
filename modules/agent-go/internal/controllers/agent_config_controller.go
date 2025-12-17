@@ -322,6 +322,70 @@ func (c *AgentConfigController) ApplyPreset(w http.ResponseWriter, r *http.Reque
 	writeConfigJSON(w, http.StatusOK, result)
 }
 
+// GetCostTiers handles GET /agent/config/cost-tiers
+func (c *AgentConfigController) GetCostTiers(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeConfigError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	if !c.hasDeveloperAccess(userID) {
+		writeConfigError(w, http.StatusForbidden, "developer access required")
+		return
+	}
+
+	result := c.configService.GetCostTiers()
+	writeConfigJSON(w, http.StatusOK, result)
+}
+
+// ApplyCostTierRequest represents the request body for applying a cost tier
+type ApplyCostTierRequest struct {
+	Tier string `json:"tier"`
+}
+
+// ApplyCostTier handles POST /agent/config/cost-tier
+func (c *AgentConfigController) ApplyCostTier(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeConfigError(w, http.StatusUnauthorized, "unauthorized")
+		return
+	}
+
+	if !c.hasDeveloperAccess(userID) {
+		writeConfigError(w, http.StatusForbidden, "developer access required")
+		return
+	}
+
+	var input ApplyCostTierRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeConfigError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	if input.Tier == "" {
+		writeConfigError(w, http.StatusBadRequest, "tier is required")
+		return
+	}
+
+	result, err := c.configService.ApplyCostTier(userID, input.Tier)
+	if errors.Is(err, services.ErrInvalidCostTier) {
+		writeConfigError(w, http.StatusBadRequest, "invalid cost tier")
+		return
+	}
+	if err != nil {
+		writeConfigError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	// Invalidate cache so next chat uses new models
+	if c.configCache != nil {
+		c.configCache.Invalidate(userID)
+	}
+
+	writeConfigJSON(w, http.StatusOK, result)
+}
+
 func (c *AgentConfigController) hasDeveloperAccess(userID int64) bool {
 	hasRole, err := c.userRepo.HasRole(userID, "developer")
 	if err != nil {

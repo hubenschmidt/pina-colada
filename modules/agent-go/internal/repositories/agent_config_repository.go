@@ -88,6 +88,58 @@ var NodeDescriptions = map[string]string{
 	NodeTitleGenerator:     "Generates conversation titles",
 }
 
+// CostTier represents a cost tier level
+const (
+	CostTierBasic    = "basic"
+	CostTierEconomy  = "economy"
+	CostTierStandard = "standard"
+	CostTierPremium  = "premium"
+	CostTierMax      = "max"
+)
+
+// AllCostTiers lists all valid cost tiers in order
+var AllCostTiers = []string{
+	CostTierBasic,
+	CostTierEconomy,
+	CostTierStandard,
+	CostTierPremium,
+	CostTierMax,
+}
+
+// CostTierModelConfig defines models for a cost tier
+type CostTierModelConfig struct {
+	OpenAI    string
+	Anthropic string
+}
+
+// CostTierModels maps cost tiers to model selections
+var CostTierModels = map[string]CostTierModelConfig{
+	CostTierBasic:    {"gpt-5-nano", "claude-haiku-4-5-20251001"},
+	CostTierEconomy:  {"gpt-5-mini", "claude-haiku-4-5-20251001"},
+	CostTierStandard: {"gpt-5", "claude-sonnet-4-5-20250514"},
+	CostTierPremium:  {"gpt-5.1", "claude-sonnet-4-5-20250514"},
+	CostTierMax:      {"gpt-5.2", "claude-opus-4-5-20250514"},
+}
+
+// CostTierDescriptions provides human-readable descriptions for cost tiers
+var CostTierDescriptions = map[string]string{
+	CostTierBasic:    "Cheapest, fast responses",
+	CostTierEconomy:  "Budget-friendly",
+	CostTierStandard: "Balanced cost and quality",
+	CostTierPremium:  "Higher quality output",
+	CostTierMax:      "Best available models",
+}
+
+// IsValidCostTier checks if a cost tier is valid
+func IsValidCostTier(tier string) bool {
+	for _, t := range AllCostTiers {
+		if t == tier {
+			return true
+		}
+	}
+	return false
+}
+
 // IsValidNodeName checks if a node name is valid
 func IsValidNodeName(nodeName string) bool {
 	return slices.Contains(AllNodeNames, nodeName)
@@ -333,41 +385,118 @@ func (r *AgentConfigRepository) DeletePreset(userID, presetID int64) error {
 func (r *AgentConfigRepository) ApplyPresetToNodes(userID int64, preset PresetDTO) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		for _, nodeName := range AllNodeNames {
-			var existing models.AgentNodeConfig
-			err := tx.Where("user_id = ? AND node_name = ?", userID, nodeName).First(&existing).Error
-
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				defaultCfg := DefaultModels[nodeName]
-				newCfg := models.AgentNodeConfig{
-					UserID:           userID,
-					NodeName:         nodeName,
-					Model:            defaultCfg.Model,
-					Provider:         defaultCfg.Provider,
-					Temperature:      preset.Temperature,
-					MaxTokens:        preset.MaxTokens,
-					TopP:             preset.TopP,
-					TopK:             preset.TopK,
-					FrequencyPenalty: preset.FrequencyPenalty,
-					PresencePenalty:  preset.PresencePenalty,
-				}
-				if createErr := tx.Create(&newCfg).Error; createErr != nil {
-					return createErr
-				}
-				continue
+			defaultCfg := DefaultModels[nodeName]
+			cfg := models.AgentNodeConfig{
+				UserID:   userID,
+				NodeName: nodeName,
+				Model:    defaultCfg.Model,
+				Provider: defaultCfg.Provider,
 			}
-
+			presetUpdate := models.AgentNodeConfig{
+				Temperature:      preset.Temperature,
+				MaxTokens:        preset.MaxTokens,
+				TopP:             preset.TopP,
+				TopK:             preset.TopK,
+				FrequencyPenalty: preset.FrequencyPenalty,
+				PresencePenalty:  preset.PresencePenalty,
+			}
+			err := tx.Where("user_id = ? AND node_name = ?", userID, nodeName).
+				Assign(presetUpdate).
+				FirstOrCreate(&cfg).Error
 			if err != nil {
 				return err
 			}
+		}
+		return nil
+	})
+}
 
-			existing.Temperature = preset.Temperature
-			existing.MaxTokens = preset.MaxTokens
-			existing.TopP = preset.TopP
-			existing.TopK = preset.TopK
-			existing.FrequencyPenalty = preset.FrequencyPenalty
-			existing.PresencePenalty = preset.PresencePenalty
-			if saveErr := tx.Save(&existing).Error; saveErr != nil {
-				return saveErr
+// UserSelectionDTO represents user's selected presets
+type UserSelectionDTO struct {
+	SelectedParamPresetID *int64
+	SelectedCostTier      string
+}
+
+// GetUserSelection returns user's selected presets
+func (r *AgentConfigRepository) GetUserSelection(userID int64) (*UserSelectionDTO, error) {
+	var selection models.AgentConfigUserSelection
+	err := r.db.Where("user_id = ?", userID).First(&selection).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return &UserSelectionDTO{SelectedCostTier: CostTierStandard}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &UserSelectionDTO{
+		SelectedParamPresetID: selection.SelectedParamPresetID,
+		SelectedCostTier:      selection.SelectedCostTier,
+	}, nil
+}
+
+// SetUserSelection updates user's selected presets
+func (r *AgentConfigRepository) SetUserSelection(userID int64, presetID *int64, costTier string) error {
+	selection := models.AgentConfigUserSelection{
+		UserID:                userID,
+		SelectedParamPresetID: presetID,
+		SelectedCostTier:      costTier,
+	}
+	return r.db.Save(&selection).Error
+}
+
+// SetSelectedParamPreset updates only the selected param preset
+func (r *AgentConfigRepository) SetSelectedParamPreset(userID int64, presetID *int64) error {
+	selection := models.AgentConfigUserSelection{
+		UserID:                userID,
+		SelectedParamPresetID: presetID,
+		SelectedCostTier:      CostTierStandard,
+	}
+	return r.db.Where("user_id = ?", userID).
+		Assign(models.AgentConfigUserSelection{SelectedParamPresetID: presetID}).
+		FirstOrCreate(&selection).Error
+}
+
+// SetSelectedCostTier updates only the selected cost tier
+func (r *AgentConfigRepository) SetSelectedCostTier(userID int64, costTier string) error {
+	selection := models.AgentConfigUserSelection{
+		UserID:           userID,
+		SelectedCostTier: costTier,
+	}
+	return r.db.Where("user_id = ?", userID).
+		Assign(models.AgentConfigUserSelection{SelectedCostTier: costTier}).
+		FirstOrCreate(&selection).Error
+}
+
+// getModelForTier returns the model and provider for a given tier and base provider
+func getModelForTier(tierConfig CostTierModelConfig, baseProvider string) (model, provider string) {
+	providerModels := map[string]string{
+		"anthropic": tierConfig.Anthropic,
+		"openai":    tierConfig.OpenAI,
+	}
+	model = providerModels[baseProvider]
+	provider = baseProvider
+	return model, provider
+}
+
+// ApplyCostTierToNodes applies cost tier model selections to all nodes for a user
+func (r *AgentConfigRepository) ApplyCostTierToNodes(userID int64, tier string) error {
+	tierConfig := CostTierModels[tier]
+
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		for _, nodeName := range AllNodeNames {
+			defaultCfg := DefaultModels[nodeName]
+			model, provider := getModelForTier(tierConfig, defaultCfg.Provider)
+
+			cfg := models.AgentNodeConfig{
+				UserID:   userID,
+				NodeName: nodeName,
+				Model:    model,
+				Provider: provider,
+			}
+			err := tx.Where("user_id = ? AND node_name = ?", userID, nodeName).
+				Assign(models.AgentNodeConfig{Model: model, Provider: provider}).
+				FirstOrCreate(&cfg).Error
+			if err != nil {
+				return err
 			}
 		}
 		return nil
