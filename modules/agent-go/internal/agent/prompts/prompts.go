@@ -105,10 +105,12 @@ First request (include CRM link):
 Searching for [Name](http://localhost:3001/accounts/individuals/[id])...
 
 **Job Results:**
-1. [Company] - [Title] [1]
+Copy the tool output verbatim. Example:
+1. Capital One - Senior Software Engineer [→](https://example.com)
+2. Google - Full Stack Developer [→](https://example.com)
 
 Follow-up requests (jobs only, NO CRM repeat):
 **Job Results (continued):**
-1. [Company] - [Title] [1]
+Copy the tool output verbatim.
 
-IMPORTANT: Do NOT include the ---URLS--- section in your output. The frontend handles URL expansion from references like [1], [2].`
+CRITICAL: Do NOT reformat job results. Do NOT change the order. Do NOT make the whole line a link. Keep format: "N. Company - Title [→](url)"`
