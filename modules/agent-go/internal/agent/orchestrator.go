@@ -52,6 +52,7 @@ type Orchestrator struct {
 	configCache     *utils.ConfigCache
 	allTools        []agents.Tool
 	metricService   *services.MetricService
+	serperTools     *tools.SerperTools
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
@@ -98,6 +99,7 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 		configCache:     configCache,
 		allTools:        allTools,
 		metricService:   metricService,
+		serperTools:     serperTools,
 	}, nil
 }
 
@@ -195,8 +197,8 @@ func (o *Orchestrator) buildTriageAgentForUser(userID int64, skipSettings bool) 
 	logNodeConfig(userID, "general_worker", generalModel, generalSettings)
 
 	// Create workers with user-specific models and settings
-	// Disable parallel tool calls for job_search to prevent multiple simultaneous searches
-	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, buildModelSettingsWithOptions(jobSearchSettings, false), o.allTools)
+	// Parallel tool calls enabled - call limit enforced in SerperTools.JobSearchCtx
+	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, buildModelSettings(jobSearchSettings), o.allTools)
 	crmWorker := workers.NewCRMWorker(crmModel, buildModelSettings(crmSettings), o.allTools)
 	generalWorker := workers.NewGeneralWorker(generalModel, buildModelSettings(generalSettings), o.allTools)
 
@@ -547,6 +549,9 @@ func (o *Orchestrator) runAgentStream(ctx context.Context, userID int64, input s
 func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eventCh chan<- StreamEvent) {
 	startTime := time.Now()
 	defer close(eventCh)
+
+	// Reset per-turn call counters
+	o.serperTools.ResetCallCount()
 
 	log.Printf("Starting streaming agent for thread: %s", req.SessionID)
 	log.Printf("   Message: %s", req.Message)
@@ -1159,11 +1164,11 @@ func (o *Orchestrator) buildMetricConfigSnapshot(userID int64) json.RawMessage {
 	}
 
 	snapshot := map[string]interface{}{
-		"triage_orchestrator": map[string]interface{}{
+		"triage": map[string]interface{}{
 			"model":    o.configCache.GetModel(userID, "triage_orchestrator"),
 			"settings": o.configCache.GetSettings(userID, "triage_orchestrator"),
 		},
-		"job_search_worker": map[string]interface{}{
+		"job_search": map[string]interface{}{
 			"model":    o.configCache.GetModel(userID, "job_search_worker"),
 			"settings": o.configCache.GetSettings(userID, "job_search_worker"),
 		},
@@ -1174,6 +1179,10 @@ func (o *Orchestrator) buildMetricConfigSnapshot(userID int64) json.RawMessage {
 		"general_worker": map[string]interface{}{
 			"model":    o.configCache.GetModel(userID, "general_worker"),
 			"settings": o.configCache.GetSettings(userID, "general_worker"),
+		},
+		"evaluator": map[string]interface{}{
+			"model":    o.configCache.GetModel(userID, "evaluator"),
+			"settings": o.configCache.GetSettings(userID, "evaluator"),
 		},
 	}
 

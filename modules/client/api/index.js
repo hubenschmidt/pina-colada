@@ -1326,12 +1326,24 @@ export const getActiveMetricRecording = async () => {
   return apiGet("/metrics/recording/active");
 };
 
-export const getMetricSessions = async (limit = 20) => {
-  return apiGet(`/metrics/sessions?limit=${limit}`);
+export const getMetricSessions = async (params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.page) queryParams.set("page", params.page);
+  if (params.pageSize) queryParams.set("page_size", params.pageSize);
+  if (params.sortBy) queryParams.set("sort_by", params.sortBy);
+  if (params.sortDirection) queryParams.set("sort_direction", params.sortDirection);
+  const query = queryParams.toString();
+  return apiGet(`/metrics/sessions${query ? `?${query}` : ""}`);
 };
 
-export const getMetricSession = async (sessionId) => {
-  return apiGet(`/metrics/sessions/${sessionId}`);
+export const getMetricSession = async (sessionId, params = {}) => {
+  const queryParams = new URLSearchParams();
+  if (params.page) queryParams.set("page", params.page);
+  if (params.pageSize) queryParams.set("page_size", params.pageSize);
+  if (params.sortBy) queryParams.set("sort_by", params.sortBy);
+  if (params.sortDirection) queryParams.set("sort_direction", params.sortDirection);
+  const query = queryParams.toString();
+  return apiGet(`/metrics/sessions/${sessionId}${query ? `?${query}` : ""}`);
 };
 
 export const compareMetricSessions = async (sessionIds) => {

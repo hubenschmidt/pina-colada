@@ -29,17 +29,21 @@ func NewMetricService(metricRepo *repositories.MetricRepository, configService *
 
 // RecordingSessionResponse represents a session in API responses
 type RecordingSessionResponse struct {
-	ID             int64            `json:"id"`
-	UserID         int64            `json:"user_id"`
-	TenantID       int64            `json:"tenant_id"`
-	Name           *string          `json:"name,omitempty"`
-	StartedAt      time.Time        `json:"started_at"`
-	EndedAt        *time.Time       `json:"ended_at,omitempty"`
-	ConfigSnapshot *json.RawMessage `json:"config_snapshot,omitempty"`
-	CreatedAt      time.Time        `json:"created_at"`
-	MetricCount    int              `json:"metric_count,omitempty"`
-	TotalCost      float64          `json:"total_cost,omitempty"`
-	TotalTokens    int              `json:"total_tokens,omitempty"`
+	ID                int64            `json:"id"`
+	UserID            int64            `json:"user_id"`
+	TenantID          int64            `json:"tenant_id"`
+	Name              *string          `json:"name,omitempty"`
+	StartedAt         time.Time        `json:"started_at"`
+	EndedAt           *time.Time       `json:"ended_at,omitempty"`
+	ConfigSnapshot    *json.RawMessage `json:"config_snapshot,omitempty"`
+	CreatedAt         time.Time        `json:"created_at"`
+	MetricCount       int              `json:"metric_count,omitempty"`
+	TotalCost         float64          `json:"total_cost,omitempty"`
+	TotalTokens       int              `json:"total_tokens,omitempty"`
+	TotalInputTokens  int              `json:"total_input_tokens,omitempty"`
+	TotalOutputTokens int              `json:"total_output_tokens,omitempty"`
+	TotalDurationMs   int              `json:"total_duration_ms,omitempty"`
+	AvgLatencyMs      int              `json:"avg_latency_ms,omitempty"`
 }
 
 // MetricResponse represents a metric in API responses
@@ -63,8 +67,37 @@ type MetricResponse struct {
 
 // SessionWithMetricsResponse includes session and its metrics
 type SessionWithMetricsResponse struct {
-	Session RecordingSessionResponse `json:"session"`
-	Metrics []MetricResponse         `json:"metrics"`
+	Session     RecordingSessionResponse `json:"session"`
+	Metrics     []MetricResponse         `json:"metrics"`
+	TotalItems  int64                    `json:"total_items,omitempty"`
+	CurrentPage int                      `json:"current_page,omitempty"`
+	PageSize    int                      `json:"page_size,omitempty"`
+	TotalPages  int                      `json:"total_pages,omitempty"`
+}
+
+// MetricQueryParams contains query parameters for metrics
+type MetricQueryParams struct {
+	Page          int
+	PageSize      int
+	SortBy        string
+	SortDirection string
+}
+
+// SessionQueryParams contains query parameters for sessions list
+type SessionQueryParams struct {
+	Page          int
+	PageSize      int
+	SortBy        string
+	SortDirection string
+}
+
+// SessionListResponse contains paginated sessions
+type SessionListResponse struct {
+	Sessions    []RecordingSessionResponse `json:"sessions"`
+	TotalItems  int64                      `json:"total_items"`
+	CurrentPage int                        `json:"current_page"`
+	PageSize    int                        `json:"page_size"`
+	TotalPages  int                        `json:"total_pages"`
 }
 
 // ComparisonDataResponse contains data for comparing sessions
@@ -160,6 +193,10 @@ func (s *MetricService) RecordTurn(input TurnMetricInput) error {
 	nodeName := &input.NodeName
 	userMessage := &input.UserMessage
 
+	inputTokens := int(input.InputTokens)
+	outputTokens := int(input.OutputTokens)
+	totalTokens := inputTokens + outputTokens
+
 	metricInput := repositories.MetricCreateInput{
 		SessionID:        input.SessionID,
 		ConversationID:   input.ConversationID,
@@ -167,9 +204,9 @@ func (s *MetricService) RecordTurn(input TurnMetricInput) error {
 		StartedAt:        input.StartedAt,
 		EndedAt:          input.EndedAt,
 		DurationMs:       input.DurationMs,
-		InputTokens:      int(input.InputTokens),
-		OutputTokens:     int(input.OutputTokens),
-		TotalTokens:      int(input.InputTokens + input.OutputTokens),
+		InputTokens:      inputTokens,
+		OutputTokens:     outputTokens,
+		TotalTokens:      totalTokens,
 		EstimatedCostUSD: &cost,
 		Model:            input.Model,
 		Provider:         input.Provider,
@@ -179,11 +216,15 @@ func (s *MetricService) RecordTurn(input TurnMetricInput) error {
 	}
 
 	_, err := s.metricRepo.RecordMetric(metricInput)
-	return err
+	if err != nil {
+		return err
+	}
+
+	return s.metricRepo.IncrementSessionAggregates(input.SessionID, inputTokens, outputTokens, totalTokens, input.DurationMs, cost)
 }
 
-// GetSessionWithMetrics returns a session with all its metrics
-func (s *MetricService) GetSessionWithMetrics(sessionID int64) (*SessionWithMetricsResponse, error) {
+// GetSessionWithMetrics returns a session with paginated metrics
+func (s *MetricService) GetSessionWithMetrics(sessionID int64, params *MetricQueryParams) (*SessionWithMetricsResponse, error) {
 	session, err := s.metricRepo.GetSession(sessionID)
 	if err != nil {
 		return nil, err
@@ -192,28 +233,55 @@ func (s *MetricService) GetSessionWithMetrics(sessionID int64) (*SessionWithMetr
 		return nil, nil
 	}
 
+	// Use pagination if params provided
+	if params != nil && params.PageSize > 0 {
+		return s.getSessionWithPaginatedMetrics(session, sessionID, params)
+	}
+
+	// Fall back to non-paginated for backwards compatibility
+	return s.getSessionWithAllMetrics(session, sessionID)
+}
+
+func (s *MetricService) getSessionWithPaginatedMetrics(session *repositories.RecordingSessionDTO, sessionID int64, params *MetricQueryParams) (*SessionWithMetricsResponse, error) {
+	paginatedResult, err := s.metricRepo.GetSessionMetricsPaginated(sessionID, repositories.MetricPaginationParams{
+		Page:          params.Page,
+		PageSize:      params.PageSize,
+		SortBy:        params.SortBy,
+		SortDirection: params.SortDirection,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	sessionResp := s.sessionDTOToResponse(session)
+
+	metricResponses := make([]MetricResponse, len(paginatedResult.Items))
+	for i, m := range paginatedResult.Items {
+		metricResponses[i] = *s.metricDTOToResponse(&m)
+	}
+
+	return &SessionWithMetricsResponse{
+		Session:     *sessionResp,
+		Metrics:     metricResponses,
+		TotalItems:  paginatedResult.TotalItems,
+		CurrentPage: paginatedResult.CurrentPage,
+		PageSize:    paginatedResult.PageSize,
+		TotalPages:  paginatedResult.TotalPages,
+	}, nil
+}
+
+func (s *MetricService) getSessionWithAllMetrics(session *repositories.RecordingSessionDTO, sessionID int64) (*SessionWithMetricsResponse, error) {
 	metrics, err := s.metricRepo.GetSessionMetrics(sessionID)
 	if err != nil {
 		return nil, err
 	}
 
 	sessionResp := s.sessionDTOToResponse(session)
-	sessionResp.MetricCount = len(metrics)
 
 	metricResponses := make([]MetricResponse, len(metrics))
-	totalCost := 0.0
-	totalTokens := 0
-
 	for i, m := range metrics {
 		metricResponses[i] = *s.metricDTOToResponse(&m)
-		if m.EstimatedCostUSD != nil {
-			totalCost += *m.EstimatedCostUSD
-		}
-		totalTokens += m.TotalTokens
 	}
-
-	sessionResp.TotalCost = totalCost
-	sessionResp.TotalTokens = totalTokens
 
 	return &SessionWithMetricsResponse{
 		Session: *sessionResp,
@@ -221,7 +289,7 @@ func (s *MetricService) GetSessionWithMetrics(sessionID int64) (*SessionWithMetr
 	}, nil
 }
 
-// ListSessions returns recent sessions for a user
+// ListSessions returns recent sessions for a user (legacy)
 func (s *MetricService) ListSessions(userID int64, limit int) ([]RecordingSessionResponse, error) {
 	sessions, err := s.metricRepo.ListSessions(userID, limit)
 	if err != nil {
@@ -235,12 +303,40 @@ func (s *MetricService) ListSessions(userID int64, limit int) ([]RecordingSessio
 	return result, nil
 }
 
+// ListSessionsPaginated returns paginated sessions for a user
+func (s *MetricService) ListSessionsPaginated(userID int64, params *SessionQueryParams) (*SessionListResponse, error) {
+	repoParams := repositories.SessionPaginationParams{
+		Page:          params.Page,
+		PageSize:      params.PageSize,
+		SortBy:        params.SortBy,
+		SortDirection: params.SortDirection,
+	}
+
+	result, err := s.metricRepo.ListSessionsPaginated(userID, repoParams)
+	if err != nil {
+		return nil, err
+	}
+
+	sessions := make([]RecordingSessionResponse, len(result.Items))
+	for i := range result.Items {
+		sessions[i] = *s.sessionDTOToResponse(&result.Items[i])
+	}
+
+	return &SessionListResponse{
+		Sessions:    sessions,
+		TotalItems:  result.TotalItems,
+		CurrentPage: result.CurrentPage,
+		PageSize:    result.PageSize,
+		TotalPages:  result.TotalPages,
+	}, nil
+}
+
 // CompareSession returns data for comparing multiple sessions
 func (s *MetricService) CompareSessions(sessionIDs []int64) (*ComparisonDataResponse, error) {
 	result := make([]SessionWithMetricsResponse, 0, len(sessionIDs))
 
 	for _, id := range sessionIDs {
-		sessionWithMetrics, err := s.GetSessionWithMetrics(id)
+		sessionWithMetrics, err := s.GetSessionWithMetrics(id, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -279,15 +375,27 @@ func (s *MetricService) sessionDTOToResponse(dto *repositories.RecordingSessionD
 		configSnapshot = &dto.ConfigSnapshot
 	}
 
+	avgLatencyMs := 0
+	if dto.MetricCount > 0 {
+		avgLatencyMs = dto.TotalDurationMs / dto.MetricCount
+	}
+
 	return &RecordingSessionResponse{
-		ID:             dto.ID,
-		UserID:         dto.UserID,
-		TenantID:       dto.TenantID,
-		Name:           dto.Name,
-		StartedAt:      dto.StartedAt,
-		EndedAt:        dto.EndedAt,
-		ConfigSnapshot: configSnapshot,
-		CreatedAt:      dto.CreatedAt,
+		ID:                dto.ID,
+		UserID:            dto.UserID,
+		TenantID:          dto.TenantID,
+		Name:              dto.Name,
+		StartedAt:         dto.StartedAt,
+		EndedAt:           dto.EndedAt,
+		ConfigSnapshot:    configSnapshot,
+		CreatedAt:         dto.CreatedAt,
+		MetricCount:       dto.MetricCount,
+		TotalCost:         dto.TotalCostUSD,
+		TotalTokens:       dto.TotalTokens,
+		TotalInputTokens:  dto.TotalInputTokens,
+		TotalOutputTokens: dto.TotalOutputTokens,
+		TotalDurationMs:   dto.TotalDurationMs,
+		AvgLatencyMs:      avgLatencyMs,
 	}
 }
 

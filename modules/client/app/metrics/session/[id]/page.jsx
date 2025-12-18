@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useUserContext } from "../../../../context/userContext";
 import { Stack, Paper, Text, Loader, Center, Group, Button, Badge } from "@mantine/core";
-import { ArrowLeft, Clock, DollarSign, Zap } from "lucide-react";
+import { ArrowLeft, Clock } from "lucide-react";
 import { usePageLoading } from "../../../../context/pageLoadingContext";
 import { getMetricSession } from "../../../../api";
 import MetricsCharts from "../../../../components/Metrics/MetricsCharts";
@@ -32,18 +32,6 @@ const formatDuration = (startedAt, endedAt) => {
   return `${seconds}s`;
 };
 
-const formatCost = (amount) => {
-  if (amount === null || amount === undefined) return "—";
-  return `$${parseFloat(amount).toFixed(4)}`;
-};
-
-const formatTokens = (count) => {
-  if (count === null || count === undefined) return "—";
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(2)}M`;
-  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
-  return count.toString();
-};
-
 const SessionDetailPage = () => {
   const { userState } = useUserContext();
   const router = useRouter();
@@ -54,32 +42,44 @@ const SessionDetailPage = () => {
   const [error, setError] = useState(null);
   const { dispatchPageLoading } = usePageLoading();
 
+  // Pagination state
+  const [queryParams, setQueryParams] = useState({
+    page: 1,
+    pageSize: 10,
+    sortBy: "started_at",
+    sortDirection: "DESC",
+  });
+
+  const fetchSession = useCallback(async (fetchParams) => {
+    if (!userState.isAuthed || !userState.roles?.includes("developer")) return;
+
+    setLoading(true);
+    try {
+      const data = await getMetricSession(sessionId, fetchParams);
+      setSession(data);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+    }
+  }, [sessionId, userState.isAuthed, userState.roles, dispatchPageLoading]);
+
   useEffect(() => {
-    const fetchSession = async () => {
-      if (!userState.isAuthed) {
-        dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
-        return;
-      }
+    if (!userState.isAuthed) {
+      dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+      return;
+    }
+    if (!userState.roles?.includes("developer")) {
+      router.push("/");
+      return;
+    }
+    fetchSession(queryParams);
+  }, [userState.isAuthed, userState.roles, router, dispatchPageLoading, fetchSession, queryParams]);
 
-      if (!userState.roles?.includes("developer")) {
-        router.push("/");
-        return;
-      }
-
-      setLoading(true);
-      try {
-        const data = await getMetricSession(sessionId);
-        setSession(data);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-        dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
-      }
-    };
-
-    fetchSession();
-  }, [userState.isAuthed, userState.roles, sessionId, dispatchPageLoading, router]);
+  const handleQueryChange = useCallback((newParams) => {
+    setQueryParams((prev) => ({ ...prev, ...newParams }));
+  }, []);
 
   if (!userState.isAuthed) {
     return (
@@ -169,31 +169,10 @@ const SessionDetailPage = () => {
             </Group>
             <Text size="sm" c="dimmed">{formatDuration(session.session?.started_at, session.session?.ended_at)}</Text>
           </Stack>
-          <Stack gap="xs">
-            <Group gap="xs">
-              <Zap size={16} />
-              <Text size="sm" fw={500}>Turns</Text>
-            </Group>
-            <Text size="sm" c="dimmed">{session.metrics?.length || 0}</Text>
-          </Stack>
-          <Stack gap="xs">
-            <Group gap="xs">
-              <Zap size={16} />
-              <Text size="sm" fw={500}>Total Tokens</Text>
-            </Group>
-            <Text size="sm" c="dimmed">{formatTokens(session.session?.total_tokens)}</Text>
-          </Stack>
-          <Stack gap="xs">
-            <Group gap="xs">
-              <DollarSign size={16} />
-              <Text size="sm" fw={500}>Total Cost</Text>
-            </Group>
-            <Text size="sm" c="dimmed">{formatCost(session.session?.total_cost)}</Text>
-          </Stack>
         </Group>
       </Paper>
 
-      <MetricsCharts session={session} />
+      <MetricsCharts session={session} queryParams={queryParams} onQueryChange={handleQueryChange} />
     </Stack>
   );
 };

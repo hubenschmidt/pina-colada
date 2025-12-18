@@ -36,10 +36,17 @@ type SerperTools struct {
 
 	// Semaphore to limit concurrent job searches
 	searchSem chan struct{}
+
+	// Per-turn call limit to prevent runaway searches
+	callCount      int
+	callCountMu    sync.Mutex
+	totalResults   int      // Track total results across all searches in turn
+	searchQueries  []string // Track queries used in this turn
 }
 
 const appliedJobsCacheTTL = 30 * time.Second
 const maxConcurrentSearches = 3
+const maxSearchesPerTurn = 3
 
 // NewSerperTools creates Serper tools with API key and optional job service for filtering
 func NewSerperTools(apiKey string, jobService JobServiceInterface) *SerperTools {
@@ -48,6 +55,15 @@ func NewSerperTools(apiKey string, jobService JobServiceInterface) *SerperTools 
 		jobService: jobService,
 		searchSem:  make(chan struct{}, maxConcurrentSearches),
 	}
+}
+
+// ResetCallCount resets the per-turn call counter (call at start of each agent turn)
+func (t *SerperTools) ResetCallCount() {
+	t.callCountMu.Lock()
+	t.callCount = 0
+	t.totalResults = 0
+	t.searchQueries = nil
+	t.callCountMu.Unlock()
 }
 
 func (t *SerperTools) loadAppliedJobs() []JobInfo {
@@ -119,8 +135,27 @@ type serperOrganicResult struct {
 
 // JobSearchCtx searches for jobs using Serper API with domain exclusions.
 // Filters out jobs already applied to or marked as do_not_apply.
-// Limits concurrent searches to prevent timeout from too many parallel calls.
+// Limits to maxSearchesPerTurn calls per request and maxConcurrentSearches concurrent.
 func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) (*JobSearchResult, error) {
+	// Check per-turn call limit first
+	t.callCountMu.Lock()
+	if t.callCount >= maxSearchesPerTurn {
+		totalResults := t.totalResults
+		queries := t.searchQueries
+		t.callCountMu.Unlock()
+		log.Printf("🔍 job_search: LIMIT REACHED (%d/%d calls) - model has %d total results from queries: %v",
+			maxSearchesPerTurn, maxSearchesPerTurn, totalResults, queries)
+		return &JobSearchResult{
+			Results: fmt.Sprintf("Search limit reached (%d searches). You have %d results to choose from.", maxSearchesPerTurn, totalResults),
+			Count:   0,
+		}, nil
+	}
+	t.callCount++
+	myCallNum := t.callCount // This search's number (1, 2, or 3)
+	t.searchQueries = append(t.searchQueries, params.Query)
+	t.callCountMu.Unlock()
+	log.Printf("🔍 job_search [%d/%d]: STARTING query: %s", myCallNum, maxSearchesPerTurn, params.Query)
+
 	// Acquire semaphore (limit concurrent searches)
 	select {
 	case t.searchSem <- struct{}{}:
@@ -177,7 +212,16 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 
 	// Format and filter results
 	results := formatSerperResultsWithFilter(serperResp.Organic, 10, appliedJobs)
-	log.Printf("job_search found %d results", len(serperResp.Organic))
+	resultCount := len(serperResp.Organic)
+
+	// Update total results count
+	t.callCountMu.Lock()
+	t.totalResults += resultCount
+	totalNow := t.totalResults
+	t.callCountMu.Unlock()
+
+	log.Printf("🔍 job_search [%d/%d]: COMPLETE - found %d results (running total: %d)",
+		myCallNum, maxSearchesPerTurn, resultCount, totalNow)
 
 	if results == "" {
 		return &JobSearchResult{
@@ -188,7 +232,7 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 
 	return &JobSearchResult{
 		Results: results,
-		Count:   len(serperResp.Organic),
+		Count:   resultCount,
 	}, nil
 }
 

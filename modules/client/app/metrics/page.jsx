@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useUserContext } from "../../context/userContext";
-import { Stack, Paper, Text, Loader, Center, Group, Badge, Button, Checkbox } from "@mantine/core";
-import { BarChart2, Clock, Zap, GitCompare } from "lucide-react";
+import { Stack, Text, Loader, Center, Group, Badge, Button, Checkbox } from "@mantine/core";
+import { BarChart2, GitCompare } from "lucide-react";
 import { usePageLoading } from "../../context/pageLoadingContext";
 import { getMetricSessions, compareMetricSessions } from "../../api";
 import { DataTable } from "../../components/DataTable/DataTable";
@@ -47,39 +47,52 @@ const formatTokens = (count) => {
 const MetricsPage = () => {
   const { userState } = useUserContext();
   const router = useRouter();
-  const [sessions, setSessions] = useState([]);
+  const [sessionsData, setSessionsData] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
   const [loading, setLoading] = useState(true);
   const [comparisonData, setComparisonData] = useState(null);
   const [loadingComparison, setLoadingComparison] = useState(false);
   const { dispatchPageLoading } = usePageLoading();
 
+  const [queryParams, setQueryParams] = useState({
+    page: 1,
+    pageSize: 10,
+    sortBy: "started_at",
+    sortDirection: "DESC",
+  });
+
+  const fetchSessions = useCallback(async (params) => {
+    if (!userState.isAuthed || !userState.roles?.includes("developer")) return;
+
+    setLoading(true);
+    try {
+      const data = await getMetricSessions(params);
+      setSessionsData(data);
+    } catch (error) {
+      console.error("Failed to fetch sessions:", error);
+    } finally {
+      setLoading(false);
+      dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+    }
+  }, [userState.isAuthed, userState.roles, dispatchPageLoading]);
+
   useEffect(() => {
-    const fetchSessions = async () => {
-      if (!userState.isAuthed) {
-        dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
-        return;
-      }
+    if (!userState.isAuthed) {
+      dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+      return;
+    }
 
-      if (!userState.roles?.includes("developer")) {
-        router.push("/");
-        return;
-      }
+    if (!userState.roles?.includes("developer")) {
+      router.push("/");
+      return;
+    }
 
-      setLoading(true);
-      try {
-        const data = await getMetricSessions(50);
-        setSessions(data || []);
-      } catch (error) {
-        console.error("Failed to fetch sessions:", error);
-      } finally {
-        setLoading(false);
-        dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
-      }
-    };
+    fetchSessions(queryParams);
+  }, [userState.isAuthed, userState.roles, dispatchPageLoading, router, fetchSessions, queryParams]);
 
-    fetchSessions();
-  }, [userState.isAuthed, userState.roles, dispatchPageLoading, router]);
+  const handleQueryChange = useCallback((newParams) => {
+    setQueryParams((prev) => ({ ...prev, ...newParams }));
+  }, []);
 
   const handleToggleSelect = (id) => {
     setSelectedIds((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]));
@@ -123,7 +136,7 @@ const MetricsPage = () => {
     );
   }
 
-  if (loading && sessions.length === 0) {
+  if (loading && !sessionsData) {
     return (
       <Center mih={400}>
         <Stack align="center" gap="md">
@@ -133,6 +146,14 @@ const MetricsPage = () => {
       </Center>
     );
   }
+
+  const sessions = sessionsData?.sessions || [];
+  const pagination = sessionsData ? {
+    total_items: sessionsData.total_items,
+    current_page: sessionsData.current_page,
+    page_size: sessionsData.page_size,
+    total_pages: sessionsData.total_pages,
+  } : null;
 
   if (comparisonData) {
     return (
@@ -173,7 +194,12 @@ const MetricsPage = () => {
       </Group>
 
       <DataTable
-        data={{ items: sessions, currentPage: 1, totalPages: 1 }}
+        data={{
+          items: sessions,
+          currentPage: pagination?.current_page || 1,
+          totalPages: pagination?.total_pages || 1,
+          pageSize: pagination?.page_size || 10,
+        }}
         columns={[
           {
             header: "",
@@ -191,6 +217,8 @@ const MetricsPage = () => {
           },
           {
             header: "Started",
+            sortKey: "started_at",
+            sortable: true,
             render: (row) => (
               <Group gap="xs">
                 <Text size="sm" fw={500}>
@@ -206,24 +234,32 @@ const MetricsPage = () => {
           },
           {
             header: "Turns",
+            sortKey: "metric_count",
+            sortable: true,
             accessor: (row) => row.metric_count || 0,
             tdProps: { align: "center" },
             thProps: { align: "center" },
           },
           {
             header: "Duration",
+            sortKey: "total_duration_ms",
+            sortable: true,
             accessor: (row) => formatDuration(row.started_at, row.ended_at),
             tdProps: { align: "right" },
             thProps: { align: "right" },
           },
           {
             header: "Tokens",
+            sortKey: "total_tokens",
+            sortable: true,
             accessor: (row) => formatTokens(row.total_tokens),
             tdProps: { align: "right" },
             thProps: { align: "right" },
           },
           {
             header: "Cost",
+            sortKey: "total_cost_usd",
+            sortable: true,
             accessor: (row) => formatCost(row.total_cost),
             tdProps: { align: "right" },
             thProps: { align: "right" },
@@ -232,38 +268,15 @@ const MetricsPage = () => {
         rowKey={(row) => row.id}
         onRowClick={(row) => handleViewSession(row.id)}
         emptyText="No recording sessions yet. Click the record button on the chat page to start capturing metrics."
+        sortBy={queryParams.sortBy}
+        sortDirection={queryParams.sortDirection}
+        onSortChange={({ sortBy, direction }) => handleQueryChange({ sortBy, sortDirection: direction, page: 1 })}
+        pageValue={pagination?.current_page || 1}
+        pageSizeValue={pagination?.page_size || 10}
+        onPageChange={(page) => handleQueryChange({ page })}
+        onPageSizeChange={(pageSize) => handleQueryChange({ pageSize, page: 1 })}
+        pageSizeOptions={[5, 10, 20, 50]}
       />
-
-      <Paper withBorder p="md" radius="md">
-        <Stack gap="xs">
-          <Group gap="xs">
-            <Clock size={16} />
-            <Text size="sm" fw={500}>
-              Quick Stats
-            </Text>
-          </Group>
-          <Group grow>
-            <Paper p="sm" withBorder radius="sm">
-              <Text size="xs" c="dimmed">
-                Total Sessions
-              </Text>
-              <Text fw={600}>{sessions.length}</Text>
-            </Paper>
-            <Paper p="sm" withBorder radius="sm">
-              <Text size="xs" c="dimmed">
-                Active Recording
-              </Text>
-              <Text fw={600}>{sessions.filter((s) => !s.ended_at).length > 0 ? "Yes" : "No"}</Text>
-            </Paper>
-            <Paper p="sm" withBorder radius="sm">
-              <Text size="xs" c="dimmed">
-                Total Metrics
-              </Text>
-              <Text fw={600}>{sessions.reduce((acc, s) => acc + (s.metric_count || 0), 0)}</Text>
-            </Paper>
-          </Group>
-        </Stack>
-      </Paper>
     </Stack>
   );
 };

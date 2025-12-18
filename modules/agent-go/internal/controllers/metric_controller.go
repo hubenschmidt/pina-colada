@@ -105,14 +105,8 @@ func (c *MetricController) ListSessions(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	limit := 50
-	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 && parsed <= 100 {
-			limit = parsed
-		}
-	}
-
-	result, err := c.metricService.ListSessions(userID, limit)
+	params := parseSessionQueryParams(r)
+	result, err := c.metricService.ListSessionsPaginated(userID, params)
 	if err != nil {
 		writeMetricError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -121,7 +115,29 @@ func (c *MetricController) ListSessions(w http.ResponseWriter, r *http.Request) 
 	writeMetricJSON(w, http.StatusOK, result)
 }
 
+func parseSessionQueryParams(r *http.Request) *services.SessionQueryParams {
+	query := r.URL.Query()
+
+	page := 1
+	if parsed, err := strconv.Atoi(query.Get("page")); err == nil && parsed > 0 {
+		page = parsed
+	}
+
+	pageSize := 10
+	if parsed, err := strconv.Atoi(query.Get("page_size")); err == nil && parsed > 0 && parsed <= 100 {
+		pageSize = parsed
+	}
+
+	return &services.SessionQueryParams{
+		Page:          page,
+		PageSize:      pageSize,
+		SortBy:        query.Get("sort_by"),
+		SortDirection: query.Get("sort_direction"),
+	}
+}
+
 // GetSession handles GET /metrics/sessions/{id}
+// Query params: page, page_size, sort_by, sort_direction
 func (c *MetricController) GetSession(w http.ResponseWriter, r *http.Request) {
 	sessionID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
@@ -129,7 +145,10 @@ func (c *MetricController) GetSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := c.metricService.GetSessionWithMetrics(sessionID)
+	// Parse pagination params
+	params := parseMetricQueryParams(r)
+
+	result, err := c.metricService.GetSessionWithMetrics(sessionID, params)
 	if err != nil {
 		writeMetricError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -141,6 +160,35 @@ func (c *MetricController) GetSession(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeMetricJSON(w, http.StatusOK, result)
+}
+
+func parseMetricQueryParams(r *http.Request) *services.MetricQueryParams {
+	query := r.URL.Query()
+
+	pageStr := query.Get("page")
+	pageSizeStr := query.Get("page_size")
+
+	// Return nil if no pagination params (backwards compatible)
+	if pageStr == "" && pageSizeStr == "" {
+		return nil
+	}
+
+	page := 1
+	if parsed, err := strconv.Atoi(pageStr); err == nil && parsed > 0 {
+		page = parsed
+	}
+
+	pageSize := 10
+	if parsed, err := strconv.Atoi(pageSizeStr); err == nil && parsed > 0 && parsed <= 100 {
+		pageSize = parsed
+	}
+
+	return &services.MetricQueryParams{
+		Page:          page,
+		PageSize:      pageSize,
+		SortBy:        query.Get("sort_by"),
+		SortDirection: query.Get("sort_direction"),
+	}
 }
 
 // Compare handles GET /metrics/compare?ids=1,2,3
