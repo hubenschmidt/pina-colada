@@ -5,8 +5,8 @@
 *.so
 *.dylib
 *.test
-agent
-main
+/agent
+/main
 
 # Build output
 /tmp/
