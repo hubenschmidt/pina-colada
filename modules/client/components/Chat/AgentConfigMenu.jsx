@@ -16,7 +16,7 @@ import styles from "./AgentConfigMenu.module.css";
 
 const AgentConfigMenu = () => {
   const { userState } = useUserContext();
-  const { config, loading, error: fetchError, fetchConfig, setConfig } = useAgentConfig();
+  const { config, loading, error: fetchError, fetchConfig, setConfig, isRecording, setIsRecording } = useAgentConfig();
   const [isOpen, setIsOpen] = useState(false);
   const [saving, setSaving] = useState({});
   const [expandedNodes, setExpandedNodes] = useState({});
@@ -24,7 +24,6 @@ const AgentConfigMenu = () => {
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [savingPreset, setSavingPreset] = useState(false);
   const [applyingCostTier, setApplyingCostTier] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
   const [recordingLoading, setRecordingLoading] = useState(false);
   const [changingProvider, setChangingProvider] = useState(false);
   const [actionError, setActionError] = useState(null);
@@ -185,7 +184,7 @@ const AgentConfigMenu = () => {
       await action();
       setIsRecording(!isRecording);
     } catch (err) {
-      setError(err.message);
+      setActionError(err.message);
     } finally {
       setRecordingLoading(false);
     }

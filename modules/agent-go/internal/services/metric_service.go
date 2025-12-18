@@ -124,6 +124,11 @@ type TurnMetricInput struct {
 
 // --- Service Methods ---
 
+// StopAllActiveSessions ends all sessions with NULL ended_at (used on app startup)
+func (s *MetricService) StopAllActiveSessions() (int64, error) {
+	return s.metricRepo.EndAllActiveSessions()
+}
+
 // StartRecording starts a new recording session
 func (s *MetricService) StartRecording(userID, tenantID int64) (*RecordingSessionResponse, error) {
 	existing, err := s.metricRepo.GetActiveSession(userID)

@@ -45,22 +45,21 @@ export const ProjectProvider = ({ children }) => {
     const loadProjects = async () => {
       const projects = await getProjects();
       dispatchProject({ type: SET_PROJECTS, payload: projects });
-
-      // Use selected_project_id from user state (from /auth/me response)
-      const savedProjectId = userState.selectedProjectId;
-      if (savedProjectId) {
-        const savedProject = projects.find((p) => p.id === savedProjectId);
-        if (savedProject) {
-          dispatchProject({
-            type: SET_SELECTED_PROJECT,
-            payload: savedProject,
-          });
-        }
-      }
     };
 
     loadProjects();
-  }, [userState.isAuthed, userState.selectedProjectId]);
+  }, [userState.isAuthed]);
+
+  // Restore selected project when selectedProjectId or projects change
+  useEffect(() => {
+    if (!userState.selectedProjectId || projectState.projects.length === 0) return;
+    if (projectState.selectedProject?.id === userState.selectedProjectId) return;
+
+    const savedProject = projectState.projects.find((p) => p.id === userState.selectedProjectId);
+    if (savedProject) {
+      dispatchProject({ type: SET_SELECTED_PROJECT, payload: savedProject });
+    }
+  }, [userState.selectedProjectId, projectState.projects, projectState.selectedProject?.id]);
 
   return (
     <ProjectContext.Provider

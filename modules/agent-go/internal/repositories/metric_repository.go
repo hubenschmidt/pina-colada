@@ -118,6 +118,15 @@ func (r *MetricRepository) EndSession(sessionID int64) error {
 		Update("ended_at", now).Error
 }
 
+// EndAllActiveSessions stops all active recording sessions (used on app startup)
+func (r *MetricRepository) EndAllActiveSessions() (int64, error) {
+	now := time.Now()
+	result := r.db.Model(&models.AgentRecordingSession{}).
+		Where("ended_at IS NULL").
+		Update("ended_at", now)
+	return result.RowsAffected, result.Error
+}
+
 // GetActiveSession returns the active (non-ended) session for a user
 func (r *MetricRepository) GetActiveSession(userID int64) (*RecordingSessionDTO, error) {
 	var session models.AgentRecordingSession

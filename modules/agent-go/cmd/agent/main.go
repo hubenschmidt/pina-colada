@@ -89,6 +89,13 @@ func main() {
 	metricService := services.NewMetricService(metricRepo, agentConfigService)
 	wsService := services.NewWebSocketService()
 
+	// Stop any orphaned recording sessions from previous runs
+	if stoppedCount, err := metricService.StopAllActiveSessions(); err != nil {
+		log.Printf("Warning: failed to stop orphaned recording sessions: %v", err)
+	} else if stoppedCount > 0 {
+		log.Printf("Stopped %d orphaned recording session(s) from previous run", stoppedCount)
+	}
+
 	// Initialize config cache for agent orchestrator
 	configCache := utils.NewConfigCache(agentConfigService)
 

@@ -6,6 +6,7 @@ const initialState = {
   config: null,
   loading: false,
   error: null,
+  isRecording: false,
 };
 
 export const AgentConfigContext = createContext({
@@ -13,6 +14,7 @@ export const AgentConfigContext = createContext({
   fetchConfig: () => {},
   refetchConfig: () => {},
   setConfig: () => {},
+  setIsRecording: () => {},
 });
 
 export const useAgentConfig = () => useContext(AgentConfigContext);
@@ -22,6 +24,7 @@ export const AgentConfigProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [hasFetched, setHasFetched] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
 
   const fetchConfig = useCallback(async () => {
     if (hasFetched || loading) return config;
@@ -61,7 +64,7 @@ export const AgentConfigProvider = ({ children }) => {
 
   return (
     <AgentConfigContext.Provider
-      value={{ config, loading, error, fetchConfig, refetchConfig, setConfig }}>
+      value={{ config, loading, error, fetchConfig, refetchConfig, setConfig, isRecording, setIsRecording }}>
       {children}
     </AgentConfigContext.Provider>
   );
