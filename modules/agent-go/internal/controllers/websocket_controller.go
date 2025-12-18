@@ -257,7 +257,12 @@ func handleAgentStartEvent(client *Client, evt agent.StreamEvent, lastText strin
 
 func handleDoneEvent(client *Client, evt agent.StreamEvent, lastText string) string {
 	log.Printf("WS sending done event (on_chat_model_end)")
-	client.SendJSON(map[string]bool{"on_chat_model_end": true})
+	donePayload := map[string]interface{}{"on_chat_model_end": true}
+	if len(evt.URLMap) > 0 {
+		donePayload["url_map"] = evt.URLMap
+		log.Printf("WS including url_map with %d entries", len(evt.URLMap))
+	}
+	client.SendJSON(donePayload)
 	sendFinalTokenUsage(client, evt)
 	return lastText
 }

@@ -314,17 +314,25 @@ func extractListing(item serperOrganicResult, appliedJobs []JobInfo) *JobListing
 	return &JobListing{C: company, T: title, U: item.Link}
 }
 
-// formatListings converts structured listings to display string
+// formatListings converts structured listings to display string with short references
 func formatListings(listings []JobListing) string {
 	if len(listings) == 0 {
 		return ""
 	}
 	var lines []string
 	for i, l := range listings {
-		lines = append(lines, fmt.Sprintf("%d. %s - %s - %s", i+1, l.C, l.T, l.U))
+		lines = append(lines, fmt.Sprintf("%d. %s - %s [%d]", i+1, l.C, l.T, i+1))
 	}
-	header := fmt.Sprintf("Found %d job listings. Return ALL of these to the user:\n", len(listings))
-	return header + "\n" + strings.Join(lines, "\n")
+	header := fmt.Sprintf("Found %d jobs:\n", len(listings))
+	result := header + strings.Join(lines, "\n")
+
+	// Add URL map at end for frontend to parse
+	result += "\n\n---URLS---"
+	for i, l := range listings {
+		result += fmt.Sprintf("\n[%d]=%s", i+1, l.U)
+	}
+
+	return result
 }
 
 // matchesAppliedJob checks if a search result matches any applied/do_not_apply job

@@ -237,6 +237,7 @@ type RunResponse struct {
 	Events           []Event
 	TurnTokens       TokenUsage
 	CumulativeTokens TokenUsage
+	URLMap           map[string]string // Maps [1], [2] references to full URLs
 }
 
 // Event represents an agent event during execution
@@ -267,9 +268,10 @@ type StreamEvent struct {
 	AgentName string `json:"agent_name,omitempty"`
 
 	// Final response (on "done")
-	Response         string      `json:"response,omitempty"`
-	TurnTokens       *TokenUsage `json:"turn_tokens,omitempty"`
-	CumulativeTokens *TokenUsage `json:"cumulative_tokens,omitempty"`
+	Response         string            `json:"response,omitempty"`
+	TurnTokens       *TokenUsage       `json:"turn_tokens,omitempty"`
+	CumulativeTokens *TokenUsage       `json:"cumulative_tokens,omitempty"`
+	URLMap           map[string]string `json:"url_map,omitempty"` // Maps [1], [2] references to full URLs
 
 	// Error (on "error")
 	Error string `json:"error,omitempty"`
@@ -315,8 +317,9 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 		return nil, fmt.Errorf("agent run error: %w", err)
 	}
 
-	// Extract final output
+	// Extract final output and URL map
 	finalOutput := extractFinalOutput(result)
+	urlMap := extractURLMapFromResult(result)
 
 	// Get token usage from context
 	turnTokens := extractTokenUsage(ctx)
@@ -345,6 +348,7 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 		SessionID:        req.SessionID,
 		TurnTokens:       turnTokens,
 		CumulativeTokens: cumulativeTokens,
+		URLMap:           urlMap,
 	}, nil
 }
 
@@ -359,6 +363,7 @@ type streamState struct {
 	agentStartTime   time.Time
 	agentTokens      TokenUsage // tokens for current agent only
 	perAgentTokens   map[string]TokenUsage
+	urlMap           map[string]string // Maps [1], [2] references to full URLs
 }
 
 func (s *streamState) handleAgentUpdated(e agents.AgentUpdatedStreamEvent) {
@@ -400,12 +405,69 @@ func (s *streamState) handleToolCalled(item agents.ToolCallItem) {
 
 func (s *streamState) handleToolOutput(item agents.ToolCallOutputItem) {
 	toolName := extractOutputToolName(item)
-	outputStr := ""
-	if str, ok := item.Output.(string); ok {
-		outputStr = truncateString(str, 100)
+	outputStr, ok := item.Output.(string)
+	if !ok {
+		log.Printf("handleToolOutput: output type=%T (not string)", item.Output)
+		utils.LogToolEnd(toolName, "")
+		s.sendEvent(StreamEvent{Type: "tool_end", ToolName: toolName})
+		return
 	}
-	utils.LogToolEnd(toolName, outputStr)
+
+	log.Printf("handleToolOutput: output type=string, len=%d, contains URLS=%v", len(outputStr), strings.Contains(outputStr, "---URLS---"))
+	if strings.Contains(outputStr, "---URLS---") {
+		s.captureURLMap(outputStr)
+	}
+	utils.LogToolEnd(toolName, truncateString(outputStr, 100))
 	s.sendEvent(StreamEvent{Type: "tool_end", ToolName: toolName})
+}
+
+// captureURLMap extracts URL mappings from ---URLS--- section
+func (s *streamState) captureURLMap(output string) {
+	urlMap := parseURLMap(output)
+	if len(urlMap) == 0 {
+		log.Printf("captureURLMap: no URLs parsed from output")
+		return
+	}
+	if s.urlMap == nil {
+		s.urlMap = make(map[string]string)
+	}
+	for k, v := range urlMap {
+		s.urlMap[k] = v
+	}
+	log.Printf("captureURLMap: captured %d URLs", len(s.urlMap))
+}
+
+// parseURLMap extracts [n]=url mappings from text containing ---URLS--- section
+func parseURLMap(text string) map[string]string {
+	const marker = "---URLS---"
+	idx := strings.Index(text, marker)
+	if idx == -1 {
+		return nil
+	}
+
+	urlSection := text[idx+len(marker):]
+	lines := strings.Split(urlSection, "\n")
+	result := make(map[string]string)
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Parse [n]=url format
+		if !strings.HasPrefix(line, "[") {
+			continue
+		}
+		eqIdx := strings.Index(line, "]=")
+		if eqIdx == -1 {
+			continue
+		}
+		ref := line[:eqIdx+1] // includes the ]
+		url := line[eqIdx+2:]
+		result[ref] = url
+	}
+
+	return result
 }
 
 func (s *streamState) handleMessageOutput(item agents.MessageOutputItem) {
@@ -737,6 +799,7 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	agentStartTime := ss.agentStartTime
 	agentTokens := ss.agentTokens
 	perAgentTokens := ss.perAgentTokens
+	urlMap := ss.urlMap
 
 	// Use buffered text for final output when evaluator is enabled
 	if req.UseEvaluator && bufferedText != "" {
@@ -791,6 +854,7 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 		Response:         finalOutput,
 		TurnTokens:       &turnTokens,
 		CumulativeTokens: &cumulativeTokens,
+		URLMap:           urlMap,
 	})
 }
 
@@ -874,6 +938,33 @@ func extractFinalOutput(result *agents.RunResult) string {
 
 	// Fall back to extracting text from NewItems
 	return agents.ItemHelpers().TextMessageOutputs(result.NewItems)
+}
+
+// extractURLMapFromResult extracts URL mappings from tool outputs in the run result
+func extractURLMapFromResult(result *agents.RunResult) map[string]string {
+	if result == nil {
+		return nil
+	}
+
+	urlMap := make(map[string]string)
+	for _, item := range result.NewItems {
+		toolOutput, ok := item.(agents.ToolCallOutputItem)
+		if !ok {
+			continue
+		}
+		outputStr, ok := toolOutput.Output.(string)
+		if !ok {
+			continue
+		}
+		for k, v := range parseURLMap(outputStr) {
+			urlMap[k] = v
+		}
+	}
+
+	if len(urlMap) == 0 {
+		return nil
+	}
+	return urlMap
 }
 
 // extractTokenUsage gets token usage from context

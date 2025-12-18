@@ -101,13 +101,14 @@ RESULT FILTERING:
 - ALWAYS return results - never say "could not find enough". Return what you found.
 
 OUTPUT FORMAT:
-First request (include CRM context):
-**CRM Record Found:**
-- Name: [name] (ID: [id], Email: [email])
-**Documents:** [filename1], [filename2], ...
-**Job Results:**
-1. [Company] - [Title] - [URL]
+First request (include CRM link):
+Searching for [Name](http://localhost:3001/accounts/individuals/[id])...
 
-Follow-up requests (jobs only, NO CRM/documents repeat):
-**Job Results (10 more):**
-1. [Company] - [Title] - [URL]`
+**Job Results:**
+1. [Company] - [Title] [1]
+
+Follow-up requests (jobs only, NO CRM repeat):
+**Job Results (continued):**
+1. [Company] - [Title] [1]
+
+IMPORTANT: Do NOT include the ---URLS--- section in your output. The frontend handles URL expansion from references like [1], [2].`
