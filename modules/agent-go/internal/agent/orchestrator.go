@@ -60,7 +60,21 @@ type Orchestrator struct {
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
 func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo tools.CacheRepositoryInterface) (*Orchestrator, error) {
-	// Use OpenAI model from config (SDK defaults to OpenAI provider)
+	// Configure SDK to use Anthropic's OpenAI-compatible endpoint
+	// See: https://platform.claude.com/docs/en/api/openai-sdk
+	if cfg.AnthropicAPIKey != "" {
+		// Force chat completions API (not responses API) - required for Anthropic compatibility
+		agents.SetDefaultOpenaiAPI(agents.OpenaiAPITypeChatCompletions)
+
+		anthropicClient := agents.NewOpenaiClient(
+			param.NewOpt("https://api.anthropic.com/v1/"),
+			param.NewOpt(cfg.AnthropicAPIKey),
+		)
+		agents.SetDefaultOpenaiClient(anthropicClient, false)
+		log.Printf("Configured SDK to use Anthropic's OpenAI-compatible endpoint (chat completions mode)")
+	}
+
+	// Use configured model (defaults to Claude for Anthropic)
 	model := cfg.OpenAIModel
 
 	// Create job service adapter for filtering applied jobs
