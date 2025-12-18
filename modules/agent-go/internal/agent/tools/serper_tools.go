@@ -321,7 +321,7 @@ func formatListings(listings []JobListing) string {
 	}
 	var lines []string
 	for i, l := range listings {
-		lines = append(lines, fmt.Sprintf("%d. %s - %s [→](%s)", i+1, l.C, l.T, l.U))
+		lines = append(lines, fmt.Sprintf("%d. %s - %s [⭢](%s)", i+1, l.C, l.T, l.U))
 	}
 	header := fmt.Sprintf("Found %d jobs:\n", len(listings))
 	return header + strings.Join(lines, "\n")

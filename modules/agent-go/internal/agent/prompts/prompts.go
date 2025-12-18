@@ -106,11 +106,11 @@ Searching for [Name](http://localhost:3001/accounts/individuals/[id])...
 
 **Job Results:**
 Copy the tool output verbatim. Example:
-1. Capital One - Senior Software Engineer [→](https://example.com)
-2. Google - Full Stack Developer [→](https://example.com)
+1. Capital One - Senior Software Engineer [⭢](https://example.com)
+2. Google - Full Stack Developer [⭢](https://example.com)
 
 Follow-up requests (jobs only, NO CRM repeat):
 **Job Results (continued):**
 Copy the tool output verbatim.
 
-CRITICAL: Do NOT reformat job results. Do NOT change the order. Do NOT make the whole line a link. Keep format: "N. Company - Title [→](url)"`
+CRITICAL: Do NOT reformat job results. Do NOT change the order. Do NOT make the whole line a link. Keep format: "N. Company - Title [⭢](url)"`
