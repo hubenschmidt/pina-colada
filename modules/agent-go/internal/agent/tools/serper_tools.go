@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -27,7 +28,14 @@ type JobInfo struct {
 type SerperTools struct {
 	apiKey     string
 	jobService JobServiceInterface
+
+	// Cache for applied jobs to avoid repeated DB queries within a turn
+	appliedJobsCache     []JobInfo
+	appliedJobsCacheTime time.Time
+	cacheMu              sync.RWMutex
 }
+
+const appliedJobsCacheTTL = 30 * time.Second
 
 // NewSerperTools creates Serper tools with API key and optional job service for filtering
 func NewSerperTools(apiKey string, jobService JobServiceInterface) *SerperTools {
@@ -38,11 +46,33 @@ func (t *SerperTools) loadAppliedJobs() []JobInfo {
 	if t.jobService == nil {
 		return nil
 	}
+
+	// Check cache first (read lock)
+	t.cacheMu.RLock()
+	if time.Since(t.appliedJobsCacheTime) < appliedJobsCacheTTL && t.appliedJobsCache != nil {
+		cached := t.appliedJobsCache
+		t.cacheMu.RUnlock()
+		return cached
+	}
+	t.cacheMu.RUnlock()
+
+	// Cache miss - load from DB (write lock)
+	t.cacheMu.Lock()
+	defer t.cacheMu.Unlock()
+
+	// Double-check after acquiring write lock
+	if time.Since(t.appliedJobsCacheTime) < appliedJobsCacheTTL && t.appliedJobsCache != nil {
+		return t.appliedJobsCache
+	}
+
 	jobs, err := t.jobService.GetLeads([]string{"applied", "do_not_apply"}, nil)
 	if err != nil {
 		log.Printf("Warning: could not load applied jobs for filtering: %v", err)
 		return nil
 	}
+
+	t.appliedJobsCache = jobs
+	t.appliedJobsCacheTime = time.Now()
 	log.Printf("Loaded %d applied/do_not_apply jobs for filtering", len(jobs))
 	return jobs
 }

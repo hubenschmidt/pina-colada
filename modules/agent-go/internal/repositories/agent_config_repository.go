@@ -42,7 +42,7 @@ var DefaultModels = map[string]DefaultModelConfig{
 	NodeJobSearchWorker:    {"gpt-5.2", "openai"},
 	NodeCRMWorker:          {"gpt-5.2", "openai"},
 	NodeGeneralWorker:      {"gpt-5.2", "openai"},
-	NodeEvaluator:          {"claude-sonnet-4-5-20250514", "anthropic"},
+	NodeEvaluator:          {"claude-sonnet-4-5-20250929", "anthropic"},
 	NodeTitleGenerator:     {"claude-haiku-4-5-20251001", "anthropic"},
 }
 
@@ -62,8 +62,8 @@ var AvailableModels = map[string][]string{
 		"o4-mini",
 	},
 	"anthropic": {
-		"claude-sonnet-4-5-20250514",
-		"claude-opus-4-5-20250514",
+		"claude-sonnet-4-5-20250929",
+		"claude-opus-4-5-20251101",
 		"claude-haiku-4-5-20251001",
 	},
 }
@@ -116,9 +116,9 @@ type CostTierModelConfig struct {
 var CostTierModels = map[string]CostTierModelConfig{
 	CostTierBasic:    {"gpt-5-nano", "claude-haiku-4-5-20251001"},
 	CostTierEconomy:  {"gpt-5-mini", "claude-haiku-4-5-20251001"},
-	CostTierStandard: {"gpt-5", "claude-sonnet-4-5-20250514"},
-	CostTierPremium:  {"gpt-5.1", "claude-sonnet-4-5-20250514"},
-	CostTierMax:      {"gpt-5.2", "claude-opus-4-5-20250514"},
+	CostTierStandard: {"gpt-5", "claude-sonnet-4-5-20250929"},
+	CostTierPremium:  {"gpt-5.1", "claude-sonnet-4-5-20250929"},
+	CostTierMax:      {"gpt-5.2", "claude-opus-4-5-20251101"},
 }
 
 // CostTierDescriptions provides human-readable descriptions for cost tiers

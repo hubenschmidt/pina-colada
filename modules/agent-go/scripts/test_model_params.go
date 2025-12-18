@@ -29,8 +29,8 @@ var openAIModels = []string{
 }
 
 var anthropicModels = []string{
-	"claude-sonnet-4-5-20250514",
-	"claude-opus-4-5-20250514",
+	"claude-sonnet-4-5-20250929",
+	"claude-opus-4-5-20251101",
 	"claude-haiku-4-5-20251001",
 }
 

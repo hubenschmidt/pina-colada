@@ -1,6 +1,8 @@
 .configDropdown {
   position: relative;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
 }
 
 .configButton {
@@ -369,4 +371,42 @@
 .savePresetButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.recordButton {
+  appearance: none;
+  background-color: transparent;
+  border: none;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.5rem;
+  color: var(--success, #22c55e);
+  cursor: pointer;
+  transition: all 0.15s ease-in-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.recordButton:hover {
+  background-color: var(--hover-background);
+  color: var(--success-hover, #16a34a);
+}
+
+.recordButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.recordButton.recording {
+  color: var(--danger, #ef4444);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
 }

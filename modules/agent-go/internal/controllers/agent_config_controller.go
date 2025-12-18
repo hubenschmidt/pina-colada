@@ -11,21 +11,18 @@ import (
 	"github.com/pina-colada-co/agent-go/internal/agent/utils"
 	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/middleware"
-	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
 
 type AgentConfigController struct {
 	configService *services.AgentConfigService
-	userRepo      *repositories.UserRepository
 	configCache   *utils.ConfigCache
 }
 
-func NewAgentConfigController(configService *services.AgentConfigService, userRepo *repositories.UserRepository, configCache *utils.ConfigCache) *AgentConfigController {
+func NewAgentConfigController(configService *services.AgentConfigService, configCache *utils.ConfigCache) *AgentConfigController {
 	return &AgentConfigController{
 		configService: configService,
-		userRepo:      userRepo,
 		configCache:   configCache,
 	}
 }
@@ -35,11 +32,6 @@ func (c *AgentConfigController) GetConfig(w http.ResponseWriter, r *http.Request
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		writeConfigError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	if !c.hasDeveloperAccess(userID) {
-		writeConfigError(w, http.StatusForbidden, "developer access required")
 		return
 	}
 
@@ -68,11 +60,6 @@ func (c *AgentConfigController) UpdateNodeConfig(w http.ResponseWriter, r *http.
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		writeConfigError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	if !c.hasDeveloperAccess(userID) {
-		writeConfigError(w, http.StatusForbidden, "developer access required")
 		return
 	}
 
@@ -132,11 +119,6 @@ func (c *AgentConfigController) ResetNodeConfig(w http.ResponseWriter, r *http.R
 		return
 	}
 
-	if !c.hasDeveloperAccess(userID) {
-		writeConfigError(w, http.StatusForbidden, "developer access required")
-		return
-	}
-
 	nodeName := chi.URLParam(r, "node_name")
 	if nodeName == "" {
 		writeConfigError(w, http.StatusBadRequest, "node_name is required")
@@ -163,14 +145,9 @@ func (c *AgentConfigController) ResetNodeConfig(w http.ResponseWriter, r *http.R
 
 // GetAvailableModels handles GET /agent/config/models
 func (c *AgentConfigController) GetAvailableModels(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	_, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		writeConfigError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	if !c.hasDeveloperAccess(userID) {
-		writeConfigError(w, http.StatusForbidden, "developer access required")
 		return
 	}
 
@@ -197,11 +174,6 @@ func (c *AgentConfigController) ListPresets(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	if !c.hasDeveloperAccess(userID) {
-		writeConfigError(w, http.StatusForbidden, "developer access required")
-		return
-	}
-
 	result, err := c.configService.ListPresets(userID)
 	if err != nil {
 		writeConfigError(w, http.StatusInternalServerError, err.Error())
@@ -216,11 +188,6 @@ func (c *AgentConfigController) CreatePreset(w http.ResponseWriter, r *http.Requ
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		writeConfigError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	if !c.hasDeveloperAccess(userID) {
-		writeConfigError(w, http.StatusForbidden, "developer access required")
 		return
 	}
 
@@ -261,11 +228,6 @@ func (c *AgentConfigController) DeletePreset(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	if !c.hasDeveloperAccess(userID) {
-		writeConfigError(w, http.StatusForbidden, "developer access required")
-		return
-	}
-
 	presetID, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil {
 		writeConfigError(w, http.StatusBadRequest, "invalid preset id")
@@ -290,11 +252,6 @@ func (c *AgentConfigController) ApplyPreset(w http.ResponseWriter, r *http.Reque
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		writeConfigError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	if !c.hasDeveloperAccess(userID) {
-		writeConfigError(w, http.StatusForbidden, "developer access required")
 		return
 	}
 
@@ -324,14 +281,9 @@ func (c *AgentConfigController) ApplyPreset(w http.ResponseWriter, r *http.Reque
 
 // GetCostTiers handles GET /agent/config/cost-tiers
 func (c *AgentConfigController) GetCostTiers(w http.ResponseWriter, r *http.Request) {
-	userID, ok := middleware.GetUserID(r.Context())
+	_, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		writeConfigError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	if !c.hasDeveloperAccess(userID) {
-		writeConfigError(w, http.StatusForbidden, "developer access required")
 		return
 	}
 
@@ -349,11 +301,6 @@ func (c *AgentConfigController) ApplyCostTier(w http.ResponseWriter, r *http.Req
 	userID, ok := middleware.GetUserID(r.Context())
 	if !ok {
 		writeConfigError(w, http.StatusUnauthorized, "unauthorized")
-		return
-	}
-
-	if !c.hasDeveloperAccess(userID) {
-		writeConfigError(w, http.StatusForbidden, "developer access required")
 		return
 	}
 
@@ -384,14 +331,6 @@ func (c *AgentConfigController) ApplyCostTier(w http.ResponseWriter, r *http.Req
 	}
 
 	writeConfigJSON(w, http.StatusOK, result)
-}
-
-func (c *AgentConfigController) hasDeveloperAccess(userID int64) bool {
-	hasRole, err := c.userRepo.HasRole(userID, "developer")
-	if err != nil {
-		return false
-	}
-	return hasRole
 }
 
 func writeConfigJSON(w http.ResponseWriter, status int, data interface{}) {

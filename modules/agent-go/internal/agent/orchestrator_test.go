@@ -61,10 +61,8 @@ func TestJobSearchReturnsResults(t *testing.T) {
 
 	// Create config
 	cfg := &config.Config{
-		GeminiAPIKey:   apiKey,
-		GeminiModel:    "gemini-2.5-flash",
-		SerperAPIKey:   serperKey,
-		OpenAIAPIKey:   openaiKey,
+		SerperAPIKey: serperKey,
+		OpenAIAPIKey: openaiKey,
 	}
 
 	// Create orchestrator with nil services (job search doesn't need CRM for this test)
@@ -74,7 +72,7 @@ func TestJobSearchReturnsResults(t *testing.T) {
 	var docService *services.DocumentService
 	var jobService *services.JobService
 
-	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, nil)
+	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create orchestrator: %v", err)
 	}
@@ -186,13 +184,11 @@ func TestCRMDocumentLookup(t *testing.T) {
 
 	// Create config
 	cfg := &config.Config{
-		GeminiAPIKey: apiKey,
-		GeminiModel:  "gemini-2.5-flash",
 		SerperAPIKey: os.Getenv("SERPER_API_KEY"),
 	}
 
 	// Create orchestrator with real services
-	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, nil)
+	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create orchestrator: %v", err)
 	}
@@ -269,8 +265,6 @@ func TestJobSearchURLsAreValid(t *testing.T) {
 
 	// Create config
 	cfg := &config.Config{
-		GeminiAPIKey: apiKey,
-		GeminiModel:  "gemini-2.5-flash",
 		SerperAPIKey: serperKey,
 		OpenAIAPIKey: openaiKey,
 	}
@@ -281,7 +275,7 @@ func TestJobSearchURLsAreValid(t *testing.T) {
 	var docService *services.DocumentService
 	var jobService *services.JobService
 
-	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, nil)
+	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create orchestrator: %v", err)
 	}
@@ -398,14 +392,12 @@ func TestJobSearchWithResume(t *testing.T) {
 
 	// Create config
 	cfg := &config.Config{
-		GeminiAPIKey: apiKey,
-		GeminiModel:  "gemini-2.5-flash",
 		SerperAPIKey: serperKey,
 		OpenAIAPIKey: openaiKey,
 	}
 
 	// Create orchestrator with real services
-	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, nil)
+	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Failed to create orchestrator: %v", err)
 	}

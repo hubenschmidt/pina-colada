@@ -48,7 +48,7 @@ func NewEvaluator(apiKey string, evalType EvaluatorType, model string, settings 
 	)
 	// Default to Claude Sonnet 4.5 if no model specified
 	if model == "" {
-		model = "claude-sonnet-4-5-20250514"
+		model = "claude-sonnet-4-5-20250929"
 	}
 	return &Evaluator{
 		client:     client,
@@ -68,6 +68,18 @@ func (e *Evaluator) getPrompt() string {
 		return prompts.CRMEvaluatorPrompt
 	}
 	return prompts.GeneralEvaluatorPrompt
+}
+
+// applySamplingParam applies temperature or top_p (Claude 4.5 only allows one)
+func (e *Evaluator) applySamplingParam(params anthropic.MessageNewParams) anthropic.MessageNewParams {
+	if e.settings.Temperature != nil {
+		params.Temperature = anthropic.Float(*e.settings.Temperature)
+		return params
+	}
+	if e.settings.TopP != nil {
+		params.TopP = anthropic.Float(*e.settings.TopP)
+	}
+	return params
 }
 
 // Evaluate checks the agent response against criteria using Claude
@@ -104,13 +116,8 @@ func (e *Evaluator) Evaluate(ctx context.Context, userRequest, agentResponse, su
 		},
 	}
 
-	// Apply optional settings
-	if e.settings.Temperature != nil {
-		params.Temperature = anthropic.Float(*e.settings.Temperature)
-	}
-	if e.settings.TopP != nil {
-		params.TopP = anthropic.Float(*e.settings.TopP)
-	}
+	// Apply sampling parameter (Claude 4.5 models only allow one of temperature/top_p)
+	params = e.applySamplingParam(params)
 
 	// Call Claude with configured model and settings
 	resp, err := e.client.Messages.New(ctx, params)

@@ -51,10 +51,11 @@ type Orchestrator struct {
 	convService     *services.ConversationService
 	configCache     *utils.ConfigCache
 	allTools        []agents.Tool
+	metricService   *services.MetricService
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
-func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache) (*Orchestrator, error) {
+func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService) (*Orchestrator, error) {
 	// Use OpenAI model from config (SDK defaults to OpenAI provider)
 	model := cfg.OpenAIModel
 
@@ -96,17 +97,19 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 		convService:     convService,
 		configCache:     configCache,
 		allTools:        allTools,
+		metricService:   metricService,
 	}, nil
 }
 
 // buildModelSettings creates ModelSettings from services.LLMSettings
 func buildModelSettings(settings services.LLMSettings) *modelsettings.ModelSettings {
-	if settings.Temperature == nil && settings.MaxTokens == nil && settings.TopP == nil &&
-		settings.FrequencyPenalty == nil && settings.PresencePenalty == nil {
-		return nil
-	}
+	return buildModelSettingsWithOptions(settings, true)
+}
 
+// buildModelSettingsWithOptions creates ModelSettings with control over parallel tool calls
+func buildModelSettingsWithOptions(settings services.LLMSettings, allowParallelToolCalls bool) *modelsettings.ModelSettings {
 	ms := &modelsettings.ModelSettings{}
+
 	if settings.Temperature != nil {
 		ms.Temperature = param.NewOpt(*settings.Temperature)
 	}
@@ -122,6 +125,12 @@ func buildModelSettings(settings services.LLMSettings) *modelsettings.ModelSetti
 	if settings.PresencePenalty != nil {
 		ms.PresencePenalty = param.NewOpt(*settings.PresencePenalty)
 	}
+
+	// Disable parallel tool calls if specified (prevents model from calling many tools at once)
+	if !allowParallelToolCalls {
+		ms.ParallelToolCalls = param.NewOpt(false)
+	}
+
 	return ms
 }
 
@@ -186,7 +195,8 @@ func (o *Orchestrator) buildTriageAgentForUser(userID int64, skipSettings bool) 
 	logNodeConfig(userID, "general_worker", generalModel, generalSettings)
 
 	// Create workers with user-specific models and settings
-	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, buildModelSettings(jobSearchSettings), o.allTools)
+	// Disable parallel tool calls for job_search to prevent timeout from too many concurrent searches
+	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, buildModelSettingsWithOptions(jobSearchSettings, false), o.allTools)
 	crmWorker := workers.NewCRMWorker(crmModel, buildModelSettings(crmSettings), o.allTools)
 	generalWorker := workers.NewGeneralWorker(generalModel, buildModelSettings(generalSettings), o.allTools)
 
@@ -601,6 +611,7 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	bufferedText := ss.bufferedText
 	agentStartTime := ss.agentStartTime
 	agentTokens := ss.agentTokens
+	perAgentTokens := ss.perAgentTokens
 
 	// Use buffered text for final output when evaluator is enabled
 	if req.UseEvaluator && bufferedText != "" {
@@ -610,6 +621,11 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	if currentAgent != "" {
 		duration := time.Since(agentStartTime)
 		utils.LogAgentEndWithDuration(currentAgent, finalOutput, agentTokens.Input, agentTokens.Output, agentTokens.Total, duration)
+		// Add current agent's tokens to perAgentTokens for metrics recording
+		if perAgentTokens == nil {
+			perAgentTokens = make(map[string]TokenUsage)
+		}
+		perAgentTokens[currentAgent] = agentTokens
 	}
 
 	// Log total token usage across all agents
@@ -640,6 +656,9 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 		turnTokens.Input, turnTokens.Output, turnTokens.Total,
 		cumulativeTokens.Input, cumulativeTokens.Output, cumulativeTokens.Total)
 	log.Println("Agent execution completed")
+
+	// Record metrics for each agent if active session exists
+	o.recordAllAgentMetrics(userID, req, startTime, perAgentTokens)
 
 	// Send done event
 	sendEvent(StreamEvent{
@@ -1042,4 +1061,174 @@ func (o *Orchestrator) runEvaluation(ctx context.Context, req RunRequest, input,
 	evalResult, _ = evaluator.Evaluate(ctx, req.Message, retryOutput, "")
 	sendEvent(StreamEvent{Type: "eval", EvalResult: evalResult})
 	return retryOutput
+}
+
+// agentNameToConfigKey maps SDK agent names to config cache keys
+func agentNameToConfigKey(agentName string) string {
+	mapping := map[string]string{
+		"triage":      "triage_orchestrator",
+		"job_search":  "job_search_worker",
+		"crm":         "crm_worker",
+		"general":     "general_worker",
+		"cover_letter": "cover_letter_worker",
+	}
+	if key, ok := mapping[agentName]; ok {
+		return key
+	}
+	return agentName
+}
+
+// getAgentModel returns the model for a given agent from cache, or default model
+func (o *Orchestrator) getAgentModel(userID int64, agentName string) string {
+	if o.configCache == nil || userID == 0 {
+		return o.model
+	}
+	configKey := agentNameToConfigKey(agentName)
+	return o.configCache.GetModel(userID, configKey)
+}
+
+// recordAllAgentMetrics records metrics for each agent that ran during the turn
+func (o *Orchestrator) recordAllAgentMetrics(userID int64, req RunRequest, startTime time.Time, perAgentTokens map[string]TokenUsage) {
+	if o.metricService == nil {
+		return
+	}
+	if len(perAgentTokens) == 0 {
+		return
+	}
+
+	activeSession, err := o.metricService.GetActiveSession(userID)
+	if err != nil {
+		log.Printf("Warning: failed to check active recording session: %v", err)
+		return
+	}
+	if activeSession == nil {
+		return
+	}
+
+	endTime := time.Now()
+	durationMs := int(endTime.Sub(startTime).Milliseconds())
+	configSnapshot := o.buildMetricConfigSnapshot(userID)
+
+	// Record a metric for each agent
+	for agentName, tokens := range perAgentTokens {
+		agentModel := o.getAgentModel(userID, agentName)
+
+		// Determine provider from model name
+		provider := "openai"
+		if strings.HasPrefix(agentModel, "claude") {
+			provider = "anthropic"
+		}
+
+		metricInput := services.TurnMetricInput{
+			SessionID:      activeSession.ID,
+			ThreadID:       req.SessionID,
+			StartedAt:      startTime,
+			EndedAt:        endTime,
+			DurationMs:     durationMs,
+			InputTokens:    tokens.Input,
+			OutputTokens:   tokens.Output,
+			Model:          agentModel,
+			Provider:       provider,
+			NodeName:       agentName,
+			ConfigSnapshot: configSnapshot,
+			UserMessage:    req.Message,
+		}
+
+		if err := o.metricService.RecordTurn(metricInput); err != nil {
+			log.Printf("Warning: failed to record metric for %s: %v", agentName, err)
+			continue
+		}
+
+		log.Printf("📊 Recorded metric for session %d, agent %s: %d tokens", activeSession.ID, agentName, tokens.Total)
+	}
+}
+
+// recordMetricIfActive records turn metrics if user has an active recording session
+func (o *Orchestrator) recordMetricIfActive(userID int64, req RunRequest, startTime time.Time, turnTokens TokenUsage, currentAgent string) {
+	if o.metricService == nil {
+		return
+	}
+
+	activeSession, err := o.metricService.GetActiveSession(userID)
+	if err != nil {
+		log.Printf("Warning: failed to check active recording session: %v", err)
+		return
+	}
+	if activeSession == nil {
+		return
+	}
+
+	endTime := time.Now()
+	durationMs := int(endTime.Sub(startTime).Milliseconds())
+
+	// Get model from triage agent config
+	triageModel := o.model
+	if o.configCache != nil && userID > 0 {
+		triageModel = o.configCache.GetModel(userID, "triage_orchestrator")
+	}
+
+	// Build config snapshot
+	configSnapshot := o.buildMetricConfigSnapshot(userID)
+
+	// Determine provider from model name
+	provider := "openai"
+	if strings.HasPrefix(triageModel, "claude") {
+		provider = "anthropic"
+	}
+
+	// Record the metric
+	metricInput := services.TurnMetricInput{
+		SessionID:      activeSession.ID,
+		ThreadID:       req.SessionID,
+		StartedAt:      startTime,
+		EndedAt:        endTime,
+		DurationMs:     durationMs,
+		InputTokens:    turnTokens.Input,
+		OutputTokens:   turnTokens.Output,
+		Model:          triageModel,
+		Provider:       provider,
+		NodeName:       currentAgent,
+		ConfigSnapshot: configSnapshot,
+		UserMessage:    req.Message,
+	}
+
+	if err := o.metricService.RecordTurn(metricInput); err != nil {
+		log.Printf("Warning: failed to record metric: %v", err)
+		return
+	}
+
+	log.Printf("📊 Recorded metric for session %d: %dms, %d tokens", activeSession.ID, durationMs, turnTokens.Total)
+}
+
+// buildMetricConfigSnapshot creates a JSON snapshot of current agent configuration
+func (o *Orchestrator) buildMetricConfigSnapshot(userID int64) json.RawMessage {
+	if o.configCache == nil || userID == 0 {
+		return nil
+	}
+
+	snapshot := map[string]interface{}{
+		"triage_orchestrator": map[string]interface{}{
+			"model":    o.configCache.GetModel(userID, "triage_orchestrator"),
+			"settings": o.configCache.GetSettings(userID, "triage_orchestrator"),
+		},
+		"job_search_worker": map[string]interface{}{
+			"model":    o.configCache.GetModel(userID, "job_search_worker"),
+			"settings": o.configCache.GetSettings(userID, "job_search_worker"),
+		},
+		"crm_worker": map[string]interface{}{
+			"model":    o.configCache.GetModel(userID, "crm_worker"),
+			"settings": o.configCache.GetSettings(userID, "crm_worker"),
+		},
+		"general_worker": map[string]interface{}{
+			"model":    o.configCache.GetModel(userID, "general_worker"),
+			"settings": o.configCache.GetSettings(userID, "general_worker"),
+		},
+	}
+
+	data, err := json.Marshal(snapshot)
+	if err != nil {
+		return nil
+	}
+
+	return data
 }

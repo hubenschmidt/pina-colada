@@ -54,30 +54,6 @@ const ChatPage = () => {
 
   return (
     <div className={styles.chatPageContainer}>
-      <div className={styles.pageToolbar}>
-        <div className={styles.toolsDropdown} id={toolsDropdownId}>
-          <button
-            type="button"
-            className={styles.toolsButton}
-            onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}>
-            <span>Tools</span>
-            <ChevronDown size={16} className={toolsDropdownOpen ? styles.chevronOpen : ""} />
-          </button>
-          {toolsDropdownOpen && (
-            <div className={styles.toolsMenu}>
-              <label className={styles.evaluatorToggle}>
-                <input
-                  type="checkbox"
-                  checked={useEvaluator}
-                  onChange={(e) => setUseEvaluator(e.target.checked)}
-                />
-                <span>Use evaluator</span>
-              </label>
-            </div>
-          )}
-        </div>
-        <AgentConfigMenu />
-      </div>
       {error && (
         <div className={error.isWarning ? styles.warningBanner : styles.errorBanner}>
           <div className={error.isWarning ? styles.warningContent : styles.errorContent}>
@@ -96,15 +72,41 @@ const ChatPage = () => {
           )}
         </div>
       )}
-      <Chat
-        key={newChatKey}
-        variant="page"
-        onConnectionChange={handleConnectionChange}
-        error={error}
-        onError={handleError}
-        onClearError={clearError}
-        useEvaluator={useEvaluator}
-      />
+      <div className={styles.chatWrapper}>
+        <div className={styles.pageToolbar}>
+          <div className={styles.toolsDropdown} id={toolsDropdownId}>
+            <button
+              type="button"
+              className={styles.toolsButton}
+              onClick={() => setToolsDropdownOpen(!toolsDropdownOpen)}>
+              <span>Tools</span>
+              <ChevronDown size={16} className={toolsDropdownOpen ? styles.chevronOpen : ""} />
+            </button>
+            {toolsDropdownOpen && (
+              <div className={styles.toolsMenu}>
+                <label className={styles.evaluatorToggle}>
+                  <input
+                    type="checkbox"
+                    checked={useEvaluator}
+                    onChange={(e) => setUseEvaluator(e.target.checked)}
+                  />
+                  <span>Use evaluator</span>
+                </label>
+              </div>
+            )}
+          </div>
+          <AgentConfigMenu />
+        </div>
+        <Chat
+          key={newChatKey}
+          variant="page"
+          onConnectionChange={handleConnectionChange}
+          error={error}
+          onError={handleError}
+          onClearError={clearError}
+          useEvaluator={useEvaluator}
+        />
+      </div>
     </div>
   );
 };

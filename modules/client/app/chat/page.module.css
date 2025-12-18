@@ -1,16 +1,25 @@
 .chatPageContainer {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 56px);
-  max-height: calc(100vh - 56px);
-  margin: -1.5rem;
+  height: 100%;
+  overflow: hidden;
   padding: 0 1rem;
 }
 
+.chatWrapper {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
 .pageToolbar {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 20;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
   gap: 0.5rem;
   padding: 0.5rem 0;
 }

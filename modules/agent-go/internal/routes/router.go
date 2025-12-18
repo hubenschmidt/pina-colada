@@ -37,6 +37,7 @@ type Controllers struct {
 	Agent        *controllers.AgentController
 	AgentConfig  *controllers.AgentConfigController
 	WebSocket    *controllers.WebSocketController
+	Metric       *controllers.MetricController
 }
 
 // NewRouter creates and configures the Chi router
@@ -366,6 +367,16 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 				r.Get("/cost-tiers", c.AgentConfig.GetCostTiers)
 				r.Post("/cost-tier", c.AgentConfig.ApplyCostTier)
 			})
+		})
+
+		// Metrics routes (developer only - recording sessions and analytics)
+		r.Route("/metrics", func(r chi.Router) {
+			r.Post("/recording/start", c.Metric.StartRecording)
+			r.Post("/recording/stop", c.Metric.StopRecording)
+			r.Get("/recording/active", c.Metric.GetActiveSession)
+			r.Get("/sessions", c.Metric.ListSessions)
+			r.Get("/sessions/{id}", c.Metric.GetSession)
+			r.Get("/compare", c.Metric.Compare)
 		})
 	})
 }

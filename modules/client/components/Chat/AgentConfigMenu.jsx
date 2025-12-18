@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useId } from "react";
-import { Settings, ChevronDown, ChevronUp, Info, Save } from "lucide-react";
+import { Settings, ChevronDown, ChevronUp, Info, Save, Circle, Square } from "lucide-react";
 import {
   getAgentConfig,
   getAvailableModels,
@@ -10,6 +10,9 @@ import {
   applyAgentConfigPreset,
   getCostTiers,
   applyCostTier,
+  startMetricRecording,
+  stopMetricRecording,
+  getActiveMetricRecording,
 } from "../../api";
 import { useUserContext } from "../../context/userContext";
 import DeveloperFeature from "../DeveloperFeature/DeveloperFeature";
@@ -30,7 +33,17 @@ const AgentConfigMenu = () => {
   const [savingPreset, setSavingPreset] = useState(false);
   const [costTiers, setCostTiers] = useState([]);
   const [applyingCostTier, setApplyingCostTier] = useState(false);
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordingLoading, setRecordingLoading] = useState(false);
   const menuId = useId();
+
+  useEffect(() => {
+    if (!userState.roles?.includes("developer")) return;
+
+    getActiveMetricRecording()
+      .then((response) => setIsRecording(response?.active === true))
+      .catch(() => setIsRecording(false));
+  }, [userState.roles]);
 
   useEffect(() => {
     if (!isOpen || !userState.roles?.includes("developer")) return;
@@ -198,6 +211,19 @@ const AgentConfigMenu = () => {
     }
   };
 
+  const handleToggleRecording = async () => {
+    setRecordingLoading(true);
+    try {
+      const action = isRecording ? stopMetricRecording : startMetricRecording;
+      await action();
+      setIsRecording(!isRecording);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setRecordingLoading(false);
+    }
+  };
+
   const paramTooltips = {
     temperature: "Controls randomness. Higher values (e.g., 1.5) make output more random, lower values (e.g., 0.2) make it more focused and deterministic.",
     max_tokens: "Maximum number of tokens to generate in the response. Higher values allow longer responses.",
@@ -210,6 +236,14 @@ const AgentConfigMenu = () => {
   return (
     <DeveloperFeature inline>
       <div className={styles.configDropdown} id={menuId}>
+        <button
+          type="button"
+          className={`${styles.recordButton} ${isRecording ? styles.recording : ""}`}
+          onClick={handleToggleRecording}
+          disabled={recordingLoading}
+          title={isRecording ? "Stop Recording" : "Start Recording"}>
+          {isRecording ? <Square size={14} /> : <Circle size={14} />}
+        </button>
         <button
           type="button"
           className={styles.configButton}

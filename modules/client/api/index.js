@@ -1309,3 +1309,31 @@ export const getCostTiers = async () => {
 export const applyCostTier = async (tier) => {
   return apiPost("/agent/config/cost-tier", { tier });
 };
+
+// ==============================================
+// Agent Metrics Recording API
+// ==============================================
+
+export const startMetricRecording = async () => {
+  return apiPost("/metrics/recording/start");
+};
+
+export const stopMetricRecording = async () => {
+  return apiPost("/metrics/recording/stop");
+};
+
+export const getActiveMetricRecording = async () => {
+  return apiGet("/metrics/recording/active");
+};
+
+export const getMetricSessions = async (limit = 20) => {
+  return apiGet(`/metrics/sessions?limit=${limit}`);
+};
+
+export const getMetricSession = async (sessionId) => {
+  return apiGet(`/metrics/sessions/${sessionId}`);
+};
+
+export const compareMetricSessions = async (sessionIds) => {
+  return apiGet(`/metrics/compare?ids=${sessionIds.join(",")}`);
+};

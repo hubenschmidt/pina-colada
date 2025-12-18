@@ -21,11 +21,13 @@ import {
   Clipboard,
   CheckSquare,
   Files,
+  Activity,
 } from "lucide-react";
 import { Stack, ScrollArea, Select } from "@mantine/core";
 import { useNavContext } from "../../context/navContext";
 import { useProjectContext } from "../../context/projectContext";
 import { ChatHistory } from "../ChatHistory/ChatHistory";
+import DeveloperFeature from "../DeveloperFeature/DeveloperFeature";
 
 export const Sidebar = () => {
   const pathname = usePathname();
@@ -272,6 +274,18 @@ export const Sidebar = () => {
                   </div>
                 )}
               </div>
+
+              {/* Metrics - Developer Only */}
+              <DeveloperFeature>
+                <button
+                  onClick={() => router.push("/metrics")}
+                  className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                    pathname === "/metrics" ? "font-bold" : "font-normal"
+                  }`}>
+                  <Activity className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+                  Metrics
+                </button>
+              </DeveloperFeature>
             </nav>
           )}
         </ScrollArea>

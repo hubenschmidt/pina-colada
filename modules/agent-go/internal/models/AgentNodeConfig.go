@@ -51,7 +51,7 @@ var DefaultModels = map[string]struct {
 	NodeJobSearchWorker:    {"gpt-5.2", "openai"},
 	NodeCRMWorker:          {"gpt-5.2", "openai"},
 	NodeGeneralWorker:      {"gpt-5.2", "openai"},
-	NodeEvaluator:          {"claude-sonnet-4-5-20250514", "anthropic"},
+	NodeEvaluator:          {"claude-sonnet-4-5-20250929", "anthropic"},
 	NodeTitleGenerator:     {"claude-haiku-4-5-20251001", "anthropic"},
 }
 
@@ -71,8 +71,8 @@ var AvailableModels = map[string][]string{
 		"o4-mini",
 	},
 	"anthropic": {
-		"claude-sonnet-4-5-20250514",
-		"claude-opus-4-5-20250514",
+		"claude-sonnet-4-5-20250929",
+		"claude-opus-4-5-20251101",
 		"claude-haiku-4-5-20251001",
 	},
 }

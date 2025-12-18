@@ -1,0 +1,70 @@
+.tokenBarContainer {
+  width: 100%;
+  height: 12px;
+  background-color: var(--mantine-color-gray-2);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tokenBar {
+  height: 100%;
+  display: flex;
+  border-radius: 6px;
+  overflow: hidden;
+  transition: width 0.3s ease;
+}
+
+.inputBar {
+  height: 100%;
+  background-color: var(--mantine-color-blue-5);
+}
+
+.outputBar {
+  height: 100%;
+  background-color: var(--mantine-color-green-5);
+}
+
+.costBarContainer {
+  width: 60px;
+  height: 8px;
+  background-color: var(--mantine-color-gray-2);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.costBar {
+  height: 100%;
+  background-color: var(--mantine-color-yellow-5);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.durationBarContainer {
+  flex: 1;
+  height: 8px;
+  background-color: var(--mantine-color-gray-2);
+  border-radius: 4px;
+  overflow: hidden;
+  min-width: 40px;
+}
+
+.durationBar {
+  height: 100%;
+  background-color: var(--mantine-color-violet-5);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.legendInput {
+  width: 16px;
+  height: 16px;
+  background-color: var(--mantine-color-blue-5);
+  border-radius: 4px;
+}
+
+.legendOutput {
+  width: 16px;
+  height: 16px;
+  background-color: var(--mantine-color-green-5);
+  border-radius: 4px;
+}

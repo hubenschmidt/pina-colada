@@ -22,8 +22,8 @@ type LLMSettings struct {
 
 // unsupportedModelParams maps models to parameters they don't support
 var unsupportedModelParams = map[string]map[string]bool{
-	"claude-opus-4-5-20250514":   {"max_tokens": true, "top_p": true, "temperature": true},
-	"claude-sonnet-4-5-20250514": {"top_p": true, "temperature": true, "max_tokens": true},
+	"claude-opus-4-5-20251101":   {"max_tokens": true, "top_p": true, "temperature": true},
+	"claude-sonnet-4-5-20250929": {"top_p": true, "temperature": true, "max_tokens": true},
 	"gpt-5":                      {"top_p": true, "temperature": true},
 	"gpt-5.1":                    {"top_p": true, "temperature": true},
 	"gpt-5.2":                    {"top_p": true, "temperature": true},
