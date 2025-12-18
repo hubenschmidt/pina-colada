@@ -195,8 +195,7 @@ func (o *Orchestrator) buildTriageAgentForUser(userID int64, skipSettings bool) 
 	logNodeConfig(userID, "general_worker", generalModel, generalSettings)
 
 	// Create workers with user-specific models and settings
-	// Disable parallel tool calls for job_search to prevent timeout from too many concurrent searches
-	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, buildModelSettingsWithOptions(jobSearchSettings, false), o.allTools)
+	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, buildModelSettings(jobSearchSettings), o.allTools)
 	crmWorker := workers.NewCRMWorker(crmModel, buildModelSettings(crmSettings), o.allTools)
 	generalWorker := workers.NewGeneralWorker(generalModel, buildModelSettings(generalSettings), o.allTools)
 

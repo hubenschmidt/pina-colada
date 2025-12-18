@@ -33,13 +33,21 @@ type SerperTools struct {
 	appliedJobsCache     []JobInfo
 	appliedJobsCacheTime time.Time
 	cacheMu              sync.RWMutex
+
+	// Semaphore to limit concurrent job searches
+	searchSem chan struct{}
 }
 
 const appliedJobsCacheTTL = 30 * time.Second
+const maxConcurrentSearches = 3
 
 // NewSerperTools creates Serper tools with API key and optional job service for filtering
 func NewSerperTools(apiKey string, jobService JobServiceInterface) *SerperTools {
-	return &SerperTools{apiKey: apiKey, jobService: jobService}
+	return &SerperTools{
+		apiKey:     apiKey,
+		jobService: jobService,
+		searchSem:  make(chan struct{}, maxConcurrentSearches),
+	}
 }
 
 func (t *SerperTools) loadAppliedJobs() []JobInfo {
@@ -111,7 +119,16 @@ type serperOrganicResult struct {
 
 // JobSearchCtx searches for jobs using Serper API with domain exclusions.
 // Filters out jobs already applied to or marked as do_not_apply.
+// Limits concurrent searches to prevent timeout from too many parallel calls.
 func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) (*JobSearchResult, error) {
+	// Acquire semaphore (limit concurrent searches)
+	select {
+	case t.searchSem <- struct{}{}:
+		defer func() { <-t.searchSem }()
+	case <-ctx.Done():
+		return &JobSearchResult{Results: "Search cancelled: context deadline exceeded"}, nil
+	}
+
 	if t.apiKey == "" {
 		log.Printf("SERPER_API_KEY not configured")
 		return &JobSearchResult{Results: "Job search not configured. SERPER_API_KEY required."}, nil
