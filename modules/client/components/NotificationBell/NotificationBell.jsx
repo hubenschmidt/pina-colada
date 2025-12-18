@@ -1,35 +1,21 @@
 "use client";
 
 import { useState, useEffect, useId } from "react";
-import { useRouter, usePathname } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Inbox } from "lucide-react";
-import { getNotificationCount, getNotifications, markNotificationsRead } from "../../api";
+import { getNotifications, markNotificationsRead } from "../../api";
 import NotificationDropdown from "../NotificationDropdown/NotificationDropdown";
 import { useProjectContext } from "../../context/projectContext";
+import { useNotification } from "../../context/notificationContext";
 
 const NotificationBell = () => {
   const router = useRouter();
-  const pathname = usePathname();
   const { projectState, selectProject } = useProjectContext();
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount, decrementCount, setUnreadCount } = useNotification();
   const [notifications, setNotifications] = useState([]);
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const dropdownId = useId();
-
-  // Fetch unread count on route change
-  useEffect(() => {
-    const fetchCount = async () => {
-      try {
-        const { unread_count } = await getNotificationCount();
-        setUnreadCount(unread_count);
-      } catch (err) {
-        console.error("Failed to fetch notification count:", err);
-      }
-    };
-
-    fetchCount();
-  }, [pathname]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -77,7 +63,7 @@ const NotificationBell = () => {
         setNotifications((prev) =>
           prev.map((n) => (n.id === notification.id ? { ...n, is_read: true } : n))
         );
-        setUnreadCount((prev) => Math.max(0, prev - 1));
+        decrementCount(1);
       } catch (err) {
         console.error("Failed to mark notification as read:", err);
       }
@@ -113,7 +99,7 @@ const NotificationBell = () => {
     try {
       await markNotificationsRead(unreadIds);
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-      setUnreadCount(0);
+      decrementCount(unreadIds.length);
     } catch (err) {
       console.error("Failed to mark all as read:", err);
     }

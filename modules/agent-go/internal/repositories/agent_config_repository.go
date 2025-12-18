@@ -30,6 +30,16 @@ var AllNodeNames = []string{
 	NodeTitleGenerator,
 }
 
+// NodesAffectedByTierChanges includes nodes affected by cost tier and provider changes
+// Title generator is excluded - it always defaults to claude-haiku
+var NodesAffectedByTierChanges = []string{
+	NodeTriageOrchestrator,
+	NodeJobSearchWorker,
+	NodeCRMWorker,
+	NodeGeneralWorker,
+	NodeEvaluator,
+}
+
 // DefaultModelConfig holds default model and provider for a node
 type DefaultModelConfig struct {
 	Model    string
@@ -352,9 +362,10 @@ func (r *AgentConfigRepository) DeletePreset(userID, presetID int64) error {
 }
 
 // ApplyPresetToNodes applies preset settings to all nodes for a user
+// Title generator is excluded - it always uses claude-haiku
 func (r *AgentConfigRepository) ApplyPresetToNodes(userID int64, preset PresetDTO) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		for _, nodeName := range AllNodeNames {
+		for _, nodeName := range NodesAffectedByTierChanges {
 			defaultCfg := DefaultModels[nodeName]
 			cfg := models.AgentNodeConfig{
 				UserID:   userID,
@@ -385,6 +396,7 @@ func (r *AgentConfigRepository) ApplyPresetToNodes(userID int64, preset PresetDT
 type UserSelectionDTO struct {
 	SelectedParamPresetID *int64
 	SelectedCostTier      string
+	SelectedProvider      string
 }
 
 // GetUserSelection returns user's selected presets
@@ -392,14 +404,19 @@ func (r *AgentConfigRepository) GetUserSelection(userID int64) (*UserSelectionDT
 	var selection models.AgentConfigUserSelection
 	err := r.db.Where("user_id = ?", userID).First(&selection).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &UserSelectionDTO{SelectedCostTier: CostTierStandard}, nil
+		return &UserSelectionDTO{SelectedCostTier: CostTierPremium, SelectedProvider: "openai"}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
+	provider := selection.SelectedProvider
+	if provider == "" {
+		provider = "openai"
+	}
 	return &UserSelectionDTO{
 		SelectedParamPresetID: selection.SelectedParamPresetID,
 		SelectedCostTier:      selection.SelectedCostTier,
+		SelectedProvider:      provider,
 	}, nil
 }
 
@@ -418,21 +435,22 @@ func (r *AgentConfigRepository) SetSelectedParamPreset(userID int64, presetID *i
 	selection := models.AgentConfigUserSelection{
 		UserID:                userID,
 		SelectedParamPresetID: presetID,
-		SelectedCostTier:      CostTierStandard,
+		SelectedCostTier:      CostTierPremium,
 	}
 	return r.db.Where("user_id = ?", userID).
 		Assign(models.AgentConfigUserSelection{SelectedParamPresetID: presetID}).
 		FirstOrCreate(&selection).Error
 }
 
-// SetSelectedCostTier updates only the selected cost tier
-func (r *AgentConfigRepository) SetSelectedCostTier(userID int64, costTier string) error {
+// SetSelectedCostTier updates the selected cost tier and provider
+func (r *AgentConfigRepository) SetSelectedCostTier(userID int64, costTier, provider string) error {
 	selection := models.AgentConfigUserSelection{
 		UserID:           userID,
 		SelectedCostTier: costTier,
+		SelectedProvider: provider,
 	}
 	return r.db.Where("user_id = ?", userID).
-		Assign(models.AgentConfigUserSelection{SelectedCostTier: costTier}).
+		Assign(models.AgentConfigUserSelection{SelectedCostTier: costTier, SelectedProvider: provider}).
 		FirstOrCreate(&selection).Error
 }
 
@@ -453,11 +471,12 @@ func (r *AgentConfigRepository) ApplyCostTierToNodes(userID int64, tier string) 
 }
 
 // ApplyCostTierToNodesWithProvider applies cost tier with optional provider override
+// Title generator is excluded - it always uses claude-haiku
 func (r *AgentConfigRepository) ApplyCostTierToNodesWithProvider(userID int64, tier, providerOverride string) error {
 	tierConfig := CostTierModels[tier]
 
 	return r.db.Transaction(func(tx *gorm.DB) error {
-		for _, nodeName := range AllNodeNames {
+		for _, nodeName := range NodesAffectedByTierChanges {
 			defaultCfg := DefaultModels[nodeName]
 			// Use provider override if specified, otherwise use node's default provider
 			targetProvider := defaultCfg.Provider

@@ -1,68 +1,41 @@
 import React, { useState, useEffect, useId } from "react";
 import { Settings, ChevronDown, ChevronUp, Info, Save, Circle, Square, X } from "lucide-react";
 import {
-  getAgentConfig,
-  getAvailableModels,
   updateAgentNodeConfig,
   resetAgentNodeConfig,
-  getAgentConfigPresets,
   createAgentConfigPreset,
   applyAgentConfigPreset,
-  getCostTiers,
   applyCostTier,
   startMetricRecording,
   stopMetricRecording,
-  getActiveMetricRecording,
 } from "../../api";
 import { useUserContext } from "../../context/userContext";
+import { useAgentConfig } from "../../context/agentConfigContext";
 import DeveloperFeature from "../DeveloperFeature/DeveloperFeature";
 import styles from "./AgentConfigMenu.module.css";
 
 const AgentConfigMenu = () => {
   const { userState } = useUserContext();
+  const { config, loading, error: fetchError, fetchConfig, setConfig } = useAgentConfig();
   const [isOpen, setIsOpen] = useState(false);
-  const [config, setConfig] = useState(null);
-  const [availableModels, setAvailableModels] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
   const [saving, setSaving] = useState({});
   const [expandedNodes, setExpandedNodes] = useState({});
-  const [presets, setPresets] = useState([]);
   const [presetName, setPresetName] = useState("");
   const [showSavePreset, setShowSavePreset] = useState(false);
   const [savingPreset, setSavingPreset] = useState(false);
-  const [costTiers, setCostTiers] = useState([]);
   const [applyingCostTier, setApplyingCostTier] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [recordingLoading, setRecordingLoading] = useState(false);
-  const [globalProvider, setGlobalProvider] = useState("openai");
   const [changingProvider, setChangingProvider] = useState(false);
+  const [actionError, setActionError] = useState(null);
   const menuId = useId();
 
-  useEffect(() => {
-    if (!userState.roles?.includes("developer")) return;
-
-    getActiveMetricRecording()
-      .then((response) => setIsRecording(response?.active === true))
-      .catch(() => setIsRecording(false));
-  }, [userState.roles]);
+  const error = fetchError || actionError;
 
   useEffect(() => {
     if (!isOpen || !userState.roles?.includes("developer")) return;
-
-    setLoading(true);
-    setError(null);
-
-    Promise.all([getAgentConfig(), getAvailableModels(), getAgentConfigPresets(), getCostTiers()])
-      .then(([configRes, modelsRes, presetsRes, tiersRes]) => {
-        setConfig(configRes);
-        setAvailableModels(modelsRes);
-        setPresets(presetsRes || []);
-        setCostTiers(tiersRes || []);
-      })
-      .catch((err) => setError(err.message))
-      .finally(() => setLoading(false));
-  }, [isOpen, userState.roles]);
+    fetchConfig();
+  }, [isOpen, userState.roles, fetchConfig]);
 
   // Sidebar uses backdrop click instead of click-outside detection
 
@@ -147,14 +120,16 @@ const AgentConfigMenu = () => {
   };
 
   const getModelsForProvider = (provider) => {
-    if (!availableModels) return [];
-    return provider === "anthropic" ? availableModels.anthropic : availableModels.openai;
+    const models = config?.available_models;
+    if (!models) return [];
+    return provider === "anthropic" ? models.anthropic : models.openai;
   };
 
   const handleSavePreset = async () => {
     if (!presetName.trim()) return;
 
     setSavingPreset(true);
+    setActionError(null);
     try {
       const firstNode = config?.nodes?.[0];
       const preset = {
@@ -167,11 +142,11 @@ const AgentConfigMenu = () => {
         presence_penalty: firstNode?.presence_penalty,
       };
       const created = await createAgentConfigPreset(preset);
-      setPresets((prev) => [...prev, created]);
+      setConfig({ ...config, presets: [...(config?.presets || []), created] });
       setPresetName("");
       setShowSavePreset(false);
     } catch (err) {
-      setError(err.message);
+      setActionError(err.message);
     } finally {
       setSavingPreset(false);
     }
@@ -179,11 +154,12 @@ const AgentConfigMenu = () => {
 
   const handleApplyPreset = async (presetId) => {
     setSavingPreset(true);
+    setActionError(null);
     try {
       const updatedConfig = await applyAgentConfigPreset(presetId);
       setConfig(updatedConfig);
     } catch (err) {
-      setError(err.message);
+      setActionError(err.message);
     } finally {
       setSavingPreset(false);
     }
@@ -191,12 +167,12 @@ const AgentConfigMenu = () => {
 
   const handleApplyCostTier = async (tier) => {
     setApplyingCostTier(true);
+    setActionError(null);
     try {
-      // Pass current global provider to maintain provider selection
-      const updatedConfig = await applyCostTier(tier, globalProvider);
+      const updatedConfig = await applyCostTier(tier, config?.selected_provider);
       setConfig(updatedConfig);
     } catch (err) {
-      setError(err.message);
+      setActionError(err.message);
     } finally {
       setApplyingCostTier(false);
     }
@@ -219,15 +195,13 @@ const AgentConfigMenu = () => {
     if (!config) return;
 
     setChangingProvider(true);
-    setGlobalProvider(provider);
+    setActionError(null);
 
     try {
-      // Re-apply current cost tier with new provider - backend will use appropriate models
-      const currentTier = config?.selected_cost_tier || "premium";
-      const updatedConfig = await applyCostTier(currentTier, provider);
+      const updatedConfig = await applyCostTier(config.selected_cost_tier, provider);
       setConfig(updatedConfig);
     } catch (err) {
-      setError(err.message);
+      setActionError(err.message);
     } finally {
       setChangingProvider(false);
     }
@@ -288,7 +262,7 @@ const AgentConfigMenu = () => {
               <label className={styles.providerLabel}>Global Provider</label>
               <select
                 className={styles.providerSelect}
-                value={globalProvider}
+                value={config?.selected_provider || ""}
                 onChange={(e) => handleGlobalProviderChange(e.target.value)}
                 disabled={changingProvider}>
                 <option value="openai">OpenAI</option>
@@ -303,10 +277,10 @@ const AgentConfigMenu = () => {
               <div className={styles.presetRow}>
                 <select
                   className={styles.presetSelect}
-                  disabled={applyingCostTier || costTiers.length === 0}
-                  value={config?.selected_cost_tier || "premium"}
+                  disabled={applyingCostTier || !config?.cost_tiers?.length}
+                  value={config?.selected_cost_tier || ""}
                   onChange={(e) => handleApplyCostTier(e.target.value)}>
-                  {costTiers.map((tier) => (
+                  {config?.cost_tiers?.map((tier) => (
                     <option key={tier.tier} value={tier.tier}>
                       {tier.tier.charAt(0).toUpperCase() + tier.tier.slice(1)}
                     </option>
@@ -316,13 +290,13 @@ const AgentConfigMenu = () => {
               <div className={styles.presetRow}>
                 <select
                   className={styles.presetSelect}
-                  disabled={savingPreset || presets.length === 0}
+                  disabled={savingPreset || !config?.presets?.length}
                   value={config?.selected_param_preset_id || ""}
                   onChange={(e) => e.target.value && handleApplyPreset(parseInt(e.target.value, 10))}>
                   <option value="">
-                    {presets.length === 0 ? "No presets" : "Presets..."}
+                    {!config?.presets?.length ? "No presets" : "Presets..."}
                   </option>
-                  {presets.map((preset) => (
+                  {config?.presets?.map((preset) => (
                     <option key={preset.id} value={preset.id}>
                       {preset.name}
                     </option>

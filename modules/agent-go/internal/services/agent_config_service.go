@@ -93,17 +93,21 @@ type NodeConfigResponse struct {
 	IsDefault        bool     `json:"is_default"`
 }
 
-// AgentConfigResponse contains all node configurations
-type AgentConfigResponse struct {
-	Nodes                 []NodeConfigResponse `json:"nodes"`
-	SelectedParamPresetID *int64               `json:"selected_param_preset_id,omitempty"`
-	SelectedCostTier      string               `json:"selected_cost_tier"`
-}
-
 // AvailableModelsResponse contains models grouped by provider
 type AvailableModelsResponse struct {
 	OpenAI    []string `json:"openai"`
 	Anthropic []string `json:"anthropic"`
+}
+
+// AgentConfigResponse contains all node configurations and related data
+type AgentConfigResponse struct {
+	Nodes                 []NodeConfigResponse     `json:"nodes"`
+	SelectedParamPresetID *int64                   `json:"selected_param_preset_id,omitempty"`
+	SelectedCostTier      string                   `json:"selected_cost_tier"`
+	SelectedProvider      string                   `json:"selected_provider"`
+	AvailableModels       *AvailableModelsResponse `json:"available_models"`
+	Presets               []PresetResponse         `json:"presets"`
+	CostTiers             []CostTierResponse       `json:"cost_tiers"`
 }
 
 // GetAgentConfig returns all node configurations for a user, merged with defaults
@@ -114,6 +118,11 @@ func (s *AgentConfigService) GetAgentConfig(userID int64) (*AgentConfigResponse,
 	}
 
 	selection, err := s.configRepo.GetUserSelection(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	presets, err := s.ListPresets(userID)
 	if err != nil {
 		return nil, err
 	}
@@ -171,6 +180,10 @@ func (s *AgentConfigService) GetAgentConfig(userID int64) (*AgentConfigResponse,
 		Nodes:                 nodes,
 		SelectedParamPresetID: selection.SelectedParamPresetID,
 		SelectedCostTier:      selection.SelectedCostTier,
+		SelectedProvider:      selection.SelectedProvider,
+		AvailableModels:       s.GetAvailableModels(),
+		Presets:               presets,
+		CostTiers:             s.GetCostTiers(),
 	}, nil
 }
 
@@ -426,12 +439,21 @@ func (s *AgentConfigService) ApplyCostTierWithProvider(userID int64, tier, provi
 		return nil, ErrInvalidCostTier
 	}
 
-	err := s.configRepo.ApplyCostTierToNodesWithProvider(userID, tier, provider)
+	// Fetch existing selection to get provider if not specified
+	selection, err := s.configRepo.GetUserSelection(userID)
+	if err != nil {
+		return nil, err
+	}
+	if provider == "" {
+		provider = selection.SelectedProvider
+	}
+
+	err = s.configRepo.ApplyCostTierToNodesWithProvider(userID, tier, provider)
 	if err != nil {
 		return nil, err
 	}
 
-	err = s.configRepo.SetSelectedCostTier(userID, tier)
+	err = s.configRepo.SetSelectedCostTier(userID, tier, provider)
 	if err != nil {
 		return nil, err
 	}
