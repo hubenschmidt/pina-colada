@@ -75,7 +75,7 @@ TOOLS:
 - crm_lookup: Find individuals/organizations by name
 - search_entity_documents: Find documents linked to an entity
 - read_document: Read document content by ID
-- job_search: Search for jobs (returns URLs from company career pages)
+- job_search: Search for jobs (returns URLs from company career pages, auto-cached for 7 days)
 - send_email: Send emails to recipients (YOU CAN SEND EMAILS - use this tool when user asks to email job results)
 
 WORKFLOW:
@@ -103,11 +103,13 @@ RESULT FILTERING:
 - ALWAYS return results - never say "could not find enough". Return what you found.
 
 OUTPUT FORMAT:
+First request (include CRM context):
 **CRM Record Found:**
-- Name: [name]
-- ID: [id]
-- Email: [email]
-**Documents Found:**
-- [filename] (ID: [id])
+- Name: [name] (ID: [id], Email: [email])
+**Documents:** [filename1], [filename2], ...
 **Job Results:**
+1. [Company] - [Title] - [URL]
+
+Follow-up requests (jobs only, NO CRM/documents repeat):
+**Job Results (10 more):**
 1. [Company] - [Title] - [URL]`

@@ -28,6 +28,7 @@ type JobInfo struct {
 type SerperTools struct {
 	apiKey     string
 	jobService JobServiceInterface
+	cacheTools *CacheTools
 
 	// Cache for applied jobs to avoid repeated DB queries within a turn
 	appliedJobsCache     []JobInfo
@@ -49,10 +50,11 @@ const maxConcurrentSearches = 3
 const maxSearchesPerTurn = 3
 
 // NewSerperTools creates Serper tools with API key and optional job service for filtering
-func NewSerperTools(apiKey string, jobService JobServiceInterface) *SerperTools {
+func NewSerperTools(apiKey string, jobService JobServiceInterface, cacheTools *CacheTools) *SerperTools {
 	return &SerperTools{
 		apiKey:     apiKey,
 		jobService: jobService,
+		cacheTools: cacheTools,
 		searchSem:  make(chan struct{}, maxConcurrentSearches),
 	}
 }
@@ -114,6 +116,14 @@ type JobSearchResult struct {
 	Count   int    `json:"count"`
 }
 
+// JobListing represents a single job for compact cache storage
+// Uses short field names to minimize JSON size
+type JobListing struct {
+	C string `json:"c"` // Company
+	T string `json:"t"` // Title
+	U string `json:"u"` // URL
+}
+
 // --- Serper API Types ---
 
 type serperRequest struct {
@@ -169,6 +179,12 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		return &JobSearchResult{Results: "Job search not configured. SERPER_API_KEY required."}, nil
 	}
 
+	// Check research cache first
+	if cached := t.checkCache(params.Query); cached != nil {
+		log.Printf("🔍 job_search [%d/%d]: CACHE HIT for query: %s", myCallNum, maxSearchesPerTurn, params.Query)
+		return cached, nil
+	}
+
 	// Load applied/do_not_apply jobs for filtering
 	appliedJobs := t.loadAppliedJobs()
 
@@ -210,29 +226,33 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		return &JobSearchResult{Results: fmt.Sprintf("Error parsing response: %v", err)}, nil
 	}
 
-	// Format and filter results
-	results := formatSerperResultsWithFilter(serperResp.Organic, 10, appliedJobs)
-	resultCount := len(serperResp.Organic)
+	// Extract structured listings (filtered)
+	listings := extractListings(serperResp.Organic, 10, appliedJobs)
+	listingCount := len(listings)
 
 	// Update total results count
 	t.callCountMu.Lock()
-	t.totalResults += resultCount
+	t.totalResults += listingCount
 	totalNow := t.totalResults
 	t.callCountMu.Unlock()
 
 	log.Printf("🔍 job_search [%d/%d]: COMPLETE - found %d results (running total: %d)",
-		myCallNum, maxSearchesPerTurn, resultCount, totalNow)
+		myCallNum, maxSearchesPerTurn, listingCount, totalNow)
 
-	if results == "" {
+	if listingCount == 0 {
 		return &JobSearchResult{
 			Results: "All job postings found have already been applied to or marked as 'do not apply'. Try a different search.",
 			Count:   0,
 		}, nil
 	}
 
+	// Store structured data in cache
+	t.storeListingsCache(params.Query, listings)
+
+	// Format for display
 	return &JobSearchResult{
-		Results: results,
-		Count:   resultCount,
+		Results: formatListings(listings),
+		Count:   listingCount,
 	}, nil
 }
 
@@ -259,47 +279,45 @@ func enhanceJobQuery(query string) string {
 	return fmt.Sprintf(`%s careers OR jobs %s`, query, strings.Join(exclusions, " "))
 }
 
-// formatSerperResultsWithFilter formats organic results and filters against applied jobs
-func formatSerperResultsWithFilter(organic []serperOrganicResult, maxResults int, appliedJobs []JobInfo) string {
-	if len(organic) == 0 {
-		return "No job listings found for this search."
-	}
-
-	var lines []string
-	count := 0
+// extractListings extracts structured job listings from organic results
+func extractListings(organic []serperOrganicResult, maxResults int, appliedJobs []JobInfo) []JobListing {
+	var listings []JobListing
 
 	for _, item := range organic {
-		if count >= maxResults {
-			return buildResultString(lines)
+		if len(listings) >= maxResults {
+			return listings
 		}
-		line := processJobResult(item, appliedJobs, &count)
-		if line != "" {
-			lines = append(lines, line)
+		listing := extractListing(item, appliedJobs)
+		if listing != nil {
+			listings = append(listings, *listing)
 		}
 	}
 
-	return buildResultString(lines)
+	return listings
 }
 
-func processJobResult(item serperOrganicResult, appliedJobs []JobInfo, count *int) string {
+func extractListing(item serperOrganicResult, appliedJobs []JobInfo) *JobListing {
 	company, title := extractCompanyFromTitle(item.Title)
 	if company == "" {
 		company = extractCompanyFromURL(item.Link)
 	}
 	if matchesAppliedJob(company, title, appliedJobs) {
 		log.Printf("   Filtered out applied job: %s at %s", title, company)
-		return ""
+		return nil
 	}
-	*count++
-	return fmt.Sprintf("%d. %s - %s - %s", *count, company, title, item.Link)
+	return &JobListing{C: company, T: title, U: item.Link}
 }
 
-// buildResultString formats the job listing lines into a result string.
-func buildResultString(lines []string) string {
-	if len(lines) == 0 {
+// formatListings converts structured listings to display string
+func formatListings(listings []JobListing) string {
+	if len(listings) == 0 {
 		return ""
 	}
-	header := fmt.Sprintf("Found %d job listings. Return ALL of these to the user:\n", len(lines))
+	var lines []string
+	for i, l := range listings {
+		lines = append(lines, fmt.Sprintf("%d. %s - %s - %s", i+1, l.C, l.T, l.U))
+	}
+	header := fmt.Sprintf("Found %d job listings. Return ALL of these to the user:\n", len(listings))
 	return header + "\n" + strings.Join(lines, "\n")
 }
 
@@ -430,5 +448,40 @@ func extractCompanyFromURL(url string) string {
 	}
 
 	return company
+}
+
+// checkCache looks up cached job listings and formats them for display
+func (t *SerperTools) checkCache(query string) *JobSearchResult {
+	if t.cacheTools == nil {
+		return nil
+	}
+
+	cached := t.cacheTools.LookupCache("job_search", query)
+	if cached == nil {
+		return nil
+	}
+
+	var listings []JobListing
+	if err := json.Unmarshal([]byte(cached.Data), &listings); err != nil {
+		log.Printf("[ResearchCache] Failed to unmarshal listings: %v", err)
+		return nil
+	}
+
+	return &JobSearchResult{Results: formatListings(listings), Count: len(listings)}
+}
+
+// storeListingsCache stores structured job listings in cache
+func (t *SerperTools) storeListingsCache(query string, listings []JobListing) {
+	if t.cacheTools == nil {
+		return
+	}
+
+	data, err := json.Marshal(listings)
+	if err != nil {
+		log.Printf("Failed to marshal listings for cache: %v", err)
+		return
+	}
+
+	t.cacheTools.StoreCache("job_search", query, string(data), len(listings))
 }
 

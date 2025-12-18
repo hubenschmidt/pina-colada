@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
 )
 
@@ -48,8 +49,17 @@ func (s *DocumentService) GetDocumentsByEntity(entityType string, entityID int64
 		return nil, err
 	}
 
-	resp := serializers.NewPagedResponse(result.Items, result.TotalCount, result.Page, result.PageSize, result.TotalPages)
+	items := toDocumentResponses(result.Items)
+	resp := serializers.NewPagedResponse(items, result.TotalCount, result.Page, result.PageSize, result.TotalPages)
 	return &resp, nil
+}
+
+func toDocumentResponses(dtos []repositories.DocumentDTO) []schemas.DocumentResponse {
+	result := make([]schemas.DocumentResponse, len(dtos))
+	for i := range dtos {
+		result[i] = *toDocumentResponse(&dtos[i])
+	}
+	return result
 }
 
 // EntityLinkInput holds data for linking a document to an entity
@@ -70,8 +80,26 @@ func (s *DocumentService) UnlinkDocument(documentID int64, entityType string, en
 }
 
 // GetDocumentByID returns a single document by ID
-func (s *DocumentService) GetDocumentByID(id int64) (*repositories.DocumentDTO, error) {
-	return s.docRepo.FindDocumentByID(id)
+func (s *DocumentService) GetDocumentByID(id int64) (*schemas.DocumentResponse, error) {
+	dto, err := s.docRepo.FindDocumentByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if dto == nil {
+		return nil, nil
+	}
+	return toDocumentResponse(dto), nil
+}
+
+func toDocumentResponse(dto *repositories.DocumentDTO) *schemas.DocumentResponse {
+	return &schemas.DocumentResponse{
+		ID:          dto.ID,
+		TenantID:    dto.TenantID,
+		Filename:    dto.Filename,
+		ContentType: dto.ContentType,
+		Description: dto.Description,
+		FileSize:    dto.FileSize,
+	}
 }
 
 func (s *DocumentService) GetDocuments(entityType *string, entityID *int64, tenantID *int64, search string, page, pageSize int, orderBy, order string) (*serializers.PagedResponse, error) {

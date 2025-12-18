@@ -7,8 +7,8 @@ import (
 	"github.com/nlpodyssey/openai-agents-go/agents"
 )
 
-// BuildAgentTools creates openai-agents-go compatible tools from CRM, Serper, Document, and Email tools.
-func BuildAgentTools(crm *CRMTools, serper *SerperTools, doc *DocumentTools, email *EmailTools) []agents.Tool {
+// BuildAgentTools creates openai-agents-go compatible tools from CRM, Serper, Document, Email, and Cache tools.
+func BuildAgentTools(crm *CRMTools, serper *SerperTools, doc *DocumentTools, email *EmailTools, cache *CacheTools) []agents.Tool {
 	return collectTools(
 		crmLookupTool(crm),
 		crmListTool(crm),
@@ -16,6 +16,7 @@ func BuildAgentTools(crm *CRMTools, serper *SerperTools, doc *DocumentTools, ema
 		searchDocsTool(doc),
 		readDocTool(doc),
 		sendEmailTool(email),
+		researchCacheTool(cache),
 	)
 }
 
@@ -127,6 +128,23 @@ func sendEmailTool(email *EmailTools) agents.Tool {
 				return "", err
 			}
 			return result.Message, nil
+		},
+	)
+}
+
+func researchCacheTool(cache *CacheTools) agents.Tool {
+	if cache == nil {
+		return nil
+	}
+	return agents.NewFunctionTool(
+		"research_cache",
+		"Manage cached research results. Actions: 'lookup' (check if query is cached), 'store' (save results), 'list_recent' (show recent searches). Use to avoid redundant API calls.",
+		func(ctx context.Context, args ResearchCacheParams) (string, error) {
+			result, err := cache.ResearchCacheCtx(ctx, args)
+			if err != nil {
+				return "", err
+			}
+			return result.Results, nil
 		},
 	)
 }

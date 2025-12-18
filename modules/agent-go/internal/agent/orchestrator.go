@@ -53,10 +53,11 @@ type Orchestrator struct {
 	allTools        []agents.Tool
 	metricService   *services.MetricService
 	serperTools     *tools.SerperTools
+	cacheTools      *tools.CacheTools
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
-func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService) (*Orchestrator, error) {
+func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo tools.CacheRepositoryInterface) (*Orchestrator, error) {
 	// Use OpenAI model from config (SDK defaults to OpenAI provider)
 	model := cfg.OpenAIModel
 
@@ -68,10 +69,11 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 
 	// Create all tools using the adapter
 	crmTools := tools.NewCRMTools(indService, orgService)
-	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter)
+	cacheTools := tools.NewCacheTools(cacheRepo)
+	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter, cacheTools)
 	docTools := tools.NewDocumentTools(docService)
 	emailTools := tools.NewEmailTools(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFromEmail)
-	allTools := tools.BuildAgentTools(crmTools, serperTools, docTools, emailTools)
+	allTools := tools.BuildAgentTools(crmTools, serperTools, docTools, emailTools, cacheTools)
 
 	// Create worker agents with default model (no custom settings)
 	jobSearchWorker := workers.NewJobSearchWorker(model, nil, allTools)
@@ -100,6 +102,7 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 		allTools:        allTools,
 		metricService:   metricService,
 		serperTools:     serperTools,
+		cacheTools:      cacheTools,
 	}, nil
 }
 
@@ -550,8 +553,13 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	startTime := time.Now()
 	defer close(eventCh)
 
-	// Reset per-turn call counters
+	// Reset per-turn call counters and cache state
 	o.serperTools.ResetCallCount()
+	if o.cacheTools != nil {
+		userID, _ := strconv.ParseInt(req.UserID, 10, 64)
+		o.cacheTools.SetContext(req.TenantID, userID)
+		o.cacheTools.ResetRequestState()
+	}
 
 	log.Printf("Starting streaming agent for thread: %s", req.SessionID)
 	log.Printf("   Message: %s", req.Message)

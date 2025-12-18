@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/pina-colada-co/agent-go/internal/agent"
+	"github.com/pina-colada-co/agent-go/internal/services"
 )
 
 var upgrader = websocket.Upgrader{
@@ -23,11 +24,15 @@ var upgrader = websocket.Upgrader{
 // WebSocketController handles WebSocket connections for agent chat
 type WebSocketController struct {
 	orchestrator *agent.Orchestrator
+	wsService    *services.WebSocketService
 }
 
 // NewWebSocketController creates a new WebSocket controller
-func NewWebSocketController(orchestrator *agent.Orchestrator) *WebSocketController {
-	return &WebSocketController{orchestrator: orchestrator}
+func NewWebSocketController(orchestrator *agent.Orchestrator, wsService *services.WebSocketService) *WebSocketController {
+	return &WebSocketController{
+		orchestrator: orchestrator,
+		wsService:    wsService,
+	}
 }
 
 // WSMessage represents incoming WebSocket messages
@@ -69,17 +74,26 @@ func (wc *WebSocketController) HandleWS(w http.ResponseWriter, r *http.Request) 
 	client := &Client{conn: conn}
 	log.Printf("WebSocket client connected")
 
+	wc.messageLoop(r.Context(), client)
+}
+
+func (wc *WebSocketController) messageLoop(ctx context.Context, client *Client) {
 	for {
-		_, message, err := conn.ReadMessage()
+		_, message, err := client.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				log.Printf("WebSocket error: %v", err)
-			}
-			log.Printf("WebSocket client disconnected: %s", client.uuid)
+			wc.handleReadError(err, client)
 			return
 		}
-		wc.processWSMessage(r.Context(), client, message)
+		wc.processWSMessage(ctx, client, message)
 	}
+}
+
+func (wc *WebSocketController) handleReadError(err error, client *Client) {
+	if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+		log.Printf("WebSocket error: %v", err)
+	}
+	log.Printf("WebSocket client disconnected: %s", client.uuid)
+	wc.wsService.RemoveClient(client.uuid)
 }
 
 func (wc *WebSocketController) processWSMessage(ctx context.Context, client *Client, message []byte) {
@@ -89,29 +103,31 @@ func (wc *WebSocketController) processWSMessage(ctx context.Context, client *Cli
 		return
 	}
 
-	// Handle init message
 	if msg.Init {
 		client.uuid = msg.UUID
 		log.Printf("WebSocket initialized with UUID: %s", client.uuid)
 		return
 	}
 
-	// Handle user context messages (ignore for now)
 	if msg.Type == "user_context" || msg.Type == "user_context_update" {
 		return
 	}
 
-	// Store user/tenant IDs if provided
+	wc.updateClientContext(client, msg)
+
+	if msg.Message == "" {
+		return
+	}
+
+	wc.handleChatMessage(ctx, client, msg)
+}
+
+func (wc *WebSocketController) updateClientContext(client *Client, msg WSMessage) {
 	if msg.UserID > 0 {
 		client.userID = msg.UserID
 	}
 	if msg.TenantID > 0 {
 		client.tenantID = msg.TenantID
-	}
-
-	// Process chat message
-	if msg.Message != "" {
-		wc.handleChatMessage(ctx, client, msg)
 	}
 }
 
@@ -125,19 +141,18 @@ func (wc *WebSocketController) handleChatMessage(ctx context.Context, client *Cl
 		return
 	}
 
-	// Signal start of response
-	client.SendJSON(map[string]bool{"on_chat_model_start": true})
-
-	// Get user ID as string
-	userID := "0"
-	if client.userID > 0 {
-		userID = strconv.FormatInt(client.userID, 10)
+	result := wc.wsService.CheckAndMarkProcessing(client.uuid, msg.UUID, msg.Message)
+	if result == services.DedupBlocked || result == services.DedupBusy {
+		return
 	}
 
-	// Create event channel for streaming
+	defer wc.wsService.MarkProcessingComplete(client.uuid)
+
+	client.SendJSON(map[string]bool{"on_chat_model_start": true})
+
+	userID := formatUserID(client.userID)
 	eventCh := make(chan agent.StreamEvent, 100)
 
-	// Run the agent with streaming in a goroutine
 	go wc.orchestrator.RunWithStreaming(ctx, agent.RunRequest{
 		SessionID:    client.uuid,
 		UserID:       userID,
@@ -146,116 +161,150 @@ func (wc *WebSocketController) handleChatMessage(ctx context.Context, client *Cl
 		UseEvaluator: msg.UseEvaluator,
 	}, eventCh)
 
-	// Process streaming events
+	wc.processStreamEvents(client, eventCh)
+}
+
+func formatUserID(userID int64) string {
+	if userID > 0 {
+		return strconv.FormatInt(userID, 10)
+	}
+	return "0"
+}
+
+func (wc *WebSocketController) processStreamEvents(client *Client, eventCh <-chan agent.StreamEvent) {
 	var lastText string
 	for evt := range eventCh {
-		lastText = handleStreamEvent(client, evt, lastText)
+		lastText = wc.handleStreamEvent(client, evt, lastText)
 	}
 }
 
-// handleStreamEvent processes a single stream event and returns updated lastText
-func handleStreamEvent(client *Client, evt agent.StreamEvent, lastText string) string {
-	if evt.Type == "start" {
-		client.SendJSON(map[string]interface{}{
-			"on_timer_start": map[string]interface{}{"elapsed_ms": evt.ElapsedMs},
-		})
+func (wc *WebSocketController) handleStreamEvent(client *Client, evt agent.StreamEvent, lastText string) string {
+	handler := streamEventHandlers[evt.Type]
+	if handler == nil {
 		return lastText
 	}
+	return handler(client, evt, lastText)
+}
 
-	if evt.Type == "text" {
-		client.SendJSON(map[string]string{"on_chat_model_stream": evt.Text})
-		return evt.Text
-	}
+type streamEventHandler func(client *Client, evt agent.StreamEvent, lastText string) string
 
-	if evt.Type == "tokens" {
-		client.SendJSON(map[string]interface{}{
-			"on_token_stream": map[string]interface{}{
-				"input":      evt.Tokens.Input,
-				"output":     evt.Tokens.Output,
-				"total":      evt.Tokens.Total,
-				"elapsed_ms": evt.ElapsedMs,
-			},
-		})
-		return lastText
-	}
+var streamEventHandlers = map[string]streamEventHandler{
+	"start":      handleStartEvent,
+	"text":       handleTextEvent,
+	"tokens":     handleTokensEvent,
+	"tool_start": handleToolStartEvent,
+	"tool_end":   handleToolEndEvent,
+	"agent_start": handleAgentStartEvent,
+	"done":       handleDoneEvent,
+	"eval_start": handleEvalStartEvent,
+	"eval":       handleEvalEvent,
+	"error":      handleErrorEvent,
+}
 
-	if evt.Type == "tool_start" {
-		client.SendJSON(map[string]interface{}{
-			"on_tool_start": map[string]interface{}{
-				"tool_name":  evt.ToolName,
-				"elapsed_ms": evt.ElapsedMs,
-			},
-		})
-		return lastText
-	}
-
-	if evt.Type == "tool_end" {
-		client.SendJSON(map[string]interface{}{
-			"on_tool_end": map[string]interface{}{
-				"tool_name":  evt.ToolName,
-				"elapsed_ms": evt.ElapsedMs,
-			},
-		})
-		return lastText
-	}
-
-	if evt.Type == "agent_start" {
-		client.SendJSON(map[string]interface{}{
-			"on_agent_start": map[string]interface{}{
-				"agent_name": evt.AgentName,
-				"elapsed_ms": evt.ElapsedMs,
-			},
-		})
-		return lastText
-	}
-
-	if evt.Type == "done" {
-		log.Printf("WS sending done event (on_chat_model_end)")
-		client.SendJSON(map[string]bool{"on_chat_model_end": true})
-		sendFinalTokenUsage(client, evt)
-		return lastText
-	}
-
-	if evt.Type == "eval_start" {
-		log.Printf("WS sending eval_start event")
-		client.SendJSON(map[string]interface{}{
-			"type": "eval_start",
-		})
-		return lastText
-	}
-
-	if evt.Type == "eval" && evt.EvalResult != nil {
-		log.Printf("WS sending eval event: score=%d, success=%v, user_input=%v",
-			evt.EvalResult.Score, evt.EvalResult.SuccessCriteriaMet, evt.EvalResult.UserInputNeeded)
-		client.SendJSON(map[string]interface{}{
-			"type": "eval",
-			"eval_result": map[string]interface{}{
-				"feedback":             evt.EvalResult.Feedback,
-				"success_criteria_met": evt.EvalResult.SuccessCriteriaMet,
-				"user_input_needed":    evt.EvalResult.UserInputNeeded,
-				"score":                evt.EvalResult.Score,
-			},
-		})
-		return lastText
-	}
-
-	if evt.Type == "error" {
-		log.Printf("Agent error: %v", evt.Error)
-		if lastText == "" {
-			client.SendJSON(map[string]string{
-				"on_chat_model_stream": "\n\nSorry, there was an error generating the response.",
-			})
-		}
-		client.SendJSON(map[string]bool{"on_chat_model_end": true})
-		client.SendJSON(map[string]interface{}{
-			"type":       "error",
-			"message":    evt.Error,
-			"elapsed_ms": evt.ElapsedMs,
-		})
-		return lastText
-	}
-
+func handleStartEvent(client *Client, evt agent.StreamEvent, lastText string) string {
+	client.SendJSON(map[string]interface{}{
+		"on_timer_start": map[string]interface{}{"elapsed_ms": evt.ElapsedMs},
+	})
 	return lastText
+}
+
+func handleTextEvent(client *Client, evt agent.StreamEvent, lastText string) string {
+	client.SendJSON(map[string]string{"on_chat_model_stream": evt.Text})
+	return evt.Text
+}
+
+func handleTokensEvent(client *Client, evt agent.StreamEvent, lastText string) string {
+	client.SendJSON(map[string]interface{}{
+		"on_token_stream": map[string]interface{}{
+			"input":      evt.Tokens.Input,
+			"output":     evt.Tokens.Output,
+			"total":      evt.Tokens.Total,
+			"elapsed_ms": evt.ElapsedMs,
+		},
+	})
+	return lastText
+}
+
+func handleToolStartEvent(client *Client, evt agent.StreamEvent, lastText string) string {
+	client.SendJSON(map[string]interface{}{
+		"on_tool_start": map[string]interface{}{
+			"tool_name":  evt.ToolName,
+			"elapsed_ms": evt.ElapsedMs,
+		},
+	})
+	return lastText
+}
+
+func handleToolEndEvent(client *Client, evt agent.StreamEvent, lastText string) string {
+	client.SendJSON(map[string]interface{}{
+		"on_tool_end": map[string]interface{}{
+			"tool_name":  evt.ToolName,
+			"elapsed_ms": evt.ElapsedMs,
+		},
+	})
+	return lastText
+}
+
+func handleAgentStartEvent(client *Client, evt agent.StreamEvent, lastText string) string {
+	client.SendJSON(map[string]interface{}{
+		"on_agent_start": map[string]interface{}{
+			"agent_name": evt.AgentName,
+			"elapsed_ms": evt.ElapsedMs,
+		},
+	})
+	return lastText
+}
+
+func handleDoneEvent(client *Client, evt agent.StreamEvent, lastText string) string {
+	log.Printf("WS sending done event (on_chat_model_end)")
+	client.SendJSON(map[string]bool{"on_chat_model_end": true})
+	sendFinalTokenUsage(client, evt)
+	return lastText
+}
+
+func handleEvalStartEvent(client *Client, evt agent.StreamEvent, lastText string) string {
+	log.Printf("WS sending eval_start event")
+	client.SendJSON(map[string]interface{}{"type": "eval_start"})
+	return lastText
+}
+
+func handleEvalEvent(client *Client, evt agent.StreamEvent, lastText string) string {
+	if evt.EvalResult == nil {
+		return lastText
+	}
+	log.Printf("WS sending eval event: score=%d, success=%v, user_input=%v",
+		evt.EvalResult.Score, evt.EvalResult.SuccessCriteriaMet, evt.EvalResult.UserInputNeeded)
+	client.SendJSON(map[string]interface{}{
+		"type": "eval",
+		"eval_result": map[string]interface{}{
+			"feedback":             evt.EvalResult.Feedback,
+			"success_criteria_met": evt.EvalResult.SuccessCriteriaMet,
+			"user_input_needed":    evt.EvalResult.UserInputNeeded,
+			"score":                evt.EvalResult.Score,
+		},
+	})
+	return lastText
+}
+
+func handleErrorEvent(client *Client, evt agent.StreamEvent, lastText string) string {
+	log.Printf("Agent error: %v", evt.Error)
+	sendErrorFallbackText(client, lastText)
+	client.SendJSON(map[string]bool{"on_chat_model_end": true})
+	client.SendJSON(map[string]interface{}{
+		"type":       "error",
+		"message":    evt.Error,
+		"elapsed_ms": evt.ElapsedMs,
+	})
+	return lastText
+}
+
+func sendErrorFallbackText(client *Client, lastText string) {
+	if lastText != "" {
+		return
+	}
+	client.SendJSON(map[string]string{
+		"on_chat_model_stream": "\n\nSorry, there was an error generating the response.",
+	})
 }
 
 func sendFinalTokenUsage(client *Client, evt agent.StreamEvent) {
