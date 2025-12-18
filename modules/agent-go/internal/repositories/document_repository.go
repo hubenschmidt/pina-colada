@@ -21,6 +21,8 @@ type DocumentDTO struct {
 	UpdatedAt        string          `json:"updated_at"`
 	StoragePath      string          `json:"storage_path"`
 	FileSize         int64           `json:"file_size"`
+	Summary          []byte          `json:"summary,omitempty" gorm:"column:summary"`
+	Compressed       *string         `json:"compressed,omitempty" gorm:"column:compressed"`
 	IsCurrentVersion bool            `json:"is_current_version"`
 	VersionNumber    int             `json:"version_number"`
 	ParentID         *int64          `json:"parent_id"`
@@ -50,7 +52,7 @@ func (r *DocumentRepository) FindByEntity(entityType string, entityID int64, ten
 		Select(`"Asset".id, "Asset".asset_type, "Asset".tenant_id, "Asset".user_id,
 			"Asset".filename, "Asset".content_type, "Asset".description,
 			"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
-			"Document".storage_path, "Document".file_size`).
+			"Document".storage_path, "Document".file_size, "Document".summary, "Document".compressed`).
 		Joins(`INNER JOIN "Document" ON "Document".id = "Asset".id`).
 		Joins(`INNER JOIN "Entity_Asset" ON "Entity_Asset".asset_id = "Asset".id`).
 		Where(`"Entity_Asset".entity_type = ? AND "Entity_Asset".entity_id = ?`, entityType, entityID).
@@ -107,7 +109,7 @@ func (r *DocumentRepository) FindDocumentByID(id int64) (*DocumentDTO, error) {
 		Select(`"Asset".id, "Asset".asset_type, "Asset".tenant_id, "Asset".user_id,
 			"Asset".filename, "Asset".content_type, "Asset".description,
 			"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
-			"Document".storage_path, "Document".file_size`).
+			"Document".storage_path, "Document".file_size, "Document".summary, "Document".compressed`).
 		Joins(`INNER JOIN "Document" ON "Document".id = "Asset".id`).
 		Where(`"Asset".id = ? AND "Asset".asset_type = ?`, id, "document").
 		Scan(&doc).Error
@@ -209,7 +211,7 @@ func (r *DocumentRepository) FindAll(entityType *string, entityID *int64, tenant
 		Select(`"Asset".id, "Asset".asset_type, "Asset".tenant_id, "Asset".user_id,
 			"Asset".filename, "Asset".content_type, "Asset".description,
 			"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
-			"Document".storage_path, "Document".file_size`).
+			"Document".storage_path, "Document".file_size, "Document".summary, "Document".compressed`).
 		Joins(`INNER JOIN "Document" ON "Document".id = "Asset".id`).
 		Where(`"Asset".asset_type = ?`, "document")
 
@@ -279,7 +281,7 @@ func (r *DocumentRepository) FindDocumentVersions(documentID int64, tenantID int
 			"Asset".filename, "Asset".content_type, "Asset".description,
 			"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
 			"Asset".parent_id,
-			"Document".storage_path, "Document".file_size`).
+			"Document".storage_path, "Document".file_size, "Document".summary, "Document".compressed`).
 		Joins(`INNER JOIN "Document" ON "Document".id = "Asset".id`).
 		Where(`"Asset".tenant_id = ? AND ("Asset".id = ? OR "Asset".parent_id = ?)`, tenantID, rootID, rootID).
 		Order("version_number DESC").
@@ -414,6 +416,15 @@ func (r *DocumentRepository) CreateNewVersion(input CreateVersionInput) (*Docume
 // UpdateDocument updates a document's metadata
 func (r *DocumentRepository) UpdateDocument(documentID int64, updates map[string]interface{}) error {
 	return r.db.Model(&models.Asset{}).Where("id = ?", documentID).Updates(updates).Error
+}
+
+// UpdateDocumentSummary updates a document's summary and compressed content
+func (r *DocumentRepository) UpdateDocumentSummary(documentID int64, summary []byte, compressed *string) error {
+	updates := map[string]interface{}{
+		"summary":    summary,
+		"compressed": compressed,
+	}
+	return r.db.Model(&models.Document{}).Where("id = ?", documentID).Updates(updates).Error
 }
 
 // DeleteDocument deletes a document and its associated records

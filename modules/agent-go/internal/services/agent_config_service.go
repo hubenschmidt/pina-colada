@@ -21,16 +21,21 @@ type LLMSettings struct {
 }
 
 // unsupportedModelParams maps models to parameters they don't support
+// top_k is Anthropic-only, must be blocked for all OpenAI models
 var unsupportedModelParams = map[string]map[string]bool{
 	"claude-opus-4-5-20251101":   {"max_tokens": true, "top_p": true, "temperature": true},
 	"claude-sonnet-4-5-20250929": {"top_p": true, "temperature": true, "max_tokens": true},
-	"gpt-5":                      {"top_p": true, "temperature": true},
-	"gpt-5.1":                    {"top_p": true, "temperature": true},
-	"gpt-5.2":                    {"top_p": true, "temperature": true},
-	"gpt-5-mini":                 {"top_p": true, "temperature": true},
-	"gpt-5-nano":                 {"temperature": true, "top_p": true},
-	"o3":                         {"top_p": true, "temperature": true},
-	"o4-mini":                    {"temperature": true, "top_p": true},
+	"gpt-5":                      {"top_p": true, "temperature": true, "top_k": true},
+	"gpt-5.1":                    {"top_p": true, "temperature": true, "top_k": true},
+	"gpt-5.2":                    {"top_p": true, "temperature": true, "top_k": true},
+	"gpt-5-mini":                 {"top_p": true, "temperature": true, "top_k": true},
+	"gpt-5-nano":                 {"temperature": true, "top_p": true, "top_k": true},
+	"gpt-4.1":                    {"top_k": true},
+	"gpt-4.1-mini":               {"top_k": true},
+	"gpt-4o":                     {"top_k": true},
+	"gpt-4o-mini":                {"top_k": true},
+	"o3":                         {"top_p": true, "temperature": true, "top_k": true},
+	"o4-mini":                    {"temperature": true, "top_p": true, "top_k": true},
 }
 
 // FilterSettingsForModel removes unsupported parameters for the given model
@@ -63,11 +68,17 @@ func FilterSettingsForModel(settings LLMSettings, model string) LLMSettings {
 }
 
 type AgentConfigService struct {
-	configRepo *repositories.AgentConfigRepository
+	configRepo    *repositories.AgentConfigRepository
+	modelRepo     *repositories.AvailableModelRepository
+	modelCache    map[string]string // modelName -> provider cache
+	modelCacheErr error
 }
 
-func NewAgentConfigService(configRepo *repositories.AgentConfigRepository) *AgentConfigService {
-	return &AgentConfigService{configRepo: configRepo}
+func NewAgentConfigService(configRepo *repositories.AgentConfigRepository, modelRepo *repositories.AvailableModelRepository) *AgentConfigService {
+	return &AgentConfigService{
+		configRepo: configRepo,
+		modelRepo:  modelRepo,
+	}
 }
 
 // NodeConfigResponse represents a single node's configuration
@@ -83,6 +94,7 @@ type NodeConfigResponse struct {
 	TopK             *int     `json:"top_k,omitempty"`
 	FrequencyPenalty *float64 `json:"frequency_penalty,omitempty"`
 	PresencePenalty  *float64 `json:"presence_penalty,omitempty"`
+	FallbackChain    []byte   `json:"fallback_chain,omitempty"`
 	IsDefault        bool     `json:"is_default"`
 }
 
@@ -131,6 +143,7 @@ func (s *AgentConfigService) GetAgentConfig(userID int64) (*AgentConfigResponse,
 		var topK *int
 		var frequencyPenalty *float64
 		var presencePenalty *float64
+		var fallbackChain []byte
 
 		if override, ok := overrides[nodeName]; ok {
 			model = override.Model
@@ -141,6 +154,7 @@ func (s *AgentConfigService) GetAgentConfig(userID int64) (*AgentConfigResponse,
 			topK = override.TopK
 			frequencyPenalty = override.FrequencyPenalty
 			presencePenalty = override.PresencePenalty
+			fallbackChain = override.FallbackChain
 			isDefault = false
 		}
 
@@ -156,6 +170,7 @@ func (s *AgentConfigService) GetAgentConfig(userID int64) (*AgentConfigResponse,
 			TopK:             topK,
 			FrequencyPenalty: frequencyPenalty,
 			PresencePenalty:  presencePenalty,
+			FallbackChain:    fallbackChain,
 			IsDefault:        isDefault,
 		})
 	}
@@ -185,8 +200,8 @@ func (s *AgentConfigService) UpdateNodeConfig(userID int64, nodeName string, req
 		return nil, ErrInvalidNodeName
 	}
 
-	// Determine provider from model
-	provider := repositories.GetProviderForModel(req.Model)
+	// Determine provider from model (from DB)
+	provider := s.GetProviderForModel(req.Model)
 	if provider == "" {
 		return nil, ErrInvalidModel
 	}
@@ -247,10 +262,74 @@ func (s *AgentConfigService) ResetNodeConfig(userID int64, nodeName string) (*No
 
 // GetAvailableModels returns all available models grouped by provider
 func (s *AgentConfigService) GetAvailableModels() *AvailableModelsResponse {
-	return &AvailableModelsResponse{
-		OpenAI:    repositories.AvailableModels["openai"],
-		Anthropic: repositories.AvailableModels["anthropic"],
+	resp := &AvailableModelsResponse{
+		OpenAI:    []string{},
+		Anthropic: []string{},
 	}
+
+	if s.modelRepo == nil {
+		return resp
+	}
+
+	models, err := s.modelRepo.GetActiveModels()
+	if err != nil {
+		return resp
+	}
+
+	for _, m := range models {
+		if m.Provider == "openai" {
+			resp.OpenAI = append(resp.OpenAI, m.ModelName)
+		}
+		if m.Provider == "anthropic" {
+			resp.Anthropic = append(resp.Anthropic, m.ModelName)
+		}
+	}
+
+	return resp
+}
+
+// GetProviderForModel returns the provider for a model from DB, or empty string if not found
+func (s *AgentConfigService) GetProviderForModel(modelName string) string {
+	if s.modelRepo == nil {
+		return ""
+	}
+
+	model, err := s.modelRepo.GetModelByName(modelName)
+	if err != nil || model == nil {
+		return ""
+	}
+
+	return model.Provider
+}
+
+// ModelTierDTO represents a model tier for fallback chains
+type ModelTierDTO struct {
+	Model          string
+	TimeoutSeconds int
+}
+
+// GetDefaultFallbackChain returns the default fallback chain for a provider from DB
+// Models are ordered by sort_order (ascending), so fastest models come last
+func (s *AgentConfigService) GetDefaultFallbackChain(provider string) []ModelTierDTO {
+	if s.modelRepo == nil {
+		return nil
+	}
+
+	models, err := s.modelRepo.GetModelsByProvider(provider)
+	if err != nil || len(models) == 0 {
+		return nil
+	}
+
+	// Build chain with models ordered by sort_order (slowest/most capable first)
+	chain := make([]ModelTierDTO, len(models))
+	for i, m := range models {
+		chain[i] = ModelTierDTO{
+			Model:          m.ModelName,
+			TimeoutSeconds: m.DefaultTimeoutSeconds,
+		}
+	}
+
+	return chain
 }
 
 // GetModelForNode returns the model for a specific node for a user

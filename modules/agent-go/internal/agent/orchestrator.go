@@ -19,6 +19,7 @@ import (
 	"github.com/openai/openai-go/v2/packages/param"
 	"gorm.io/datatypes"
 
+	"github.com/pina-colada-co/agent-go/internal/agent/promoter"
 	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
 	"github.com/pina-colada-co/agent-go/internal/agent/state"
 	"github.com/pina-colada-co/agent-go/internal/agent/tools"
@@ -26,6 +27,7 @@ import (
 	"github.com/pina-colada-co/agent-go/internal/agent/workers"
 	"github.com/pina-colada-co/agent-go/internal/config"
 	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
+	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
 
@@ -527,6 +529,17 @@ func (s *streamState) tryHandleRawResponses(event agents.StreamEvent) {
 
 // runAgentStream runs the agent and returns the stream state and any error
 func (o *Orchestrator) runAgentStream(ctx context.Context, userID int64, input string, useEvaluator bool, sendEvent func(StreamEvent), skipSettings bool) (*streamState, error) {
+	// Check for fallback chain (model promotion)
+	modelChain := o.getModelChainForUser(userID)
+	if len(modelChain) > 1 {
+		return o.runAgentStreamWithPromotion(ctx, userID, input, useEvaluator, sendEvent, skipSettings, modelChain)
+	}
+
+	return o.runAgentStreamDirect(ctx, userID, input, useEvaluator, sendEvent, skipSettings)
+}
+
+// runAgentStreamDirect runs agent without model promotion
+func (o *Orchestrator) runAgentStreamDirect(ctx context.Context, userID int64, input string, useEvaluator bool, sendEvent func(StreamEvent), skipSettings bool) (*streamState, error) {
 	triageAgent := o.buildTriageAgentForUser(userID, skipSettings)
 
 	runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20}}
@@ -546,6 +559,105 @@ func (o *Orchestrator) runAgentStream(ctx context.Context, userID int64, input s
 
 	streamErr := <-errChan
 	return ss, streamErr
+}
+
+// runAgentStreamWithPromotion runs agent with automatic model promotion on slow responses
+func (o *Orchestrator) runAgentStreamWithPromotion(ctx context.Context, userID int64, input string, useEvaluator bool, sendEvent func(StreamEvent), skipSettings bool, modelChain []promoter.ModelTier) (*streamState, error) {
+	mp := promoter.NewModelPromoter(modelChain)
+
+	ss := &streamState{
+		useEvaluator: useEvaluator,
+		sendEvent:    sendEvent,
+	}
+
+	// Create internal event channel for promoter
+	internalCh := make(chan agents.StreamEvent, 100)
+
+	// RunFunc starts streaming with a specific model
+	runFn := func(runCtx context.Context, model string) (<-chan agents.StreamEvent, <-chan error, error) {
+		triageAgent := o.buildTriageAgentForUserWithModel(userID, model, skipSettings)
+		runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20}}
+		return runner.RunStreamedChan(runCtx, triageAgent, input)
+	}
+
+	// Run promoter in goroutine, process events synchronously
+	var usedModel string
+	var promoterErr error
+
+	go func() {
+		defer close(internalCh)
+		usedModel, promoterErr = mp.RunStreamWithPromotion(ctx, runFn, internalCh)
+	}()
+
+	// Process events from internal channel
+	for event := range internalCh {
+		ss.handleStreamEvent(event)
+	}
+
+	if promoterErr != nil {
+		return ss, promoterErr
+	}
+
+	if usedModel != "" {
+		log.Printf("✅ Request completed using model: %s", usedModel)
+	}
+
+	return ss, nil
+}
+
+// getModelChainForUser returns the fallback chain for a user's triage node
+func (o *Orchestrator) getModelChainForUser(userID int64) []promoter.ModelTier {
+	if o.configCache == nil {
+		return nil
+	}
+	return o.configCache.GetModelChain(userID, models.NodeTriageOrchestrator)
+}
+
+// buildTriageAgentForUserWithModel creates a triage agent with a specific model override
+func (o *Orchestrator) buildTriageAgentForUserWithModel(userID int64, model string, skipSettings bool) *agents.Agent {
+	// Get models for workers from cache (they keep their configured models)
+	jobSearchModel := o.model
+	crmModel := o.model
+	generalModel := o.model
+
+	if o.configCache != nil && userID > 0 {
+		jobSearchModel = o.configCache.GetModel(userID, "job_search_worker")
+		crmModel = o.configCache.GetModel(userID, "crm_worker")
+		generalModel = o.configCache.GetModel(userID, "general_worker")
+	}
+
+	// Get settings (empty if skipSettings), filtered for model compatibility
+	var triageSettings, jobSearchSettings, crmSettings, generalSettings services.LLMSettings
+	if !skipSettings && o.configCache != nil && userID > 0 {
+		triageSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "triage_orchestrator"), model)
+		jobSearchSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "job_search_worker"), jobSearchModel)
+		crmSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "crm_worker"), crmModel)
+		generalSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "general_worker"), generalModel)
+	}
+
+	// Log model configuration
+	logNodeConfig(userID, "triage_orchestrator (promoted)", model, triageSettings)
+	logNodeConfig(userID, "job_search_worker", jobSearchModel, jobSearchSettings)
+	logNodeConfig(userID, "crm_worker", crmModel, crmSettings)
+	logNodeConfig(userID, "general_worker", generalModel, generalSettings)
+
+	// Create workers with user-specific models and settings
+	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, buildModelSettings(jobSearchSettings), o.allTools)
+	crmWorker := workers.NewCRMWorker(crmModel, buildModelSettings(crmSettings), o.allTools)
+	generalWorker := workers.NewGeneralWorker(generalModel, buildModelSettings(generalSettings), o.allTools)
+
+	// Create triage agent with the promoted model
+	triageAgent := agents.New("triage").
+		WithInstructions(prompts.TriageInstructionsWithTools).
+		WithModel(model).
+		WithHandoffDescription("Routes requests to specialized workers").
+		WithAgentHandoffs(jobSearchWorker, crmWorker, generalWorker)
+
+	if ms := buildModelSettings(triageSettings); ms != nil {
+		triageAgent = triageAgent.WithModelSettings(*ms)
+	}
+
+	return triageAgent
 }
 
 // RunWithStreaming executes the agent and streams events via channel

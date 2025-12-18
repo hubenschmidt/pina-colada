@@ -1,8 +1,12 @@
 package utils
 
 import (
+	"encoding/json"
 	"sync"
+	"time"
 
+	"github.com/pina-colada-co/agent-go/internal/agent/promoter"
+	"github.com/pina-colada-co/agent-go/internal/models"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
@@ -23,6 +27,7 @@ type nodeConfig struct {
 	topK             *int
 	frequencyPenalty *float64
 	presencePenalty  *float64
+	fallbackChain    []promoter.ModelTier
 }
 
 // NewConfigCache creates a new config cache
@@ -146,6 +151,37 @@ func (c *ConfigCache) Invalidate(userID int64) {
 	delete(c.cache, userID)
 }
 
+// GetModelChain returns the fallback chain for a specific node for a user.
+// Returns nil if no custom fallback chain is configured (promotion disabled by default).
+func (c *ConfigCache) GetModelChain(userID int64, nodeName string) []promoter.ModelTier {
+	chain := c.getCachedModelChain(userID, nodeName)
+	if len(chain) > 0 {
+		return chain
+	}
+
+	c.loadUser(userID)
+
+	// Only return explicitly configured chains - no default promotion
+	return c.getCachedModelChain(userID, nodeName)
+}
+
+func (c *ConfigCache) getCachedModelChain(userID int64, nodeName string) []promoter.ModelTier {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	userCache, ok := c.cache[userID]
+	if !ok {
+		return nil
+	}
+
+	cfg, ok := userCache[nodeName]
+	if !ok {
+		return nil
+	}
+
+	return cfg.fallbackChain
+}
+
 // loadUser loads a user's config from the service into the cache
 func (c *ConfigCache) loadUser(userID int64) {
 	if c.service == nil {
@@ -171,7 +207,29 @@ func (c *ConfigCache) loadUser(userID int64) {
 			topK:             node.TopK,
 			frequencyPenalty: node.FrequencyPenalty,
 			presencePenalty:  node.PresencePenalty,
+			fallbackChain:    parseFallbackChain(node.FallbackChain),
 		}
 	}
 	c.cache[userID] = userCache
+}
+
+// parseFallbackChain parses JSONB fallback chain data into ModelTier slice
+func parseFallbackChain(data []byte) []promoter.ModelTier {
+	if len(data) == 0 {
+		return nil
+	}
+
+	var tiers []models.FallbackTier
+	if err := json.Unmarshal(data, &tiers); err != nil {
+		return nil
+	}
+
+	result := make([]promoter.ModelTier, len(tiers))
+	for i, t := range tiers {
+		result[i] = promoter.ModelTier{
+			Model:             t.Model,
+			FirstTokenTimeout: time.Duration(t.TimeoutSeconds) * time.Second,
+		}
+	}
+	return result
 }

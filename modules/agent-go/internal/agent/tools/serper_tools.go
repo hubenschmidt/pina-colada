@@ -47,7 +47,7 @@ type SerperTools struct {
 
 const appliedJobsCacheTTL = 30 * time.Second
 const maxConcurrentSearches = 3
-const maxSearchesPerTurn = 3
+const maxSearchesPerTurn = 1
 
 // NewSerperTools creates Serper tools with API key and optional job service for filtering
 func NewSerperTools(apiKey string, jobService JobServiceInterface, cacheTools *CacheTools) *SerperTools {

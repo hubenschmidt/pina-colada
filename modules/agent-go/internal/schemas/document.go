@@ -19,4 +19,5 @@ type DocumentResponse struct {
 	ContentType string  `json:"content_type"`
 	Description *string `json:"description"`
 	FileSize    int64   `json:"file_size"`
+	Summary     []byte  `json:"summary,omitempty"`
 }

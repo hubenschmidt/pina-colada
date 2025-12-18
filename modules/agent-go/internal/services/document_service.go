@@ -1,9 +1,12 @@
 package services
 
 import (
+	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"strings"
 	"time"
 
@@ -34,12 +37,13 @@ func normalizeEntityType(entityType string) string {
 }
 
 type DocumentService struct {
-	docRepo    *repositories.DocumentRepository
+	docRepo     *repositories.DocumentRepository
 	storageRepo repositories.StorageRepository
+	summarizer  *DocumentSummarizer
 }
 
-func NewDocumentService(docRepo *repositories.DocumentRepository, storageRepo repositories.StorageRepository) *DocumentService {
-	return &DocumentService{docRepo: docRepo, storageRepo: storageRepo}
+func NewDocumentService(docRepo *repositories.DocumentRepository, storageRepo repositories.StorageRepository, summarizer *DocumentSummarizer) *DocumentService {
+	return &DocumentService{docRepo: docRepo, storageRepo: storageRepo, summarizer: summarizer}
 }
 
 func (s *DocumentService) GetDocumentsByEntity(entityType string, entityID int64, tenantID *int64, page, pageSize int, orderBy, order string) (*serializers.PagedResponse, error) {
@@ -99,6 +103,7 @@ func toDocumentResponse(dto *repositories.DocumentDTO) *schemas.DocumentResponse
 		ContentType: dto.ContentType,
 		Description: dto.Description,
 		FileSize:    dto.FileSize,
+		Summary:     dto.Summary,
 	}
 }
 
@@ -133,12 +138,19 @@ func (s *DocumentService) UploadDocument(input UploadDocumentInput) (*repositori
 		return nil, fmt.Errorf("file exceeds 10MB limit")
 	}
 
+	// Read data into buffer for both storage and summarization
+	var buf bytes.Buffer
+	if _, err := io.Copy(&buf, input.Data); err != nil {
+		return nil, fmt.Errorf("failed to read file: %w", err)
+	}
+	data := buf.Bytes()
+
 	// Generate storage path: {tenant_id}/{timestamp}/{filename}
 	timestamp := time.Now().UnixMilli()
 	storagePath := fmt.Sprintf("%d/%d/%s", input.TenantID, timestamp, input.Filename)
 
 	// Upload to storage
-	if err := s.storageRepo.Upload(storagePath, input.Data, input.ContentType, input.Size); err != nil {
+	if err := s.storageRepo.Upload(storagePath, bytes.NewReader(data), input.ContentType, input.Size); err != nil {
 		return nil, fmt.Errorf("failed to upload file: %w", err)
 	}
 
@@ -166,7 +178,41 @@ func (s *DocumentService) UploadDocument(input UploadDocumentInput) (*repositori
 		}
 	}
 
+	// Generate summary and compressed content asynchronously
+	go s.processDocumentAsync(doc.ID, data, input.Filename, input.ContentType)
+
 	return doc, nil
+}
+
+// processDocumentAsync generates summary and compressed content in background
+func (s *DocumentService) processDocumentAsync(docID int64, data []byte, filename, contentType string) {
+	if s.summarizer == nil {
+		return
+	}
+
+	// Extract text content based on content type
+	content := extractTextContent(data, contentType)
+	if content == "" {
+		log.Printf("DocumentService: no text content to summarize for doc %d", docID)
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	if err := s.summarizer.ProcessDocument(ctx, docID, content, filename); err != nil {
+		log.Printf("DocumentService: failed to process doc %d: %v", docID, err)
+	}
+}
+
+// extractTextContent extracts readable text from document data
+func extractTextContent(data []byte, contentType string) string {
+	if strings.Contains(contentType, "text/") || strings.Contains(contentType, "application/json") {
+		return string(data)
+	}
+	// PDF extraction would require the pdf library - skip for now in async processing
+	// The full content extraction happens in document_tools.go when reading
+	return ""
 }
 
 // GetDocumentVersions returns all versions of a document

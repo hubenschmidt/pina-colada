@@ -59,6 +59,7 @@ func main() {
 	reportRepo := repositories.NewReportRepository(database)
 	notifRepo := repositories.NewNotificationRepository(database)
 	agentConfigRepo := repositories.NewAgentConfigRepository(database)
+	availableModelRepo := repositories.NewAvailableModelRepository(database)
 	metricRepo := repositories.NewMetricRepository(database)
 	cacheRepo := repositories.NewResearchCacheRepository(database)
 
@@ -75,7 +76,8 @@ func main() {
 	lookupService := services.NewLookupService(lookupRepo)
 	noteService := services.NewNoteService(noteRepo)
 	commentService := services.NewCommentService(commentRepo)
-	docService := services.NewDocumentService(docRepo, storageRepo)
+	docSummarizer := services.NewDocumentSummarizer(cfg.AnthropicAPIKey, docRepo)
+	docService := services.NewDocumentService(docRepo, storageRepo, docSummarizer)
 	accountService := services.NewAccountService(accountRepo)
 	leadService := services.NewLeadService(leadRepo)
 	costsService := services.NewCostService()
@@ -84,7 +86,7 @@ func main() {
 	usageService := services.NewUsageService(usageRepo, userRepo)
 	reportService := services.NewReportService(reportRepo)
 	notifService := services.NewNotificationService(notifRepo)
-	agentConfigService := services.NewAgentConfigService(agentConfigRepo)
+	agentConfigService := services.NewAgentConfigService(agentConfigRepo, availableModelRepo)
 	metricService := services.NewMetricService(metricRepo, agentConfigService)
 	wsService := services.NewWebSocketService()
 

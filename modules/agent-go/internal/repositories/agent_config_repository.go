@@ -46,27 +46,6 @@ var DefaultModels = map[string]DefaultModelConfig{
 	NodeTitleGenerator:     {"claude-haiku-4-5-20251001", "anthropic"},
 }
 
-// AvailableModels lists available models by provider
-var AvailableModels = map[string][]string{
-	"openai": {
-		"gpt-5.2",
-		"gpt-5.1",
-		"gpt-5",
-		"gpt-5-mini",
-		"gpt-5-nano",
-		"gpt-4.1",
-		"gpt-4.1-mini",
-		"gpt-4o",
-		"gpt-4o-mini",
-		"o3",
-		"o4-mini",
-	},
-	"anthropic": {
-		"claude-sonnet-4-5-20250929",
-		"claude-opus-4-5-20251101",
-		"claude-haiku-4-5-20251001",
-	},
-}
 
 // NodeDisplayNames provides human-readable names for nodes
 var NodeDisplayNames = map[string]string{
@@ -145,15 +124,6 @@ func IsValidNodeName(nodeName string) bool {
 	return slices.Contains(AllNodeNames, nodeName)
 }
 
-// GetProviderForModel returns the provider for a given model, or empty string if invalid
-func GetProviderForModel(model string) string {
-	for provider, modelList := range AvailableModels {
-		if slices.Contains(modelList, model) {
-			return provider
-		}
-	}
-	return ""
-}
 
 type AgentConfigRepository struct {
 	db *gorm.DB
@@ -174,6 +144,7 @@ type AgentNodeConfigDTO struct {
 	TopK             *int     `json:"top_k,omitempty"`
 	FrequencyPenalty *float64 `json:"frequency_penalty,omitempty"`
 	PresencePenalty  *float64 `json:"presence_penalty,omitempty"`
+	FallbackChain    []byte   `json:"fallback_chain,omitempty"`
 }
 
 // GetUserConfigs returns all agent node configurations for a user
@@ -196,6 +167,7 @@ func (r *AgentConfigRepository) GetUserConfigs(userID int64) ([]AgentNodeConfigD
 			TopK:             cfg.TopK,
 			FrequencyPenalty: cfg.FrequencyPenalty,
 			PresencePenalty:  cfg.PresencePenalty,
+			FallbackChain:    cfg.FallbackChain,
 		}
 	}
 	return result, nil
@@ -221,6 +193,7 @@ func (r *AgentConfigRepository) GetNodeConfig(userID int64, nodeName string) (*A
 		TopK:             cfg.TopK,
 		FrequencyPenalty: cfg.FrequencyPenalty,
 		PresencePenalty:  cfg.PresencePenalty,
+		FallbackChain:    cfg.FallbackChain,
 	}, nil
 }
 

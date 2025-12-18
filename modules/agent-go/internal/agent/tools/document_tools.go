@@ -3,6 +3,7 @@ package tools
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -39,12 +40,14 @@ type SearchEntityDocumentsResult struct {
 // ReadDocumentParams defines parameters for reading a document
 type ReadDocumentParams struct {
 	DocumentID int64 `json:"document_id" jsonschema:"The ID of the document to read"`
+	FullContent bool  `json:"full_content,omitempty" jsonschema:"Set to true to get full document content instead of summary (default: false, uses summary if available)"`
 }
 
 // ReadDocumentResult is the result of reading a document
 type ReadDocumentResult struct {
 	Content  string `json:"content"`
 	Filename string `json:"filename"`
+	IsSummary bool   `json:"is_summary"` // True if content is a summary, false if full content
 }
 
 // --- Helper Functions ---
@@ -209,8 +212,9 @@ func formatRawDocumentItems(items []interface{}) []string {
 }
 
 // ReadDocumentCtx reads the content of a document by ID.
+// By default returns summary if available, unless full_content is requested.
 func (t *DocumentTools) ReadDocumentCtx(ctx context.Context, params ReadDocumentParams) (*ReadDocumentResult, error) {
-	log.Printf("📖 read_document called with document_id=%d", params.DocumentID)
+	log.Printf("📖 read_document called with document_id=%d, full_content=%v", params.DocumentID, params.FullContent)
 
 	if t.docService == nil {
 		log.Printf("⚠️ DocumentService not configured")
@@ -226,6 +230,18 @@ func (t *DocumentTools) ReadDocumentCtx(ctx context.Context, params ReadDocument
 		return &ReadDocumentResult{Content: fmt.Sprintf("Document %d not found", params.DocumentID)}, nil
 	}
 
+	// Return summary if available and full_content not requested
+	summaryText := extractSummaryText(doc.Summary)
+	if !params.FullContent && summaryText != "" {
+		log.Printf("📖 read_document returning SUMMARY for '%s' (%d chars)", doc.Filename, len(summaryText))
+		return &ReadDocumentResult{
+			Content:   fmt.Sprintf("=== %s (Summary) ===\n\n%s", doc.Filename, summaryText),
+			Filename:  doc.Filename,
+			IsSummary: true,
+		}, nil
+	}
+
+	// Fall back to downloading full content
 	result, err := t.docService.DownloadDocument(params.DocumentID, doc.TenantID)
 	if err != nil {
 		log.Printf("❌ Document download failed: %v", err)
@@ -234,10 +250,26 @@ func (t *DocumentTools) ReadDocumentCtx(ctx context.Context, params ReadDocument
 
 	content := extractContent(doc, result)
 
-	log.Printf("📖 read_document returning content for '%s' (%d chars)", doc.Filename, len(content))
+	log.Printf("📖 read_document returning FULL content for '%s' (%d chars)", doc.Filename, len(content))
 	return &ReadDocumentResult{
-		Content:  fmt.Sprintf("=== %s ===\n\n%s", doc.Filename, content),
-		Filename: doc.Filename,
+		Content:   fmt.Sprintf("=== %s ===\n\n%s", doc.Filename, content),
+		Filename:  doc.Filename,
+		IsSummary: false,
 	}, nil
+}
+
+// extractSummaryText extracts the text field from a summary JSONB
+func extractSummaryText(summaryBytes []byte) string {
+	if len(summaryBytes) == 0 {
+		return ""
+	}
+	var summary struct {
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(summaryBytes, &summary); err != nil {
+		log.Printf("⚠️ Failed to parse summary JSON: %v", err)
+		return ""
+	}
+	return summary.Text
 }
 

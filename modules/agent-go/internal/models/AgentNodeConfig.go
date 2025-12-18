@@ -1,21 +1,32 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"gorm.io/datatypes"
+)
 
 type AgentNodeConfig struct {
-	ID               int64     `gorm:"primaryKey;autoIncrement" json:"id"`
-	UserID           int64     `gorm:"not null" json:"user_id"`
-	NodeName         string    `gorm:"not null" json:"node_name"`
-	Model            string    `gorm:"not null" json:"model"`
-	Provider         string    `gorm:"not null;default:openai" json:"provider"`
-	Temperature      *float64  `gorm:"column:temperature" json:"temperature,omitempty"`
-	MaxTokens        *int      `gorm:"column:max_tokens" json:"max_tokens,omitempty"`
-	TopP             *float64  `gorm:"column:top_p" json:"top_p,omitempty"`
-	TopK             *int      `gorm:"column:top_k" json:"top_k,omitempty"`
-	FrequencyPenalty *float64  `gorm:"column:frequency_penalty" json:"frequency_penalty,omitempty"`
-	PresencePenalty  *float64  `gorm:"column:presence_penalty" json:"presence_penalty,omitempty"`
-	CreatedAt        time.Time `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt        time.Time `gorm:"autoUpdateTime" json:"updated_at"`
+	ID               int64          `gorm:"primaryKey;autoIncrement" json:"id"`
+	UserID           int64          `gorm:"not null" json:"user_id"`
+	NodeName         string         `gorm:"not null" json:"node_name"`
+	Model            string         `gorm:"not null" json:"model"`
+	Provider         string         `gorm:"not null;default:openai" json:"provider"`
+	Temperature      *float64       `gorm:"column:temperature" json:"temperature,omitempty"`
+	MaxTokens        *int           `gorm:"column:max_tokens" json:"max_tokens,omitempty"`
+	TopP             *float64       `gorm:"column:top_p" json:"top_p,omitempty"`
+	TopK             *int           `gorm:"column:top_k" json:"top_k,omitempty"`
+	FrequencyPenalty *float64       `gorm:"column:frequency_penalty" json:"frequency_penalty,omitempty"`
+	PresencePenalty  *float64       `gorm:"column:presence_penalty" json:"presence_penalty,omitempty"`
+	FallbackChain    datatypes.JSON `gorm:"column:fallback_chain" json:"fallback_chain,omitempty"`
+	CreatedAt        time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt        time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
+}
+
+// FallbackTier represents a single tier in the fallback chain
+type FallbackTier struct {
+	Model          string `json:"model"`
+	TimeoutSeconds int    `json:"timeout_seconds"`
 }
 
 func (AgentNodeConfig) TableName() string {
@@ -53,28 +64,6 @@ var DefaultModels = map[string]struct {
 	NodeGeneralWorker:      {"gpt-5.2", "openai"},
 	NodeEvaluator:          {"claude-sonnet-4-5-20250929", "anthropic"},
 	NodeTitleGenerator:     {"claude-haiku-4-5-20251001", "anthropic"},
-}
-
-// AvailableModels lists available models by provider
-var AvailableModels = map[string][]string{
-	"openai": {
-		"gpt-5.2",
-		"gpt-5.1",
-		"gpt-5",
-		"gpt-5-mini",
-		"gpt-5-nano",
-		"gpt-4.1",
-		"gpt-4.1-mini",
-		"gpt-4o",
-		"gpt-4o-mini",
-		"o3",
-		"o4-mini",
-	},
-	"anthropic": {
-		"claude-sonnet-4-5-20250929",
-		"claude-opus-4-5-20251101",
-		"claude-haiku-4-5-20251001",
-	},
 }
 
 // NodeDisplayNames provides human-readable names for nodes
