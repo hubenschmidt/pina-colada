@@ -712,8 +712,8 @@ func (o *Orchestrator) seedFromDatabaseHistory(ctx context.Context, sessionID st
 		return
 	}
 
-	// Load last 6 messages from database
-	dbMessages, err := o.convService.LoadMessages(sessionID, 6)
+	// Load last 2 messages from database (1 exchange) to minimize context
+	dbMessages, err := o.convService.LoadMessages(sessionID, 2)
 	if err != nil {
 		log.Printf("Warning: failed to load DB history: %v", err)
 		return

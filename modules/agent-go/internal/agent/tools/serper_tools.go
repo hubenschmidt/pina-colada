@@ -181,7 +181,13 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 
 	// Check research cache first
 	if cached := t.checkCache(params.Query); cached != nil {
-		log.Printf("🔍 job_search [%d/%d]: CACHE HIT for query: %s", myCallNum, maxSearchesPerTurn, params.Query)
+		// Update total results count for cache hits too
+		t.callCountMu.Lock()
+		t.totalResults += cached.Count
+		totalNow := t.totalResults
+		t.callCountMu.Unlock()
+		log.Printf("🔍 job_search [%d/%d]: CACHE HIT for query: %s (%d results, running total: %d)",
+			myCallNum, maxSearchesPerTurn, params.Query, cached.Count, totalNow)
 		return cached, nil
 	}
 
