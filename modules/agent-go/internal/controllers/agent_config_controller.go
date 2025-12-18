@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/pina-colada-co/agent-go/internal/agent"
+	"github.com/pina-colada-co/agent-go/internal/agent/utils"
 	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/middleware"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
@@ -19,10 +19,10 @@ import (
 type AgentConfigController struct {
 	configService *services.AgentConfigService
 	userRepo      *repositories.UserRepository
-	configCache   *agent.ConfigCache
+	configCache   *utils.ConfigCache
 }
 
-func NewAgentConfigController(configService *services.AgentConfigService, userRepo *repositories.UserRepository, configCache *agent.ConfigCache) *AgentConfigController {
+func NewAgentConfigController(configService *services.AgentConfigService, userRepo *repositories.UserRepository, configCache *utils.ConfigCache) *AgentConfigController {
 	return &AgentConfigController{
 		configService: configService,
 		userRepo:      userRepo,

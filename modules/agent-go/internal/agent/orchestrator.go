@@ -49,12 +49,12 @@ type Orchestrator struct {
 	model           string
 	anthropicAPIKey string
 	convService     *services.ConversationService
-	configCache     *ConfigCache
+	configCache     *utils.ConfigCache
 	allTools        []agents.Tool
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
-func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *ConfigCache) (*Orchestrator, error) {
+func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache) (*Orchestrator, error) {
 	// Use OpenAI model from config (SDK defaults to OpenAI provider)
 	model := cfg.OpenAIModel
 
@@ -99,8 +99,8 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 	}, nil
 }
 
-// buildModelSettings creates ModelSettings from LLMSettings
-func buildModelSettings(settings LLMSettings) *modelsettings.ModelSettings {
+// buildModelSettings creates ModelSettings from services.LLMSettings
+func buildModelSettings(settings services.LLMSettings) *modelsettings.ModelSettings {
 	if settings.Temperature == nil && settings.MaxTokens == nil && settings.TopP == nil &&
 		settings.FrequencyPenalty == nil && settings.PresencePenalty == nil {
 		return nil
@@ -126,12 +126,12 @@ func buildModelSettings(settings LLMSettings) *modelsettings.ModelSettings {
 }
 
 // logNodeConfig logs model and settings for a node
-func logNodeConfig(userID int64, nodeName, model string, settings LLMSettings) {
+func logNodeConfig(userID int64, nodeName, model string, settings services.LLMSettings) {
 	settingsStr := buildSettingsLogString(settings)
 	log.Printf("[CONFIG] UserID=%d | %s: %s%s", userID, nodeName, model, settingsStr)
 }
 
-func buildSettingsLogString(settings LLMSettings) string {
+func buildSettingsLogString(settings services.LLMSettings) string {
 	var parts []string
 	if settings.Temperature != nil {
 		parts = append(parts, fmt.Sprintf("temp=%.2f", *settings.Temperature))
@@ -170,13 +170,13 @@ func (o *Orchestrator) buildTriageAgentForUser(userID int64, skipSettings bool) 
 	crmModel := o.configCache.GetModel(userID, "crm_worker")
 	generalModel := o.configCache.GetModel(userID, "general_worker")
 
-	// Get settings (empty if skipSettings)
-	var triageSettings, jobSearchSettings, crmSettings, generalSettings LLMSettings
+	// Get settings (empty if skipSettings), filtered for model compatibility
+	var triageSettings, jobSearchSettings, crmSettings, generalSettings services.LLMSettings
 	if !skipSettings {
-		triageSettings = o.configCache.GetSettings(userID, "triage_orchestrator")
-		jobSearchSettings = o.configCache.GetSettings(userID, "job_search_worker")
-		crmSettings = o.configCache.GetSettings(userID, "crm_worker")
-		generalSettings = o.configCache.GetSettings(userID, "general_worker")
+		triageSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "triage_orchestrator"), triageModel)
+		jobSearchSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "job_search_worker"), jobSearchModel)
+		crmSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "crm_worker"), crmModel)
+		generalSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "general_worker"), generalModel)
 	}
 
 	// Log model configuration for each node
@@ -991,10 +991,10 @@ func (o *Orchestrator) runEvaluation(ctx context.Context, req RunRequest, input,
 	// Get evaluator model and settings from config cache
 	userID, _ := strconv.ParseInt(req.UserID, 10, 64)
 	evaluatorModel := ""
-	var evaluatorSettings LLMSettings
+	var evaluatorSettings services.LLMSettings
 	if o.configCache != nil && userID > 0 {
 		evaluatorModel = o.configCache.GetModel(userID, "evaluator")
-		evaluatorSettings = o.configCache.GetSettings(userID, "evaluator")
+		evaluatorSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "evaluator"), evaluatorModel)
 		logNodeConfig(userID, "evaluator", evaluatorModel, evaluatorSettings)
 	}
 	evaluator := NewEvaluator(o.anthropicAPIKey, evalType, evaluatorModel, evaluatorSettings)

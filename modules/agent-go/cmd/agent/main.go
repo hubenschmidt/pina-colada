@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pina-colada-co/agent-go/internal/agent"
+	"github.com/pina-colada-co/agent-go/internal/agent/utils"
 	"github.com/pina-colada-co/agent-go/internal/config"
 	"github.com/pina-colada-co/agent-go/internal/controllers"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
@@ -84,7 +85,7 @@ func main() {
 	agentConfigService := services.NewAgentConfigService(agentConfigRepo)
 
 	// Initialize config cache for agent orchestrator
-	configCache := agent.NewConfigCache(agentConfigService)
+	configCache := utils.NewConfigCache(agentConfigService)
 
 	// Initialize ADK agent orchestrator (only if OpenAI API key is configured)
 	agentOrchestrator := initOrchestrator(cfg, indService, orgService, docService, jobService, convService, configCache)
@@ -155,7 +156,7 @@ func main() {
 }
 
 // initOrchestrator initializes the agent orchestrator if configured
-func initOrchestrator(cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *agent.ConfigCache) *agent.Orchestrator {
+func initOrchestrator(cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache) *agent.Orchestrator {
 	if cfg.OpenAIAPIKey == "" {
 		log.Println("OPENAI_API_KEY not configured - agent endpoints disabled")
 		return nil

@@ -11,6 +11,7 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
+	"github.com/pina-colada-co/agent-go/internal/services"
 )
 
 // EvaluatorResult represents the structured output from an evaluator
@@ -35,13 +36,13 @@ type Evaluator struct {
 	client     anthropic.Client
 	evalType   EvaluatorType
 	model      string
-	settings   LLMSettings
+	settings   services.LLMSettings
 	maxRetries int
 	retryCount int
 }
 
 // NewEvaluator creates a new evaluator with the specified model and settings
-func NewEvaluator(apiKey string, evalType EvaluatorType, model string, settings LLMSettings) *Evaluator {
+func NewEvaluator(apiKey string, evalType EvaluatorType, model string, settings services.LLMSettings) *Evaluator {
 	client := anthropic.NewClient(
 		option.WithAPIKey(apiKey),
 	)

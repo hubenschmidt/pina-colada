@@ -10,6 +10,58 @@ var ErrInvalidNodeName = errors.New("invalid node name")
 var ErrInvalidModel = errors.New("invalid model for provider")
 var ErrInvalidCostTier = errors.New("invalid cost tier")
 
+// LLMSettings contains configurable LLM parameters
+type LLMSettings struct {
+	Temperature      *float64
+	MaxTokens        *int
+	TopP             *float64
+	TopK             *int     // Anthropic only
+	FrequencyPenalty *float64 // OpenAI only
+	PresencePenalty  *float64 // OpenAI only
+}
+
+// unsupportedModelParams maps models to parameters they don't support
+var unsupportedModelParams = map[string]map[string]bool{
+	"claude-opus-4-5-20250514":   {"max_tokens": true, "top_p": true, "temperature": true},
+	"claude-sonnet-4-5-20250514": {"top_p": true, "temperature": true, "max_tokens": true},
+	"gpt-5":                      {"top_p": true, "temperature": true},
+	"gpt-5.1":                    {"top_p": true, "temperature": true},
+	"gpt-5.2":                    {"top_p": true, "temperature": true},
+	"gpt-5-mini":                 {"top_p": true, "temperature": true},
+	"gpt-5-nano":                 {"temperature": true, "top_p": true},
+	"o3":                         {"top_p": true, "temperature": true},
+	"o4-mini":                    {"temperature": true, "top_p": true},
+}
+
+// FilterSettingsForModel removes unsupported parameters for the given model
+func FilterSettingsForModel(settings LLMSettings, model string) LLMSettings {
+	blocked, ok := unsupportedModelParams[model]
+	if !ok {
+		return settings
+	}
+
+	filtered := settings
+	if blocked["temperature"] {
+		filtered.Temperature = nil
+	}
+	if blocked["max_tokens"] {
+		filtered.MaxTokens = nil
+	}
+	if blocked["top_p"] {
+		filtered.TopP = nil
+	}
+	if blocked["top_k"] {
+		filtered.TopK = nil
+	}
+	if blocked["frequency_penalty"] {
+		filtered.FrequencyPenalty = nil
+	}
+	if blocked["presence_penalty"] {
+		filtered.PresencePenalty = nil
+	}
+	return filtered
+}
+
 type AgentConfigService struct {
 	configRepo *repositories.AgentConfigRepository
 }
