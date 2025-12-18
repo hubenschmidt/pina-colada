@@ -25,8 +25,8 @@ func main() {
 	cfg := config.Load()
 	log.Printf("Starting agent-go in %s mode on port %s", cfg.Env, cfg.Port)
 
-	// Initialize database
-	database, err := db.Connect(cfg.DatabaseURL, cfg.Env == "development")
+	// Initialize database (SQL logging disabled - set DB_DEBUG=true to enable)
+	database, err := db.Connect(cfg.DatabaseURL, cfg.DBDebug)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}

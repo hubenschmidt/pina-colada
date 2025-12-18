@@ -195,7 +195,8 @@ func (o *Orchestrator) buildTriageAgentForUser(userID int64, skipSettings bool) 
 	logNodeConfig(userID, "general_worker", generalModel, generalSettings)
 
 	// Create workers with user-specific models and settings
-	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, buildModelSettings(jobSearchSettings), o.allTools)
+	// Disable parallel tool calls for job_search to prevent multiple simultaneous searches
+	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, buildModelSettingsWithOptions(jobSearchSettings, false), o.allTools)
 	crmWorker := workers.NewCRMWorker(crmModel, buildModelSettings(crmSettings), o.allTools)
 	generalWorker := workers.NewGeneralWorker(generalModel, buildModelSettings(generalSettings), o.allTools)
 
@@ -1019,11 +1020,15 @@ func (o *Orchestrator) runEvaluation(ctx context.Context, req RunRequest, input,
 
 	sendEvent(StreamEvent{Type: "eval_start"})
 
+	evalStartTime := time.Now()
 	evalResult, err := evaluator.Evaluate(ctx, req.Message, finalOutput, "")
 	if err != nil {
 		log.Printf("Evaluator error: %v", err)
 		return finalOutput
 	}
+
+	// Record evaluator metrics
+	o.recordEvaluatorMetric(userID, req, evalStartTime, evalResult, evaluatorModel)
 
 	// Pass if score >= 60 or user input needed
 	if evalResult.Score >= 60 || evalResult.UserInputNeeded {
@@ -1057,7 +1062,9 @@ func (o *Orchestrator) runEvaluation(ctx context.Context, req RunRequest, input,
 	}
 
 	// Re-evaluate the retry output
+	retryEvalStartTime := time.Now()
 	evalResult, _ = evaluator.Evaluate(ctx, req.Message, retryOutput, "")
+	o.recordEvaluatorMetric(userID, req, retryEvalStartTime, evalResult, evaluatorModel)
 	sendEvent(StreamEvent{Type: "eval", EvalResult: evalResult})
 	return retryOutput
 }
@@ -1086,12 +1093,9 @@ func (o *Orchestrator) getAgentModel(userID int64, agentName string) string {
 	return o.configCache.GetModel(userID, configKey)
 }
 
-// recordAllAgentMetrics records metrics for each agent that ran during the turn
-func (o *Orchestrator) recordAllAgentMetrics(userID int64, req RunRequest, startTime time.Time, perAgentTokens map[string]TokenUsage) {
+// recordNodeMetric records a single metric for any node (agent, worker, evaluator)
+func (o *Orchestrator) recordNodeMetric(userID int64, req RunRequest, startTime time.Time, nodeName, model string, inputTokens, outputTokens int32) {
 	if o.metricService == nil {
-		return
-	}
-	if len(perAgentTokens) == 0 {
 		return
 	}
 
@@ -1108,95 +1112,44 @@ func (o *Orchestrator) recordAllAgentMetrics(userID int64, req RunRequest, start
 	durationMs := int(endTime.Sub(startTime).Milliseconds())
 	configSnapshot := o.buildMetricConfigSnapshot(userID)
 
-	// Record a metric for each agent
-	for agentName, tokens := range perAgentTokens {
-		agentModel := o.getAgentModel(userID, agentName)
-
-		// Determine provider from model name
-		provider := "openai"
-		if strings.HasPrefix(agentModel, "claude") {
-			provider = "anthropic"
-		}
-
-		metricInput := services.TurnMetricInput{
-			SessionID:      activeSession.ID,
-			ThreadID:       req.SessionID,
-			StartedAt:      startTime,
-			EndedAt:        endTime,
-			DurationMs:     durationMs,
-			InputTokens:    tokens.Input,
-			OutputTokens:   tokens.Output,
-			Model:          agentModel,
-			Provider:       provider,
-			NodeName:       agentName,
-			ConfigSnapshot: configSnapshot,
-			UserMessage:    req.Message,
-		}
-
-		if err := o.metricService.RecordTurn(metricInput); err != nil {
-			log.Printf("Warning: failed to record metric for %s: %v", agentName, err)
-			continue
-		}
-
-		log.Printf("📊 Recorded metric for session %d, agent %s: %d tokens", activeSession.ID, agentName, tokens.Total)
-	}
-}
-
-// recordMetricIfActive records turn metrics if user has an active recording session
-func (o *Orchestrator) recordMetricIfActive(userID int64, req RunRequest, startTime time.Time, turnTokens TokenUsage, currentAgent string) {
-	if o.metricService == nil {
-		return
-	}
-
-	activeSession, err := o.metricService.GetActiveSession(userID)
-	if err != nil {
-		log.Printf("Warning: failed to check active recording session: %v", err)
-		return
-	}
-	if activeSession == nil {
-		return
-	}
-
-	endTime := time.Now()
-	durationMs := int(endTime.Sub(startTime).Milliseconds())
-
-	// Get model from triage agent config
-	triageModel := o.model
-	if o.configCache != nil && userID > 0 {
-		triageModel = o.configCache.GetModel(userID, "triage_orchestrator")
-	}
-
-	// Build config snapshot
-	configSnapshot := o.buildMetricConfigSnapshot(userID)
-
-	// Determine provider from model name
 	provider := "openai"
-	if strings.HasPrefix(triageModel, "claude") {
+	if strings.HasPrefix(model, "claude") {
 		provider = "anthropic"
 	}
 
-	// Record the metric
 	metricInput := services.TurnMetricInput{
 		SessionID:      activeSession.ID,
 		ThreadID:       req.SessionID,
 		StartedAt:      startTime,
 		EndedAt:        endTime,
 		DurationMs:     durationMs,
-		InputTokens:    turnTokens.Input,
-		OutputTokens:   turnTokens.Output,
-		Model:          triageModel,
+		InputTokens:    inputTokens,
+		OutputTokens:   outputTokens,
+		Model:          model,
 		Provider:       provider,
-		NodeName:       currentAgent,
+		NodeName:       nodeName,
 		ConfigSnapshot: configSnapshot,
 		UserMessage:    req.Message,
 	}
 
 	if err := o.metricService.RecordTurn(metricInput); err != nil {
-		log.Printf("Warning: failed to record metric: %v", err)
+		log.Printf("Warning: failed to record metric for %s: %v", nodeName, err)
 		return
 	}
 
-	log.Printf("📊 Recorded metric for session %d: %dms, %d tokens", activeSession.ID, durationMs, turnTokens.Total)
+	log.Printf("📊 Recorded metric for session %d, node %s: %d tokens", activeSession.ID, nodeName, inputTokens+outputTokens)
+}
+
+// recordAllAgentMetrics records metrics for each agent that ran during the turn
+func (o *Orchestrator) recordAllAgentMetrics(userID int64, req RunRequest, startTime time.Time, perAgentTokens map[string]TokenUsage) {
+	if len(perAgentTokens) == 0 {
+		return
+	}
+
+	for agentName, tokens := range perAgentTokens {
+		agentModel := o.getAgentModel(userID, agentName)
+		o.recordNodeMetric(userID, req, startTime, agentName, agentModel, tokens.Input, tokens.Output)
+	}
 }
 
 // buildMetricConfigSnapshot creates a JSON snapshot of current agent configuration
@@ -1230,4 +1183,12 @@ func (o *Orchestrator) buildMetricConfigSnapshot(userID int64) json.RawMessage {
 	}
 
 	return data
+}
+
+// recordEvaluatorMetric records metrics for evaluator calls
+func (o *Orchestrator) recordEvaluatorMetric(userID int64, req RunRequest, startTime time.Time, evalResult *EvaluatorResult, evaluatorModel string) {
+	if evalResult == nil {
+		return
+	}
+	o.recordNodeMetric(userID, req, startTime, "evaluator", evaluatorModel, int32(evalResult.InputTokens), int32(evalResult.OutputTokens))
 }

@@ -20,6 +20,10 @@ type EvaluatorResult struct {
 	SuccessCriteriaMet bool   `json:"success_criteria_met"`
 	UserInputNeeded    bool   `json:"user_input_needed"`
 	Score              int    `json:"score"`
+
+	// Token usage for metrics tracking
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
 }
 
 // EvaluatorType determines which evaluator prompt to use
@@ -132,6 +136,10 @@ func (e *Evaluator) Evaluate(ctx context.Context, userRequest, agentResponse, su
 		log.Printf("⚠️ Failed to parse evaluator response: %v", err)
 		return e.defaultApproval("Failed to parse evaluation, defaulting to approval"), nil
 	}
+
+	// Extract token usage for metrics
+	result.InputTokens = int(resp.Usage.InputTokens)
+	result.OutputTokens = int(resp.Usage.OutputTokens)
 
 	// Apply retry loop logic
 	e.applyRetryLogic(result)

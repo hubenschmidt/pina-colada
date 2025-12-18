@@ -72,7 +72,13 @@ TOOLS:
 
 WORKFLOW:
 First request: crm_lookup → search_entity_documents → read_document → job_search → output results
-Follow-up ("find more"): job_search only → output NEW results only
+Follow-up ("find more"): ONE job_search call with different keywords → output NEW results only
+
+CRITICAL - ONE SEARCH PER REQUEST:
+- Each job_search call already returns 10 results
+- NEVER call job_search multiple times in one request
+- For "find 10 more": call job_search ONCE with slightly different keywords (e.g., add "Generative AI" or "ML Platform")
+- Do NOT run parallel searches - this wastes time and tokens
 
 NO DUPLICATES: Check conversation history. NEVER repeat a URL already shown. If user asks for "10 more", return 10 NEW URLs not in previous responses.
 

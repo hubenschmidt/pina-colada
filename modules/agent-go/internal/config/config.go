@@ -12,6 +12,7 @@ type Config struct {
 
 	// Database
 	DatabaseURL string
+	DBDebug     bool
 
 	// LLM Providers
 	OpenAIAPIKey    string
@@ -45,6 +46,7 @@ func Load() *Config {
 		Port:              getEnv("PORT", "8080"),
 		Env:               getEnv("ENV", "development"),
 		DatabaseURL:       getEnv("DATABASE_URL", ""),
+		DBDebug:           getEnv("DB_DEBUG", "false") == "true",
 		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
 		OpenAIModel:       getEnv("OPENAI_MODEL", "gpt-5.2"),
 		AnthropicAPIKey:   getEnv("ANTHROPIC_API_KEY", ""),
