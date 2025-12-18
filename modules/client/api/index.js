@@ -1306,8 +1306,10 @@ export const getCostTiers = async () => {
   return apiGet("/agent/config/cost-tiers");
 };
 
-export const applyCostTier = async (tier) => {
-  return apiPost("/agent/config/cost-tier", { tier });
+export const applyCostTier = async (tier, provider = null) => {
+  const payload = { tier };
+  if (provider) payload.provider = provider;
+  return apiPost("/agent/config/cost-tier", payload);
 };
 
 // ==============================================

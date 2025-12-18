@@ -68,16 +68,12 @@ func FilterSettingsForModel(settings LLMSettings, model string) LLMSettings {
 }
 
 type AgentConfigService struct {
-	configRepo    *repositories.AgentConfigRepository
-	modelRepo     *repositories.AvailableModelRepository
-	modelCache    map[string]string // modelName -> provider cache
-	modelCacheErr error
+	configRepo *repositories.AgentConfigRepository
 }
 
-func NewAgentConfigService(configRepo *repositories.AgentConfigRepository, modelRepo *repositories.AvailableModelRepository) *AgentConfigService {
+func NewAgentConfigService(configRepo *repositories.AgentConfigRepository) *AgentConfigService {
 	return &AgentConfigService{
 		configRepo: configRepo,
-		modelRepo:  modelRepo,
 	}
 }
 
@@ -94,7 +90,6 @@ type NodeConfigResponse struct {
 	TopK             *int     `json:"top_k,omitempty"`
 	FrequencyPenalty *float64 `json:"frequency_penalty,omitempty"`
 	PresencePenalty  *float64 `json:"presence_penalty,omitempty"`
-	FallbackChain    []byte   `json:"fallback_chain,omitempty"`
 	IsDefault        bool     `json:"is_default"`
 }
 
@@ -143,7 +138,6 @@ func (s *AgentConfigService) GetAgentConfig(userID int64) (*AgentConfigResponse,
 		var topK *int
 		var frequencyPenalty *float64
 		var presencePenalty *float64
-		var fallbackChain []byte
 
 		if override, ok := overrides[nodeName]; ok {
 			model = override.Model
@@ -154,7 +148,6 @@ func (s *AgentConfigService) GetAgentConfig(userID int64) (*AgentConfigResponse,
 			topK = override.TopK
 			frequencyPenalty = override.FrequencyPenalty
 			presencePenalty = override.PresencePenalty
-			fallbackChain = override.FallbackChain
 			isDefault = false
 		}
 
@@ -170,7 +163,6 @@ func (s *AgentConfigService) GetAgentConfig(userID int64) (*AgentConfigResponse,
 			TopK:             topK,
 			FrequencyPenalty: frequencyPenalty,
 			PresencePenalty:  presencePenalty,
-			FallbackChain:    fallbackChain,
 			IsDefault:        isDefault,
 		})
 	}
@@ -260,76 +252,30 @@ func (s *AgentConfigService) ResetNodeConfig(userID int64, nodeName string) (*No
 	}, nil
 }
 
+// availableModels defines models available for selection (hardcoded)
+var availableModels = map[string][]string{
+	"openai":    {"gpt-5.2", "gpt-5.1", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", "o3", "o4-mini"},
+	"anthropic": {"claude-sonnet-4-5-20250929", "claude-opus-4-5-20251101", "claude-haiku-4-5-20251001"},
+}
+
 // GetAvailableModels returns all available models grouped by provider
 func (s *AgentConfigService) GetAvailableModels() *AvailableModelsResponse {
-	resp := &AvailableModelsResponse{
-		OpenAI:    []string{},
-		Anthropic: []string{},
+	return &AvailableModelsResponse{
+		OpenAI:    availableModels["openai"],
+		Anthropic: availableModels["anthropic"],
 	}
-
-	if s.modelRepo == nil {
-		return resp
-	}
-
-	models, err := s.modelRepo.GetActiveModels()
-	if err != nil {
-		return resp
-	}
-
-	for _, m := range models {
-		if m.Provider == "openai" {
-			resp.OpenAI = append(resp.OpenAI, m.ModelName)
-		}
-		if m.Provider == "anthropic" {
-			resp.Anthropic = append(resp.Anthropic, m.ModelName)
-		}
-	}
-
-	return resp
 }
 
-// GetProviderForModel returns the provider for a model from DB, or empty string if not found
+// GetProviderForModel returns the provider for a model, or empty string if not found
 func (s *AgentConfigService) GetProviderForModel(modelName string) string {
-	if s.modelRepo == nil {
-		return ""
-	}
-
-	model, err := s.modelRepo.GetModelByName(modelName)
-	if err != nil || model == nil {
-		return ""
-	}
-
-	return model.Provider
-}
-
-// ModelTierDTO represents a model tier for fallback chains
-type ModelTierDTO struct {
-	Model          string
-	TimeoutSeconds int
-}
-
-// GetDefaultFallbackChain returns the default fallback chain for a provider from DB
-// Models are ordered by sort_order (ascending), so fastest models come last
-func (s *AgentConfigService) GetDefaultFallbackChain(provider string) []ModelTierDTO {
-	if s.modelRepo == nil {
-		return nil
-	}
-
-	models, err := s.modelRepo.GetModelsByProvider(provider)
-	if err != nil || len(models) == 0 {
-		return nil
-	}
-
-	// Build chain with models ordered by sort_order (slowest/most capable first)
-	chain := make([]ModelTierDTO, len(models))
-	for i, m := range models {
-		chain[i] = ModelTierDTO{
-			Model:          m.ModelName,
-			TimeoutSeconds: m.DefaultTimeoutSeconds,
+	for provider, models := range availableModels {
+		for _, m := range models {
+			if m == modelName {
+				return provider
+			}
 		}
 	}
-
-	return chain
+	return ""
 }
 
 // GetModelForNode returns the model for a specific node for a user
@@ -471,11 +417,16 @@ func (s *AgentConfigService) GetCostTiers() []CostTierResponse {
 
 // ApplyCostTier applies a cost tier to all nodes and returns updated config
 func (s *AgentConfigService) ApplyCostTier(userID int64, tier string) (*AgentConfigResponse, error) {
+	return s.ApplyCostTierWithProvider(userID, tier, "")
+}
+
+// ApplyCostTierWithProvider applies a cost tier with optional provider override
+func (s *AgentConfigService) ApplyCostTierWithProvider(userID int64, tier, provider string) (*AgentConfigResponse, error) {
 	if !repositories.IsValidCostTier(tier) {
 		return nil, ErrInvalidCostTier
 	}
 
-	err := s.configRepo.ApplyCostTierToNodes(userID, tier)
+	err := s.configRepo.ApplyCostTierToNodesWithProvider(userID, tier, provider)
 	if err != nil {
 		return nil, err
 	}

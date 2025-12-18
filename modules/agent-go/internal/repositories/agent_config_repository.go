@@ -144,7 +144,6 @@ type AgentNodeConfigDTO struct {
 	TopK             *int     `json:"top_k,omitempty"`
 	FrequencyPenalty *float64 `json:"frequency_penalty,omitempty"`
 	PresencePenalty  *float64 `json:"presence_penalty,omitempty"`
-	FallbackChain    []byte   `json:"fallback_chain,omitempty"`
 }
 
 // GetUserConfigs returns all agent node configurations for a user
@@ -167,7 +166,6 @@ func (r *AgentConfigRepository) GetUserConfigs(userID int64) ([]AgentNodeConfigD
 			TopK:             cfg.TopK,
 			FrequencyPenalty: cfg.FrequencyPenalty,
 			PresencePenalty:  cfg.PresencePenalty,
-			FallbackChain:    cfg.FallbackChain,
 		}
 	}
 	return result, nil
@@ -193,7 +191,6 @@ func (r *AgentConfigRepository) GetNodeConfig(userID int64, nodeName string) (*A
 		TopK:             cfg.TopK,
 		FrequencyPenalty: cfg.FrequencyPenalty,
 		PresencePenalty:  cfg.PresencePenalty,
-		FallbackChain:    cfg.FallbackChain,
 	}, nil
 }
 
@@ -452,12 +449,22 @@ func getModelForTier(tierConfig CostTierModelConfig, baseProvider string) (model
 
 // ApplyCostTierToNodes applies cost tier model selections to all nodes for a user
 func (r *AgentConfigRepository) ApplyCostTierToNodes(userID int64, tier string) error {
+	return r.ApplyCostTierToNodesWithProvider(userID, tier, "")
+}
+
+// ApplyCostTierToNodesWithProvider applies cost tier with optional provider override
+func (r *AgentConfigRepository) ApplyCostTierToNodesWithProvider(userID int64, tier, providerOverride string) error {
 	tierConfig := CostTierModels[tier]
 
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		for _, nodeName := range AllNodeNames {
 			defaultCfg := DefaultModels[nodeName]
-			model, provider := getModelForTier(tierConfig, defaultCfg.Provider)
+			// Use provider override if specified, otherwise use node's default provider
+			targetProvider := defaultCfg.Provider
+			if providerOverride != "" {
+				targetProvider = providerOverride
+			}
+			model, provider := getModelForTier(tierConfig, targetProvider)
 
 			cfg := models.AgentNodeConfig{
 				UserID:   userID,

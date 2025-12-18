@@ -293,7 +293,8 @@ func (c *AgentConfigController) GetCostTiers(w http.ResponseWriter, r *http.Requ
 
 // ApplyCostTierRequest represents the request body for applying a cost tier
 type ApplyCostTierRequest struct {
-	Tier string `json:"tier"`
+	Tier     string `json:"tier"`
+	Provider string `json:"provider,omitempty"`
 }
 
 // ApplyCostTier handles POST /agent/config/cost-tier
@@ -315,7 +316,7 @@ func (c *AgentConfigController) ApplyCostTier(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	result, err := c.configService.ApplyCostTier(userID, input.Tier)
+	result, err := c.configService.ApplyCostTierWithProvider(userID, input.Tier, input.Provider)
 	if errors.Is(err, services.ErrInvalidCostTier) {
 		writeConfigError(w, http.StatusBadRequest, "invalid cost tier")
 		return

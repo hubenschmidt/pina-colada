@@ -2,8 +2,6 @@ package models
 
 import (
 	"time"
-
-	"gorm.io/datatypes"
 )
 
 type AgentNodeConfig struct {
@@ -17,16 +15,9 @@ type AgentNodeConfig struct {
 	TopP             *float64       `gorm:"column:top_p" json:"top_p,omitempty"`
 	TopK             *int           `gorm:"column:top_k" json:"top_k,omitempty"`
 	FrequencyPenalty *float64       `gorm:"column:frequency_penalty" json:"frequency_penalty,omitempty"`
-	PresencePenalty  *float64       `gorm:"column:presence_penalty" json:"presence_penalty,omitempty"`
-	FallbackChain    datatypes.JSON `gorm:"column:fallback_chain" json:"fallback_chain,omitempty"`
-	CreatedAt        time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	PresencePenalty *float64  `gorm:"column:presence_penalty" json:"presence_penalty,omitempty"`
+	CreatedAt       time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt        time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
-}
-
-// FallbackTier represents a single tier in the fallback chain
-type FallbackTier struct {
-	Model          string `json:"model"`
-	TimeoutSeconds int    `json:"timeout_seconds"`
 }
 
 func (AgentNodeConfig) TableName() string {
