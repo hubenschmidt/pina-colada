@@ -46,35 +46,42 @@ var (
 
 // Orchestrator coordinates the agent system using openai-agents-go SDK
 type Orchestrator struct {
-	triageAgent     *agents.Agent
-	stateManager    state.StateManager
-	model           string
-	anthropicAPIKey string
-	convService     *services.ConversationService
-	configCache     *utils.ConfigCache
-	allTools        []agents.Tool
-	metricService   *services.MetricService
-	serperTools     *tools.SerperTools
-	cacheTools      *tools.CacheTools
+	triageAgent        *agents.Agent
+	stateManager       state.StateManager
+	model              string
+	anthropicAPIKey    string
+	convService        *services.ConversationService
+	configCache        *utils.ConfigCache
+	allTools           []agents.Tool
+	metricService      *services.MetricService
+	serperTools        *tools.SerperTools
+	cacheTools         *tools.CacheTools
+	openaiProvider     *agents.OpenAIProvider
+	anthropicProvider  *agents.OpenAIProvider
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
 func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo tools.CacheRepositoryInterface) (*Orchestrator, error) {
-	// Configure SDK to use Anthropic's OpenAI-compatible endpoint
-	// See: https://platform.claude.com/docs/en/api/openai-sdk
-	if cfg.AnthropicAPIKey != "" {
-		// Force chat completions API (not responses API) - required for Anthropic compatibility
-		agents.SetDefaultOpenaiAPI(agents.OpenaiAPITypeChatCompletions)
+	// Create providers for both OpenAI and Anthropic
+	// The correct provider is selected at runtime based on the model's provider setting
+	openaiProvider := agents.NewOpenAIProvider(agents.OpenAIProviderParams{
+		APIKey: param.NewOpt(cfg.OpenAIAPIKey),
+		// UseResponses defaults to true (responses API) - has proper token tracking
+	})
 
-		anthropicClient := agents.NewOpenaiClient(
-			param.NewOpt("https://api.anthropic.com/v1/"),
-			param.NewOpt(cfg.AnthropicAPIKey),
-		)
-		agents.SetDefaultOpenaiClient(anthropicClient, false)
-		log.Printf("Configured SDK to use Anthropic's OpenAI-compatible endpoint (chat completions mode)")
+	var anthropicProvider *agents.OpenAIProvider
+	if cfg.AnthropicAPIKey != "" {
+		anthropicProvider = agents.NewOpenAIProvider(agents.OpenAIProviderParams{
+			BaseURL:      param.NewOpt("https://api.anthropic.com/v1/"),
+			APIKey:       param.NewOpt(cfg.AnthropicAPIKey),
+			UseResponses: param.NewOpt(false), // Anthropic only supports chat completions
+		})
+		log.Printf("Initialized Anthropic provider (OpenAI-compatible endpoint, chat completions mode)")
 	}
 
-	// Use configured model (defaults to Claude for Anthropic)
+	log.Printf("Initialized OpenAI provider (responses API mode)")
+
+	// Use configured model as default
 	model := cfg.OpenAIModel
 
 	// Create job service adapter for filtering applied jobs
@@ -109,16 +116,18 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 	log.Printf("OpenAI Agents SDK orchestrator initialized with triage routing")
 
 	return &Orchestrator{
-		triageAgent:     triageAgent,
-		stateManager:    stateMgr,
-		model:           model,
-		anthropicAPIKey: cfg.AnthropicAPIKey,
-		convService:     convService,
-		configCache:     configCache,
-		allTools:        allTools,
-		metricService:   metricService,
-		serperTools:     serperTools,
-		cacheTools:      cacheTools,
+		triageAgent:       triageAgent,
+		stateManager:      stateMgr,
+		model:             model,
+		anthropicAPIKey:   cfg.AnthropicAPIKey,
+		convService:       convService,
+		configCache:       configCache,
+		allTools:          allTools,
+		metricService:     metricService,
+		serperTools:       serperTools,
+		cacheTools:        cacheTools,
+		openaiProvider:    openaiProvider,
+		anthropicProvider: anthropicProvider,
 	}, nil
 }
 
@@ -567,6 +576,7 @@ func (s *streamState) handleRawResponse(e agents.RawResponsesStreamEvent) {
 	if e.Data.Type != "response.completed" {
 		return
 	}
+	// Note: Usage may be zero for chat completions streaming - SDK limitation
 	if e.Data.Response.Usage.TotalTokens == 0 {
 		return
 	}
@@ -603,6 +613,23 @@ func (s *streamState) tryHandleRawResponses(event agents.StreamEvent) {
 	s.handleRawResponse(e)
 }
 
+// getProviderForUser returns the appropriate model provider based on user's config
+func (o *Orchestrator) getProviderForUser(userID int64) agents.ModelProvider {
+	if o.configCache == nil || userID == 0 {
+		return o.openaiProvider
+	}
+
+	// Check the triage orchestrator's provider setting
+	provider := o.configCache.GetProvider(userID, "triage_orchestrator")
+	if provider == "anthropic" && o.anthropicProvider != nil {
+		log.Printf("Using Anthropic provider for user %d", userID)
+		return o.anthropicProvider
+	}
+
+	log.Printf("Using OpenAI provider for user %d", userID)
+	return o.openaiProvider
+}
+
 // runAgentStream runs the agent and returns the stream state and any error
 func (o *Orchestrator) runAgentStream(ctx context.Context, userID int64, input string, useEvaluator bool, sendEvent func(StreamEvent), skipSettings bool) (*streamState, error) {
 	// Check for fallback chain (model promotion)
@@ -617,8 +644,9 @@ func (o *Orchestrator) runAgentStream(ctx context.Context, userID int64, input s
 // runAgentStreamDirect runs agent without model promotion
 func (o *Orchestrator) runAgentStreamDirect(ctx context.Context, userID int64, input string, useEvaluator bool, sendEvent func(StreamEvent), skipSettings bool) (*streamState, error) {
 	triageAgent := o.buildTriageAgentForUser(userID, skipSettings)
+	provider := o.getProviderForUser(userID)
 
-	runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20}}
+	runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20, ModelProvider: provider}}
 	eventsChan, errChan, err := runner.RunStreamedChan(ctx, triageAgent, input)
 	if err != nil {
 		return nil, err
@@ -640,6 +668,7 @@ func (o *Orchestrator) runAgentStreamDirect(ctx context.Context, userID int64, i
 // runAgentStreamWithPromotion runs agent with automatic model promotion on slow responses
 func (o *Orchestrator) runAgentStreamWithPromotion(ctx context.Context, userID int64, input string, useEvaluator bool, sendEvent func(StreamEvent), skipSettings bool, modelChain []promoter.ModelTier) (*streamState, error) {
 	mp := promoter.NewModelPromoter(modelChain)
+	provider := o.getProviderForUser(userID)
 
 	ss := &streamState{
 		useEvaluator: useEvaluator,
@@ -652,7 +681,7 @@ func (o *Orchestrator) runAgentStreamWithPromotion(ctx context.Context, userID i
 	// RunFunc starts streaming with a specific model
 	runFn := func(runCtx context.Context, model string) (<-chan agents.StreamEvent, <-chan error, error) {
 		triageAgent := o.buildTriageAgentForUserWithModel(userID, model, skipSettings)
-		runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20}}
+		runner := agents.Runner{Config: agents.RunConfig{MaxTurns: 20, ModelProvider: provider}}
 		return runner.RunStreamedChan(runCtx, triageAgent, input)
 	}
 
