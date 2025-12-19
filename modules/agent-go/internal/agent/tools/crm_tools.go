@@ -12,15 +12,27 @@ import (
 
 // CRMTools holds CRM-related tools for the agent
 type CRMTools struct {
-	indService *services.IndividualService
-	orgService *services.OrganizationService
+	indService     *services.IndividualService
+	orgService     *services.OrganizationService
+	contactService *services.ContactService
+	jobService     *services.JobService
+	accountService *services.AccountService
 }
 
 // NewCRMTools creates CRM tools with service dependencies
-func NewCRMTools(indService *services.IndividualService, orgService *services.OrganizationService) *CRMTools {
+func NewCRMTools(
+	indService *services.IndividualService,
+	orgService *services.OrganizationService,
+	contactService *services.ContactService,
+	jobService *services.JobService,
+	accountService *services.AccountService,
+) *CRMTools {
 	return &CRMTools{
-		indService: indService,
-		orgService: orgService,
+		indService:     indService,
+		orgService:     orgService,
+		contactService: contactService,
+		jobService:     jobService,
+		accountService: accountService,
 	}
 }
 
@@ -28,8 +40,9 @@ func NewCRMTools(indService *services.IndividualService, orgService *services.Or
 
 // CRMLookupParams defines parameters for CRM entity lookup
 type CRMLookupParams struct {
-	EntityType string `json:"entity_type" jsonschema:"The type of CRM entity to search: individual, organization, account, or contact"`
-	Query      string `json:"query" jsonschema:"Search term for entity lookup (name, email, etc.)"`
+	EntityType string   `json:"entity_type" jsonschema:"The type of CRM entity to search: individual, organization, contact, account, job, or lead"`
+	Query      string   `json:"query,omitempty" jsonschema:"Search term for entity lookup (name, email, etc.)"`
+	Status     []string `json:"status,omitempty" jsonschema:"Filter by status names (for job/lead only, e.g., applied, interviewing)"`
 }
 
 // CRMLookupResult is the result of a CRM lookup
@@ -61,12 +74,21 @@ type CRMListResult struct {
 	Count   int    `json:"count"`
 }
 
+// CRMStatusesParams defines parameters for listing available statuses
+type CRMStatusesParams struct{}
+
+// CRMStatusesResult is the result of listing statuses
+type CRMStatusesResult struct {
+	Results string `json:"results"`
+	Count   int    `json:"count"`
+}
+
 // --- Tool Functions ---
 
 // LookupCtx searches for CRM entities by type and query.
 func (t *CRMTools) LookupCtx(ctx context.Context, params CRMLookupParams) (*CRMLookupResult, error) {
 	entityType := strings.ToLower(params.EntityType)
-	log.Printf("🔍 crm_lookup called with entity_type='%s', query='%s'", entityType, params.Query)
+	log.Printf("🔍 crm_lookup called with entity_type='%s', query='%s', status=%v", entityType, params.Query, params.Status)
 
 	if entityType == "individual" {
 		return t.lookupIndividual(params.Query)
@@ -74,9 +96,18 @@ func (t *CRMTools) LookupCtx(ctx context.Context, params CRMLookupParams) (*CRML
 	if entityType == "organization" {
 		return t.lookupOrganization(params.Query)
 	}
+	if entityType == "contact" {
+		return t.lookupContact(params.Query)
+	}
+	if entityType == "account" {
+		return t.lookupAccount(params.Query)
+	}
+	if entityType == "job" || entityType == "lead" {
+		return t.lookupJobLeads(params.Status)
+	}
 	log.Printf("⚠️  Unknown entity type: %s", entityType)
 	return &CRMLookupResult{
-		Results: fmt.Sprintf("Unknown entity type: %s. Supported: individual, organization", entityType),
+		Results: fmt.Sprintf("Unknown entity type: %s. Supported: individual, organization, contact, account, job, lead", entityType),
 	}, nil
 }
 
@@ -125,6 +156,112 @@ func (t *CRMTools) lookupOrganization(query string) (*CRMLookupResult, error) {
 	return &CRMLookupResult{
 		Results: fmt.Sprintf("Found %d organizations:\n%s", len(results), strings.Join(lines, "\n")),
 		Count:   len(results),
+	}, nil
+}
+
+func (t *CRMTools) lookupContact(query string) (*CRMLookupResult, error) {
+	if t.contactService == nil {
+		log.Printf("⚠️ ContactService not configured")
+		return &CRMLookupResult{Results: "CRM service not configured. Unable to look up contacts."}, nil
+	}
+	results, err := t.contactService.SearchContacts(query, 10)
+	if err != nil {
+		log.Printf("❌ Contact lookup failed: %v", err)
+		return &CRMLookupResult{Results: fmt.Sprintf("Error: %v", err)}, nil
+	}
+	log.Printf("🔍 crm_lookup found %d contacts", len(results))
+	if len(results) == 0 {
+		return &CRMLookupResult{Results: fmt.Sprintf("No contacts found matching '%s'", query)}, nil
+	}
+	var lines []string
+	for _, c := range results {
+		lines = append(lines, formatContact(c))
+	}
+	return &CRMLookupResult{
+		Results: fmt.Sprintf("Found %d contacts:\n%s", len(results), strings.Join(lines, "\n")),
+		Count:   len(results),
+	}, nil
+}
+
+func (t *CRMTools) lookupAccount(query string) (*CRMLookupResult, error) {
+	if t.accountService == nil {
+		log.Printf("⚠️ AccountService not configured")
+		return &CRMLookupResult{Results: "CRM service not configured. Unable to look up accounts."}, nil
+	}
+	results, err := t.accountService.SearchAccounts(query, nil, 10)
+	if err != nil {
+		log.Printf("❌ Account lookup failed: %v", err)
+		return &CRMLookupResult{Results: fmt.Sprintf("Error: %v", err)}, nil
+	}
+	log.Printf("🔍 crm_lookup found %d accounts", len(results))
+	if len(results) == 0 {
+		return &CRMLookupResult{Results: fmt.Sprintf("No accounts found matching '%s'", query)}, nil
+	}
+	var lines []string
+	for _, a := range results {
+		lines = append(lines, fmt.Sprintf("- %s (type=%s, id=%d)", a.Name, a.Type, a.ID))
+	}
+	return &CRMLookupResult{
+		Results: fmt.Sprintf("Found %d accounts:\n%s", len(results), strings.Join(lines, "\n")),
+		Count:   len(results),
+	}, nil
+}
+
+func (t *CRMTools) lookupJobLeads(statusNames []string) (*CRMLookupResult, error) {
+	if t.jobService == nil {
+		log.Printf("⚠️ JobService not configured")
+		return &CRMLookupResult{Results: "CRM service not configured. Unable to look up job leads."}, nil
+	}
+	results, err := t.jobService.GetLeads(statusNames, nil)
+	if err != nil {
+		log.Printf("❌ Job leads lookup failed: %v", err)
+		return &CRMLookupResult{Results: fmt.Sprintf("Error: %v", err)}, nil
+	}
+	log.Printf("🔍 crm_lookup found %d job leads", len(results))
+	statusMsg := "all statuses"
+	if len(statusNames) > 0 {
+		statusMsg = fmt.Sprintf("status %v", statusNames)
+	}
+	if len(results) == 0 {
+		return &CRMLookupResult{Results: fmt.Sprintf("No job leads found with %s.", statusMsg)}, nil
+	}
+	var lines []string
+	for _, j := range results {
+		lines = append(lines, formatJobLead(j))
+	}
+	return &CRMLookupResult{
+		Results: fmt.Sprintf("Found %d job leads with %s:\n%s", len(results), statusMsg, strings.Join(lines, "\n")),
+		Count:   len(results),
+	}, nil
+}
+
+// ListStatusesCtx returns available job lead statuses
+func (t *CRMTools) ListStatusesCtx(ctx context.Context, params CRMStatusesParams) (*CRMStatusesResult, error) {
+	if t.jobService == nil {
+		log.Printf("⚠️ JobService not configured")
+		return &CRMStatusesResult{Results: "Job service not configured."}, nil
+	}
+	log.Printf("📋 crm_statuses called")
+	statuses, err := t.jobService.GetLeadStatuses()
+	if err != nil {
+		log.Printf("❌ Lead statuses lookup failed: %v", err)
+		return &CRMStatusesResult{Results: fmt.Sprintf("Error: %v", err)}, nil
+	}
+	if len(statuses) == 0 {
+		return &CRMStatusesResult{Results: "No job lead statuses configured."}, nil
+	}
+	log.Printf("📋 crm_statuses found %d statuses", len(statuses))
+	var lines []string
+	for _, s := range statuses {
+		terminal := ""
+		if s.IsTerminal {
+			terminal = " [terminal]"
+		}
+		lines = append(lines, fmt.Sprintf("- %s%s", s.Name, terminal))
+	}
+	return &CRMStatusesResult{
+		Results: fmt.Sprintf("Available job lead statuses:\n%s", strings.Join(lines, "\n")),
+		Count:   len(statuses),
 	}, nil
 }
 
@@ -204,4 +341,21 @@ func formatIndividual(ind serializers.IndividualBrief) string {
 		email = *ind.Email
 	}
 	return fmt.Sprintf("- %s (id=%d, email=%s)", name, ind.ID, email)
+}
+
+func formatContact(c serializers.ContactResponse) string {
+	name := strings.TrimSpace(fmt.Sprintf("%s %s", c.FirstName, c.LastName))
+	email := "N/A"
+	if c.Email != nil {
+		email = *c.Email
+	}
+	return fmt.Sprintf("- %s (id=%d, email=%s)", name, c.ID, email)
+}
+
+func formatJobLead(j serializers.JobDetailResponse) string {
+	status := "unknown"
+	if j.LeadStatus.Name != "" {
+		status = j.LeadStatus.Name
+	}
+	return fmt.Sprintf("- %s at %s (status=%s, id=%d)", j.JobTitle, j.Account, status, j.ID)
 }

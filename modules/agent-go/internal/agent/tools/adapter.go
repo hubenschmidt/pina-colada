@@ -12,7 +12,9 @@ func BuildAgentTools(crm *CRMTools, serper *SerperTools, doc *DocumentTools, ema
 	return collectTools(
 		crmLookupTool(crm),
 		crmListTool(crm),
+		crmStatusesTool(crm),
 		jobSearchTool(serper),
+		webSearchTool(serper),
 		searchDocsTool(doc),
 		readDocTool(doc),
 		sendEmailTool(email),
@@ -36,7 +38,7 @@ func crmLookupTool(crm *CRMTools) agents.Tool {
 	}
 	return agents.NewFunctionTool(
 		"crm_lookup",
-		"Search for CRM entities (individuals, organizations) by name, email, or other attributes.",
+		"Search for CRM entities by type. Supported entity_type: individual, organization, contact, account, job, lead. For job/lead, use status array to filter (e.g., ['interviewing', 'applied']).",
 		func(ctx context.Context, args CRMLookupParams) (string, error) {
 			result, err := crm.LookupCtx(ctx, args)
 			if err != nil {
@@ -64,6 +66,23 @@ func crmListTool(crm *CRMTools) agents.Tool {
 	)
 }
 
+func crmStatusesTool(crm *CRMTools) agents.Tool {
+	if crm == nil {
+		return nil
+	}
+	return agents.NewFunctionTool(
+		"crm_statuses",
+		"List available job lead statuses. Use this to see what status values can be used to filter job/lead queries.",
+		func(ctx context.Context, args CRMStatusesParams) (string, error) {
+			result, err := crm.ListStatusesCtx(ctx, args)
+			if err != nil {
+				return "", err
+			}
+			return result.Results, nil
+		},
+	)
+}
+
 func jobSearchTool(serper *SerperTools) agents.Tool {
 	if serper == nil {
 		return nil
@@ -73,6 +92,23 @@ func jobSearchTool(serper *SerperTools) agents.Tool {
 		"Search for job listings. Returns direct company career pages and ATS-hosted pages (Greenhouse, Lever, Ashby). Excludes job boards like LinkedIn, Indeed, Glassdoor.",
 		func(ctx context.Context, args JobSearchParams) (string, error) {
 			result, err := serper.JobSearchCtx(ctx, args)
+			if err != nil {
+				return "", err
+			}
+			return result.Results, nil
+		},
+	)
+}
+
+func webSearchTool(serper *SerperTools) agents.Tool {
+	if serper == nil {
+		return nil
+	}
+	return agents.NewFunctionTool(
+		"web_search",
+		"Search the web for general information. Use for background research on people, companies, or topics. Returns titles, snippets, and URLs.",
+		func(ctx context.Context, args WebSearchParams) (string, error) {
+			result, err := serper.WebSearchCtx(ctx, args)
 			if err != nil {
 				return "", err
 			}

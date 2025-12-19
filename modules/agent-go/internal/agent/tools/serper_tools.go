@@ -112,6 +112,17 @@ type JobSearchParams struct {
 	Query string `json:"query" jsonschema:"Job search query (e.g., 'Senior Software Engineer NYC startups')"`
 }
 
+// WebSearchParams defines parameters for general web search
+type WebSearchParams struct {
+	Query string `json:"query" jsonschema:"Search query (e.g., 'John Smith LinkedIn')"`
+}
+
+// WebSearchResult is the result of a general web search
+type WebSearchResult struct {
+	Results string `json:"results"`
+	Count   int    `json:"count"`
+}
+
 // JobSearchResult is the result of a job search
 type JobSearchResult struct {
 	Results string `json:"results"`
@@ -500,5 +511,66 @@ func (t *SerperTools) storeListingsCache(query string, listings []JobListing) {
 	}
 
 	t.cacheTools.StoreCache("job_search", query, string(data), len(listings))
+}
+
+// WebSearchCtx performs a general web search without job-specific filtering.
+// Use for background research on people, companies, or general information.
+func (t *SerperTools) WebSearchCtx(ctx context.Context, params WebSearchParams) (*WebSearchResult, error) {
+	if t.apiKey == "" {
+		return &WebSearchResult{Results: "Web search not configured. SERPER_API_KEY required."}, nil
+	}
+
+	log.Printf("🔍 web_search: query=%s", params.Query)
+
+	reqBody := serperRequest{Q: params.Query, Num: 10}
+	jsonBody, err := json.Marshal(reqBody)
+	if err != nil {
+		return &WebSearchResult{Results: fmt.Sprintf("Error encoding request: %v", err)}, nil
+	}
+
+	client := &http.Client{Timeout: 15 * time.Second}
+	req, err := http.NewRequest("POST", "https://google.serper.dev/search", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return &WebSearchResult{Results: fmt.Sprintf("Error creating request: %v", err)}, nil
+	}
+
+	req.Header.Set("X-API-KEY", t.apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Serper API error: %v", err)
+		return &WebSearchResult{Results: fmt.Sprintf("Search failed: %v", err)}, nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		log.Printf("Serper API error: %d - %s", resp.StatusCode, string(body))
+		return &WebSearchResult{Results: fmt.Sprintf("Search failed: HTTP %d", resp.StatusCode)}, nil
+	}
+
+	var serperResp serperResponse
+	if err := json.NewDecoder(resp.Body).Decode(&serperResp); err != nil {
+		return &WebSearchResult{Results: fmt.Sprintf("Error parsing response: %v", err)}, nil
+	}
+
+	return &WebSearchResult{
+		Results: formatWebResults(serperResp.Organic),
+		Count:   len(serperResp.Organic),
+	}, nil
+}
+
+// formatWebResults formats general web search results for display
+func formatWebResults(organic []serperOrganicResult) string {
+	if len(organic) == 0 {
+		return "No results found."
+	}
+
+	var lines []string
+	for i, item := range organic {
+		lines = append(lines, fmt.Sprintf("%d. **%s**\n   %s\n   %s", i+1, item.Title, item.Snippet, item.Link))
+	}
+	return strings.Join(lines, "\n\n")
 }
 

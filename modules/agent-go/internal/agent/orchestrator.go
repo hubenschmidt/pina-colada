@@ -59,7 +59,7 @@ type Orchestrator struct {
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
-func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo tools.CacheRepositoryInterface) (*Orchestrator, error) {
+func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo tools.CacheRepositoryInterface, contactService *services.ContactService, accountService *services.AccountService) (*Orchestrator, error) {
 	// Create providers for both OpenAI and Anthropic
 	// The correct provider is selected at runtime based on the model's provider setting
 	openaiProvider := agents.NewOpenAIProvider(agents.OpenAIProviderParams{
@@ -89,7 +89,7 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 	}
 
 	// Create all tools using the adapter
-	crmTools := tools.NewCRMTools(indService, orgService)
+	crmTools := tools.NewCRMTools(indService, orgService, contactService, jobService, accountService)
 	cacheTools := tools.NewCacheTools(cacheRepo)
 	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter, cacheTools, cfg.PublicURL)
 	docTools := tools.NewDocumentTools(docService)

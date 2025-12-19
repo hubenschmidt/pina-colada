@@ -101,7 +101,7 @@ func main() {
 	configCache := utils.NewConfigCache(agentConfigService)
 
 	// Initialize ADK agent orchestrator (only if OpenAI API key is configured)
-	agentOrchestrator := initOrchestrator(cfg, indService, orgService, docService, jobService, convService, configCache, metricService, cacheRepo)
+	agentOrchestrator := initOrchestrator(cfg, indService, orgService, docService, jobService, convService, configCache, metricService, cacheRepo, contactService, accountService)
 
 	// Initialize controllers
 	ctrls := &routes.Controllers{
@@ -171,14 +171,14 @@ func main() {
 }
 
 // initOrchestrator initializes the agent orchestrator if configured
-func initOrchestrator(cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo *repositories.ResearchCacheRepository) *agent.Orchestrator {
+func initOrchestrator(cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo *repositories.ResearchCacheRepository, contactService *services.ContactService, accountService *services.AccountService) *agent.Orchestrator {
 	if cfg.OpenAIAPIKey == "" {
 		log.Println("OPENAI_API_KEY not configured - agent endpoints disabled")
 		return nil
 	}
 
 	ctx := context.Background()
-	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, convService, configCache, metricService, cacheRepo)
+	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, convService, configCache, metricService, cacheRepo, contactService, accountService)
 	if err != nil {
 		log.Printf("Warning: Failed to initialize agent orchestrator: %v", err)
 		log.Printf("Agent endpoints will return errors until configured")
