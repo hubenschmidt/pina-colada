@@ -1,6 +1,6 @@
 "use client";
-import { createContext, useContext, useState, useCallback } from "react";
-import { getAgentConfig } from "../api";
+import { createContext, useContext, useState, useCallback, useEffect } from "react";
+import { getAgentConfig, getActiveMetricRecording } from "../api";
 
 const initialState = {
   config: null,
@@ -15,6 +15,7 @@ export const AgentConfigContext = createContext({
   refetchConfig: () => {},
   setConfig: () => {},
   setIsRecording: () => {},
+  fetchRecordingState: () => {},
 });
 
 export const useAgentConfig = () => useContext(AgentConfigContext);
@@ -25,6 +26,21 @@ export const AgentConfigProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [hasFetched, setHasFetched] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
+
+  const fetchRecordingState = useCallback(async () => {
+    try {
+      const data = await getActiveMetricRecording();
+      setIsRecording(data?.active === true);
+      return data?.active === true;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  // Fetch recording state on mount
+  useEffect(() => {
+    fetchRecordingState();
+  }, [fetchRecordingState]);
 
   const fetchConfig = useCallback(async () => {
     if (hasFetched || loading) return config;
@@ -64,7 +80,7 @@ export const AgentConfigProvider = ({ children }) => {
 
   return (
     <AgentConfigContext.Provider
-      value={{ config, loading, error, fetchConfig, refetchConfig, setConfig, isRecording, setIsRecording }}>
+      value={{ config, loading, error, fetchConfig, refetchConfig, setConfig, isRecording, setIsRecording, fetchRecordingState }}>
       {children}
     </AgentConfigContext.Provider>
   );

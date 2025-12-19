@@ -21,31 +21,49 @@ type LLMSettings struct {
 }
 
 // unsupportedModelParams maps models to parameters they don't support
-// top_k is Anthropic-only, must be blocked for all OpenAI models
+// top_k is Anthropic-only, frequency/presence_penalty are OpenAI-only
 var unsupportedModelParams = map[string]map[string]bool{
-	"claude-opus-4-5-20251101":   {"max_tokens": true, "top_p": true, "temperature": true},
-	"claude-sonnet-4-5-20250929": {"top_p": true, "temperature": true, "max_tokens": true},
-	"gpt-5":                      {"top_p": true, "temperature": true, "top_k": true},
-	"gpt-5.1":                    {"top_p": true, "temperature": true, "top_k": true},
-	"gpt-5.2":                    {"top_p": true, "temperature": true, "top_k": true},
-	"gpt-5-mini":                 {"top_p": true, "temperature": true, "top_k": true},
-	"gpt-5-nano":                 {"temperature": true, "top_p": true, "top_k": true},
-	"gpt-4.1":                    {"top_k": true},
-	"gpt-4.1-mini":               {"top_k": true},
-	"gpt-4o":                     {"top_k": true},
-	"gpt-4o-mini":                {"top_k": true},
-	"o3":                         {"top_p": true, "temperature": true, "top_k": true},
-	"o4-mini":                    {"temperature": true, "top_p": true, "top_k": true},
+	// Anthropic models - don't support frequency/presence penalty
+	"claude-opus-4-5-20251101":   {"frequency_penalty": true, "presence_penalty": true},
+	"claude-sonnet-4-5-20250929": {"frequency_penalty": true, "presence_penalty": true},
+	"claude-sonnet-4-5":          {"frequency_penalty": true, "presence_penalty": true},
+	"claude-haiku-4-5-20251001":  {"frequency_penalty": true, "presence_penalty": true},
+	// OpenAI models - don't support top_k
+	"gpt-5":        {"top_k": true},
+	"gpt-5.1":      {"top_k": true},
+	"gpt-5.2":      {"top_k": true},
+	"gpt-5-mini":   {"top_k": true},
+	"gpt-5-nano":   {"top_k": true},
+	"gpt-4.1":      {"top_k": true},
+	"gpt-4.1-mini": {"top_k": true},
+	"gpt-4o":       {"top_k": true},
+	"gpt-4o-mini":  {"top_k": true},
+	"o3":           {"top_k": true},
+	"o4-mini":      {"top_k": true},
+}
+
+// anthropicModels can only use temperature OR top_p, not both
+var anthropicModels = map[string]bool{
+	"claude-opus-4-5-20251101":   true,
+	"claude-sonnet-4-5-20250929": true,
+	"claude-sonnet-4-5":          true,
+	"claude-haiku-4-5-20251001":  true,
 }
 
 // FilterSettingsForModel removes unsupported parameters for the given model
 func FilterSettingsForModel(settings LLMSettings, model string) LLMSettings {
-	blocked, ok := unsupportedModelParams[model]
-	if !ok {
-		return settings
+	filtered := settings
+
+	// Anthropic models can't have both temperature and top_p - keep temperature, drop top_p
+	if anthropicModels[model] && filtered.Temperature != nil && filtered.TopP != nil {
+		filtered.TopP = nil
 	}
 
-	filtered := settings
+	blocked, ok := unsupportedModelParams[model]
+	if !ok {
+		return filtered
+	}
+
 	if blocked["temperature"] {
 		filtered.Temperature = nil
 	}
