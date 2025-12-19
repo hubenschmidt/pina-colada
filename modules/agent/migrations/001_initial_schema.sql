@@ -122,7 +122,6 @@ CREATE TABLE IF NOT EXISTS "Lead" (
   id              BIGSERIAL PRIMARY KEY,
   deal_id         BIGINT NOT NULL REFERENCES "Deal"(id) ON DELETE CASCADE,
   type            TEXT NOT NULL,  -- Discriminator: 'Job', 'Opportunity', 'Partnership', etc.
-  title           TEXT NOT NULL,
   description     TEXT,
   source          TEXT,  -- inbound/referral/event/campaign/agent/manual/etc.
   current_status_id BIGINT REFERENCES "Status"(id) ON DELETE SET NULL,

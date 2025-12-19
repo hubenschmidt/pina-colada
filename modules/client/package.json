@@ -16,6 +16,7 @@
     "@mantine/core": "^7.17.8",
     "@mantine/hooks": "^7.17.8",
     "@supabase/supabase-js": "^2.39.0",
+    "@uiw/react-json-view": "^2.0.0-alpha.39",
     "axios": "^1.7.9",
     "lucide-react": "^0.546.0",
     "next": "15.5.9",

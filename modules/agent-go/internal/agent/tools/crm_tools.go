@@ -2,21 +2,35 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
 
+	"github.com/pina-colada-co/agent-go/internal/middleware"
 	"github.com/pina-colada-co/agent-go/internal/serializers"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
 
+// PermissionChecker checks if the user in context has the specified permission
+type PermissionChecker interface {
+	CanAccess(ctx context.Context, permission string) bool
+}
+
+// ProposalCreator creates proposals for CUD operations
+type ProposalCreator interface {
+	ProposeOperationBytes(tenantID, userID int64, entityType string, entityID *int64, operation string, payload []byte) (*services.ProposeResult, error)
+}
+
 // CRMTools holds CRM-related tools for the agent
 type CRMTools struct {
-	indService     *services.IndividualService
-	orgService     *services.OrganizationService
-	contactService *services.ContactService
-	jobService     *services.JobService
-	accountService *services.AccountService
+	indService      *services.IndividualService
+	orgService      *services.OrganizationService
+	contactService  *services.ContactService
+	jobService      *services.JobService
+	accountService  *services.AccountService
+	permChecker     PermissionChecker
+	proposalCreator ProposalCreator
 }
 
 // NewCRMTools creates CRM tools with service dependencies
@@ -26,13 +40,17 @@ func NewCRMTools(
 	contactService *services.ContactService,
 	jobService *services.JobService,
 	accountService *services.AccountService,
+	permChecker PermissionChecker,
+	proposalCreator ProposalCreator,
 ) *CRMTools {
 	return &CRMTools{
-		indService:     indService,
-		orgService:     orgService,
-		contactService: contactService,
-		jobService:     jobService,
-		accountService: accountService,
+		indService:      indService,
+		orgService:      orgService,
+		contactService:  contactService,
+		jobService:      jobService,
+		accountService:  accountService,
+		permChecker:     permChecker,
+		proposalCreator: proposalCreator,
 	}
 }
 
@@ -85,10 +103,32 @@ type CRMStatusesResult struct {
 
 // --- Tool Functions ---
 
+// checkPermission returns a permission denied result if user lacks the permission
+func (t *CRMTools) checkPermission(ctx context.Context, permission string) *CRMLookupResult {
+	if t.permChecker == nil {
+		return nil // No checker configured, allow all
+	}
+	if t.permChecker.CanAccess(ctx, permission) {
+		return nil
+	}
+	log.Printf("🚫 Permission denied: %s", permission)
+	return &CRMLookupResult{Results: fmt.Sprintf("Permission denied: %s", permission)}
+}
+
 // LookupCtx searches for CRM entities by type and query.
 func (t *CRMTools) LookupCtx(ctx context.Context, params CRMLookupParams) (*CRMLookupResult, error) {
 	entityType := strings.ToLower(params.EntityType)
 	log.Printf("🔍 crm_lookup called with entity_type='%s', query='%s', status=%v", entityType, params.Query, params.Status)
+
+	// Map entity type to permission resource
+	resource := entityType
+	if resource == "lead" {
+		resource = "job"
+	}
+
+	if denied := t.checkPermission(ctx, resource+":read"); denied != nil {
+		return denied, nil
+	}
 
 	if entityType == "individual" {
 		return t.lookupIndividual(params.Query)
@@ -237,6 +277,9 @@ func (t *CRMTools) lookupJobLeads(statusNames []string) (*CRMLookupResult, error
 
 // ListStatusesCtx returns available job lead statuses
 func (t *CRMTools) ListStatusesCtx(ctx context.Context, params CRMStatusesParams) (*CRMStatusesResult, error) {
+	if denied := t.checkPermission(ctx, "job:read"); denied != nil {
+		return &CRMStatusesResult{Results: denied.Results}, nil
+	}
 	if t.jobService == nil {
 		log.Printf("⚠️ JobService not configured")
 		return &CRMStatusesResult{Results: "Job service not configured."}, nil
@@ -273,6 +316,10 @@ func (t *CRMTools) ListCtx(ctx context.Context, params CRMListParams) (*CRMListR
 		limit = 20
 	}
 	log.Printf("📋 crm_list called with entity_type='%s', limit=%d", entityType, limit)
+
+	if denied := t.checkPermission(ctx, entityType+":read"); denied != nil {
+		return &CRMListResult{Results: denied.Results}, nil
+	}
 
 	if entityType == "individual" {
 		return t.listIndividuals(limit)
@@ -358,4 +405,158 @@ func formatJobLead(j serializers.JobDetailResponse) string {
 		status = j.LeadStatus.Name
 	}
 	return fmt.Sprintf("- %s at %s (status=%s, id=%d)", j.JobTitle, j.Account, status, j.ID)
+}
+
+// --- Propose CUD Operations ---
+
+// CRMProposeCreateParams defines parameters for proposing entity creation
+type CRMProposeCreateParams struct {
+	EntityType string                 `json:"entity_type" jsonschema:"required,The type of CRM entity to create: contact, organization, individual, note, or task"`
+	Data       map[string]interface{} `json:"data" jsonschema:"required,The entity data to create"`
+}
+
+// CRMProposeUpdateParams defines parameters for proposing entity update
+type CRMProposeUpdateParams struct {
+	EntityType string                 `json:"entity_type" jsonschema:"required,The type of CRM entity to update: contact, organization, individual, note, or task"`
+	EntityID   int64                  `json:"entity_id" jsonschema:"required,The ID of the entity to update"`
+	Data       map[string]interface{} `json:"data" jsonschema:"required,The fields to update"`
+}
+
+// CRMProposeDeleteParams defines parameters for proposing entity deletion
+type CRMProposeDeleteParams struct {
+	EntityType string `json:"entity_type" jsonschema:"required,The type of CRM entity to delete: contact, organization, individual, note, or task"`
+	EntityID   int64  `json:"entity_id" jsonschema:"required,The ID of the entity to delete"`
+}
+
+// CRMProposeResult is the result of a propose operation
+type CRMProposeResult struct {
+	Success    bool   `json:"success"`
+	ProposalID int64  `json:"proposal_id,omitempty"`
+	Status     string `json:"status"`
+	Message    string `json:"message"`
+}
+
+// ProposeCreateCtx proposes creating a new CRM entity (queued for approval)
+func (t *CRMTools) ProposeCreateCtx(ctx context.Context, params CRMProposeCreateParams) (*CRMProposeResult, error) {
+	entityType := strings.ToLower(params.EntityType)
+	log.Printf("📝 crm_propose_create called for entity_type='%s'", entityType)
+
+	if denied := t.checkPermission(ctx, entityType+":create"); denied != nil {
+		return &CRMProposeResult{Success: false, Message: denied.Results}, nil
+	}
+
+	if t.proposalCreator == nil {
+		return &CRMProposeResult{Success: false, Message: "Proposal service not configured"}, nil
+	}
+
+	tenantID, userID, err := t.getContextIDs(ctx)
+	if err != nil {
+		return &CRMProposeResult{Success: false, Message: err.Error()}, nil
+	}
+
+	payload, err := json.Marshal(params.Data)
+	if err != nil {
+		return &CRMProposeResult{Success: false, Message: fmt.Sprintf("Failed to serialize data: %v", err)}, nil
+	}
+
+	result, err := t.proposalCreator.ProposeOperationBytes(tenantID, userID, entityType, nil, "create", payload)
+	if err != nil {
+		log.Printf("❌ ProposeCreate failed: %v", err)
+		return &CRMProposeResult{Success: false, Message: err.Error()}, nil
+	}
+
+	log.Printf("✅ ProposeCreate succeeded: proposal_id=%d, status=%s", result.ProposalID, result.Status)
+	return &CRMProposeResult{
+		Success:    true,
+		ProposalID: result.ProposalID,
+		Status:     result.Status,
+		Message:    result.Message,
+	}, nil
+}
+
+// ProposeUpdateCtx proposes updating a CRM entity (queued for approval)
+func (t *CRMTools) ProposeUpdateCtx(ctx context.Context, params CRMProposeUpdateParams) (*CRMProposeResult, error) {
+	entityType := strings.ToLower(params.EntityType)
+	log.Printf("📝 crm_propose_update called for entity_type='%s', entity_id=%d", entityType, params.EntityID)
+
+	if denied := t.checkPermission(ctx, entityType+":update"); denied != nil {
+		return &CRMProposeResult{Success: false, Message: denied.Results}, nil
+	}
+
+	if t.proposalCreator == nil {
+		return &CRMProposeResult{Success: false, Message: "Proposal service not configured"}, nil
+	}
+
+	tenantID, userID, err := t.getContextIDs(ctx)
+	if err != nil {
+		return &CRMProposeResult{Success: false, Message: err.Error()}, nil
+	}
+
+	payload, err := json.Marshal(params.Data)
+	if err != nil {
+		return &CRMProposeResult{Success: false, Message: fmt.Sprintf("Failed to serialize data: %v", err)}, nil
+	}
+
+	entityID := params.EntityID
+	result, err := t.proposalCreator.ProposeOperationBytes(tenantID, userID, entityType, &entityID, "update", payload)
+	if err != nil {
+		log.Printf("❌ ProposeUpdate failed: %v", err)
+		return &CRMProposeResult{Success: false, Message: err.Error()}, nil
+	}
+
+	log.Printf("✅ ProposeUpdate succeeded: proposal_id=%d, status=%s", result.ProposalID, result.Status)
+	return &CRMProposeResult{
+		Success:    true,
+		ProposalID: result.ProposalID,
+		Status:     result.Status,
+		Message:    result.Message,
+	}, nil
+}
+
+// ProposeDeleteCtx proposes deleting a CRM entity (queued for approval)
+func (t *CRMTools) ProposeDeleteCtx(ctx context.Context, params CRMProposeDeleteParams) (*CRMProposeResult, error) {
+	entityType := strings.ToLower(params.EntityType)
+	log.Printf("📝 crm_propose_delete called for entity_type='%s', entity_id=%d", entityType, params.EntityID)
+
+	if denied := t.checkPermission(ctx, entityType+":delete"); denied != nil {
+		return &CRMProposeResult{Success: false, Message: denied.Results}, nil
+	}
+
+	if t.proposalCreator == nil {
+		return &CRMProposeResult{Success: false, Message: "Proposal service not configured"}, nil
+	}
+
+	tenantID, userID, err := t.getContextIDs(ctx)
+	if err != nil {
+		return &CRMProposeResult{Success: false, Message: err.Error()}, nil
+	}
+
+	entityID := params.EntityID
+	result, err := t.proposalCreator.ProposeOperationBytes(tenantID, userID, entityType, &entityID, "delete", nil)
+	if err != nil {
+		log.Printf("❌ ProposeDelete failed: %v", err)
+		return &CRMProposeResult{Success: false, Message: err.Error()}, nil
+	}
+
+	log.Printf("✅ ProposeDelete succeeded: proposal_id=%d, status=%s", result.ProposalID, result.Status)
+	return &CRMProposeResult{
+		Success:    true,
+		ProposalID: result.ProposalID,
+		Status:     result.Status,
+		Message:    result.Message,
+	}, nil
+}
+
+func (t *CRMTools) getContextIDs(ctx context.Context) (tenantID, userID int64, err error) {
+	tenantID, ok := middleware.GetTenantID(ctx)
+	if !ok {
+		return 0, 0, fmt.Errorf("tenant_id not found in context")
+	}
+
+	userID, ok = middleware.GetUserID(ctx)
+	if !ok {
+		return 0, 0, fmt.Errorf("user_id not found in context")
+	}
+
+	return tenantID, userID, nil
 }

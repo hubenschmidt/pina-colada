@@ -26,10 +26,11 @@ type JobInfo struct {
 
 // SerperTools holds Serper API-based tools
 type SerperTools struct {
-	apiKey     string
-	jobService JobServiceInterface
-	cacheTools *CacheTools
-	publicURL  string // Base URL for generating absolute short URLs
+	apiKey      string
+	jobService  JobServiceInterface
+	cacheTools  *CacheTools
+	publicURL   string // Base URL for generating absolute short URLs
+	permChecker PermissionChecker
 
 	// Cache for applied jobs to avoid repeated DB queries within a turn
 	appliedJobsCache     []JobInfo
@@ -51,13 +52,14 @@ const maxConcurrentSearches = 3
 const maxSearchesPerTurn = 1
 
 // NewSerperTools creates Serper tools with API key and optional job service for filtering
-func NewSerperTools(apiKey string, jobService JobServiceInterface, cacheTools *CacheTools, publicURL string) *SerperTools {
+func NewSerperTools(apiKey string, jobService JobServiceInterface, cacheTools *CacheTools, publicURL string, permChecker PermissionChecker) *SerperTools {
 	return &SerperTools{
-		apiKey:     apiKey,
-		jobService: jobService,
-		cacheTools: cacheTools,
-		publicURL:  publicURL,
-		searchSem:  make(chan struct{}, maxConcurrentSearches),
+		apiKey:      apiKey,
+		jobService:  jobService,
+		cacheTools:  cacheTools,
+		publicURL:   publicURL,
+		permChecker: permChecker,
+		searchSem:   make(chan struct{}, maxConcurrentSearches),
 	}
 }
 
@@ -160,6 +162,11 @@ type serperOrganicResult struct {
 // Filters out jobs already applied to or marked as do_not_apply.
 // Limits to maxSearchesPerTurn calls per request and maxConcurrentSearches concurrent.
 func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) (*JobSearchResult, error) {
+	if t.permChecker != nil && !t.permChecker.CanAccess(ctx, "job_search:execute") {
+		log.Printf("🚫 Permission denied: job_search:execute")
+		return &JobSearchResult{Results: "Permission denied: job_search:execute"}, nil
+	}
+
 	// Check per-turn call limit first
 	t.callCountMu.Lock()
 	if t.callCount >= maxSearchesPerTurn {
@@ -516,6 +523,11 @@ func (t *SerperTools) storeListingsCache(query string, listings []JobListing) {
 // WebSearchCtx performs a general web search without job-specific filtering.
 // Use for background research on people, companies, or general information.
 func (t *SerperTools) WebSearchCtx(ctx context.Context, params WebSearchParams) (*WebSearchResult, error) {
+	if t.permChecker != nil && !t.permChecker.CanAccess(ctx, "web_search:execute") {
+		log.Printf("🚫 Permission denied: web_search:execute")
+		return &WebSearchResult{Results: "Permission denied: web_search:execute"}, nil
+	}
+
 	if t.apiKey == "" {
 		return &WebSearchResult{Results: "Web search not configured. SERPER_API_KEY required."}, nil
 	}

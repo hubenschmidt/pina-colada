@@ -1,6 +1,7 @@
 "use client";
 import { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { getAgentConfig, getActiveMetricRecording } from "../api";
+import { useUserContext } from "./userContext";
 
 const initialState = {
   config: null,
@@ -21,6 +22,7 @@ export const AgentConfigContext = createContext({
 export const useAgentConfig = () => useContext(AgentConfigContext);
 
 export const AgentConfigProvider = ({ children }) => {
+  const { userState } = useUserContext();
   const [config, setConfig] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -28,6 +30,7 @@ export const AgentConfigProvider = ({ children }) => {
   const [isRecording, setIsRecording] = useState(false);
 
   const fetchRecordingState = useCallback(async () => {
+    if (!userState.isAuthed) return false;
     try {
       const data = await getActiveMetricRecording();
       setIsRecording(data?.active === true);
@@ -35,12 +38,13 @@ export const AgentConfigProvider = ({ children }) => {
     } catch {
       return false;
     }
-  }, []);
+  }, [userState.isAuthed]);
 
-  // Fetch recording state on mount
+  // Fetch recording state when user becomes authenticated
   useEffect(() => {
+    if (!userState.isAuthed) return;
     fetchRecordingState();
-  }, [fetchRecordingState]);
+  }, [userState.isAuthed, fetchRecordingState]);
 
   const fetchConfig = useCallback(async () => {
     if (hasFetched || loading) return config;

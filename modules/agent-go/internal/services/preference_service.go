@@ -10,10 +10,11 @@ var ErrPreferencesUserNotFound = errors.New("user not found")
 
 type PreferenceService struct {
 	prefsRepo *repositories.PreferenceRepository
+	userRepo  *repositories.UserRepository
 }
 
-func NewPreferenceService(prefsRepo *repositories.PreferenceRepository) *PreferenceService {
-	return &PreferenceService{prefsRepo: prefsRepo}
+func NewPreferenceService(prefsRepo *repositories.PreferenceRepository, userRepo *repositories.UserRepository) *PreferenceService {
+	return &PreferenceService{prefsRepo: prefsRepo, userRepo: userRepo}
 }
 
 type UserPreferencesResponse struct {
@@ -40,11 +41,14 @@ func (s *PreferenceService) GetUserPreferences(userID int64) (*UserPreferencesRe
 		timezone = *prefs.Timezone
 	}
 
+	isAdmin, _ := s.userRepo.HasRole(userID, "admin")
+	isOwner, _ := s.userRepo.HasRole(userID, "owner")
+
 	return &UserPreferencesResponse{
 		Theme:          prefs.Theme,
 		Timezone:       timezone,
 		EffectiveTheme: effectiveTheme,
-		CanEditTenant:  false, // TODO: check user roles
+		CanEditTenant:  isAdmin || isOwner,
 	}, nil
 }
 

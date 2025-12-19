@@ -1351,3 +1351,95 @@ export const getMetricSession = async (sessionId, params = {}) => {
 export const compareMetricSessions = async (sessionIds) => {
   return apiGet(`/metrics/compare?ids=${sessionIds.join(",")}`);
 };
+
+// ==============================================
+// Proposal Queue API
+// ==============================================
+
+export const getProposals = async (page = 1, limit = 50) => {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+  return apiGet(`/proposals?${params}`);
+};
+
+export const approveProposal = async (id) => {
+  return apiPost(`/proposals/${id}/approve`);
+};
+
+export const rejectProposal = async (id) => {
+  return apiPost(`/proposals/${id}/reject`);
+};
+
+export const bulkApproveProposals = async (ids) => {
+  return apiPost("/proposals/bulk-approve", { ids });
+};
+
+export const bulkRejectProposals = async (ids) => {
+  return apiPost("/proposals/bulk-reject", { ids });
+};
+
+export const updateProposalPayload = async (id, payload) => {
+  return apiPut(`/proposals/${id}/payload`, { payload });
+};
+
+// ==============================================
+// Approval Config API
+// ==============================================
+
+export const getApprovalConfig = async () => {
+  return apiGet("/admin/approval-config");
+};
+
+export const updateApprovalConfig = async (entityType, requiresApproval) => {
+  return apiPut(`/admin/approval-config/${entityType}`, {
+    requires_approval: requiresApproval,
+  });
+};
+
+// ==============================================
+// RBAC Admin API
+// ==============================================
+
+export const getRoles = async () => {
+  return apiGet("/admin/roles");
+};
+
+export const createRole = async (data) => {
+  return apiPost("/admin/roles", data);
+};
+
+export const updateRole = async (id, data) => {
+  return apiPut(`/admin/roles/${id}`, data);
+};
+
+export const deleteRole = async (id) => {
+  return apiDelete(`/admin/roles/${id}`);
+};
+
+export const getPermissions = async () => {
+  return apiGet("/admin/permissions");
+};
+
+export const getRolePermissions = async (roleId) => {
+  return apiGet(`/admin/roles/${roleId}/permissions`);
+};
+
+export const getAllRolePermissions = async () => {
+  return apiGet("/admin/role-permissions");
+};
+
+export const updateRolePermissions = async (roleId, permissionIds) => {
+  return apiPut(`/admin/roles/${roleId}/permissions`, {
+    permission_ids: permissionIds,
+  });
+};
+
+export const getUserRoles = async () => {
+  return apiGet("/admin/user-roles");
+};
+
+export const updateUserRole = async (userId, roleId) => {
+  return apiPut(`/admin/users/${userId}/role`, { role_id: roleId });
+};

@@ -16,11 +16,12 @@ import (
 type contextKey string
 
 const (
-	UserIDKey    contextKey = "user_id"
-	TenantIDKey  contextKey = "tenant_id"
-	Auth0SubKey  contextKey = "auth0_sub"
-	EmailKey     contextKey = "email"
-	ClaimsKey    contextKey = "claims"
+	UserIDKey       contextKey = "user_id"
+	TenantIDKey     contextKey = "tenant_id"
+	Auth0SubKey     contextKey = "auth0_sub"
+	EmailKey        contextKey = "email"
+	ClaimsKey       contextKey = "claims"
+	PermissionsKey  contextKey = "permissions"
 )
 
 var (
@@ -253,4 +254,38 @@ func GetAuth0Sub(ctx context.Context) (string, bool) {
 func GetEmail(ctx context.Context) (string, bool) {
 	email, ok := ctx.Value(EmailKey).(string)
 	return email, ok
+}
+
+// GetPermissions extracts permissions from context
+func GetPermissions(ctx context.Context) ([]string, bool) {
+	perms, ok := ctx.Value(PermissionsKey).([]string)
+	return perms, ok
+}
+
+// PermissionLoader interface for loading permissions - implemented by PermissionService
+type PermissionLoader interface {
+	GetUserPermissions(userID int64) ([]string, error)
+}
+
+// PermissionLoaderMiddleware loads user permissions and sets them in context
+func PermissionLoaderMiddleware(loader PermissionLoader) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			ctx := r.Context()
+
+			userID, ok := GetUserID(ctx)
+			if !ok {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			perms, err := loader.GetUserPermissions(userID)
+			if err != nil {
+				perms = []string{}
+			}
+
+			ctx = context.WithValue(ctx, PermissionsKey, perms)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }

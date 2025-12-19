@@ -22,6 +22,7 @@ import {
   CheckSquare,
   Files,
   Activity,
+  Database,
 } from "lucide-react";
 import { Stack, ScrollArea, Select } from "@mantine/core";
 import { useNavContext } from "../../context/navContext";
@@ -221,6 +222,16 @@ export const Sidebar = () => {
                 }`}>
                 <Files className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                 Documents
+              </button>
+
+              {/* Data */}
+              <button
+                onClick={() => router.push("/dba")}
+                className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                  pathname === "/dba" ? "font-bold" : "font-normal"
+                }`}>
+                <Database className="h-4 w-4 text-lime-600 dark:text-lime-400" />
+                Data
               </button>
 
               {/* Deals - disabled for now, will implement later */}

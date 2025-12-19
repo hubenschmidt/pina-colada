@@ -59,7 +59,7 @@ type Orchestrator struct {
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
-func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo tools.CacheRepositoryInterface, contactService *services.ContactService, accountService *services.AccountService) (*Orchestrator, error) {
+func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo tools.CacheRepositoryInterface, contactService *services.ContactService, accountService *services.AccountService, permService *services.PermissionService, proposalService *services.ProposalService) (*Orchestrator, error) {
 	// Create providers for both OpenAI and Anthropic
 	// The correct provider is selected at runtime based on the model's provider setting
 	openaiProvider := agents.NewOpenAIProvider(agents.OpenAIProviderParams{
@@ -89,11 +89,11 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 	}
 
 	// Create all tools using the adapter
-	crmTools := tools.NewCRMTools(indService, orgService, contactService, jobService, accountService)
+	crmTools := tools.NewCRMTools(indService, orgService, contactService, jobService, accountService, permService, proposalService)
 	cacheTools := tools.NewCacheTools(cacheRepo)
-	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter, cacheTools, cfg.PublicURL)
-	docTools := tools.NewDocumentTools(docService)
-	emailTools := tools.NewEmailTools(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFromEmail)
+	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter, cacheTools, cfg.PublicURL, permService)
+	docTools := tools.NewDocumentTools(docService, permService)
+	emailTools := tools.NewEmailTools(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFromEmail, permService)
 	allTools := tools.BuildAgentTools(crmTools, serperTools, docTools, emailTools, cacheTools)
 
 	// Create worker agents with default model (no custom settings)

@@ -17,18 +17,22 @@ DECLARE
     v_bootstrap_user_id BIGINT;
     v_role_id BIGINT;
 BEGIN
-    -- Create Tenant
-    INSERT INTO "Tenant" (name, slug, plan, industry, website, employee_count, created_at, updated_at)
-    VALUES ('PinaColada', 'pinacolada', 'free', 'Software', 'https://pinacolada.co', 1, NOW(), NOW())
-    ON CONFLICT (slug) DO UPDATE SET name = 'PinaColada', industry = 'Software', website = 'https://pinacolada.co', employee_count = 1
-    RETURNING id INTO v_tenant_id;
+    -- Get default tenant (created by migration 058)
+    SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada' LIMIT 1;
 
-    -- Ensure we have tenant_id (in case ON CONFLICT didn't return it)
-    IF v_tenant_id IS NULL THEN
-        SELECT id INTO v_tenant_id FROM "Tenant" WHERE slug = 'pinacolada' LIMIT 1;
-    END IF;
+    -- Update tenant with additional details
+    UPDATE "Tenant"
+    SET industry = 'Software', website = 'https://pinacolada.co', employee_count = 1
+    WHERE id = v_tenant_id;
 
     RAISE NOTICE 'Tenant ID: %', v_tenant_id;
+
+    -- Update any global roles (tenant_id IS NULL) to use this tenant
+    -- This consolidates roles from migration 002_multitenancy.sql
+    UPDATE "Role" SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
+
+    -- Update any global users (tenant_id IS NULL) to use this tenant
+    UPDATE "User" SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
 
     -- STEP 0a: Create bootstrap User first (without individual_id) to use for created_by/updated_by
     SELECT id INTO v_bootstrap_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
@@ -84,19 +88,6 @@ BEGIN
     INSERT INTO "User_Role" (user_id, role_id, created_at)
     VALUES (v_user_id, v_role_id, NOW())
     ON CONFLICT DO NOTHING;
-
-    -- Create Developer Role (global)
-    INSERT INTO "Role" (tenant_id, name, description)
-    VALUES (NULL, 'developer', 'Developer access with analytics and debugging tools')
-    ON CONFLICT DO NOTHING;
-
-    -- Assign developer role to William
-    SELECT id INTO v_role_id FROM "Role" WHERE name = 'developer' AND tenant_id IS NULL;
-    IF v_role_id IS NOT NULL THEN
-        INSERT INTO "User_Role" (user_id, role_id, created_at)
-        VALUES (v_user_id, v_role_id, NOW())
-        ON CONFLICT DO NOTHING;
-    END IF;
 
     -- Set William's theme preference to dark
     INSERT INTO "User_Preferences" (user_id, theme, timezone, created_at, updated_at)

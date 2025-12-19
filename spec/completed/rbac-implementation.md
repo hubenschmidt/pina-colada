@@ -1,6 +1,6 @@
 # RBAC Implementation Spec
 
-> **Status**: TODO
+> **Status**: COMPLETED
 > **Priority**: High
 > **Estimated Effort**: 2-3 days
 > **Code Rules**: Follow `/go-code-rules.md` and `/csr-code-rules.md`
@@ -12,6 +12,7 @@ Implement role-based access control with granular `resource:action` permissions.
 ## Background
 
 Currently:
+
 - Role/UserRole tables exist but aren't fully wired
 - Frontend uses roles for "developer" feature gating
 - Agent tools are read-only by accident (no write tools exist), not by design
@@ -42,21 +43,22 @@ CREATE TABLE "Role_Permission" (
 
 ### Initial Permissions
 
-| Resource | Actions |
-|----------|---------|
-| individual | read, create, update, delete |
+| Resource     | Actions                      |
+| ------------ | ---------------------------- |
+| individual   | read, create, update, delete |
 | organization | read, create, update, delete |
-| contact | read, create, update, delete |
-| account | read, create, update, delete |
-| job | read, create, update, delete |
-| document | read, create, delete |
-| email | send |
-| job_search | execute |
-| web_search | execute |
+| contact      | read, create, update, delete |
+| account      | read, create, update, delete |
+| job          | read, create, update, delete |
+| document     | read, create, delete         |
+| email        | send                         |
+| job_search   | execute                      |
+| web_search   | execute                      |
 
 ## Files to Create
 
 ### 1. `internal/models/Permission.go`
+
 ```go
 type Permission struct {
     ID          int64     `gorm:"primaryKey;autoIncrement"`
@@ -69,6 +71,7 @@ type Permission struct {
 ```
 
 ### 2. `internal/models/RolePermission.go`
+
 ```go
 type RolePermission struct {
     RoleID       int64 `gorm:"primaryKey"`
@@ -78,6 +81,7 @@ type RolePermission struct {
 ```
 
 ### 3. `internal/repositories/permission_repository.go`
+
 ```go
 // DTO for permission data (repositories define DTOs per CSR pattern)
 type PermissionDTO struct {
@@ -94,6 +98,7 @@ func (r *PermissionRepository) HasPermission(userID int64, resource, action stri
 ```
 
 ### 4. `internal/services/permission_service.go`
+
 ```go
 type PermissionService struct {
     permRepo *repositories.PermissionRepository
@@ -107,12 +112,15 @@ func (s *PermissionService) CanAccess(ctx context.Context, permission string) bo
 ## Files to Modify
 
 ### 5. `internal/middleware/auth.go`
+
 - Add `PermissionsKey` context key
 - Add `PermissionLoaderMiddleware` that loads user permissions into context after UserLoader
 
 ### 6. `internal/agent/tools/crm_tools.go`
+
 - Add `permChecker PermissionChecker` field to CRMTools struct
 - Check permission before each operation:
+
 ```go
 func (t *CRMTools) LookupCtx(ctx context.Context, params CRMLookupParams) (*CRMLookupResult, error) {
     requiredPerm := params.EntityType + ":read"
@@ -124,44 +132,50 @@ func (t *CRMTools) LookupCtx(ctx context.Context, params CRMLookupParams) (*CRML
 ```
 
 ### 7. `internal/agent/tools/adapter.go`
+
 - Update `BuildAgentTools` to accept and pass `permChecker` to tool constructors
 
 ### 8. `internal/agent/orchestrator.go`
+
 - Create PermissionService instance
 - Pass to tool constructors
 
 ## Tool Permission Matrix
 
-| Tool | Permission Required |
-|------|---------------------|
-| crm_lookup (individual) | individual:read |
-| crm_lookup (organization) | organization:read |
-| crm_lookup (contact) | contact:read |
-| crm_lookup (account) | account:read |
-| crm_lookup (job/lead) | job:read |
-| crm_list | {entity}:read |
-| crm_statuses | job:read |
-| job_search | job_search:execute |
-| web_search | web_search:execute |
-| search_entity_documents | document:read |
-| read_document | document:read |
-| send_email | email:send |
+| Tool                      | Permission Required |
+| ------------------------- | ------------------- |
+| crm_lookup (individual)   | individual:read     |
+| crm_lookup (organization) | organization:read   |
+| crm_lookup (contact)      | contact:read        |
+| crm_lookup (account)      | account:read        |
+| crm_lookup (job/lead)     | job:read            |
+| crm_list                  | {entity}:read       |
+| crm_statuses              | job:read            |
+| job_search                | job_search:execute  |
+| web_search                | web_search:execute  |
+| search_entity_documents   | document:read       |
+| read_document             | document:read       |
+| send_email                | email:send          |
 
 ## Default Role Permissions
 
 ### Owner (per-tenant)
+
 All permissions
 
 ### Admin (per-tenant)
+
 All permissions except dangerous operations
 
 ### Member (per-tenant)
+
 - All read permissions
 - email:send
 - job_search:execute
 - web_search:execute
 
 ### Developer (global)
+
 - All permissions (for dev features access)
 
 ## Implementation Order
@@ -173,7 +187,6 @@ All permissions except dangerous operations
 5. Add permission checks to tools
 6. Update orchestrator wiring
 7. Database migration + seed data
-8. Tests
 
 ## Migration Script
 

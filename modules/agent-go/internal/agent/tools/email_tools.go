@@ -15,10 +15,11 @@ type EmailTools struct {
 	smtpUsername string
 	smtpPassword string
 	fromEmail    string
+	permChecker  PermissionChecker
 }
 
 // NewEmailTools creates email tools with SMTP configuration
-func NewEmailTools(host string, port int, username, password, fromEmail string) *EmailTools {
+func NewEmailTools(host string, port int, username, password, fromEmail string, permChecker PermissionChecker) *EmailTools {
 	if fromEmail == "" {
 		fromEmail = username
 	}
@@ -28,6 +29,7 @@ func NewEmailTools(host string, port int, username, password, fromEmail string) 
 		smtpUsername: username,
 		smtpPassword: password,
 		fromEmail:    fromEmail,
+		permChecker:  permChecker,
 	}
 }
 
@@ -50,6 +52,11 @@ type SendEmailResult struct {
 
 // SendEmailCtx sends an email via SMTP
 func (t *EmailTools) SendEmailCtx(ctx context.Context, params SendEmailParams) (*SendEmailResult, error) {
+	if t.permChecker != nil && !t.permChecker.CanAccess(ctx, "email:send") {
+		log.Printf("🚫 Permission denied: email:send")
+		return &SendEmailResult{Success: false, Message: "Permission denied: email:send"}, nil
+	}
+
 	if t.smtpUsername == "" || t.smtpPassword == "" {
 		log.Printf("SMTP credentials not configured")
 		return &SendEmailResult{

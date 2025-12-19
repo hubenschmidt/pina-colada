@@ -3,7 +3,19 @@
 import { useUserContext } from "../../context/userContext";
 import { useState, useEffect } from "react";
 import { SET_THEME } from "../../reducers/userReducer";
-import { Container, Stack, Title, Radio, Paper, Text, Loader, Center, Select } from "@mantine/core";
+import {
+  Container,
+  Stack,
+  Title,
+  Radio,
+  Paper,
+  Text,
+  Loader,
+  Center,
+  Select,
+  Tabs,
+} from "@mantine/core";
+import { Settings, Shield } from "lucide-react";
 import {
   getUserPreferences,
   updateUserPreferences,
@@ -12,6 +24,7 @@ import {
   getTimezones,
 } from "../../api";
 import { usePageLoading } from "../../context/pageLoadingContext";
+import RbacAdmin from "../../components/RbacAdmin/RbacAdmin";
 
 const SettingsPage = () => {
   const { userState, dispatchUser } = useUserContext();
@@ -123,58 +136,82 @@ const SettingsPage = () => {
   }
 
   return (
-    <Container size="sm" py="xl">
+    <Container size="lg" py="xl">
       <Stack gap="xl">
         <Title order={1}>Settings</Title>
 
-        <Stack gap="md">
-          <Title order={2} size="h3">
-            Personal Theme
-          </Title>
-          <Radio.Group
-            value={userTheme === null ? "inherit" : userTheme}
-            onChange={(value) => updateUserTheme(value === "inherit" ? null : value)}>
-            <Stack gap="xs">
-              <Radio value="inherit" label="Inherit from organization" />
-              <Radio value="light" label="Light" />
-              <Radio value="dark" label="Dark" />
-            </Stack>
-          </Radio.Group>
-        </Stack>
+        <Tabs defaultValue="general">
+          <Tabs.List>
+            <Tabs.Tab value="general" leftSection={<Settings size={16} />}>
+              General
+            </Tabs.Tab>
+            {userState.canEditTenantTheme && (
+              <Tabs.Tab value="access" leftSection={<Shield size={16} />}>
+                Access Control
+              </Tabs.Tab>
+            )}
+          </Tabs.List>
 
-        <Stack gap="md">
-          <Title order={2} size="h3">
-            Timezone
-          </Title>
-          <Select
-            value={userTimezone}
-            onChange={(value) => value && updateTimezone(value)}
-            data={timezoneOptions}
-            searchable
-            maw={400}
-          />
-        </Stack>
-
-        {userState.canEditTenantTheme && (
-          <Paper withBorder p="md">
-            <Stack gap="md">
-              <div>
-                <Title order={2} size="h3" mb="xs">
-                  Organization Theme (Admin)
+          <Tabs.Panel value="general" pt="xl">
+            <Stack gap="xl" maw={600}>
+              <Stack gap="md">
+                <Title order={2} size="h3">
+                  Personal Theme
                 </Title>
-                <Text size="sm" c="dimmed">
-                  This affects all users who inherit the organization theme.
-                </Text>
-              </div>
-              <Radio.Group value={tenantTheme} onChange={(value) => updateTenantTheme(value)}>
-                <Stack gap="xs">
-                  <Radio value="light" label="Light" />
-                  <Radio value="dark" label="Dark" />
-                </Stack>
-              </Radio.Group>
+                <Radio.Group
+                  value={userTheme === null ? "inherit" : userTheme}
+                  onChange={(value) => updateUserTheme(value === "inherit" ? null : value)}
+                >
+                  <Stack gap="xs">
+                    <Radio value="inherit" label="Inherit from organization" />
+                    <Radio value="light" label="Light" />
+                    <Radio value="dark" label="Dark" />
+                  </Stack>
+                </Radio.Group>
+              </Stack>
+
+              <Stack gap="md">
+                <Title order={2} size="h3">
+                  Timezone
+                </Title>
+                <Select
+                  value={userTimezone}
+                  onChange={(value) => value && updateTimezone(value)}
+                  data={timezoneOptions}
+                  searchable
+                  maw={400}
+                />
+              </Stack>
+
+              {userState.canEditTenantTheme && (
+                <Paper withBorder p="md">
+                  <Stack gap="md">
+                    <div>
+                      <Title order={2} size="h3" mb="xs">
+                        Organization Theme (Admin)
+                      </Title>
+                      <Text size="sm" c="dimmed">
+                        This affects all users who inherit the organization theme.
+                      </Text>
+                    </div>
+                    <Radio.Group value={tenantTheme} onChange={(value) => updateTenantTheme(value)}>
+                      <Stack gap="xs">
+                        <Radio value="light" label="Light" />
+                        <Radio value="dark" label="Dark" />
+                      </Stack>
+                    </Radio.Group>
+                  </Stack>
+                </Paper>
+              )}
             </Stack>
-          </Paper>
-        )}
+          </Tabs.Panel>
+
+          {userState.canEditTenantTheme && (
+            <Tabs.Panel value="access" pt="xl">
+              <RbacAdmin />
+            </Tabs.Panel>
+          )}
+        </Tabs>
       </Stack>
     </Container>
   );

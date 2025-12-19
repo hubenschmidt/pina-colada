@@ -13,32 +13,35 @@ import (
 
 // Controllers holds all controller instances
 type Controllers struct {
-	Auth         *controllers.AuthController
-	Job          *controllers.JobController
-	Organization *controllers.OrganizationController
-	Individual   *controllers.IndividualController
-	Task         *controllers.TaskController
-	Contact      *controllers.ContactController
-	Preferences  *controllers.PreferenceController
-	Notification *controllers.NotificationController
-	Project      *controllers.ProjectController
-	Conversation *controllers.ConversationController
-	Lookup       *controllers.LookupController
-	Note         *controllers.NoteController
-	Comment      *controllers.CommentController
-	Document     *controllers.DocumentController
-	Account      *controllers.AccountController
-	Lead         *controllers.LeadController
-	Costs        *controllers.CostController
-	Provenance   *controllers.ProvenanceController
-	Technology   *controllers.TechnologyController
-	Usage        *controllers.UsageController
-	Report       *controllers.ReportController
-	Agent        *controllers.AgentController
-	AgentConfig  *controllers.AgentConfigController
-	WebSocket    *controllers.WebSocketController
-	Metric       *controllers.MetricController
-	URL          *controllers.URLController
+	Auth           *controllers.AuthController
+	Job            *controllers.JobController
+	Organization   *controllers.OrganizationController
+	Individual     *controllers.IndividualController
+	Task           *controllers.TaskController
+	Contact        *controllers.ContactController
+	Preferences    *controllers.PreferenceController
+	Notification   *controllers.NotificationController
+	Project        *controllers.ProjectController
+	Conversation   *controllers.ConversationController
+	Lookup         *controllers.LookupController
+	Note           *controllers.NoteController
+	Comment        *controllers.CommentController
+	Document       *controllers.DocumentController
+	Account        *controllers.AccountController
+	Lead           *controllers.LeadController
+	Costs          *controllers.CostController
+	Provenance     *controllers.ProvenanceController
+	Technology     *controllers.TechnologyController
+	Usage          *controllers.UsageController
+	Report         *controllers.ReportController
+	Agent          *controllers.AgentController
+	AgentConfig    *controllers.AgentConfigController
+	WebSocket      *controllers.WebSocketController
+	Metric         *controllers.MetricController
+	URL            *controllers.URLController
+	Proposal       *controllers.ProposalController
+	ApprovalConfig *controllers.ApprovalConfigController
+	Role           *controllers.RoleController
 }
 
 // NewRouter creates and configures the Chi router
@@ -384,5 +387,43 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 			r.Get("/sessions/{id}", c.Metric.GetSession)
 			r.Get("/compare", c.Metric.Compare)
 		})
+
+		// Proposals routes (agent approval queue)
+		r.Route("/proposals", func(r chi.Router) {
+			r.Get("/", c.Proposal.GetPending)
+			r.Post("/{id}/approve", c.Proposal.Approve)
+			r.Post("/{id}/reject", c.Proposal.Reject)
+			r.Put("/{id}/payload", c.Proposal.UpdatePayload)
+			r.Post("/bulk-approve", c.Proposal.BulkApprove)
+			r.Post("/bulk-reject", c.Proposal.BulkReject)
+		})
+
+		// Admin approval config routes
+		r.Route("/admin/approval-config", func(r chi.Router) {
+			r.Get("/", c.ApprovalConfig.GetConfig)
+			r.Put("/{entityType}", c.ApprovalConfig.UpdateConfig)
+		})
+
+		// Admin roles routes
+		r.Route("/admin/roles", func(r chi.Router) {
+			r.Get("/", c.Role.List)
+			r.Post("/", c.Role.Create)
+			r.Get("/{id}", func(w http.ResponseWriter, r *http.Request) {
+				// Not needed for MVP - GetRolePermissions covers the use case
+				w.WriteHeader(http.StatusNotImplemented)
+			})
+			r.Put("/{id}", c.Role.Update)
+			r.Delete("/{id}", c.Role.Delete)
+			r.Get("/{id}/permissions", c.Role.GetRolePermissions)
+			r.Put("/{id}/permissions", c.Role.UpdateRolePermissions)
+		})
+
+		// Admin permissions routes
+		r.Get("/admin/permissions", c.Role.GetPermissions)
+		r.Get("/admin/role-permissions", c.Role.GetAllRolePermissions)
+
+		// Admin user-roles routes
+		r.Get("/admin/user-roles", c.Role.GetUserRoles)
+		r.Put("/admin/users/{id}/role", c.Role.UpdateUserRole)
 	})
 }
