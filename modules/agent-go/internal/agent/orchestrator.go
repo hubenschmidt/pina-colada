@@ -91,7 +91,7 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 	// Create all tools using the adapter
 	crmTools := tools.NewCRMTools(indService, orgService)
 	cacheTools := tools.NewCacheTools(cacheRepo)
-	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter, cacheTools)
+	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter, cacheTools, cfg.PublicURL)
 	docTools := tools.NewDocumentTools(docService)
 	emailTools := tools.NewEmailTools(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFromEmail)
 	allTools := tools.BuildAgentTools(crmTools, serperTools, docTools, emailTools, cacheTools)

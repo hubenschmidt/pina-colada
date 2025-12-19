@@ -372,3 +372,73 @@ func truncatePreview(s string, maxLen int) string {
 	}
 	return s[:maxLen] + "..."
 }
+
+// --- URL Shortening ---
+
+const base62Chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
+func base62Encode(data []byte) string {
+	var result strings.Builder
+	for _, b := range data {
+		result.WriteByte(base62Chars[int(b)%62])
+	}
+	return result.String()
+}
+
+func generateShortCode(url string) string {
+	hash := sha256.Sum256([]byte(url))
+	return base62Encode(hash[:6])
+}
+
+// ShortenURL generates a short code and stores the URL mapping
+func (t *CacheTools) ShortenURL(fullURL string) string {
+	code := generateShortCode(fullURL)
+	t.storeInMemory("url:"+code, fullURL, 1)
+	go t.storeURLInDB(code, fullURL)
+	return code
+}
+
+func (t *CacheTools) storeURLInDB(code, fullURL string) {
+	if t.cacheRepo == nil {
+		return
+	}
+
+	dataJSON, _ := json.Marshal(fullURL)
+	input := repositories.CacheUpsertInput{
+		TenantID:    0, // Global - not tenant-scoped
+		CacheKey:    "url:" + code,
+		CacheType:   "url_short",
+		ResultData:  dataJSON,
+		ResultCount: 1,
+		ExpiresAt:   time.Now().Add(168 * time.Hour), // 7 days
+	}
+
+	if err := t.cacheRepo.Upsert(input); err != nil {
+		log.Printf("URL shortener DB error: %v", err)
+	}
+}
+
+// ResolveURL looks up the full URL from a short code
+func (t *CacheTools) ResolveURL(code string) string {
+	entry := t.getFromMemory("url:" + code)
+	if entry != nil {
+		return entry.Data
+	}
+
+	if t.cacheRepo == nil {
+		return ""
+	}
+
+	cached, err := t.cacheRepo.Lookup(0, "url:"+code) // Global - not tenant-scoped
+	if err != nil || cached == nil {
+		return ""
+	}
+
+	var url string
+	if err := json.Unmarshal(cached.ResultData, &url); err != nil {
+		return ""
+	}
+
+	t.storeInMemory("url:"+code, url, 1)
+	return url
+}

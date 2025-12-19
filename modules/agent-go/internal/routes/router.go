@@ -38,6 +38,7 @@ type Controllers struct {
 	AgentConfig  *controllers.AgentConfigController
 	WebSocket    *controllers.WebSocketController
 	Metric       *controllers.MetricController
+	URL          *controllers.URLController
 }
 
 // NewRouter creates and configures the Chi router
@@ -85,6 +86,11 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 	// WebSocket route (no auth middleware - handles its own auth via messages)
 	if c.WebSocket != nil {
 		r.Get("/ws", c.WebSocket.HandleWS)
+	}
+
+	// URL shortener redirect (no auth - public redirect endpoint)
+	if c.URL != nil {
+		r.Get("/u/{code}", c.URL.Redirect)
 	}
 
 	// Protected routes (require auth)

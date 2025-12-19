@@ -88,6 +88,7 @@ func main() {
 	agentConfigService := services.NewAgentConfigService(agentConfigRepo)
 	metricService := services.NewMetricService(metricRepo, agentConfigService)
 	wsService := services.NewWebSocketService()
+	urlService := services.NewURLService(cacheRepo)
 
 	// Stop any orphaned recording sessions from previous runs
 	if stoppedCount, err := metricService.StopAllActiveSessions(); err != nil {
@@ -129,6 +130,7 @@ func main() {
 		AgentConfig:  controllers.NewAgentConfigController(agentConfigService, configCache),
 		WebSocket:    controllers.NewWebSocketController(agentOrchestrator, wsService),
 		Metric:       controllers.NewMetricController(metricService),
+		URL:          controllers.NewURLController(urlService),
 	}
 
 	// Initialize router and register routes

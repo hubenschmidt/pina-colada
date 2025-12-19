@@ -29,6 +29,7 @@ type SerperTools struct {
 	apiKey     string
 	jobService JobServiceInterface
 	cacheTools *CacheTools
+	publicURL  string // Base URL for generating absolute short URLs
 
 	// Cache for applied jobs to avoid repeated DB queries within a turn
 	appliedJobsCache     []JobInfo
@@ -50,11 +51,12 @@ const maxConcurrentSearches = 3
 const maxSearchesPerTurn = 1
 
 // NewSerperTools creates Serper tools with API key and optional job service for filtering
-func NewSerperTools(apiKey string, jobService JobServiceInterface, cacheTools *CacheTools) *SerperTools {
+func NewSerperTools(apiKey string, jobService JobServiceInterface, cacheTools *CacheTools, publicURL string) *SerperTools {
 	return &SerperTools{
 		apiKey:     apiKey,
 		jobService: jobService,
 		cacheTools: cacheTools,
+		publicURL:  publicURL,
 		searchSem:  make(chan struct{}, maxConcurrentSearches),
 	}
 }
@@ -257,7 +259,7 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 
 	// Format for display
 	return &JobSearchResult{
-		Results: formatListings(listings),
+		Results: formatListings(listings, t.cacheTools, t.publicURL),
 		Count:   listingCount,
 	}, nil
 }
@@ -314,14 +316,23 @@ func extractListing(item serperOrganicResult, appliedJobs []JobInfo) *JobListing
 	return &JobListing{C: company, T: title, U: item.Link}
 }
 
-// formatListings converts structured listings to display string with short arrow links
-func formatListings(listings []JobListing) string {
+// URLShortener interface for shortening URLs
+type URLShortener interface {
+	ShortenURL(fullURL string) string
+}
+
+// formatListings converts structured listings to display string with short URLs
+func formatListings(listings []JobListing, shortener URLShortener, baseURL string) string {
 	if len(listings) == 0 {
 		return ""
 	}
 	var lines []string
 	for i, l := range listings {
-		lines = append(lines, fmt.Sprintf("%d. %s - %s [⭢](%s)", i+1, l.C, l.T, l.U))
+		url := l.U
+		if shortener != nil && baseURL != "" {
+			url = baseURL + "/u/" + shortener.ShortenURL(l.U)
+		}
+		lines = append(lines, fmt.Sprintf("%d. %s - %s [⭢](%s)", i+1, l.C, l.T, url))
 	}
 	header := fmt.Sprintf("Found %d jobs:\n", len(listings))
 	return header + strings.Join(lines, "\n")
@@ -473,7 +484,7 @@ func (t *SerperTools) checkCache(query string) *JobSearchResult {
 		return nil
 	}
 
-	return &JobSearchResult{Results: formatListings(listings), Count: len(listings)}
+	return &JobSearchResult{Results: formatListings(listings, t.cacheTools, t.publicURL), Count: len(listings)}
 }
 
 // storeListingsCache stores structured job listings in cache

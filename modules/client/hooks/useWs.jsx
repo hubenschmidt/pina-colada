@@ -30,26 +30,6 @@ const applyEndOfTurn = (prev) => {
   return next;
 };
 
-/** Apply URL map to the last streaming message and close it */
-const applyUrlMapToLastMessage = (prev, urlMap) => {
-  const last = prev.at(-1);
-  if (!(last && last.user === "PinaColada" && last.streaming)) return prev;
-
-  // Replace [n] references with markdown links in the message text
-  let updatedMsg = last.msg;
-  for (const [ref, url] of Object.entries(urlMap)) {
-    // ref is like "[1]", need to escape brackets for regex
-    const escapedRef = ref.replace(/[[\]]/g, "\\$&");
-    // Extract number from [n] and create markdown link [n](url)
-    const num = ref.slice(1, -1);
-    updatedMsg = updatedMsg.replace(new RegExp(escapedRef, "g"), `[${num}](${url})`);
-  }
-
-  const next = prev.slice();
-  next[next.length - 1] = { ...last, msg: updatedMsg, streaming: false };
-  return next;
-};
-
 /** Handle new response start - close current bubble if streaming */
 const applyStartOfTurn = (prev) => {
   const last = prev.at(-1);
@@ -148,11 +128,7 @@ const handleParsedMessage = (obj, ctx) => {
   // End of assistant turn
   if (obj.on_chat_model_end === true) {
     ctx.setIsThinking(false);
-    const hasUrlMap = obj.url_map && typeof obj.url_map === "object" && Object.keys(obj.url_map).length > 0;
-    const endHandler = hasUrlMap
-      ? (prev) => applyUrlMapToLastMessage(prev, obj.url_map)
-      : applyEndOfTurn;
-    ctx.setMessages(endHandler);
+    ctx.setMessages(applyEndOfTurn);
     return true;
   }
 
