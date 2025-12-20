@@ -99,19 +99,9 @@ CREATE TRIGGER update_user_updated_at
     EXECUTE FUNCTION update_updated_at_column();
 
 -- ==============================
--- STEP 4: Seed Default Roles
+-- STEP 4: Data Integrity Constraints
 -- ==============================
-
-INSERT INTO "Role" (name, description) VALUES
-('owner', 'Tenant owner with full access and billing control'),
-('admin', 'Administrator with full access to all features'),
-('member', 'Standard member with access to most features'),
-('viewer', 'Read-only access to view data')
-ON CONFLICT (name) DO NOTHING;
-
--- ==============================
--- STEP 5: Data Integrity Constraints
--- ==============================
+-- Note: Default roles are created in migration 058 with tenant_id
 
 -- Once multi-tenancy is fully implemented, uncomment these to enforce tenant_id:
 -- ALTER TABLE "Deal" ALTER COLUMN tenant_id SET NOT NULL;

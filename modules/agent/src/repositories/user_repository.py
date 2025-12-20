@@ -134,8 +134,8 @@ async def get_tenant_users(tenant_id: int):
         return result.scalars().all()
 
 
-async def get_user_global_roles(user_id: int) -> list[str]:
-    """Get global role names for a user (roles with NULL tenant_id)."""
+async def get_user_roles(user_id: int) -> list[str]:
+    """Get all role names for a user."""
     from models.Role import Role
     from models.UserRole import UserRole
 
@@ -144,7 +144,6 @@ async def get_user_global_roles(user_id: int) -> list[str]:
             select(Role.name)
             .join(UserRole, UserRole.role_id == Role.id)
             .where(UserRole.user_id == user_id)
-            .where(Role.tenant_id.is_(None))
         )
         result = await session.execute(stmt)
         return list(result.scalars().all())

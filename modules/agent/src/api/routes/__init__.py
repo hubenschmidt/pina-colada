@@ -29,6 +29,7 @@ from api.routes.tags import router as tags_routes
 from api.routes.conversations import router as conversations_routes
 from api.routes.usage import router as usage_routes
 from api.routes.costs import router as costs_routes
+from api.routes.metrics import router as metrics_routes
 
 __all__ = [
     "jobs_routes",
@@ -60,5 +61,6 @@ __all__ = [
     "conversations_routes",
     "usage_routes",
     "costs_routes",
+    "metrics_routes",
 ]
 

@@ -102,7 +102,7 @@ func (s *AuthService) GetMe(auth0Sub, email string) (*MeResponse, error) {
 		return nil, err
 	}
 
-	roles, err := s.userRepo.GetUserGlobalRoles(user.ID)
+	roles, err := s.userRepo.GetUserRoles(user.ID)
 	if err != nil {
 		roles = []string{}
 	}

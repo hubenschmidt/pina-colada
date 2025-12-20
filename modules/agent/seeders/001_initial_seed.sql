@@ -27,23 +27,8 @@ BEGIN
 
     RAISE NOTICE 'Tenant ID: %', v_tenant_id;
 
-    -- Update any global roles (tenant_id IS NULL) to use this tenant
-    -- This consolidates roles from migration 002_multitenancy.sql
-    UPDATE "Role" SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
-
-    -- Update any global users (tenant_id IS NULL) to use this tenant
-    UPDATE "User" SET tenant_id = v_tenant_id WHERE tenant_id IS NULL;
-
-    -- STEP 0a: Create bootstrap User first (without individual_id) to use for created_by/updated_by
-    SELECT id INTO v_bootstrap_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
-
-    IF v_bootstrap_user_id IS NULL THEN
-        INSERT INTO "User" (tenant_id, email, first_name, last_name, status, created_at, updated_at)
-        VALUES (v_tenant_id, 'whubenschmidt@gmail.com', 'William', 'Hubenschmidt', 'active', NOW(), NOW())
-        RETURNING id INTO v_bootstrap_user_id;
-    ELSE
-        UPDATE "User" SET tenant_id = v_tenant_id WHERE id = v_bootstrap_user_id AND tenant_id IS NULL;
-    END IF;
+    -- Get bootstrap user (created by migration 058)
+    SELECT id INTO v_bootstrap_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' AND tenant_id = v_tenant_id LIMIT 1;
 
     -- Create Account for the user's Individual (with tenant_id and audit columns)
     INSERT INTO "Account" (tenant_id, name, created_at, updated_at, created_by, updated_by)
@@ -72,22 +57,6 @@ BEGIN
     -- Now link the User to the Individual
     UPDATE "User" SET individual_id = v_individual_id WHERE id = v_bootstrap_user_id;
     v_user_id := v_bootstrap_user_id;
-
-    -- Create Owner Role
-    INSERT INTO "Role" (tenant_id, name, description)
-    VALUES (v_tenant_id, 'owner', 'Full access to all resources')
-    ON CONFLICT DO NOTHING
-    RETURNING id INTO v_role_id;
-
-    -- If role already exists, get its id
-    IF v_role_id IS NULL THEN
-        SELECT id INTO v_role_id FROM "Role" WHERE tenant_id = v_tenant_id AND name = 'owner';
-    END IF;
-
-    -- Create UserRole
-    INSERT INTO "User_Role" (user_id, role_id, created_at)
-    VALUES (v_user_id, v_role_id, NOW())
-    ON CONFLICT DO NOTHING;
 
     -- Set William's theme preference to dark
     INSERT INTO "User_Preferences" (user_id, theme, timezone, created_at, updated_at)

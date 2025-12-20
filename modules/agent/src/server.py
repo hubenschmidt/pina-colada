@@ -18,7 +18,7 @@ from agent.websocket_handler import handle_message
 from agent.orchestrator import cancel_streaming
 from agent.util.logging_config import configure_logging
 from middleware import AuthMiddleware, ErrorLoggingMiddleware
-from api.routes import jobs_routes, leads_routes, auth_routes, users_routes, preferences_routes, organizations_routes, individuals_routes, industries_routes, salary_ranges_routes, employee_count_ranges_routes, funding_stages_routes, notes_routes, contacts_routes, accounts_routes, revenue_ranges_routes, technologies_routes, provenance_routes, reports_routes, projects_routes, opportunities_routes, partnerships_routes, tasks_routes, comments_routes, notifications_routes, documents_routes, tags_routes, conversations_routes, usage_routes, costs_routes
+from api.routes import jobs_routes, leads_routes, auth_routes, users_routes, preferences_routes, organizations_routes, individuals_routes, industries_routes, salary_ranges_routes, employee_count_ranges_routes, funding_stages_routes, notes_routes, contacts_routes, accounts_routes, revenue_ranges_routes, technologies_routes, provenance_routes, reports_routes, projects_routes, opportunities_routes, partnerships_routes, tasks_routes, comments_routes, notifications_routes, documents_routes, tags_routes, conversations_routes, usage_routes, costs_routes, metrics_routes
 from uuid import uuid4
 import uvicorn
 
@@ -83,6 +83,7 @@ app.include_router(tags_routes)
 app.include_router(conversations_routes)
 app.include_router(usage_routes)
 app.include_router(costs_routes)
+app.include_router(metrics_routes)
 
 
 # -----------------------------------------------------------------------------
