@@ -1,20 +1,17 @@
 "use client";
 import Link from "next/link";
-import Image from "next/image";
 import { useNavContext } from "../../context/navContext";
 
 const Hero = () => {
   const { dispatchNav } = useNavContext();
   return (
     <section className="relative overflow-hidden">
-      <Image
-        src="/pc.png"
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/pc.jpg"
         alt=""
-        fill
-        priority
-        aria-hidden
-        className="object-cover object-center opacity-20 [filter:brightness(0.98)_contrast(1.1)]"
-        sizes="100vw"
+        aria-hidden="true"
+        className="absolute inset-0 h-full w-full object-cover object-center opacity-20 [filter:brightness(0.98)_contrast(1.1)]"
       />
 
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-24 sm:py-32">
