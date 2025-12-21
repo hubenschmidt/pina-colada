@@ -2,7 +2,6 @@ package tools
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -145,15 +144,15 @@ func (t *CRMTools) ListCtx(ctx context.Context, params CRMListParams) (*CRMResul
 
 // CRMProposeRecordCreateParams defines parameters for proposing record creation
 type CRMProposeRecordCreateParams struct {
-	EntityType string                 `json:"entity_type" jsonschema:"required,The type of CRM entity to create a record for"`
-	Data       map[string]interface{} `json:"data" jsonschema:"required,The record data to create"`
+	EntityType string `json:"entity_type" jsonschema:"required,description=The type of CRM entity to create a record for"`
+	DataJSON   string `json:"data_json" jsonschema:"required,description=The record data as a JSON string e.g. {\"title\":\"Engineer\"}"`
 }
 
 // CRMProposeRecordUpdateParams defines parameters for proposing record update
 type CRMProposeRecordUpdateParams struct {
-	EntityType string                 `json:"entity_type" jsonschema:"required,The type of CRM entity"`
-	RecordID   int64                  `json:"record_id" jsonschema:"required,The ID of the record to update"`
-	Data       map[string]interface{} `json:"data" jsonschema:"required,The fields to update"`
+	EntityType string `json:"entity_type" jsonschema:"required,description=The type of CRM entity"`
+	RecordID   int64  `json:"record_id" jsonschema:"required,description=The ID of the record to update"`
+	DataJSON   string `json:"data_json" jsonschema:"required,description=The fields to update as a JSON string"`
 }
 
 // CRMProposeRecordDeleteParams defines parameters for proposing record deletion
@@ -188,12 +187,7 @@ func (t *CRMTools) ProposeRecordCreateCtx(ctx context.Context, params CRMPropose
 		return &CRMProposeResult{Success: false, Message: err.Error()}, nil
 	}
 
-	payload, err := json.Marshal(params.Data)
-	if err != nil {
-		return &CRMProposeResult{Success: false, Message: fmt.Sprintf("Failed to serialize data: %v", err)}, nil
-	}
-
-	result, err := t.proposalCreator.ProposeOperationBytes(tenantID, userID, entityType, nil, "create", payload)
+	result, err := t.proposalCreator.ProposeOperationBytes(tenantID, userID, entityType, nil, "create", []byte(params.DataJSON))
 	if err != nil {
 		log.Printf("❌ ProposeCreate failed: %v", err)
 		return &CRMProposeResult{Success: false, Message: err.Error()}, nil
@@ -226,13 +220,8 @@ func (t *CRMTools) ProposeRecordUpdateCtx(ctx context.Context, params CRMPropose
 		return &CRMProposeResult{Success: false, Message: err.Error()}, nil
 	}
 
-	payload, err := json.Marshal(params.Data)
-	if err != nil {
-		return &CRMProposeResult{Success: false, Message: fmt.Sprintf("Failed to serialize data: %v", err)}, nil
-	}
-
 	recordID := params.RecordID
-	result, err := t.proposalCreator.ProposeOperationBytes(tenantID, userID, entityType, &recordID, "update", payload)
+	result, err := t.proposalCreator.ProposeOperationBytes(tenantID, userID, entityType, &recordID, "update", []byte(params.DataJSON))
 	if err != nil {
 		log.Printf("❌ ProposeRecordUpdate failed: %v", err)
 		return &CRMProposeResult{Success: false, Message: err.Error()}, nil

@@ -8,12 +8,14 @@ import (
 )
 
 // NewCRMWorker creates the CRM specialist agent.
-// Has access to crm_lookup, crm_list, crm_statuses, search_entity_documents, and read_document tools.
+// Has access to CRM read/write tools and document tools.
 func NewCRMWorker(model string, settings *modelsettings.ModelSettings, allTools []agents.Tool) *agents.Agent {
 	workerTools := tools.FilterTools(allTools,
 		"crm_lookup",
 		"crm_list",
-		"crm_statuses",
+		"crm_propose_create",
+		"crm_propose_update",
+		"crm_propose_delete",
 		"search_entity_documents",
 		"read_document",
 	)

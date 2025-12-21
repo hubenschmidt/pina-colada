@@ -3,6 +3,7 @@ package services
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
 	"github.com/pina-colada-co/agent-go/internal/repositories"
@@ -167,15 +168,16 @@ func (s *ProposalService) ApproveProposal(proposalID, reviewerID int64) (*serial
 		return nil, ErrProposalHasValidationErrors
 	}
 
-	// Mark approved
-	if err := s.proposalRepo.UpdateStatus(proposalID, repositories.ProposalStatusApproved, &reviewerID); err != nil {
-		return nil, err
+	// Execute the operation (don't change status until success)
+	if err := s.executor.Execute(proposal.EntityType, proposal.Operation, proposal.EntityID, proposal.Payload, proposal.TenantID, reviewerID); err != nil {
+		// Keep as pending but store error so user can see what went wrong and retry
+		_ = s.proposalRepo.SetError(proposalID, err.Error())
+		return nil, fmt.Errorf("%w: %s", ErrProposalExecutionFailed, err.Error())
 	}
 
-	// Execute the operation
-	if err := s.executor.Execute(proposal.EntityType, proposal.Operation, proposal.EntityID, proposal.Payload, proposal.TenantID, reviewerID); err != nil {
-		_ = s.proposalRepo.MarkFailed(proposalID, err.Error())
-		return nil, ErrProposalExecutionFailed
+	// Mark approved only after successful execution
+	if err := s.proposalRepo.UpdateStatus(proposalID, repositories.ProposalStatusApproved, &reviewerID); err != nil {
+		return nil, err
 	}
 
 	if err := s.proposalRepo.MarkExecuted(proposalID); err != nil {

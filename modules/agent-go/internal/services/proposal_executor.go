@@ -19,6 +19,7 @@ type CRMProposalExecutor struct {
 	noteService    *NoteService
 	taskService    *TaskService
 	accountService *AccountService
+	jobService     *JobService
 }
 
 // NewCRMProposalExecutor creates a new CRM proposal executor
@@ -29,6 +30,7 @@ func NewCRMProposalExecutor(
 	noteService *NoteService,
 	taskService *TaskService,
 	accountService *AccountService,
+	jobService *JobService,
 ) *CRMProposalExecutor {
 	return &CRMProposalExecutor{
 		contactService: contactService,
@@ -37,6 +39,7 @@ func NewCRMProposalExecutor(
 		noteService:    noteService,
 		taskService:    taskService,
 		accountService: accountService,
+		jobService:     jobService,
 	}
 }
 
@@ -56,6 +59,9 @@ func (e *CRMProposalExecutor) Execute(entityType, operation string, entityID *in
 	}
 	if entityType == "task" {
 		return e.executeTask(operation, entityID, payload, tenantID, userID)
+	}
+	if entityType == "job" {
+		return e.executeJob(operation, entityID, payload, tenantID, userID)
 	}
 	return fmt.Errorf("%w: %s", ErrOperationNotSupported, entityType)
 }
@@ -269,6 +275,47 @@ func (e *CRMProposalExecutor) deleteTask(entityID *int64) error {
 		return errors.New("entity_id required for delete")
 	}
 	return e.taskService.DeleteTask(*entityID)
+}
+
+func (e *CRMProposalExecutor) executeJob(operation string, entityID *int64, payload datatypes.JSON, tenantID, userID int64) error {
+	if operation == "create" {
+		return e.createJob(payload, tenantID, userID)
+	}
+	if operation == "update" {
+		return e.updateJob(entityID, payload, tenantID, userID)
+	}
+	if operation == "delete" {
+		return e.deleteJob(entityID)
+	}
+	return ErrOperationNotSupported
+}
+
+func (e *CRMProposalExecutor) createJob(payload datatypes.JSON, tenantID, userID int64) error {
+	var input schemas.JobCreate
+	if err := json.Unmarshal(payload, &input); err != nil {
+		return fmt.Errorf("failed to parse job data: %w", err)
+	}
+	_, err := e.jobService.CreateJob(input, &tenantID, userID)
+	return err
+}
+
+func (e *CRMProposalExecutor) updateJob(entityID *int64, payload datatypes.JSON, tenantID, userID int64) error {
+	if entityID == nil {
+		return errors.New("entity_id required for update")
+	}
+	var input schemas.JobUpdate
+	if err := json.Unmarshal(payload, &input); err != nil {
+		return fmt.Errorf("failed to parse job data: %w", err)
+	}
+	_, err := e.jobService.UpdateJob(*entityID, input, &tenantID, userID)
+	return err
+}
+
+func (e *CRMProposalExecutor) deleteJob(entityID *int64) error {
+	if entityID == nil {
+		return errors.New("entity_id required for delete")
+	}
+	return e.jobService.DeleteJob(*entityID)
 }
 
 // Ensure CRMProposalExecutor implements ProposalExecutor

@@ -210,6 +210,16 @@ func (r *ProposalRepository) MarkFailed(id int64, errMsg string) error {
 		}).Error
 }
 
+// SetError sets error message without changing status (keeps proposal visible for retry)
+func (r *ProposalRepository) SetError(id int64, errMsg string) error {
+	return r.db.Model(&models.AgentProposal{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"error_message": errMsg,
+			"updated_at":    time.Now(),
+		}).Error
+}
+
 // FindByIDs returns proposals by IDs
 func (r *ProposalRepository) FindByIDs(ids []int64) ([]ProposalDTO, error) {
 	var proposals []models.AgentProposal

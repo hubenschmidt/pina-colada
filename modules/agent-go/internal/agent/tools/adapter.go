@@ -13,6 +13,9 @@ func BuildAgentTools(crm *CRMTools, serper *SerperTools, doc *DocumentTools, ema
 	return collectTools(
 		crmLookupTool(crm),
 		crmListTool(crm),
+		crmProposeCreateTool(crm),
+		crmProposeUpdateTool(crm),
+		crmProposeDeleteTool(crm),
 		jobSearchTool(serper),
 		webSearchTool(serper),
 		searchDocsTool(doc),
@@ -59,6 +62,60 @@ func crmListTool(crm *CRMTools) agents.Tool {
 		"List CRM entities of a specific type. Returns JSON with entities array. Example entity types: individual, organization, contact, account, job, lead.",
 		func(ctx context.Context, args CRMListParams) (string, error) {
 			result, err := crm.ListCtx(ctx, args)
+			if err != nil {
+				return "", err
+			}
+			out, _ := json.Marshal(result)
+			return string(out), nil
+		},
+	)
+}
+
+func crmProposeCreateTool(crm *CRMTools) agents.Tool {
+	if crm == nil {
+		return nil
+	}
+	return agents.NewFunctionTool(
+		"crm_propose_create",
+		"Propose creating a new CRM record. The proposal is queued for human approval. Parameters: entity_type (job, contact, etc.), data (record fields as JSON object).",
+		func(ctx context.Context, args CRMProposeRecordCreateParams) (string, error) {
+			result, err := crm.ProposeRecordCreateCtx(ctx, args)
+			if err != nil {
+				return "", err
+			}
+			out, _ := json.Marshal(result)
+			return string(out), nil
+		},
+	)
+}
+
+func crmProposeUpdateTool(crm *CRMTools) agents.Tool {
+	if crm == nil {
+		return nil
+	}
+	return agents.NewFunctionTool(
+		"crm_propose_update",
+		"Propose updating an existing CRM record. The proposal is queued for human approval. Parameters: entity_type, record_id, data (fields to update).",
+		func(ctx context.Context, args CRMProposeRecordUpdateParams) (string, error) {
+			result, err := crm.ProposeRecordUpdateCtx(ctx, args)
+			if err != nil {
+				return "", err
+			}
+			out, _ := json.Marshal(result)
+			return string(out), nil
+		},
+	)
+}
+
+func crmProposeDeleteTool(crm *CRMTools) agents.Tool {
+	if crm == nil {
+		return nil
+	}
+	return agents.NewFunctionTool(
+		"crm_propose_delete",
+		"Propose deleting a CRM record. The proposal is queued for human approval. Parameters: entity_type, record_id.",
+		func(ctx context.Context, args CRMProposeRecordDeleteParams) (string, error) {
+			result, err := crm.ProposeRecordDeleteCtx(ctx, args)
 			if err != nil {
 				return "", err
 			}

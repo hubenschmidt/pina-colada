@@ -8,12 +8,14 @@ import (
 )
 
 // NewGeneralWorker creates the general-purpose assistant agent.
-// Has access to crm_lookup, crm_list, search_entity_documents, read_document, and web_search tools.
-// Does NOT have access to job_search.
+// Has access to CRM tools, document tools, and web search. Does NOT have job_search.
 func NewGeneralWorker(model string, settings *modelsettings.ModelSettings, allTools []agents.Tool) *agents.Agent {
 	workerTools := tools.FilterTools(allTools,
 		"crm_lookup",
 		"crm_list",
+		"crm_propose_create",
+		"crm_propose_update",
+		"crm_propose_delete",
 		"search_entity_documents",
 		"read_document",
 		"web_search",

@@ -333,6 +333,7 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 	// Build triage agent with user-specific models
 	userID, _ := strconv.ParseInt(req.UserID, 10, 64)
 	ctx = context.WithValue(ctx, middleware.UserIDKey, userID)
+	ctx = context.WithValue(ctx, middleware.TenantIDKey, req.TenantID)
 	triageAgent := o.buildTriageAgentForUser(userID, false)
 
 	// Run the triage agent with increased turn limit (SDK handles handoffs automatically)
@@ -713,6 +714,7 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 
 	userID, _ := strconv.ParseInt(req.UserID, 10, 64)
 	ctx = context.WithValue(ctx, middleware.UserIDKey, userID)
+	ctx = context.WithValue(ctx, middleware.TenantIDKey, req.TenantID)
 
 	// Try running with settings first
 	ss, streamErr := o.runAgentStream(ctx, userID, input, req.UseEvaluator, sendEvent, false)
