@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"github.com/nlpodyssey/openai-agents-go/agents"
@@ -12,7 +13,6 @@ func BuildAgentTools(crm *CRMTools, serper *SerperTools, doc *DocumentTools, ema
 	return collectTools(
 		crmLookupTool(crm),
 		crmListTool(crm),
-		crmStatusesTool(crm),
 		jobSearchTool(serper),
 		webSearchTool(serper),
 		searchDocsTool(doc),
@@ -38,13 +38,14 @@ func crmLookupTool(crm *CRMTools) agents.Tool {
 	}
 	return agents.NewFunctionTool(
 		"crm_lookup",
-		"Search for CRM entities by type. Supported entity_type: individual, organization, contact, account, job, lead. For job/lead, use status array to filter (e.g., ['interviewing', 'applied']).",
+		"Search for CRM entities by type and query. Returns JSON with entities array. Example entity types: individual, organization, contact, account, job, lead.",
 		func(ctx context.Context, args CRMLookupParams) (string, error) {
 			result, err := crm.LookupCtx(ctx, args)
 			if err != nil {
 				return "", err
 			}
-			return result.Results, nil
+			out, _ := json.Marshal(result)
+			return string(out), nil
 		},
 	)
 }
@@ -55,30 +56,14 @@ func crmListTool(crm *CRMTools) agents.Tool {
 	}
 	return agents.NewFunctionTool(
 		"crm_list",
-		"List CRM entities of a specific type. Use this to see all individuals or organizations.",
+		"List CRM entities of a specific type. Returns JSON with entities array. Example entity types: individual, organization, contact, account, job, lead.",
 		func(ctx context.Context, args CRMListParams) (string, error) {
 			result, err := crm.ListCtx(ctx, args)
 			if err != nil {
 				return "", err
 			}
-			return result.Results, nil
-		},
-	)
-}
-
-func crmStatusesTool(crm *CRMTools) agents.Tool {
-	if crm == nil {
-		return nil
-	}
-	return agents.NewFunctionTool(
-		"crm_statuses",
-		"List available job lead statuses. Use this to see what status values can be used to filter job/lead queries.",
-		func(ctx context.Context, args CRMStatusesParams) (string, error) {
-			result, err := crm.ListStatusesCtx(ctx, args)
-			if err != nil {
-				return "", err
-			}
-			return result.Results, nil
+			out, _ := json.Marshal(result)
+			return string(out), nil
 		},
 	)
 }

@@ -4,7 +4,7 @@ import (
 	"github.com/pina-colada-co/agent-go/internal/repositories"
 )
 
-// GenericEntityService provides generic entity listing
+// GenericEntityService provides generic entity operations
 type GenericEntityService struct {
 	repo *repositories.GenericEntityRepository
 }
@@ -17,4 +17,9 @@ func NewGenericEntityService(repo *repositories.GenericEntityRepository) *Generi
 // ListEntities lists entities from any table by entity type name
 func (s *GenericEntityService) ListEntities(entityType string, limit int) ([]map[string]interface{}, error) {
 	return s.repo.ListEntities(entityType, limit)
+}
+
+// SearchEntities searches entities by query string
+func (s *GenericEntityService) SearchEntities(entityType, query string, limit int) ([]map[string]interface{}, error) {
+	return s.repo.SearchEntities(entityType, query, limit)
 }
