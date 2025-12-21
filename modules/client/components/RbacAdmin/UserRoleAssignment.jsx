@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { Paper, Stack, Group, Table, Text, Select, Loader, Alert } from "@mantine/core";
-import { getRoles, getUserRoles, updateUserRole } from "../../api";
+import { getUserRoles, updateUserRole } from "../../api";
+import { useRoles } from "./RolesContext";
 
 const UserRoleAssignment = () => {
+  const { roles, loading: rolesLoading, error: rolesError } = useRoles();
   const [users, setUsers] = useState([]);
-  const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [updating, setUpdating] = useState(null);
@@ -15,9 +16,8 @@ const UserRoleAssignment = () => {
     setLoading(true);
     setError(null);
     try {
-      const [usersData, rolesData] = await Promise.all([getUserRoles(), getRoles()]);
+      const usersData = await getUserRoles();
       setUsers(usersData);
-      setRoles(rolesData);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -28,6 +28,9 @@ const UserRoleAssignment = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const isLoading = loading || rolesLoading;
+  const displayError = error || rolesError;
 
   const handleRoleChange = async (userId, roleId) => {
     if (!roleId) return;
@@ -53,11 +56,11 @@ const UserRoleAssignment = () => {
     label: r.name + (r.is_system ? " (System)" : ""),
   }));
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Paper withBorder p="lg">
         <Group justify="center">
-          <Loader size="sm" />
+          <Loader size="sm" color="lime" />
           <Text>Loading users...</Text>
         </Group>
       </Paper>
@@ -72,9 +75,9 @@ const UserRoleAssignment = () => {
           Assign roles to users in your organization.
         </Text>
 
-        {error && (
+        {displayError && (
           <Alert color="red" onClose={() => setError(null)} withCloseButton>
-            {error}
+            {displayError}
           </Alert>
         )}
 

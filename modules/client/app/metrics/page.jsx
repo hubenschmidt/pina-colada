@@ -166,7 +166,7 @@ const MetricsPage = () => {
         </Group>
         {loadingComparison ? (
           <Center mih={300}>
-            <Loader size="lg" />
+            <Loader size="lg" color="lime" />
           </Center>
         ) : (
           <MetricsCharts comparison={comparisonData} />

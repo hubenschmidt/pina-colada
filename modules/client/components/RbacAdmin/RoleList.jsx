@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState } from "react";
 import {
   Paper,
   Stack,
@@ -17,33 +17,18 @@ import {
   Textarea,
 } from "@mantine/core";
 import { Plus, Pencil, Trash2 } from "lucide-react";
-import { getRoles, createRole, updateRole, deleteRole } from "../../api";
+import { createRole, updateRole, deleteRole } from "../../api";
+import { useRoles } from "./RolesContext";
 
 const RoleList = () => {
-  const [roles, setRoles] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { roles, loading, error: rolesError, refreshRoles } = useRoles();
   const [error, setError] = useState(null);
   const [editingRole, setEditingRole] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
   const [formData, setFormData] = useState({ name: "", description: "" });
   const [saving, setSaving] = useState(false);
 
-  const loadRoles = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await getRoles();
-      setRoles(data);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadRoles();
-  }, [loadRoles]);
+  const displayError = error || rolesError;
 
   const openCreate = () => {
     setFormData({ name: "", description: "" });
@@ -79,7 +64,7 @@ const RoleList = () => {
       }
 
       closeModal();
-      loadRoles();
+      refreshRoles();
     } catch (e) {
       setError(e.message);
     } finally {
@@ -91,7 +76,7 @@ const RoleList = () => {
     if (!confirm(`Delete role "${role.name}"? This cannot be undone.`)) return;
     try {
       await deleteRole(role.id);
-      loadRoles();
+      refreshRoles();
     } catch (e) {
       setError(e.message);
     }
@@ -101,7 +86,7 @@ const RoleList = () => {
     return (
       <Paper withBorder p="lg">
         <Group justify="center">
-          <Loader size="sm" />
+          <Loader size="sm" color="lime" />
           <Text>Loading roles...</Text>
         </Group>
       </Paper>
@@ -118,9 +103,9 @@ const RoleList = () => {
           </Button>
         </Group>
 
-        {error && (
+        {displayError && (
           <Alert color="red" onClose={() => setError(null)} withCloseButton>
-            {error}
+            {displayError}
           </Alert>
         )}
 

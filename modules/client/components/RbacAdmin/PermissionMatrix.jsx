@@ -2,10 +2,11 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { Paper, Stack, Group, Table, Text, Checkbox, Loader, Alert, Badge } from "@mantine/core";
-import { getRoles, getPermissions, getAllRolePermissions, updateRolePermissions } from "../../api";
+import { getPermissions, getAllRolePermissions, updateRolePermissions } from "../../api";
+import { useRoles } from "./RolesContext";
 
 const PermissionMatrix = () => {
-  const [roles, setRoles] = useState([]);
+  const { roles, loading: rolesLoading, error: rolesError } = useRoles();
   const [permissions, setPermissions] = useState([]);
   const [rolePermissions, setRolePermissions] = useState({});
   const [loading, setLoading] = useState(true);
@@ -16,12 +17,10 @@ const PermissionMatrix = () => {
     setLoading(true);
     setError(null);
     try {
-      const [rolesData, permsData, allRolePerms] = await Promise.all([
-        getRoles(),
+      const [permsData, allRolePerms] = await Promise.all([
         getPermissions(),
         getAllRolePermissions(),
       ]);
-      setRoles(rolesData);
       setPermissions(permsData);
 
       const permMap = {};
@@ -39,6 +38,9 @@ const PermissionMatrix = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  const isLoading = loading || rolesLoading;
+  const displayError = error || rolesError;
 
   const hasPermission = (roleId, permissionId) => {
     return rolePermissions[roleId]?.has(permissionId) || false;
@@ -82,11 +84,11 @@ const PermissionMatrix = () => {
     return acc;
   }, {});
 
-  if (loading) {
+  if (isLoading) {
     return (
       <Paper withBorder p="lg">
         <Group justify="center">
-          <Loader size="sm" />
+          <Loader size="sm" color="lime" />
           <Text>Loading permissions...</Text>
         </Group>
       </Paper>
@@ -101,9 +103,9 @@ const PermissionMatrix = () => {
           Check/uncheck to assign permissions to roles. System roles cannot be modified.
         </Text>
 
-        {error && (
+        {displayError && (
           <Alert color="red" onClose={() => setError(null)} withCloseButton>
-            {error}
+            {displayError}
           </Alert>
         )}
 

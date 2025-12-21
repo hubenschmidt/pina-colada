@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useUserContext } from "../../context/userContext";
 import { useState, useEffect } from "react";
 import { SET_THEME } from "../../reducers/userReducer";
@@ -24,9 +25,9 @@ import {
   getTimezones,
 } from "../../api";
 import { usePageLoading } from "../../context/pageLoadingContext";
-import RbacAdmin from "../../components/RbacAdmin/RbacAdmin";
 
 const SettingsPage = () => {
+  const router = useRouter();
   const { userState, dispatchUser } = useUserContext();
   const [userTheme, setUserTheme] = useState(null);
   const [userTimezone, setUserTimezone] = useState("America/New_York");
@@ -140,13 +141,17 @@ const SettingsPage = () => {
       <Stack gap="xl">
         <Title order={1}>Settings</Title>
 
-        <Tabs defaultValue="general">
+        <Tabs value="general">
           <Tabs.List>
             <Tabs.Tab value="general" leftSection={<Settings size={16} />}>
               General
             </Tabs.Tab>
             {userState.canEditTenantTheme && (
-              <Tabs.Tab value="access" leftSection={<Shield size={16} />}>
+              <Tabs.Tab
+                value="access"
+                leftSection={<Shield size={16} />}
+                onClick={() => router.push("/settings/access-control/roles")}
+              >
                 Access Control
               </Tabs.Tab>
             )}
@@ -205,12 +210,6 @@ const SettingsPage = () => {
               )}
             </Stack>
           </Tabs.Panel>
-
-          {userState.canEditTenantTheme && (
-            <Tabs.Panel value="access" pt="xl">
-              <RbacAdmin />
-            </Tabs.Panel>
-          )}
         </Tabs>
       </Stack>
     </Container>

@@ -45,7 +45,7 @@ const UsageCard = ({ title, icon: Icon, data, loading }) => (
       <Text fw={500}>{title}</Text>
     </Group>
     {loading ? (
-      <Loader size="sm" />
+      <Loader size="sm" color="lime" />
     ) : (
       <Stack gap="xs">
         <Group justify="space-between">
@@ -121,7 +121,7 @@ const ProviderCostsCard = ({ costs, loading }) => (
       </Badge>
     </Group>
     {loading ? (
-      <Loader size="sm" />
+      <Loader size="sm" color="lime" />
     ) : costs?.error ? (
       <Text c="dimmed" size="sm">
         {costs.error}
