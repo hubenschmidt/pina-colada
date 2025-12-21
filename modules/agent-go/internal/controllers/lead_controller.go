@@ -1,13 +1,16 @@
 package controllers
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
+
 	"github.com/pina-colada-co/agent-go/internal/middleware"
+	"github.com/pina-colada-co/agent-go/internal/schemas"
 	"github.com/pina-colada-co/agent-go/internal/services"
 )
 
@@ -211,4 +214,152 @@ func parseStatusNames(statuses string) []string {
 		}
 	}
 	return result
+}
+
+// CreateOpportunity handles POST /opportunities
+func (c *LeadController) CreateOpportunity(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var tenantID *int64
+	if tid, ok := middleware.GetTenantID(r.Context()); ok {
+		tenantID = &tid
+	}
+
+	var input schemas.OpportunityCreate
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	result, err := c.leadService.CreateOpportunity(input, tenantID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, result)
+}
+
+// UpdateOpportunity handles PUT /opportunities/{id}
+func (c *LeadController) UpdateOpportunity(w http.ResponseWriter, r *http.Request) {
+	id, err := parseIDParam(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid opportunity id")
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var input schemas.OpportunityUpdate
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	result, err := c.leadService.UpdateOpportunity(id, input, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
+// DeleteOpportunity handles DELETE /opportunities/{id}
+func (c *LeadController) DeleteOpportunity(w http.ResponseWriter, r *http.Request) {
+	id, err := parseIDParam(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid opportunity id")
+		return
+	}
+
+	err = c.leadService.DeleteOpportunity(id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// CreatePartnership handles POST /partnerships
+func (c *LeadController) CreatePartnership(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var tenantID *int64
+	if tid, ok := middleware.GetTenantID(r.Context()); ok {
+		tenantID = &tid
+	}
+
+	var input schemas.PartnershipCreate
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	result, err := c.leadService.CreatePartnership(input, tenantID, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusCreated, result)
+}
+
+// UpdatePartnership handles PUT /partnerships/{id}
+func (c *LeadController) UpdatePartnership(w http.ResponseWriter, r *http.Request) {
+	id, err := parseIDParam(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid partnership id")
+		return
+	}
+
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	var input schemas.PartnershipUpdate
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid request body")
+		return
+	}
+
+	result, err := c.leadService.UpdatePartnership(id, input, userID)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, result)
+}
+
+// DeletePartnership handles DELETE /partnerships/{id}
+func (c *LeadController) DeletePartnership(w http.ResponseWriter, r *http.Request) {
+	id, err := parseIDParam(r, "id")
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid partnership id")
+		return
+	}
+
+	err = c.leadService.DeletePartnership(id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

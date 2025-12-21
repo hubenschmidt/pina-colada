@@ -228,13 +228,19 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 		// Opportunities routes
 		r.Route("/opportunities", func(r chi.Router) {
 			r.Get("/", c.Lead.GetOpportunities)
+			r.Post("/", c.Lead.CreateOpportunity)
 			r.Get("/{id}", c.Lead.GetOpportunity)
+			r.Put("/{id}", c.Lead.UpdateOpportunity)
+			r.Delete("/{id}", c.Lead.DeleteOpportunity)
 		})
 
 		// Partnerships routes
 		r.Route("/partnerships", func(r chi.Router) {
 			r.Get("/", c.Lead.GetPartnerships)
+			r.Post("/", c.Lead.CreatePartnership)
 			r.Get("/{id}", c.Lead.GetPartnership)
+			r.Put("/{id}", c.Lead.UpdatePartnership)
+			r.Delete("/{id}", c.Lead.DeletePartnership)
 		})
 
 		// Accounts routes

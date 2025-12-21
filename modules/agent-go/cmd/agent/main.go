@@ -96,8 +96,7 @@ func main() {
 	urlService := services.NewURLService(cacheRepo)
 	permService := services.NewPermissionService(permRepo)
 	approvalConfigService := services.NewApprovalConfigService(approvalConfigRepo)
-	proposalExecutor := services.NewCRMProposalExecutor(contactService, orgService, indService, noteService, taskService, accountService, jobService)
-	proposalService := services.NewProposalService(proposalRepo, approvalConfigRepo, proposalExecutor)
+	proposalService := services.NewProposalService(proposalRepo, approvalConfigRepo, contactService, orgService, indService, noteService, taskService, jobService, leadService)
 	roleService := services.NewRoleService(roleRepo)
 	genericEntityService := services.NewGenericEntityService(genericEntityRepo)
 
