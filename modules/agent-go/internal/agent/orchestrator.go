@@ -22,6 +22,7 @@ import (
 	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
 	"github.com/pina-colada-co/agent-go/internal/agent/state"
 	"github.com/pina-colada-co/agent-go/internal/agent/tools"
+	"github.com/pina-colada-co/agent-go/internal/middleware"
 	"github.com/pina-colada-co/agent-go/internal/agent/utils"
 	"github.com/pina-colada-co/agent-go/internal/agent/workers"
 	"github.com/pina-colada-co/agent-go/internal/config"
@@ -59,7 +60,7 @@ type Orchestrator struct {
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
-func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo tools.CacheRepositoryInterface, contactService *services.ContactService, accountService *services.AccountService, permService *services.PermissionService, proposalService *services.ProposalService) (*Orchestrator, error) {
+func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo tools.CacheRepositoryInterface, contactService *services.ContactService, accountService *services.AccountService, permService *services.PermissionService, proposalService *services.ProposalService, entityService *services.GenericEntityService) (*Orchestrator, error) {
 	// Create providers for both OpenAI and Anthropic
 	// The correct provider is selected at runtime based on the model's provider setting
 	openaiProvider := agents.NewOpenAIProvider(agents.OpenAIProviderParams{
@@ -89,7 +90,7 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, indService *servic
 	}
 
 	// Create all tools using the adapter
-	crmTools := tools.NewCRMTools(indService, orgService, contactService, jobService, accountService, permService, proposalService)
+	crmTools := tools.NewCRMTools(indService, orgService, contactService, jobService, accountService, entityService, permService, proposalService)
 	cacheTools := tools.NewCacheTools(cacheRepo)
 	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter, cacheTools, cfg.PublicURL, permService)
 	docTools := tools.NewDocumentTools(docService, permService)
@@ -331,6 +332,7 @@ func (o *Orchestrator) Run(ctx context.Context, req RunRequest) (*RunResponse, e
 
 	// Build triage agent with user-specific models
 	userID, _ := strconv.ParseInt(req.UserID, 10, 64)
+	ctx = context.WithValue(ctx, middleware.UserIDKey, userID)
 	triageAgent := o.buildTriageAgentForUser(userID, false)
 
 	// Run the triage agent with increased turn limit (SDK handles handoffs automatically)
@@ -710,6 +712,7 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	sendEvent(StreamEvent{Type: "start"})
 
 	userID, _ := strconv.ParseInt(req.UserID, 10, 64)
+	ctx = context.WithValue(ctx, middleware.UserIDKey, userID)
 
 	// Try running with settings first
 	ss, streamErr := o.runAgentStream(ctx, userID, input, req.UseEvaluator, sendEvent, false)

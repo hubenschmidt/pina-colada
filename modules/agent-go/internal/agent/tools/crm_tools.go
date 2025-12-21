@@ -22,6 +22,11 @@ type ProposalCreator interface {
 	ProposeOperationBytes(tenantID, userID int64, entityType string, entityID *int64, operation string, payload []byte) (*services.ProposeResult, error)
 }
 
+// GenericEntityLister lists entities from any supported table
+type GenericEntityLister interface {
+	ListEntities(entityType string, limit int) ([]map[string]interface{}, error)
+}
+
 // CRMTools holds CRM-related tools for the agent
 type CRMTools struct {
 	indService      *services.IndividualService
@@ -29,6 +34,7 @@ type CRMTools struct {
 	contactService  *services.ContactService
 	jobService      *services.JobService
 	accountService  *services.AccountService
+	entityLister    GenericEntityLister
 	permChecker     PermissionChecker
 	proposalCreator ProposalCreator
 }
@@ -40,6 +46,7 @@ func NewCRMTools(
 	contactService *services.ContactService,
 	jobService *services.JobService,
 	accountService *services.AccountService,
+	entityLister GenericEntityLister,
 	permChecker PermissionChecker,
 	proposalCreator ProposalCreator,
 ) *CRMTools {
@@ -49,6 +56,7 @@ func NewCRMTools(
 		contactService:  contactService,
 		jobService:      jobService,
 		accountService:  accountService,
+		entityLister:    entityLister,
 		permChecker:     permChecker,
 		proposalCreator: proposalCreator,
 	}
@@ -82,7 +90,7 @@ type CRMCountResult struct {
 
 // CRMListParams defines parameters for listing entities
 type CRMListParams struct {
-	EntityType string `json:"entity_type" jsonschema:"The type of CRM entity to list: individual, organization, account, or contact"`
+	EntityType string `json:"entity_type" jsonschema:"The type of CRM entity to list: individual, organization, contact, account, job, or lead"`
 	Limit      int    `json:"limit,omitempty" jsonschema:"Maximum number of results to return (default 20)"`
 }
 
@@ -317,7 +325,13 @@ func (t *CRMTools) ListCtx(ctx context.Context, params CRMListParams) (*CRMListR
 	}
 	log.Printf("📋 crm_list called with entity_type='%s', limit=%d", entityType, limit)
 
-	if denied := t.checkPermission(ctx, entityType+":read"); denied != nil {
+	// Map entity type to permission resource (lead uses job permission)
+	resource := entityType
+	if resource == "lead" {
+		resource = "job"
+	}
+
+	if denied := t.checkPermission(ctx, resource+":read"); denied != nil {
 		return &CRMListResult{Results: denied.Results}, nil
 	}
 
@@ -327,10 +341,17 @@ func (t *CRMTools) ListCtx(ctx context.Context, params CRMListParams) (*CRMListR
 	if entityType == "organization" {
 		return t.listOrganizations(limit)
 	}
-	log.Printf("⚠️  Unknown entity type: %s", entityType)
-	return &CRMListResult{
-		Results: fmt.Sprintf("Unknown entity type: %s. Supported: individual, organization", entityType),
-	}, nil
+	if entityType == "contact" {
+		return t.listContacts(limit)
+	}
+	if entityType == "account" {
+		return t.listAccounts(limit)
+	}
+	if entityType == "job" || entityType == "lead" {
+		return t.listJobs(limit)
+	}
+	// Fall through to generic database query for other entity types
+	return t.listGeneric(entityType, limit)
 }
 
 func (t *CRMTools) listIndividuals(limit int) (*CRMListResult, error) {
@@ -379,6 +400,128 @@ func (t *CRMTools) listOrganizations(limit int) (*CRMListResult, error) {
 		Results: fmt.Sprintf("Found %d organizations:\n%s", len(results), strings.Join(lines, "\n")),
 		Count:   len(results),
 	}, nil
+}
+
+func (t *CRMTools) listContacts(limit int) (*CRMListResult, error) {
+	if t.contactService == nil {
+		log.Printf("⚠️ ContactService not configured")
+		return &CRMListResult{Results: "CRM service not configured. Unable to list contacts."}, nil
+	}
+	results, err := t.contactService.SearchContacts("", limit)
+	if err != nil {
+		log.Printf("❌ Contact list failed: %v", err)
+		return &CRMListResult{Results: fmt.Sprintf("Error: %v", err)}, nil
+	}
+	log.Printf("📋 crm_list found %d contacts", len(results))
+	if len(results) == 0 {
+		return &CRMListResult{Results: "No contacts found."}, nil
+	}
+	var lines []string
+	for _, c := range results {
+		lines = append(lines, formatContact(c))
+	}
+	return &CRMListResult{
+		Results: fmt.Sprintf("Found %d contacts:\n%s", len(results), strings.Join(lines, "\n")),
+		Count:   len(results),
+	}, nil
+}
+
+func (t *CRMTools) listAccounts(limit int) (*CRMListResult, error) {
+	if t.accountService == nil {
+		log.Printf("⚠️ AccountService not configured")
+		return &CRMListResult{Results: "CRM service not configured. Unable to list accounts."}, nil
+	}
+	results, err := t.accountService.SearchAccounts("", nil, limit)
+	if err != nil {
+		log.Printf("❌ Account list failed: %v", err)
+		return &CRMListResult{Results: fmt.Sprintf("Error: %v", err)}, nil
+	}
+	log.Printf("📋 crm_list found %d accounts", len(results))
+	if len(results) == 0 {
+		return &CRMListResult{Results: "No accounts found."}, nil
+	}
+	var lines []string
+	for _, a := range results {
+		lines = append(lines, fmt.Sprintf("- %s (type=%s, id=%d)", a.Name, a.Type, a.ID))
+	}
+	return &CRMListResult{
+		Results: fmt.Sprintf("Found %d accounts:\n%s", len(results), strings.Join(lines, "\n")),
+		Count:   len(results),
+	}, nil
+}
+
+func (t *CRMTools) listJobs(limit int) (*CRMListResult, error) {
+	if t.jobService == nil {
+		log.Printf("⚠️ JobService not configured")
+		return &CRMListResult{Results: "CRM service not configured. Unable to list jobs."}, nil
+	}
+	results, err := t.jobService.GetLeads(nil, nil)
+	if err != nil {
+		log.Printf("❌ Job list failed: %v", err)
+		return &CRMListResult{Results: fmt.Sprintf("Error: %v", err)}, nil
+	}
+	log.Printf("📋 crm_list found %d jobs", len(results))
+	if len(results) == 0 {
+		return &CRMListResult{Results: "No jobs found."}, nil
+	}
+	if len(results) > limit {
+		results = results[:limit]
+	}
+	var lines []string
+	for _, j := range results {
+		lines = append(lines, formatJobLead(j))
+	}
+	return &CRMListResult{
+		Results: fmt.Sprintf("Found %d jobs:\n%s", len(results), strings.Join(lines, "\n")),
+		Count:   len(results),
+	}, nil
+}
+
+func (t *CRMTools) listGeneric(entityType string, limit int) (*CRMListResult, error) {
+	if t.entityLister == nil {
+		log.Printf("⚠️ EntityLister not configured")
+		return &CRMListResult{Results: "Generic entity listing not configured."}, nil
+	}
+
+	log.Printf("📋 crm_list generic for entity_type='%s', limit=%d", entityType, limit)
+
+	results, err := t.entityLister.ListEntities(entityType, limit)
+	if err != nil {
+		log.Printf("❌ Generic list failed for %s: %v", entityType, err)
+		return &CRMListResult{Results: fmt.Sprintf("Error: %v", err)}, nil
+	}
+
+	log.Printf("📋 crm_list found %d %s records", len(results), entityType)
+	if len(results) == 0 {
+		return &CRMListResult{Results: fmt.Sprintf("No %s records found.", entityType)}, nil
+	}
+
+	var lines []string
+	for _, row := range results {
+		lines = append(lines, formatGenericRow(row))
+	}
+	return &CRMListResult{
+		Results: fmt.Sprintf("Found %d %s records:\n%s", len(results), entityType, strings.Join(lines, "\n")),
+		Count:   len(results),
+	}, nil
+}
+
+func formatGenericRow(row map[string]interface{}) string {
+	id := row["id"]
+	name := ""
+	if n, ok := row["name"].(string); ok {
+		name = n
+	} else if t, ok := row["title"].(string); ok {
+		name = t
+	} else if d, ok := row["description"].(string); ok && len(d) > 50 {
+		name = d[:50] + "..."
+	} else if d, ok := row["description"].(string); ok {
+		name = d
+	}
+	if name == "" {
+		name = "unnamed"
+	}
+	return fmt.Sprintf("- %s (id=%v)", name, id)
 }
 
 func formatIndividual(ind serializers.IndividualBrief) string {

@@ -65,6 +65,7 @@ func main() {
 	proposalRepo := repositories.NewProposalRepository(database)
 	approvalConfigRepo := repositories.NewApprovalConfigRepository(database)
 	roleRepo := repositories.NewRoleRepository(database)
+	genericEntityRepo := repositories.NewGenericEntityRepository(database)
 
 	// Initialize services
 	authService := services.NewAuthService(userRepo)
@@ -98,6 +99,7 @@ func main() {
 	proposalExecutor := services.NewCRMProposalExecutor(contactService, orgService, indService, noteService, taskService, accountService)
 	proposalService := services.NewProposalService(proposalRepo, approvalConfigRepo, proposalExecutor)
 	roleService := services.NewRoleService(roleRepo)
+	genericEntityService := services.NewGenericEntityService(genericEntityRepo)
 
 	// Stop any orphaned recording sessions from previous runs
 	if stoppedCount, err := metricService.StopAllActiveSessions(); err != nil {
@@ -110,7 +112,7 @@ func main() {
 	configCache := utils.NewConfigCache(agentConfigService)
 
 	// Initialize ADK agent orchestrator (only if OpenAI API key is configured)
-	agentOrchestrator := initOrchestrator(cfg, indService, orgService, docService, jobService, convService, configCache, metricService, cacheRepo, contactService, accountService, permService, proposalService)
+	agentOrchestrator := initOrchestrator(cfg, indService, orgService, docService, jobService, convService, configCache, metricService, cacheRepo, contactService, accountService, permService, proposalService, genericEntityService)
 
 	// Initialize controllers
 	ctrls := &routes.Controllers{
@@ -183,14 +185,14 @@ func main() {
 }
 
 // initOrchestrator initializes the agent orchestrator if configured
-func initOrchestrator(cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo *repositories.ResearchCacheRepository, contactService *services.ContactService, accountService *services.AccountService, permService *services.PermissionService, proposalService *services.ProposalService) *agent.Orchestrator {
+func initOrchestrator(cfg *config.Config, indService *services.IndividualService, orgService *services.OrganizationService, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo *repositories.ResearchCacheRepository, contactService *services.ContactService, accountService *services.AccountService, permService *services.PermissionService, proposalService *services.ProposalService, genericEntityService *services.GenericEntityService) *agent.Orchestrator {
 	if cfg.OpenAIAPIKey == "" {
 		log.Println("OPENAI_API_KEY not configured - agent endpoints disabled")
 		return nil
 	}
 
 	ctx := context.Background()
-	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, convService, configCache, metricService, cacheRepo, contactService, accountService, permService, proposalService)
+	orchestrator, err := agent.NewOrchestrator(ctx, cfg, indService, orgService, docService, jobService, convService, configCache, metricService, cacheRepo, contactService, accountService, permService, proposalService, genericEntityService)
 	if err != nil {
 		log.Printf("Warning: Failed to initialize agent orchestrator: %v", err)
 		log.Printf("Agent endpoints will return errors until configured")

@@ -46,15 +46,16 @@ ON CONFLICT (tenant_id, email) DO NOTHING;
 
 -- 4. Create system-agent role for tenant 1
 INSERT INTO "Role" (name, tenant_id, description, created_at, updated_at)
-SELECT 'system-agent', 1, 'General purpose agent with all permissions', NOW(), NOW()
+SELECT 'system-agent', 1, 'System agent with read-only entity access', NOW(), NOW()
 WHERE NOT EXISTS (SELECT 1 FROM "Role" WHERE name = 'system-agent' AND tenant_id = 1);
 
--- 5. Grant all permissions to system-agent
+-- 5. Grant READ ONLY permissions to system-agent (no create/update/delete)
 INSERT INTO "Role_Permission" (role_id, permission_id, created_at)
 SELECT r.id, p.id, NOW()
 FROM "Role" r
 CROSS JOIN "Permission" p
 WHERE r.name = 'system-agent' AND r.tenant_id = 1
+  AND p.action = 'read'
 ON CONFLICT DO NOTHING;
 
 -- 6. Assign system-agent role to agent user
