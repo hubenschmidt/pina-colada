@@ -8,7 +8,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
  && rm -rf /var/lib/apt/lists/*
 
 # uv (cached unless this changes)
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && ln -s /root/.local/bin/uv /usr/local/bin/uv
+ENV UV_INSTALL_DIR=/usr/local/bin
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Dev image
 FROM base AS dev
@@ -37,6 +38,13 @@ COPY start.sh /usr/src/app/start.sh
 
 # Give execution permissions to the start.sh script
 RUN chmod +x /usr/src/app/start.sh
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 python \
+    && adduser --system --uid 1001 --ingroup python appuser \
+    && chown -R appuser:python /app
+
+USER appuser
 
 EXPOSE 2024 8000
 CMD ["/usr/src/app/start.sh"]
