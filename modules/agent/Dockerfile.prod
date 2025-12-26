@@ -16,9 +16,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     nodejs npm \
  && rm -rf /var/lib/apt/lists/*
 
-# Install uv package manager
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
-    ln -s /root/.local/bin/uv /usr/local/bin/uv
+# Install uv package manager to system-wide location
+ENV UV_INSTALL_DIR=/usr/local/bin
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Set Python environment variables
 ENV PYTHONUNBUFFERED=1 \
@@ -47,6 +47,13 @@ COPY . .
 
 # Give execution permissions to the start script
 RUN chmod +x start-prod.sh
+
+# Create non-root user for security
+RUN addgroup --system --gid 1001 python \
+    && adduser --system --uid 1001 --ingroup python appuser \
+    && chown -R appuser:python /app
+
+USER appuser
 
 # Expose ports (8080 for HTTP/health checks, 2024 for LangGraph)
 EXPOSE 8080 2024
