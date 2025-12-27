@@ -1,0 +1,215 @@
+trigger:
+  branches:
+    include:
+      - develop
+  paths:
+    include:
+      - "**/agent/**"
+
+pr:
+  autoCancel: true
+  branches:
+    include:
+      - develop
+  paths:
+    include:
+      - "**/agent/**"
+
+resources:
+  - repo: self
+
+# ---------------- Variables ----------------
+variables:
+  - group: "pina-colada-render-test"
+  - group: "pina-colada-supabase-test"
+  - name: dockerRegistryServiceConnection
+    value: "ghcr-conn"
+  - name: owner
+    value: "hubenschmidt"
+  - name: imageName
+    value: "pina-colada-agent-test"
+  - name: imageRepository
+    value: "$(owner)/$(imageName)"
+  - name: dockerfilePath
+    value: "modules/agent/Dockerfile.prod"
+  - name: buildContext
+    value: "modules/agent"
+  - name: tagLatest
+    value: "latest"
+  - name: tagBuildId
+    value: "$(Build.SourceBranchName)-$(Build.BuildId)"
+
+stages:
+  - stage: Build
+    displayName: Build agent
+    jobs:
+      - job: Build
+        displayName: Docker build
+        pool:
+          name: Default
+          demands:
+            - Agent.OS -equals Linux
+        steps:
+          - task: Docker@2
+            displayName: "Build Docker image"
+            inputs:
+              command: "build"
+              containerRegistry: "$(dockerRegistryServiceConnection)"
+              repository: "$(imageRepository)"
+              dockerfile: "$(dockerfilePath)"
+              buildContext: "$(buildContext)"
+              arguments: "--build-arg BUILD_ID=$(tagBuildId)"
+              tags: |
+                $(tagLatest)
+                $(tagBuildId)
+
+  - stage: Migrate
+    displayName: Run Database Migrations
+    dependsOn: Build
+    jobs:
+      - job: Migrate
+        displayName: Apply Supabase Migrations
+        pool:
+          name: Default
+          demands:
+            - Agent.OS -equals Linux
+        steps:
+          - script: |
+              echo "Installing Supabase CLI..."
+              SUPABASE_DIR=$(Agent.ToolsDirectory)/supabase
+              mkdir -p $SUPABASE_DIR
+
+              VERSION=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+              echo "Installing Supabase CLI version: $VERSION"
+
+              curl -L "https://github.com/supabase/cli/releases/download/v${VERSION}/supabase_linux_amd64.tar.gz" -o /tmp/supabase.tar.gz
+
+              if [ ! -s /tmp/supabase.tar.gz ]; then
+                echo "Error: Download failed or file is empty"
+                exit 1
+              fi
+
+              tar -xzf /tmp/supabase.tar.gz -C $SUPABASE_DIR
+
+              if [ ! -f $SUPABASE_DIR/supabase ]; then
+                echo "Error: Binary not found after extraction"
+                ls -la $SUPABASE_DIR/
+                exit 1
+              fi
+
+              chmod +x $SUPABASE_DIR/supabase
+              echo "##vso[task.prependpath]$SUPABASE_DIR"
+              export PATH="$SUPABASE_DIR:$PATH"
+              $SUPABASE_DIR/supabase --version || supabase --version
+            displayName: "Install Supabase CLI"
+
+          - script: |
+              echo "Setting up migrations..."
+              export PATH="$(Agent.ToolsDirectory)/supabase:$PATH"
+
+              supabase init || true
+
+              mkdir -p supabase/migrations
+              if [ -d "modules/agent/migrations" ]; then
+                cp -r modules/agent/migrations/*.sql supabase/migrations/ 2>/dev/null || echo "No migrations found"
+                echo "✓ Copied migrations from modules/agent/migrations/ to supabase/migrations/"
+              else
+                echo "⚠️  modules/agent/migrations directory not found"
+                exit 1
+              fi
+
+              echo "Applying database migrations via pooler..."
+              supabase db push --db-url "postgres://postgres.${SUPABASE_PROJECT_ID}:${SUPABASE_DB_PASSWORD}@aws-1-us-east-1.pooler.supabase.com:6543/postgres"
+            displayName: "Push Migrations to Supabase"
+            continueOnError: false
+            workingDirectory: $(System.DefaultWorkingDirectory)
+            env:
+              SUPABASE_DB_PASSWORD: $(SUPABASE_DB_PASSWORD)
+              SUPABASE_PROJECT_ID: $(SUPABASE_PROJECT_ID)
+
+          - script: |
+              # Skip seeders if RUN_SEEDERS is explicitly false
+              if [ "$RUN_SEEDERS" = "false" ]; then
+                echo "⏭️  Skipping seeders (RUN_SEEDERS=false)"
+                exit 0
+              fi
+
+              echo "Running database seeders..."
+              export PGPASSWORD="${SUPABASE_DB_PASSWORD}"
+              DB_URL="postgres://postgres.${SUPABASE_PROJECT_ID}@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
+
+              # Create seeders tracking table
+              psql "$DB_URL" -c "CREATE TABLE IF NOT EXISTS supabase_migrations.seed_files (name TEXT PRIMARY KEY, applied_at TIMESTAMP DEFAULT NOW());"
+
+              # Run each seeder file if not already applied
+              if [ -d "modules/agent/seeders" ]; then
+                for seeder in $(ls modules/agent/seeders/*.sql 2>/dev/null | sort); do
+                  seeder_name=$(basename "$seeder")
+                  # Check if already applied
+                  already_applied=$(psql "$DB_URL" -t -c "SELECT 1 FROM supabase_migrations.seed_files WHERE name = '$seeder_name' LIMIT 1;" | tr -d ' ')
+                  if [ "$already_applied" != "1" ]; then
+                    echo "Running seeder: $seeder_name"
+                    psql "$DB_URL" -f "$seeder"
+                    psql "$DB_URL" -c "INSERT INTO supabase_migrations.seed_files (name) VALUES ('$seeder_name');"
+                  else
+                    echo "Skipping seeder (already applied): $seeder_name"
+                  fi
+                done
+                echo "✓ Seeders complete"
+              else
+                echo "⚠️  No seeders directory found"
+              fi
+            displayName: "Run Database Seeders"
+            continueOnError: false
+            workingDirectory: $(System.DefaultWorkingDirectory)
+            env:
+              RUN_SEEDERS: $(RUN_SEEDERS)
+              SUPABASE_DB_PASSWORD: $(SUPABASE_DB_PASSWORD)
+              SUPABASE_PROJECT_ID: $(SUPABASE_PROJECT_ID)
+
+  - stage: Push
+    displayName: Push Docker Image to GHCR
+    dependsOn: Migrate
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    jobs:
+      - job: Push
+        displayName: Push image
+        pool:
+          name: Default
+          demands:
+            - Agent.OS -equals Linux
+        steps:
+          - task: Docker@2
+            displayName: "Push to GHCR"
+            inputs:
+              command: "push"
+              containerRegistry: "$(dockerRegistryServiceConnection)"
+              repository: "$(imageRepository)"
+              tags: |
+                $(tagLatest)
+                $(tagBuildId)
+
+  - stage: Deploy
+    displayName: Deploy to Render (Test)
+    dependsOn: Push
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/develop'))
+    jobs:
+      - job: Deploy
+        displayName: Trigger Render Deploy
+        pool:
+          name: Default
+          demands:
+            - Agent.OS -equals Linux
+        steps:
+          - script: |
+              echo "Triggering deployment on Render (Test)..."
+              http_code=$(curl -sS -o /tmp/render_deploy.json -w "%{http_code}" -X POST "$RENDER_DEPLOY_HOOK")
+              echo "POST deploy hook => $http_code"
+              cat /tmp/render_deploy.json
+              case "$http_code" in
+                200|201|202) echo "Deployment triggered." ;;
+                *) echo "Deployment failed"; exit 1 ;;
+              esac
+            displayName: "Trigger Render deploy"
+            env:
+              RENDER_DEPLOY_HOOK: $(RENDER_DEPLOY_HOOK_AGENT_TEST)
