@@ -20,7 +20,7 @@ resources:
 
 # ---------------- Variables ----------------
 variables:
-  - group: "pina-colada-digital-ocean"
+  - group: "pina-colada-render-prod"
   - name: dockerRegistryServiceConnection
     value: "ghcr-conn"
   - name: owner
