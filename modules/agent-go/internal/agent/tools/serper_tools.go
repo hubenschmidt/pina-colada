@@ -111,7 +111,8 @@ func (t *SerperTools) loadAppliedJobs() []JobInfo {
 
 // JobSearchParams defines parameters for job search
 type JobSearchParams struct {
-	Query string `json:"query" jsonschema:"Job search query (e.g., 'Senior Software Engineer NYC startups')"`
+	Query      string `json:"query" jsonschema:"Job search query (e.g., 'Senior Software Engineer NYC startups')"`
+	MaxResults int    `json:"max_results,omitempty" jsonschema:"Number of results to return (default 10, max 20)"`
 }
 
 // WebSearchParams defines parameters for general web search
@@ -213,7 +214,16 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	enhancedQuery := enhanceJobQuery(params.Query)
 	log.Printf("job_search query: %s", enhancedQuery)
 
-	// Call Serper API - request 20 results (max allowed on standard tier)
+	// Determine max results (default 10, max 20 - Serper limit)
+	maxResults := params.MaxResults
+	if maxResults <= 0 {
+		maxResults = 10
+	}
+	if maxResults > 20 {
+		maxResults = 20
+	}
+
+	// Call Serper API - always request 20 (max allowed)
 	reqBody := serperRequest{Q: enhancedQuery, Num: 20}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
@@ -248,7 +258,7 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	}
 
 	// Extract structured listings (filtered)
-	listings := extractListings(serperResp.Organic, 10, appliedJobs)
+	listings := extractListings(serperResp.Organic, maxResults, appliedJobs)
 	listingCount := len(listings)
 
 	// Update total results count
@@ -277,10 +287,11 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	}, nil
 }
 
-// enhanceJobQuery passes through the query as-is
-// No filtering - let the agent construct good queries
+// enhanceJobQuery adds career focus and minimal exclusions
 func enhanceJobQuery(query string) string {
-	return query
+	// Add "careers" to bias toward company pages, exclude major job boards
+	exclusions := "-site:linkedin.com -site:indeed.com -site:glassdoor.com -site:ziprecruiter.com -site:dice.com -site:monster.com -site:simplyhired.com -site:builtinnyc.com -site:builtin.com -site:jobright.ai -site:wellfound.com -site:roberthalf.com"
+	return query + " careers " + exclusions
 }
 
 // extractListings extracts structured job listings from organic results

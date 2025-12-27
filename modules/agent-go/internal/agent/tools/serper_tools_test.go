@@ -1,6 +1,7 @@
 package tools
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -175,6 +176,35 @@ func TestFormatListingsProducesDirectURLs(t *testing.T) {
 	// Verify format: "N. Company - Title [⭢](url)"
 	if !strings.Contains(output, "1. Stripe - Senior Engineer [⭢]") {
 		t.Error("output should have numbered format with company and title")
+	}
+}
+
+// TestExtractListingsReturns20Results verifies max_results parameter works for 20
+func TestExtractListingsReturns20Results(t *testing.T) {
+	// Create 25 organic results
+	var organic []serperOrganicResult
+	companies := []string{"Stripe", "OpenAI", "Airbnb", "Netflix", "Google", "Meta", "Uber", "Lyft", "Spotify", "Dropbox",
+		"Slack", "Notion", "Figma", "Linear", "Vercel", "Supabase", "Cloudflare", "Datadog", "Snowflake", "Databricks",
+		"Confluent", "HashiCorp", "GitLab", "MongoDB", "Elastic"}
+	for i, company := range companies {
+		organic = append(organic, serperOrganicResult{
+			Title: fmt.Sprintf("Senior Engineer at %s", company),
+			Link:  fmt.Sprintf("https://%s.com/jobs/%d", strings.ToLower(company), i+1),
+		})
+	}
+
+	listings := extractListings(organic, 20, nil)
+
+	if len(listings) != 20 {
+		t.Errorf("extractListings returned %d results, want 20", len(listings))
+	}
+
+	// Verify first and last
+	if listings[0].C != "Stripe" {
+		t.Errorf("first listing company: got %q, want Stripe", listings[0].C)
+	}
+	if listings[19].C != "Databricks" {
+		t.Errorf("20th listing company: got %q, want Databricks", listings[19].C)
 	}
 }
 
