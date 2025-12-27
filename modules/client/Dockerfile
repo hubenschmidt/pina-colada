@@ -23,12 +23,13 @@ COPY . .
 # Build the application (only runs if source code changes)
 RUN npm run build
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 --ingroup nodejs appuser \
-    && chown -R appuser:nodejs /app
+# Create non-root user for security with home directory
+RUN groupadd --gid 1001 nodejs \
+    && useradd --uid 1001 --gid nodejs --home-dir /home/appuser --create-home appuser \
+    && chown -R appuser:nodejs /app /home/appuser
 
 USER appuser
+ENV HOME=/home/appuser
 
 # Make port 3001 available in development and production
 EXPOSE 3001

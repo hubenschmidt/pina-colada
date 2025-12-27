@@ -109,6 +109,10 @@ async def version():
 # -----------------------------------------------------------------------------
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    # Skip logging for health checks
+    if request.url.path == "/health":
+        return await call_next(request)
+
     start_time = time.time()
 
     # Log incoming request
