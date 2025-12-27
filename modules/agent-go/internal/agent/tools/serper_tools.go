@@ -277,27 +277,10 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	}, nil
 }
 
-// enhanceJobQuery adds keywords and minimal exclusions to find company career pages
-// Only exclude top job boards in query (Google ignores too many -site: operators)
+// enhanceJobQuery passes through the query as-is
+// No filtering - let the agent construct good queries
 func enhanceJobQuery(query string) string {
-	topJobBoards := []string{
-		"linkedin.com",
-		"indeed.com",
-		"glassdoor.com",
-		"ziprecruiter.com",
-		"monster.com",
-		"dice.com",
-		"builtin.com",
-		"jobright.ai",
-		"motionrecruitment.com",
-	}
-
-	var exclusions []string
-	for _, domain := range topJobBoards {
-		exclusions = append(exclusions, fmt.Sprintf("-site:%s", domain))
-	}
-
-	return fmt.Sprintf(`%s careers OR jobs %s`, query, strings.Join(exclusions, " "))
+	return query
 }
 
 // extractListings extracts structured job listings from organic results

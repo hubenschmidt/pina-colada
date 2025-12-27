@@ -1,41 +1,29 @@
 # syntax=docker/dockerfile:1.6
 FROM node:24
 
-# Install dumb-init for proper signal handling (cached unless this changes)
 RUN apt-get update && apt-get install -y dumb-init && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory in the Docker container to /app
+# Create user BEFORE copying files
+RUN groupadd --gid 1001 nodejs \
+    && useradd --uid 1001 --gid nodejs --home-dir /home/appuser --create-home appuser
+
 WORKDIR /app
 
-# Copy package files first (better caching)
-# This layer is cached unless package*.json changes
-COPY package*.json ./
+# Copy with ownership already set
+COPY --chown=appuser:nodejs package*.json ./
 
-# Install dependencies with cache mount (faster rebuilds)
-# Use npm ci for faster, more reliable builds in production
+# Install as root (for npm cache), then fix ownership of node_modules
 RUN --mount=type=cache,target=/root/.npm \
-    npm ci --prefer-offline --no-audit
+    npm ci --prefer-offline --no-audit \
+    && chown -R appuser:nodejs node_modules
 
-# Copy the rest of your application's source files
-# This changes frequently, so copy after deps are installed
-COPY . .
+COPY --chown=appuser:nodejs . .
 
-# Build the application (only runs if source code changes)
 RUN npm run build
-
-# Create non-root user for security with home directory
-RUN groupadd --gid 1001 nodejs \
-    && useradd --uid 1001 --gid nodejs --home-dir /home/appuser --create-home appuser \
-    && chown -R appuser:nodejs /app /home/appuser
 
 USER appuser
 ENV HOME=/home/appuser
 
-# Make port 3001 available in development and production
 EXPOSE 3001
-
-# Use dumb-init to run your process
 ENTRYPOINT ["dumb-init", "--"]
-
-# Define the command to run the app
 CMD ["npm", "start"]
