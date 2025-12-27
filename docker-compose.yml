@@ -21,7 +21,7 @@ services:
         echo "[agent] $$line" >> /logs/agent-$$DATE.log
         echo "[agent] $$line" >> /logs/docker-compose-$$DATE.log
       done &
-      docker logs -f pina_colada-postgres-1 2>&1 | while IFS= read -r line; do
+      docker logs -f pina_colada-app-postgres-1 2>&1 | while IFS= read -r line; do
         DATE=$$(date +%Y-%m-%d)
         echo "[postgres] $$line" >> /logs/postgres-$$DATE.log
         echo "[postgres] $$line" >> /logs/docker-compose-$$DATE.log
@@ -31,7 +31,7 @@ services:
     depends_on:
       - client
       - agent
-      - postgres
+      - app-postgres
 
   client:
     build:
@@ -46,13 +46,13 @@ services:
       - ./modules/client/.env.local
     environment:
       # Postgres connection for local dev (when USE_LOCAL_POSTGRES=true)
-      POSTGRES_HOST: postgres
+      POSTGRES_HOST: app-postgres
       POSTGRES_PORT: 5432
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${COMPOSE_PROJECT_NAME:-pina_colada}
     depends_on:
-      postgres:
+      app-postgres:
         condition: service_healthy
     command: ["npm", "run", "dev"] # overrides Dockerfile start command in dev env
     restart: always
@@ -104,7 +104,7 @@ services:
     image: docker.io/langfuse/langfuse-worker:3
     restart: always
     depends_on: &langfuse-depends-on
-      postgres:
+      app-postgres:
         condition: service_healthy
       minio:
         condition: service_healthy
@@ -166,7 +166,7 @@ services:
     image: langfuse/langfuse:latest
     restart: always
     depends_on:
-      postgres:
+      app-postgres:
         condition: service_healthy
     ports:
       - 3000:3000
@@ -239,7 +239,7 @@ services:
       timeout: 10s
       retries: 10
 
-  postgres:
+  app-postgres:
     image: docker.io/postgres:${POSTGRES_VERSION:-17}
     restart: always
     healthcheck:

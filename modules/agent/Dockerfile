@@ -39,12 +39,13 @@ COPY start.sh /usr/src/app/start.sh
 # Give execution permissions to the start.sh script
 RUN chmod +x /usr/src/app/start.sh
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 python \
-    && adduser --system --uid 1001 --ingroup python appuser \
-    && chown -R appuser:python /app
+# Create non-root user for security with home directory
+RUN groupadd --gid 1001 python \
+    && useradd --uid 1001 --gid python --home-dir /home/appuser --create-home appuser \
+    && chown -R appuser:python /app /home/appuser
 
 USER appuser
+ENV HOME=/home/appuser
 
 EXPOSE 2024 8000
 CMD ["/usr/src/app/start.sh"]

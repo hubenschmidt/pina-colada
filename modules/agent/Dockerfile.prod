@@ -48,12 +48,13 @@ COPY . .
 # Give execution permissions to the start script
 RUN chmod +x start-prod.sh
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 python \
-    && adduser --system --uid 1001 --ingroup python appuser \
-    && chown -R appuser:python /app
+# Create non-root user for security with home directory
+RUN groupadd --gid 1001 python \
+    && useradd --uid 1001 --gid python --home-dir /home/appuser --create-home appuser \
+    && chown -R appuser:python /app /home/appuser
 
 USER appuser
+ENV HOME=/home/appuser
 
 # Expose ports (8080 for HTTP/health checks, 2024 for LangGraph)
 EXPOSE 8080 2024
