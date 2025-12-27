@@ -1,43 +1,24 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Forward signals to children
 _term() {
   echo "Caught SIGTERM, shutting down..."
-  kill -TERM "$API_PID" 2>/dev/null || true
+  kill -TERM "$AIR_PID" 2>/dev/null || true
 }
 trap _term TERM INT
 
-# Check migration status and apply if needed (local development only)
-# Note: Supabase is only used in production via Azure Pipeline
-echo "ℹ️  Checking migration status..."
-uv run python scripts/check_migration_status.py || echo "⚠️  Could not check migration status"
+echo "Running migrations..."
+go run ./cmd/migrate up || echo "Could not run migrations"
 
-# Auto-apply migrations for local Postgres
-echo "ℹ️  Checking if migrations need to be applied to local Postgres..."
-uv run python scripts/apply_migrations.py || echo "⚠️  Could not apply migrations automatically"
+echo "Running seeders..."
+go run ./cmd/seed || echo "Could not run seeders"
 
-# Run seeders after migrations (only inserts if data doesn't exist)
-echo "ℹ️  Running database seeders..."
-uv run python scripts/run_seeders.py || echo "⚠️  Could not run seeders"
+echo "Uploading seed documents..."
+go run ./cmd/seed-documents || echo "Could not upload seed documents"
 
-# Upload seed document files to storage
-echo "ℹ️  Uploading seed document files..."
-uv run python scripts/seed_documents.py || echo "⚠️  Could not upload seed documents"
+echo "Starting Go agent with hot-reload..."
+air -c .air.toml &
+AIR_PID=$!
 
-# Run health checks
-echo "ℹ️  Running agent health checks..."
-uv run python src/scripts/health_check.py || echo "⚠️  Health check failed - some features may not work correctly"
-
-# Start FastAPI websocket server (8000) with hot-reload
-uv run python -m uvicorn server:app \
-  --host 0.0.0.0 \
-  --port 8000 \
-  --reload \
-  --reload-delay 0.5 \
-  --log-level warning &
-API_PID=$!
-
-# Wait for the API process
-wait $API_PID
+wait $AIR_PID
 exit $?

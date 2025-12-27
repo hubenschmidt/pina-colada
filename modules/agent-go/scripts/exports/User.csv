@@ -1,3 +1,0 @@
-id,tenant_id,email,first_name,last_name,avatar_url,status,last_login_at,created_at,updated_at,auth0_sub,individual_id,is_system_user
-1,1,whubenschmidt@gmail.com,,,,active,,2025-11-16 06:47:58.954891+00,2025-11-16 06:48:36.740683+00,auth0|69169ae2342b806e7b2358d4,1,f
-2,1,jennifervlev@gmail.com,,,,active,,2025-11-16 20:35:51.36924+00,2025-11-16 20:36:43.747404+00,auth0|68ea7a037ebdc64afbef3afd,2,f

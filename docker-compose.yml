@@ -42,7 +42,7 @@ services:
   client:
     build:
       context: ./modules/client
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
     ports:
       - "3001:3001"
     volumes:
@@ -68,60 +68,20 @@ services:
         max-size: "10m"
         max-file: "3"
 
-    # --- LangGraph agent ---
   agent:
     build:
       context: ./modules/agent
-      dockerfile: Dockerfile
+      dockerfile: Dockerfile.dev
       target: dev
+    volumes:
+      - ./modules/agent:/app
+      - ./storage:/storage  # Shared storage volume
     env_file:
       - ./modules/agent/.env
     environment:
-      - NODE_ENV=development
-      - HOST=0.0.0.0
-      # - LANGFUSE_HOST=http://langfuse:3000 # app talks to Langfuse over the compose network
-      - UV_LINK_MODE=copy # Suppress hardlink warning from uv package manager
-      - STORAGE_PATH=/storage  # Use shared storage path
-    dns:
-      - 8.8.8.8
-      - 8.8.4.4
-    volumes:
-      # Mount source code with consistency mode for better performance
-      - ./modules/agent:/app:delegated
-      # Mount migrations directory
-      - ./modules/agent/migrations:/app/migrations:ro
-      # Shared storage volume
-      - ./storage:/storage
-      # Exclude these from the mount to avoid conflicts
-      - /app/__pycache__
-      - /app/.pytest_cache
-    ports:
-      # - "2024:2024" # LangGraph API to host
-      - "8000:8000" # FastAPI server.py
-    depends_on:
-      app-postgres:
-        condition: service_healthy
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # --- Go agent (new) ---
-  agent-go:
-    build:
-      context: ./modules/agent-go
-      dockerfile: Dockerfile
-      target: dev
-    volumes:
-      - ./modules/agent-go:/app
-      - ./storage:/storage  # Shared storage volume
-    env_file:
-      - ./modules/agent-go/.env
-    environment:
       - PORT=8080
       - ENV=development
-      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@app-postgres:5432/${COMPOSE_PROJECT_NAME:-pina-colada}
+      - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@app-postgres:5432/${COMPOSE_PROJECT_NAME:-pina-colada}?sslmode=disable
       - STORAGE_PATH=/storage  # Use shared storage path
       # - LANGFUSE_HOST=http://langfuse:3000
     ports:
