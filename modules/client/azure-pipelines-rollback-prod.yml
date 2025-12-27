@@ -1,0 +1,56 @@
+# Rollback pipeline for pina-colada-client PROD environment
+trigger: none
+pr: none
+
+resources:
+  - repo: self
+
+variables:
+  - group: "pina-colada-render-prod"
+
+stages:
+  - stage: RollbackProd
+    displayName: Rollback Client Prod
+    jobs:
+      - deployment: Rollback
+        displayName: Rollback to previous deployment
+        environment: 'pina-colada-prod'
+        pool:
+          name: Default
+          demands:
+            - Agent.OS -equals Linux
+        strategy:
+          runOnce:
+            deploy:
+              steps:
+                - script: |
+                    echo "Getting deployment history from Render..."
+                    deploys=$(curl -sS -H "Authorization: Bearer $RENDER_API_KEY_PROD" \
+                      "https://api.render.com/v1/services/$RENDER_SERVICE_ID_CLIENT_PROD/deploys?limit=2")
+
+                    prev_deploy_id=$(echo "$deploys" | jq -r '.[1].id // empty')
+
+                    if [ -z "$prev_deploy_id" ]; then
+                      echo "No previous deployment found to rollback to"
+                      exit 1
+                    fi
+
+                    echo "Rolling back to deployment: $prev_deploy_id"
+
+                    http_code=$(curl -sS -o /tmp/rollback.json -w "%{http_code}" \
+                      -X POST \
+                      -H "Authorization: Bearer $RENDER_API_KEY_PROD" \
+                      -H "Content-Type: application/json" \
+                      "https://api.render.com/v1/services/$RENDER_SERVICE_ID_CLIENT_PROD/deploys")
+
+                    echo "Rollback response: $http_code"
+                    cat /tmp/rollback.json
+
+                    case "$http_code" in
+                      200|201|202) echo "Rollback triggered successfully." ;;
+                      *) echo "Rollback failed"; exit 1 ;;
+                    esac
+                  displayName: "Rollback to previous deployment"
+                  env:
+                    RENDER_API_KEY_PROD: $(RENDER_API_KEY_PROD)
+                    RENDER_SERVICE_ID_CLIENT_PROD: $(RENDER_SERVICE_ID_CLIENT_PROD)
