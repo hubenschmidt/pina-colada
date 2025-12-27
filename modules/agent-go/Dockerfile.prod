@@ -1,0 +1,63 @@
+# syntax=docker/dockerfile:1.6
+FROM python:3.12-slim
+WORKDIR /app
+
+# Build args for version tracking
+ARG BUILD_ID=local
+ENV BUILD_ID=${BUILD_ID}
+
+# Install OS dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    git \
+    build-essential \
+    ca-certificates \
+    # Node.js for MCP servers
+    nodejs npm \
+ && rm -rf /var/lib/apt/lists/*
+
+# Install uv package manager to system-wide location
+ENV UV_INSTALL_DIR=/usr/local/bin
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# Set Python environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    UV_SYSTEM_PYTHON=1 \
+    PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1
+
+# Copy dependency files first (for better layer caching)
+COPY pyproject.toml README.md ./
+COPY src ./src
+
+# Install Python dependencies with uv
+RUN uv pip install -e . --no-cache-dir
+
+# Find and link langgraph CLI script to /usr/local/bin
+# uv installs scripts to Python's bin directory, we need to make them accessible
+RUN find /usr/local -name "langgraph" -type f -executable 2>/dev/null | head -1 | xargs -I {} ln -sf {} /usr/local/bin/langgraph || \
+    echo "WARNING: langgraph command not found, will use fallback in start script"
+
+# Verify installation
+RUN python -c "import langgraph; import langgraph_cli; print('✓ Packages installed')" && \
+    (langgraph --version 2>/dev/null || echo "Note: Using fallback method for langgraph command")
+
+# Copy the rest of the application (config files, scripts, etc.)
+COPY . .
+
+# Give execution permissions to the start script
+RUN chmod +x start-prod.sh
+
+# Create non-root user for security with home directory
+RUN groupadd --gid 1001 python \
+    && useradd --uid 1001 --gid python --home-dir /home/appuser --create-home appuser \
+    && chown -R appuser:python /app /home/appuser
+
+USER appuser
+ENV HOME=/home/appuser
+
+# Expose ports (8080 for HTTP/health checks, 2024 for LangGraph)
+EXPOSE 8080 2024
+
+# Start the application
+CMD ["./start-prod.sh"]
