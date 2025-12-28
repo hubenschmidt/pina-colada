@@ -2,7 +2,7 @@
 
 ## Description
 
-PinaColada is an AI-native CRM built on LangGraph that manages relationships and workflows through natural conversation. Core entities include Contacts, Leads, Deals, Opportunities, Organizations, and Jobs. The system uses an orchestrator pattern with specialized workers for tasks like job searching, cover letter writing, and general assistance—all driven by conversational AI rather than traditional forms and dashboards.
+PinaColada is an AI-native CRM built on the OpenAI Agents Go SDK that manages relationships and workflows through natural conversation. Core entities include Contacts, Leads, Deals, Opportunities, Organizations, and Jobs. The system uses a triage agent with handoffs to specialized workers—all driven by conversational AI rather than traditional forms and dashboards.
 
 ## System Overview
 
@@ -16,89 +16,86 @@ PinaColada is an AI-native CRM built on LangGraph that manages relationships and
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    FASTAPI WEBSOCKET SERVER                         │
-│                    (server.py)                                      │
-│  • Handles WebSocket connections                                    │
-│  • Message routing & streaming                                      │
+│                    GO HTTP SERVER (Chi + Gorilla WS)                │
+│                    cmd/agent/main.go                                │
+│  • REST endpoints (/agent/chat)                                     │
+│  • WebSocket streaming (/ws)                                        │
 │  • Token usage tracking                                             │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    LANGGRAPH ORCHESTRATOR                           │
-│                    (orchestrator.py + graph.py)                     │
+│                    ORCHESTRATOR                                     │
+│                    internal/agent/orchestrator.go                   │
 │                                                                     │
-│  State Management:                                                  │
-│  • Messages (conversation history with tool pair validation)        │
-│  • Success criteria (auto-generated from message context)           │
-│  • Resume context (concise version for workers)                     │
-│  • Token usage (current call + cumulative)                          │
+│  • Manages agent lifecycle                                          │
+│  • Per-user model/settings via ConfigCache                          │
+│  • Conversation state (memory + DB persistence)                     │
+│  • Token usage accumulation                                         │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │
                            ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    LLM ROUTER (Claude Haiku 4.5)                    │
-│                    (routers/agent_router.py)                        │
+│                    TRIAGE AGENT (OpenAI Agents SDK)                 │
+│                    (user-configurable model, default gpt-4o)        │
 │                                                                     │
-│  • Intent-based routing (not keyword matching)                      │
-│  • Analyzes current message + recent context                        │
-│  • Routes to: worker | job_search | cover_letter_writer             │
+│  • Intent-based routing via native handoff mechanism                │
+│  • Routes to exactly ONE worker per message                         │
+│  • "search jobs" → job_search | "my leads" → crm | else → general   │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │
          ┌─────────────────┼─────────────────┐
          ▼                 ▼                 ▼
 ┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│  GENERAL WORKER │ │   JOB SEARCH    │ │  COVER LETTER   │
-│  (GPT-5)        │ │   (GPT-5)       │ │  WRITER (GPT-5) │
-│                 │ │                 │ │                 │
-│ • Q&A           │ │ • Find jobs     │ │ • 200-300 words │
-│ • General tasks │ │ • Filter by     │ │ • Resume-based  │
-│ • Tool calling  │ │   applied jobs  │ │ • Professional  │
+│  JOB SEARCH     │ │   CRM WORKER    │ │  GENERAL WORKER │
+│  WORKER         │ │                 │ │                 │
+│                 │ │ • crm_lookup    │ │ • crm_lookup    │
+│ • job_search    │ │ • crm_list      │ │ • read_document │
+│ • send_email    │ │ • crm_propose_* │ │ • Q&A           │
+│ • crm_lookup    │ │ • read_document │ │                 │
+│ • read_document │ │                 │ │                 │
 └────────┬────────┘ └────────┬────────┘ └────────┬────────┘
          │                   │                   │
-         └─────────┬─────────┘                   │
-                   ▼                             │
-          ┌─────────────────┐                    │
-          │   TOOL NODE     │                    │
-          │                 │                    │
-          │ • Web Search    │                    │
-          │ • Job Search    │                    │
-          │ • File Ops      │                    │
-          │ • Email         │                    │
-          │ • Notifications │                    │
-          └────────┬────────┘                    │
-                   │                             │
-         ┌─────────┴─────────────────────────────┘
-         ▼
+         └───────────────────┴───────────────────┘
+                             │
+                             ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    SPECIALIZED EVALUATORS                           │
-│                    (Claude Haiku 4.5)                               │
+│                    EVALUATOR (Optional)                             │
+│                    internal/agent/evaluator.go                      │
+│                    (Claude, when ANTHROPIC_API_KEY set)             │
 │                                                                     │
-│  ┌─────────────────────┐    ┌─────────────────────┐                 │
-│  │  CAREER EVALUATOR   │    │  GENERAL EVALUATOR  │                 │
-│  │                     │    │                     │                 │
-│  │ • Job search        │    │ • General queries   │                 │
-│  │ • Cover letters     │    │ • Q&A responses     │                 │
-│  │ • Career advice     │    │ • Tool usage        │                 │
-│  └─────────────────────┘    └─────────────────────┘                 │
-│                                                                     │
-│  Quality Control: Check criteria → Feedback → Route END/RETRY       │
+│  • Scores response 0-100                                            │
+│  • Types: Career | CRM | General                                    │
+│  • If score < 60 → retry agent with feedback                        │
 └──────────────────────────┬──────────────────────────────────────────┘
                            │
-               ┌───────────┴───────────┐
-               ▼                       ▼
-         ┌──────────┐           ┌─────────────┐
-         │   END    │           │   RETRY     │
-         │ (Success)│           │ (w/feedback)│
-         └──────────┘           └─────────────┘
+                           ▼
+                      ┌──────────┐
+                      │  DONE    │
+                      │ (Stream) │
+                      └──────────┘
 ```
 
 ### Key Components
 
-- **prompts/** - Centralized prompt definitions (protected IP)
-- **workers/** - Specialized workers with dependency injection via base factory
-- **evaluators/** - Domain-specific evaluation with structured output
-- **routers/** - LLM-based intent routing
+| Component | Path | Purpose |
+|-----------|------|---------|
+| **Orchestrator** | `internal/agent/orchestrator.go` | Agent lifecycle, config, state |
+| **Workers** | `internal/agent/workers/` | Specialized agents with filtered tools |
+| **Tools** | `internal/agent/tools/` | CRM, Serper, Document, Email tools |
+| **Prompts** | `internal/agent/prompts/` | Centralized prompt definitions |
+| **State** | `internal/agent/state/` | Memory + DB persistence |
+| **Evaluator** | `internal/agent/evaluator.go` | Optional quality control (Claude) |
+
+### Handoff Mechanism
+
+The triage agent uses the OpenAI Agents SDK's native **handoff** feature to route requests. When the triage agent determines which worker should handle a message, it triggers a handoff—transferring full conversation context and control to that worker. The worker then executes with its own model settings and filtered tool set. This is a single-hop delegation (triage → worker), not a multi-agent orchestration loop.
+
+### Per-User Configuration
+
+- Model selection per node (triage, each worker, evaluator)
+- LLM settings: temperature, top_p, max_tokens, penalties
+- Provider: OpenAI (primary) or Anthropic
 
 ## License
 
