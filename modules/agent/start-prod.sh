@@ -9,9 +9,6 @@ echo "Starting Go agent in production mode"
 echo "========================================="
 echo "Go version: $(go version 2>/dev/null || echo 'compiled binary')"
 echo "Working directory: $(pwd)"
-echo "Environment variables:"
-env | grep -E '^(PORT|DATABASE_URL|ENV)' || true
-echo "========================================="
 
 _term() {
   echo "Caught SIGTERM, shutting down..."
