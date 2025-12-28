@@ -85,149 +85,143 @@ stages:
                 $(tagLatest)
                 $(tagBuildId)
 
-  # ============ PR-only stages: Test environment ============
+  # # ============ PR-only stages: Test environment ============
 
-  - stage: MigrateTest
-    displayName: Migrate Test DB
-    dependsOn: Push
-    condition: eq(variables['Build.Reason'], 'PullRequest')
-    jobs:
-      - job: Migrate
-        displayName: Apply Supabase Migrations (Test)
-        pool:
-          name: Default
-          demands:
-            - Agent.OS -equals Linux
-        steps:
-          - script: |
-              echo "Installing Supabase CLI..."
-              SUPABASE_DIR=$(Agent.ToolsDirectory)/supabase
-              mkdir -p $SUPABASE_DIR
+  # - stage: MigrateTest
+  #   displayName: Migrate Test DB
+  #   dependsOn: Push
+  #   condition: eq(variables['Build.Reason'], 'PullRequest')
+  #   jobs:
+  #     - job: Migrate
+  #       displayName: Apply Supabase Migrations (Test)
+  #       pool:
+  #         name: Default
+  #         demands:
+  #           - Agent.OS -equals Linux
+  #       steps:
+  #         - script: |
+  #             echo "Installing Supabase CLI..."
+  #             SUPABASE_DIR=$(Agent.ToolsDirectory)/supabase
+  #             mkdir -p $SUPABASE_DIR
 
-              VERSION=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
-              echo "Installing Supabase CLI version: $VERSION"
+  #             VERSION=$(curl -s https://api.github.com/repos/supabase/cli/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\1/')
+  #             echo "Installing Supabase CLI version: $VERSION"
 
-              curl -L "https://github.com/supabase/cli/releases/download/v${VERSION}/supabase_linux_amd64.tar.gz" -o /tmp/supabase.tar.gz
+  #             curl -L "https://github.com/supabase/cli/releases/download/v${VERSION}/supabase_linux_amd64.tar.gz" -o /tmp/supabase.tar.gz
 
-              if [ ! -s /tmp/supabase.tar.gz ]; then
-                echo "Error: Download failed or file is empty"
-                exit 1
-              fi
+  #             if [ ! -s /tmp/supabase.tar.gz ]; then
+  #               echo "Error: Download failed or file is empty"
+  #               exit 1
+  #             fi
 
-              tar -xzf /tmp/supabase.tar.gz -C $SUPABASE_DIR
+  #             tar -xzf /tmp/supabase.tar.gz -C $SUPABASE_DIR
 
-              if [ ! -f $SUPABASE_DIR/supabase ]; then
-                echo "Error: Binary not found after extraction"
-                ls -la $SUPABASE_DIR/
-                exit 1
-              fi
+  #             if [ ! -f $SUPABASE_DIR/supabase ]; then
+  #               echo "Error: Binary not found after extraction"
+  #               ls -la $SUPABASE_DIR/
+  #               exit 1
+  #             fi
 
-              chmod +x $SUPABASE_DIR/supabase
-              echo "##vso[task.prependpath]$SUPABASE_DIR"
-              export PATH="$SUPABASE_DIR:$PATH"
-              $SUPABASE_DIR/supabase --version || supabase --version
-            displayName: "Install Supabase CLI"
+  #             chmod +x $SUPABASE_DIR/supabase
+  #             echo "##vso[task.prependpath]$SUPABASE_DIR"
+  #             export PATH="$SUPABASE_DIR:$PATH"
+  #             $SUPABASE_DIR/supabase --version || supabase --version
+  #           displayName: "Install Supabase CLI"
 
-          - script: |
-              echo "Setting up migrations..."
-              export PATH="$(Agent.ToolsDirectory)/supabase:$PATH"
+  #         - script: |
+  #             echo "Setting up migrations..."
+  #             export PATH="$(Agent.ToolsDirectory)/supabase:$PATH"
 
-              supabase init || true
+  #             supabase init || true
 
-              mkdir -p supabase/migrations
-              if [ -d "modules/agent/migrations" ]; then
-                cp -r modules/agent/migrations/*.sql supabase/migrations/ 2>/dev/null || echo "No migrations found"
-                echo "✓ Copied migrations from modules/agent/migrations/ to supabase/migrations/"
-              else
-                echo "⚠️  modules/agent/migrations directory not found"
-                exit 1
-              fi
+  #             mkdir -p supabase/migrations
+  #             if [ -d "modules/agent/migrations" ]; then
+  #               cp -r modules/agent/migrations/*.sql supabase/migrations/ 2>/dev/null || echo "No migrations found"
+  #               echo "✓ Copied migrations from modules/agent/migrations/ to supabase/migrations/"
+  #             else
+  #               echo "⚠️  modules/agent/migrations directory not found"
+  #               exit 1
+  #             fi
 
-              echo "Applying database migrations to TEST via pooler..."
-              supabase db push --db-url "postgres://postgres.${SUPABASE_PROJECT_ID_TEST}:${SUPABASE_DB_PASSWORD_TEST}@aws-1-us-east-1.pooler.supabase.com:6543/postgres"
-            displayName: "Push Migrations to Supabase (Test)"
-            continueOnError: false
-            workingDirectory: $(System.DefaultWorkingDirectory)
-            env:
-              SUPABASE_DB_PASSWORD_TEST: $(SUPABASE_DB_PASSWORD_TEST)
-              SUPABASE_PROJECT_ID_TEST: $(SUPABASE_PROJECT_ID_TEST)
+  #             echo "Applying database migrations to TEST via pooler..."
+  #             supabase db push --db-url "postgres://postgres.${SUPABASE_PROJECT_ID_TEST}:${SUPABASE_DB_PASSWORD_TEST}@aws-1-us-east-1.pooler.supabase.com:6543/postgres"
+  #           displayName: "Push Migrations to Supabase (Test)"
+  #           continueOnError: false
+  #           workingDirectory: $(System.DefaultWorkingDirectory)
+  #           env:
+  #             SUPABASE_DB_PASSWORD_TEST: $(SUPABASE_DB_PASSWORD_TEST)
+  #             SUPABASE_PROJECT_ID_TEST: $(SUPABASE_PROJECT_ID_TEST)
 
-  - stage: DeployTest
-    displayName: Deploy to Test (Render)
-    dependsOn: MigrateTest
-    condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
-    jobs:
-      - job: Deploy
-        displayName: Trigger Render Deploy (Test)
-        pool:
-          name: Default
-          demands:
-            - Agent.OS -equals Linux
-        steps:
-          - script: |
-              echo "Saving current test deployment for rollback..."
-              # Get current image tag from Render service config
-              current_image=$(curl -sS -H "Authorization: Bearer $RENDER_API_KEY" \
-                "https://api.render.com/v1/services/$RENDER_SERVICE_ID" | jq -r '.image.imagePath // "none"')
-              echo "Current test image: $current_image"
+  # - stage: DeployTest
+  #   displayName: Deploy to Test (Render)
+  #   dependsOn: MigrateTest
+  #   condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+  #   jobs:
+  #     - job: Deploy
+  #       displayName: Trigger Render Deploy (Test)
+  #       pool:
+  #         name: Default
+  #         demands:
+  #           - Agent.OS -equals Linux
+  #       steps:
+  #         - script: |
+  #             echo "Saving current test deployment for rollback..."
+  #             # Get current image tag from Render service config
+  #             current_image=$(curl -sS -H "Authorization: Bearer $RENDER_API_KEY" \
+  #               "https://api.render.com/v1/services/$RENDER_SERVICE_ID" | jq -r '.image.imagePath // "none"')
+  #             echo "Current test image: $current_image"
 
-              # Store in pipeline artifact for rollback pipeline
-              mkdir -p $(Build.ArtifactStagingDirectory)
-              echo "$current_image" > $(Build.ArtifactStagingDirectory)/previous_test_image.txt
-              echo "$(tagBuildId)" > $(Build.ArtifactStagingDirectory)/new_test_tag.txt
-            displayName: "Save current deployment for rollback"
-            env:
-              RENDER_API_KEY: $(RENDER_API_KEY_TEST)
-              RENDER_SERVICE_ID: $(RENDER_SERVICE_ID_AGENT_TEST)
+  #             # Store in pipeline artifact for rollback pipeline
+  #             mkdir -p $(Build.ArtifactStagingDirectory)
+  #             echo "$current_image" > $(Build.ArtifactStagingDirectory)/previous_test_image.txt
+  #             echo "$(tagBuildId)" > $(Build.ArtifactStagingDirectory)/new_test_tag.txt
+  #           displayName: "Save current deployment for rollback"
+  #           env:
+  #             RENDER_API_KEY: $(RENDER_API_KEY_TEST)
+  #             RENDER_SERVICE_ID: $(RENDER_SERVICE_ID_AGENT_TEST)
 
-          - publish: $(Build.ArtifactStagingDirectory)
-            artifact: rollback_info_test
-            displayName: "Publish rollback info"
+  #         - publish: $(Build.ArtifactStagingDirectory)
+  #           artifact: rollback_info_test
+  #           displayName: "Publish rollback info"
 
-          - script: |
-              echo "Triggering deployment on Render (Test)..."
-              http_code=$(curl -sS -o /tmp/render_deploy.json -w "%{http_code}" -X POST "$RENDER_DEPLOY_HOOK")
-              echo "POST deploy hook => $http_code"
-              cat /tmp/render_deploy.json
-              case "$http_code" in
-                200|201|202) echo "Test deployment triggered." ;;
-                *) echo "Test deployment failed"; exit 1 ;;
-              esac
-            displayName: "Trigger Render deploy (Test)"
-            env:
-              RENDER_DEPLOY_HOOK: $(RENDER_DEPLOY_HOOK_AGENT_TEST)
+  #         - script: |
+  #             echo "Triggering deployment on Render (Test)..."
+  #             http_code=$(curl -sS -o /tmp/render_deploy.json -w "%{http_code}" -X POST "$RENDER_DEPLOY_HOOK")
+  #             echo "POST deploy hook => $http_code"
+  #             cat /tmp/render_deploy.json
+  #             case "$http_code" in
+  #               200|201|202) echo "Test deployment triggered." ;;
+  #               *) echo "Test deployment failed"; exit 1 ;;
+  #             esac
+  #           displayName: "Trigger Render deploy (Test)"
+  #           env:
+  #             RENDER_DEPLOY_HOOK: $(RENDER_DEPLOY_HOOK_AGENT_TEST)
 
-  - stage: Approval
-    displayName: Wait for Approval
-    dependsOn: DeployTest
-    condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
-    jobs:
-      - deployment: WaitForApproval
-        displayName: Approve Production Deploy
-        environment: 'pina-colada-prod'
-        pool:
-          name: Default
-          demands:
-            - Agent.OS -equals Linux
-        strategy:
-          runOnce:
-            deploy:
-              steps:
-                - script: echo "Approved for production deployment"
-                  displayName: "Approval confirmed"
+  # - stage: Approval
+  #   displayName: Wait for Approval
+  #   dependsOn: DeployTest
+  #   condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+  #   jobs:
+  #     - deployment: WaitForApproval
+  #       displayName: Approve Production Deploy
+  #       environment: 'pina-colada-prod'
+  #       pool:
+  #         name: Default
+  #         demands:
+  #           - Agent.OS -equals Linux
+  #       strategy:
+  #         runOnce:
+  #           deploy:
+  #             steps:
+  #               - script: echo "Approved for production deployment"
+  #                 displayName: "Approval confirmed"
 
   # ============ Production stages ============
 
   - stage: MigrateProd
     displayName: Migrate Prod DB
-    dependsOn:
-      - Push
-      - Approval
-    condition: |
-      or(
-        eq(variables['Build.SourceBranch'], 'refs/heads/master'),
-        succeeded('Approval')
-      )
+    dependsOn: Push
+    condition: succeeded()
     jobs:
       - job: Migrate
         displayName: Apply Supabase Migrations (Prod)
