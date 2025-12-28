@@ -87,6 +87,36 @@ PinaColada is an AI-native CRM built on the OpenAI Agents Go SDK that manages re
 | **State** | `internal/agent/state/` | Memory + DB persistence |
 | **Evaluator** | `internal/agent/evaluator.go` | Optional quality control (Claude) |
 
+### Tools
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         AVAILABLE TOOLS                             │
+├─────────────────────────────────────────────────────────────────────┤
+│  CRM Tools                     │  External Tools                    │
+│  • crm_lookup    (read)        │  • job_search    (Serper API)      │
+│  • crm_list      (list)        │  • send_email    (notifications)   │
+│  • crm_propose_create          │  • read_document (resumes, PDFs)   │
+│  • crm_propose_update          │                                    │
+│  • crm_propose_delete          │                                    │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                    TOOL ACCESS BY WORKER                            │
+├──────────────────┬──────────────────┬───────────────────────────────┤
+│  job_search      │  crm_worker      │  general_worker               │
+├──────────────────┼──────────────────┼───────────────────────────────┤
+│  ✓ job_search    │  ✗ job_search    │  ✗ job_search                 │
+│  ✓ send_email    │  ✗ send_email    │  ✗ send_email                 │
+│  ✓ crm_lookup    │  ✓ crm_lookup    │  ✓ crm_lookup                 │
+│  ✗ crm_list      │  ✓ crm_list      │  ✗ crm_list                   │
+│  ✗ crm_propose_* │  ✓ crm_propose_* │  ✗ crm_propose_*              │
+│  ✓ read_document │  ✓ read_document │  ✓ read_document              │
+└──────────────────┴──────────────────┴───────────────────────────────┘
+```
+
+Workers receive filtered tool sets via `tools.FilterTools()` to enforce separation of concerns.
+
 ### Handoff Mechanism
 
 The triage agent uses the OpenAI Agents SDK's native **handoff** feature to route requests. When the triage agent determines which worker should handle a message, it triggers a handoff—transferring full conversation context and control to that worker. The worker then executes with its own model settings and filtered tool set. This is a single-hop delegation (triage → worker), not a multi-agent orchestration loop.
