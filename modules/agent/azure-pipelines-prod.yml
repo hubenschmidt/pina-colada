@@ -281,8 +281,8 @@ stages:
 
               mkdir -p supabase/migrations
               if [ -d "modules/agent/migrations" ]; then
-                cp -r modules/agent/migrations/*.sql supabase/migrations/ 2>/dev/null || echo "No migrations found"
-                echo "✓ Copied migrations from modules/agent/migrations/ to supabase/migrations/"
+                cp -r modules/agent/migrations/*.up.sql supabase/migrations/ 2>/dev/null || echo "No migrations found"
+                echo "✓ Copied .up.sql migrations from modules/agent/migrations/ to supabase/migrations/"
               else
                 echo "⚠️  modules/agent/migrations directory not found"
                 exit 1
