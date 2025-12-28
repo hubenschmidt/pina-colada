@@ -41,8 +41,10 @@ import {
   setCurrentDocumentVersion,
 } from "../../../../api";
 import { DeleteConfirmBanner } from "../../../../components/DeleteConfirmBanner/DeleteConfirmBanner";
+import { usePageLoading } from "context/pageLoadingContext";
 
 const DocumentDetailPage = () => {
+  const { dispatchPageLoading} = usePageLoading()
   const params = useParams();
   const router = useRouter();
   const documentId = Number(params.id);
@@ -71,6 +73,11 @@ const DocumentDetailPage = () => {
   // Delete confirmation state
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+  }, [dispatchPageLoading]);
+
 
   const loadDocument = useCallback(async () => {
     if (!documentId) return;

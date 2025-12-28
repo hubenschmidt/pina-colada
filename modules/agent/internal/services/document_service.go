@@ -315,17 +315,6 @@ func (s *DocumentService) DownloadDocument(documentID int64, tenantID int64) (*D
 		return nil, ErrDocumentNotFound
 	}
 
-	// Get URL from storage backend - R2 returns presigned URL, local returns file URL
-	url := s.storageRepo.GetURL(doc.StoragePath)
-	if url != "" && !strings.HasPrefix(url, "file://") {
-		// It's a remote URL (presigned), use redirect
-		return &DownloadDocumentResult{
-			Document:    doc,
-			RedirectURL: &url,
-		}, nil
-	}
-
-	// Fall back to downloading content (local storage)
 	content, err := s.storageRepo.Download(doc.StoragePath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to download file: %w", err)
