@@ -22,3 +22,7 @@
 
 # Misc
 /postman/
+
+# ETL data
+/cmd/etl/exports/
+/cmd/etl/transformed/

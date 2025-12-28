@@ -1,4 +1,4 @@
-package etl
+package main
 
 import (
 	"context"
@@ -11,25 +11,21 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-var TablesToExport = []string{
-	"Tenant",
-	"User",
-	"Organization",
-	"Lead",
-	"Job",
-	"Deal",
-}
-
 func ExportTables(ctx context.Context, conn *pgx.Conn, exportDir string) error {
 	if err := os.MkdirAll(exportDir, 0755); err != nil {
 		return fmt.Errorf("failed to create export dir: %w", err)
 	}
 
-	log.Printf("Exporting tables to %s/", exportDir)
+	tables, err := getNonEmptyTables(ctx, conn)
+	if err != nil {
+		return fmt.Errorf("failed to get tables: %w", err)
+	}
+
+	log.Printf("Exporting %d non-empty tables to %s/", len(tables), exportDir)
 	log.Println("--------------------------------------------------")
 
 	var totalRows int
-	for _, table := range TablesToExport {
+	for _, table := range tables {
 		count, err := exportTable(ctx, conn, table, exportDir)
 		if err != nil {
 			log.Printf("  %s: ERROR - %v", table, err)
@@ -41,6 +37,43 @@ func ExportTables(ctx context.Context, conn *pgx.Conn, exportDir string) error {
 	log.Println("--------------------------------------------------")
 	log.Printf("Export complete: %d total rows", totalRows)
 	return nil
+}
+
+func getNonEmptyTables(ctx context.Context, conn *pgx.Conn) ([]string, error) {
+	query := `
+		SELECT tablename FROM pg_tables
+		WHERE schemaname = 'public'
+		ORDER BY tablename
+	`
+	rows, err := conn.Query(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+
+	var allTables []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		allTables = append(allTables, name)
+	}
+	rows.Close()
+
+	var tables []string
+	for _, name := range allTables {
+		var hasData bool
+		existsQuery := fmt.Sprintf(`SELECT EXISTS(SELECT 1 FROM "%s" LIMIT 1)`, name)
+		if err := conn.QueryRow(ctx, existsQuery).Scan(&hasData); err != nil {
+			log.Printf("  Skipping %s: %v", name, err)
+			continue
+		}
+		if hasData {
+			tables = append(tables, name)
+		}
+	}
+	return tables, nil
 }
 
 func exportTable(ctx context.Context, conn *pgx.Conn, table, exportDir string) (int, error) {
