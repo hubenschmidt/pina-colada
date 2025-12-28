@@ -263,6 +263,9 @@ stages:
               echo "Setting up migrations..."
               export PATH="$(Agent.ToolsDirectory)/supabase:$PATH"
 
+              # Clean up any cached supabase state from previous runs
+              rm -rf supabase .supabase
+
               supabase init || true
 
               mkdir -p supabase/migrations
