@@ -655,12 +655,22 @@ func (o *Orchestrator) runAgentStreamDirect(ctx context.Context, userID int64, i
 		sendEvent:    sendEvent,
 	}
 
-	for event := range eventsChan {
-		ss.handleStreamEvent(event)
-	}
+	return o.processStreamEvents(ctx, ss, eventsChan, errChan)
+}
 
-	streamErr := <-errChan
-	return ss, streamErr
+func (o *Orchestrator) processStreamEvents(ctx context.Context, ss *streamState, eventsChan <-chan agents.StreamEvent, errChan <-chan error) (*streamState, error) {
+	for {
+		select {
+		case <-ctx.Done():
+			log.Printf("Agent run cancelled via context")
+			return ss, ctx.Err()
+		case event, ok := <-eventsChan:
+			if !ok {
+				return ss, <-errChan
+			}
+			ss.handleStreamEvent(event)
+		}
+	}
 }
 
 // RunWithStreaming executes the agent and streams events via channel
@@ -723,6 +733,12 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 			Warning: "This model doesn't support some LLM settings (temperature, top_p). Retrying without custom settings.",
 		})
 		ss, streamErr = o.runAgentStream(ctx, userID, input, req.UseEvaluator, sendEvent, true)
+	}
+
+	if errors.Is(streamErr, context.Canceled) {
+		log.Printf("Agent run was cancelled by user")
+		sendEvent(StreamEvent{Type: "done"})
+		return
 	}
 
 	if streamErr != nil {

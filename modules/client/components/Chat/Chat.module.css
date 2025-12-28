@@ -592,6 +592,17 @@
   border-color: #b91c1c;
 }
 
+.btnResume {
+  background-color: #16a34a; /* green-600 */
+  color: #ffffff;
+  border-color: #16a34a;
+}
+
+.btnResume:hover {
+  background-color: #15803d; /* green-700 */
+  border-color: #15803d;
+}
+
 /* TYPING INDICATOR -------------------------------------------------------- */
 .thinkingIndicator {
   position: absolute;

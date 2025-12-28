@@ -48,11 +48,13 @@ type WSMessage struct {
 
 // Client represents a connected WebSocket client
 type Client struct {
-	conn     *websocket.Conn
-	uuid     string
-	userID   int64
-	tenantID int64
-	mu       sync.Mutex
+	conn       *websocket.Conn
+	uuid       string
+	userID     int64
+	tenantID   int64
+	mu         sync.Mutex
+	cancelFunc context.CancelFunc // Cancel function for current agent run
+	cancelMu   sync.Mutex
 }
 
 // SendJSON sends a JSON message to the client
@@ -60,6 +62,30 @@ func (c *Client) SendJSON(v interface{}) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	return c.conn.WriteJSON(v)
+}
+
+// SetCancelFunc sets the cancel function for the current agent run
+func (c *Client) SetCancelFunc(cancel context.CancelFunc) {
+	c.cancelMu.Lock()
+	defer c.cancelMu.Unlock()
+	c.cancelFunc = cancel
+	if cancel != nil {
+		log.Printf("CancelFunc set for client %s", c.uuid)
+	}
+}
+
+// Cancel cancels the current agent run if one is active
+func (c *Client) Cancel() bool {
+	c.cancelMu.Lock()
+	defer c.cancelMu.Unlock()
+	if c.cancelFunc == nil {
+		log.Printf("Cancel called but no cancelFunc set for client %s", c.uuid)
+		return false
+	}
+	log.Printf("Cancelling agent run for client %s", c.uuid)
+	c.cancelFunc()
+	c.cancelFunc = nil
+	return true
 }
 
 // HandleWS handles WebSocket connections at /ws
@@ -113,13 +139,27 @@ func (wc *WebSocketController) processWSMessage(ctx context.Context, client *Cli
 		return
 	}
 
+	if msg.Type == "cancel" {
+		log.Printf("Received cancel message for client %s", client.uuid)
+		wc.handleCancelMessage(client)
+		return
+	}
+
 	wc.updateClientContext(client, msg)
 
 	if msg.Message == "" {
 		return
 	}
 
-	wc.handleChatMessage(ctx, client, msg)
+	// Run in goroutine so messageLoop can continue reading cancel messages
+	go wc.handleChatMessage(ctx, client, msg)
+}
+
+func (wc *WebSocketController) handleCancelMessage(client *Client) {
+	if !client.Cancel() {
+		return
+	}
+	log.Printf("Agent run cancelled for client %s", client.uuid)
 }
 
 func (wc *WebSocketController) updateClientContext(client *Client, msg WSMessage) {
@@ -148,12 +188,17 @@ func (wc *WebSocketController) handleChatMessage(ctx context.Context, client *Cl
 
 	defer wc.wsService.MarkProcessingComplete(client.uuid)
 
+	// Create cancellable context for this run
+	runCtx, cancel := context.WithCancel(ctx)
+	client.SetCancelFunc(cancel)
+	defer client.SetCancelFunc(nil) // Clear cancel func when done
+
 	client.SendJSON(map[string]bool{"on_chat_model_start": true})
 
 	userID := formatUserID(client.userID)
 	eventCh := make(chan agent.StreamEvent, 100)
 
-	go wc.orchestrator.RunWithStreaming(ctx, agent.RunRequest{
+	go wc.orchestrator.RunWithStreaming(runCtx, agent.RunRequest{
 		SessionID:    client.uuid,
 		UserID:       userID,
 		TenantID:     client.tenantID,
@@ -189,16 +234,16 @@ func (wc *WebSocketController) handleStreamEvent(client *Client, evt agent.Strea
 type streamEventHandler func(client *Client, evt agent.StreamEvent, lastText string) string
 
 var streamEventHandlers = map[string]streamEventHandler{
-	"start":      handleStartEvent,
-	"text":       handleTextEvent,
-	"tokens":     handleTokensEvent,
-	"tool_start": handleToolStartEvent,
-	"tool_end":   handleToolEndEvent,
+	"start":       handleStartEvent,
+	"text":        handleTextEvent,
+	"tokens":      handleTokensEvent,
+	"tool_start":  handleToolStartEvent,
+	"tool_end":    handleToolEndEvent,
 	"agent_start": handleAgentStartEvent,
-	"done":       handleDoneEvent,
-	"eval_start": handleEvalStartEvent,
-	"eval":       handleEvalEvent,
-	"error":      handleErrorEvent,
+	"done":        handleDoneEvent,
+	"eval_start":  handleEvalStartEvent,
+	"eval":        handleEvalEvent,
+	"error":       handleErrorEvent,
 }
 
 func handleStartEvent(client *Client, evt agent.StreamEvent, lastText string) string {

@@ -266,8 +266,8 @@ export const useWs = (url, { threadId: initialThreadId = null, onError = null, o
       if (!s || s.readyState !== WebSocket.OPEN) return;
 
       setMessages((prev) => [...prev, { user: "User", msg: t }]);
-      setIsThinking(true); // Start thinking when user sends message
-      setEvalResult(null); // Clear previous eval result
+      setIsThinking(true);
+      setEvalResult(null);
 
       // Include user_id, tenant_id, and use_evaluator for message processing
       const payload = { uuid, message: t, use_evaluator: useEvaluator };

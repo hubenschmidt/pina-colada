@@ -665,14 +665,6 @@ const Chat = ({
               <button type="submit" className={styles.btn} disabled={!isOpen || !input.trim()}>
                 Send
               </button>
-              {isThinking && (
-                <button
-                  type="button"
-                  className={`${styles.btn} ${styles.btnStop}`}
-                  onClick={() => sendControl({ type: "cancel" })}>
-                  Stop
-                </button>
-              )}
               <button
                 type="button"
                 className={`${styles.btn} ${styles.btnGhost}`}
