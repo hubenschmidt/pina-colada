@@ -216,9 +216,9 @@ stages:
 
   # ============ Production stages ============
 
-  - stage: Migrate
+  - stage: MigrateProd
     displayName: Run Database Migrations
-    dependsOn: Build
+    dependsOn: Push
     # Run migrations on all builds (including PRs) to validate schema changes
     jobs:
       - job: Migrate
