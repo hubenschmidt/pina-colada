@@ -22,9 +22,6 @@ trap _term TERM INT
 PORT=${PORT:-8080}
 echo "PORT set to: $PORT"
 
-echo "Running migrations..."
-/migrate up || echo "Could not run migrations"
-
 echo "Starting Go agent on port $PORT..."
 /agent-go &
 AGENT_PID=$!
