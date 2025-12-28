@@ -1,16 +1,17 @@
 package repositories
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
-	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/credentials"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/aws/aws-sdk-go-v2/aws"
+	"github.com/aws/aws-sdk-go-v2/credentials"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 // StorageRepository defines the interface for file storage operations
@@ -98,35 +99,36 @@ func (r *LocalStorageRepository) Exists(path string) (bool, error) {
 
 // R2StorageRepository implements Cloudflare R2 storage (S3-compatible)
 type R2StorageRepository struct {
-	client *s3.S3
-	bucket string
+	client   *s3.Client
+	presign  *s3.PresignClient
+	bucket   string
+	endpoint string
 }
 
 // NewR2StorageRepository creates a new R2 storage repository
 func NewR2StorageRepository(accountID, accessKey, secretKey, bucket string) (*R2StorageRepository, error) {
 	endpoint := fmt.Sprintf("https://%s.r2.cloudflarestorage.com", accountID)
 
-	sess, err := session.NewSession(&aws.Config{
-		Endpoint:         aws.String(endpoint),
-		Region:           aws.String("auto"),
-		Credentials:      credentials.NewStaticCredentials(accessKey, secretKey, ""),
-		S3ForcePathStyle: aws.Bool(true),
+	client := s3.New(s3.Options{
+		Region:       "auto",
+		BaseEndpoint: aws.String(endpoint),
+		Credentials:  credentials.NewStaticCredentialsProvider(accessKey, secretKey, ""),
+		UsePathStyle: true,
 	})
-	if err != nil {
-		return nil, err
-	}
 
 	return &R2StorageRepository{
-		client: s3.New(sess),
-		bucket: bucket,
+		client:   client,
+		presign:  s3.NewPresignClient(client),
+		bucket:   bucket,
+		endpoint: endpoint,
 	}, nil
 }
 
 func (r *R2StorageRepository) Upload(path string, data io.Reader, contentType string, size int64) error {
-	_, err := r.client.PutObject(&s3.PutObjectInput{
+	_, err := r.client.PutObject(context.Background(), &s3.PutObjectInput{
 		Bucket:        aws.String(r.bucket),
 		Key:           aws.String(path),
-		Body:          aws.ReadSeekCloser(data),
+		Body:          data,
 		ContentType:   aws.String(contentType),
 		ContentLength: aws.Int64(size),
 	})
@@ -134,7 +136,7 @@ func (r *R2StorageRepository) Upload(path string, data io.Reader, contentType st
 }
 
 func (r *R2StorageRepository) Download(path string) ([]byte, error) {
-	resp, err := r.client.GetObject(&s3.GetObjectInput{
+	resp, err := r.client.GetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: aws.String(r.bucket),
 		Key:    aws.String(path),
 	})
@@ -146,7 +148,7 @@ func (r *R2StorageRepository) Download(path string) ([]byte, error) {
 }
 
 func (r *R2StorageRepository) Delete(path string) error {
-	_, err := r.client.DeleteObject(&s3.DeleteObjectInput{
+	_, err := r.client.DeleteObject(context.Background(), &s3.DeleteObjectInput{
 		Bucket: aws.String(r.bucket),
 		Key:    aws.String(path),
 	})
@@ -154,16 +156,18 @@ func (r *R2StorageRepository) Delete(path string) error {
 }
 
 func (r *R2StorageRepository) GetURL(path string) string {
-	req, _ := r.client.GetObjectRequest(&s3.GetObjectInput{
+	req, err := r.presign.PresignGetObject(context.Background(), &s3.GetObjectInput{
 		Bucket: aws.String(r.bucket),
 		Key:    aws.String(path),
-	})
-	url, _ := req.Presign(3600)
-	return url
+	}, s3.WithPresignExpires(time.Hour))
+	if err != nil {
+		return ""
+	}
+	return req.URL
 }
 
 func (r *R2StorageRepository) Exists(path string) (bool, error) {
-	_, err := r.client.HeadObject(&s3.HeadObjectInput{
+	_, err := r.client.HeadObject(context.Background(), &s3.HeadObjectInput{
 		Bucket: aws.String(r.bucket),
 		Key:    aws.String(path),
 	})
