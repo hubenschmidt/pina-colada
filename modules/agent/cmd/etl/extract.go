@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -112,9 +113,13 @@ func exportTable(ctx context.Context, conn *pgx.Conn, table, exportDir string) (
 
 		record := make([]string, len(values))
 		for i, v := range values {
-			record[i] = fmt.Sprintf("%v", v)
-			if v == nil {
+			switch val := v.(type) {
+			case nil:
 				record[i] = ""
+			case time.Time:
+				record[i] = val.Format(time.RFC3339)
+			default:
+				record[i] = fmt.Sprintf("%v", v)
 			}
 		}
 

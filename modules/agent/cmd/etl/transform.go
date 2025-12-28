@@ -16,6 +16,9 @@ var tablesNeedingAuditFields = []string{
 	"Lead",
 	"Deal",
 	"Organization",
+	"Asset",
+	"Project",
+	"Comment",
 }
 
 // Columns to remove from specific tables

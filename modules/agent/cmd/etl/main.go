@@ -26,7 +26,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	dbURL := ""
+	dbURL := "postgresql://postgres.ckyusrrjwwcgwrbcfsal:ShortTimCrook123@aws-1-us-east-1.pooler.supabase.com:6543/postgres"
 	if dbURL == "" {
 		log.Fatal("ETL_DATABASE_URL environment variable is required")
 	}
