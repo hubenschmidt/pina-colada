@@ -260,25 +260,30 @@ stages:
             displayName: "Install Supabase CLI"
 
           - script: |
-              echo "Setting up migrations..."
-              export PATH="$(Agent.ToolsDirectory)/supabase:$PATH"
+              echo "Applying migrations via psql..."
 
-              # Clean up any cached supabase state from previous runs
-              rm -rf supabase .supabase
-
-              supabase init || true
-
-              mkdir -p supabase/migrations
-              if [ -d "modules/agent/migrations" ]; then
-                cp -r modules/agent/migrations/*.up.sql supabase/migrations/ 2>/dev/null || echo "No migrations found"
-                echo "✓ Copied .up.sql migrations from modules/agent/migrations/ to supabase/migrations/"
-              else
+              if [ ! -d "modules/agent/migrations" ]; then
                 echo "⚠️  modules/agent/migrations directory not found"
                 exit 1
               fi
 
-              echo "Applying database migrations to PROD via pooler (session mode)..."
-              supabase db push --db-url "postgres://postgres.${SUPABASE_PROJECT_ID}:${SUPABASE_DB_PASSWORD}@aws-1-us-east-1.pooler.supabase.com:6543/postgres?pgbouncer=true"
+              # Concatenate all .up.sql files in order
+              cd modules/agent/migrations
+              for f in $(ls *.up.sql | sort); do
+                echo "-- Migration: $f"
+                cat "$f"
+                echo ""
+              done > /tmp/all_migrations.sql
+              cd -
+
+              echo "Running $(wc -l < /tmp/all_migrations.sql) lines of SQL..."
+
+              # Use psql with session mode pooler
+              PGPASSWORD="${SUPABASE_DB_PASSWORD}" psql \
+                "host=aws-1-us-east-1.pooler.supabase.com port=6543 dbname=postgres user=postgres.${SUPABASE_PROJECT_ID} sslmode=require" \
+                -f /tmp/all_migrations.sql
+
+              echo "✓ Migrations applied successfully"
             displayName: "Push Migrations to Supabase (Prod)"
             continueOnError: false
             workingDirectory: $(System.DefaultWorkingDirectory)
