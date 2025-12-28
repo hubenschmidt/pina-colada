@@ -31,7 +31,7 @@ variables:
   - name: imageRepository
     value: "$(owner)/$(imageName)"
   - name: dockerfilePath
-    value: "modules/client/Dockerfile"
+    value: "modules/client/Dockerfile.prod"
   - name: buildContext
     value: "modules/client"
   - name: tagLatest
