@@ -179,26 +179,8 @@ stages:
             - Agent.OS -equals Linux
         steps:
           - script: |
-              echo "Saving current prod deployment for rollback..."
-              current_image=$(curl -sS -H "Authorization: Bearer $RENDER_API_KEY" \
-                "https://api.render.com/v1/services/$RENDER_SERVICE_ID" | jq -r '.image.imagePath // "none"')
-              echo "Current prod image: $current_image"
-
-              mkdir -p $(Build.ArtifactStagingDirectory)
-              echo "$current_image" > $(Build.ArtifactStagingDirectory)/previous_prod_image.txt
-              echo "$(tagBuildId)" > $(Build.ArtifactStagingDirectory)/new_prod_tag.txt
-            displayName: "Save current deployment for rollback"
-            env:
-              RENDER_API_KEY: $(RENDER_API_KEY_PROD)
-              RENDER_SERVICE_ID: $(RENDER_SERVICE_ID_CLIENT_PROD)
-
-          - publish: $(Build.ArtifactStagingDirectory)
-            artifact: rollback_info_prod
-            displayName: "Publish rollback info"
-
-          - script: |
               echo "Triggering deployment on Render (Prod)..."
-              http_code=$(curl -sS -o /tmp/render_deploy.json -w "%{http_code}" -X POST "$RENDER_DEPLOY_HOOK")
+              http_code=$(curl -sS -o /tmp/render_deploy.json -w "%{http_code}" -X POST "$RENDER_DEPLOY_HOOK_AGENT_PROD")
               echo "POST deploy hook => $http_code"
               cat /tmp/render_deploy.json
               case "$http_code" in
@@ -207,4 +189,4 @@ stages:
               esac
             displayName: "Trigger Render deploy (Prod)"
             env:
-              RENDER_DEPLOY_HOOK: $(RENDER_DEPLOY_HOOK_CLIENT_PROD)
+              RENDER_DEPLOY_HOOK_AGENT_PROD: $(RENDER_DEPLOY_HOOK_AGENT_PROD)

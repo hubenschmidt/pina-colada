@@ -21,7 +21,6 @@ resources:
 # ---------------- Variables ----------------
 variables:
   - group: "pina-colada-render-prod"
-  - group: "pina-colada-render-test"
   - name: dockerRegistryServiceConnection
     value: "ghcr-conn"
   - name: owner
@@ -31,7 +30,7 @@ variables:
   - name: imageRepository
     value: "$(owner)/$(imageName)"
   - name: dockerfilePath
-    value: "modules/client/Dockerfile.prod"
+    value: "modules/client/Dockerfile"
   - name: buildContext
     value: "modules/client"
   - name: tagLatest
@@ -46,7 +45,7 @@ stages:
       - job: Build
         displayName: Node build
         pool:
-          name: Default
+          name: Default # self-hosted Linux agent pool
           demands:
             - Agent.OS -equals Linux
         steps:
@@ -63,11 +62,13 @@ stages:
   - stage: Push
     displayName: Push Docker Image to GHCR
     dependsOn: Build
+    # Only deploy on master (avoid PR validations)
+    condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
     jobs:
       - job: Push
         displayName: Build & push image
         pool:
-          name: Default
+          name: Default # self-hosted Linux agent pool
           demands:
             - Agent.OS -equals Linux
         steps:
@@ -76,79 +77,13 @@ stages:
             inputs:
               command: "buildAndPush"
               containerRegistry: "$(dockerRegistryServiceConnection)"
-              repository: "$(imageRepository)"
+              repository: "$(imageRepository)" # owner/name ONLY
               dockerfile: "$(dockerfilePath)"
               buildContext: "$(buildContext)"
               addPipelineData: false
               tags: |
                 $(tagLatest)
                 $(tagBuildId)
-
-  # # ============ PR-only stages: Test environment ============
-
-  # - stage: DeployTest
-  #   displayName: Deploy to Test (Render)
-  #   dependsOn: Push
-  #   condition: eq(variables['Build.Reason'], 'PullRequest')
-  #   jobs:
-  #     - job: Deploy
-  #       displayName: Trigger Render Deploy (Test)
-  #       pool:
-  #         name: Default
-  #         demands:
-  #           - Agent.OS -equals Linux
-  #       steps:
-  #         - script: |
-  #             echo "Saving current test deployment for rollback..."
-  #             current_image=$(curl -sS -H "Authorization: Bearer $RENDER_API_KEY" \
-  #               "https://api.render.com/v1/services/$RENDER_SERVICE_ID" | jq -r '.image.imagePath // "none"')
-  #             echo "Current test image: $current_image"
-
-  #             mkdir -p $(Build.ArtifactStagingDirectory)
-  #             echo "$current_image" > $(Build.ArtifactStagingDirectory)/previous_test_image.txt
-  #             echo "$(tagBuildId)" > $(Build.ArtifactStagingDirectory)/new_test_tag.txt
-  #           displayName: "Save current deployment for rollback"
-  #           env:
-  #             RENDER_API_KEY: $(RENDER_API_KEY_TEST)
-  #             RENDER_SERVICE_ID: $(RENDER_SERVICE_ID_CLIENT_TEST)
-
-  #         - publish: $(Build.ArtifactStagingDirectory)
-  #           artifact: rollback_info_test
-  #           displayName: "Publish rollback info"
-
-  #         - script: |
-  #             echo "Triggering deployment on Render (Test)..."
-  #             http_code=$(curl -sS -o /tmp/render_deploy.json -w "%{http_code}" -X POST "$RENDER_DEPLOY_HOOK")
-  #             echo "POST deploy hook => $http_code"
-  #             cat /tmp/render_deploy.json
-  #             case "$http_code" in
-  #               200|201|202) echo "Test deployment triggered." ;;
-  #               *) echo "Test deployment failed"; exit 1 ;;
-  #             esac
-  #           displayName: "Trigger Render deploy (Test)"
-  #           env:
-  #             RENDER_DEPLOY_HOOK: $(RENDER_DEPLOY_HOOK_CLIENT_TEST)
-
-  # - stage: Approval
-  #   displayName: Wait for Approval
-  #   dependsOn: DeployTest
-  #   condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
-  #   jobs:
-  #     - deployment: WaitForApproval
-  #       displayName: Approve Production Deploy
-  #       environment: 'pina-colada-prod'
-  #       pool:
-  #         name: Default
-  #         demands:
-  #           - Agent.OS -equals Linux
-  #       strategy:
-  #         runOnce:
-  #           deploy:
-  #             steps:
-  #               - script: echo "Approved for production deployment"
-  #                 displayName: "Approval confirmed"
-
-  # ============ Production stages ============
 
   - stage: DeployProd
     displayName: Deploy to Prod (Render)
@@ -163,26 +98,8 @@ stages:
             - Agent.OS -equals Linux
         steps:
           - script: |
-              echo "Saving current prod deployment for rollback..."
-              current_image=$(curl -sS -H "Authorization: Bearer $RENDER_API_KEY" \
-                "https://api.render.com/v1/services/$RENDER_SERVICE_ID" | jq -r '.image.imagePath // "none"')
-              echo "Current prod image: $current_image"
-
-              mkdir -p $(Build.ArtifactStagingDirectory)
-              echo "$current_image" > $(Build.ArtifactStagingDirectory)/previous_prod_image.txt
-              echo "$(tagBuildId)" > $(Build.ArtifactStagingDirectory)/new_prod_tag.txt
-            displayName: "Save current deployment for rollback"
-            env:
-              RENDER_API_KEY: $(RENDER_API_KEY_PROD)
-              RENDER_SERVICE_ID: $(RENDER_SERVICE_ID_CLIENT_PROD)
-
-          - publish: $(Build.ArtifactStagingDirectory)
-            artifact: rollback_info_prod
-            displayName: "Publish rollback info"
-
-          - script: |
               echo "Triggering deployment on Render (Prod)..."
-              http_code=$(curl -sS -o /tmp/render_deploy.json -w "%{http_code}" -X POST "$RENDER_DEPLOY_HOOK")
+              http_code=$(curl -sS -o /tmp/render_deploy.json -w "%{http_code}" -X POST "$RENDER_DEPLOY_HOOK_CLIENT_PROD")
               echo "POST deploy hook => $http_code"
               cat /tmp/render_deploy.json
               case "$http_code" in
@@ -191,4 +108,4 @@ stages:
               esac
             displayName: "Trigger Render deploy (Prod)"
             env:
-              RENDER_DEPLOY_HOOK: $(RENDER_DEPLOY_HOOK_CLIENT_PROD)
+              RENDER_DEPLOY_HOOK_CLIENT_PROD: $(RENDER_DEPLOY_HOOK_CLIENT_PROD)
