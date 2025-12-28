@@ -277,8 +277,8 @@ stages:
                 exit 1
               fi
 
-              echo "Applying database migrations to PROD via pooler..."
-              supabase db push --db-url "postgres://postgres.${SUPABASE_PROJECT_ID}:${SUPABASE_DB_PASSWORD}@aws-1-us-east-1.pooler.supabase.com:5432/postgres"
+              echo "Applying database migrations to PROD via direct connection..."
+              supabase db push --db-url "postgres://postgres.${SUPABASE_PROJECT_ID}:${SUPABASE_DB_PASSWORD}@db.${SUPABASE_PROJECT_ID}.supabase.co:5432/postgres"
             displayName: "Push Migrations to Supabase (Prod)"
             continueOnError: false
             workingDirectory: $(System.DefaultWorkingDirectory)
