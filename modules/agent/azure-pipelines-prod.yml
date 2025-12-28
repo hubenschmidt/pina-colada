@@ -21,9 +21,7 @@ resources:
 # ---------------- Variables ----------------
 variables:
   - group: "pina-colada-render-prod"
-  - group: "pina-colada-render-test"
   - group: "pina-colada-supabase-prod"
-  - group: "pina-colada-supabase-test"
   - name: dockerRegistryServiceConnection
     value: "ghcr-conn"
   - name: owner
