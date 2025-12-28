@@ -26,11 +26,10 @@ type JobInfo struct {
 
 // SerperTools holds Serper API-based tools
 type SerperTools struct {
-	apiKey      string
-	jobService  JobServiceInterface
-	cacheTools  *CacheTools
-	publicURL   string // Base URL for generating absolute short URLs
-	permChecker PermissionChecker
+	apiKey     string
+	jobService JobServiceInterface
+	urlTools   *URLTools
+	publicURL  string // Base URL for generating absolute short URLs
 
 	// Cache for applied jobs to avoid repeated DB queries within a turn
 	appliedJobsCache     []JobInfo
@@ -45,21 +44,114 @@ type SerperTools struct {
 	callCountMu    sync.Mutex
 	totalResults   int      // Track total results across all searches in turn
 	searchQueries  []string // Track queries used in this turn
+
+	// Session-scoped seen URLs to avoid duplicate results across turns
+	currentSessionID string
+	seenJobURLs      map[string]map[string]bool // sessionID -> URL -> true
+	seenMu           sync.RWMutex
 }
 
 const appliedJobsCacheTTL = 30 * time.Second
 const maxConcurrentSearches = 3
-const maxSearchesPerTurn = 1
+const maxSearchesPerTurn = 3 // Allow multiple searches for different job titles
+
+// Company name suffixes to remove for normalization
+var companySuffixes = []string{
+	" inc.", " inc", " llc", " corp.", " corp", " ltd.", " ltd",
+	" co.", " co", " company", " incorporated", " corporation",
+	" limited", " holdings", " group", " technologies", " technology",
+}
+
+// Seniority modifiers to remove for fuzzy title matching
+var seniorityModifiers = []string{
+	"senior ", "sr ", "sr. ", "lead ", "staff ", "principal ",
+	"junior ", "jr ", "jr. ", "associate ", "entry level ", "mid-level ",
+}
+
+// Aggregator URL patterns to filter out
+var aggregatorPatterns = []string{
+	"hnhiring", "news.ycombinator.com", "facebook.com/groups",
+	"theladders.com", "jobtoday.com", "zippia.com", "whatjobs.com",
+	"appinventiv.com", "diffblog", "dynamodb", "instagram.com",
+	"asian-jobs", "womenforhire", "snagajob", "getclera.com/job",
+}
+
+// normalizeCompanyName removes common suffixes and normalizes for matching
+func normalizeCompanyName(name string) string {
+	result := strings.ToLower(strings.TrimSpace(name))
+	for _, suffix := range companySuffixes {
+		result = strings.TrimSuffix(result, suffix)
+	}
+	return strings.TrimSpace(result)
+}
+
+// normalizeTitleForMatch removes seniority modifiers for fuzzy matching
+func normalizeTitleForMatch(title string) string {
+	result := strings.ToLower(strings.TrimSpace(title))
+	for _, modifier := range seniorityModifiers {
+		result = strings.TrimPrefix(result, modifier)
+	}
+	return strings.TrimSpace(result)
+}
+
+// isAggregatorURL checks if URL matches known aggregator patterns
+func isAggregatorURL(url string) bool {
+	urlLower := strings.ToLower(url)
+	for _, pattern := range aggregatorPatterns {
+		if strings.Contains(urlLower, pattern) {
+			return true
+		}
+	}
+	return false
+}
 
 // NewSerperTools creates Serper tools with API key and optional job service for filtering
-func NewSerperTools(apiKey string, jobService JobServiceInterface, cacheTools *CacheTools, publicURL string, permChecker PermissionChecker) *SerperTools {
+func NewSerperTools(apiKey string, jobService JobServiceInterface, urlTools *URLTools, publicURL string) *SerperTools {
 	return &SerperTools{
 		apiKey:      apiKey,
 		jobService:  jobService,
-		cacheTools:  cacheTools,
+		urlTools:    urlTools,
 		publicURL:   publicURL,
-		permChecker: permChecker,
 		searchSem:   make(chan struct{}, maxConcurrentSearches),
+		seenJobURLs: make(map[string]map[string]bool),
+	}
+}
+
+// SetSession sets the current session ID for tracking seen URLs across turns
+func (t *SerperTools) SetSession(sessionID string) {
+	t.seenMu.Lock()
+	defer t.seenMu.Unlock()
+	t.currentSessionID = sessionID
+	if t.seenJobURLs[sessionID] == nil {
+		t.seenJobURLs[sessionID] = make(map[string]bool)
+	}
+}
+
+// getSeenURLs returns a copy of seen URLs for the current session (safe for concurrent use)
+func (t *SerperTools) getSeenURLs() map[string]bool {
+	t.seenMu.RLock()
+	defer t.seenMu.RUnlock()
+	original := t.seenJobURLs[t.currentSessionID]
+	if original == nil {
+		return nil
+	}
+	// Return a copy to avoid concurrent map access
+	copied := make(map[string]bool, len(original))
+	for k, v := range original {
+		copied[k] = v
+	}
+	return copied
+}
+
+// markURLsAsSeen adds URLs to the seen set for the current session
+func (t *SerperTools) markURLsAsSeen(urls []string) {
+	t.seenMu.Lock()
+	defer t.seenMu.Unlock()
+	if t.seenJobURLs[t.currentSessionID] == nil {
+		t.seenJobURLs[t.currentSessionID] = make(map[string]bool)
+	}
+	for _, url := range urls {
+		t.seenJobURLs[t.currentSessionID][url] = true
 	}
 }
 
@@ -72,7 +164,8 @@ func (t *SerperTools) ResetCallCount() {
 	t.callCountMu.Unlock()
 }
 
-func (t *SerperTools) loadAppliedJobs() []JobInfo {
+// loadExistingJobs loads ALL jobs from database for deduplication filtering
+func (t *SerperTools) loadExistingJobs() []JobInfo {
 	if t.jobService == nil {
 		return nil
 	}
@@ -95,15 +188,16 @@ func (t *SerperTools) loadAppliedJobs() []JobInfo {
 		return t.appliedJobsCache
 	}
 
-	jobs, err := t.jobService.GetLeads([]string{"applied", "do_not_apply"}, nil)
+	// Get ALL jobs regardless of status for deduplication
+	jobs, err := t.jobService.GetLeads(nil, nil)
 	if err != nil {
-		log.Printf("Warning: could not load applied jobs for filtering: %v", err)
+		log.Printf("Warning: could not load existing jobs for filtering: %v", err)
 		return nil
 	}
 
 	t.appliedJobsCache = jobs
 	t.appliedJobsCacheTime = time.Now()
-	log.Printf("Loaded %d applied/do_not_apply jobs for filtering", len(jobs))
+	log.Printf("Loaded %d existing jobs for filtering", len(jobs))
 	return jobs
 }
 
@@ -113,6 +207,7 @@ func (t *SerperTools) loadAppliedJobs() []JobInfo {
 type JobSearchParams struct {
 	Query      string `json:"query" jsonschema:"Job search query (e.g., 'Senior Software Engineer NYC startups')"`
 	MaxResults int    `json:"max_results,omitempty" jsonschema:"Number of results to return (default 10, max 20)"`
+	ATSMode    bool   `json:"ats_mode,omitempty" jsonschema:"Set true to search only ATS platforms (Lever, Greenhouse, Ashby) for direct application links - best for startup jobs"`
 }
 
 // WebSearchParams defines parameters for general web search
@@ -195,24 +290,15 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		return &JobSearchResult{Results: "Job search not configured. SERPER_API_KEY required."}, nil
 	}
 
-	// Check research cache first
-	if cached := t.checkCache(params.Query); cached != nil {
-		// Update total results count for cache hits too
-		t.callCountMu.Lock()
-		t.totalResults += cached.Count
-		totalNow := t.totalResults
-		t.callCountMu.Unlock()
-		log.Printf("🔍 job_search [%d/%d]: CACHE HIT for query: %s (%d results, running total: %d)",
-			myCallNum, maxSearchesPerTurn, params.Query, cached.Count, totalNow)
-		return cached, nil
-	}
+	// Load existing jobs from DB for deduplication
+	existingJobs := t.loadExistingJobs()
 
-	// Load applied/do_not_apply jobs for filtering
-	appliedJobs := t.loadAppliedJobs()
-
-	// Enhance query with exclusions
+	// Enhance query - use ATS mode for direct application links, otherwise normal mode
 	enhancedQuery := enhanceJobQuery(params.Query)
-	log.Printf("job_search query: %s", enhancedQuery)
+	if params.ATSMode {
+		enhancedQuery = buildATSQuery(params.Query)
+	}
+	log.Printf("job_search query (ats=%v): %s", params.ATSMode, enhancedQuery)
 
 	// Determine max results (default 10, max 20 - Serper limit)
 	maxResults := params.MaxResults
@@ -257,9 +343,17 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		return &JobSearchResult{Results: fmt.Sprintf("Error parsing response: %v", err)}, nil
 	}
 
-	// Extract structured listings (filtered)
-	listings := extractListings(serperResp.Organic, maxResults, appliedJobs)
+	// Extract structured listings (filtered by existing jobs and seen URLs)
+	seenURLs := t.getSeenURLs()
+	listings := extractListings(serperResp.Organic, maxResults, existingJobs, seenURLs)
 	listingCount := len(listings)
+
+	// Mark returned URLs as seen for this session
+	var urls []string
+	for _, l := range listings {
+		urls = append(urls, l.U)
+	}
+	t.markURLsAsSeen(urls)
 
 	// Update total results count
 	t.callCountMu.Lock()
@@ -267,42 +361,68 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	totalNow := t.totalResults
 	t.callCountMu.Unlock()
 
-	log.Printf("🔍 job_search [%d/%d]: COMPLETE - found %d results (running total: %d)",
-		myCallNum, maxSearchesPerTurn, listingCount, totalNow)
+	log.Printf("🔍 job_search [%d/%d]: COMPLETE - found %d new results, %d seen URLs filtered (running total: %d)",
+		myCallNum, maxSearchesPerTurn, listingCount, len(seenURLs), totalNow)
 
 	if listingCount == 0 {
+		msg := "No new job postings found. All results were either already shown, applied to, or marked as 'do not apply'. Try a different search query."
 		return &JobSearchResult{
-			Results: "All job postings found have already been applied to or marked as 'do not apply'. Try a different search.",
+			Results: msg,
 			Count:   0,
 		}, nil
 	}
 
-	// Store structured data in cache
-	t.storeListingsCache(params.Query, listings)
-
 	// Format for display
 	return &JobSearchResult{
-		Results: formatListings(listings, t.cacheTools, t.publicURL),
+		Results: formatListings(listings, t.urlTools, t.publicURL),
 		Count:   listingCount,
 	}, nil
 }
 
+// buildATSQuery creates an ATS-biased query for direct company job pages
+// Use this for startup/tech company searches to get direct application links
+func buildATSQuery(baseQuery string) string {
+	// ATS platforms where companies post directly
+	ats := "(site:lever.co OR site:greenhouse.io OR site:jobs.ashbyhq.com OR site:boards.greenhouse.io)"
+	return baseQuery + " " + ats
+}
+
 // enhanceJobQuery adds career focus and minimal exclusions
 func enhanceJobQuery(query string) string {
-	// Add "careers" to bias toward company pages, exclude major job boards
-	exclusions := "-site:linkedin.com -site:indeed.com -site:glassdoor.com -site:ziprecruiter.com -site:dice.com -site:monster.com -site:simplyhired.com -site:builtinnyc.com -site:builtin.com -site:jobright.ai -site:wellfound.com -site:roberthalf.com"
-	return query + " careers " + exclusions
+	// Add "careers" to bias toward company pages, exclude job boards and aggregators
+	exclusions := []string{
+		// Major job boards
+		"-site:linkedin.com", "-site:indeed.com", "-site:glassdoor.com",
+		"-site:ziprecruiter.com", "-site:dice.com", "-site:monster.com",
+		"-site:simplyhired.com", "-site:careerbuilder.com",
+		// Tech job boards
+		"-site:builtinnyc.com", "-site:builtin.com", "-site:jobright.ai",
+		"-site:wellfound.com", "-site:roberthalf.com", "-site:hired.com",
+		"-site:angel.co", "-site:stackoverflow.com/jobs",
+		// Remote job boards
+		"-site:remoteok.com", "-site:remoterocketship.com", "-site:weworkremotely.com",
+		"-site:remote.co", "-site:flexjobs.com", "-site:dailyremote.com",
+		// AI/ML specific job boards
+		"-site:aijobs.com", "-site:aijobs.net", "-site:mljobs.com",
+		// Aggregators
+		"-site:jobleads.com", "-site:jobgether.com", "-site:jooble.org",
+		"-site:neuvoo.com", "-site:talent.com", "-site:getwork.com",
+		"-site:codingjobboard.com", "-site:snagajob.com", "-site:jobget.com",
+		"-site:jobtarget.com", "-site:harnham.com", "-site:glocomms.com",
+		"-site:hiringagents.com", "-site:funded.club",
+	}
+	return query + " careers " + strings.Join(exclusions, " ")
 }
 
 // extractListings extracts structured job listings from organic results
-func extractListings(organic []serperOrganicResult, maxResults int, appliedJobs []JobInfo) []JobListing {
+func extractListings(organic []serperOrganicResult, maxResults int, existingJobs []JobInfo, seenURLs map[string]bool) []JobListing {
 	var listings []JobListing
 
 	for _, item := range organic {
 		if len(listings) >= maxResults {
 			return listings
 		}
-		listing := extractListing(item, appliedJobs)
+		listing := extractListing(item, existingJobs, seenURLs)
 		if listing != nil {
 			listings = append(listings, *listing)
 		}
@@ -311,13 +431,25 @@ func extractListings(organic []serperOrganicResult, maxResults int, appliedJobs 
 	return listings
 }
 
-func extractListing(item serperOrganicResult, appliedJobs []JobInfo) *JobListing {
+func extractListing(item serperOrganicResult, existingJobs []JobInfo, seenURLs map[string]bool) *JobListing {
+	// Filter out already-seen URLs first
+	if seenURLs != nil && seenURLs[item.Link] {
+		log.Printf("   Filtered out seen URL: %s", item.Link)
+		return nil
+	}
+
+	// Filter out aggregator URLs
+	if isAggregatorURL(item.Link) {
+		log.Printf("   Filtered out aggregator URL: %s", item.Link)
+		return nil
+	}
+
 	company, title := extractCompanyFromTitle(item.Title)
 	if company == "" {
 		company = extractCompanyFromURL(item.Link)
 	}
-	if matchesAppliedJob(company, title, appliedJobs) {
-		log.Printf("   Filtered out applied job: %s at %s", title, company)
+	if matchesAppliedJob(company, title, existingJobs) {
+		log.Printf("   Filtered out existing job: %s at %s", title, company)
 		return nil
 	}
 	return &JobListing{C: company, T: title, U: item.Link}
@@ -334,31 +466,47 @@ func formatListings(listings []JobListing, shortener URLShortener, baseURL strin
 		return ""
 	}
 	var lines []string
-	for i, l := range listings {
+	for _, l := range listings {
 		url := l.U
 		if shortener != nil && baseURL != "" {
 			url = baseURL + "/u/" + shortener.ShortenURL(l.U)
 		}
-		lines = append(lines, fmt.Sprintf("%d. %s - %s [⭢](%s)", i+1, l.C, l.T, url))
+		lines = append(lines, fmt.Sprintf("- %s - %s - [url](%s)", l.C, l.T, url))
 	}
-	header := fmt.Sprintf("Found %d jobs:\n", len(listings))
-	return header + strings.Join(lines, "\n")
+	return strings.Join(lines, "\n")
 }
 
-// matchesAppliedJob checks if a search result matches any applied/do_not_apply job
-func matchesAppliedJob(company, title string, appliedJobs []JobInfo) bool {
-	companyLower := strings.ToLower(company)
-	titleLower := strings.ToLower(title)
+// matchesAppliedJob checks if a search result matches any existing job in database
+// Uses normalized company names and fuzzy title matching (ignoring seniority modifiers)
+func matchesAppliedJob(company, title string, existingJobs []JobInfo) bool {
+	searchCompany := normalizeCompanyName(company)
+	searchTitle := normalizeTitleForMatch(title)
 
-	for _, job := range appliedJobs {
-		jobCompany := strings.ToLower(job.Account)
-		jobTitle := strings.ToLower(job.JobTitle)
+	// Require minimum 4 characters to avoid false matches
+	if len(searchCompany) < 4 {
+		return false
+	}
 
-		// Match if company contains the job's company (or vice versa) AND title contains job title
-		companyMatch := strings.Contains(companyLower, jobCompany) || strings.Contains(jobCompany, companyLower)
-		titleMatch := strings.Contains(titleLower, jobTitle) || strings.Contains(jobTitle, titleLower)
+	for _, job := range existingJobs {
+		jobCompany := normalizeCompanyName(job.Account)
+		jobTitle := normalizeTitleForMatch(job.JobTitle)
 
-		if companyMatch && titleMatch && jobCompany != "" {
+		// Skip empty company names
+		if jobCompany == "" || len(jobCompany) < 4 {
+			continue
+		}
+
+		// Company match: exact or substring match
+		companyMatch := searchCompany == jobCompany ||
+			strings.Contains(searchCompany, jobCompany) ||
+			strings.Contains(jobCompany, searchCompany)
+
+		// Title match: normalized title comparison
+		titleMatch := searchTitle == jobTitle ||
+			strings.Contains(searchTitle, jobTitle) ||
+			strings.Contains(jobTitle, searchTitle)
+
+		if companyMatch && titleMatch {
 			return true
 		}
 	}
@@ -472,41 +620,6 @@ func extractCompanyFromURL(url string) string {
 	}
 
 	return company
-}
-
-// checkCache looks up cached job listings and formats them for display
-func (t *SerperTools) checkCache(query string) *JobSearchResult {
-	if t.cacheTools == nil {
-		return nil
-	}
-
-	cached := t.cacheTools.LookupCache("job_search", query)
-	if cached == nil {
-		return nil
-	}
-
-	var listings []JobListing
-	if err := json.Unmarshal([]byte(cached.Data), &listings); err != nil {
-		log.Printf("[ResearchCache] Failed to unmarshal listings: %v", err)
-		return nil
-	}
-
-	return &JobSearchResult{Results: formatListings(listings, t.cacheTools, t.publicURL), Count: len(listings)}
-}
-
-// storeListingsCache stores structured job listings in cache
-func (t *SerperTools) storeListingsCache(query string, listings []JobListing) {
-	if t.cacheTools == nil {
-		return
-	}
-
-	data, err := json.Marshal(listings)
-	if err != nil {
-		log.Printf("Failed to marshal listings for cache: %v", err)
-		return
-	}
-
-	t.cacheTools.StoreCache("job_search", query, string(data), len(listings))
 }
 
 // WebSearchCtx performs a general web search without job-specific filtering.

@@ -102,7 +102,7 @@ func TestExtractListingsReturns10Results(t *testing.T) {
 		{Title: "Developer at Vercel", Link: "https://vercel.com/careers/hij"},
 	}
 
-	listings := extractListings(organic, 10, nil)
+	listings := extractListings(organic, 10, nil, nil)
 
 	if len(listings) != 10 {
 		t.Errorf("extractListings returned %d results, want 10", len(listings))
@@ -129,7 +129,7 @@ func TestExtractListingsFiltersAppliedJobs(t *testing.T) {
 		{JobTitle: "Software Engineer", Account: "Google"},
 	}
 
-	listings := extractListings(organic, 10, appliedJobs)
+	listings := extractListings(organic, 10, appliedJobs, nil)
 
 	// Should return 2, not 3 (Google filtered out)
 	if len(listings) != 2 {
@@ -155,11 +155,6 @@ func TestFormatListingsProducesDirectURLs(t *testing.T) {
 	// Format without URL shortener (nil)
 	output := formatListings(listings, nil, "")
 
-	// Verify header
-	if !strings.HasPrefix(output, "Found 3 jobs:") {
-		t.Errorf("output should start with job count header, got: %s", output[:50])
-	}
-
 	// Verify each listing has direct URL in markdown link format
 	expectedURLs := []string{
 		"https://stripe.com/jobs/123",
@@ -173,9 +168,9 @@ func TestFormatListingsProducesDirectURLs(t *testing.T) {
 		}
 	}
 
-	// Verify format: "N. Company - Title [⭢](url)"
-	if !strings.Contains(output, "1. Stripe - Senior Engineer [⭢]") {
-		t.Error("output should have numbered format with company and title")
+	// Verify format: "- Company - Title - [url](url)"
+	if !strings.Contains(output, "- Stripe - Senior Engineer - [url]") {
+		t.Error("output should have bullet format with company and title")
 	}
 }
 
@@ -193,7 +188,7 @@ func TestExtractListingsReturns20Results(t *testing.T) {
 		})
 	}
 
-	listings := extractListings(organic, 20, nil)
+	listings := extractListings(organic, 20, nil, nil)
 
 	if len(listings) != 20 {
 		t.Errorf("extractListings returned %d results, want 20", len(listings))
@@ -217,13 +212,123 @@ func TestJobSearchQuality(t *testing.T) {
 		// 3. Results should NOT be job board aggregator URLs
 
 		// Example of expected output format:
-		expectedFormat := `Found 10 jobs:
-1. Stripe - Senior Engineer [⭢](https://stripe.com/jobs/123)
-2. OpenAI - ML Engineer [⭢](https://openai.com/careers/456)
-...`
+		expectedFormat := `- Stripe - Senior Engineer - [url](https://stripe.com/jobs/123)
+- OpenAI - ML Engineer - [url](https://openai.com/careers/456)`
 
-		if !strings.Contains(expectedFormat, "Found 10 jobs") {
-			t.Error("format should indicate 10 jobs found")
+		if !strings.Contains(expectedFormat, "- Stripe") {
+			t.Error("format should have bullet list")
 		}
 	})
 }
+
+func TestNormalizeCompanyName(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"Google Inc.", "google"},
+		{"Stripe, Inc", "stripe,"},
+		{"OpenAI LLC", "openai"},
+		{"Meta Corporation", "meta"},
+		{"Apple Inc", "apple"},
+		{"Microsoft Corp", "microsoft"},
+		{"  Notion  ", "notion"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			got := normalizeCompanyName(tc.input)
+			if got != tc.expected {
+				t.Errorf("normalizeCompanyName(%q) = %q, want %q", tc.input, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestNormalizeTitleForMatch(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected string
+	}{
+		{"Senior Software Engineer", "software engineer"},
+		{"Lead Developer", "developer"},
+		{"Staff Engineer", "engineer"},
+		{"Junior Analyst", "analyst"},
+		{"Principal Architect", "architect"},
+		{"Software Engineer", "software engineer"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.input, func(t *testing.T) {
+			got := normalizeTitleForMatch(tc.input)
+			if got != tc.expected {
+				t.Errorf("normalizeTitleForMatch(%q) = %q, want %q", tc.input, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestIsAggregatorURL(t *testing.T) {
+	tests := []struct {
+		url      string
+		expected bool
+	}{
+		{"https://news.ycombinator.com/item?id=12345", true},
+		{"https://hnhiring.com/jobs/123", true},
+		{"https://facebook.com/groups/jobs", true},
+		{"https://zippia.com/jobs/engineer", true},
+		{"https://stripe.com/jobs/123", false},
+		{"https://jobs.lever.co/stripe/abc", false},
+		{"https://boards.greenhouse.io/openai", false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.url, func(t *testing.T) {
+			got := isAggregatorURL(tc.url)
+			if got != tc.expected {
+				t.Errorf("isAggregatorURL(%q) = %v, want %v", tc.url, got, tc.expected)
+			}
+		})
+	}
+}
+
+func TestBuildATSQuery(t *testing.T) {
+	query := "Senior Software Engineer NYC"
+	result := buildATSQuery(query)
+
+	// Should contain original query
+	if !strings.Contains(result, query) {
+		t.Errorf("ATS query should contain original query, got: %s", result)
+	}
+
+	// Should contain ATS platforms
+	atsPlatforms := []string{"site:lever.co", "site:greenhouse.io", "site:jobs.ashbyhq.com"}
+	for _, platform := range atsPlatforms {
+		if !strings.Contains(result, platform) {
+			t.Errorf("ATS query should contain %s, got: %s", platform, result)
+		}
+	}
+}
+
+func TestExtractListingsFiltersAggregatorURLs(t *testing.T) {
+	organic := []serperOrganicResult{
+		{Title: "Senior Engineer at Stripe", Link: "https://stripe.com/jobs/123"},
+		{Title: "Jobs on HN Hiring", Link: "https://hnhiring.com/jobs/456"},
+		{Title: "Developer at Meta", Link: "https://meta.com/careers/789"},
+	}
+
+	listings := extractListings(organic, 10, nil, nil)
+
+	// Should return 2, not 3 (hnhiring filtered out)
+	if len(listings) != 2 {
+		t.Errorf("extractListings returned %d results, want 2 (with aggregator filtered)", len(listings))
+	}
+
+	// Verify hnhiring is not in results
+	for _, l := range listings {
+		if strings.Contains(l.U, "hnhiring") {
+			t.Error("hnhiring URL should have been filtered out")
+		}
+	}
+}
+

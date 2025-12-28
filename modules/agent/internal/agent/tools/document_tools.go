@@ -15,13 +15,12 @@ import (
 
 // DocumentTools holds document-related tools for the agent
 type DocumentTools struct {
-	docService  *services.DocumentService
-	permChecker PermissionChecker
+	docService *services.DocumentService
 }
 
 // NewDocumentTools creates document tools with service dependencies
-func NewDocumentTools(docService *services.DocumentService, permChecker PermissionChecker) *DocumentTools {
-	return &DocumentTools{docService: docService, permChecker: permChecker}
+func NewDocumentTools(docService *services.DocumentService) *DocumentTools {
+	return &DocumentTools{docService: docService}
 }
 
 // --- Tool Parameter Structs ---
@@ -132,11 +131,6 @@ func extractPDFContent(data []byte) string {
 func (t *DocumentTools) SearchEntityDocumentsCtx(ctx context.Context, params SearchEntityDocumentsParams) (*SearchEntityDocumentsResult, error) {
 	log.Printf("📄 search_entity_documents called with entity_type='%s', entity_id=%d", params.EntityType, params.EntityID)
 
-	if t.permChecker != nil && !t.permChecker.CanAccess(ctx, "document:read") {
-		log.Printf("🚫 Permission denied: document:read")
-		return &SearchEntityDocumentsResult{Results: "Permission denied: document:read"}, nil
-	}
-
 	if t.docService == nil {
 		log.Printf("⚠️ DocumentService not configured")
 		return &SearchEntityDocumentsResult{Results: "Document service not configured. Unable to search documents."}, nil
@@ -218,11 +212,6 @@ func formatRawDocumentItems(items []interface{}) []string {
 // ReadDocumentCtx reads the full content of a document by ID.
 func (t *DocumentTools) ReadDocumentCtx(ctx context.Context, params ReadDocumentParams) (*ReadDocumentResult, error) {
 	log.Printf("📖 read_document called with document_id=%d", params.DocumentID)
-
-	if t.permChecker != nil && !t.permChecker.CanAccess(ctx, "document:read") {
-		log.Printf("🚫 Permission denied: document:read")
-		return &ReadDocumentResult{Content: "Permission denied: document:read"}, nil
-	}
 
 	if t.docService == nil {
 		log.Printf("⚠️ DocumentService not configured")

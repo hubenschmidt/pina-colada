@@ -6,7 +6,6 @@ import { PageLoadingProvider } from "../context/pageLoadingContext";
 import { ProjectProvider } from "../context/projectContext";
 import { LookupsProvider } from "../context/lookupsContext";
 import { ConversationProvider } from "../context/conversationContext";
-import { BackendProvider } from "../context/backendContext";
 import { AgentConfigProvider } from "../context/agentConfigContext";
 import { NotificationProvider } from "../context/notificationContext";
 import { PublicEnvScript } from "next-runtime-env";
@@ -33,23 +32,21 @@ export default ({ children }) => {
             <AuthStateManager />
             <ThemeApplier />
             <MantineThemeProvider>
-              <BackendProvider>
-                <NotificationProvider>
-                  <AgentConfigProvider>
-                    <NavProvider>
-                      <ProjectProvider>
-                        <LookupsProvider>
-                          <ConversationProvider>
-                            <PageLoadingProvider>
-                              <RootLayoutClient>{children}</RootLayoutClient>
-                            </PageLoadingProvider>
-                          </ConversationProvider>
-                        </LookupsProvider>
-                      </ProjectProvider>
-                    </NavProvider>
-                  </AgentConfigProvider>
-                </NotificationProvider>
-              </BackendProvider>
+              <NotificationProvider>
+                <AgentConfigProvider>
+                  <NavProvider>
+                    <ProjectProvider>
+                      <LookupsProvider>
+                        <ConversationProvider>
+                          <PageLoadingProvider>
+                            <RootLayoutClient>{children}</RootLayoutClient>
+                          </PageLoadingProvider>
+                        </ConversationProvider>
+                      </LookupsProvider>
+                    </ProjectProvider>
+                  </NavProvider>
+                </AgentConfigProvider>
+              </NotificationProvider>
             </MantineThemeProvider>
           </UserProvider>
         </Auth0Provider>

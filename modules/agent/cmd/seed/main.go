@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -50,11 +49,6 @@ func runSeeders(ctx context.Context, conn *pgx.Conn, seedersPath string) error {
 	sort.Strings(files)
 
 	for _, file := range files {
-		if strings.Contains(filepath.Base(file), "documents") {
-			log.Printf("Skipping %s (handled by seed-documents)", filepath.Base(file))
-			continue
-		}
-
 		if err := runSeederFile(ctx, conn, file); err != nil {
 			return fmt.Errorf("failed to run %s: %w", filepath.Base(file), err)
 		}

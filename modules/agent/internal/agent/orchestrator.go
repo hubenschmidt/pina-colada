@@ -54,13 +54,13 @@ type Orchestrator struct {
 	allTools           []agents.Tool
 	metricService      *services.MetricService
 	serperTools        *tools.SerperTools
-	cacheTools         *tools.CacheTools
+	urlTools           *tools.URLTools
 	openaiProvider     *agents.OpenAIProvider
 	anthropicProvider  *agents.OpenAIProvider
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
-func NewOrchestrator(ctx context.Context, cfg *config.Config, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, cacheRepo tools.CacheRepositoryInterface, permService *services.PermissionService, proposalService *services.ProposalService, entityService *services.GenericEntityService) (*Orchestrator, error) {
+func NewOrchestrator(ctx context.Context, cfg *config.Config, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, urlRepo tools.URLShortenerInterface, permService *services.PermissionService, proposalService *services.ProposalService, entityService *services.GenericEntityService) (*Orchestrator, error) {
 	// Create providers for both OpenAI and Anthropic
 	// The correct provider is selected at runtime based on the model's provider setting
 	openaiProvider := agents.NewOpenAIProvider(agents.OpenAIProviderParams{
@@ -91,11 +91,11 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, docService *servic
 
 	// Create all tools using the adapter
 	crmTools := tools.NewCRMTools(entityService, permService, proposalService)
-	cacheTools := tools.NewCacheTools(cacheRepo)
-	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter, cacheTools, cfg.PublicURL, permService)
-	docTools := tools.NewDocumentTools(docService, permService)
-	emailTools := tools.NewEmailTools(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFromEmail, permService)
-	allTools := tools.BuildAgentTools(crmTools, serperTools, docTools, emailTools, cacheTools)
+	urlTools := tools.NewURLTools(urlRepo)
+	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter, urlTools, cfg.PublicURL)
+	docTools := tools.NewDocumentTools(docService)
+	emailTools := tools.NewEmailTools(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFromEmail)
+	allTools := tools.BuildAgentTools(crmTools, serperTools, docTools, emailTools)
 
 	// Create worker agents with default model (no custom settings)
 	jobSearchWorker := workers.NewJobSearchWorker(model, nil, allTools)
@@ -124,7 +124,7 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, docService *servic
 		allTools:          allTools,
 		metricService:     metricService,
 		serperTools:       serperTools,
-		cacheTools:        cacheTools,
+		urlTools:          urlTools,
 		openaiProvider:    openaiProvider,
 		anthropicProvider: anthropicProvider,
 	}, nil
@@ -668,13 +668,9 @@ func (o *Orchestrator) RunWithStreaming(ctx context.Context, req RunRequest, eve
 	startTime := time.Now()
 	defer close(eventCh)
 
-	// Reset per-turn call counters and cache state
+	// Reset per-turn call counters and set session for URL tracking
 	o.serperTools.ResetCallCount()
-	if o.cacheTools != nil {
-		userID, _ := strconv.ParseInt(req.UserID, 10, 64)
-		o.cacheTools.SetContext(req.TenantID, userID)
-		o.cacheTools.ResetRequestState()
-	}
+	o.serperTools.SetSession(req.SessionID)
 
 	log.Printf("Starting streaming agent for thread: %s", req.SessionID)
 	log.Printf("   Message: %s", req.Message)

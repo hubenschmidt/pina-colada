@@ -235,24 +235,9 @@ export const renderWithLinks = (text) => {
 
 // ---------- Runtime configuration ----------
 
-const BACKENDS = {
-  agent: "http://localhost:8000",
-  "agent-go": "http://localhost:8080",
-};
+const getApiUrl = () => env("NEXT_PUBLIC_API_URL");
 
-const getApiUrl = () => {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem("pina-colada-backend");
-    if (stored && BACKENDS[stored]) {
-      return BACKENDS[stored];
-    }
-  }
-  return env("NEXT_PUBLIC_API_URL") || "http://localhost:8000";
-};
-
-const getWsUrl = () => {
-  return getApiUrl().replace(/^http/, "ws") + "/ws";
-};
+const getWsUrl = () => getApiUrl().replace(/^http/, "ws") + "/ws";
 
 const Chat = ({
   variant = "embedded",
@@ -372,8 +357,8 @@ const Chat = ({
   // After first bot response: refresh conversation list so new chat appears in sidebar
   useEffect(() => {
     const hasUserMessage = messages.some((m) => m.user === "User");
-    const hasBotResponse = messages.some((m) => m.user === "PinaColada" && !m.streaming);
-    const botResponseCount = messages.filter((m) => m.user === "PinaColada" && !m.streaming).length;
+    const hasBotResponse = messages.some((m) => m.streaming === false);
+    const botResponseCount = messages.filter((m) => m.streaming === false).length;
 
     // After first complete bot response to a user message
     if (hasUserMessage && hasBotResponse && botResponseCount === 2 && !hasRefreshedRef.current) {

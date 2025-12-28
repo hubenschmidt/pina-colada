@@ -45,7 +45,10 @@ const SettingsPage = () => {
       if (!userState.isAuthed) return;
 
       try {
-        const [userPrefs, tzOptions] = await Promise.all([getUserPreferences(), getTimezones()]);
+        const [userPrefs, tzOptions] = await Promise.all([
+          getUserPreferences(),
+          getTimezones(),
+        ]);
         setUserTheme(userPrefs.theme);
         setUserTimezone(userPrefs.timezone);
         setTimezoneOptions(tzOptions);

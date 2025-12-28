@@ -89,7 +89,7 @@ func uploadSeedDocuments(ctx context.Context, conn *pgx.Conn, storage repositori
 }
 
 func getActiveTenants(ctx context.Context, conn *pgx.Conn) ([]string, error) {
-	rows, err := conn.Query(ctx, `SELECT id FROM "Tenant" WHERE status = 'active' ORDER BY id`)
+	rows, err := conn.Query(ctx, `SELECT id FROM "Tenant" WHERE slug = 'pinacolada' ORDER BY id`)
 	if err != nil {
 		return nil, err
 	}

@@ -2,15 +2,15 @@ import { useEffect, useState, useCallback, useContext, useRef } from "react";
 import { UserContext } from "../context/userContext";
 
 const GREETING = "Welcome to your CRM assistant. I can help you look up contacts, organizations, accounts, and documents. What would you like to find?";
+const BOT_USER = "PinaColada";
 
 /** Apply a streaming chunk to chat state (guard-clause style). */
 const applyStreamChunk = (prev, chunk) => {
   const last = prev.at(-1);
-  const isStreamingBot = !!(last && last.user === "PinaColada" && last.streaming);
 
   // if there isn't an active streaming bot bubble, start one
-  if (!isStreamingBot) {
-    return [...prev, { user: "PinaColada", msg: chunk, streaming: true }];
+  if (!last?.streaming) {
+    return [...prev, { user: BOT_USER, msg: chunk, streaming: true }];
   }
 
   // otherwise append to the current streaming bubble
@@ -22,8 +22,7 @@ const applyStreamChunk = (prev, chunk) => {
 /** Close the active streaming bubble if one exists (guard-clause style). */
 const applyEndOfTurn = (prev) => {
   const last = prev.at(-1);
-  // nothing to do if last isn't a streaming bot bubble
-  if (!(last && last.user === "PinaColada" && last.streaming)) return prev;
+  if (!last?.streaming) return prev;
 
   const next = prev.slice();
   next[next.length - 1] = { ...last, streaming: false };
@@ -33,13 +32,11 @@ const applyEndOfTurn = (prev) => {
 /** Handle new response start - close current bubble if streaming */
 const applyStartOfTurn = (prev) => {
   const last = prev.at(-1);
-  // If there's an active streaming bubble, close it before starting new one
-  if (last && last.user === "PinaColada" && last.streaming) {
-    const next = prev.slice();
-    next[next.length - 1] = { ...last, streaming: false };
-    return next;
-  }
-  return prev;
+  if (!last?.streaming) return prev;
+
+  const next = prev.slice();
+  next[next.length - 1] = { ...last, streaming: false };
+  return next;
 };
 
 const parseTokenUsage = (obj) => {
@@ -137,7 +134,7 @@ const handleParsedMessage = (obj, ctx) => {
     ctx.setIsThinking(false);
     ctx.setMessages((prev) => {
       const closed = applyEndOfTurn(prev);
-      return [...closed, { user: "PinaColada", msg: "⏹️ Generation stopped." }];
+      return [...closed, { user: BOT_USER, msg: "⏹️ Generation stopped." }];
     });
     return true;
   }
@@ -190,7 +187,7 @@ const handleUiEvents = (obj, ctx) => {
   const k = uiKeys[0];
   ctx.setMessages((prev) => [
     ...prev,
-    { user: "PinaColada", msg: `🔔 ${k}: ${JSON.stringify(obj[k])}` },
+    { user: BOT_USER, msg: `🔔 ${k}: ${JSON.stringify(obj[k])}` },
   ]);
 };
 
@@ -202,12 +199,7 @@ export const useWs = (url, { threadId: initialThreadId = null, onError = null, o
   const [useEvaluator, setUseEvaluator] = useState(false);
   const [evalResult, setEvalResult] = useState(null);
   const [elapsedTime, setElapsedTime] = useState(null); // Elapsed time in ms from backend
-  const [messages, setMessages] = useState([
-    {
-      user: "PinaColada",
-      msg: GREETING,
-    },
-  ]);
+  const [messages, setMessages] = useState([{ user: BOT_USER, msg: GREETING }]);
   const wsRef = useRef(null);
 
   // Get user context for user_id and tenant_id
@@ -247,7 +239,7 @@ export const useWs = (url, { threadId: initialThreadId = null, onError = null, o
         parsed = JSON.parse(event.data);
       } catch (e) {
         // Plain text from server -> bot bubble
-        setMessages((prev) => [...prev, { user: "PinaColada", msg: event.data }]);
+        setMessages((prev) => [...prev, { user: BOT_USER, msg: event.data }]);
         return;
       }
 
@@ -298,21 +290,16 @@ export const useWs = (url, { threadId: initialThreadId = null, onError = null, o
   );
 
   const reset = useCallback(() => {
-    setMessages([
-      {
-        user: "PinaColada",
-        msg: GREETING,
-      },
-    ]);
+    setMessages([{ user: BOT_USER, msg: GREETING }]);
   }, []);
 
   const loadMessages = useCallback((conversationMessages) => {
     if (!conversationMessages?.length) {
-      setMessages([{ user: "PinaColada", msg: GREETING }]);
+      setMessages([{ user: BOT_USER, msg: GREETING }]);
       return;
     }
     const formatted = conversationMessages.map((m) => ({
-      user: m.role === "user" ? "User" : "PinaColada",
+      user: m.role === "user" ? "User" : BOT_USER,
       msg: m.content,
     }));
     setMessages(formatted);

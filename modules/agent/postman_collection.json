@@ -4184,6 +4184,48 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Cache",
+      "item": [
+        {
+          "name": "Get Cache Stats",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cache/stats",
+              "host": ["{{base_url}}"],
+              "path": ["cache", "stats"]
+            },
+            "description": "Get cache statistics (count and size in bytes) for the current user"
+          },
+          "response": []
+        },
+        {
+          "name": "Clear Cache",
+          "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]
+            },
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/cache",
+              "host": ["{{base_url}}"],
+              "path": ["cache"],
+              "query": [{"key": "type", "value": "job_search", "disabled": true, "description": "Optional: filter by cache type (job_search, web_fetch, company_research)"}]
+            },
+            "description": "Clear all cached research data for the current user. Optionally filter by cache type."
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [

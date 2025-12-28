@@ -7,20 +7,7 @@ import axios from "axios";
 import { env } from "next-runtime-env";
 import { fetchBearerToken } from "../lib/fetch-bearer-token";
 
-const BACKENDS = {
-  agent: "http://localhost:8000",
-  "agent-go": "http://localhost:8080",
-};
-
-const getApiUrl = () => {
-  if (typeof window !== "undefined") {
-    const stored = localStorage.getItem("pina-colada-backend");
-    if (stored && BACKENDS[stored]) {
-      return BACKENDS[stored];
-    }
-  }
-  return env("NEXT_PUBLIC_API_URL");
-};
+const getApiUrl = () => env("NEXT_PUBLIC_API_URL");
 
 const getClient = () => axios.create();
 
@@ -1443,3 +1430,4 @@ export const getUserRoles = async () => {
 export const updateUserRole = async (userId, roleId) => {
   return apiPut(`/admin/users/${userId}/role`, { role_id: roleId });
 };
+

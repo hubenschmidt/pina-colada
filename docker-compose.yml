@@ -79,13 +79,13 @@ services:
     env_file:
       - ./modules/agent/.env
     environment:
-      - PORT=8080
+      - PORT=8000
       - ENV=development
       - DATABASE_URL=postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@app-postgres:5432/${COMPOSE_PROJECT_NAME:-pina-colada}?sslmode=disable
       - STORAGE_PATH=/storage  # Use shared storage path
       # - LANGFUSE_HOST=http://langfuse:3000
     ports:
-      - "8080:8080"
+      - "8000:8000"
     depends_on:
       app-postgres:
         condition: service_healthy

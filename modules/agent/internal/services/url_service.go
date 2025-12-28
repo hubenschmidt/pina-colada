@@ -1,7 +1,6 @@
 package services
 
 import (
-	"encoding/json"
 	"sync"
 
 	"github.com/pina-colada-co/agent-go/internal/repositories"
@@ -9,16 +8,16 @@ import (
 
 // URLService resolves short URL codes to full URLs
 type URLService struct {
-	cacheRepo *repositories.ResearchCacheRepository
-	memCache  map[string]string
-	mu        sync.RWMutex
+	urlRepo  *repositories.URLShortenerRepository
+	memCache map[string]string
+	mu       sync.RWMutex
 }
 
 // NewURLService creates a new URL service
-func NewURLService(cacheRepo *repositories.ResearchCacheRepository) *URLService {
+func NewURLService(urlRepo *repositories.URLShortenerRepository) *URLService {
 	return &URLService{
-		cacheRepo: cacheRepo,
-		memCache:  make(map[string]string),
+		urlRepo:  urlRepo,
+		memCache: make(map[string]string),
 	}
 }
 
@@ -31,17 +30,12 @@ func (s *URLService) ResolveURL(code string) string {
 	}
 	s.mu.RUnlock()
 
-	if s.cacheRepo == nil {
+	if s.urlRepo == nil {
 		return ""
 	}
 
-	cached, err := s.cacheRepo.Lookup(0, "url:"+code)
-	if err != nil || cached == nil {
-		return ""
-	}
-
-	var url string
-	if err := json.Unmarshal(cached.ResultData, &url); err != nil {
+	url, err := s.urlRepo.Lookup(code)
+	if err != nil || url == "" {
 		return ""
 	}
 
