@@ -326,4 +326,4 @@ stages:
               esac
             displayName: "Trigger Render deploy (Prod)"
             env:
-              RENDER_DEPLOY_HOOK: $(RENDER_DEPLOY_HOOK_AGENT)
+              RENDER_DEPLOY_HOOK: $(RENDER_DEPLOY_HOOK_AGENT_PROD)
