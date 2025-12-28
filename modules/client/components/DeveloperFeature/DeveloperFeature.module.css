@@ -1,0 +1,12 @@
+.developerBlock {
+  border: 2px solid #8b5cf6;
+  border-radius: 0.5rem;
+  padding: 0.25rem;
+}
+
+.developerInline {
+  display: inline-flex;
+  border: 2px solid #8b5cf6;
+  border-radius: 0.375rem;
+  padding: 0.125rem;
+}

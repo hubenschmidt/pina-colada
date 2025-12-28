@@ -1,0 +1,21 @@
+package models
+
+import "time"
+
+type Partnership struct {
+	ID              int64      `gorm:"primaryKey" json:"id"` // FK to Lead.id
+	PartnershipType *string    `json:"partnership_type"`
+	PartnershipName string     `gorm:"not null" json:"partnership_name"`
+	StartDate       *time.Time `gorm:"type:date" json:"start_date"`
+	EndDate         *time.Time `gorm:"type:date" json:"end_date"`
+	Description     *string    `json:"description"`
+	CreatedAt       time.Time  `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt       time.Time  `gorm:"autoUpdateTime" json:"updated_at"`
+
+	// Relations
+	Lead *Lead `gorm:"foreignKey:ID;references:ID" json:"lead,omitempty"`
+}
+
+func (Partnership) TableName() string {
+	return "Partnership"
+}

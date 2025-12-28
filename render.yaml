@@ -24,3 +24,29 @@ services:
       - key: PORT
         value: "8080"
     healthCheckPath: /health
+
+  - type: web
+    name: pina-colada-client-test
+    runtime: image
+    image:
+      url: ghcr.io/hubenschmidt/pina-colada-client:latest
+      creds:
+        fromRegistryCreds:
+          name: ghcr
+    envVars:
+      - key: NODE_ENV
+        value: staging
+    healthCheckPath: /
+
+  - type: web
+    name: pina-colada-agent-test
+    runtime: image
+    image:
+      url: ghcr.io/hubenschmidt/pina-colada-agent:latest
+      creds:
+        fromRegistryCreds:
+          name: ghcr
+    envVars:
+      - key: PORT
+        value: "8080"
+    healthCheckPath: /health

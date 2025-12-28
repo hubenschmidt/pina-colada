@@ -1,0 +1,324 @@
+import { useEffect, useState, useCallback, useContext, useRef } from "react";
+import { UserContext } from "../context/userContext";
+
+const GREETING = "Welcome to your CRM assistant. I can help you look up contacts, organizations, accounts, and documents. What would you like to find?";
+const BOT_USER = "PinaColada";
+
+/** Apply a streaming chunk to chat state (guard-clause style). */
+const applyStreamChunk = (prev, chunk) => {
+  const last = prev.at(-1);
+
+  // if there isn't an active streaming bot bubble, start one
+  if (!last?.streaming) {
+    return [...prev, { user: BOT_USER, msg: chunk, streaming: true }];
+  }
+
+  // otherwise append to the current streaming bubble
+  const next = prev.slice();
+  next[next.length - 1] = { ...last, msg: last.msg + chunk };
+  return next;
+};
+
+/** Close the active streaming bubble if one exists (guard-clause style). */
+const applyEndOfTurn = (prev) => {
+  const last = prev.at(-1);
+  if (!last?.streaming) return prev;
+
+  const next = prev.slice();
+  next[next.length - 1] = { ...last, streaming: false };
+  return next;
+};
+
+/** Handle new response start - close current bubble if streaming */
+const applyStartOfTurn = (prev) => {
+  const last = prev.at(-1);
+  if (!last?.streaming) return prev;
+
+  const next = prev.slice();
+  next[next.length - 1] = { ...last, streaming: false };
+  return next;
+};
+
+const parseTokenUsage = (obj) => {
+  if (!obj.on_token_usage || typeof obj.on_token_usage !== "object") return null;
+  const current = obj.on_token_usage;
+  const cumulative = obj.on_token_cumulative || {};
+  return {
+    current: {
+      input: current.input || 0,
+      output: current.output || 0,
+      total: current.total || 0,
+    },
+    cumulative: {
+      input: cumulative.input || 0,
+      output: cumulative.output || 0,
+      total: cumulative.total || 0,
+    },
+    elapsedMs: current.elapsed_ms || 0,
+  };
+};
+
+// Parse streaming token updates (real-time during generation)
+const parseStreamingTokens = (obj) => {
+  if (!obj.on_token_stream || typeof obj.on_token_stream !== "object") return null;
+  return {
+    input: obj.on_token_stream.input || 0,
+    output: obj.on_token_stream.output || 0,
+    total: obj.on_token_stream.total || 0,
+    elapsedMs: obj.on_token_stream.elapsed_ms || 0,
+  };
+};
+
+const handleParsedMessage = (obj, ctx) => {
+  // Timer started - reset elapsed time
+  if (obj.on_timer_start) {
+    ctx.setElapsedTime(0);
+    return true;
+  }
+
+  // Start of new assistant turn - reset turn tokens but keep cumulative
+  if (obj.on_chat_model_start === true) {
+    ctx.setIsThinking(true);
+    ctx.setElapsedTime(0);
+    // Reset turn tokens to 0, keep cumulative from previous
+    ctx.setTokenUsage((prev) => prev ? {
+      current: { input: 0, output: 0, total: 0 },
+      cumulative: prev.cumulative,
+    } : null);
+    ctx.setMessages((prev) => applyStartOfTurn(prev));
+    return true;
+  }
+
+  // Final token usage update (end of turn)
+  const tokenData = parseTokenUsage(obj);
+  if (tokenData) {
+    ctx.setTokenUsage(tokenData);
+    if (tokenData.elapsedMs > 0) ctx.setElapsedTime(tokenData.elapsedMs);
+    return true;
+  }
+
+  // Real-time streaming token updates
+  const streamingTokens = parseStreamingTokens(obj);
+  if (streamingTokens) {
+    if (streamingTokens.elapsedMs > 0) ctx.setElapsedTime(streamingTokens.elapsedMs);
+    ctx.setTokenUsage((prev) => {
+      const prevCumulative = prev?.cumulative || { input: 0, output: 0, total: 0 };
+      return {
+        current: streamingTokens,
+        cumulative: {
+          input: prevCumulative.input + streamingTokens.input - (prev?.current?.input || 0),
+          output: prevCumulative.output + streamingTokens.output - (prev?.current?.output || 0),
+          total: prevCumulative.total + streamingTokens.total - (prev?.current?.total || 0),
+        },
+      };
+    });
+    return true;
+  }
+
+  // Streaming chunk
+  const chunk = obj.on_chat_model_stream;
+  if (typeof chunk === "string" && chunk.length > 0) {
+    ctx.setMessages((prev) => applyStreamChunk(prev, chunk));
+    return true;
+  }
+
+  // End of assistant turn
+  if (obj.on_chat_model_end === true) {
+    ctx.setIsThinking(false);
+    ctx.setMessages(applyEndOfTurn);
+    return true;
+  }
+
+  // Cancelled by user
+  if (obj.type === "cancelled") {
+    ctx.setIsThinking(false);
+    ctx.setMessages((prev) => {
+      const closed = applyEndOfTurn(prev);
+      return [...closed, { user: BOT_USER, msg: "⏹️ Generation stopped." }];
+    });
+    return true;
+  }
+
+  // Warning from backend (non-fatal)
+  if (obj.type === "warning") {
+    if (ctx.onError) {
+      ctx.onError({ message: obj.warning, isWarning: true });
+    }
+    return true;
+  }
+
+  // Error from backend
+  if (obj.type === "error") {
+    ctx.setIsThinking(false);
+    ctx.setMessages((prev) => applyEndOfTurn(prev));
+    if (ctx.onError) {
+      ctx.onError(obj.message || "An error occurred", obj.details || obj.stack);
+    }
+    return true;
+  }
+
+  // Conversation title update
+  if (obj.on_conversation_title && ctx.onTitleUpdate) {
+    ctx.onTitleUpdate(obj.on_conversation_title);
+    return true;
+  }
+
+  // Evaluation started
+  if (obj.type === "eval_start") {
+    ctx.setIsEvaluating(true);
+    return true;
+  }
+
+  // Evaluation result from backend
+  if (obj.type === "eval" && obj.eval_result && ctx.setEvalResult) {
+    ctx.setIsEvaluating(false);
+    ctx.setEvalResult(obj.eval_result);
+    return true;
+  }
+
+  return false;
+};
+
+const handleUiEvents = (obj, ctx) => {
+  const uiKeys = Object.keys(obj).filter(
+    (k) => k.startsWith("on_ui_") && k !== "on_chat_model_stream" && k !== "on_chat_model_end"
+  );
+  if (uiKeys.length === 0) return;
+  const k = uiKeys[0];
+  ctx.setMessages((prev) => [
+    ...prev,
+    { user: BOT_USER, msg: `🔔 ${k}: ${JSON.stringify(obj[k])}` },
+  ]);
+};
+
+export const useWs = (url, { threadId: initialThreadId = null, onError = null, onTitleUpdate = null } = {}) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
+  const [isEvaluating, setIsEvaluating] = useState(false);
+  const [tokenUsage, setTokenUsage] = useState(null);
+  const [useEvaluator, setUseEvaluator] = useState(false);
+  const [evalResult, setEvalResult] = useState(null);
+  const [elapsedTime, setElapsedTime] = useState(null); // Elapsed time in ms from backend
+  const [messages, setMessages] = useState([{ user: BOT_USER, msg: GREETING }]);
+  const wsRef = useRef(null);
+
+  // Get user context for user_id and tenant_id
+  const { userState } = useContext(UserContext);
+  const userId = userState?.user?.id;
+  const tenantId = userState?.user?.tenant_id;
+
+  // Thread ID - use provided or generate new one on mount
+  const [uuid] = useState(() => initialThreadId || crypto.randomUUID());
+
+  useEffect(() => {
+    const socket = new WebSocket(url);
+    wsRef.current = socket;
+
+    socket.onopen = () => {
+      // Restore wsRef in case it was cleared by a premature close
+      wsRef.current = socket;
+      setIsOpen(true);
+      socket.send(JSON.stringify({ uuid, init: true }));
+    };
+
+    socket.onclose = () => {
+      setIsOpen(false);
+      // Only clear the ref if this is the current socket
+      if (wsRef.current === socket) {
+        wsRef.current = null;
+      }
+    };
+
+    socket.onerror = () => setIsOpen(false);
+
+    socket.onmessage = (event) => {
+      if (typeof event.data !== "string") return;
+
+      let parsed;
+      try {
+        parsed = JSON.parse(event.data);
+      } catch (e) {
+        // Plain text from server -> bot bubble
+        setMessages((prev) => [...prev, { user: BOT_USER, msg: event.data }]);
+        return;
+      }
+
+      if (parsed === null || typeof parsed !== "object") return;
+
+      const ctx = { setIsThinking, setIsEvaluating, setTokenUsage, setMessages, setEvalResult, setElapsedTime, onError, onTitleUpdate };
+      if (handleParsedMessage(parsed, ctx)) return;
+      handleUiEvents(parsed, ctx);
+    };
+
+    return () => {
+      try {
+        socket.close();
+      } catch (e2) {}
+      wsRef.current = null;
+    };
+  }, [url, uuid]);
+
+  const sendMessage = useCallback(
+    (text) => {
+      const t = text.trim();
+      if (!t) return;
+      const s = wsRef.current;
+      if (!s || s.readyState !== WebSocket.OPEN) return;
+
+      setMessages((prev) => [...prev, { user: "User", msg: t }]);
+      setIsThinking(true);
+      setEvalResult(null);
+
+      // Include user_id, tenant_id, and use_evaluator for message processing
+      const payload = { uuid, message: t, use_evaluator: useEvaluator };
+      if (userId) payload.user_id = userId;
+      if (tenantId) payload.tenant_id = tenantId;
+
+      s.send(JSON.stringify(payload));
+    },
+    [uuid, userId, tenantId, useEvaluator]
+  );
+
+  // NEW: silent JSON sender (no UI echo)
+  const sendControl = useCallback(
+    (payload) => {
+      const s = wsRef.current;
+      if (!s || s.readyState !== WebSocket.OPEN) return;
+      s.send(typeof payload === "string" ? payload : JSON.stringify({ uuid, ...(payload || {}) }));
+    },
+    [uuid]
+  );
+
+  const reset = useCallback(() => {
+    setMessages([{ user: BOT_USER, msg: GREETING }]);
+  }, []);
+
+  const loadMessages = useCallback((conversationMessages) => {
+    if (!conversationMessages?.length) {
+      setMessages([{ user: BOT_USER, msg: GREETING }]);
+      return;
+    }
+    const formatted = conversationMessages.map((m) => ({
+      user: m.role === "user" ? "User" : BOT_USER,
+      msg: m.content,
+    }));
+    setMessages(formatted);
+  }, []);
+
+  return {
+    isOpen,
+    isThinking,
+    isEvaluating,
+    tokenUsage,
+    elapsedTime,
+    messages,
+    sendMessage,
+    sendControl,
+    reset,
+    loadMessages,
+    threadId: uuid,
+    useEvaluator,
+    setUseEvaluator,
+    evalResult,
+  };
+};

@@ -1,0 +1,266 @@
+package services
+
+import (
+	"log"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"gorm.io/datatypes"
+)
+
+// ConversationService handles conversation business logic
+type ConversationService struct {
+	convRepo *repositories.ConversationRepository
+}
+
+// NewConversationService creates a new conversation service
+func NewConversationService(convRepo *repositories.ConversationRepository) *ConversationService {
+	return &ConversationService{convRepo: convRepo}
+}
+
+// ConversationResponse represents a conversation in API responses
+type ConversationResponse struct {
+	ID         int64      `json:"id"`
+	ThreadID   uuid.UUID  `json:"thread_id"`
+	Title      *string    `json:"title"`
+	CreatedAt  time.Time  `json:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at"`
+	ArchivedAt *time.Time `json:"archived_at"`
+}
+
+// GetConversations returns conversations for a user
+func (s *ConversationService) GetConversations(userID int64, tenantID *int64, includeArchived bool, limit int) ([]ConversationResponse, error) {
+	conversations, err := s.convRepo.FindAll(userID, tenantID, includeArchived, limit)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]ConversationResponse, len(conversations))
+	for i, c := range conversations {
+		results[i] = ConversationResponse{
+			ID:         c.ID,
+			ThreadID:   c.ThreadID,
+			Title:      c.Title,
+			CreatedAt:  c.CreatedAt,
+			UpdatedAt:  c.UpdatedAt,
+			ArchivedAt: c.ArchivedAt,
+		}
+	}
+
+	return results, nil
+}
+
+// MessageResponse represents a message in API responses
+type MessageResponse struct {
+	ID        int64     `json:"id"`
+	Role      string    `json:"role"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// ConversationDetailResponse represents a conversation with messages
+type ConversationDetailResponse struct {
+	ConversationResponse
+	Messages []MessageResponse `json:"messages"`
+}
+
+// TenantConversationsResponse represents paginated conversations
+type TenantConversationsResponse struct {
+	Data   []ConversationResponse `json:"data"`
+	Total  int64                  `json:"total"`
+	Limit  int                    `json:"limit"`
+	Offset int                    `json:"offset"`
+}
+
+// GetTenantConversations returns all conversations for a tenant
+func (s *ConversationService) GetTenantConversations(tenantID int64, search string, includeArchived bool, limit, offset int) (*TenantConversationsResponse, error) {
+	conversations, total, err := s.convRepo.FindAllForTenant(tenantID, search, includeArchived, limit, offset)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]ConversationResponse, len(conversations))
+	for i, c := range conversations {
+		results[i] = ConversationResponse{
+			ID:         c.ID,
+			ThreadID:   c.ThreadID,
+			Title:      c.Title,
+			CreatedAt:  c.CreatedAt,
+			UpdatedAt:  c.UpdatedAt,
+			ArchivedAt: c.ArchivedAt,
+		}
+	}
+
+	return &TenantConversationsResponse{
+		Data:   results,
+		Total:  total,
+		Limit:  limit,
+		Offset: offset,
+	}, nil
+}
+
+// GetConversation returns a conversation with messages by thread ID
+func (s *ConversationService) GetConversation(threadID string, userID int64) (*ConversationDetailResponse, error) {
+	conv, err := s.convRepo.FindByThreadID(threadID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	messages, err := s.convRepo.GetMessages(conv.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	msgResponses := make([]MessageResponse, len(messages))
+	for i, m := range messages {
+		msgResponses[i] = MessageResponse{
+			ID:        m.ID,
+			Role:      m.Role,
+			Content:   m.Content,
+			CreatedAt: m.CreatedAt,
+		}
+	}
+
+	return &ConversationDetailResponse{
+		ConversationResponse: ConversationResponse{
+			ID:         conv.ID,
+			ThreadID:   conv.ThreadID,
+			Title:      conv.Title,
+			CreatedAt:  conv.CreatedAt,
+			UpdatedAt:  conv.UpdatedAt,
+			ArchivedAt: conv.ArchivedAt,
+		},
+		Messages: msgResponses,
+	}, nil
+}
+
+// UpdateTitle updates a conversation's title
+func (s *ConversationService) UpdateTitle(threadID string, userID int64, title string) (*ConversationResponse, error) {
+	conv, err := s.convRepo.FindByThreadID(threadID, userID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.convRepo.UpdateTitle(conv.ID, title); err != nil {
+		return nil, err
+	}
+
+	return &ConversationResponse{
+		ID:         conv.ID,
+		ThreadID:   conv.ThreadID,
+		Title:      &title,
+		CreatedAt:  conv.CreatedAt,
+		UpdatedAt:  time.Now(),
+		ArchivedAt: conv.ArchivedAt,
+	}, nil
+}
+
+// ArchiveConversation archives a conversation
+func (s *ConversationService) ArchiveConversation(threadID string, userID int64) error {
+	conv, err := s.convRepo.FindByThreadID(threadID, userID)
+	if err != nil {
+		return err
+	}
+	if conv == nil {
+		return nil
+	}
+
+	return s.convRepo.Archive(conv.ID)
+}
+
+// UnarchiveConversation unarchives a conversation
+func (s *ConversationService) UnarchiveConversation(threadID string, userID int64) error {
+	conv, err := s.convRepo.FindByThreadID(threadID, userID)
+	if err != nil {
+		return err
+	}
+	if conv == nil {
+		return nil
+	}
+
+	return s.convRepo.Unarchive(conv.ID)
+}
+
+// DeleteConversation permanently deletes a conversation
+func (s *ConversationService) DeleteConversation(threadID string, userID int64) error {
+	conv, err := s.convRepo.FindByThreadID(threadID, userID)
+	if err != nil {
+		return err
+	}
+	if conv == nil {
+		return nil
+	}
+
+	// Only allow deletion of archived conversations
+	if conv.ArchivedAt == nil {
+		return nil
+	}
+
+	return s.convRepo.Delete(conv.ID)
+}
+
+// SaveMessageResult contains the result of saving a message
+type SaveMessageResult struct {
+	IsNewConversation bool
+}
+
+// SaveMessage saves a message to a conversation, creating the conversation if needed
+func (s *ConversationService) SaveMessage(threadID string, userID, tenantID int64, role, content string, tokenUsage datatypes.JSON) (*SaveMessageResult, error) {
+	parsedUUID, err := uuid.Parse(threadID)
+	if err != nil {
+		log.Printf("Invalid thread ID format: %v", err)
+		return nil, err
+	}
+
+	conv, isNew, err := s.convRepo.GetOrCreateConversation(userID, tenantID, parsedUUID)
+	if err != nil {
+		log.Printf("Failed to get or create conversation: %v", err)
+		return nil, err
+	}
+
+	if err := s.convRepo.AddMessage(conv.ID, role, content, tokenUsage); err != nil {
+		log.Printf("Failed to add message: %v", err)
+		return nil, err
+	}
+
+	if err := s.convRepo.TouchConversation(parsedUUID); err != nil {
+		log.Printf("Failed to touch conversation: %v", err)
+	}
+
+	return &SaveMessageResult{IsNewConversation: isNew}, nil
+}
+
+// SetTitle sets the title for a conversation
+func (s *ConversationService) SetTitle(threadID, title string) error {
+	parsedUUID, err := uuid.Parse(threadID)
+	if err != nil {
+		return err
+	}
+	return s.convRepo.UpdateTitleByThreadID(parsedUUID, title)
+}
+
+// LoadMessages returns recent messages for a thread
+func (s *ConversationService) LoadMessages(threadID string, maxMessages int) ([]MessageResponse, error) {
+	parsedUUID, err := uuid.Parse(threadID)
+	if err != nil {
+		return nil, err
+	}
+
+	messages, err := s.convRepo.GetMessagesByThreadID(parsedUUID, maxMessages)
+	if err != nil {
+		return nil, err
+	}
+
+	results := make([]MessageResponse, len(messages))
+	for i, m := range messages {
+		results[i] = MessageResponse{
+			ID:        m.ID,
+			Role:      m.Role,
+			Content:   m.Content,
+			CreatedAt: m.CreatedAt,
+		}
+	}
+
+	return results, nil
+}

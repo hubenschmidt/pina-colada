@@ -396,51 +396,90 @@ BEGIN
 END $$;
 
 -- ==============================
--- STEP 5: Add Company Signals
+-- STEP 5: Add Signals (on Accounts)
 -- ==============================
 DO $$
 DECLARE
-    org_id BIGINT;
+    v_account_id BIGINT;
 BEGIN
     -- CloudScale Systems signals
-    SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudScale Systems') LIMIT 1;
-    IF org_id IS NOT NULL THEN
-        INSERT INTO "Company_Signal" (organization_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
+    SELECT account_id INTO v_account_id FROM "Organization" WHERE LOWER(name) = LOWER('CloudScale Systems') LIMIT 1;
+    IF v_account_id IS NOT NULL THEN
+        INSERT INTO "Signal" (account_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
         VALUES
-            (org_id, 'hiring', 'CloudScale expanding engineering team by 50%', 'CloudScale Systems announced plans to hire 100 new engineers across their Seattle and Austin offices.', '2024-11-15', 'linkedin', 'https://linkedin.com/posts/cloudscale-hiring', 'positive', 0.85),
-            (org_id, 'expansion', 'CloudScale opens new Austin office', 'CloudScale Systems opened a new engineering hub in Austin, TX to tap into local tech talent.', '2024-10-01', 'news', 'https://techcrunch.com/2024/10/01/cloudscale-austin', 'positive', 0.75),
-            (org_id, 'product_launch', 'CloudScale launches AI-powered analytics', 'New AI features added to CloudScale platform for predictive infrastructure scaling.', '2024-09-20', 'news', 'https://techcrunch.com/2024/09/20/cloudscale-ai', 'positive', 0.90);
+            (v_account_id, 'hiring', 'CloudScale expanding engineering team by 50%', 'CloudScale Systems announced plans to hire 100 new engineers across their Seattle and Austin offices.', '2024-11-15', 'linkedin', 'https://linkedin.com/posts/cloudscale-hiring', 'positive', 0.85),
+            (v_account_id, 'expansion', 'CloudScale opens new Austin office', 'CloudScale Systems opened a new engineering hub in Austin, TX to tap into local tech talent.', '2024-10-01', 'news', 'https://techcrunch.com/2024/10/01/cloudscale-austin', 'positive', 0.75),
+            (v_account_id, 'product_launch', 'CloudScale launches AI-powered analytics', 'New AI features added to CloudScale platform for predictive infrastructure scaling.', '2024-09-20', 'news', 'https://techcrunch.com/2024/09/20/cloudscale-ai', 'positive', 0.90);
     END IF;
 
     -- DataFlow Analytics signals
-    SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('DataFlow Analytics') LIMIT 1;
-    IF org_id IS NOT NULL THEN
-        INSERT INTO "Company_Signal" (organization_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
+    SELECT account_id INTO v_account_id FROM "Organization" WHERE LOWER(name) = LOWER('DataFlow Analytics') LIMIT 1;
+    IF v_account_id IS NOT NULL THEN
+        INSERT INTO "Signal" (account_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
         VALUES
-            (org_id, 'hiring', 'DataFlow hiring senior data scientists', 'DataFlow Analytics seeking experienced data scientists for their ML team.', '2024-11-10', 'linkedin', 'https://linkedin.com/jobs/dataflow', 'positive', 0.80),
-            (org_id, 'partnership', 'DataFlow partners with Snowflake', 'Strategic partnership announced to improve data integration capabilities.', '2024-08-15', 'news', 'https://prnewswire.com/dataflow-snowflake', 'positive', 0.85),
-            (org_id, 'product_launch', 'DataFlow launches real-time dashboards', 'New real-time dashboard feature enables instant data visualization.', '2024-07-01', 'news', NULL, 'positive', 0.70);
+            (v_account_id, 'hiring', 'DataFlow hiring senior data scientists', 'DataFlow Analytics seeking experienced data scientists for their ML team.', '2024-11-10', 'linkedin', 'https://linkedin.com/jobs/dataflow', 'positive', 0.80),
+            (v_account_id, 'partnership', 'DataFlow partners with Snowflake', 'Strategic partnership announced to improve data integration capabilities.', '2024-08-15', 'news', 'https://prnewswire.com/dataflow-snowflake', 'positive', 0.85),
+            (v_account_id, 'product_launch', 'DataFlow launches real-time dashboards', 'New real-time dashboard feature enables instant data visualization.', '2024-07-01', 'news', NULL, 'positive', 0.70);
     END IF;
 
     -- SecureNet Solutions signals
-    SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('SecureNet Solutions') LIMIT 1;
-    IF org_id IS NOT NULL THEN
-        INSERT INTO "Company_Signal" (organization_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
+    SELECT account_id INTO v_account_id FROM "Organization" WHERE LOWER(name) = LOWER('SecureNet Solutions') LIMIT 1;
+    IF v_account_id IS NOT NULL THEN
+        INSERT INTO "Signal" (account_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
         VALUES
-            (org_id, 'leadership_change', 'SecureNet appoints new CRO', 'Former Palo Alto Networks executive joins as Chief Revenue Officer.', '2024-10-15', 'linkedin', 'https://linkedin.com/posts/securenet-cro', 'positive', 0.75),
-            (org_id, 'hiring', 'SecureNet building out sales team', 'Aggressive enterprise sales hiring in Q4 2024.', '2024-11-01', 'linkedin', NULL, 'positive', 0.70),
-            (org_id, 'news', 'SecureNet featured in Gartner Magic Quadrant', 'Named a challenger in the 2024 endpoint security Magic Quadrant.', '2024-09-01', 'news', 'https://gartner.com/magic-quadrant-2024', 'positive', 0.95);
+            (v_account_id, 'leadership_change', 'SecureNet appoints new CRO', 'Former Palo Alto Networks executive joins as Chief Revenue Officer.', '2024-10-15', 'linkedin', 'https://linkedin.com/posts/securenet-cro', 'positive', 0.75),
+            (v_account_id, 'hiring', 'SecureNet building out sales team', 'Aggressive enterprise sales hiring in Q4 2024.', '2024-11-01', 'linkedin', NULL, 'positive', 0.70),
+            (v_account_id, 'news', 'SecureNet featured in Gartner Magic Quadrant', 'Named a challenger in the 2024 endpoint security Magic Quadrant.', '2024-09-01', 'news', 'https://gartner.com/magic-quadrant-2024', 'positive', 0.95);
     END IF;
 
     -- TechVentures Inc signals
-    SELECT id INTO org_id FROM "Organization" WHERE LOWER(name) = LOWER('TechVentures Inc') LIMIT 1;
-    IF org_id IS NOT NULL THEN
-        INSERT INTO "Company_Signal" (organization_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
+    SELECT account_id INTO v_account_id FROM "Organization" WHERE LOWER(name) = LOWER('TechVentures Inc') LIMIT 1;
+    IF v_account_id IS NOT NULL THEN
+        INSERT INTO "Signal" (account_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
         VALUES
-            (org_id, 'news', 'TechVentures closes $500M Fund III', 'New fund focused on early-stage AI and infrastructure startups.', '2024-06-01', 'news', 'https://techcrunch.com/2024/06/01/techventures-fund-iii', 'positive', 0.80);
+            (v_account_id, 'news', 'TechVentures closes $500M Fund III', 'New fund focused on early-stage AI and infrastructure startups.', '2024-06-01', 'news', 'https://techcrunch.com/2024/06/01/techventures-fund-iii', 'positive', 0.80);
     END IF;
 
-    RAISE NOTICE 'Company signals added successfully';
+    RAISE NOTICE 'Organization signals added successfully';
+END $$;
+
+-- ==============================
+-- STEP 5b: Add Signals for Individuals
+-- ==============================
+DO $$
+DECLARE
+    v_account_id BIGINT;
+BEGIN
+    -- Alex Thompson signals (consultant/advisor)
+    SELECT account_id INTO v_account_id FROM "Individual" WHERE LOWER(email) = LOWER('alex.thompson@gmail.com') LIMIT 1;
+    IF v_account_id IS NOT NULL THEN
+        INSERT INTO "Signal" (account_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
+        VALUES
+            (v_account_id, 'news', 'Alex Thompson featured in Forbes 30 Under 30', 'Recognized for work in product innovation at Stripe before going independent.', '2024-10-20', 'news', 'https://forbes.com/30-under-30/2024', 'positive', 0.90),
+            (v_account_id, 'news', 'Alex joins advisory board of DataFlow Analytics', 'Will provide strategic guidance on product-market fit and scaling.', '2024-09-01', 'linkedin', 'https://linkedin.com/posts/alex-thompson-advisory', 'positive', 0.85),
+            (v_account_id, 'news', 'Alex Thompson speaking at SaaStr Annual', 'Panel on building products that scale from 1M to 100M ARR.', '2024-08-15', 'news', 'https://saastr.com/speakers/2024', 'positive', 0.75);
+    END IF;
+
+    -- Maria Garcia signals (designer)
+    SELECT account_id INTO v_account_id FROM "Individual" WHERE LOWER(email) = LOWER('maria.garcia@designstudio.com') LIMIT 1;
+    IF v_account_id IS NOT NULL THEN
+        INSERT INTO "Signal" (account_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
+        VALUES
+            (v_account_id, 'news', 'Maria Garcia wins UX Design Award', 'Recognized for innovative B2B dashboard design work.', '2024-11-05', 'news', 'https://uxdesignawards.com/2024', 'positive', 0.88),
+            (v_account_id, 'news', 'New case study published on Figma community', 'Maria shares approach to design system architecture for enterprise apps.', '2024-07-20', 'news', 'https://figma.com/community/file/maria-case-study', 'positive', 0.70);
+    END IF;
+
+    -- James Wilson signals (advisor/investor)
+    SELECT account_id INTO v_account_id FROM "Individual" WHERE LOWER(email) = LOWER('james.wilson@advisors.co') LIMIT 1;
+    IF v_account_id IS NOT NULL THEN
+        INSERT INTO "Signal" (account_id, signal_type, headline, description, signal_date, source, source_url, sentiment, relevance_score)
+        VALUES
+            (v_account_id, 'news', 'James Wilson leads Series A for AI startup', 'Led $12M round for DevTools AI as board member and investor.', '2024-10-01', 'news', 'https://techcrunch.com/2024/10/01/devtools-ai-series-a', 'positive', 0.92),
+            (v_account_id, 'leadership_change', 'James Wilson joins CloudScale board', 'Former CTO brings enterprise expertise to fast-growing infrastructure company.', '2024-08-20', 'news', 'https://cloudscale.com/press/board-announcement', 'positive', 0.85),
+            (v_account_id, 'news', 'James Wilson podcast appearance on Founders Stories', 'Discusses lessons from two successful exits and what makes great technical founders.', '2024-06-15', 'news', 'https://foundersstories.com/james-wilson', 'positive', 0.75);
+    END IF;
+
+    RAISE NOTICE 'Individual signals added successfully';
 END $$;
 
 -- ==============================
@@ -591,7 +630,7 @@ SELECT
   (SELECT COUNT(*) FROM "Technology") as technologies,
   (SELECT COUNT(*) FROM "Organization_Technology") as org_tech_links,
   (SELECT COUNT(*) FROM "Funding_Round") as funding_rounds,
-  (SELECT COUNT(*) FROM "Company_Signal") as company_signals,
+  (SELECT COUNT(*) FROM "Signal") as signals,
   (SELECT COUNT(*) FROM "Organization" WHERE revenue_range_id IS NOT NULL) as orgs_with_revenue,
   (SELECT COUNT(*) FROM "Organization" WHERE employee_count_range_id IS NOT NULL) as orgs_with_employees,
   (SELECT COUNT(*) FROM "Organization" WHERE funding_stage_id IS NOT NULL) as orgs_with_funding_stage,

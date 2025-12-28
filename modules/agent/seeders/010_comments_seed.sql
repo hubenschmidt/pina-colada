@@ -39,7 +39,7 @@ BEGIN
     END IF;
 
     -- Individual comments (3 comments per individual, alternating between users)
-    INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, created_at, updated_at)
+    INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, updated_by, created_at, updated_at)
     SELECT
         v_tenant_id,
         'Individual',
@@ -51,6 +51,7 @@ BEGIN
             WHEN 3 THEN 'Key contact - high potential value. Prioritizing for Q1 2025 initiatives.'
             WHEN 4 THEN 'Recent interaction: Expressed strong interest. Following up next week.'
         END,
+        CASE WHEN s.comment_num % 2 = 0 THEN v_user_id_william ELSE v_user_id_jennifer END,
         CASE WHEN s.comment_num % 2 = 0 THEN v_user_id_william ELSE v_user_id_jennifer END,
         NOW() - (s.comment_num || ' days')::INTERVAL,
         NOW() - (s.comment_num || ' days')::INTERVAL
@@ -64,7 +65,7 @@ BEGIN
     RAISE NOTICE 'Added % comments for Individuals', v_account_count;
 
     -- Organization comments (3 comments per organization, alternating between users)
-    INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, created_at, updated_at)
+    INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, updated_by, created_at, updated_at)
     SELECT
         v_tenant_id,
         'Organization',
@@ -76,6 +77,7 @@ BEGIN
             WHEN 3 THEN 'Strategic company - high potential value. Prioritizing for Q1 2025.'
             WHEN 4 THEN 'Recent interaction: Decision maker expressed interest. Following up.'
         END,
+        CASE WHEN s.comment_num % 2 = 0 THEN v_user_id_william ELSE v_user_id_jennifer END,
         CASE WHEN s.comment_num % 2 = 0 THEN v_user_id_william ELSE v_user_id_jennifer END,
         NOW() - (s.comment_num || ' days')::INTERVAL,
         NOW() - (s.comment_num || ' days')::INTERVAL
@@ -89,7 +91,7 @@ BEGIN
     RAISE NOTICE 'Added % comments for Organizations', v_account_count;
 
     -- Lead comments (Jobs, Opportunities, Partnerships) - 4 comments per lead, alternating between users
-    INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, created_at, updated_at)
+    INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, updated_by, created_at, updated_at)
     SELECT
         v_tenant_id,
         'Lead',
@@ -123,6 +125,7 @@ BEGIN
                 END
         END,
         CASE WHEN s.comment_num % 2 = 0 THEN v_user_id_william ELSE v_user_id_jennifer END,
+        CASE WHEN s.comment_num % 2 = 0 THEN v_user_id_william ELSE v_user_id_jennifer END,
         NOW() - (s.comment_num || ' days')::INTERVAL,
         NOW() - (s.comment_num || ' days')::INTERVAL
     FROM "Lead" l
@@ -134,7 +137,7 @@ BEGIN
     RAISE NOTICE 'Added % comments for Leads', v_lead_count;
 
     -- Deal comments (3 comments per deal, alternating between users)
-    INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, created_at, updated_at)
+    INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, updated_by, created_at, updated_at)
     SELECT
         v_tenant_id,
         'Deal',
@@ -147,6 +150,7 @@ BEGIN
             WHEN 4 THEN 'Deal status update: Client requested additional references. Provided 3 case studies from similar implementations.'
         END,
         CASE WHEN s.comment_num % 2 = 0 THEN v_user_id_william ELSE v_user_id_jennifer END,
+        CASE WHEN s.comment_num % 2 = 0 THEN v_user_id_william ELSE v_user_id_jennifer END,
         NOW() - (s.comment_num || ' days')::INTERVAL,
         NOW() - (s.comment_num || ' days')::INTERVAL
     FROM "Deal" d
@@ -158,7 +162,7 @@ BEGIN
     RAISE NOTICE 'Added % comments for Deals', v_deal_count;
 
     -- Task comments (2 comments per task, alternating between users)
-    INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, created_at, updated_at)
+    INSERT INTO "Comment" (tenant_id, commentable_type, commentable_id, content, created_by, updated_by, created_at, updated_at)
     SELECT
         v_tenant_id,
         'Task',
@@ -168,6 +172,7 @@ BEGIN
             WHEN 1 THEN 'Progress update: 50% complete. On track for deadline. No blockers currently.'
             WHEN 2 THEN 'Task completed successfully. Delivered ahead of schedule. Ready for review and approval.'
         END,
+        CASE WHEN s.comment_num % 2 = 0 THEN v_user_id_william ELSE v_user_id_jennifer END,
         CASE WHEN s.comment_num % 2 = 0 THEN v_user_id_william ELSE v_user_id_jennifer END,
         NOW() - (s.comment_num || ' days')::INTERVAL,
         NOW() - (s.comment_num || ' days')::INTERVAL

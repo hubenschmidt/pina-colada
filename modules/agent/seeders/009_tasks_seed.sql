@@ -4,6 +4,7 @@
 DO $$
 DECLARE
     v_tenant_id BIGINT;
+    v_user_id BIGINT;
     v_project_id BIGINT;
     v_deal_id BIGINT;
     v_lead_id BIGINT;
@@ -24,6 +25,9 @@ BEGIN
         RAISE NOTICE 'No tenant found, skipping tasks seeder';
         RETURN;
     END IF;
+
+    -- Get bootstrap user for audit columns
+    SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
 
     -- Create Task Status entries
     INSERT INTO "Status" (name, description, category, is_terminal, created_at, updated_at)
@@ -67,7 +71,7 @@ BEGIN
             tenant_id, taskable_type, taskable_id, title, description,
             current_status_id, priority_id, start_date, due_date,
             estimated_hours, actual_hours, complexity, sort_order,
-            created_at, updated_at
+            created_by, updated_by, created_at, updated_at
         )
         VALUES
             (
@@ -77,7 +81,7 @@ BEGIN
                 v_status_todo, v_priority_high,
                 CURRENT_DATE, CURRENT_DATE + INTERVAL '7 days',
                 8.0, NULL, 8, 1,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             ),
             (
                 v_tenant_id, 'Project', v_project_id,
@@ -86,7 +90,7 @@ BEGIN
                 v_status_in_progress, v_priority_medium,
                 CURRENT_DATE - INTERVAL '1 day', CURRENT_DATE + INTERVAL '3 days',
                 4.0, 2.5, 3, 2,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             ),
             (
                 v_tenant_id, 'Project', v_project_id,
@@ -95,7 +99,7 @@ BEGIN
                 v_status_done, v_priority_high,
                 CURRENT_DATE - INTERVAL '5 days', CURRENT_DATE - INTERVAL '2 days',
                 2.0, 1.5, 2, 3,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             )
         ON CONFLICT DO NOTHING;
         RAISE NOTICE 'Added tasks for Project ID: %', v_project_id;
@@ -107,7 +111,7 @@ BEGIN
             tenant_id, taskable_type, taskable_id, title, description,
             current_status_id, priority_id, start_date, due_date,
             estimated_hours, actual_hours, complexity, sort_order,
-            created_at, updated_at
+            created_by, updated_by, created_at, updated_at
         )
         VALUES
             (
@@ -117,7 +121,7 @@ BEGIN
                 v_status_todo, v_priority_high,
                 CURRENT_DATE + INTERVAL '1 day', CURRENT_DATE + INTERVAL '5 days',
                 6.0, NULL, 5, 1,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             ),
             (
                 v_tenant_id, 'Deal', v_deal_id,
@@ -126,7 +130,7 @@ BEGIN
                 v_status_in_progress, v_priority_medium,
                 CURRENT_DATE, CURRENT_DATE + INTERVAL '2 days',
                 1.0, 0.5, 1, 2,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             ),
             (
                 v_tenant_id, 'Deal', v_deal_id,
@@ -135,7 +139,7 @@ BEGIN
                 v_status_blocked, v_priority_urgent,
                 CURRENT_DATE - INTERVAL '3 days', CURRENT_DATE + INTERVAL '10 days',
                 2.0, 1.0, 2, 3,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             )
         ON CONFLICT DO NOTHING;
         RAISE NOTICE 'Added tasks for Deal ID: %', v_deal_id;
@@ -147,7 +151,7 @@ BEGIN
             tenant_id, taskable_type, taskable_id, title, description,
             current_status_id, priority_id, start_date, due_date,
             estimated_hours, actual_hours, complexity, sort_order,
-            created_at, updated_at
+            created_by, updated_by, created_at, updated_at
         )
         VALUES
             (
@@ -157,7 +161,7 @@ BEGIN
                 v_status_done, v_priority_medium,
                 CURRENT_DATE - INTERVAL '7 days', CURRENT_DATE - INTERVAL '5 days',
                 3.0, 2.5, 3, 1,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             ),
             (
                 v_tenant_id, 'Lead', v_lead_id,
@@ -166,7 +170,7 @@ BEGIN
                 v_status_in_progress, v_priority_high,
                 CURRENT_DATE - INTERVAL '1 day', CURRENT_DATE + INTERVAL '1 day',
                 2.0, 1.0, 2, 2,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             ),
             (
                 v_tenant_id, 'Lead', v_lead_id,
@@ -175,7 +179,7 @@ BEGIN
                 v_status_todo, v_priority_medium,
                 CURRENT_DATE + INTERVAL '1 day', CURRENT_DATE + INTERVAL '3 days',
                 4.0, NULL, 5, 3,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             ),
             (
                 v_tenant_id, 'Lead', v_lead_id,
@@ -184,7 +188,7 @@ BEGIN
                 v_status_todo, v_priority_high,
                 CURRENT_DATE + INTERVAL '2 days', CURRENT_DATE + INTERVAL '5 days',
                 8.0, NULL, 13, 4,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             )
         ON CONFLICT DO NOTHING;
         RAISE NOTICE 'Added tasks for Lead ID: %', v_lead_id;
@@ -196,7 +200,7 @@ BEGIN
             tenant_id, taskable_type, taskable_id, title, description,
             current_status_id, priority_id, start_date, due_date,
             estimated_hours, actual_hours, complexity, sort_order,
-            created_at, updated_at
+            created_by, updated_by, created_at, updated_at
         )
         VALUES
             (
@@ -206,7 +210,7 @@ BEGIN
                 v_status_todo, v_priority_low,
                 CURRENT_DATE + INTERVAL '7 days', CURRENT_DATE + INTERVAL '14 days',
                 1.0, NULL, 1, 1,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             ),
             (
                 v_tenant_id, 'Account', v_account_id,
@@ -215,7 +219,7 @@ BEGIN
                 v_status_todo, v_priority_medium,
                 CURRENT_DATE + INTERVAL '14 days', CURRENT_DATE + INTERVAL '30 days',
                 4.0, NULL, 5, 2,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             ),
             (
                 v_tenant_id, 'Account', v_account_id,
@@ -224,7 +228,7 @@ BEGIN
                 v_status_todo, v_priority_high,
                 CURRENT_DATE + INTERVAL '20 days', CURRENT_DATE + INTERVAL '45 days',
                 12.0, NULL, 8, 3,
-                NOW(), NOW()
+                v_user_id, v_user_id, NOW(), NOW()
             )
         ON CONFLICT DO NOTHING;
         RAISE NOTICE 'Added tasks for Account ID: %', v_account_id;
@@ -235,7 +239,7 @@ BEGIN
         tenant_id, taskable_type, taskable_id, title, description,
         current_status_id, priority_id, start_date, due_date,
         estimated_hours, actual_hours, complexity, sort_order,
-        created_at, updated_at
+        created_by, updated_by, created_at, updated_at
     )
     VALUES
         (
@@ -245,7 +249,7 @@ BEGIN
             v_status_todo, v_priority_medium,
             CURRENT_DATE, CURRENT_DATE + INTERVAL '1 day',
             0.5, NULL, 1, 1,
-            NOW(), NOW()
+            v_user_id, v_user_id, NOW(), NOW()
         ),
         (
             v_tenant_id, NULL, NULL,
@@ -254,7 +258,7 @@ BEGIN
             v_status_todo, v_priority_low,
             CURRENT_DATE + INTERVAL '3 days', CURRENT_DATE + INTERVAL '7 days',
             2.0, NULL, 2, 2,
-            NOW(), NOW()
+            v_user_id, v_user_id, NOW(), NOW()
         ),
         (
             v_tenant_id, NULL, NULL,
@@ -263,7 +267,7 @@ BEGIN
             v_status_in_progress, v_priority_high,
             CURRENT_DATE - INTERVAL '1 day', CURRENT_DATE + INTERVAL '2 days',
             3.0, 1.5, 5, 3,
-            NOW(), NOW()
+            v_user_id, v_user_id, NOW(), NOW()
         ),
         (
             v_tenant_id, NULL, NULL,
@@ -272,7 +276,7 @@ BEGIN
             v_status_blocked, v_priority_medium,
             CURRENT_DATE - INTERVAL '5 days', CURRENT_DATE + INTERVAL '10 days',
             16.0, 4.0, 21, 4,
-            NOW(), NOW()
+            v_user_id, v_user_id, NOW(), NOW()
         )
     ON CONFLICT DO NOTHING;
 

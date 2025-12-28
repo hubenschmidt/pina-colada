@@ -44,9 +44,9 @@ BEGIN
     JOIN "Account" a ON o.account_id = a.id
     WHERE LOWER(o.name) = LOWER('Acme Corp') AND a.tenant_id = v_tenant_id;
 
-    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description)
+    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
     VALUES ('document', v_tenant_id, v_user_id, 'company_proposal.pdf', 'application/pdf',
-            'Q1 2025 company proposal for Acme Corp partnership')
+            'Q1 2025 company proposal for Acme Corp partnership', v_user_id, v_user_id)
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_doc_id;
 
@@ -73,9 +73,9 @@ BEGIN
     -- ==============================
     SELECT id INTO v_entity_id FROM "Project" WHERE name = 'Job Search 2025' AND tenant_id = v_tenant_id;
 
-    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description)
+    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
     VALUES ('document', v_tenant_id, v_user_id, 'meeting_notes.pdf', 'application/pdf',
-            'Product roadmap meeting notes from January kickoff')
+            'Product roadmap meeting notes from January kickoff', v_user_id, v_user_id)
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_doc_id;
 
@@ -104,9 +104,9 @@ BEGIN
     JOIN "Account" a ON o.account_id = a.id
     WHERE LOWER(o.name) = LOWER('CloudScale Systems') AND a.tenant_id = v_tenant_id;
 
-    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description)
+    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
     VALUES ('document', v_tenant_id, v_user_id, 'contract_draft.pdf', 'application/pdf',
-            'Draft service agreement pending legal review')
+            'Draft service agreement pending legal review', v_user_id, v_user_id)
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_doc_id;
 
@@ -133,9 +133,9 @@ BEGIN
     -- ==============================
     SELECT id INTO v_entity_id FROM "Project" WHERE name = 'Consulting Pipeline' AND tenant_id = v_tenant_id;
 
-    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description)
+    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
     VALUES ('document', v_tenant_id, v_user_id, 'product_spec.pdf', 'application/pdf',
-            'Technical specification for CRM platform v2.0')
+            'Technical specification for CRM platform v2.0', v_user_id, v_user_id)
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_doc_id;
 
@@ -164,9 +164,9 @@ BEGIN
     JOIN "Account" a ON o.account_id = a.id
     WHERE LOWER(o.name) = LOWER('TechVentures Inc') AND a.tenant_id = v_tenant_id;
 
-    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description)
+    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
     VALUES ('document', v_tenant_id, v_user_id, 'invoice_sample.pdf', 'application/pdf',
-            'Sample invoice for billing reference')
+            'Sample invoice for billing reference', v_user_id, v_user_id)
     ON CONFLICT DO NOTHING
     RETURNING id INTO v_doc_id;
 
@@ -189,7 +189,8 @@ BEGIN
     END IF;
 
     -- ==============================
-    -- Document 6: William Hubenschmidt Resume
+    -- William Hubenschmidt Documents (from seeders/documents/)
+    -- All william_hubenschmidt_* files linked to his Individual record
     -- ==============================
     SELECT i.id INTO v_entity_id FROM "Individual" i
     JOIN "Account" a ON i.account_id = a.id
@@ -197,30 +198,89 @@ BEGIN
       AND LOWER(i.first_name) = 'william'
       AND LOWER(i.last_name) = 'hubenschmidt';
 
-    INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description)
-    VALUES ('document', v_tenant_id, v_user_id, 'individual_resume.pdf', 'application/pdf',
-            'Resume for William Hubenschmidt - Senior Software Engineer')
-    ON CONFLICT DO NOTHING
-    RETURNING id INTO v_doc_id;
+    IF v_entity_id IS NULL THEN
+        RAISE NOTICE 'William Hubenschmidt Individual not found, skipping personal documents';
+    ELSE
+        RAISE NOTICE 'Found William Hubenschmidt Individual (ID: %)', v_entity_id;
 
-    IF v_doc_id IS NOT NULL THEN
-        INSERT INTO "Document" (id, storage_path, file_size)
-        VALUES (v_doc_id, v_tenant_id || '/seed/individual_resume.pdf', 950);
-
-        IF v_entity_id IS NOT NULL THEN
-            INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
-            VALUES (v_doc_id, 'Individual', v_entity_id)
-            ON CONFLICT DO NOTHING;
-            RAISE NOTICE 'Linked individual_resume.pdf to William Hubenschmidt (ID: %)', v_entity_id;
-        ELSE
-            RAISE NOTICE 'William Hubenschmidt not found, resume not linked';
+        -- Helper: Get or create document and link to Individual
+        -- Document: Resume
+        SELECT a.id INTO v_doc_id FROM "Asset" a WHERE a.filename = 'william_hubenschmidt_resume.pdf' AND a.tenant_id = v_tenant_id;
+        IF v_doc_id IS NULL THEN
+            INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
+            VALUES ('document', v_tenant_id, v_user_id, 'william_hubenschmidt_resume.pdf', 'application/pdf',
+                    'Resume for William Hubenschmidt', v_user_id, v_user_id)
+            RETURNING id INTO v_doc_id;
+            INSERT INTO "Document" (id, storage_path, file_size, summary, compressed)
+            VALUES (v_doc_id, v_tenant_id || '/seed/william_hubenschmidt_resume.pdf', 45000,
+                '{"text": "William Hubenschmidt is a Full Stack Engineer with 8+ years of experience in Python, TypeScript, Go, and React. He has expertise in AI/ML integration, cloud infrastructure (AWS, GCP), and building scalable distributed systems. Recent work includes AI-powered CRM platforms and real-time data pipelines.", "keywords": ["Full Stack Engineer", "Python", "TypeScript", "Go", "AI/ML"], "generated_at": "2025-01-01T00:00:00Z"}'::jsonb,
+                'William Hubenschmidt Full Stack Engineer 8+ years experience Python TypeScript Go React AWS GCP AI ML distributed systems cloud infrastructure real-time data pipelines');
         END IF;
-
-        FOR v_tag_id IN SELECT id FROM "Tag" WHERE name IN ('resume', 'candidate', 'hiring') LOOP
+        INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
+        VALUES (v_doc_id, 'Individual', v_entity_id) ON CONFLICT DO NOTHING;
+        FOR v_tag_id IN SELECT id FROM "Tag" WHERE name IN ('resume') LOOP
             INSERT INTO "Entity_Tag" (tag_id, entity_type, entity_id)
-            VALUES (v_tag_id, 'Asset', v_doc_id)
-            ON CONFLICT DO NOTHING;
+            VALUES (v_tag_id, 'Asset', v_doc_id) ON CONFLICT DO NOTHING;
         END LOOP;
+        RAISE NOTICE 'Linked william_hubenschmidt_resume.pdf (ID: %) to Individual %', v_doc_id, v_entity_id;
+
+        -- Document: Summary
+        SELECT a.id INTO v_doc_id FROM "Asset" a WHERE a.filename = 'william_hubenschmidt_summary.txt' AND a.tenant_id = v_tenant_id;
+        IF v_doc_id IS NULL THEN
+            INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
+            VALUES ('document', v_tenant_id, v_user_id, 'william_hubenschmidt_summary.txt', 'text/plain',
+                    'Professional summary for William Hubenschmidt', v_user_id, v_user_id)
+            RETURNING id INTO v_doc_id;
+            INSERT INTO "Document" (id, storage_path, file_size, summary, compressed)
+            VALUES (v_doc_id, v_tenant_id || '/seed/william_hubenschmidt_summary.txt', 2000,
+                '{"text": "A concise professional summary highlighting William''s core competencies in full-stack development, leadership experience, and technical expertise across modern web technologies and cloud platforms.", "keywords": ["Professional Summary", "Full Stack", "Leadership"], "generated_at": "2025-01-01T00:00:00Z"}'::jsonb,
+                'Professional summary core competencies full-stack development leadership technical expertise modern web technologies cloud platforms');
+        END IF;
+        INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
+        VALUES (v_doc_id, 'Individual', v_entity_id) ON CONFLICT DO NOTHING;
+        RAISE NOTICE 'Linked william_hubenschmidt_summary.txt (ID: %) to Individual %', v_doc_id, v_entity_id;
+
+        -- Document: Sample Answers
+        SELECT a.id INTO v_doc_id FROM "Asset" a WHERE a.filename = 'william_hubenschmidt_sample_answers.txt' AND a.tenant_id = v_tenant_id;
+        IF v_doc_id IS NULL THEN
+            INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
+            VALUES ('document', v_tenant_id, v_user_id, 'william_hubenschmidt_sample_answers.txt', 'text/plain',
+                    'Sample interview answers for William Hubenschmidt', v_user_id, v_user_id)
+            RETURNING id INTO v_doc_id;
+            INSERT INTO "Document" (id, storage_path, file_size)
+            VALUES (v_doc_id, v_tenant_id || '/seed/william_hubenschmidt_sample_answers.txt', 5000);
+        END IF;
+        INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
+        VALUES (v_doc_id, 'Individual', v_entity_id) ON CONFLICT DO NOTHING;
+        RAISE NOTICE 'Linked william_hubenschmidt_sample_answers.txt (ID: %) to Individual %', v_doc_id, v_entity_id;
+
+        -- Document: Cover Letter 1
+        SELECT a.id INTO v_doc_id FROM "Asset" a WHERE a.filename = 'william_hubenschmidt_coverletter_1.pdf' AND a.tenant_id = v_tenant_id;
+        IF v_doc_id IS NULL THEN
+            INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
+            VALUES ('document', v_tenant_id, v_user_id, 'william_hubenschmidt_coverletter_1.pdf', 'application/pdf',
+                    'Cover letter sample 1 for William Hubenschmidt', v_user_id, v_user_id)
+            RETURNING id INTO v_doc_id;
+            INSERT INTO "Document" (id, storage_path, file_size)
+            VALUES (v_doc_id, v_tenant_id || '/seed/william_hubenschmidt_coverletter_1.pdf', 15000);
+        END IF;
+        INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
+        VALUES (v_doc_id, 'Individual', v_entity_id) ON CONFLICT DO NOTHING;
+        RAISE NOTICE 'Linked william_hubenschmidt_coverletter_1.pdf (ID: %) to Individual %', v_doc_id, v_entity_id;
+
+        -- Document: Cover Letter 2
+        SELECT a.id INTO v_doc_id FROM "Asset" a WHERE a.filename = 'william_hubenschmidt_coverletter_2.pdf' AND a.tenant_id = v_tenant_id;
+        IF v_doc_id IS NULL THEN
+            INSERT INTO "Asset" (asset_type, tenant_id, user_id, filename, content_type, description, created_by, updated_by)
+            VALUES ('document', v_tenant_id, v_user_id, 'william_hubenschmidt_coverletter_2.pdf', 'application/pdf',
+                    'Cover letter sample 2 for William Hubenschmidt', v_user_id, v_user_id)
+            RETURNING id INTO v_doc_id;
+            INSERT INTO "Document" (id, storage_path, file_size)
+            VALUES (v_doc_id, v_tenant_id || '/seed/william_hubenschmidt_coverletter_2.pdf', 15000);
+        END IF;
+        INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
+        VALUES (v_doc_id, 'Individual', v_entity_id) ON CONFLICT DO NOTHING;
+        RAISE NOTICE 'Linked william_hubenschmidt_coverletter_2.pdf (ID: %) to Individual %', v_doc_id, v_entity_id;
     END IF;
 
     RAISE NOTICE 'Document seeding complete for tenant %', v_tenant_id;

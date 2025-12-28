@@ -1,1 +1,0 @@
-export { DeleteConfirmBanner } from "./DeleteConfirmBanner";

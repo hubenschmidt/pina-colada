@@ -1,0 +1,322 @@
+package agent
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"log"
+	"strings"
+	"time"
+
+	"github.com/anthropics/anthropic-sdk-go"
+	"github.com/anthropics/anthropic-sdk-go/option"
+	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
+	"github.com/pina-colada-co/agent-go/internal/services"
+)
+
+// EvaluatorResult represents the structured output from an evaluator
+type EvaluatorResult struct {
+	Feedback           string `json:"feedback"`
+	SuccessCriteriaMet bool   `json:"success_criteria_met"`
+	UserInputNeeded    bool   `json:"user_input_needed"`
+	Score              int    `json:"score"`
+
+	// Token usage for metrics tracking
+	InputTokens  int `json:"input_tokens"`
+	OutputTokens int `json:"output_tokens"`
+}
+
+// EvaluatorType determines which evaluator prompt to use
+type EvaluatorType string
+
+const (
+	CareerEvaluator  EvaluatorType = "career"
+	CRMEvaluator     EvaluatorType = "crm"
+	GeneralEvaluator EvaluatorType = "general"
+)
+
+// Evaluator evaluates agent responses for quality using Claude
+type Evaluator struct {
+	client     anthropic.Client
+	evalType   EvaluatorType
+	model      string
+	settings   services.LLMSettings
+	maxRetries int
+	retryCount int
+}
+
+// NewEvaluator creates a new evaluator with the specified model and settings
+func NewEvaluator(apiKey string, evalType EvaluatorType, model string, settings services.LLMSettings) *Evaluator {
+	client := anthropic.NewClient(
+		option.WithAPIKey(apiKey),
+	)
+	// Default to Claude Sonnet 4.5 if no model specified
+	if model == "" {
+		model = "claude-sonnet-4-5-20250929"
+	}
+	return &Evaluator{
+		client:     client,
+		evalType:   evalType,
+		model:      model,
+		settings:   settings,
+		maxRetries: 2,
+	}
+}
+
+// getPrompt returns the appropriate evaluator prompt
+func (e *Evaluator) getPrompt() string {
+	if e.evalType == CareerEvaluator {
+		return prompts.CareerEvaluatorPrompt
+	}
+	if e.evalType == CRMEvaluator {
+		return prompts.CRMEvaluatorPrompt
+	}
+	return prompts.GeneralEvaluatorPrompt
+}
+
+// applySamplingParam applies temperature or top_p (Claude 4.5 only allows one)
+func (e *Evaluator) applySamplingParam(params anthropic.MessageNewParams) anthropic.MessageNewParams {
+	if e.settings.Temperature != nil {
+		params.Temperature = anthropic.Float(*e.settings.Temperature)
+		return params
+	}
+	if e.settings.TopP != nil {
+		params.TopP = anthropic.Float(*e.settings.TopP)
+	}
+	return params
+}
+
+// Evaluate checks the agent response against criteria using Claude
+func (e *Evaluator) Evaluate(ctx context.Context, userRequest, agentResponse, successCriteria string) (*EvaluatorResult, error) {
+	log.Printf("🔍 %s EVALUATOR (Claude): Reviewing response...", strings.ToUpper(string(e.evalType)))
+
+	if agentResponse == "" {
+		log.Printf("⚠️ Empty response, skipping evaluation")
+		return &EvaluatorResult{
+			Feedback:           "No response to evaluate",
+			SuccessCriteriaMet: false,
+			UserInputNeeded:    false,
+			Score:              0,
+		}, nil
+	}
+
+	systemPrompt := e.getPrompt()
+	userPrompt := e.buildUserPrompt(userRequest, agentResponse, successCriteria)
+
+	// Build request params with configured model and settings
+	maxTokens := int64(1024)
+	if e.settings.MaxTokens != nil {
+		maxTokens = int64(*e.settings.MaxTokens)
+	}
+
+	params := anthropic.MessageNewParams{
+		Model:     anthropic.Model(e.model),
+		MaxTokens: maxTokens,
+		System: []anthropic.TextBlockParam{
+			{Text: systemPrompt},
+		},
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(userPrompt)),
+		},
+	}
+
+	// Apply sampling parameter (Claude 4.5 models only allow one of temperature/top_p)
+	params = e.applySamplingParam(params)
+
+	// Call Claude with configured model and settings
+	resp, err := e.client.Messages.New(ctx, params)
+	if err != nil {
+		log.Printf("❌ Claude evaluator call failed: %v", err)
+		return e.defaultApproval("Evaluation error, defaulting to approval"), nil
+	}
+
+	// Parse the response
+	result, err := e.parseClaudeResponse(resp)
+	if err != nil {
+		log.Printf("⚠️ Failed to parse evaluator response: %v", err)
+		return e.defaultApproval("Failed to parse evaluation, defaulting to approval"), nil
+	}
+
+	// Extract token usage for metrics
+	result.InputTokens = int(resp.Usage.InputTokens)
+	result.OutputTokens = int(resp.Usage.OutputTokens)
+
+	// Apply retry loop logic
+	e.applyRetryLogic(result)
+
+	e.logResult(result)
+	return result, nil
+}
+
+// buildUserPrompt constructs the evaluation request
+func (e *Evaluator) buildUserPrompt(userRequest, agentResponse, successCriteria string) string {
+	var sb strings.Builder
+	sb.WriteString("USER REQUEST:\n")
+	sb.WriteString(userRequest)
+	sb.WriteString("\n\n")
+
+	if successCriteria != "" {
+		sb.WriteString("SUCCESS CRITERIA:\n")
+		sb.WriteString(successCriteria)
+		sb.WriteString("\n\n")
+	}
+
+	sb.WriteString("ASSISTANT RESPONSE TO EVALUATE:\n")
+	sb.WriteString(agentResponse)
+	sb.WriteString("\n\n")
+
+	if e.retryCount > 0 {
+		sb.WriteString(fmt.Sprintf("NOTE: This is retry attempt %d. Be more lenient - approve unless there are critical errors.\n\n", e.retryCount))
+	}
+
+	sb.WriteString("Evaluate this response. Return JSON with: feedback, success_criteria_met, user_input_needed, score")
+
+	return sb.String()
+}
+
+// parseClaudeResponse extracts the EvaluatorResult from Claude's response
+func (e *Evaluator) parseClaudeResponse(resp *anthropic.Message) (*EvaluatorResult, error) {
+	if resp == nil || len(resp.Content) == 0 {
+		return nil, fmt.Errorf("empty response from evaluator")
+	}
+
+	// Extract text from response
+	var text string
+	for _, block := range resp.Content {
+		if block.Type == "text" {
+			text += block.Text
+		}
+	}
+
+	// Try to extract JSON from the response
+	text = strings.TrimSpace(text)
+
+	// Handle markdown code blocks
+	text = extractFromCodeBlock(text)
+
+	// Find JSON object bounds
+	startIdx := strings.Index(text, "{")
+	endIdx := strings.LastIndex(text, "}")
+	if startIdx >= 0 && endIdx > startIdx {
+		text = text[startIdx : endIdx+1]
+	}
+
+	var result EvaluatorResult
+	if err := json.Unmarshal([]byte(text), &result); err != nil {
+		return nil, fmt.Errorf("failed to parse JSON: %w (text: %s)", err, text[:min(len(text), 200)])
+	}
+
+	return &result, nil
+}
+
+// extractFromCodeBlock extracts content from markdown code blocks
+func extractFromCodeBlock(text string) string {
+	if extracted := tryExtractCodeBlock(text, "```json", 7); extracted != "" {
+		return extracted
+	}
+	if extracted := tryExtractCodeBlock(text, "```", 3); extracted != "" {
+		return extracted
+	}
+	return text
+}
+
+func tryExtractCodeBlock(text, marker string, offset int) string {
+	if !strings.Contains(text, marker) {
+		return ""
+	}
+	start := strings.Index(text, marker) + offset
+	end := strings.LastIndex(text, "```")
+	if end <= start {
+		return ""
+	}
+	return strings.TrimSpace(text[start:end])
+}
+
+// applyRetryLogic forces approval if stuck in retry loop
+func (e *Evaluator) applyRetryLogic(result *EvaluatorResult) {
+	if e.retryCount < e.maxRetries {
+		return
+	}
+
+	if result.SuccessCriteriaMet || result.UserInputNeeded {
+		return
+	}
+
+	log.Printf("⚠️ Forcing approval after %d retries", e.retryCount)
+	result.SuccessCriteriaMet = true
+	result.Feedback = fmt.Sprintf("%s (Approved after %d retries)", result.Feedback, e.retryCount)
+	if result.Score < 60 {
+		result.Score = 60
+	}
+}
+
+// defaultApproval returns a passing result for error cases
+func (e *Evaluator) defaultApproval(feedback string) *EvaluatorResult {
+	return &EvaluatorResult{
+		Feedback:           feedback,
+		SuccessCriteriaMet: true,
+		UserInputNeeded:    false,
+		Score:              100,
+	}
+}
+
+// logResult logs the evaluation outcome
+func (e *Evaluator) logResult(result *EvaluatorResult) {
+	status := "PASS"
+	if !result.SuccessCriteriaMet {
+		status = "FAIL"
+	}
+
+	// Use fmt.Print for immediate output (no buffering)
+	fmt.Printf("%s ✓ %s EVALUATOR: Result = %s (score: %d/100)\n", time.Now().Format("2006/01/02 15:04:05"), strings.ToUpper(string(e.evalType)), status, result.Score)
+	fmt.Printf("%s    - Success criteria met: %v\n", time.Now().Format("2006/01/02 15:04:05"), result.SuccessCriteriaMet)
+	fmt.Printf("%s    - User input needed: %v\n", time.Now().Format("2006/01/02 15:04:05"), result.UserInputNeeded)
+	fmt.Printf("%s    - Feedback: %s\n", time.Now().Format("2006/01/02 15:04:05"), result.Feedback)
+
+	if !result.SuccessCriteriaMet && !result.UserInputNeeded {
+		fmt.Printf("%s ⚠️ Evaluator rejected response - agent will retry!\n", time.Now().Format("2006/01/02 15:04:05"))
+	}
+}
+
+// IncrementRetry increments the retry counter
+func (e *Evaluator) IncrementRetry() {
+	e.retryCount++
+}
+
+// ResetRetry resets the retry counter
+func (e *Evaluator) ResetRetry() {
+	e.retryCount = 0
+}
+
+// ShouldRetry returns true if we should retry based on evaluation
+func (e *Evaluator) ShouldRetry(result *EvaluatorResult) bool {
+	if result.SuccessCriteriaMet || result.UserInputNeeded {
+		return false
+	}
+	// Retry if score is below 60 (pass threshold)
+	return result.Score < 60 && e.retryCount < e.maxRetries
+}
+
+var careerKeywords = []string{"job", "career", "resume", "cover letter", "hiring", "position", "role", "employment"}
+var crmKeywords = []string{"crm", "contact", "account", "organization", "individual", "lookup", "record"}
+
+// DetermineEvaluatorType determines which evaluator to use based on the request
+func DetermineEvaluatorType(userMessage string) EvaluatorType {
+	lower := strings.ToLower(userMessage)
+	if containsAnyKeyword(lower, careerKeywords) {
+		return CareerEvaluator
+	}
+	if containsAnyKeyword(lower, crmKeywords) {
+		return CRMEvaluator
+	}
+	return GeneralEvaluator
+}
+
+func containsAnyKeyword(s string, keywords []string) bool {
+	for _, kw := range keywords {
+		if strings.Contains(s, kw) {
+			return true
+		}
+	}
+	return false
+}

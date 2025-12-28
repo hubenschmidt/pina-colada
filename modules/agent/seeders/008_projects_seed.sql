@@ -4,6 +4,7 @@
 DO $$
 DECLARE
     v_tenant_id BIGINT;
+    v_user_id BIGINT;
     v_job_search_id BIGINT;
     v_consulting_id BIGINT;
 BEGIN
@@ -15,19 +16,24 @@ BEGIN
         RETURN;
     END IF;
 
+    -- Get bootstrap user for audit columns
+    SELECT id INTO v_user_id FROM "User" WHERE email = 'whubenschmidt@gmail.com' LIMIT 1;
+
     -- Fix any leads without tenant_id
     UPDATE "Lead" l
     SET tenant_id = v_tenant_id
     WHERE l.tenant_id IS NULL;
 
     -- Create Job Search 2025 Project
-    INSERT INTO "Project" (tenant_id, name, description, status, start_date, created_at, updated_at)
+    INSERT INTO "Project" (tenant_id, name, description, status, start_date, created_by, updated_by, created_at, updated_at)
     VALUES (
         v_tenant_id,
         'Job Search 2025',
         'Active job search campaign for 2025',
         'Active',
         NOW(),
+        v_user_id,
+        v_user_id,
         NOW(),
         NOW()
     )
@@ -39,13 +45,15 @@ BEGIN
     END IF;
 
     -- Create Consulting Pipeline Project
-    INSERT INTO "Project" (tenant_id, name, description, status, start_date, created_at, updated_at)
+    INSERT INTO "Project" (tenant_id, name, description, status, start_date, created_by, updated_by, created_at, updated_at)
     VALUES (
         v_tenant_id,
         'Consulting Pipeline',
         'Consulting opportunities and partnerships',
         'Active',
         NOW(),
+        v_user_id,
+        v_user_id,
         NOW(),
         NOW()
     )

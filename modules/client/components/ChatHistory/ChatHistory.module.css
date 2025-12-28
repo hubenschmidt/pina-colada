@@ -1,0 +1,202 @@
+.container {
+  margin-bottom: 0.5rem;
+}
+
+.collapsedContainer {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 0.5rem;
+}
+
+.collapsedButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 0.25rem;
+  color: var(--zinc-600);
+  transition: background-color 0.15s;
+}
+
+.collapsedButton:hover {
+  background-color: var(--zinc-100);
+}
+
+:global(.dark) .collapsedButton {
+  color: var(--zinc-400);
+}
+
+:global(.dark) .collapsedButton:hover {
+  background-color: var(--zinc-800);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.25rem;
+}
+
+.headerButton {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  color: var(--zinc-600);
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.headerButton:hover {
+  background-color: var(--zinc-100);
+  color: var(--zinc-900);
+}
+
+:global(.dark) .headerButton {
+  color: var(--zinc-400);
+}
+
+:global(.dark) .headerButton:hover {
+  background-color: var(--zinc-800);
+  color: var(--zinc-100);
+}
+
+.toggleButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: auto;
+  color: var(--zinc-600);
+}
+
+:global(.dark) .toggleButton {
+  color: var(--zinc-400);
+}
+
+.chevron {
+  margin-left: auto;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.newButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  color: var(--zinc-500);
+  transition: all 0.15s;
+}
+
+.newButton:hover {
+  background-color: var(--zinc-100);
+  color: var(--lime-600);
+}
+
+:global(.dark) .newButton:hover {
+  background-color: var(--zinc-800);
+  color: var(--lime-400);
+}
+
+.list {
+  max-height: 200px;
+  overflow-y: auto;
+  margin-left: 0.75rem;
+}
+
+.loading,
+.empty {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--zinc-400);
+  font-style: italic;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.375rem 0.75rem;
+  margin-left: 0.5rem;
+  border-radius: 0.25rem;
+  cursor: pointer;
+  transition: background-color 0.15s;
+}
+
+.item:hover {
+  background-color: var(--zinc-100);
+}
+
+:global(.dark) .item:hover {
+  background-color: var(--zinc-800);
+}
+
+.itemActive {
+  background-color: var(--zinc-100);
+  border-left: 2px solid var(--lime-500);
+}
+
+:global(.dark) .itemActive {
+  background-color: var(--zinc-800);
+  border-left-color: var(--lime-400);
+}
+
+.itemContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.itemTitle {
+  font-size: 0.8125rem;
+  color: var(--zinc-600);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: color 0.15s;
+}
+
+:global(.dark) .itemTitle {
+  color: var(--zinc-400);
+}
+
+.item:hover .itemTitle {
+  color: var(--zinc-900);
+}
+
+:global(.dark) .item:hover .itemTitle {
+  color: var(--zinc-100);
+}
+
+.itemTime {
+  font-size: 0.6875rem;
+  color: var(--zinc-400);
+}
+
+.archiveButton {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  color: var(--zinc-400);
+  opacity: 0.7;
+  transition: all 0.15s;
+}
+
+.archiveButton:hover {
+  background-color: var(--zinc-200);
+  color: var(--zinc-600);
+  opacity: 1;
+}
+
+:global(.dark) .archiveButton:hover {
+  background-color: var(--zinc-700);
+  color: var(--zinc-300);
+}
+

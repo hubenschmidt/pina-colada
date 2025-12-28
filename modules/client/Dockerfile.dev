@@ -1,0 +1,16 @@
+# Dev stage - simple, fast, hot-reload via volume mount
+FROM node:24-slim
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --prefer-offline --no-audit
+
+# Source code mounted via docker-compose volume
+# Command overridden to "npm run dev" in docker-compose
+
+EXPOSE 3001
+CMD ["npm", "run", "dev"]
