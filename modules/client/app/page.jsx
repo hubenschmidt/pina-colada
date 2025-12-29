@@ -4,6 +4,7 @@ import Link from "next/link";
 import { CheckCircle2, ChevronRight } from "lucide-react";
 import Hero from "../components/Hero/Hero";
 import Header from "../components/Header/Header";
+import BandBg from "../components/BandBg/BandBg";
 
 const Home = () => {
   useEffect(() => {
@@ -33,8 +34,9 @@ const Home = () => {
         <Hero />
 
         {/* Software Development */}
-        <section id="services" className="border-t border-zinc-200 bg-white">
-          <div className="mx-auto max-w-6xl px-4 py-20">
+        <section id="services" className="relative border-t border-zinc-200 bg-white">
+          <BandBg />
+          <div className="relative mx-auto max-w-6xl px-4 py-20">
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
               Software Development
             </h2>
@@ -82,8 +84,9 @@ const Home = () => {
         </section>
 
         {/* AI Development */}
-        <section id="ai" className="border-t border-zinc-200 bg-zinc-50">
-          <div className="mx-auto max-w-6xl px-4 py-20">
+        <section id="ai" className="relative border-t border-zinc-200 bg-zinc-50">
+          <BandBg />
+          <div className="relative mx-auto max-w-6xl px-4 py-20">
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
               AI Development
             </h2>
@@ -112,8 +115,9 @@ const Home = () => {
         </section>
 
         {/* Approach */}
-        <section id="approach" className="border-t border-zinc-200 bg-white">
-          <div className="mx-auto max-w-6xl px-4 py-20">
+        <section id="approach" className="relative border-t border-zinc-200 bg-white">
+          <BandBg />
+          <div className="relative mx-auto max-w-6xl px-4 py-20">
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
               Our Approach
             </h2>
