@@ -19,15 +19,15 @@ import (
 	"github.com/openai/openai-go/v2/packages/param"
 	"gorm.io/datatypes"
 
-	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
-	"github.com/pina-colada-co/agent-go/internal/agent/state"
-	"github.com/pina-colada-co/agent-go/internal/agent/tools"
-	"github.com/pina-colada-co/agent-go/internal/middleware"
-	"github.com/pina-colada-co/agent-go/internal/agent/utils"
-	"github.com/pina-colada-co/agent-go/internal/agent/workers"
-	"github.com/pina-colada-co/agent-go/internal/config"
-	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/agent/prompts"
+	"agent/internal/agent/state"
+	"agent/internal/agent/tools"
+	"agent/internal/middleware"
+	"agent/internal/agent/utils"
+	"agent/internal/agent/workers"
+	"agent/internal/config"
+	apperrors "agent/internal/errors"
+	"agent/internal/services"
 )
 
 // TokenUsage tracks token consumption for a turn or session

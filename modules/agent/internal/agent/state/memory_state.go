@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sync"
 
-	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
+	apperrors "agent/internal/errors"
 )
 
 // MemoryStateManager is an in-memory implementation of StateManager.

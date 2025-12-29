@@ -3,8 +3,8 @@ package workers
 import (
 	"github.com/nlpodyssey/openai-agents-go/agents"
 	"github.com/nlpodyssey/openai-agents-go/modelsettings"
-	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
-	"github.com/pina-colada-co/agent-go/internal/agent/tools"
+	"agent/internal/agent/prompts"
+	"agent/internal/agent/tools"
 )
 
 // NewCRMWorker creates the CRM specialist agent.

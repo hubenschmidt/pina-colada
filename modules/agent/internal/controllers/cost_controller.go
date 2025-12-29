@@ -3,7 +3,7 @@ package controllers
 import (
 	"net/http"
 
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/services"
 )
 
 // CostController handles costs HTTP requests

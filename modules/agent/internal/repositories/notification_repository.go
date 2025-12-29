@@ -4,7 +4,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
+	"agent/internal/models"
 	"gorm.io/gorm"
 )
 

@@ -7,7 +7,7 @@ import (
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
+	"agent/internal/models"
 )
 
 // MetricRepository handles data access for recording sessions and metrics

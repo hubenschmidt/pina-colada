@@ -8,8 +8,8 @@ import (
 	"strconv"
 
 	"github.com/google/uuid"
-	"github.com/pina-colada-co/agent-go/internal/agent"
-	"github.com/pina-colada-co/agent-go/internal/middleware"
+	"agent/internal/agent"
+	"agent/internal/middleware"
 )
 
 // AgentController handles agent HTTP requests

@@ -3,7 +3,7 @@ package services
 import (
 	"errors"
 
-	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"agent/internal/repositories"
 )
 
 var ErrInvalidNodeName = errors.New("invalid node name")

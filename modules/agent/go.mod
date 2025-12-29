@@ -1,4 +1,4 @@
-module github.com/pina-colada-co/agent-go
+module agent
 
 go 1.24.4
 

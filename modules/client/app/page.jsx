@@ -3,17 +3,12 @@ import React, { useEffect } from "react";
 import Link from "next/link";
 import SectionFrame from "../components/SectionFrame/SectionFrame";
 import { CheckCircle2, ChevronRight } from "lucide-react";
-import { Card, SectionTitle, CardLink } from "../components/ui/ui";
+import { Card, SectionTitle } from "../components/ui/ui";
 import Hero from "../components/Hero/Hero";
 import BandBg from "../components/BandBg/BandBg";
-import Chat from "../components/Chat/Chat";
-import { useNavContext } from "../context/navContext";
 import Header from "../components/Header/Header";
 
 const Home = () => {
-  const { navState } = useNavContext();
-  const { agentOpen } = navState;
-
   // Clear the hash when user scrolls back to (near) top
   useEffect(() => {
     let ticking = false;
@@ -36,10 +31,6 @@ const Home = () => {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  useEffect(() => {
-    document.getElementById("agent")?.scrollIntoView({ behavior: "smooth" });
-  }, [agentOpen]);
-
   return (
     <>
       <Header />
@@ -47,13 +38,6 @@ const Home = () => {
         <Hero />
         <section className="relative overflow-hidden">
           <BandBg />
-
-          {/* Keep Chat mounted, but hide when not open */}
-          <div style={{ display: agentOpen ? "block" : "none" }}>
-            <SectionFrame id="agent" bandBg="bg-blue-200">
-              <Chat />
-            </SectionFrame>
-          </div>
 
           <SectionFrame id="services" bandBg="bg-blue-200">
             <SectionTitle kicker="Software and AI Development" />
@@ -204,41 +188,6 @@ const Home = () => {
                 </React.Fragment>
               ))}
             </div>
-          </SectionFrame>
-
-          <SectionFrame id="portfolio" bandBg="bg-blue-300">
-            <SectionTitle kicker="Portfolio" />
-            {[
-              {
-                k: "helios",
-                href: "https://www.cumulus-erp.com/helios-ipaas/",
-                title: "Helios — B2B Integration Platform",
-                description: "iPaaS adopted by enterprise manufacturers.",
-              },
-              {
-                k: "langgraph-react",
-                href: "https://github.com/hubenschmidt/langgraph-react",
-                title: "langgraph-react",
-                description:
-                  "enterprise-ready LangGraph + React starter rolled with Langfuse self-hosted LLM observability tracing",
-              },
-              {
-                k: "tunecrook",
-                href: "https://www.tunecrook.com/",
-                title: "TuneCrook — DJ Music Discovery",
-                description: "Agentic AI curates your Discogs collection.",
-              },
-            ].map((p) => (
-              <CardLink key={p.k} href={p.href}>
-                <div className="flex items-center justify-between">
-                  <h3 className="text-2xl font-medium text-blue-800">{p.title}</h3>
-                  <span
-                    className={`h-2 w-2 rounded-full bg-gradient-to-r from-lime-400 to-yellow-400`}
-                  />
-                </div>
-                <p className="mt-2 text-sm text-blue-800">{p.description}</p>
-              </CardLink>
-            ))}
           </SectionFrame>
         </section>
         {/* Contact */}

@@ -10,8 +10,8 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
-	"github.com/pina-colada-co/agent-go/internal/agent/prompts"
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/agent/prompts"
+	"agent/internal/services"
 )
 
 // EvaluatorResult represents the structured output from an evaluator

@@ -6,9 +6,9 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/pina-colada-co/agent-go/internal/middleware"
-	"github.com/pina-colada-co/agent-go/internal/schemas"
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/middleware"
+	"agent/internal/schemas"
+	"agent/internal/services"
 )
 
 // ReportController handles report HTTP requests

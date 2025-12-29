@@ -6,9 +6,9 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/pina-colada-co/agent-go/internal/repositories"
-	"github.com/pina-colada-co/agent-go/internal/schemas"
-	"github.com/pina-colada-co/agent-go/internal/serializers"
+	"agent/internal/repositories"
+	"agent/internal/schemas"
+	"agent/internal/serializers"
 )
 
 // ErrIndividualNotFound is returned when an individual is not found

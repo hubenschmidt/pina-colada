@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"agent/internal/repositories"
 	"gorm.io/datatypes"
 )
 

@@ -3,8 +3,8 @@ package services
 import (
 	"errors"
 
-	"github.com/pina-colada-co/agent-go/internal/repositories"
-	"github.com/pina-colada-co/agent-go/internal/serializers"
+	"agent/internal/repositories"
+	"agent/internal/serializers"
 )
 
 var ErrNoteNotFound = errors.New("note not found")

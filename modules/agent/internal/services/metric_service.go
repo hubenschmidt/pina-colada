@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"agent/internal/repositories"
 )
 
 var ErrNoActiveSession = errors.New("no active recording session")

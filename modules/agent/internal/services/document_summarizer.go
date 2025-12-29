@@ -10,8 +10,8 @@ import (
 
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
-	"github.com/pina-colada-co/agent-go/internal/models"
-	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"agent/internal/models"
+	"agent/internal/repositories"
 )
 
 const summaryMaxTokens int64 = 300

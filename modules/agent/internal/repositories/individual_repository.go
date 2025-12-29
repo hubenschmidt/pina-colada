@@ -6,8 +6,8 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
-	"github.com/pina-colada-co/agent-go/internal/models"
+	apperrors "agent/internal/errors"
+	"agent/internal/models"
 	"gorm.io/gorm"
 )
 

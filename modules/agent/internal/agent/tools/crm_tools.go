@@ -6,8 +6,8 @@ import (
 	"log"
 	"strings"
 
-	"github.com/pina-colada-co/agent-go/internal/middleware"
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/middleware"
+	"agent/internal/services"
 )
 
 // PermissionChecker checks if the user in context has the specified permission

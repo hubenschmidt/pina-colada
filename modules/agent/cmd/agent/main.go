@@ -10,14 +10,14 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pina-colada-co/agent-go/internal/agent"
-	"github.com/pina-colada-co/agent-go/internal/agent/utils"
-	"github.com/pina-colada-co/agent-go/internal/config"
-	"github.com/pina-colada-co/agent-go/internal/controllers"
-	"github.com/pina-colada-co/agent-go/internal/repositories"
-	"github.com/pina-colada-co/agent-go/internal/routes"
-	"github.com/pina-colada-co/agent-go/internal/services"
-	"github.com/pina-colada-co/agent-go/pkg/db"
+	"agent/internal/agent"
+	"agent/internal/agent/utils"
+	"agent/internal/config"
+	"agent/internal/controllers"
+	"agent/internal/repositories"
+	"agent/internal/routes"
+	"agent/internal/services"
+	"agent/pkg/db"
 )
 
 func main() {

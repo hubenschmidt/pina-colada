@@ -7,9 +7,9 @@ import (
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/pina-colada-co/agent-go/internal/middleware"
-	"github.com/pina-colada-co/agent-go/internal/serializers"
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/middleware"
+	"agent/internal/serializers"
+	"agent/internal/services"
 )
 
 // RoleController handles role HTTP requests

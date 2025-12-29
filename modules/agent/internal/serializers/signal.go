@@ -1,7 +1,7 @@
 package serializers
 
 import (
-	"github.com/pina-colada-co/agent-go/internal/models"
+	"agent/internal/models"
 	"github.com/shopspring/decimal"
 )
 

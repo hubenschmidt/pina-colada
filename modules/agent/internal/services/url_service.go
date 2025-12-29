@@ -3,7 +3,7 @@ package services
 import (
 	"sync"
 
-	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"agent/internal/repositories"
 )
 
 // URLService resolves short URL codes to full URLs

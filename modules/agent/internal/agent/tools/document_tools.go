@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/ledongthuc/pdf"
-	"github.com/pina-colada-co/agent-go/internal/schemas"
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/schemas"
+	"agent/internal/services"
 )
 
 // DocumentTools holds document-related tools for the agent

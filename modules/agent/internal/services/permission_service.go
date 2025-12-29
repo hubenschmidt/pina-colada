@@ -4,8 +4,8 @@ import (
 	"context"
 	"strings"
 
-	"github.com/pina-colada-co/agent-go/internal/middleware"
-	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"agent/internal/middleware"
+	"agent/internal/repositories"
 )
 
 // PermissionService handles permission business logic

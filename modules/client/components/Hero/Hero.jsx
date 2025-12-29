@@ -1,9 +1,7 @@
 "use client";
 import Link from "next/link";
-import { useNavContext } from "../../context/navContext";
 
 const Hero = () => {
-  const { dispatchNav } = useNavContext();
   return (
     <section className="relative overflow-hidden">
       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -35,13 +33,6 @@ const Hero = () => {
             href="/#services"
             className="inline-flex items-center justify-center rounded-full border border-zinc-300 px-6 py-3 text-sm font-semibold text-blue-900 hover:border-lime-400/60 hover:text-blue-500">
             Explore services
-          </Link>
-          {/* Only show "Chat with us" on mobile (hidden on sm and above) */}
-          <Link
-            href="/#agent"
-            className="inline-flex items-center justify-center rounded-full border border-zinc-300 px-6 py-3 text-sm font-semibold text-blue-900 hover:border-lime-400/60 hover:text-blue-500"
-            onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: true })}>
-            Meet our new assistant 🍍
           </Link>
         </div>
       </div>

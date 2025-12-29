@@ -3,8 +3,8 @@ package utils
 import (
 	"sync"
 
-	"github.com/pina-colada-co/agent-go/internal/repositories"
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/repositories"
+	"agent/internal/services"
 )
 
 // ConfigCache provides cached access to agent node configurations per user

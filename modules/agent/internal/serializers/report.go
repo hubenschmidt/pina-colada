@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
+	"agent/internal/models"
 )
 
 // SavedReportResponse represents a saved report in API responses

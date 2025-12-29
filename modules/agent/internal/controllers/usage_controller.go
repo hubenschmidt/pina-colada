@@ -3,8 +3,8 @@ package controllers
 import (
 	"net/http"
 
-	"github.com/pina-colada-co/agent-go/internal/middleware"
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/middleware"
+	"agent/internal/services"
 )
 
 // UsageController handles usage analytics HTTP requests

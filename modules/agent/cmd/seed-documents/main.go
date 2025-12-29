@@ -12,7 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"agent/internal/repositories"
 )
 
 var seedFiles = []string{

@@ -3,7 +3,7 @@ package serializers
 import (
 	"time"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
+	"agent/internal/models"
 )
 
 // IndustryResponse represents an industry

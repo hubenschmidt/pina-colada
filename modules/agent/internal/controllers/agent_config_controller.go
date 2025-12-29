@@ -8,11 +8,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/pina-colada-co/agent-go/internal/agent/utils"
-	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
-	"github.com/pina-colada-co/agent-go/internal/middleware"
-	"github.com/pina-colada-co/agent-go/internal/serializers"
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/agent/utils"
+	apperrors "agent/internal/errors"
+	"agent/internal/middleware"
+	"agent/internal/serializers"
+	"agent/internal/services"
 )
 
 type AgentConfigController struct {

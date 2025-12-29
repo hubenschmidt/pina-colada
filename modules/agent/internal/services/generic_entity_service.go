@@ -1,7 +1,7 @@
 package services
 
 import (
-	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"agent/internal/repositories"
 )
 
 // GenericEntityService provides generic entity operations

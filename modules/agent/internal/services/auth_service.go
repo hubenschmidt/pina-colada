@@ -5,8 +5,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/pina-colada-co/agent-go/internal/repositories"
-	"github.com/pina-colada-co/agent-go/internal/schemas"
+	"agent/internal/repositories"
+	"agent/internal/schemas"
 )
 
 var ErrUserNotFound = errors.New("user not found")

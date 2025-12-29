@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/pina-colada-co/agent-go/internal/repositories"
-	"github.com/pina-colada-co/agent-go/internal/schemas"
+	"agent/internal/repositories"
+	"agent/internal/schemas"
 )
 
 var validate = validator.New()

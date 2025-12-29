@@ -9,8 +9,8 @@ import (
 	"sync"
 
 	"github.com/gorilla/websocket"
-	"github.com/pina-colada-co/agent-go/internal/agent"
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/agent"
+	"agent/internal/services"
 )
 
 var upgrader = websocket.Upgrader{

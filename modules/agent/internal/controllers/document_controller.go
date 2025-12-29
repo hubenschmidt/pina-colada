@@ -8,9 +8,9 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/pina-colada-co/agent-go/internal/lib"
-	"github.com/pina-colada-co/agent-go/internal/middleware"
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/lib"
+	"agent/internal/middleware"
+	"agent/internal/services"
 )
 
 type DocumentController struct {

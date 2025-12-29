@@ -3,7 +3,7 @@ package services
 import (
 	"errors"
 
-	"github.com/pina-colada-co/agent-go/internal/repositories"
+	"agent/internal/repositories"
 )
 
 var ErrPreferencesUserNotFound = errors.New("user not found")

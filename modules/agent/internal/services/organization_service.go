@@ -5,11 +5,11 @@ import (
 
 	"github.com/shopspring/decimal"
 
-	"github.com/pina-colada-co/agent-go/internal/lib"
-	"github.com/pina-colada-co/agent-go/internal/models"
-	"github.com/pina-colada-co/agent-go/internal/repositories"
-	"github.com/pina-colada-co/agent-go/internal/schemas"
-	"github.com/pina-colada-co/agent-go/internal/serializers"
+	"agent/internal/lib"
+	"agent/internal/models"
+	"agent/internal/repositories"
+	"agent/internal/schemas"
+	"agent/internal/serializers"
 )
 
 // ErrOrganizationNotFound is returned when an organization is not found

@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"github.com/pina-colada-co/agent-go/internal/schemas"
-	"github.com/pina-colada-co/agent-go/internal/services"
+	"agent/internal/schemas"
+	"agent/internal/services"
 )
 
 type LookupController struct {

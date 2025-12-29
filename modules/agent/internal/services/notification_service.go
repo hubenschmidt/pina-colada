@@ -1,8 +1,8 @@
 package services
 
 import (
-	"github.com/pina-colada-co/agent-go/internal/repositories"
-	"github.com/pina-colada-co/agent-go/internal/serializers"
+	"agent/internal/repositories"
+	"agent/internal/serializers"
 )
 
 // NotificationService handles notification business logic

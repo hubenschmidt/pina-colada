@@ -5,7 +5,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
+	"agent/internal/models"
 )
 
 type URLShortenerRepository struct {

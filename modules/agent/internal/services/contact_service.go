@@ -3,9 +3,9 @@ package services
 import (
 	"errors"
 
-	"github.com/pina-colada-co/agent-go/internal/repositories"
-	"github.com/pina-colada-co/agent-go/internal/schemas"
-	"github.com/pina-colada-co/agent-go/internal/serializers"
+	"agent/internal/repositories"
+	"agent/internal/schemas"
+	"agent/internal/serializers"
 )
 
 var ErrContactNotFound = errors.New("contact not found")

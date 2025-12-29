@@ -2,15 +2,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useNavContext } from "../../context/navContext";
 import { useUserContext } from "../../context/userContext";
 import HeaderAuthed from "../HeaderAuthed/HeaderAuthed";
 import NotificationBell from "../NotificationBell/NotificationBell";
 import { Menu, Button } from "@mantine/core";
-import { ChevronDown, Settings, LogOut, BarChart2 } from "lucide-react";
+import { ChevronDown, Settings, LogOut, BarChart2, Github, Linkedin } from "lucide-react";
 
 const Header = () => {
-  const { dispatchNav } = useNavContext();
   const { userState } = useUserContext();
   const { user, isLoading } = userState;
   const pathname = usePathname();
@@ -38,59 +36,39 @@ const Header = () => {
             </span>
           </Link>
           <HeaderAuthed />
+          {!user && (
+            <div className="flex items-center gap-3">
+              <Link
+                href="https://github.com/hubenschmidt"
+                target="_blank"
+                className="text-blue-700 hover:text-blue-500">
+                <Github size={20} />
+              </Link>
+              <Link
+                href="https://www.linkedin.com/company/pinacoladaco"
+                target="_blank"
+                className="text-blue-700 hover:text-blue-500">
+                <Linkedin size={20} />
+              </Link>
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-4">
           {/* Hide on mobile (portrait and landscape), show on tablets+ */}
           <nav className="hidden sm:flex [@media(max-height:500px)]:!hidden items-center gap-6 text-sm text-zinc-600 font-semibold">
             {!user && !isTenantSelectPage && (
               <>
-                <Link
-                  href="/#agent"
-                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
-                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: true })}>
-                  Chat with us
-                </Link>
-                <Link
-                  href="/about"
-                  className="text-blue-700 hover:text-blue-500"
-                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
-                  About
-                </Link>
-                <Link
-                  href="/#services"
-                  className="text-blue-700 hover:text-blue-500"
-                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
+                <Link href="/#services" className="text-blue-700 hover:text-blue-500">
                   Software Development
                 </Link>
-                <Link
-                  href="/#ai"
-                  className="text-blue-700 hover:text-blue-500"
-                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
+                <Link href="/#ai" className="text-blue-700 hover:text-blue-500">
                   AI
                 </Link>
-                <Link
-                  href="/#approach"
-                  className="text-blue-700 hover:text-blue-500"
-                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
+                <Link href="/#approach" className="text-blue-700 hover:text-blue-500">
                   Approach
                 </Link>
-                <Link
-                  href="/#portfolio"
-                  className="text-blue-700 hover:text-blue-500"
-                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
-                  Portfolio
-                </Link>
-                <Link
-                  href="/#contact"
-                  className="text-blue-700 hover:text-blue-500"
-                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
+                <Link href="/#contact" className="text-blue-700 hover:text-blue-500">
                   Contact
-                </Link>
-                <Link
-                  href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
-                  className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 to-yellow-400 px-6 py-3 text-sm font-semibold text-blue-900 hover:brightness-95 hover:text-blue-500"
-                  onClick={() => dispatchNav({ type: "SET_AGENT_OPEN", payload: false })}>
-                  Start a project
                 </Link>
               </>
             )}

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
+	"agent/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"

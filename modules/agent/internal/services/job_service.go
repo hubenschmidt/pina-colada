@@ -5,10 +5,10 @@ import (
 	"strings"
 	"time"
 
-	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
-	"github.com/pina-colada-co/agent-go/internal/repositories"
-	"github.com/pina-colada-co/agent-go/internal/schemas"
-	"github.com/pina-colada-co/agent-go/internal/serializers"
+	apperrors "agent/internal/errors"
+	"agent/internal/repositories"
+	"agent/internal/schemas"
+	"agent/internal/serializers"
 )
 
 var ErrJobNotFound = errors.New("job not found")

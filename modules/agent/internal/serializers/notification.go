@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pina-colada-co/agent-go/internal/models"
+	"agent/internal/models"
 )
 
 // EntityURLResolver provides methods to resolve entity URLs and project IDs

@@ -5,11 +5,11 @@ import (
 	"errors"
 	"fmt"
 
-	apperrors "github.com/pina-colada-co/agent-go/internal/errors"
-	"github.com/pina-colada-co/agent-go/internal/repositories"
-	"github.com/pina-colada-co/agent-go/internal/schemas"
-	"github.com/pina-colada-co/agent-go/internal/serializers"
-	"github.com/pina-colada-co/agent-go/internal/validation"
+	apperrors "agent/internal/errors"
+	"agent/internal/repositories"
+	"agent/internal/schemas"
+	"agent/internal/serializers"
+	"agent/internal/validation"
 	"gorm.io/datatypes"
 )
 

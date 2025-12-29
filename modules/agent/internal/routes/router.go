@@ -7,8 +7,8 @@ import (
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/cors"
 
-	"github.com/pina-colada-co/agent-go/internal/controllers"
-	appMiddleware "github.com/pina-colada-co/agent-go/internal/middleware"
+	"agent/internal/controllers"
+	appMiddleware "agent/internal/middleware"
 )
 
 // Controllers holds all controller instances
