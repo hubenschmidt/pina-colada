@@ -6,7 +6,7 @@ import { useUserContext } from "../../context/userContext";
 import HeaderAuthed from "../HeaderAuthed/HeaderAuthed";
 import NotificationBell from "../NotificationBell/NotificationBell";
 import { Menu, Button } from "@mantine/core";
-import { ChevronDown, Settings, LogOut, BarChart2, Github, Linkedin } from "lucide-react";
+import { ChevronDown, Settings, LogOut, BarChart2, Github, Linkedin, LogIn } from "lucide-react";
 
 const Header = () => {
   const { userState } = useUserContext();
@@ -17,7 +17,7 @@ const Header = () => {
   if (isLoading) return null;
 
   return (
-    <header className="sticky top-0 z-40 bg-blue-50 dark:bg-zinc-900">
+    <header className="sticky top-0 z-40 bg-white dark:bg-zinc-900 border-b border-zinc-200">
       <div
         className={`mx-auto max-w-6xl px-4 flex items-center justify-between ${user ? "py-0.5" : "py-4"}`}>
         <div className={`flex items-center ${user ? "gap-4" : "gap-6"}`}>
@@ -41,13 +41,13 @@ const Header = () => {
               <Link
                 href="https://github.com/hubenschmidt"
                 target="_blank"
-                className="text-blue-700 hover:text-blue-500">
+                className="text-zinc-700 hover:text-zinc-900">
                 <Github size={20} />
               </Link>
               <Link
                 href="https://www.linkedin.com/company/pinacoladaco"
                 target="_blank"
-                className="text-blue-700 hover:text-blue-500">
+                className="text-zinc-700 hover:text-zinc-900">
                 <Linkedin size={20} />
               </Link>
             </div>
@@ -58,16 +58,16 @@ const Header = () => {
           <nav className="hidden sm:flex [@media(max-height:500px)]:!hidden items-center gap-6 text-sm text-zinc-600 font-semibold">
             {!user && !isTenantSelectPage && (
               <>
-                <Link href="/#services" className="text-blue-700 hover:text-blue-500">
+                <Link href="/#services" className="text-zinc-700 hover:text-zinc-900">
                   Software Development
                 </Link>
-                <Link href="/#ai" className="text-blue-700 hover:text-blue-500">
+                <Link href="/#ai" className="text-zinc-700 hover:text-zinc-900">
                   AI
                 </Link>
-                <Link href="/#approach" className="text-blue-700 hover:text-blue-500">
+                <Link href="/#approach" className="text-zinc-700 hover:text-zinc-900">
                   Approach
                 </Link>
-                <Link href="/#contact" className="text-blue-700 hover:text-blue-500">
+                <Link href="/#contact" className="text-zinc-700 hover:text-zinc-900">
                   Contact
                 </Link>
               </>
@@ -106,8 +106,8 @@ const Header = () => {
               </Menu>
             </div>
           ) : (
-            <Link href="/login" className="text-blue-700 hover:text-blue-500 text-sm font-semibold">
-              Login
+            <Link href="/login" className="text-zinc-700 hover:text-zinc-900">
+              <LogIn size={20} />
             </Link>
           )}
         </div>

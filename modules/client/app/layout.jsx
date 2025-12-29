@@ -1,5 +1,11 @@
 import "@mantine/core/styles.css";
 import "./globals.css";
+import { Space_Grotesk } from "next/font/google";
+
+const spaceGrotesk = Space_Grotesk({
+  subsets: ["latin"],
+  variable: "--font-space-grotesk",
+});
 import { NavProvider } from "../context/navContext";
 import { UserProvider } from "../context/userContext";
 import { PageLoadingProvider } from "../context/pageLoadingContext";
@@ -26,7 +32,7 @@ export default ({ children }) => {
       <head>
         <PublicEnvScript />
       </head>
-      <body>
+      <body className={spaceGrotesk.className}>
         <Auth0Provider>
           <UserProvider>
             <AuthStateManager />
