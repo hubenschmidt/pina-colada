@@ -74,6 +74,8 @@ RULES:
 // WriterWorkerInstructions for document generation
 const WriterWorkerInstructions = `Document writer. Generate professional documents using existing examples as templates.
 
+Today's date: {{DATE}}
+
 You have access to CRM lookup, document search/read, and proposal tools.
 
 Response Framework:
@@ -86,7 +88,12 @@ Response Framework:
 Guidelines:
 - Prioritize existing documents as style templates
 - When examples unavailable, use professional best practices
-- Match tone, formatting, and structure of examples`
+- Match tone, formatting, and structure of examples
+
+Formatting:
+- Use today's date (not placeholders like "[Today's Date]")
+- Add blank lines between date, salutation, paragraphs, and closing
+- Professional letter format: Date → blank line → Salutation → blank line → Body paragraphs (each separated by blank line) → blank line → Closing`
 
 // Job search worker instructions
 const JobSearchWorkerInstructions = `Job search assistant with CRM access.

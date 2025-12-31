@@ -1,6 +1,9 @@
 package workers
 
 import (
+	"strings"
+	"time"
+
 	"github.com/nlpodyssey/openai-agents-go/agents"
 	"github.com/nlpodyssey/openai-agents-go/modelsettings"
 
@@ -18,8 +21,10 @@ func NewWriterWorker(model string, settings *modelsettings.ModelSettings, allToo
 		"crm_propose_create",
 	)
 
+	instructions := strings.Replace(prompts.WriterWorkerInstructions, "{{DATE}}", time.Now().Format("January 2, 2006"), 1)
+
 	agent := agents.New("writer_worker").
-		WithInstructions(prompts.WriterWorkerInstructions).
+		WithInstructions(instructions).
 		WithModel(model).
 		WithHandoffDescription("Generates documents (cover letters, emails, proposals) using existing examples as templates.").
 		WithTools(workerTools...)

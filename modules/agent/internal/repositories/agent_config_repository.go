@@ -16,6 +16,7 @@ const (
 	NodeJobSearchWorker    = "job_search_worker"
 	NodeCRMWorker          = "crm_worker"
 	NodeGeneralWorker      = "general_worker"
+	NodeWriterWorker       = "writer_worker"
 	NodeEvaluator          = "evaluator"
 	NodeTitleGenerator     = "title_generator"
 )
@@ -26,6 +27,7 @@ var AllNodeNames = []string{
 	NodeJobSearchWorker,
 	NodeCRMWorker,
 	NodeGeneralWorker,
+	NodeWriterWorker,
 	NodeEvaluator,
 	NodeTitleGenerator,
 }
@@ -37,6 +39,7 @@ var NodesAffectedByTierChanges = []string{
 	NodeJobSearchWorker,
 	NodeCRMWorker,
 	NodeGeneralWorker,
+	NodeWriterWorker,
 	NodeEvaluator,
 }
 
@@ -52,6 +55,7 @@ var DefaultModels = map[string]DefaultModelConfig{
 	NodeJobSearchWorker:    {"gpt-5.2", "openai"},
 	NodeCRMWorker:          {"gpt-5.2", "openai"},
 	NodeGeneralWorker:      {"gpt-5.2", "openai"},
+	NodeWriterWorker:       {"gpt-5.2", "openai"},
 	NodeEvaluator:          {"claude-sonnet-4-5-20250929", "anthropic"},
 	NodeTitleGenerator:     {"claude-haiku-4-5-20251001", "anthropic"},
 }
@@ -63,6 +67,7 @@ var NodeDisplayNames = map[string]string{
 	NodeJobSearchWorker:    "Job Search Worker",
 	NodeCRMWorker:          "CRM Worker",
 	NodeGeneralWorker:      "General Worker",
+	NodeWriterWorker:       "Writer Worker",
 	NodeEvaluator:          "Evaluator",
 	NodeTitleGenerator:     "Title Generator",
 }
@@ -73,6 +78,7 @@ var NodeDescriptions = map[string]string{
 	NodeJobSearchWorker:    "Searches for job listings and career opportunities",
 	NodeCRMWorker:          "Handles CRM lookups and data queries",
 	NodeGeneralWorker:      "Handles general questions and analysis",
+	NodeWriterWorker:       "Generates documents using existing examples as templates",
 	NodeEvaluator:          "Evaluates agent responses for quality",
 	NodeTitleGenerator:     "Generates conversation titles",
 }
