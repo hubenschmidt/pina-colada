@@ -37,7 +37,7 @@ const LoginPage = () => {
         <div className="flex flex-col items-center gap-6 max-w-md w-full">
           <div className="text-center mb-4">
             <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 mb-2">
-              Demo our AI-native CRM
+              Demo AI-CRM
             </h1>
           </div>
 
