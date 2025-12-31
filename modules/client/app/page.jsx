@@ -47,16 +47,16 @@ const Home = () => {
           <BandBg />
           <div className="relative mx-auto max-w-6xl px-4 py-24">
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
-              Software Developmentt
+              Software Development
             </h2>
             <div className="grid gap-x-12 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 {
-                  title: "Custom Software Development",
+                  title: "Custom Software",
                   points: ["Greenfield builds", "Event-driven & real-time", "Secure by design"],
                 },
                 {
-                  title: "Full-Stack Development",
+                  title: "Full-Stack",
                   points: ["Next.js/React UIs", "Node & APIs", "Testing & CI/CD"],
                 },
                 {
@@ -72,7 +72,7 @@ const Home = () => {
                   points: ["ETL & streaming", "Microservices", "3rd-party APIs"],
                 },
                 {
-                  title: "Web Development",
+                  title: "Web",
                   points: ["E-commerce integration", "Marketing sites", "Dashboards & portals"],
                 },
               ].map((s) => (
