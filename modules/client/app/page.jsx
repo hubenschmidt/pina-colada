@@ -34,10 +34,10 @@ const Home = () => {
         <Hero />
 
         {/* Software Development */}
-        <section id="services" className="relative border-t border-zinc-700 bg-zinc-800">
+        <section id="services" className="relative border-t border-zinc-200 bg-white">
           <BandBg />
           <div className="relative mx-auto max-w-6xl px-4 py-20">
-            <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-100">
+            <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
               Software Development
             </h2>
             <div className="grid gap-x-12 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
@@ -68,8 +68,8 @@ const Home = () => {
                 },
               ].map((s) => (
                 <div key={s.title}>
-                  <h3 className="mb-3 text-lg font-semibold text-zinc-100">{s.title}</h3>
-                  <ul className="space-y-2 text-sm text-zinc-400">
+                  <h3 className="mb-3 text-lg font-semibold text-zinc-900">{s.title}</h3>
+                  <ul className="space-y-2 text-sm text-zinc-600">
                     {s.points.map((p) => (
                       <li key={p} className="flex items-center gap-2">
                         <CheckCircle2 className="size-4 text-lime-500" />
@@ -84,10 +84,10 @@ const Home = () => {
         </section>
 
         {/* AI Development */}
-        <section id="ai" className="relative border-t border-zinc-700 bg-zinc-700">
+        <section id="ai" className="relative border-t border-zinc-200 bg-zinc-50">
           <BandBg />
           <div className="relative mx-auto max-w-6xl px-4 py-20">
-            <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-100">
+            <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
               AI Development
             </h2>
             <div className="grid gap-x-12 gap-y-10 md:grid-cols-3">
@@ -106,8 +106,8 @@ const Home = () => {
                 },
               ].map((s) => (
                 <div key={s.title}>
-                  <h3 className="mb-3 text-lg font-semibold text-zinc-100">{s.title}</h3>
-                  <p className="text-sm text-zinc-400">{s.desc}</p>
+                  <h3 className="mb-3 text-lg font-semibold text-zinc-900">{s.title}</h3>
+                  <p className="text-sm text-zinc-600">{s.desc}</p>
                 </div>
               ))}
             </div>
@@ -115,10 +115,10 @@ const Home = () => {
         </section>
 
         {/* Approach */}
-        <section id="approach" className="relative border-t border-zinc-700 bg-zinc-800">
+        <section id="approach" className="relative border-t border-zinc-200 bg-white">
           <BandBg />
           <div className="relative mx-auto max-w-6xl px-4 py-20">
-            <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-100">
+            <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
               Our Approach
             </h2>
             <div className="flex flex-col gap-8 md:flex-row md:items-start md:gap-4">
@@ -142,16 +142,16 @@ const Home = () => {
                 <React.Fragment key={s.title}>
                   <div className="flex-1">
                     <div className="mb-3 flex items-center gap-3">
-                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-100 text-sm font-bold text-zinc-900">
+                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-sm font-bold text-white">
                         {s.num}
                       </span>
-                      <h3 className="text-lg font-semibold text-zinc-100">{s.title}</h3>
+                      <h3 className="text-lg font-semibold text-zinc-900">{s.title}</h3>
                     </div>
-                    <p className="text-sm text-zinc-400">{s.desc}</p>
+                    <p className="text-sm text-zinc-600">{s.desc}</p>
                   </div>
                   {i < 2 && (
                     <div className="hidden md:flex items-center justify-center">
-                      <ChevronRight className="size-5 text-zinc-500" />
+                      <ChevronRight className="size-5 text-zinc-300" />
                     </div>
                   )}
                 </React.Fragment>
@@ -161,18 +161,18 @@ const Home = () => {
         </section>
 
         {/* Contact */}
-        <section id="contact" className="border-t border-zinc-300 bg-white text-zinc-900">
+        <section id="contact" className="border-t border-zinc-700 bg-zinc-900 text-white">
           <div className="mx-auto max-w-6xl px-4 py-20">
             <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
               <div>
                 <h3 className="text-2xl font-semibold">Have a project in mind?</h3>
-                <p className="mt-2 text-zinc-600">
+                <p className="mt-2 text-zinc-400">
                   Let's connect and talk about goals for your technical domain.
                 </p>
               </div>
               <Link
                 href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
-                className="inline-flex items-center justify-center rounded-full bg-zinc-900 px-6 py-3 text-sm font-semibold text-white hover:bg-zinc-800">
+                className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-100">
                 Email William
               </Link>
             </div>
