@@ -5,8 +5,14 @@ import { CheckCircle2, ChevronRight } from "lucide-react";
 import Hero from "../components/Hero/Hero";
 import Header from "../components/Header/Header";
 import BandBg from "../components/BandBg/BandBg";
+import useScrollReveal from "../hooks/useScrollReveal";
 
 const Home = () => {
+  const servicesReveal = useScrollReveal();
+  const aiReveal = useScrollReveal();
+  const approachReveal = useScrollReveal();
+  const contactReveal = useScrollReveal();
+
   useEffect(() => {
     let ticking = false;
 
@@ -34,9 +40,12 @@ const Home = () => {
         <Hero />
 
         {/* Software Development */}
-        <section id="services" className="relative border-t border-zinc-200 bg-white">
+        <section
+          ref={servicesReveal.ref}
+          id="services"
+          className={`relative border-t border-zinc-200 bg-white transition-all duration-700 ${servicesReveal.isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
           <BandBg />
-          <div className="relative mx-auto max-w-6xl px-4 py-20">
+          <div className="relative mx-auto max-w-6xl px-4 py-24">
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
               Software Development
             </h2>
@@ -67,7 +76,7 @@ const Home = () => {
                   points: ["E-commerce integration", "Marketing sites", "Dashboards & portals"],
                 },
               ].map((s) => (
-                <div key={s.title}>
+                <div key={s.title} className="rounded-lg p-4 -m-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
                   <h3 className="mb-3 text-lg font-semibold text-zinc-900">{s.title}</h3>
                   <ul className="space-y-2 text-sm text-zinc-600">
                     {s.points.map((p) => (
@@ -84,9 +93,12 @@ const Home = () => {
         </section>
 
         {/* AI Development */}
-        <section id="ai" className="relative border-t border-zinc-200 bg-zinc-50">
+        <section
+          ref={aiReveal.ref}
+          id="ai"
+          className={`relative border-t border-zinc-200 bg-zinc-50 transition-all duration-700 ${aiReveal.isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
           <BandBg />
-          <div className="relative mx-auto max-w-6xl px-4 py-20">
+          <div className="relative mx-auto max-w-6xl px-4 py-24">
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
               AI Development
             </h2>
@@ -105,7 +117,7 @@ const Home = () => {
                   desc: "CI/CD on Azure DevOps, observability, guardrails, and secure data paths.",
                 },
               ].map((s) => (
-                <div key={s.title}>
+                <div key={s.title} className="rounded-lg p-4 -m-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
                   <h3 className="mb-3 text-lg font-semibold text-zinc-900">{s.title}</h3>
                   <p className="text-sm text-zinc-600">{s.desc}</p>
                 </div>
@@ -115,9 +127,12 @@ const Home = () => {
         </section>
 
         {/* Approach */}
-        <section id="approach" className="relative border-t border-zinc-200 bg-white">
+        <section
+          ref={approachReveal.ref}
+          id="approach"
+          className={`relative border-t border-zinc-200 bg-white transition-all duration-700 ${approachReveal.isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
           <BandBg />
-          <div className="relative mx-auto max-w-6xl px-4 py-20">
+          <div className="relative mx-auto max-w-6xl px-4 py-24">
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
               Our Approach
             </h2>
@@ -140,7 +155,7 @@ const Home = () => {
                 },
               ].map((s, i) => (
                 <React.Fragment key={s.title}>
-                  <div className="flex-1">
+                  <div className="flex-1 rounded-lg p-4 -m-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
                     <div className="mb-3 flex items-center gap-3">
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-sm font-bold text-white">
                         {s.num}
@@ -161,8 +176,11 @@ const Home = () => {
         </section>
 
         {/* Contact */}
-        <section id="contact" className="border-t border-zinc-700 bg-zinc-900 text-white">
-          <div className="mx-auto max-w-6xl px-4 py-20">
+        <section
+          ref={contactReveal.ref}
+          id="contact"
+          className={`border-t border-zinc-700 bg-zinc-900 text-white transition-all duration-700 ${contactReveal.isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+          <div className="mx-auto max-w-6xl px-4 py-24">
             <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-center">
               <div>
                 <h3 className="text-2xl font-semibold">Have a project in mind?</h3>
@@ -172,7 +190,7 @@ const Home = () => {
               </div>
               <Link
                 href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
-                className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-100">
+                className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 hover:scale-105 transition-all duration-200">
                 Email William
               </Link>
             </div>
@@ -187,13 +205,13 @@ const Home = () => {
               <Link
                 href="https://github.com/hubenschmidt"
                 target="_blank"
-                className="hover:text-white">
+                className="hover:text-white transition-colors duration-200">
                 GitHub
               </Link>
               <Link
                 href="https://www.linkedin.com/company/pinacoladaco"
                 target="_blank"
-                className="hover:text-white">
+                className="hover:text-white transition-colors duration-200">
                 LinkedIn
               </Link>
             </div>
