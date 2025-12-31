@@ -47,7 +47,7 @@ const Home = () => {
           <BandBg />
           <div className="relative mx-auto max-w-6xl px-4 py-24">
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
-              Software Development
+              Software Developmentt
             </h2>
             <div className="grid gap-x-12 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
               {[
@@ -76,7 +76,7 @@ const Home = () => {
                   points: ["E-commerce integration", "Marketing sites", "Dashboards & portals"],
                 },
               ].map((s) => (
-                <div key={s.title} className="card-glow rounded-lg p-4 -m-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+                <div key={s.title} className="rounded-lg p-4 -m-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
                   <h3 className="mb-3 text-lg font-semibold text-zinc-900">{s.title}</h3>
                   <ul className="space-y-2 text-sm text-zinc-600">
                     {s.points.map((p) => (
@@ -117,7 +117,7 @@ const Home = () => {
                   desc: "CI/CD on Azure DevOps, observability, guardrails, and secure data paths.",
                 },
               ].map((s) => (
-                <div key={s.title} className="card-glow rounded-lg p-4 -m-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+                <div key={s.title} className="rounded-lg p-4 -m-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
                   <h3 className="mb-3 text-lg font-semibold text-zinc-900">{s.title}</h3>
                   <p className="text-sm text-zinc-600">{s.desc}</p>
                 </div>
@@ -155,7 +155,7 @@ const Home = () => {
                 },
               ].map((s, i) => (
                 <React.Fragment key={s.title}>
-                  <div className="flex-1 card-glow rounded-lg p-4 -m-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
+                  <div className="flex-1 rounded-lg p-4 -m-4 hover:shadow-lg hover:-translate-y-1 transition-all duration-200">
                     <div className="mb-3 flex items-center gap-3">
                       <span className="flex h-8 w-8 items-center justify-center rounded-full bg-zinc-900 text-sm font-bold text-white">
                         {s.num}
