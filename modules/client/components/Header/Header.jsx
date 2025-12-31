@@ -17,7 +17,7 @@ const Header = () => {
   if (isLoading) return null;
 
   return (
-    <header className="sticky top-0 z-40 bg-white dark:bg-zinc-900 border-b border-zinc-200">
+    <header className="sticky top-0 z-40 bg-zinc-800 border-b border-zinc-700">
       <div
         className={`mx-auto max-w-6xl px-4 flex items-center justify-between ${user ? "py-0.5" : "py-4"}`}>
         <div className={`flex items-center ${user ? "gap-4" : "gap-6"}`}>
@@ -41,13 +41,13 @@ const Header = () => {
               <Link
                 href="https://github.com/hubenschmidt"
                 target="_blank"
-                className="text-zinc-700 hover:text-zinc-900">
+                className="text-zinc-300 hover:text-white">
                 <Github size={20} />
               </Link>
               <Link
                 href="https://www.linkedin.com/company/pinacoladaco"
                 target="_blank"
-                className="text-zinc-700 hover:text-zinc-900">
+                className="text-zinc-300 hover:text-white">
                 <Linkedin size={20} />
               </Link>
             </div>
@@ -55,19 +55,19 @@ const Header = () => {
         </div>
         <div className="flex items-center gap-4">
           {/* Hide on mobile (portrait and landscape), show on tablets+ */}
-          <nav className="hidden sm:flex [@media(max-height:500px)]:!hidden items-center gap-6 text-sm text-zinc-600 font-semibold">
+          <nav className="hidden sm:flex [@media(max-height:500px)]:!hidden items-center gap-6 text-sm text-zinc-300 font-semibold">
             {!user && !isTenantSelectPage && (
               <>
-                <Link href="/#services" className="text-zinc-700 hover:text-zinc-900">
+                <Link href="/#services" className="text-zinc-300 hover:text-white">
                   Software Development
                 </Link>
-                <Link href="/#ai" className="text-zinc-700 hover:text-zinc-900">
+                <Link href="/#ai" className="text-zinc-300 hover:text-white">
                   AI
                 </Link>
-                <Link href="/#approach" className="text-zinc-700 hover:text-zinc-900">
+                <Link href="/#approach" className="text-zinc-300 hover:text-white">
                   Approach
                 </Link>
-                <Link href="/#contact" className="text-zinc-700 hover:text-zinc-900">
+                <Link href="/#contact" className="text-zinc-300 hover:text-white">
                   Contact
                 </Link>
               </>
@@ -106,7 +106,7 @@ const Header = () => {
               </Menu>
             </div>
           ) : (
-            <Link href="/login" className="text-zinc-700 hover:text-zinc-900">
+            <Link href="/login" className="text-zinc-300 hover:text-white">
               <LogIn size={20} />
             </Link>
           )}

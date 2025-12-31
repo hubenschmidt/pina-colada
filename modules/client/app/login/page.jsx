@@ -24,7 +24,7 @@ const LoginPage = () => {
 
   if (isLoading || isAuthed) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-zinc-800 flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-lime-500" />
       </div>
     );
@@ -33,15 +33,15 @@ const LoginPage = () => {
   return (
     <>
       <Header />
-      <div className="min-h-screen bg-zinc-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-zinc-800 flex items-center justify-center p-4">
         <div className="flex flex-col items-center gap-6 max-w-md w-full">
           <div className="text-center mb-4">
             <h1 className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 mb-2">
-              PinaColada
+              Demo our AI-native CRM
             </h1>
           </div>
 
-          <div className="w-full bg-white rounded-2xl shadow-xl p-8 border border-zinc-200">
+          <div className="w-full bg-zinc-700 rounded-2xl shadow-xl p-8 border border-zinc-600">
             <div className="flex flex-col gap-4">
               <a
                 href="/auth/login"
@@ -58,14 +58,14 @@ const LoginPage = () => {
               </a> */}
             </div>
 
-            <div className="mt-6 pt-6 border-t border-zinc-200">
-              <p className="text-xs text-center text-zinc-600">
+            <div className="mt-6 pt-6 border-t border-zinc-600">
+              <p className="text-xs text-center text-zinc-400">
                 You agree to our{" "}
-                <a href="/terms" className="underline hover:text-zinc-800">
+                <a href="/terms" className="underline hover:text-zinc-200">
                   Terms of Service
                 </a>{" "}
                 and{" "}
-                <a href="/privacy" className="underline hover:text-zinc-800">
+                <a href="/privacy" className="underline hover:text-zinc-200">
                   Privacy Policy
                 </a>
                 .
@@ -74,7 +74,7 @@ const LoginPage = () => {
           </div>
 
           <div className="mt-8 text-center">
-            <p className="text-sm text-zinc-600">
+            <p className="text-sm text-zinc-400">
               © {new Date().getFullYear()} PinaColada.co. All rights reserved.
             </p>
           </div>
