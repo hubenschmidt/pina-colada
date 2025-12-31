@@ -101,13 +101,14 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, docService *servic
 	jobSearchWorker := workers.NewJobSearchWorker(model, nil, allTools)
 	crmWorker := workers.NewCRMWorker(model, nil, allTools)
 	generalWorker := workers.NewGeneralWorker(model, nil, allTools)
+	writerWorker := workers.NewWriterWorker(model, nil, allTools)
 
 	// Create triage agent with handoffs to workers (default config)
 	triageAgent := agents.New("triage").
 		WithInstructions(prompts.TriageInstructionsWithTools).
 		WithModel(model).
 		WithHandoffDescription("Routes requests to specialized workers").
-		WithAgentHandoffs(jobSearchWorker, crmWorker, generalWorker)
+		WithAgentHandoffs(jobSearchWorker, crmWorker, generalWorker, writerWorker)
 
 	// Create state manager
 	stateMgr := state.NewMemoryStateManager()
@@ -210,14 +211,16 @@ func (o *Orchestrator) buildTriageAgentForUser(userID int64, skipSettings bool) 
 	jobSearchModel := o.configCache.GetModel(userID, "job_search_worker")
 	crmModel := o.configCache.GetModel(userID, "crm_worker")
 	generalModel := o.configCache.GetModel(userID, "general_worker")
+	writerModel := o.configCache.GetModel(userID, "writer_worker")
 
 	// Get settings (empty if skipSettings), filtered for model compatibility
-	var triageSettings, jobSearchSettings, crmSettings, generalSettings services.LLMSettings
+	var triageSettings, jobSearchSettings, crmSettings, generalSettings, writerSettings services.LLMSettings
 	if !skipSettings {
 		triageSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "triage_orchestrator"), triageModel)
 		jobSearchSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "job_search_worker"), jobSearchModel)
 		crmSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "crm_worker"), crmModel)
 		generalSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "general_worker"), generalModel)
+		writerSettings = services.FilterSettingsForModel(o.configCache.GetSettings(userID, "writer_worker"), writerModel)
 	}
 
 	// Log model configuration for each node
@@ -225,19 +228,21 @@ func (o *Orchestrator) buildTriageAgentForUser(userID int64, skipSettings bool) 
 	logNodeConfig(userID, "job_search_worker", jobSearchModel, jobSearchSettings)
 	logNodeConfig(userID, "crm_worker", crmModel, crmSettings)
 	logNodeConfig(userID, "general_worker", generalModel, generalSettings)
+	logNodeConfig(userID, "writer_worker", writerModel, writerSettings)
 
 	// Create workers with user-specific models and settings
 	// Parallel tool calls enabled - call limit enforced in SerperTools.JobSearchCtx
 	jobSearchWorker := workers.NewJobSearchWorker(jobSearchModel, buildModelSettings(jobSearchSettings), o.allTools)
 	crmWorker := workers.NewCRMWorker(crmModel, buildModelSettings(crmSettings), o.allTools)
 	generalWorker := workers.NewGeneralWorker(generalModel, buildModelSettings(generalSettings), o.allTools)
+	writerWorker := workers.NewWriterWorker(writerModel, buildModelSettings(writerSettings), o.allTools)
 
 	// Create triage agent with user-specific model and settings
 	triageAgent := agents.New("triage").
 		WithInstructions(prompts.TriageInstructionsWithTools).
 		WithModel(triageModel).
 		WithHandoffDescription("Routes requests to specialized workers").
-		WithAgentHandoffs(jobSearchWorker, crmWorker, generalWorker)
+		WithAgentHandoffs(jobSearchWorker, crmWorker, generalWorker, writerWorker)
 
 	if ms := buildModelSettings(triageSettings); ms != nil {
 		triageAgent = triageAgent.WithModelSettings(*ms)
