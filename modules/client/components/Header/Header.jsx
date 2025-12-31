@@ -41,13 +41,13 @@ const Header = () => {
               <Link
                 href="https://github.com/hubenschmidt"
                 target="_blank"
-                className="text-zinc-300 hover:text-white">
+                className="text-zinc-300 hover:text-white transition-colors duration-200">
                 <Github size={20} />
               </Link>
               <Link
                 href="https://www.linkedin.com/company/pinacoladaco"
                 target="_blank"
-                className="text-zinc-300 hover:text-white">
+                className="text-zinc-300 hover:text-white transition-colors duration-200">
                 <Linkedin size={20} />
               </Link>
             </div>
@@ -58,16 +58,16 @@ const Header = () => {
           <nav className="hidden sm:flex [@media(max-height:500px)]:!hidden items-center gap-6 text-sm text-zinc-300 font-semibold">
             {!user && !isTenantSelectPage && (
               <>
-                <Link href="/#services" className="text-zinc-300 hover:text-white">
+                <Link href="/#services" className="text-zinc-300 hover:text-white transition-colors duration-200">
                   Software Development
                 </Link>
-                <Link href="/#ai" className="text-zinc-300 hover:text-white">
+                <Link href="/#ai" className="text-zinc-300 hover:text-white transition-colors duration-200">
                   AI
                 </Link>
-                <Link href="/#approach" className="text-zinc-300 hover:text-white">
+                <Link href="/#approach" className="text-zinc-300 hover:text-white transition-colors duration-200">
                   Approach
                 </Link>
-                <Link href="/#contact" className="text-zinc-300 hover:text-white">
+                <Link href="/#contact" className="text-zinc-300 hover:text-white transition-colors duration-200">
                   Contact
                 </Link>
               </>
@@ -106,7 +106,7 @@ const Header = () => {
               </Menu>
             </div>
           ) : (
-            <Link href="/login" className="text-zinc-300 hover:text-white">
+            <Link href="/login" className="text-zinc-300 hover:text-white transition-colors duration-200">
               <LogIn size={20} />
             </Link>
           )}
