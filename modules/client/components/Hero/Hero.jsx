@@ -5,11 +5,10 @@ const Hero = () => {
   return (
     <section className="relative overflow-hidden">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/pc.jpg"
-        alt=""
+      <div
+        className="absolute inset-0 bg-cover bg-center bg-fixed opacity-20 [filter:brightness(0.98)_contrast(1.1)]"
+        style={{ backgroundImage: "url('/pc.jpg')" }}
         aria-hidden="true"
-        className="absolute inset-0 h-full w-full object-cover object-center opacity-20 [filter:brightness(0.98)_contrast(1.1)]"
       />
 
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-24 sm:py-32">
