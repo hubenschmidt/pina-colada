@@ -13,8 +13,10 @@ const Header = () => {
   const { user, isLoading } = userState;
   const pathname = usePathname();
   const isTenantSelectPage = pathname === "/tenant/select";
+  const isLandingPage = pathname === "/";
 
   if (isLoading) return null;
+  if (isLandingPage && !user) return null;
 
   return (
     <header className="sticky top-0 z-40 bg-zinc-800 border-b border-zinc-700">
