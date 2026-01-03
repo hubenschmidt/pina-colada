@@ -43,9 +43,20 @@ const Home = () => {
         <section
           ref={servicesReveal.ref}
           id="services"
-          className={`relative border-t border-zinc-200 bg-white transition-all duration-700 ${servicesReveal.isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+          className={`relative bg-white transition-all duration-700 ${servicesReveal.isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+          {/* Top fade from white */}
+          <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-white to-transparent pointer-events-none z-10" />
           <BandBg />
           <div className="relative mx-auto max-w-6xl px-4 py-24">
+            <p className="mb-6 text-lg text-pretty text-zinc-600">
+              We design and build reliable technical solutions — from greenfield apps to high-performance integrations
+            </p>
+            <p className="mb-6 text-lg text-pretty text-zinc-600">
+              to unlock value and unleash efficiency in complex business, manufacturing and consumer landscapes.
+            </p>
+            <p className="mb-6 text-lg text-pretty text-yellow-500">
+              Software and agentic AI that just works for you.
+            </p>
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
               Software Development
             </h2>
@@ -190,7 +201,7 @@ const Home = () => {
               </div>
               <Link
                 href="mailto:whubenschmidt@gmail.com?subject=Project%20Inquiry"
-                className="inline-flex items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-zinc-900 hover:bg-zinc-100 hover:scale-105 transition-all duration-200">
+                className="inline-flex items-center justify-center rounded-full bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 px-6 py-3 text-sm font-semibold text-zinc-900 hover:scale-105 hover:shadow-lg transition-all duration-200">
                 Email William
               </Link>
             </div>

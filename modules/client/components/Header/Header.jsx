@@ -13,8 +13,10 @@ const Header = () => {
   const { user, isLoading } = userState;
   const pathname = usePathname();
   const isTenantSelectPage = pathname === "/tenant/select";
+  const isLandingPage = pathname === "/";
 
   if (isLoading) return null;
+  if (isLandingPage && !user) return null;
 
   return (
     <header className="sticky top-0 z-40 bg-zinc-800 border-b border-zinc-700">
@@ -59,16 +61,13 @@ const Header = () => {
             {!user && !isTenantSelectPage && (
               <>
                 <Link href="/#services" className="text-zinc-300 hover:text-white transition-colors duration-200">
-                  Software Development
-                </Link>
-                <Link href="/#ai" className="text-zinc-300 hover:text-white transition-colors duration-200">
-                  AI
+                  Engineering
                 </Link>
                 <Link href="/#approach" className="text-zinc-300 hover:text-white transition-colors duration-200">
                   Approach
                 </Link>
                 <Link href="/#contact" className="text-zinc-300 hover:text-white transition-colors duration-200">
-                  Contact
+                  Free Consultation
                 </Link>
               </>
             )}
