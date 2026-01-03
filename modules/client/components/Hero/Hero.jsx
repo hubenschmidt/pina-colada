@@ -1,11 +1,11 @@
 "use client";
 import Link from "next/link";
 import Image from "next/image";
-import { Github, Linkedin, LogIn } from "lucide-react";
+import { Github, Linkedin, LogIn, ChevronsDown } from "lucide-react";
 
 const Hero = () => {
   return (
-    <section className="flex flex-col md:flex-row min-h-screen">
+    <section className="relative flex flex-col md:flex-row min-h-screen">
       {/* Left Pane - Hero Image (faded) */}
       <div className="relative w-full md:w-1/2 h-[40vh] md:h-screen flex items-center justify-center md:justify-end overflow-hidden bg-zinc-100">
         {/* Background image layer - faded */}
@@ -20,10 +20,10 @@ const Hero = () => {
           <p className="text-xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
             elegant software
           </p>
-          <p className="text-xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
+          <p className="text-2xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
             refreshing solutions
           </p>
-          <p className="text-2xl font-semibold tracking-tight text-orange-400">
+          <p className="text-3xl font-semibold tracking-tight text-orange-400">
             business simplified.
           </p>
         </div>
@@ -34,8 +34,8 @@ const Hero = () => {
         <div className="animate-fade-in-up-delay-1 flex flex-col items-center md:items-start gap-5 pl-0 md:pl-12">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3">
-            <Image src="/loading-icon.png" alt="PinaColada.co" width={48} height={48} priority className="shrink-0" />
-            <span className="text-2xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
+            <Image src="/loading-icon.png" alt="PinaColada.co" width={64} height={64} priority className="shrink-0" />
+            <span className="text-3xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
               PinaColada
             </span>
           </Link>
@@ -77,6 +77,16 @@ const Hero = () => {
           </div>
         </div>
       </div>
+
+      {/* Scroll indicator arrow */}
+      <Link
+        href="/#services"
+        className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-bounce">
+        <ChevronsDown
+          size={48}
+          className="text-yellow-500 drop-shadow-[0_0_8px_rgba(132,204,22,0.5)]"
+        />
+      </Link>
     </section>
   );
 };
