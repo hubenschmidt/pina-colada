@@ -8,11 +8,12 @@ import (
 
 // PaginationParams contains common pagination parameters
 type PaginationParams struct {
-	Page     int
-	PageSize int
-	OrderBy  string
-	Order    string // ASC or DESC
-	Search   string
+	Page        int
+	PageSize    int
+	OrderBy     string
+	Order       string // ASC or DESC
+	Search      string
+	CurrentOnly bool
 }
 
 // PaginatedResult contains paginated query results

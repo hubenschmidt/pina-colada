@@ -40,13 +40,14 @@ func (c *DocumentController) GetDocuments(w http.ResponseWriter, r *http.Request
 	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
 	orderBy := r.URL.Query().Get("orderBy")
 	order := r.URL.Query().Get("order")
+	currentOnly := r.URL.Query().Get("current_only") == "true"
 
 	var tenantID *int64
 	if tid, ok := middleware.GetTenantID(r.Context()); ok {
 		tenantID = &tid
 	}
 
-	result, err := c.docService.GetDocuments(entityTypePtr, entityID, tenantID, search, page, limit, orderBy, order)
+	result, err := c.docService.GetDocuments(entityTypePtr, entityID, tenantID, search, page, limit, orderBy, order, currentOnly)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -79,11 +80,30 @@ func (c *DocumentController) GetDocument(w http.ResponseWriter, r *http.Request)
 
 // CheckFilename handles GET /assets/documents/check-filename
 func (c *DocumentController) CheckFilename(w http.ResponseWriter, r *http.Request) {
-	// For now, always return not exists to allow upload
-	writeJSON(w, http.StatusOK, map[string]interface{}{
-		"exists":   false,
-		"document": nil,
-	})
+	filename := r.URL.Query().Get("filename")
+	if filename == "" {
+		writeJSON(w, http.StatusOK, map[string]interface{}{"exists": false, "document": nil})
+		return
+	}
+
+	tenantID, ok := middleware.GetTenantID(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "tenant context required")
+		return
+	}
+
+	doc, err := c.docService.CheckFilenameExists(tenantID, filename)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if doc == nil {
+		writeJSON(w, http.StatusOK, map[string]interface{}{"exists": false, "document": nil})
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]interface{}{"exists": true, "document": doc})
 }
 
 // UploadDocument handles POST /assets/documents

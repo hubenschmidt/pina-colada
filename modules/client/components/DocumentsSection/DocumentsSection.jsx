@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { Trash2, Download, Plus, Upload } from "lucide-react";
+import { Trash2, Download, Plus, Upload, ChevronDown, ChevronUp, X } from "lucide-react";
 import { Collapse } from "@mantine/core";
 import {
   getDocuments,
   getDocument,
+  getDocumentVersions,
   linkDocumentToEntity,
   unlinkDocumentFromEntity,
   downloadDocument,
@@ -32,6 +33,10 @@ const DocumentsSection = ({
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState(null);
   const [unlinkConfirmId, setUnlinkConfirmId] = useState(null);
+  const [expandedDocId, setExpandedDocId] = useState(null);
+  const [docVersions, setDocVersions] = useState([]);
+  const [selectedVersionId, setSelectedVersionId] = useState(null);
+  const [loadingVersions, setLoadingVersions] = useState(false);
 
   // Fetch linked documents when entityId changes (edit mode only)
   useEffect(() => {
@@ -78,7 +83,11 @@ const DocumentsSection = ({
           20, // Limit search results
           "updated_at",
           "DESC",
-          query.trim()
+          query.trim(),
+          undefined, // tags
+          undefined, // entityType
+          undefined, // entityId
+          true // currentOnly
         );
         // Filter out already linked documents
         const linkedIds = new Set(
@@ -100,18 +109,49 @@ const DocumentsSection = ({
     setSearchQuery(query);
     if (!query.trim()) {
       setSearchResults([]);
+      setExpandedDocId(null);
+      setDocVersions([]);
+      setSelectedVersionId(null);
       return;
     }
     debouncedDocumentSearch(query);
+  };
+
+  const handleExpandDoc = async (docId) => {
+    if (expandedDocId === docId) {
+      setExpandedDocId(null);
+      setDocVersions([]);
+      setSelectedVersionId(null);
+      return;
+    }
+    setExpandedDocId(docId);
+    setSelectedVersionId(docId);
+    setLoadingVersions(true);
+    try {
+      const response = await getDocumentVersions(docId);
+      console.log("getDocumentVersions response:", response);
+      setDocVersions(response?.versions || []);
+    } catch {
+      setDocVersions([]);
+    } finally {
+      setLoadingVersions(false);
+    }
+  };
+
+  const resetLinkForm = () => {
+    setSearchQuery("");
+    setSearchResults([]);
+    setShowLinkForm(false);
+    setExpandedDocId(null);
+    setDocVersions([]);
+    setSelectedVersionId(null);
   };
 
   const handleLinkDocument = async (documentId) => {
     if (isCreateMode && onPendingDocumentIdsChange) {
       // Create mode: add to pending document IDs
       onPendingDocumentIdsChange([...(pendingDocumentIds || []), documentId]);
-      setSearchQuery("");
-      setSearchResults([]);
-      setShowLinkForm(false);
+      resetLinkForm();
       return;
     }
 
@@ -121,9 +161,7 @@ const DocumentsSection = ({
     try {
       await linkDocumentToEntity(documentId, entityType, entityId);
       await fetchLinkedDocuments();
-      setSearchQuery("");
-      setSearchResults([]);
-      setShowLinkForm(false);
+      resetLinkForm();
     } catch (err) {
       setError(err?.message || "Failed to link document");
     }
@@ -332,16 +370,62 @@ const DocumentsSection = ({
 
         {isSearching && <p className="text-sm text-zinc-500">Searching...</p>}
         {searchResults.length > 0 && (
-          <div className="space-y-2 max-h-48 overflow-y-auto">
+          <div className="space-y-2 max-h-64 overflow-y-auto">
             {searchResults.map((doc) => (
-              <div
-                key={doc.id}
-                className="p-2 border border-zinc-200 dark:border-zinc-700 rounded hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer flex items-center justify-between"
-                onClick={() => handleLinkDocument(doc.id)}>
-                <span className="text-sm text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300 hover:underline truncate flex-1 min-w-0">
-                  {doc.filename}
-                </span>
-                <Plus size={16} className="text-lime-600 flex-shrink-0 ml-2" />
+              <div key={doc.id} className="border border-zinc-200 dark:border-zinc-700 rounded">
+                <div
+                  className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer flex items-center justify-between"
+                  onClick={() => handleExpandDoc(doc.id)}>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="text-sm text-lime-600 dark:text-lime-400 truncate">
+                      {doc.filename}
+                    </span>
+                    <span className="text-xs px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-600 text-zinc-600 dark:text-zinc-300 rounded">
+                      v{doc.version_number}
+                    </span>
+                  </div>
+                  {expandedDocId === doc.id ? (
+                    <ChevronUp size={16} className="text-zinc-400 flex-shrink-0" />
+                  ) : (
+                    <ChevronDown size={16} className="text-zinc-400 flex-shrink-0" />
+                  )}
+                </div>
+                {expandedDocId === doc.id && (
+                  <div className="px-2 pb-2 border-t border-zinc-200 dark:border-zinc-700">
+                    {loadingVersions ? (
+                      <p className="text-xs text-zinc-500 py-1">Loading versions...</p>
+                    ) : docVersions.length > 1 ? (
+                      <div className="flex items-center gap-2 pt-2">
+                        <select
+                          value={selectedVersionId || doc.id}
+                          onChange={(e) => setSelectedVersionId(Number(e.target.value))}
+                          className="text-sm border border-zinc-300 dark:border-zinc-600 rounded px-2 py-1 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
+                          {docVersions.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              v{v.version_number} {v.is_current_version && "(current)"}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleLinkDocument(selectedVersionId || doc.id)}
+                          className="px-2 py-1 text-sm bg-lime-600 text-white rounded hover:bg-lime-700 flex items-center gap-1">
+                          <Plus size={14} /> Link
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 pt-2">
+                        <span className="text-xs text-zinc-500">Only version</span>
+                        <button
+                          type="button"
+                          onClick={() => handleLinkDocument(doc.id)}
+                          className="px-2 py-1 text-sm bg-lime-600 text-white rounded hover:bg-lime-700 flex items-center gap-1">
+                          <Plus size={14} /> Link
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -354,11 +438,7 @@ const DocumentsSection = ({
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={() => {
-              setShowLinkForm(false);
-              setSearchQuery("");
-              setSearchResults([]);
-            }}
+            onClick={resetLinkForm}
             className="px-3 py-1 text-sm bg-zinc-200 dark:bg-zinc-700 text-zinc-700 dark:text-zinc-300 rounded hover:bg-zinc-300 dark:hover:bg-zinc-600">
             Cancel
           </button>
@@ -410,6 +490,7 @@ const DocumentsSection = ({
               onUploadComplete={handleUploadComplete}
               entityType={isCreateMode ? undefined : entityType}
               entityId={isCreateMode ? undefined : entityId || undefined}
+              onClose={() => setShowUploadForm(false)}
             />
           </Collapse>
         </div>

@@ -26,7 +26,7 @@ const ACCEPTED_TYPES = {
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [".docx"],
 };
 
-export const DocumentUpload = ({ onUploadComplete, entityType, entityId }) => {
+export const DocumentUpload = ({ onUploadComplete, entityType, entityId, onClose }) => {
   const [file, setFile] = useState(null);
   const [tags, setTags] = useState([]);
   const [availableTags, setAvailableTags] = useState([]);
@@ -74,22 +74,20 @@ export const DocumentUpload = ({ onUploadComplete, entityType, entityId }) => {
 
     setError(null);
 
-    // Check for existing filename if entity context is provided
-    if (entityType && entityId) {
-      try {
-        const { exists, document: existing } = await checkDocumentFilename(
-          file.name,
-          entityType,
-          entityId
-        );
-        if (exists && existing) {
-          setExistingDocument(existing);
-          setVersionModalOpen(true);
-          return;
-        }
-      } catch {
-        // If check fails, proceed with upload anyway
+    // Check for existing filename (tenant-level check)
+    try {
+      const { exists, document: existing } = await checkDocumentFilename(
+        file.name,
+        entityType,
+        entityId
+      );
+      if (exists && existing) {
+        setExistingDocument(existing);
+        setVersionModalOpen(true);
+        return;
       }
+    } catch {
+      // If check fails, proceed with upload anyway
     }
 
     await performUpload();
@@ -198,7 +196,21 @@ export const DocumentUpload = ({ onUploadComplete, entityType, entityId }) => {
               borderStyle: "dashed",
               cursor: "pointer",
               backgroundColor: isDragActive ? "var(--mantine-color-lime-0)" : undefined,
+              position: "relative",
             }}>
+            {onClose && (
+              <ActionIcon
+                variant="subtle"
+                color="gray"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onClose();
+                }}
+                style={{ position: "absolute", top: 8, right: 8 }}>
+                <X className="h-4 w-4" />
+              </ActionIcon>
+            )}
             <input {...getInputProps()} />
             <Stack align="center" gap="sm">
               <Upload className={`h-8 w-8 ${isDragActive ? "text-lime-600" : "text-zinc-400"}`} />

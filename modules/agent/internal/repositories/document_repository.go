@@ -122,14 +122,36 @@ func (r *DocumentRepository) FindDocumentByID(id int64) (*DocumentDTO, error) {
 	return &doc, nil
 }
 
-// LinkToEntity links a document to an entity
+// FindByFilename finds a current-version document by filename within a tenant
+func (r *DocumentRepository) FindByFilename(tenantID int64, filename string) (*DocumentDTO, error) {
+	var doc DocumentDTO
+	err := r.db.Model(&models.Asset{}).
+		Select(`"Asset".id, "Asset".asset_type, "Asset".tenant_id, "Asset".user_id,
+			"Asset".filename, "Asset".content_type, "Asset".description,
+			"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
+			"Document".storage_path, "Document".file_size`).
+		Joins(`INNER JOIN "Document" ON "Document".id = "Asset".id`).
+		Where(`"Asset".tenant_id = ? AND "Asset".filename = ? AND "Asset".asset_type = ? AND "Asset".is_current_version = ?`,
+			tenantID, filename, "document", true).
+		Scan(&doc).Error
+	if err != nil {
+		return nil, err
+	}
+	if doc.ID == 0 {
+		return nil, nil
+	}
+	return &doc, nil
+}
+
+// LinkToEntity links a document to an entity (idempotent - ignores if already linked)
 func (r *DocumentRepository) LinkToEntity(assetID int64, entityType string, entityID int64) error {
 	link := &models.EntityAsset{
 		AssetID:    assetID,
 		EntityType: entityType,
 		EntityID:   entityID,
 	}
-	return r.db.Create(link).Error
+	result := r.db.Where(link).FirstOrCreate(link)
+	return result.Error
 }
 
 // UnlinkFromEntity removes a document's link to an entity
@@ -236,6 +258,11 @@ func (r *DocumentRepository) FindAll(entityType *string, entityID *int64, tenant
 		searchTerm := "%" + params.Search + "%"
 		query = query.Where(`LOWER("Asset".filename) LIKE LOWER(?)`, searchTerm)
 		countQuery = countQuery.Where(`LOWER("Asset".filename) LIKE LOWER(?)`, searchTerm)
+	}
+
+	if params.CurrentOnly {
+		query = query.Where(`"Asset".is_current_version = ?`, true)
+		countQuery = countQuery.Where(`"Asset".is_current_version = ?`, true)
 	}
 
 	if err := countQuery.Count(&totalCount).Error; err != nil {

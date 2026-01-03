@@ -1068,7 +1068,8 @@ export const getDocuments = async (
   search,
   tags,
   entityType,
-  entityId
+  entityId,
+  currentOnly
 ) => {
   const params = new URLSearchParams({
     page: page.toString(),
@@ -1080,6 +1081,7 @@ export const getDocuments = async (
   if (tags && tags.length > 0) params.append("tags", tags.join(","));
   if (entityType) params.append("entity_type", entityType);
   if (entityId) params.append("entity_id", entityId.toString());
+  if (currentOnly) params.append("current_only", "true");
   return apiGet(`/assets/documents?${params}`);
 };
 
@@ -1160,11 +1162,9 @@ export const getTags = async () => {
 // ============== Document Version API ==============
 
 export const checkDocumentFilename = async (filename, entityType, entityId) => {
-  const params = new URLSearchParams({
-    filename,
-    entity_type: entityType,
-    entity_id: entityId.toString(),
-  });
+  const params = new URLSearchParams({ filename });
+  if (entityType) params.set("entity_type", entityType);
+  if (entityId) params.set("entity_id", entityId.toString());
   return apiGet(`/assets/documents/check-filename?${params}`);
 };
 

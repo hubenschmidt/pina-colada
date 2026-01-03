@@ -95,6 +95,11 @@ func (s *DocumentService) GetDocumentByID(id int64) (*schemas.DocumentResponse, 
 	return toDocumentResponse(dto), nil
 }
 
+// CheckFilenameExists checks if a document with the given filename exists in the tenant
+func (s *DocumentService) CheckFilenameExists(tenantID int64, filename string) (*repositories.DocumentDTO, error) {
+	return s.docRepo.FindByFilename(tenantID, filename)
+}
+
 func toDocumentResponse(dto *repositories.DocumentDTO) *schemas.DocumentResponse {
 	return &schemas.DocumentResponse{
 		ID:          dto.ID,
@@ -107,9 +112,10 @@ func toDocumentResponse(dto *repositories.DocumentDTO) *schemas.DocumentResponse
 	}
 }
 
-func (s *DocumentService) GetDocuments(entityType *string, entityID *int64, tenantID *int64, search string, page, pageSize int, orderBy, order string) (*serializers.PagedResponse, error) {
+func (s *DocumentService) GetDocuments(entityType *string, entityID *int64, tenantID *int64, search string, page, pageSize int, orderBy, order string, currentOnly bool) (*serializers.PagedResponse, error) {
 	params := repositories.NewPaginationParams(page, pageSize, orderBy, order)
 	params.Search = search
+	params.CurrentOnly = currentOnly
 	result, err := s.docRepo.FindAll(entityType, entityID, tenantID, params)
 	if err != nil {
 		return nil, err
