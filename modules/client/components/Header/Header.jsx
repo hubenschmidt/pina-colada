@@ -61,16 +61,13 @@ const Header = () => {
             {!user && !isTenantSelectPage && (
               <>
                 <Link href="/#services" className="text-zinc-300 hover:text-white transition-colors duration-200">
-                  Software Development
-                </Link>
-                <Link href="/#ai" className="text-zinc-300 hover:text-white transition-colors duration-200">
-                  AI
+                  Engineering
                 </Link>
                 <Link href="/#approach" className="text-zinc-300 hover:text-white transition-colors duration-200">
                   Approach
                 </Link>
                 <Link href="/#contact" className="text-zinc-300 hover:text-white transition-colors duration-200">
-                  Contact
+                  Free Consultation
                 </Link>
               </>
             )}
