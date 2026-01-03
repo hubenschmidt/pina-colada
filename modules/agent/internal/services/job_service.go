@@ -292,9 +292,6 @@ func buildJobUpdates(input schemas.JobUpdate) map[string]interface{} {
 func buildLeadUpdates(input schemas.JobUpdate, userID int64) map[string]interface{} {
 	updates := make(map[string]interface{})
 
-	if input.Description != nil {
-		updates["description"] = *input.Description
-	}
 	if input.Source != nil {
 		updates["source"] = *input.Source
 	}
