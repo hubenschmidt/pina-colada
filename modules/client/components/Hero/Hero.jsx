@@ -2,6 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Github, Linkedin, LogIn, ChevronsDown } from "lucide-react";
+import BandBg from "../BandBg/BandBg";
 
 const Hero = () => {
   return (
@@ -13,25 +14,28 @@ const Hero = () => {
           className="absolute inset-0 bg-cover bg-center opacity-20"
           style={{ backgroundImage: "url('/pc.jpg')" }}
         />
+        {/* BandBg grid for visual continuity */}
+        <BandBg />
+        {/* Bottom fade to white - left pane only */}
+        <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-b from-transparent via-white/50 to-white pointer-events-none z-10" />
         {/* Text content */}
-        <div
-          className="relative z-10 animate-fade-in-up text-center md:text-right pr-0 md:pr-12 px-6 py-4 backdrop-blur-xs rounded-lg"
-          style={{ maskImage: "radial-gradient(ellipse at center, black 50%, transparent 100%)", WebkitMaskImage: "radial-gradient(ellipse at center, black 50%, transparent 100%)" }}>
-          <p className="text-xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
+        <div className="relative z-10 animate-fade-in-up text-center md:text-right pr-0 md:pr-12 px-6 py-4">
+          <p className="text-lg md:text-4xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 pb-1">
             elegant software
           </p>
-          <p className="text-2xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">
+          <p className="text-xl md:text-5xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 pb-1">
             refreshing solutions
           </p>
-          <p className="text-3xl font-semibold tracking-tight text-orange-400">
-            business simplified.
+          <p className="text-2xl md:text-6xl font-semibold tracking-tight text-orange-400">
+            business simplified<span className="text-yellow-400">.</span>
           </p>
         </div>
       </div>
 
       {/* Right Pane - Content */}
-      <div className="w-full md:w-1/2 bg-zinc-800 flex items-center justify-center md:justify-start py-12 md:py-0">
-        <div className="animate-fade-in-up-delay-1 flex flex-col items-center md:items-start gap-5 pl-0 md:pl-12">
+      <div className="relative w-full md:w-1/2 bg-zinc-800 flex items-center justify-center md:justify-start py-12 md:py-0">
+        <BandBg dark />
+        <div className="relative z-10 animate-fade-in-up-delay-1 flex flex-col items-center md:items-start gap-5 pl-0 md:pl-12">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3">
             <Image src="/loading-icon.png" alt="PinaColada.co" width={64} height={64} priority className="shrink-0" />
@@ -84,7 +88,7 @@ const Hero = () => {
         className="absolute bottom-8 left-1/2 -translate-x-1/2 z-20 animate-bounce">
         <ChevronsDown
           size={48}
-          className="text-yellow-500 drop-shadow-[0_0_8px_rgba(132,204,22,0.5)]"
+          className="text-yellow-400 drop-shadow-[0_0_8px_rgba(250,204,21,0.5)]"
         />
       </Link>
     </section>
