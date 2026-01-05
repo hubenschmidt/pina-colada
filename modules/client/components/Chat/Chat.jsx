@@ -237,7 +237,11 @@ export const renderWithLinks = (text) => {
 
 const getApiUrl = () => env("NEXT_PUBLIC_API_URL");
 
-const getWsUrl = () => getApiUrl().replace(/^http/, "ws") + "/ws";
+const getWsUrl = () => {
+  const wsUrl = env("NEXT_PUBLIC_WS_URL");
+  if (wsUrl) return wsUrl;
+  return getApiUrl().replace(/^http/, "ws") + "/ws";
+};
 
 const Chat = ({
   variant = "embedded",

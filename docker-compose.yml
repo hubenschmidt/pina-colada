@@ -51,6 +51,10 @@ services:
     env_file:
       - ./modules/client/.env.local
     environment:
+      # Override API URL to use Docker service name (for server-side proxy)
+      NEXT_PUBLIC_API_URL: http://agent:8000
+      # WebSocket URL for browser (must be accessible from host)
+      NEXT_PUBLIC_WS_URL: ws://localhost:8000/ws
       # Postgres connection for local dev (when USE_LOCAL_POSTGRES=true)
       POSTGRES_HOST: app-postgres
       POSTGRES_PORT: 5432
