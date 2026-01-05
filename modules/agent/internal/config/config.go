@@ -7,9 +7,8 @@ import (
 
 type Config struct {
 	// Server
-	Port      string
-	Env       string
-	PublicURL string // Base URL for generating absolute URLs (e.g., short URLs)
+	Port string
+	Env  string
 
 	// Database
 	DatabaseURL string
@@ -49,10 +48,9 @@ type Config struct {
 func Load() *Config {
 	port := getEnv("PORT", "8000")
 	return &Config{
-		Port:              port,
-		Env:               getEnv("ENV", "development"),
-		PublicURL:         getEnv("PUBLIC_URL", "http://localhost:"+port),
-		DatabaseURL:       getEnv("DATABASE_URL", ""),
+		Port:        port,
+		Env:         getEnv("ENV", "development"),
+		DatabaseURL: getEnv("DATABASE_URL", ""),
 		DBDebug:           getEnv("DB_DEBUG", "false") == "true",
 		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
 		OpenAIModel:       getEnv("OPENAI_MODEL", "gpt-5.2"),

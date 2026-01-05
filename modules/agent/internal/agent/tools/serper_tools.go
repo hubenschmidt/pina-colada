@@ -28,8 +28,6 @@ type JobInfo struct {
 type SerperTools struct {
 	apiKey     string
 	jobService JobServiceInterface
-	urlTools   *URLTools
-	publicURL  string // Base URL for generating absolute short URLs
 
 	// Cache for applied jobs to avoid repeated DB queries within a turn
 	appliedJobsCache     []JobInfo
@@ -106,12 +104,10 @@ func isAggregatorURL(url string) bool {
 }
 
 // NewSerperTools creates Serper tools with API key and optional job service for filtering
-func NewSerperTools(apiKey string, jobService JobServiceInterface, urlTools *URLTools, publicURL string) *SerperTools {
+func NewSerperTools(apiKey string, jobService JobServiceInterface) *SerperTools {
 	return &SerperTools{
 		apiKey:      apiKey,
 		jobService:  jobService,
-		urlTools:    urlTools,
-		publicURL:   publicURL,
 		searchSem:   make(chan struct{}, maxConcurrentSearches),
 		seenJobURLs: make(map[string]map[string]bool),
 	}
@@ -208,6 +204,7 @@ type JobSearchParams struct {
 	Query      string `json:"query" jsonschema:"Job search query (e.g., 'Senior Software Engineer NYC startups')"`
 	MaxResults int    `json:"max_results,omitempty" jsonschema:"Number of results to return (default 10, max 20)"`
 	ATSMode    bool   `json:"ats_mode,omitempty" jsonschema:"Set true to search only ATS platforms (Lever, Greenhouse, Ashby) for direct application links - best for startup jobs"`
+	TimeFilter string `json:"time_filter,omitempty" jsonschema:"Filter by recency: 'day' (24h), 'week' (7 days), 'month' (30 days). Use based on user's request (e.g., 'last 14 days' → 'month', 'recent' → 'week'). Default: no filter."`
 }
 
 // WebSearchParams defines parameters for general web search
@@ -240,6 +237,7 @@ type JobListing struct {
 type serperRequest struct {
 	Q   string `json:"q"`
 	Num int    `json:"num,omitempty"` // Number of results to request (default 10)
+	Tbs string `json:"tbs,omitempty"` // Time-based search filter (e.g., qdr:w = past week)
 }
 
 type serperResponse struct {
@@ -309,8 +307,19 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		maxResults = 20
 	}
 
+	// Map time filter to Serper tbs parameter
+	var tbs string
+	switch params.TimeFilter {
+	case "day":
+		tbs = "qdr:d"
+	case "week":
+		tbs = "qdr:w"
+	case "month":
+		tbs = "qdr:m"
+	}
+
 	// Call Serper API - always request 20 (max allowed)
-	reqBody := serperRequest{Q: enhancedQuery, Num: 20}
+	reqBody := serperRequest{Q: enhancedQuery, Num: 20, Tbs: tbs}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return &JobSearchResult{Results: fmt.Sprintf("Error encoding request: %v", err)}, nil
@@ -374,7 +383,7 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 
 	// Format for display
 	return &JobSearchResult{
-		Results: formatListings(listings, t.urlTools, t.publicURL),
+		Results: formatListings(listings),
 		Count:   listingCount,
 	}, nil
 }
@@ -455,23 +464,14 @@ func extractListing(item serperOrganicResult, existingJobs []JobInfo, seenURLs m
 	return &JobListing{C: company, T: title, U: item.Link}
 }
 
-// URLShortener interface for shortening URLs
-type URLShortener interface {
-	ShortenURL(fullURL string) string
-}
-
-// formatListings converts structured listings to display string with short URLs
-func formatListings(listings []JobListing, shortener URLShortener, baseURL string) string {
+// formatListings converts structured listings to display string
+func formatListings(listings []JobListing) string {
 	if len(listings) == 0 {
 		return ""
 	}
 	var lines []string
 	for _, l := range listings {
-		url := l.U
-		if shortener != nil && baseURL != "" {
-			url = baseURL + "/u/" + shortener.ShortenURL(l.U)
-		}
-		lines = append(lines, fmt.Sprintf("- %s - %s - [url](%s)", l.C, l.T, url))
+		lines = append(lines, fmt.Sprintf("- %s - %s - [url](%s)", l.C, l.T, l.U))
 	}
 	return strings.Join(lines, "\n")
 }

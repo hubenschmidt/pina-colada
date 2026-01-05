@@ -152,8 +152,7 @@ func TestFormatListingsProducesDirectURLs(t *testing.T) {
 		{C: "Airbnb", T: "Full Stack Developer", U: "https://careers.airbnb.com/789"},
 	}
 
-	// Format without URL shortener (nil)
-	output := formatListings(listings, nil, "")
+	output := formatListings(listings)
 
 	// Verify each listing has direct URL in markdown link format
 	expectedURLs := []string{

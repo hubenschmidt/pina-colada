@@ -663,7 +663,7 @@ const Chat = ({
                 onCompositionEnd={() => setComposing(false)}
                 placeholder="Type or paste your message..."
                 spellCheck
-                rows={1}
+                rows={3}
                 className={styles.inputText}
               />
               <button type="submit" className={styles.btn} disabled={!isOpen || !input.trim()}>

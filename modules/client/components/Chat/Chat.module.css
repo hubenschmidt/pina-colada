@@ -519,7 +519,7 @@
 
 /* TEXT INPUT */
 .inputText {
-  flex: 1;
+  flex: 1 1 auto;
   background-color: var(--input-background);
   border: 1px solid var(--input-border);
   border-radius: 0.5rem; /* 8px */
@@ -530,11 +530,11 @@
   outline: none;
   font-family: inherit;
   box-shadow: var(--shadow-sm);
-  resize: none;
-  min-height: 2.4rem;
-  max-height: 10rem;
+  resize: vertical !important;
+  min-height: 5rem;
+  max-height: 20rem;
   overflow-y: auto;
-  field-sizing: content;
+  height: auto;
 }
 
 .inputText:focus {

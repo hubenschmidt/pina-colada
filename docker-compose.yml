@@ -64,6 +64,8 @@ services:
     depends_on:
       app-postgres:
         condition: service_healthy
+      agent:
+        condition: service_healthy
     command: ["npm", "run", "dev"] # overrides Dockerfile start command in dev env
     restart: always
     logging:
@@ -93,6 +95,12 @@ services:
     depends_on:
       app-postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
     logging:
       driver: "json-file"
       options:

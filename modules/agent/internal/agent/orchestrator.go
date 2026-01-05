@@ -54,13 +54,12 @@ type Orchestrator struct {
 	allTools           []agents.Tool
 	metricService      *services.MetricService
 	serperTools        *tools.SerperTools
-	urlTools           *tools.URLTools
 	openaiProvider     *agents.OpenAIProvider
 	anthropicProvider  *agents.OpenAIProvider
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
-func NewOrchestrator(ctx context.Context, cfg *config.Config, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, urlRepo tools.URLShortenerInterface, permService *services.PermissionService, proposalService *services.ProposalService, entityService *services.GenericEntityService) (*Orchestrator, error) {
+func NewOrchestrator(ctx context.Context, cfg *config.Config, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, permService *services.PermissionService, proposalService *services.ProposalService, entityService *services.GenericEntityService) (*Orchestrator, error) {
 	// Create providers for both OpenAI and Anthropic
 	// The correct provider is selected at runtime based on the model's provider setting
 	openaiProvider := agents.NewOpenAIProvider(agents.OpenAIProviderParams{
@@ -91,8 +90,7 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, docService *servic
 
 	// Create all tools using the adapter
 	crmTools := tools.NewCRMTools(entityService, permService, proposalService)
-	urlTools := tools.NewURLTools(urlRepo)
-	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter, urlTools, cfg.PublicURL)
+	serperTools := tools.NewSerperTools(cfg.SerperAPIKey, jobAdapter)
 	docTools := tools.NewDocumentTools(docService)
 	emailTools := tools.NewEmailTools(cfg.SMTPHost, cfg.SMTPPort, cfg.SMTPUsername, cfg.SMTPPassword, cfg.SMTPFromEmail)
 	allTools := tools.BuildAgentTools(crmTools, serperTools, docTools, emailTools)
@@ -125,7 +123,6 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, docService *servic
 		allTools:          allTools,
 		metricService:     metricService,
 		serperTools:       serperTools,
-		urlTools:          urlTools,
 		openaiProvider:    openaiProvider,
 		anthropicProvider: anthropicProvider,
 	}, nil
