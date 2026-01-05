@@ -26,6 +26,14 @@ import { auth0 } from "./lib/auth0";
 export const middleware = async (request) => {
   const { pathname } = request.nextUrl;
 
+  // Proxy /api/v1/* to backend
+  if (pathname.startsWith("/api/v1/")) {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+    const backendPath = pathname.replace("/api/v1", "");
+    const url = new URL(backendPath + request.nextUrl.search, apiUrl);
+    return NextResponse.rewrite(url);
+  }
+
   // Allow public routes
   const publicRoutes = ["/", "/login", "/about", "/terms", "/privacy"];
 
