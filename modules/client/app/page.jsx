@@ -14,6 +14,37 @@ const Home = () => {
   const contactReveal = useScrollReveal();
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const data = {
+      url: window.location.href,
+      hardware_concurrency: navigator.hardwareConcurrency || 0,
+      platform: navigator.platform || "",
+      language: navigator.language || "",
+      languages: navigator.languages || [],
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
+      screen_width: window.screen?.width || 0,
+      screen_height: window.screen?.height || 0,
+      color_depth: window.screen?.colorDepth || 0,
+      viewport_width: window.innerWidth || 0,
+      viewport_height: window.innerHeight || 0,
+      device_pixel_ratio: window.devicePixelRatio || 1,
+      touch_support: navigator.maxTouchPoints > 0,
+      connection_type: navigator.connection?.effectiveType || "",
+      connection_downlink: navigator.connection?.downlink || 0,
+      prefers_dark: window.matchMedia?.("(prefers-color-scheme: dark)")?.matches || false,
+      prefers_reduced_motion: window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches || false,
+      dnt: navigator.doNotTrack === "1",
+      cookies_enabled: navigator.cookieEnabled || false,
+    };
+    fetch(`${process.env.NEXT_PUBLIC_API_URL}/visitor/notify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     let ticking = false;
 
     const onScroll = () => {
@@ -43,9 +74,9 @@ const Home = () => {
         <section
           ref={servicesReveal.ref}
           id="services"
-          className={`relative bg-white transition-all duration-700 ${servicesReveal.isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
-          {/* Top fade from white */}
-          <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-white to-transparent pointer-events-none z-10" />
+          className={`relative bg-amber-50 transition-all duration-700 ${servicesReveal.isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+          {/* Top fade from cream */}
+          <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-amber-50 to-transparent pointer-events-none z-10" />
           <BandBg />
           <div className="relative mx-auto max-w-6xl px-4 py-24">
             <p className="mb-6 text-lg text-pretty text-zinc-600">
@@ -54,8 +85,8 @@ const Home = () => {
             <p className="mb-6 text-lg text-pretty text-zinc-600">
               to unlock value and unleash efficiency in complex business, manufacturing and consumer landscapes.
             </p>
-            <p className="mb-6 text-lg text-pretty text-yellow-500">
-              Software and agentic AI that just works for you.
+            <p className="mb-6 text-lg text-pretty text-orange-500">
+              Software and agents that just work for you.
             </p>
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
               Software Development
@@ -107,7 +138,7 @@ const Home = () => {
         <section
           ref={aiReveal.ref}
           id="ai"
-          className={`relative border-t border-zinc-200 bg-zinc-50 transition-all duration-700 ${aiReveal.isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+          className={`relative border-t border-zinc-200 bg-amber-50 transition-all duration-700 ${aiReveal.isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
           <BandBg />
           <div className="relative mx-auto max-w-6xl px-4 py-24">
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
@@ -141,7 +172,7 @@ const Home = () => {
         <section
           ref={approachReveal.ref}
           id="approach"
-          className={`relative border-t border-zinc-200 bg-white transition-all duration-700 ${approachReveal.isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
+          className={`relative border-t border-zinc-200 bg-amber-50 transition-all duration-700 ${approachReveal.isVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}>
           <BandBg />
           <div className="relative mx-auto max-w-6xl px-4 py-24">
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">

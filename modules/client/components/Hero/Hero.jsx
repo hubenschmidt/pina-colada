@@ -16,18 +16,24 @@ const Hero = () => {
         />
         {/* BandBg grid for visual continuity */}
         <BandBg />
-        {/* Bottom fade to white - left pane only */}
-        <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-b from-transparent via-white/50 to-white pointer-events-none z-10" />
+        {/* Bottom fade to cream - left pane only */}
+        <div className="absolute bottom-0 left-0 right-0 h-48 bg-gradient-to-b from-transparent via-amber-50/50 to-amber-50 pointer-events-none z-10" />
         {/* Text content */}
         <div className="relative z-10 animate-fade-in-up text-center md:text-right pr-0 md:pr-12 px-6 py-4">
-          <p className="text-lg md:text-4xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 pb-1">
-            elegant software
+          <p className="pb-1">
+            <span className="bg-amber-50/90 px-4 py-1 rounded inline-block">
+              <span className="text-lg md:text-4xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">elegant software</span>
+            </span>
           </p>
-          <p className="text-xl md:text-5xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500 pb-1">
-            refreshing solutions
+          <p className="pb-1">
+            <span className="bg-amber-50/90 px-4 py-1 rounded inline-block">
+              <span className="text-xl md:text-5xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">refreshing solutions</span>
+            </span>
           </p>
-          <p className="text-2xl md:text-6xl font-semibold tracking-tight text-orange-400">
-            business simplified<span className="text-yellow-400">.</span>
+          <p>
+            <span className="bg-amber-50/90 px-4 py-1 rounded inline-block">
+              <span className="text-2xl md:text-6xl font-semibold tracking-tight text-orange-400">business simplified</span><span className="text-2xl md:text-6xl font-semibold tracking-tight text-yellow-400">.</span>
+            </span>
           </p>
         </div>
       </div>

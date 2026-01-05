@@ -99,6 +99,7 @@ func main() {
 	proposalService := services.NewProposalService(proposalRepo, approvalConfigRepo, contactService, orgService, indService, noteService, taskService, jobService, leadService)
 	roleService := services.NewRoleService(roleRepo)
 	genericEntityService := services.NewGenericEntityService(genericEntityRepo)
+	visitorService := services.NewVisitorService(cfg)
 
 	// Stop any orphaned recording sessions from previous runs
 	if stoppedCount, err := metricService.StopAllActiveSessions(); err != nil {
@@ -141,6 +142,7 @@ func main() {
 		WebSocket:    controllers.NewWebSocketController(agentOrchestrator, wsService),
 		Metric:         controllers.NewMetricController(metricService),
 		URL:            controllers.NewURLController(urlService),
+		Visitor:        controllers.NewVisitorController(visitorService),
 		Proposal:       controllers.NewProposalController(proposalService),
 		ApprovalConfig: controllers.NewApprovalConfigController(approvalConfigService),
 		Role:           controllers.NewRoleController(roleService),

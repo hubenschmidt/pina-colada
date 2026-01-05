@@ -39,6 +39,7 @@ type Controllers struct {
 	WebSocket      *controllers.WebSocketController
 	Metric         *controllers.MetricController
 	URL            *controllers.URLController
+	Visitor        *controllers.VisitorController
 	Proposal       *controllers.ProposalController
 	ApprovalConfig *controllers.ApprovalConfigController
 	Role           *controllers.RoleController
@@ -94,6 +95,11 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 	// URL shortener redirect (no auth - public redirect endpoint)
 	if c.URL != nil {
 		r.Get("/u/{code}", c.URL.Redirect)
+	}
+
+	// Visitor notification (no auth - public endpoint)
+	if c.Visitor != nil {
+		r.Post("/visitor/notify", c.Visitor.Notify)
 	}
 
 	// Protected routes (require auth)
