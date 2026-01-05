@@ -48,7 +48,7 @@ export const Sidebar = () => {
   return (
     <aside
       className={`h-screen border-r border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900 transition-all duration-300 ${
-        sidebarCollapsed ? "w-14" : "w-64"
+        sidebarCollapsed ? "w-14" : "w-84"
       }`}>
       <Stack h="100%" gap={0} justify="space-between">
         {/* Toggle Button */}
