@@ -4,10 +4,9 @@
 
 import axios from "axios";
 
-import { env } from "next-runtime-env";
 import { fetchBearerToken } from "../lib/fetch-bearer-token";
 
-const getApiUrl = () => env("NEXT_PUBLIC_API_URL");
+const getApiUrl = () => "/api/v1";
 
 const getClient = () => axios.create();
 

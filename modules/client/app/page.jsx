@@ -37,7 +37,7 @@ const Home = () => {
       dnt: navigator.doNotTrack === "1",
       cookies_enabled: navigator.cookieEnabled || false,
     };
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/visitor/notify`, {
+    fetch("/api/v1/visitor/notify", {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(data),
