@@ -58,7 +58,7 @@ export default ({ children }) => {
           </UserProvider>
         </Auth0Provider>
       </body>
-      <GoogleAnalytics gaId="G-X4JY302VH2"/>
+      <GoogleAnalytics gaId="G-E8GJ07YCY3"/>
     </html>
   );
 };
