@@ -1,6 +1,7 @@
 import "@mantine/core/styles.css";
 import "./globals.css";
 import { Space_Grotesk } from "next/font/google";
+import { GoogleAnalytics } from "@next/third-parties/google"
 
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
@@ -57,6 +58,7 @@ export default ({ children }) => {
           </UserProvider>
         </Auth0Provider>
       </body>
+      <GoogleAnalytics gaId="G-X4JY302VH2"/>
     </html>
   );
 };

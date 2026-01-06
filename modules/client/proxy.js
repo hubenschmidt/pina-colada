@@ -1,29 +1,8 @@
-function _optionalChain(ops) {
-  let lastAccessLHS = undefined;
-  let value = ops[0];
-  let i = 1;
-  while (i < ops.length) {
-    const op = ops[i];
-    const fn = ops[i + 1];
-    i += 2;
-    if ((op === "optionalAccess" || op === "optionalCall") && value == null) {
-      return undefined;
-    }
-    if (op === "access" || op === "optionalAccess") {
-      lastAccessLHS = value;
-      value = fn(value);
-    } else if (op === "call" || op === "optionalCall") {
-      value = fn((...args) => value.call(lastAccessLHS, ...args));
-      lastAccessLHS = undefined;
-    }
-  }
-  return value;
-}
 import { NextResponse } from "next/server";
 
 import { auth0 } from "./lib/auth0";
 
-export const middleware = async (request) => {
+export const proxy = async (request) => {
   const { pathname } = request.nextUrl;
 
   // Proxy /api/v1/* to backend
@@ -50,7 +29,7 @@ export const middleware = async (request) => {
   // For protected routes, check authentication
   const session = await auth0.getSession(request);
 
-  if (!_optionalChain([session, "optionalAccess", (_) => _.user])) {
+  if (!session?.user) {
     // Redirect to root if not authenticated
     return NextResponse.redirect(new URL("/", request.url));
   }
