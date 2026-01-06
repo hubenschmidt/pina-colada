@@ -164,24 +164,33 @@ func (r *DocumentRepository) UnlinkFromEntity(assetID int64, entityType string, 
 		Delete(&models.EntityAsset{}).Error
 }
 
-// GetRecentlyLinkedByUser returns documents recently linked by a user
+// GetRecentlyLinkedByUser returns documents recently linked by a user (deduplicated)
 func (r *DocumentRepository) GetRecentlyLinkedByUser(userID int64, limit int) ([]DocumentDTO, error) {
 	var docs []DocumentDTO
 
-	err := r.db.Model(&models.Asset{}).
-		Select(`DISTINCT ON ("Entity_Asset".created_at, "Asset".id) "Asset".id, "Asset".asset_type, "Asset".tenant_id, "Asset".user_id,
-			"Asset".filename, "Asset".content_type, "Asset".description,
-			"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
-			"Document".storage_path, "Document".file_size`).
-		Joins(`INNER JOIN "Document" ON "Document".id = "Asset".id`).
-		Joins(`INNER JOIN "Entity_Asset" ON "Entity_Asset".asset_id = "Asset".id`).
-		Where(`"Entity_Asset".linked_by_user_id = ?`, userID).
-		Where(`"Asset".asset_type = ?`, "document").
-		Where(`"Asset".is_current_version = ?`, true).
-		Order(`"Entity_Asset".created_at DESC, "Asset".id`).
-		Limit(limit).
-		Scan(&docs).Error
+	// Use subquery to dedupe by asset ID, keeping most recent link per document
+	query := `
+		SELECT id, asset_type, tenant_id, user_id, filename, content_type, description,
+			created_at, updated_at, is_current_version, version_number, storage_path, file_size
+		FROM (
+			SELECT DISTINCT ON ("Asset".id)
+				"Asset".id, "Asset".asset_type, "Asset".tenant_id, "Asset".user_id,
+				"Asset".filename, "Asset".content_type, "Asset".description,
+				"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
+				"Document".storage_path, "Document".file_size,
+				"Entity_Asset".created_at as link_created_at
+			FROM "Asset"
+			INNER JOIN "Document" ON "Document".id = "Asset".id
+			INNER JOIN "Entity_Asset" ON "Entity_Asset".asset_id = "Asset".id
+			WHERE "Entity_Asset".linked_by_user_id = ?
+			AND "Asset".asset_type = 'document'
+			AND "Asset".is_current_version = true
+			ORDER BY "Asset".id, "Entity_Asset".created_at DESC
+		) sub
+		ORDER BY link_created_at DESC
+		LIMIT ?`
 
+	err := r.db.Raw(query, userID, limit).Scan(&docs).Error
 	return docs, err
 }
 
