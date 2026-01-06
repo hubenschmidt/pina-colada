@@ -403,6 +403,8 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 			r.Put("/{id}/payload", c.Proposal.UpdatePayload)
 			r.Post("/bulk-approve", c.Proposal.BulkApprove)
 			r.Post("/bulk-reject", c.Proposal.BulkReject)
+			r.Post("/approve-all", c.Proposal.ApproveAll)
+			r.Post("/reject-all", c.Proposal.RejectAll)
 		})
 
 		// Admin approval config routes

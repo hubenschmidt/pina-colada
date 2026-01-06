@@ -120,6 +120,42 @@ func (c *ProposalController) BulkReject(w http.ResponseWriter, r *http.Request) 
 	writeBulkResponse(w, succeeded, errs, req.IDs)
 }
 
+// ApproveAll handles POST /proposals/approve-all
+func (c *ProposalController) ApproveAll(w http.ResponseWriter, r *http.Request) {
+	tenantID, ok := middleware.GetTenantID(r.Context())
+	if !ok {
+		writeProposalError(w, http.StatusUnauthorized, "tenant not found")
+		return
+	}
+
+	reviewerID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeProposalError(w, http.StatusUnauthorized, "user not found")
+		return
+	}
+
+	succeeded, errs := c.proposalService.ApproveAll(tenantID, reviewerID)
+	writeAllResponse(w, succeeded, errs)
+}
+
+// RejectAll handles POST /proposals/reject-all
+func (c *ProposalController) RejectAll(w http.ResponseWriter, r *http.Request) {
+	tenantID, ok := middleware.GetTenantID(r.Context())
+	if !ok {
+		writeProposalError(w, http.StatusUnauthorized, "tenant not found")
+		return
+	}
+
+	reviewerID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeProposalError(w, http.StatusUnauthorized, "user not found")
+		return
+	}
+
+	succeeded, errs := c.proposalService.RejectAll(tenantID, reviewerID)
+	writeAllResponse(w, succeeded, errs)
+}
+
 type updatePayloadRequest struct {
 	Payload json.RawMessage `json:"payload"`
 }
@@ -189,6 +225,18 @@ func writeBulkResponse(w http.ResponseWriter, succeeded []serializers.ProposalRe
 			errIdx++
 		}
 		failed = append(failed, serializers.BulkError{ID: id, Error: errMsg})
+	}
+
+	writeProposalJSON(w, http.StatusOK, serializers.BulkProposalResponse{
+		Succeeded: succeeded,
+		Failed:    failed,
+	})
+}
+
+func writeAllResponse(w http.ResponseWriter, succeeded []serializers.ProposalResponse, errs []error) {
+	failed := make([]serializers.BulkError, 0, len(errs))
+	for _, err := range errs {
+		failed = append(failed, serializers.BulkError{Error: err.Error()})
 	}
 
 	writeProposalJSON(w, http.StatusOK, serializers.BulkProposalResponse{

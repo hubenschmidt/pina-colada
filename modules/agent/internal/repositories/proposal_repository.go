@@ -142,6 +142,15 @@ func (r *ProposalRepository) FindByID(id int64) (*ProposalDTO, error) {
 	return modelToDTO(&proposal), nil
 }
 
+// GetAllPendingIDs returns all pending proposal IDs for a tenant
+func (r *ProposalRepository) GetAllPendingIDs(tenantID int64) ([]int64, error) {
+	var ids []int64
+	err := r.db.Model(&models.AgentProposal{}).
+		Where("tenant_id = ? AND status = ?", tenantID, ProposalStatusPending).
+		Pluck("id", &ids).Error
+	return ids, err
+}
+
 // FindPending returns pending proposals for a tenant with pagination
 func (r *ProposalRepository) FindPending(tenantID int64, params PaginationParams) (*PaginatedResult[ProposalDTO], error) {
 	var proposals []models.AgentProposal

@@ -1372,6 +1372,14 @@ export const bulkRejectProposals = async (ids) => {
   return apiPost("/proposals/bulk-reject", { ids });
 };
 
+export const approveAllProposals = async () => {
+  return apiPost("/proposals/approve-all");
+};
+
+export const rejectAllProposals = async () => {
+  return apiPost("/proposals/reject-all");
+};
+
 export const updateProposalPayload = async (id, payload) => {
   return apiPut(`/proposals/${id}/payload`, { payload });
 };

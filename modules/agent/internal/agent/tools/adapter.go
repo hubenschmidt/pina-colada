@@ -14,6 +14,8 @@ func BuildAgentTools(crm *CRMTools, serper *SerperTools, doc *DocumentTools, ema
 		crmLookupTool(crm),
 		crmListTool(crm),
 		crmProposeCreateTool(crm),
+		crmProposeLeadCreateTool(crm),
+		crmProposeBatchLeadCreateTool(crm),
 		crmProposeBatchCreateTool(crm),
 		crmProposeUpdateTool(crm),
 		crmProposeBatchUpdateTool(crm),
@@ -82,6 +84,42 @@ func crmProposeCreateTool(crm *CRMTools) agents.Tool {
 		"Propose creating a new CRM record. The proposal is queued for human approval. Parameters: entity_type (job, contact, etc.), data (record fields as JSON object).",
 		func(ctx context.Context, args CRMProposeRecordCreateParams) (string, error) {
 			result, err := crm.ProposeRecordCreateCtx(ctx, args)
+			if err != nil {
+				return "", err
+			}
+			out, _ := json.Marshal(result)
+			return string(out), nil
+		},
+	)
+}
+
+func crmProposeLeadCreateTool(crm *CRMTools) agents.Tool {
+	if crm == nil {
+		return nil
+	}
+	return agents.NewFunctionTool(
+		"crm_propose_create_lead",
+		"Propose creating a new lead (job, opportunity, or partnership) with typed fields. Preferred over crm_propose_create for leads. Account will be matched or created automatically.",
+		func(ctx context.Context, args CRMProposeLeadCreateParams) (string, error) {
+			result, err := crm.ProposeLeadCreateCtx(ctx, args)
+			if err != nil {
+				return "", err
+			}
+			out, _ := json.Marshal(result)
+			return string(out), nil
+		},
+	)
+}
+
+func crmProposeBatchLeadCreateTool(crm *CRMTools) agents.Tool {
+	if crm == nil {
+		return nil
+	}
+	return agents.NewFunctionTool(
+		"crm_propose_batch_create_lead",
+		"Propose creating multiple leads (jobs, opportunities, or partnerships) in a single call. Uses concurrent processing. Preferred for bulk lead creation.",
+		func(ctx context.Context, args CRMProposeBatchLeadCreateParams) (string, error) {
+			result, err := crm.ProposeBatchLeadCreateCtx(ctx, args)
 			if err != nil {
 				return "", err
 			}

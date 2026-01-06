@@ -79,11 +79,15 @@ export const AuthStateManager = () => {
         });
       } catch (error) {
         console.error("Failed to restore auth state:", error);
-        // Still mark as authed if Auth0 session exists - let routes handle errors
-        dispatchUser({
-          type: "SET_AUTHED",
-          payload: true,
-        });
+
+        const status = error?.response?.status;
+        const isAuthError = status === 401 || status === 403;
+        if (isAuthError) {
+          window.location.href = "/auth/logout";
+          return;
+        }
+
+        dispatchUser({ type: "SET_AUTHED", payload: true });
       } finally {
         // Done loading - either authed or errored
         dispatchUser({ type: SET_LOADING, payload: false });

@@ -70,10 +70,12 @@ const LeadTracker = ({ config }) => {
   }, [page, limit, sortBy, sortDirection, searchQuery]);
 
   const handleRowClick = (lead) => {
-    if (config.detailPagePath) {
-      router.push(`${config.detailPagePath}/${lead.id}`);
-      return;
-    }
+    if (!config.detailPagePath) return;
+    router.push(`${config.detailPagePath}/${lead.id}`);
+  };
+
+  const handleCellUpdate = async (row, field, value) => {
+    await config.api.updateLead(row.id, { [field]: value });
   };
 
   const handleSearch = (query) => {
@@ -195,6 +197,7 @@ const LeadTracker = ({ config }) => {
             setPage(1);
           }}
           onRowClick={handleRowClick}
+          onCellUpdate={handleCellUpdate}
           rowKey={(lead) => lead.id}
           emptyText={
             config.emptyMessage ||

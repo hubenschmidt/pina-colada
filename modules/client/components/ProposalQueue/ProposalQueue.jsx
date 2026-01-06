@@ -18,6 +18,8 @@ import {
   rejectProposal,
   bulkApproveProposals,
   bulkRejectProposals,
+  approveAllProposals,
+  rejectAllProposals,
 } from "../../api";
 import { DataTable } from "../DataTable/DataTable";
 import ProposalDetailModal from "./ProposalDetailModal";
@@ -40,7 +42,10 @@ const ProposalQueue = () => {
   const [totalCount, setTotalCount] = useState(0);
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDirection, setSortDirection] = useState("DESC");
-  const [bulkLoading, setBulkLoading] = useState(false);
+  const [approveLoading, setApproveLoading] = useState(false);
+  const [rejectLoading, setRejectLoading] = useState(false);
+  const [approveAllLoading, setApproveAllLoading] = useState(false);
+  const [rejectAllLoading, setRejectAllLoading] = useState(false);
 
   const loadProposals = useCallback(async () => {
     setLoading(true);
@@ -84,7 +89,7 @@ const ProposalQueue = () => {
 
   const handleBulkApprove = async () => {
     if (selectedIds.size === 0) return;
-    setBulkLoading(true);
+    setApproveLoading(true);
     try {
       await bulkApproveProposals(Array.from(selectedIds));
       setSelectedIds(new Set());
@@ -92,13 +97,13 @@ const ProposalQueue = () => {
     } catch (e) {
       setError(e.message);
     } finally {
-      setBulkLoading(false);
+      setApproveLoading(false);
     }
   };
 
   const handleBulkReject = async () => {
     if (selectedIds.size === 0) return;
-    setBulkLoading(true);
+    setRejectLoading(true);
     try {
       await bulkRejectProposals(Array.from(selectedIds));
       setSelectedIds(new Set());
@@ -106,7 +111,33 @@ const ProposalQueue = () => {
     } catch (e) {
       setError(e.message);
     } finally {
-      setBulkLoading(false);
+      setRejectLoading(false);
+    }
+  };
+
+  const handleApproveAll = async () => {
+    setApproveAllLoading(true);
+    try {
+      await approveAllProposals();
+      setSelectedIds(new Set());
+      loadProposals();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setApproveAllLoading(false);
+    }
+  };
+
+  const handleRejectAll = async () => {
+    setRejectAllLoading(true);
+    try {
+      await rejectAllProposals();
+      setSelectedIds(new Set());
+      loadProposals();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setRejectAllLoading(false);
     }
   };
 
@@ -257,30 +288,60 @@ const ProposalQueue = () => {
     <Paper withBorder p="lg">
       <Stack gap="md">
         <Group justify="space-between">
-          <Title order={4}>Pending Proposals</Title>
-          {selectedIds.size > 0 && (
-            <Group gap="xs">
-              <span className="text-sm text-zinc-500">{selectedIds.size} selected</span>
-              <Button
-                size="xs"
-                color="green"
-                leftSection={<Check size={14} />}
-                onClick={handleBulkApprove}
-                loading={bulkLoading}
-              >
-                Approve
-              </Button>
-              <Button
-                size="xs"
-                color="red"
-                leftSection={<X size={14} />}
-                onClick={handleBulkReject}
-                loading={bulkLoading}
-              >
-                Reject
-              </Button>
-            </Group>
-          )}
+          <Title order={4}>Pending Proposals ({totalCount})</Title>
+          <Group gap="xs">
+            {selectedIds.size > 0 && (
+              <>
+                <span className="text-sm text-zinc-500">{selectedIds.size} selected</span>
+                <Button
+                  size="xs"
+                  color="green"
+                  leftSection={<Check size={14} />}
+                  onClick={handleBulkApprove}
+                  loading={approveLoading}
+                  disabled={rejectLoading}
+                >
+                  Approve
+                </Button>
+                <Button
+                  size="xs"
+                  color="red"
+                  leftSection={<X size={14} />}
+                  onClick={handleBulkReject}
+                  loading={rejectLoading}
+                  disabled={approveLoading}
+                >
+                  Reject
+                </Button>
+              </>
+            )}
+            {totalCount > 0 && (
+              <>
+                <Button
+                  size="xs"
+                  variant="light"
+                  color="green"
+                  leftSection={<Check size={14} />}
+                  onClick={handleApproveAll}
+                  loading={approveAllLoading}
+                  disabled={rejectAllLoading}
+                >
+                  Approve All
+                </Button>
+                <Button
+                  size="xs"
+                  variant="light"
+                  color="red"
+                  leftSection={<X size={14} />}
+                  onClick={handleRejectAll}
+                  loading={rejectAllLoading}
+                  disabled={approveAllLoading}
+                >
+                  Reject All
+                </Button>
+              </>
+            )}
+          </Group>
         </Group>
 
         {error && (

@@ -1,5 +1,6 @@
 import { useContext } from "react";
 import { ExternalLink } from "lucide-react";
+import { StatusSelect } from "../../StatusSelect/StatusSelect";
 
 import {
   getJobs,
@@ -32,6 +33,8 @@ const JOB_STATUS_COLORS = {
   "Do Not Apply": "bg-red-100 text-red-800 border-red-300",
 };
 
+const JOB_STATUS_OPTIONS = ["Lead", "Applied", "Interviewing", "Rejected", "Offer", "Accepted", "Do Not Apply"];
+
 const OPPORTUNITY_STATUS_COLORS = {
   Qualifying: "bg-blue-100 text-blue-800 border-blue-300",
   Discovery: "bg-cyan-100 text-cyan-800 border-cyan-300",
@@ -41,6 +44,8 @@ const OPPORTUNITY_STATUS_COLORS = {
   "Closed Lost": "bg-red-100 text-red-800 border-red-300",
 };
 
+const OPPORTUNITY_STATUS_OPTIONS = ["Qualifying", "Discovery", "Proposal", "Negotiation", "Closed Won", "Closed Lost"];
+
 const PARTNERSHIP_STATUS_COLORS = {
   Exploring: "bg-blue-100 text-blue-800 border-blue-300",
   Negotiating: "bg-yellow-100 text-yellow-800 border-yellow-300",
@@ -48,6 +53,8 @@ const PARTNERSHIP_STATUS_COLORS = {
   "On Hold": "bg-orange-100 text-orange-800 border-orange-300",
   Ended: "bg-gray-100 text-gray-800 border-gray-300",
 };
+
+const PARTNERSHIP_STATUS_OPTIONS = ["Exploring", "Negotiating", "Active", "On Hold", "Ended"];
 
 // Extend types to match BaseLead interface
 
@@ -79,15 +86,14 @@ const getJobLeadConfig = (selectedProjectId) => {
       sortable: true,
       sortKey: "status",
       width: "10%",
-      render: (job) => {
-        if (!job.status) return <EmptyCell />;
-        return (
-          <span
-            className={`inline-block px-2 py-1 text-xs font-medium rounded border ${JOB_STATUS_COLORS[job.status] || "bg-gray-100 text-gray-800"}`}>
-            {job.status}
-          </span>
-        );
-      },
+      render: (row, { onCellUpdate } = {}) => (
+        <StatusSelect
+          value={row.status}
+          options={JOB_STATUS_OPTIONS}
+          colors={JOB_STATUS_COLORS}
+          onUpdate={onCellUpdate}
+        />
+      ),
     },
     {
       header: "Description",
@@ -200,11 +206,13 @@ const getOpportunityLeadConfig = (selectedProjectId) => {
       sortable: true,
       sortKey: "status",
       width: "12%",
-      render: (opp) => (
-        <span
-          className={`inline-block px-2 py-1 text-xs font-medium rounded border ${OPPORTUNITY_STATUS_COLORS[opp.status] || "bg-gray-100 text-gray-800"}`}>
-          {opp.status}
-        </span>
+      render: (row, { onCellUpdate } = {}) => (
+        <StatusSelect
+          value={row.status}
+          options={OPPORTUNITY_STATUS_OPTIONS}
+          colors={OPPORTUNITY_STATUS_COLORS}
+          onUpdate={onCellUpdate}
+        />
       ),
     },
     {
@@ -313,11 +321,13 @@ const getPartnershipLeadConfig = (selectedProjectId) => {
       sortable: true,
       sortKey: "status",
       width: "12%",
-      render: (partner) => (
-        <span
-          className={`inline-block px-2 py-1 text-xs font-medium rounded border ${PARTNERSHIP_STATUS_COLORS[partner.status] || "bg-gray-100 text-gray-800"}`}>
-          {partner.status}
-        </span>
+      render: (row, { onCellUpdate } = {}) => (
+        <StatusSelect
+          value={row.status}
+          options={PARTNERSHIP_STATUS_OPTIONS}
+          colors={PARTNERSHIP_STATUS_COLORS}
+          onUpdate={onCellUpdate}
+        />
       ),
     },
     {

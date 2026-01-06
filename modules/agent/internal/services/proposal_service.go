@@ -240,6 +240,30 @@ func (s *ProposalService) BulkReject(proposalIDs []int64, reviewerID int64) ([]s
 	return s.bulkProcess(proposalIDs, reviewerID, s.rejectOne)
 }
 
+// ApproveAll approves all pending proposals for a tenant
+func (s *ProposalService) ApproveAll(tenantID, reviewerID int64) ([]serializers.ProposalResponse, []error) {
+	ids, err := s.proposalRepo.GetAllPendingIDs(tenantID)
+	if err != nil {
+		return nil, []error{err}
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	return s.BulkApprove(ids, reviewerID)
+}
+
+// RejectAll rejects all pending proposals for a tenant
+func (s *ProposalService) RejectAll(tenantID, reviewerID int64) ([]serializers.ProposalResponse, []error) {
+	ids, err := s.proposalRepo.GetAllPendingIDs(tenantID)
+	if err != nil {
+		return nil, []error{err}
+	}
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	return s.BulkReject(ids, reviewerID)
+}
+
 type processFunc func(id, reviewerID int64) (*serializers.ProposalResponse, error)
 
 // bulkProcess processes multiple proposals concurrently
@@ -595,6 +619,14 @@ func normalizeJobPayload(payload datatypes.JSON) datatypes.JSON {
 	// Default status to "Lead" if not present
 	if _, hasStatus := data["status"]; !hasStatus {
 		data["status"] = "Lead"
+	}
+
+	// Map "project_id" -> "project_ids" array if project_ids not present
+	_, hasProjectIDs := data["project_ids"]
+	projectID, hasProjectID := data["project_id"]
+	if !hasProjectIDs && hasProjectID {
+		data["project_ids"] = []interface{}{projectID}
+		delete(data, "project_id")
 	}
 
 	normalized, _ := json.Marshal(data)

@@ -41,12 +41,14 @@ AVAILABLE TOOLS (Read):
 - read_document: Read the content of a document by ID
 
 AVAILABLE TOOLS (Create/Update/Delete - proposals queued for human approval):
-- crm_propose_create: Propose creating a new record (entity_type + data_json)
-- crm_propose_batch_create: Propose creating MULTIPLE records in one call (entity_type + items_json array)
-- crm_propose_update: Propose updating a record (entity_type + record_id + data_json)
-- crm_propose_batch_update: Propose updating MULTIPLE records in one call (entity_type + items array with record_id and data_json)
-- crm_propose_bulk_update_all: Propose updating ALL records of a type with the same update - NO NEED to list or fetch records first!
-- crm_propose_delete: Propose deleting a record (entity_type + record_id)
+- crm_propose_create_lead: PREFERRED for leads - typed fields for job/opportunity/partnership. Account auto-matched/created.
+- crm_propose_batch_create_lead: PREFERRED for multiple leads - concurrent processing, typed fields.
+- crm_propose_create: Generic record creation (entity_type + data_json)
+- crm_propose_batch_create: Generic batch creation (entity_type + items_json array)
+- crm_propose_update: Update a record (entity_type + record_id + data_json)
+- crm_propose_batch_update: Update MULTIPLE records (entity_type + items array)
+- crm_propose_bulk_update_all: Update ALL records of a type - NO NEED to list first!
+- crm_propose_delete: Delete a record (entity_type + record_id)
 
 BULK UPDATE ALL RECORDS - IMPORTANT:
 When user asks to update ALL records (e.g., "update all jobs to status X"):

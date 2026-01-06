@@ -28,6 +28,7 @@ export const DataTable = ({
   selectedRowKey,
   selectedRowClassName,
   selectedRowStyle,
+  onCellUpdate,
 }) => {
   const items = data?.items ?? [];
   const keyOf = (row, idx) => (rowKey ? rowKey(row, idx) : idx);
@@ -40,12 +41,12 @@ export const DataTable = ({
   const effectivePageSize = pageSizeValue ?? sizeFromData ?? pageSizeOptions[0];
 
   const getCellContent = (col, row) => {
-    if (col.render) return col.render(row);
+    const context = {
+      onCellUpdate: onCellUpdate ? (field, value) => onCellUpdate(row, field, value) : null,
+    };
+    if (col.render) return col.render(row, context);
     if (typeof col.accessor === "function") return col.accessor(row);
-    if (typeof col.accessor === "string") {
-      const v = row[col.accessor];
-      return v ?? "—";
-    }
+    if (typeof col.accessor === "string") return row[col.accessor] ?? "—";
     return "—";
   };
 
@@ -148,7 +149,12 @@ export const DataTable = ({
             {items.map((row, idx) => {
               const key = keyOf(row, idx);
               const selected = selectedRowKey !== null && String(key) === String(selectedRowKey);
-              const handleRowClick = () => {
+              const handleRowClick = (e) => {
+                // Skip if clicking on interactive elements
+                const target = e.target;
+                const interactive = target.closest("button, a, input, select, [role='combobox'], [data-mantine-stop-propagation]");
+                if (interactive) return;
+
                 onRowClick?.(row);
                 onRowSelect?.(key, row);
               };

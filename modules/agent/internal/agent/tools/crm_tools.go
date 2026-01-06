@@ -2,6 +2,7 @@ package tools
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
 	"strings"
@@ -150,6 +151,31 @@ func (t *CRMTools) ListCtx(ctx context.Context, params CRMListParams) (*CRMResul
 type CRMProposeRecordCreateParams struct {
 	EntityType string `json:"entity_type" jsonschema:"required,description=The type of CRM entity to create a record for"`
 	DataJSON   string `json:"data_json" jsonschema:"required,description=The record data as a JSON string e.g. {\"title\":\"Engineer\"}"`
+}
+
+// CRMProposeLeadCreateParams defines typed parameters for creating leads (job, opportunity, partnership)
+type CRMProposeLeadCreateParams struct {
+	LeadType    string `json:"lead_type,omitempty" jsonschema:"description=Type of lead: job opportunity partnership. Default: job"`
+	Account     string `json:"account" jsonschema:"required,description=Company/organization name - will be matched or created automatically"`
+	Status      string `json:"status,omitempty" jsonschema:"description=Lead status. Default: Lead"`
+	ProjectID   *int64 `json:"project_id,omitempty" jsonschema:"description=Project ID to associate with this lead"`
+	Description string `json:"description,omitempty" jsonschema:"description=Description or notes"`
+	// Job-specific fields
+	JobTitle string `json:"job_title,omitempty" jsonschema:"description=Job title (required for job leads)"`
+	JobURL   string `json:"job_url,omitempty" jsonschema:"description=URL to the job posting (for job leads)"`
+	// Opportunity-specific fields
+	OpportunityName   string  `json:"opportunity_name,omitempty" jsonschema:"description=Opportunity name (required for opportunity leads)"`
+	EstimatedValue    *int64  `json:"estimated_value,omitempty" jsonschema:"description=Estimated deal value (for opportunity leads)"`
+	Probability       *int    `json:"probability,omitempty" jsonschema:"description=Win probability percentage (for opportunity leads)"`
+	ExpectedCloseDate *string `json:"expected_close_date,omitempty" jsonschema:"description=Expected close date YYYY-MM-DD (for opportunity leads)"`
+	// Partnership-specific fields
+	PartnershipName string  `json:"partnership_name,omitempty" jsonschema:"description=Partnership name (required for partnership leads)"`
+	PartnershipType *string `json:"partnership_type,omitempty" jsonschema:"description=Type of partnership (for partnership leads)"`
+}
+
+// CRMProposeBatchLeadCreateParams defines parameters for batch creating leads
+type CRMProposeBatchLeadCreateParams struct {
+	Leads []CRMProposeLeadCreateParams `json:"leads" jsonschema:"required,description=Array of leads to create"`
 }
 
 // CRMProposeRecordUpdateParams defines parameters for proposing record update
@@ -441,6 +467,136 @@ func (t *CRMTools) ProposeBulkUpdateAllCtx(ctx context.Context, params CRMPropos
 	}, nil
 }
 
+// ProposeBatchLeadCreateCtx proposes creating multiple leads concurrently
+func (t *CRMTools) ProposeBatchLeadCreateCtx(ctx context.Context, params CRMProposeBatchLeadCreateParams) (*CRMProposeBatchResult, error) {
+	log.Printf("📝 crm_propose_batch_create_lead count=%d", len(params.Leads))
+
+	if t.proposalCreator == nil {
+		return &CRMProposeBatchResult{Success: false, ErrorMessage: "Proposal service not configured"}, nil
+	}
+
+	type batchResult struct {
+		index      int
+		proposalID int64
+		err        error
+	}
+
+	results := make(chan batchResult, len(params.Leads))
+	sem := make(chan struct{}, maxConcurrentWorkers)
+	var wg sync.WaitGroup
+
+	for i, lead := range params.Leads {
+		wg.Add(1)
+		go func(idx int, leadParams CRMProposeLeadCreateParams) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			result, err := t.ProposeLeadCreateCtx(ctx, leadParams)
+			if err != nil || !result.Success {
+				errMsg := ""
+				if err != nil {
+					errMsg = err.Error()
+				} else {
+					errMsg = result.Message
+				}
+				results <- batchResult{index: idx, err: fmt.Errorf(errMsg)}
+				return
+			}
+			results <- batchResult{index: idx, proposalID: result.ProposalID}
+		}(i, lead)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var proposalIDs []int64
+	var created, failed int
+	for r := range results {
+		if r.err != nil {
+			log.Printf("❌ Batch lead item %d failed: %v", r.index, r.err)
+			failed++
+			continue
+		}
+		proposalIDs = append(proposalIDs, r.proposalID)
+		created++
+	}
+
+	log.Printf("✅ ProposeBatchLeadCreate completed: created=%d, failed=%d", created, failed)
+	return &CRMProposeBatchResult{
+		Success:     failed == 0,
+		Created:     created,
+		Failed:      failed,
+		ProposalIDs: proposalIDs,
+	}, nil
+}
+
+// ProposeLeadCreateCtx proposes creating a new lead with typed parameters
+func (t *CRMTools) ProposeLeadCreateCtx(ctx context.Context, params CRMProposeLeadCreateParams) (*CRMProposeResult, error) {
+	leadType := strings.ToLower(params.LeadType)
+	if leadType == "" {
+		leadType = "job"
+	}
+
+	log.Printf("📝 crm_propose_create_lead type='%s', account='%s'", leadType, params.Account)
+
+	if denied := t.checkPermission(ctx, leadType+":create"); denied != nil {
+		return &CRMProposeResult{Success: false, Message: denied.Error}, nil
+	}
+
+	if t.proposalCreator == nil {
+		return &CRMProposeResult{Success: false, Message: "Proposal service not configured"}, nil
+	}
+
+	tenantID, userID, err := t.getContextIDs(ctx)
+	if err != nil {
+		return &CRMProposeResult{Success: false, Message: err.Error()}, nil
+	}
+
+	status := params.Status
+	if status == "" {
+		status = "Lead"
+	}
+
+	// Build base data
+	data := map[string]interface{}{
+		"account": params.Account,
+		"status":  status,
+	}
+	if params.Description != "" {
+		data["description"] = params.Description
+	}
+	if params.ProjectID != nil {
+		data["project_id"] = *params.ProjectID
+	}
+
+	// Add type-specific fields
+	addJobFields(data, leadType, params)
+	addOpportunityFields(data, leadType, params)
+	addPartnershipFields(data, leadType, params)
+
+	payload, err := json.Marshal(data)
+	if err != nil {
+		return &CRMProposeResult{Success: false, Message: err.Error()}, nil
+	}
+
+	result, err := t.proposalCreator.ProposeOperationBytes(tenantID, userID, leadType, nil, "create", payload)
+	if err != nil {
+		log.Printf("❌ ProposeLeadCreate failed: %v", err)
+		return &CRMProposeResult{Success: false, Message: err.Error()}, nil
+	}
+
+	log.Printf("✅ ProposeLeadCreate succeeded: proposal_id=%d, status=%s", result.ProposalID, result.Status)
+	return &CRMProposeResult{
+		Success:    true,
+		ProposalID: result.ProposalID,
+		Status:     result.Status,
+		Message:    result.Message,
+	}, nil
+}
+
 // ProposeRecordCreateCtx proposes creating a new CRM record (queued for approval)
 func (t *CRMTools) ProposeRecordCreateCtx(ctx context.Context, params CRMProposeRecordCreateParams) (*CRMProposeResult, error) {
 	entityType := strings.ToLower(params.EntityType)
@@ -554,4 +710,49 @@ func (t *CRMTools) getContextIDs(ctx context.Context) (tenantID, userID int64, e
 	}
 
 	return tenantID, userID, nil
+}
+
+// addJobFields adds job-specific fields if lead type is job
+func addJobFields(data map[string]interface{}, leadType string, params CRMProposeLeadCreateParams) {
+	if leadType != "job" {
+		return
+	}
+	if params.JobTitle != "" {
+		data["title"] = params.JobTitle
+	}
+	if params.JobURL != "" {
+		data["url"] = params.JobURL
+	}
+}
+
+// addOpportunityFields adds opportunity-specific fields if lead type is opportunity
+func addOpportunityFields(data map[string]interface{}, leadType string, params CRMProposeLeadCreateParams) {
+	if leadType != "opportunity" {
+		return
+	}
+	if params.OpportunityName != "" {
+		data["name"] = params.OpportunityName
+	}
+	if params.EstimatedValue != nil {
+		data["estimated_value"] = *params.EstimatedValue
+	}
+	if params.Probability != nil {
+		data["probability"] = *params.Probability
+	}
+	if params.ExpectedCloseDate != nil {
+		data["expected_close_date"] = *params.ExpectedCloseDate
+	}
+}
+
+// addPartnershipFields adds partnership-specific fields if lead type is partnership
+func addPartnershipFields(data map[string]interface{}, leadType string, params CRMProposeLeadCreateParams) {
+	if leadType != "partnership" {
+		return
+	}
+	if params.PartnershipName != "" {
+		data["name"] = params.PartnershipName
+	}
+	if params.PartnershipType != nil {
+		data["partnership_type"] = *params.PartnershipType
+	}
 }
