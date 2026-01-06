@@ -228,7 +228,10 @@ func (s *JobService) applyLeadUpdates(id int64, input schemas.JobUpdate, tenantI
 }
 
 func (s *JobService) addAccountUpdate(updates map[string]interface{}, account *string, tenantID *int64, userID int64) error {
-	if account == nil || *account == "" {
+	if account == nil {
+		return nil
+	}
+	if *account == "" {
 		return nil
 	}
 	org, err := s.orgRepo.FindOrCreateByName(*account, tenantID, userID)

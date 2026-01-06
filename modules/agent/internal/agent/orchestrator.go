@@ -446,7 +446,12 @@ func (s *streamState) handleToolOutput(item agents.ToolCallOutputItem) {
 	if strings.Contains(outputStr, "---URLS---") {
 		s.captureURLMap(outputStr)
 	}
-	utils.LogToolEnd(toolName, truncateString(outputStr, 100))
+	// Use longer truncation for job_search to show dates
+	truncateLen := 100
+	if toolName == "job_search" {
+		truncateLen = 500
+	}
+	utils.LogToolEnd(toolName, truncateString(outputStr, truncateLen))
 	s.sendEvent(StreamEvent{Type: "tool_end", ToolName: toolName})
 }
 

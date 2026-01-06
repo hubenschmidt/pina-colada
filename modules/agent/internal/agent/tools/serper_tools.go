@@ -205,7 +205,7 @@ type JobSearchParams struct {
 	Query      string `json:"query" jsonschema:"Job search query (e.g., 'Senior Software Engineer NYC startups')"`
 	MaxResults int    `json:"max_results,omitempty" jsonschema:"Number of results to return (default 10, max 20)"`
 	ATSMode    bool   `json:"ats_mode,omitempty" jsonschema:"Set true to search only ATS platforms (Lever, Greenhouse, Ashby) for direct application links - best for startup jobs"`
-	TimeFilter string `json:"time_filter,omitempty" jsonschema:"Filter by recency: 'day' (24h), 'week' (7 days), 'month' (30 days). Use based on user's request (e.g., 'last 14 days' → 'month', 'recent' → 'week'). Default: no filter."`
+	TimeFilter string `json:"time_filter,omitempty" jsonschema:"REQUIRED when user specifies recency. Filter by: 'day' (24h), 'week' (7 days), 'month' (30 days). Map user request: 'last 7 days'/'this week' → 'week', 'last 24h'/'today' → 'day', 'last 2 weeks'/'last 30 days' → 'month'."`
 }
 
 // WebSearchParams defines parameters for general web search
@@ -375,7 +375,9 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	}
 	if maxAge > 0 && len(listings) > 0 {
 		log.Printf("🔍 Verifying posting dates (max age: %v)...", maxAge)
-		listings = verifyPostingDates(listings, maxAge)
+		// For "day" or "week" filters, exclude unknown dates (strict filtering)
+		strictFilter := params.TimeFilter == "day" || params.TimeFilter == "week"
+		listings = verifyPostingDates(listings, maxAge, strictFilter)
 	}
 
 	listingCount := len(listings)
@@ -621,22 +623,35 @@ func looksLikeJobTitle(s string) bool {
 }
 
 // extractCompanyFromURL extracts company name from URL domain as fallback
-func extractCompanyFromURL(url string) string {
+func extractCompanyFromURL(urlStr string) string {
 	// Remove protocol
-	url = strings.TrimPrefix(url, "https://")
-	url = strings.TrimPrefix(url, "http://")
+	urlStr = strings.TrimPrefix(urlStr, "https://")
+	urlStr = strings.TrimPrefix(urlStr, "http://")
 
-	// Get domain part
-	parts := strings.Split(url, "/")
+	// Get domain and path parts
+	parts := strings.Split(urlStr, "/")
 	if len(parts) == 0 {
 		return ""
 	}
 	domain := parts[0]
 
+	// For ATS platforms, extract company from path (e.g., job-boards.greenhouse.io/nyiso/jobs/...)
+	if strings.Contains(domain, "greenhouse.io") || strings.Contains(domain, "lever.co") || strings.Contains(domain, "ashbyhq.com") {
+		if len(parts) >= 2 && parts[1] != "" && parts[1] != "jobs" {
+			company := parts[1]
+			if len(company) > 0 {
+				company = strings.ToUpper(string(company[0])) + company[1:]
+			}
+			return company
+		}
+	}
+
 	// Remove common prefixes
 	domain = strings.TrimPrefix(domain, "www.")
 	domain = strings.TrimPrefix(domain, "careers.")
 	domain = strings.TrimPrefix(domain, "jobs.")
+	domain = strings.TrimPrefix(domain, "job-boards.")
+	domain = strings.TrimPrefix(domain, "boards.")
 
 	// Get base domain (remove TLD)
 	domainParts := strings.Split(domain, ".")
@@ -810,8 +825,9 @@ func parsePostingDate(html string) (time.Time, bool, string) {
 
 // verifyPostingDates fetches URLs concurrently and filters by posting date
 // maxAge is the maximum age for listings (e.g., 7*24*time.Hour for 1 week)
-// Returns listings with verified dates, plus listings with unknown dates (marked as such)
-func verifyPostingDates(listings []JobListing, maxAge time.Duration) []JobListing {
+// strictFilter: if true, exclude listings with unknown dates; if false, include them at the end
+// Returns listings with verified dates, plus listings with unknown dates (if strictFilter is false)
+func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilter bool) []JobListing {
 	if len(listings) == 0 {
 		return listings
 	}
@@ -858,6 +874,10 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration) []JobListin
 	for i, listing := range listings {
 		r := postingDates[i]
 		if !r.ok {
+			if strictFilter {
+				log.Printf("   Filtered out (date unknown, strict filter): %s - %s", listing.C, listing.T)
+				continue
+			}
 			// Unknown date - keep but mark
 			unknown = append(unknown, listing)
 			log.Printf("   Date unknown for: %s - %s (no parseable date found)", listing.C, listing.T)

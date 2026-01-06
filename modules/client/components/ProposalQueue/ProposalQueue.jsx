@@ -108,23 +108,15 @@ const ProposalQueue = () => {
   };
 
   const handleSingleApprove = async (id) => {
-    try {
-      await approveProposal(id);
-      loadProposals();
-      setActiveProposal(null);
-    } catch (e) {
-      setError(e.message);
-    }
+    await approveProposal(id);
+    loadProposals();
+    setActiveProposal(null);
   };
 
   const handleSingleReject = async (id) => {
-    try {
-      await rejectProposal(id);
-      loadProposals();
-      setActiveProposal(null);
-    } catch (e) {
-      setError(e.message);
-    }
+    await rejectProposal(id);
+    loadProposals();
+    setActiveProposal(null);
   };
 
   const hasValidationErrors = (proposal) => {

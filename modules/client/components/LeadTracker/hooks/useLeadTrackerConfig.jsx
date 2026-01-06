@@ -79,12 +79,15 @@ const getJobLeadConfig = (selectedProjectId) => {
       sortable: true,
       sortKey: "status",
       width: "10%",
-      render: (job) => (
-        <span
-          className={`inline-block px-2 py-1 text-xs font-medium rounded border ${JOB_STATUS_COLORS[job.status] || "bg-gray-100 text-gray-800"}`}>
-          {job.status}
-        </span>
-      ),
+      render: (job) => {
+        if (!job.status) return <EmptyCell />;
+        return (
+          <span
+            className={`inline-block px-2 py-1 text-xs font-medium rounded border ${JOB_STATUS_COLORS[job.status] || "bg-gray-100 text-gray-800"}`}>
+            {job.status}
+          </span>
+        );
+      },
     },
     {
       header: "Description",

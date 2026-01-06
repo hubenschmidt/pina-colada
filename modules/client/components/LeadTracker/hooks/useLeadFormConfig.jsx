@@ -482,14 +482,12 @@ const getJobFormConfig = (selectedProjectId) => ({
       name: "account",
       label: "Organization",
       type: "custom",
-      required: true,
       gridColumn: "md:col-span-1",
-      renderCustom: ({ value, onChange, formData, isEditMode }) => (
+      renderCustom: ({ value, onChange, formData }) => (
         <AccountSelector
           value={value}
           onChange={onChange}
           accountType={formData?.account_type || "Organization"}
-          readOnly={isEditMode}
         />
       ),
     },
@@ -580,13 +578,6 @@ const getJobFormConfig = (selectedProjectId) => ({
   },
   onValidate: (formData) => {
     const errors = {};
-    const accountType = formData.account_type || "Organization";
-
-    // Account (Organization or Individual) is required
-    if (!formData.account || formData.account.trim() === "") {
-      errors.account =
-        accountType === "Individual" ? "Individual is required" : "Organization is required";
-    }
 
     if (!formData.job_title) {
       errors.job_title = "Job Title is required";
@@ -694,14 +685,12 @@ const getOpportunityFormConfig = (selectedProjectId) => ({
       name: "account",
       label: "Organization",
       type: "custom",
-      required: true,
       gridColumn: "md:col-span-1",
-      renderCustom: ({ value, onChange, formData, isEditMode }) => (
+      renderCustom: ({ value, onChange, formData }) => (
         <AccountSelector
           value={value}
           onChange={onChange}
           accountType={formData?.account_type || "Organization"}
-          readOnly={isEditMode}
         />
       ),
     },
@@ -742,13 +731,6 @@ const getOpportunityFormConfig = (selectedProjectId) => ({
   },
   onValidate: (formData) => {
     const errors = {};
-    const accountType = formData.account_type || "Organization";
-
-    // Account (Organization or Individual) is required
-    if (!formData.account || formData.account.trim() === "") {
-      errors.account =
-        accountType === "Individual" ? "Individual is required" : "Organization is required";
-    }
 
     if (!formData.opportunity_name) {
       errors.opportunity_name = "Name is required";
@@ -861,14 +843,12 @@ const getPartnershipFormConfig = (selectedProjectId) => ({
       name: "account",
       label: "Organization",
       type: "custom",
-      required: true,
       gridColumn: "md:col-span-1",
-      renderCustom: ({ value, onChange, formData, isEditMode }) => (
+      renderCustom: ({ value, onChange, formData }) => (
         <AccountSelector
           value={value}
           onChange={onChange}
           accountType={formData?.account_type || "Organization"}
-          readOnly={isEditMode}
         />
       ),
     },
@@ -909,13 +889,6 @@ const getPartnershipFormConfig = (selectedProjectId) => ({
   },
   onValidate: (formData) => {
     const errors = {};
-    const accountType = formData.account_type || "Organization";
-
-    // Account (Organization or Individual) is required
-    if (!formData.account || formData.account.trim() === "") {
-      errors.account =
-        accountType === "Individual" ? "Individual is required" : "Organization is required";
-    }
 
     if (!formData.partnership_name) {
       errors.partnership_name = "Name is required";

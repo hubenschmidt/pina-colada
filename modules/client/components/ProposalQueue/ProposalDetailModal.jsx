@@ -16,7 +16,10 @@ const ProposalDetailModal = ({ proposal, onClose, onApprove, onReject, onPayload
   const [payload, setPayload] = useState(null);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState(null);
+  const [executeError, setExecuteError] = useState(null);
   const [hasChanges, setHasChanges] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
 
   useEffect(() => {
     if (proposal?.payload) {
@@ -30,7 +33,32 @@ const ProposalDetailModal = ({ proposal, onClose, onApprove, onReject, onPayload
     }
     setHasChanges(false);
     setSaveError(null);
+    setExecuteError(null);
   }, [proposal]);
+
+  const handleApprove = async () => {
+    setApproving(true);
+    setExecuteError(null);
+    try {
+      await onApprove(proposal.id);
+    } catch (e) {
+      setExecuteError(e.message);
+    } finally {
+      setApproving(false);
+    }
+  };
+
+  const handleReject = async () => {
+    setRejecting(true);
+    setExecuteError(null);
+    try {
+      await onReject(proposal.id);
+    } catch (e) {
+      setExecuteError(e.message);
+    } finally {
+      setRejecting(false);
+    }
+  };
 
   const handlePayloadChange = useCallback((newPayload) => {
     setPayload(newPayload);
@@ -103,6 +131,12 @@ const ProposalDetailModal = ({ proposal, onClose, onApprove, onReject, onPayload
           </Alert>
         )}
 
+        {executeError && (
+          <Alert color="red" title="Execution Failed" onClose={() => setExecuteError(null)} withCloseButton>
+            {executeError}
+          </Alert>
+        )}
+
         <JsonEditor value={payload} onChange={handlePayloadChange} minRows={12} />
 
         <Group justify="space-between">
@@ -117,14 +151,15 @@ const ProposalDetailModal = ({ proposal, onClose, onApprove, onReject, onPayload
           </Button>
 
           <Group gap="xs">
-            <Button color="red" leftSection={<X size={16} />} onClick={() => onReject(proposal.id)}>
+            <Button color="red" leftSection={<X size={16} />} onClick={handleReject} loading={rejecting}>
               Reject
             </Button>
             <Button
               color="green"
               leftSection={<Check size={16} />}
-              onClick={() => onApprove(proposal.id)}
+              onClick={handleApprove}
               disabled={hasValidationErrors}
+              loading={approving}
             >
               Approve
             </Button>

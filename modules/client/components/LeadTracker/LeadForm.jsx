@@ -357,11 +357,11 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     if (field.showCondition && !field.showCondition({ isEditMode, formData })) return null;
 
     const accountType = formData["account_type"] || "Organization";
-    const isAccountField = field.name === "account";
     const isAccountTypeField = field.name === "account_type";
+    const isAccountField = field.name === "account";
 
-    // In edit mode, account-related fields are read-only
-    const isAccountReadOnly = isEditMode && (isAccountField || isAccountTypeField);
+    // In edit mode, account_type is read-only but account can be changed
+    const isAccountTypeReadOnly = isEditMode && isAccountTypeField;
     const readOnlyClasses = "bg-zinc-100 dark:bg-zinc-700 cursor-not-allowed opacity-75";
 
 
@@ -389,7 +389,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
       return fieldWrapper(
         field.renderCustom({
           value,
-          onChange: (v) => !isAccountReadOnly && handleFieldChange(String(field.name), v),
+          onChange: (v) => handleFieldChange(String(field.name), v),
           field,
           formData,
           isEditMode,
@@ -412,7 +412,7 @@ const LeadForm = ({ onClose, onAdd, config, lead, onUpdate, onDelete }) => {
     }
 
     if (field.type === "select") {
-      const isDisabled = field.disabled || isAccountReadOnly;
+      const isDisabled = field.disabled || isAccountTypeReadOnly;
       return fieldWrapper(
         <select
           value={value || ""}

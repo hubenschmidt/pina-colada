@@ -82,6 +82,7 @@ services:
     volumes:
       - ./modules/agent:/app
       - ./storage:/storage  # Shared storage volume
+      - go_mod_cache:/go/pkg/mod  # Cache Go modules between restarts
     env_file:
       - ./modules/agent/.env
     environment:
@@ -100,7 +101,8 @@ services:
       interval: 30m
       timeout: 5s
       retries: 10
-      start_period: 10s
+      start_period: 60s
+      start_interval: 5s
     logging:
       driver: "json-file"
       options:
@@ -305,6 +307,9 @@ services:
 volumes:
   app_postgres_data:
     name: ${COMPOSE_PROJECT_NAME}_app_postgres_data
+    driver: local
+  go_mod_cache:
+    name: ${COMPOSE_PROJECT_NAME}_go_mod_cache
     driver: local
   # langfuse_postgres_data:
   #   name: ${COMPOSE_PROJECT_NAME}_langfuse_postgres_data

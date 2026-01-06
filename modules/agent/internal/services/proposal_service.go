@@ -309,7 +309,7 @@ func (s *ProposalService) execute(entityType, operation string, entityID *int64,
 	if entityType == "task" {
 		return s.executeTask(operation, entityID, payload, tenantID, userID)
 	}
-	if entityType == "job" {
+	if entityType == "job" || entityType == "lead" {
 		return s.executeJob(operation, entityID, payload, tenantID, userID)
 	}
 	if entityType == "opportunity" {
@@ -524,13 +524,56 @@ func (s *ProposalService) executeJob(operation string, entityID *int64, payload 
 }
 
 func (s *ProposalService) createJob(payload datatypes.JSON, tenantID, userID int64) error {
+	// Normalize payload: map common LLM field names to schema field names
+	normalized := normalizeJobPayload(payload)
+
 	var input schemas.JobCreate
-	err := json.Unmarshal(payload, &input)
+	err := json.Unmarshal(normalized, &input)
 	if err != nil {
 		return parseError("job", err)
 	}
 	_, err = s.jobService.CreateJob(input, &tenantID, userID)
 	return err
+}
+
+// normalizeJobPayload maps LLM-generated field names to schema field names
+func normalizeJobPayload(payload datatypes.JSON) datatypes.JSON {
+	var data map[string]interface{}
+	if err := json.Unmarshal(payload, &data); err != nil {
+		return payload
+	}
+
+	// Map "title" -> "job_title" if job_title not present
+	if _, hasJobTitle := data["job_title"]; !hasJobTitle {
+		if title, hasTitle := data["title"]; hasTitle {
+			data["job_title"] = title
+			delete(data, "title")
+		}
+	}
+
+	// Map "company" -> "account" if account not present
+	if _, hasAccount := data["account"]; !hasAccount {
+		if company, hasCompany := data["company"]; hasCompany {
+			data["account"] = company
+			delete(data, "company")
+		}
+	}
+
+	// Map "url" -> "job_url" if job_url not present
+	if _, hasJobURL := data["job_url"]; !hasJobURL {
+		if url, hasURL := data["url"]; hasURL {
+			data["job_url"] = url
+			delete(data, "url")
+		}
+	}
+
+	// Default status to "Lead" if not present
+	if _, hasStatus := data["status"]; !hasStatus {
+		data["status"] = "Lead"
+	}
+
+	normalized, _ := json.Marshal(data)
+	return datatypes.JSON(normalized)
 }
 
 func (s *ProposalService) updateJob(id int64, payload datatypes.JSON, tenantID, userID int64) error {

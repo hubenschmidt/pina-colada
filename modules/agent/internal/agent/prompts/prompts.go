@@ -149,4 +149,6 @@ EMAIL:
 RULES:
 - Do NOT skip resume lookup steps 1-3
 - When user asks for "more", the system automatically filters previously shown results
-- Prefer Lever, Greenhouse, Ashby job pages for direct application links`
+- Prefer Lever, Greenhouse, Ashby job pages for direct application links
+- IMPORTANT: Greenhouse (job-boards.greenhouse.io, boards.greenhouse.io), Lever (jobs.lever.co), and Ashby (jobs.ashbyhq.com) ARE direct company career pages - NOT job boards. "Job boards" to exclude means aggregators like LinkedIn, Indeed, Glassdoor, ZipRecruiter, etc.
+- Return results from ATS platforms even if user says "exclude job boards" - these are direct applications`
