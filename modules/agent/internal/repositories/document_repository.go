@@ -122,7 +122,7 @@ func (r *DocumentRepository) FindDocumentByID(id int64) (*DocumentDTO, error) {
 	return &doc, nil
 }
 
-// FindByFilename finds a current-version document by filename within a tenant
+// FindByFilename finds the most recent current-version document by filename within a tenant
 func (r *DocumentRepository) FindByFilename(tenantID int64, filename string) (*DocumentDTO, error) {
 	var doc DocumentDTO
 	err := r.db.Model(&models.Asset{}).
@@ -133,6 +133,8 @@ func (r *DocumentRepository) FindByFilename(tenantID int64, filename string) (*D
 		Joins(`INNER JOIN "Document" ON "Document".id = "Asset".id`).
 		Where(`"Asset".tenant_id = ? AND "Asset".filename = ? AND "Asset".asset_type = ? AND "Asset".is_current_version = ?`,
 			tenantID, filename, "document", true).
+		Order(`"Asset".updated_at DESC`).
+		Limit(1).
 		Scan(&doc).Error
 	if err != nil {
 		return nil, err
