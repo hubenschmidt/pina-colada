@@ -11,6 +11,7 @@ import {
   linkDocumentToEntity,
   unlinkDocumentFromEntity,
   downloadDocument,
+  getRecentlyLinkedDocuments,
 } from "../../api";
 import { DocumentUpload } from "../Documents/DocumentUpload";
 import { useRouter } from "next/navigation";
@@ -37,6 +38,9 @@ const DocumentsSection = ({
   const [docVersions, setDocVersions] = useState([]);
   const [selectedVersionId, setSelectedVersionId] = useState(null);
   const [loadingVersions, setLoadingVersions] = useState(false);
+  // Recent documents for quick link
+  const [recentDocuments, setRecentDocuments] = useState([]);
+  const [loadingRecent, setLoadingRecent] = useState(false);
 
   // Fetch linked documents when entityId changes (edit mode only)
   useEffect(() => {
@@ -44,6 +48,23 @@ const DocumentsSection = ({
       fetchLinkedDocuments();
     }
   }, [entityType, entityId, isCreateMode]);
+
+  // Fetch recent documents for quick link (recently linked by user)
+  const fetchRecentDocuments = async () => {
+    setLoadingRecent(true);
+    try {
+      const docs = await getRecentlyLinkedDocuments();
+      // Filter out already linked documents
+      const linkedIds = new Set(
+        isCreateMode ? pendingDocumentIds || [] : documents.map((d) => d.id)
+      );
+      setRecentDocuments((docs || []).filter((d) => !linkedIds.has(d.id)));
+    } catch (err) {
+      console.error("Failed to fetch recent documents:", err);
+    } finally {
+      setLoadingRecent(false);
+    }
+  };
 
   const fetchLinkedDocuments = async () => {
     if (!entityId) return;
@@ -368,6 +389,76 @@ const DocumentsSection = ({
           autoFocus
         />
 
+        {/* Recent documents (shown when search is empty) */}
+        {!searchQuery && !isSearching && (
+          <div className="space-y-1">
+            {loadingRecent ? (
+              <p className="text-xs text-zinc-500 py-1">Loading recent...</p>
+            ) : recentDocuments.length > 0 ? (
+              <>
+                <p className="text-xs text-zinc-500">Recently linked</p>
+                {recentDocuments.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-700 cursor-pointer rounded flex items-center justify-between"
+                    onClick={() => handleExpandDoc(doc.id)}>
+                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                      <span className="text-sm text-zinc-700 dark:text-zinc-300 truncate">
+                        {doc.filename}
+                      </span>
+                      <span className="text-xs px-1.5 py-0.5 bg-zinc-200 dark:bg-zinc-600 text-zinc-600 dark:text-zinc-300 rounded">
+                        v{doc.version_number}
+                      </span>
+                    </div>
+                    {expandedDocId === doc.id ? (
+                      <ChevronUp size={16} className="text-zinc-400 flex-shrink-0" />
+                    ) : (
+                      <ChevronDown size={16} className="text-zinc-400 flex-shrink-0" />
+                    )}
+                  </div>
+                ))}
+                {/* Version selector for recent docs */}
+                {expandedDocId && recentDocuments.some(d => d.id === expandedDocId) && (
+                  <div className="ml-4 px-2 pb-2 border-l-2 border-zinc-200 dark:border-zinc-700">
+                    {loadingVersions ? (
+                      <p className="text-xs text-zinc-500 py-1">Loading versions...</p>
+                    ) : docVersions.length > 1 ? (
+                      <div className="flex items-center gap-2 pt-1">
+                        <select
+                          value={selectedVersionId || expandedDocId}
+                          onChange={(e) => setSelectedVersionId(Number(e.target.value))}
+                          className="text-sm border border-zinc-300 dark:border-zinc-600 rounded px-2 py-1 bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100">
+                          {docVersions.map((v) => (
+                            <option key={v.id} value={v.id}>
+                              v{v.version_number} {v.is_current_version && "(current)"}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => handleLinkDocument(selectedVersionId || expandedDocId)}
+                          className="px-2 py-1 text-sm bg-lime-600 text-white rounded hover:bg-lime-700 flex items-center gap-1">
+                          <Plus size={14} /> Link
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2 pt-1">
+                        <span className="text-xs text-zinc-500">Only version</span>
+                        <button
+                          type="button"
+                          onClick={() => handleLinkDocument(expandedDocId)}
+                          className="px-2 py-1 text-sm bg-lime-600 text-white rounded hover:bg-lime-700 flex items-center gap-1">
+                          <Plus size={14} /> Link
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            ) : null}
+          </div>
+        )}
+
         {isSearching && <p className="text-sm text-zinc-500">Searching...</p>}
         {searchResults.length > 0 && (
           <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -466,7 +557,10 @@ const DocumentsSection = ({
             <span className="text-zinc-400 dark:text-zinc-600">|</span>
             <button
               type="button"
-              onClick={() => setShowLinkForm(true)}
+              onClick={() => {
+                setShowLinkForm(true);
+                fetchRecentDocuments();
+              }}
               className="flex items-center gap-1 text-sm text-lime-600 dark:text-lime-400 hover:text-lime-700 dark:hover:text-lime-300">
               <Plus size={16} />
               Link Document

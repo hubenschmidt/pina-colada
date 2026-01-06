@@ -1181,6 +1181,10 @@ export const setCurrentDocumentVersion = async (documentId) => {
   return apiPatch(`/assets/documents/${documentId}/set-current`, {});
 };
 
+export const getRecentlyLinkedDocuments = async () => {
+  return apiGet("/assets/documents/recent-linked");
+};
+
 // ============== Conversation API ==============
 
 export const getConversations = async (limit = 50, includeArchived = false) => {

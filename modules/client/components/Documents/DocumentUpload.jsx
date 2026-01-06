@@ -15,7 +15,7 @@ import {
   Modal,
 } from "@mantine/core";
 import { Upload, X, FileText, AlertTriangle } from "lucide-react";
-import { uploadDocument, getTags, checkDocumentFilename, createDocumentVersion } from "../../api";
+import { uploadDocument, getTags, checkDocumentFilename, createDocumentVersion, linkDocumentToEntity } from "../../api";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ACCEPTED_TYPES = {
@@ -107,16 +107,21 @@ export const DocumentUpload = ({ onUploadComplete, entityType, entityId, onClose
         setProgress((prev) => Math.min(prev + 10, 90));
       }, 100);
 
-      const document =
-        asVersion && existingDocument
-          ? await createDocumentVersion(existingDocument.id, file)
-          : await uploadDocument(
-              file,
-              tags.length > 0 ? tags : undefined,
-              entityType,
-              entityId,
-              description || undefined
-            );
+      const isVersionUpload = asVersion && existingDocument;
+      const document = isVersionUpload
+        ? (await createDocumentVersion(existingDocument.id, file)).document
+        : await uploadDocument(
+            file,
+            tags.length > 0 ? tags : undefined,
+            entityType,
+            entityId,
+            description || undefined
+          );
+
+      // Link the new version to the entity if we have entity context
+      if (isVersionUpload && entityType && entityId && document?.id) {
+        await linkDocumentToEntity(document.id, entityType, entityId);
+      }
 
       clearInterval(progressInterval);
       setProgress(100);

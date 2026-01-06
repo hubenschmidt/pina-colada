@@ -374,9 +374,10 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		}
 	}
 	if maxAge > 0 && len(listings) > 0 {
-		log.Printf("🔍 Verifying posting dates (max age: %v)...", maxAge)
-		// For "day" or "week" filters, exclude unknown dates (strict filtering)
-		strictFilter := params.TimeFilter == "day" || params.TimeFilter == "week"
+		log.Printf("🔍 Verifying posting dates (max age: %v, time_filter: %q)...", maxAge, params.TimeFilter)
+		// Strict filter when user explicitly requests a valid time range (exclude unknown dates)
+		// Only include unknown dates when using ATSMode default (no explicit time filter)
+		strictFilter := params.TimeFilter == "day" || params.TimeFilter == "week" || params.TimeFilter == "month"
 		listings = verifyPostingDates(listings, maxAge, strictFilter)
 	}
 

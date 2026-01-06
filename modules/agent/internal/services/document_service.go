@@ -73,14 +73,27 @@ type EntityLinkInput struct {
 }
 
 // LinkDocument links a document to an entity
-func (s *DocumentService) LinkDocument(documentID int64, input EntityLinkInput) error {
-	return s.docRepo.LinkToEntity(documentID, input.EntityType, input.EntityID)
+func (s *DocumentService) LinkDocument(documentID int64, input EntityLinkInput, userID int64) error {
+	return s.docRepo.LinkToEntity(documentID, input.EntityType, input.EntityID, userID)
 }
 
 // UnlinkDocument removes a document's link to an entity
 func (s *DocumentService) UnlinkDocument(documentID int64, entityType string, entityID int64) error {
 	normalizedType := normalizeEntityType(entityType)
 	return s.docRepo.UnlinkFromEntity(documentID, normalizedType, entityID)
+}
+
+// GetRecentlyLinkedDocuments returns documents recently linked by a user
+func (s *DocumentService) GetRecentlyLinkedDocuments(userID int64, limit int) ([]schemas.DocumentResponse, error) {
+	dtos, err := s.docRepo.GetRecentlyLinkedByUser(userID, limit)
+	if err != nil {
+		return nil, err
+	}
+	var result []schemas.DocumentResponse
+	for _, dto := range dtos {
+		result = append(result, *toDocumentResponse(&dto))
+	}
+	return result, nil
 }
 
 // GetDocumentByID returns a single document by ID
@@ -179,7 +192,7 @@ func (s *DocumentService) UploadDocument(input UploadDocumentInput) (*repositori
 	// Link to entity if provided
 	if input.EntityType != nil && input.EntityID != nil {
 		normalizedType := normalizeEntityType(*input.EntityType)
-		if err := s.docRepo.LinkToEntity(doc.ID, normalizedType, *input.EntityID); err != nil {
+		if err := s.docRepo.LinkToEntity(doc.ID, normalizedType, *input.EntityID, input.UserID); err != nil {
 			// Don't fail the whole upload, just log or ignore
 		}
 	}

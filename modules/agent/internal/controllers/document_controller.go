@@ -188,7 +188,9 @@ func (c *DocumentController) LinkDocument(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	if err := c.docService.LinkDocument(id, input); err != nil {
+	userID, _ := middleware.GetUserID(r.Context())
+
+	if err := c.docService.LinkDocument(id, input, userID); err != nil {
 		writeError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -402,6 +404,23 @@ func (c *DocumentController) UpdateDocument(w http.ResponseWriter, r *http.Reque
 	}
 
 	writeJSON(w, http.StatusOK, doc)
+}
+
+// GetRecentlyLinkedDocuments handles GET /assets/documents/recent-linked
+func (c *DocumentController) GetRecentlyLinkedDocuments(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		writeJSON(w, http.StatusOK, []interface{}{})
+		return
+	}
+
+	docs, err := c.docService.GetRecentlyLinkedDocuments(userID, 5)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeJSON(w, http.StatusOK, docs)
 }
 
 // DeleteDocument handles DELETE /assets/documents/{id}

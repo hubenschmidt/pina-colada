@@ -294,6 +294,7 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 		r.Route("/assets", func(r chi.Router) {
 			r.Get("/documents", c.Document.GetDocuments)
 			r.Get("/documents/check-filename", c.Document.CheckFilename)
+			r.Get("/documents/recent-linked", c.Document.GetRecentlyLinkedDocuments)
 			r.Get("/documents/{id}", c.Document.GetDocument)
 			r.Get("/documents/{id}/download", c.Document.DownloadDocument)
 			r.Post("/documents", c.Document.UploadDocument)

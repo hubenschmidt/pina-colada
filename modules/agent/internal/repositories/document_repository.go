@@ -144,13 +144,17 @@ func (r *DocumentRepository) FindByFilename(tenantID int64, filename string) (*D
 }
 
 // LinkToEntity links a document to an entity (idempotent - ignores if already linked)
-func (r *DocumentRepository) LinkToEntity(assetID int64, entityType string, entityID int64) error {
+// userID is optional - pass 0 to not track who linked
+func (r *DocumentRepository) LinkToEntity(assetID int64, entityType string, entityID int64, userID int64) error {
 	link := &models.EntityAsset{
 		AssetID:    assetID,
 		EntityType: entityType,
 		EntityID:   entityID,
 	}
-	result := r.db.Where(link).FirstOrCreate(link)
+	if userID > 0 {
+		link.LinkedByUserID = &userID
+	}
+	result := r.db.Where("asset_id = ? AND entity_type = ? AND entity_id = ?", assetID, entityType, entityID).FirstOrCreate(link)
 	return result.Error
 }
 
@@ -158,6 +162,27 @@ func (r *DocumentRepository) LinkToEntity(assetID int64, entityType string, enti
 func (r *DocumentRepository) UnlinkFromEntity(assetID int64, entityType string, entityID int64) error {
 	return r.db.Where("asset_id = ? AND entity_type = ? AND entity_id = ?", assetID, entityType, entityID).
 		Delete(&models.EntityAsset{}).Error
+}
+
+// GetRecentlyLinkedByUser returns documents recently linked by a user
+func (r *DocumentRepository) GetRecentlyLinkedByUser(userID int64, limit int) ([]DocumentDTO, error) {
+	var docs []DocumentDTO
+
+	err := r.db.Model(&models.Asset{}).
+		Select(`DISTINCT ON ("Entity_Asset".created_at, "Asset".id) "Asset".id, "Asset".asset_type, "Asset".tenant_id, "Asset".user_id,
+			"Asset".filename, "Asset".content_type, "Asset".description,
+			"Asset".created_at, "Asset".updated_at, "Asset".is_current_version, "Asset".version_number,
+			"Document".storage_path, "Document".file_size`).
+		Joins(`INNER JOIN "Document" ON "Document".id = "Asset".id`).
+		Joins(`INNER JOIN "Entity_Asset" ON "Entity_Asset".asset_id = "Asset".id`).
+		Where(`"Entity_Asset".linked_by_user_id = ?`, userID).
+		Where(`"Asset".asset_type = ?`, "document").
+		Where(`"Asset".is_current_version = ?`, true).
+		Order(`"Entity_Asset".created_at DESC, "Asset".id`).
+		Limit(limit).
+		Scan(&docs).Error
+
+	return docs, err
 }
 
 // CreateDocumentInput holds data for creating a new document
