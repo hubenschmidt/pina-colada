@@ -86,8 +86,9 @@ export const DocumentUpload = ({ onUploadComplete, entityType, entityId, onClose
         setVersionModalOpen(true);
         return;
       }
-    } catch {
-      // If check fails, proceed with upload anyway
+    } catch (err) {
+      setError("Failed to check for existing document. Please try again.");
+      return;
     }
 
     await performUpload();
