@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -227,9 +228,10 @@ type JobSearchResult struct {
 // JobListing represents a single job for compact cache storage
 // Uses short field names to minimize JSON size
 type JobListing struct {
-	C string `json:"c"` // Company
-	T string `json:"t"` // Title
-	U string `json:"u"` // URL
+	C      string    `json:"c"`           // Company
+	T      string    `json:"t"`           // Title
+	U      string    `json:"u"`           // URL
+	Posted time.Time `json:"p,omitempty"` // Verified posting date (zero if unknown)
 }
 
 // --- Serper API Types ---
@@ -355,6 +357,27 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	// Extract structured listings (filtered by existing jobs and seen URLs)
 	seenURLs := t.getSeenURLs()
 	listings := extractListings(serperResp.Organic, maxResults, existingJobs, seenURLs)
+
+	// Verify posting dates if time filter is set, or auto-verify in ATS mode
+	var maxAge time.Duration
+	switch params.TimeFilter {
+	case "day":
+		maxAge = 24 * time.Hour
+	case "week":
+		maxAge = 7 * 24 * time.Hour
+	case "month":
+		maxAge = 30 * 24 * time.Hour
+	default:
+		// Auto-verify in ATS mode (default to 30 days)
+		if params.ATSMode {
+			maxAge = 30 * 24 * time.Hour
+		}
+	}
+	if maxAge > 0 && len(listings) > 0 {
+		log.Printf("🔍 Verifying posting dates (max age: %v)...", maxAge)
+		listings = verifyPostingDates(listings, maxAge)
+	}
+
 	listingCount := len(listings)
 
 	// Mark returned URLs as seen for this session
@@ -381,9 +404,9 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		}, nil
 	}
 
-	// Format for display
+	// Format for display (show dates only when verification was attempted)
 	return &JobSearchResult{
-		Results: formatListings(listings),
+		Results: formatListings(listings, maxAge > 0),
 		Count:   listingCount,
 	}, nil
 }
@@ -465,13 +488,22 @@ func extractListing(item serperOrganicResult, existingJobs []JobInfo, seenURLs m
 }
 
 // formatListings converts structured listings to display string
-func formatListings(listings []JobListing) string {
+// showDates should be true when date verification was attempted
+func formatListings(listings []JobListing, showDates bool) string {
 	if len(listings) == 0 {
 		return ""
 	}
 	var lines []string
 	for _, l := range listings {
-		lines = append(lines, fmt.Sprintf("- %s - %s - [url](%s)", l.C, l.T, l.U))
+		line := fmt.Sprintf("- %s - %s - [url](%s)", l.C, l.T, l.U)
+		if showDates {
+			if l.Posted.IsZero() {
+				line += " (date unknown)"
+			} else {
+				line += fmt.Sprintf(" (posted: %s)", l.Posted.Format("Jan 2"))
+			}
+		}
+		lines = append(lines, line)
 	}
 	return strings.Join(lines, "\n")
 }
@@ -681,5 +713,168 @@ func formatWebResults(organic []serperOrganicResult) string {
 		lines = append(lines, fmt.Sprintf("%d. **%s**\n   %s\n   %s", i+1, item.Title, item.Snippet, item.Link))
 	}
 	return strings.Join(lines, "\n\n")
+}
+
+// --- Posting Date Verification ---
+
+// Regex patterns for extracting posting dates from ATS platforms
+var (
+	// JSON-LD datePosted pattern (Lever, Greenhouse, etc.)
+	jsonLDDatePattern = regexp.MustCompile(`"datePosted"\s*:\s*"([^"]+)"`)
+	// Relative date patterns
+	daysAgoPattern   = regexp.MustCompile(`(?i)posted\s+(\d+)\s+days?\s+ago`)
+	weeksAgoPattern  = regexp.MustCompile(`(?i)posted\s+(\d+)\s+weeks?\s+ago`)
+	monthsAgoPattern = regexp.MustCompile(`(?i)posted\s+(\d+)\s+months?\s+ago`)
+	todayPattern     = regexp.MustCompile(`(?i)posted\s+today`)
+	yesterdayPattern = regexp.MustCompile(`(?i)posted\s+yesterday`)
+)
+
+// fetchPostingDate fetches a job URL and extracts the posting date
+// Returns the date, success boolean, and source description
+func fetchPostingDate(url string) (time.Time, bool, string) {
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return time.Time{}, false, ""
+	}
+	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; JobSearchBot/1.0)")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return time.Time{}, false, ""
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return time.Time{}, false, ""
+	}
+
+	// Read body (limit to 500KB to avoid huge pages)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 500*1024))
+	if err != nil {
+		return time.Time{}, false, ""
+	}
+	html := string(body)
+
+	return parsePostingDate(html)
+}
+
+// parsePostingDate extracts posting date from HTML content
+// Returns: date, success, source description
+func parsePostingDate(html string) (time.Time, bool, string) {
+	now := time.Now()
+
+	// Try JSON-LD datePosted first (most reliable)
+	if matches := jsonLDDatePattern.FindStringSubmatch(html); len(matches) > 1 {
+		if t, err := time.Parse("2006-01-02", matches[1]); err == nil {
+			return t, true, fmt.Sprintf("JSON-LD datePosted: %s", matches[1])
+		}
+		if t, err := time.Parse(time.RFC3339, matches[1]); err == nil {
+			return t, true, fmt.Sprintf("JSON-LD datePosted: %s", matches[1])
+		}
+	}
+
+	// Try "posted today"
+	if todayPattern.MatchString(html) {
+		return now.Truncate(24 * time.Hour), true, "text: 'posted today'"
+	}
+
+	// Try "posted yesterday"
+	if yesterdayPattern.MatchString(html) {
+		return now.Add(-24 * time.Hour).Truncate(24 * time.Hour), true, "text: 'posted yesterday'"
+	}
+
+	// Try "posted X days ago"
+	if matches := daysAgoPattern.FindStringSubmatch(html); len(matches) > 1 {
+		days := 0
+		fmt.Sscanf(matches[1], "%d", &days)
+		return now.Add(-time.Duration(days) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s days ago'", matches[1])
+	}
+
+	// Try "posted X weeks ago"
+	if matches := weeksAgoPattern.FindStringSubmatch(html); len(matches) > 1 {
+		weeks := 0
+		fmt.Sscanf(matches[1], "%d", &weeks)
+		return now.Add(-time.Duration(weeks*7) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s weeks ago'", matches[1])
+	}
+
+	// Try "posted X months ago"
+	if matches := monthsAgoPattern.FindStringSubmatch(html); len(matches) > 1 {
+		months := 0
+		fmt.Sscanf(matches[1], "%d", &months)
+		return now.Add(-time.Duration(months*30) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s months ago'", matches[1])
+	}
+
+	return time.Time{}, false, ""
+}
+
+// verifyPostingDates fetches URLs concurrently and filters by posting date
+// maxAge is the maximum age for listings (e.g., 7*24*time.Hour for 1 week)
+// Returns listings with verified dates, plus listings with unknown dates (marked as such)
+func verifyPostingDates(listings []JobListing, maxAge time.Duration) []JobListing {
+	if len(listings) == 0 {
+		return listings
+	}
+
+	type result struct {
+		index  int
+		posted time.Time
+		ok     bool
+		source string
+	}
+
+	results := make(chan result, len(listings))
+	sem := make(chan struct{}, 5) // Limit to 5 concurrent requests
+
+	var wg sync.WaitGroup
+	for i, listing := range listings {
+		wg.Add(1)
+		go func(idx int, url string) {
+			defer wg.Done()
+			sem <- struct{}{}        // Acquire
+			defer func() { <-sem }() // Release
+
+			posted, ok, source := fetchPostingDate(url)
+			results <- result{index: idx, posted: posted, ok: ok, source: source}
+		}(i, listing.U)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	// Collect results
+	postingDates := make(map[int]result)
+	for r := range results {
+		postingDates[r.index] = r
+	}
+
+	// Filter and annotate listings
+	cutoff := time.Now().Add(-maxAge)
+	var verified []JobListing
+	var unknown []JobListing
+
+	for i, listing := range listings {
+		r := postingDates[i]
+		if !r.ok {
+			// Unknown date - keep but mark
+			unknown = append(unknown, listing)
+			log.Printf("   Date unknown for: %s - %s (no parseable date found)", listing.C, listing.T)
+			continue
+		}
+
+		listing.Posted = r.posted
+		if r.posted.Before(cutoff) {
+			log.Printf("   Filtered out old posting (%s): %s - %s [%s]", r.posted.Format("Jan 2"), listing.C, listing.T, r.source)
+			continue
+		}
+
+		verified = append(verified, listing)
+		log.Printf("   Verified fresh posting (%s): %s - %s [%s]", r.posted.Format("Jan 2"), listing.C, listing.T, r.source)
+	}
+
+	// Append unknown dates at the end (with warning)
+	return append(verified, unknown...)
 }
 
