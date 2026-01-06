@@ -14,7 +14,10 @@ func BuildAgentTools(crm *CRMTools, serper *SerperTools, doc *DocumentTools, ema
 		crmLookupTool(crm),
 		crmListTool(crm),
 		crmProposeCreateTool(crm),
+		crmProposeBatchCreateTool(crm),
 		crmProposeUpdateTool(crm),
+		crmProposeBatchUpdateTool(crm),
+		crmProposeBulkUpdateAllTool(crm),
 		crmProposeDeleteTool(crm),
 		jobSearchTool(serper),
 		webSearchTool(serper),
@@ -79,6 +82,60 @@ func crmProposeCreateTool(crm *CRMTools) agents.Tool {
 		"Propose creating a new CRM record. The proposal is queued for human approval. Parameters: entity_type (job, contact, etc.), data (record fields as JSON object).",
 		func(ctx context.Context, args CRMProposeRecordCreateParams) (string, error) {
 			result, err := crm.ProposeRecordCreateCtx(ctx, args)
+			if err != nil {
+				return "", err
+			}
+			out, _ := json.Marshal(result)
+			return string(out), nil
+		},
+	)
+}
+
+func crmProposeBatchCreateTool(crm *CRMTools) agents.Tool {
+	if crm == nil {
+		return nil
+	}
+	return agents.NewFunctionTool(
+		"crm_propose_batch_create",
+		"Propose creating multiple CRM records in a single call. Use this for batch operations like adding many jobs at once. Parameters: entity_type (e.g. 'job'), items_json (array of JSON object strings, one per record).",
+		func(ctx context.Context, args CRMProposeBatchCreateParams) (string, error) {
+			result, err := crm.ProposeRecordBatchCreateCtx(ctx, args)
+			if err != nil {
+				return "", err
+			}
+			out, _ := json.Marshal(result)
+			return string(out), nil
+		},
+	)
+}
+
+func crmProposeBatchUpdateTool(crm *CRMTools) agents.Tool {
+	if crm == nil {
+		return nil
+	}
+	return agents.NewFunctionTool(
+		"crm_propose_batch_update",
+		"Propose updating multiple CRM records in a single call. Use this for batch operations like updating many jobs at once. Parameters: entity_type (e.g. 'job'), items (array of objects with record_id and data_json).",
+		func(ctx context.Context, args CRMProposeBatchUpdateParams) (string, error) {
+			result, err := crm.ProposeRecordBatchUpdateCtx(ctx, args)
+			if err != nil {
+				return "", err
+			}
+			out, _ := json.Marshal(result)
+			return string(out), nil
+		},
+	)
+}
+
+func crmProposeBulkUpdateAllTool(crm *CRMTools) agents.Tool {
+	if crm == nil {
+		return nil
+	}
+	return agents.NewFunctionTool(
+		"crm_propose_bulk_update_all",
+		"Propose updating ALL records of a type with the same update. Use this when you need to update all jobs/contacts/etc with the same change. Parameters: entity_type (e.g. 'job'), data_json (the update to apply to all records). The tool fetches all record IDs automatically.",
+		func(ctx context.Context, args CRMProposeBulkUpdateAllParams) (string, error) {
+			result, err := crm.ProposeBulkUpdateAllCtx(ctx, args)
 			if err != nil {
 				return "", err
 			}

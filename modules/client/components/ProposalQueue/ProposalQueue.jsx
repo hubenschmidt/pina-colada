@@ -9,11 +9,7 @@ import {
   Button,
   Checkbox,
   Badge,
-  Text,
-  Table,
-  Loader,
   Alert,
-  Pagination,
 } from "@mantine/core";
 import { Check, X, AlertTriangle } from "lucide-react";
 import {
@@ -23,6 +19,7 @@ import {
   bulkApproveProposals,
   bulkRejectProposals,
 } from "../../api";
+import { DataTable } from "../DataTable/DataTable";
 import ProposalDetailModal from "./ProposalDetailModal";
 
 const operationColors = {
@@ -38,28 +35,34 @@ const ProposalQueue = () => {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [activeProposal, setActiveProposal] = useState(null);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [totalPages, setTotalPages] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const [sortBy, setSortBy] = useState("created_at");
+  const [sortDirection, setSortDirection] = useState("DESC");
   const [bulkLoading, setBulkLoading] = useState(false);
 
   const loadProposals = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const data = await getProposals(page, 20);
+      const data = await getProposals(page, pageSize, sortBy, sortDirection);
       setProposals(data.items || []);
-      setTotalPages(data.total_pages || 1);
+      setTotalPages(data.totalPages || 1);
+      setTotalCount(data.totalCount || 0);
     } catch (e) {
       setError(e.message);
     } finally {
       setLoading(false);
     }
-  }, [page]);
+  }, [page, pageSize, sortBy, sortDirection]);
 
   useEffect(() => {
     loadProposals();
   }, [loadProposals]);
 
-  const toggleSelect = (id) => {
+  const toggleSelect = (id, e) => {
+    e?.stopPropagation?.();
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -133,16 +136,122 @@ const ProposalQueue = () => {
     return date.toLocaleDateString() + " " + date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   };
 
-  if (loading && proposals.length === 0) {
-    return (
-      <Paper withBorder p="lg">
-        <Group justify="center">
-          <Loader size="sm" />
-          <Text>Loading proposals...</Text>
-        </Group>
-      </Paper>
-    );
-  }
+  const handleSortChange = ({ sortBy: newSortBy, direction }) => {
+    setSortBy(newSortBy);
+    setSortDirection(direction);
+    setPage(1);
+  };
+
+  const getSummary = (proposal) => {
+    const payload = typeof proposal.payload === "string"
+      ? JSON.parse(proposal.payload || "{}")
+      : proposal.payload || {};
+
+    const entityType = proposal.entity_type?.toLowerCase();
+
+    if (entityType === "job") {
+      return payload.job_title || payload.title || "-";
+    }
+    if (entityType === "contact") {
+      const name = [payload.first_name, payload.last_name].filter(Boolean).join(" ");
+      return name || payload.email || "-";
+    }
+    if (entityType === "individual") {
+      const name = [payload.first_name, payload.last_name].filter(Boolean).join(" ");
+      return name || payload.email || "-";
+    }
+    if (entityType === "organization") {
+      return payload.name || payload.organization_name || "-";
+    }
+    if (entityType === "opportunity") {
+      return payload.opportunity_name || payload.name || "-";
+    }
+    if (entityType === "partnership") {
+      return payload.partnership_name || payload.name || "-";
+    }
+    if (entityType === "note") {
+      const content = payload.content || "";
+      return content.length > 50 ? content.substring(0, 50) + "..." : content || "-";
+    }
+    if (entityType === "task") {
+      return payload.title || payload.description?.substring(0, 50) || "-";
+    }
+
+    // Fallback: try common field names
+    return payload.title || payload.name || payload.job_title || "-";
+  };
+
+  const columns = [
+    {
+      header: (
+        <Checkbox
+          checked={selectedIds.size === proposals.length && proposals.length > 0}
+          indeterminate={selectedIds.size > 0 && selectedIds.size < proposals.length}
+          onChange={toggleSelectAll}
+        />
+      ),
+      width: 40,
+      render: (row) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Checkbox
+            checked={selectedIds.has(row.id)}
+            onChange={(e) => toggleSelect(row.id, e)}
+          />
+        </div>
+      ),
+    },
+    {
+      header: "Entity Type",
+      accessor: "entity_type",
+      sortKey: "entity_type",
+      sortable: true,
+      render: (row) => <Badge variant="light">{row.entity_type}</Badge>,
+    },
+    {
+      header: "Summary",
+      render: (row) => getSummary(row),
+    },
+    {
+      header: "Operation",
+      accessor: "operation",
+      sortKey: "operation",
+      sortable: true,
+      render: (row) => (
+        <Badge color={operationColors[row.operation] || "gray"}>
+          {row.operation}
+        </Badge>
+      ),
+    },
+    {
+      header: "Entity ID",
+      accessor: "entity_id",
+      render: (row) => row.entity_id || "-",
+    },
+    {
+      header: "Created",
+      accessor: "created_at",
+      sortKey: "created_at",
+      sortable: true,
+      render: (row) => formatDate(row.created_at),
+    },
+    {
+      header: "Status",
+      render: (row) =>
+        hasValidationErrors(row) ? (
+          <Badge color="orange" leftSection={<AlertTriangle size={12} />}>
+            Validation Errors
+          </Badge>
+        ) : null,
+    },
+  ];
+
+  const tableData = {
+    items: proposals,
+    currentPage: page,
+    totalPages,
+    pageSize,
+    totalCount,
+  };
 
   return (
     <Paper withBorder p="lg">
@@ -151,9 +260,7 @@ const ProposalQueue = () => {
           <Title order={4}>Pending Proposals</Title>
           {selectedIds.size > 0 && (
             <Group gap="xs">
-              <Text size="sm" c="dimmed">
-                {selectedIds.size} selected
-              </Text>
+              <span className="text-sm text-zinc-500">{selectedIds.size} selected</span>
               <Button
                 size="xs"
                 color="green"
@@ -182,71 +289,25 @@ const ProposalQueue = () => {
           </Alert>
         )}
 
-        {proposals.length === 0 ? (
-          <Text c="dimmed" ta="center" py="xl">
-            No pending proposals
-          </Text>
-        ) : (
-          <>
-            <Table highlightOnHover>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th style={{ width: 40 }}>
-                    <Checkbox
-                      checked={selectedIds.size === proposals.length && proposals.length > 0}
-                      indeterminate={selectedIds.size > 0 && selectedIds.size < proposals.length}
-                      onChange={toggleSelectAll}
-                    />
-                  </Table.Th>
-                  <Table.Th>Entity Type</Table.Th>
-                  <Table.Th>Operation</Table.Th>
-                  <Table.Th>Entity ID</Table.Th>
-                  <Table.Th>Created</Table.Th>
-                  <Table.Th>Status</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {proposals.map((proposal) => (
-                  <Table.Tr
-                    key={proposal.id}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => setActiveProposal(proposal)}
-                  >
-                    <Table.Td onClick={(e) => e.stopPropagation()}>
-                      <Checkbox
-                        checked={selectedIds.has(proposal.id)}
-                        onChange={() => toggleSelect(proposal.id)}
-                      />
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge variant="light">{proposal.entity_type}</Badge>
-                    </Table.Td>
-                    <Table.Td>
-                      <Badge color={operationColors[proposal.operation] || "gray"}>
-                        {proposal.operation}
-                      </Badge>
-                    </Table.Td>
-                    <Table.Td>{proposal.entity_id || "-"}</Table.Td>
-                    <Table.Td>{formatDate(proposal.created_at)}</Table.Td>
-                    <Table.Td>
-                      {hasValidationErrors(proposal) && (
-                        <Badge color="orange" leftSection={<AlertTriangle size={12} />}>
-                          Validation Errors
-                        </Badge>
-                      )}
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-
-            {totalPages > 1 && (
-              <Group justify="center">
-                <Pagination value={page} onChange={setPage} total={totalPages} />
-              </Group>
-            )}
-          </>
-        )}
+        <DataTable
+          data={tableData}
+          columns={columns}
+          rowKey={(row) => row.id}
+          onRowClick={(row) => setActiveProposal(row)}
+          onPageChange={setPage}
+          pageValue={page}
+          onPageSizeChange={(size) => {
+            setPageSize(size);
+            setPage(1);
+          }}
+          pageSizeValue={pageSize}
+          pageSizeOptions={[5, 10, 25, 50, 100, 250, 500]}
+          sortBy={sortBy}
+          sortDirection={sortDirection}
+          onSortChange={handleSortChange}
+          emptyText="No pending proposals"
+          highlightOnHover
+        />
       </Stack>
 
       <ProposalDetailModal

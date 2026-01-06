@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 
 	"agent/internal/middleware"
 	"agent/internal/services"
@@ -45,6 +46,9 @@ func NewCRMTools(
 		proposalCreator: proposalCreator,
 	}
 }
+
+// maxConcurrentWorkers limits concurrent DB operations for resource-constrained environments
+const maxConcurrentWorkers = 20
 
 // --- Tool Parameter Structs ---
 
@@ -167,6 +171,274 @@ type CRMProposeResult struct {
 	ProposalID int64  `json:"proposal_id,omitempty"`
 	Status     string `json:"status"`
 	Message    string `json:"message"`
+}
+
+// CRMProposeBatchCreateParams defines parameters for batch proposing record creation
+type CRMProposeBatchCreateParams struct {
+	EntityType string   `json:"entity_type" jsonschema:"required,description=The type of CRM entity to create records for (e.g. job)"`
+	ItemsJSON  []string `json:"items_json" jsonschema:"required,description=Array of record data as JSON strings. Each item is a JSON object string e.g. [{\"title\":\"Engineer\"},{\"title\":\"Manager\"}]"`
+}
+
+// CRMProposeBatchResult is the result of a batch propose operation
+type CRMProposeBatchResult struct {
+	Success      bool    `json:"success"`
+	Created      int     `json:"created"`
+	Failed       int     `json:"failed"`
+	ProposalIDs  []int64 `json:"proposal_ids,omitempty"`
+	ErrorMessage string  `json:"error_message,omitempty"`
+}
+
+// CRMProposeBatchUpdateItem represents a single update in a batch
+type CRMProposeBatchUpdateItem struct {
+	RecordID int64  `json:"record_id" jsonschema:"required,description=The ID of the record to update"`
+	DataJSON string `json:"data_json" jsonschema:"required,description=The fields to update as a JSON string"`
+}
+
+// CRMProposeBatchUpdateParams defines parameters for batch proposing record updates
+type CRMProposeBatchUpdateParams struct {
+	EntityType string                      `json:"entity_type" jsonschema:"required,description=The type of CRM entity to update (e.g. job)"`
+	Items      []CRMProposeBatchUpdateItem `json:"items" jsonschema:"required,description=Array of update items, each with record_id and data_json"`
+}
+
+// CRMProposeBulkUpdateAllParams defines parameters for bulk updating all records of a type
+type CRMProposeBulkUpdateAllParams struct {
+	EntityType string `json:"entity_type" jsonschema:"required,description=The type of CRM entity to update (e.g. job)"`
+	DataJSON   string `json:"data_json" jsonschema:"required,description=The fields to update as a JSON string (applied to ALL records)"`
+}
+
+// ProposeRecordBatchCreateCtx proposes creating multiple CRM records in one call (concurrent)
+func (t *CRMTools) ProposeRecordBatchCreateCtx(ctx context.Context, params CRMProposeBatchCreateParams) (*CRMProposeBatchResult, error) {
+	entityType := strings.ToLower(params.EntityType)
+	log.Printf("📝 crm_propose_batch_create entity_type='%s', count=%d", entityType, len(params.ItemsJSON))
+
+	if denied := t.checkPermission(ctx, entityType+":create"); denied != nil {
+		return &CRMProposeBatchResult{Success: false, ErrorMessage: denied.Error}, nil
+	}
+
+	if t.proposalCreator == nil {
+		return &CRMProposeBatchResult{Success: false, ErrorMessage: "Proposal service not configured"}, nil
+	}
+
+	tenantID, userID, err := t.getContextIDs(ctx)
+	if err != nil {
+		return &CRMProposeBatchResult{Success: false, ErrorMessage: err.Error()}, nil
+	}
+
+	type batchResult struct {
+		index      int
+		proposalID int64
+		err        error
+	}
+
+	results := make(chan batchResult, len(params.ItemsJSON))
+	sem := make(chan struct{}, maxConcurrentWorkers)
+	var wg sync.WaitGroup
+
+	for i, itemJSON := range params.ItemsJSON {
+		wg.Add(1)
+		go func(idx int, data string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			result, err := t.proposalCreator.ProposeOperationBytes(tenantID, userID, entityType, nil, "create", []byte(data))
+			if err != nil {
+				results <- batchResult{index: idx, err: err}
+				return
+			}
+			results <- batchResult{index: idx, proposalID: result.ProposalID}
+		}(i, itemJSON)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var proposalIDs []int64
+	var created, failed int
+	for r := range results {
+		if r.err != nil {
+			log.Printf("❌ Batch item %d failed: %v", r.index, r.err)
+			failed++
+			continue
+		}
+		proposalIDs = append(proposalIDs, r.proposalID)
+		created++
+	}
+
+	log.Printf("✅ ProposeBatchCreate completed: created=%d, failed=%d", created, failed)
+	return &CRMProposeBatchResult{
+		Success:     failed == 0,
+		Created:     created,
+		Failed:      failed,
+		ProposalIDs: proposalIDs,
+	}, nil
+}
+
+// ProposeRecordBatchUpdateCtx proposes updating multiple CRM records in one call (concurrent)
+func (t *CRMTools) ProposeRecordBatchUpdateCtx(ctx context.Context, params CRMProposeBatchUpdateParams) (*CRMProposeBatchResult, error) {
+	entityType := strings.ToLower(params.EntityType)
+	log.Printf("📝 crm_propose_batch_update entity_type='%s', count=%d", entityType, len(params.Items))
+
+	if denied := t.checkPermission(ctx, entityType+":update"); denied != nil {
+		return &CRMProposeBatchResult{Success: false, ErrorMessage: denied.Error}, nil
+	}
+
+	if t.proposalCreator == nil {
+		return &CRMProposeBatchResult{Success: false, ErrorMessage: "Proposal service not configured"}, nil
+	}
+
+	tenantID, userID, err := t.getContextIDs(ctx)
+	if err != nil {
+		return &CRMProposeBatchResult{Success: false, ErrorMessage: err.Error()}, nil
+	}
+
+	type batchResult struct {
+		index      int
+		proposalID int64
+		err        error
+	}
+
+	results := make(chan batchResult, len(params.Items))
+	sem := make(chan struct{}, maxConcurrentWorkers)
+	var wg sync.WaitGroup
+
+	for i, item := range params.Items {
+		wg.Add(1)
+		go func(idx int, recordID int64, data string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			result, err := t.proposalCreator.ProposeOperationBytes(tenantID, userID, entityType, &recordID, "update", []byte(data))
+			if err != nil {
+				results <- batchResult{index: idx, err: err}
+				return
+			}
+			results <- batchResult{index: idx, proposalID: result.ProposalID}
+		}(i, item.RecordID, item.DataJSON)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var proposalIDs []int64
+	var created, failed int
+	for r := range results {
+		if r.err != nil {
+			log.Printf("❌ Batch update item %d failed: %v", r.index, r.err)
+			failed++
+			continue
+		}
+		proposalIDs = append(proposalIDs, r.proposalID)
+		created++
+	}
+
+	log.Printf("✅ ProposeBatchUpdate completed: updated=%d, failed=%d", created, failed)
+	return &CRMProposeBatchResult{
+		Success:     failed == 0,
+		Created:     created,
+		Failed:      failed,
+		ProposalIDs: proposalIDs,
+	}, nil
+}
+
+// ProposeBulkUpdateAllCtx proposes updating ALL records of a type with the same data
+func (t *CRMTools) ProposeBulkUpdateAllCtx(ctx context.Context, params CRMProposeBulkUpdateAllParams) (*CRMProposeBatchResult, error) {
+	entityType := strings.ToLower(params.EntityType)
+	limit := 10000 // Internal limit, not exposed to agent
+	log.Printf("📝 crm_propose_bulk_update_all entity_type='%s', limit=%d", entityType, limit)
+
+	if denied := t.checkPermission(ctx, entityType+":update"); denied != nil {
+		return &CRMProposeBatchResult{Success: false, ErrorMessage: denied.Error}, nil
+	}
+
+	if t.proposalCreator == nil || t.entityService == nil {
+		return &CRMProposeBatchResult{Success: false, ErrorMessage: "Service not configured"}, nil
+	}
+
+	tenantID, userID, err := t.getContextIDs(ctx)
+	if err != nil {
+		return &CRMProposeBatchResult{Success: false, ErrorMessage: err.Error()}, nil
+	}
+
+	// Fetch all entity IDs
+	entities, err := t.entityService.ListEntities(entityType, limit)
+	if err != nil {
+		return &CRMProposeBatchResult{Success: false, ErrorMessage: err.Error()}, nil
+	}
+
+	log.Printf("📝 Found %d %s records to update", len(entities), entityType)
+
+	type batchResult struct {
+		index      int
+		proposalID int64
+		err        error
+	}
+
+	results := make(chan batchResult, len(entities))
+	sem := make(chan struct{}, maxConcurrentWorkers) // Semaphore to limit concurrency
+	var wg sync.WaitGroup
+
+	for i, entity := range entities {
+		idVal, ok := entity["id"]
+		if !ok {
+			continue
+		}
+		var recordID int64
+		switch v := idVal.(type) {
+		case float64:
+			recordID = int64(v)
+		case int64:
+			recordID = v
+		case int:
+			recordID = int64(v)
+		default:
+			continue
+		}
+
+		wg.Add(1)
+		go func(idx int, id int64) {
+			defer wg.Done()
+			sem <- struct{}{}        // Acquire semaphore
+			defer func() { <-sem }() // Release semaphore
+
+			result, err := t.proposalCreator.ProposeOperationBytes(tenantID, userID, entityType, &id, "update", []byte(params.DataJSON))
+			if err != nil {
+				results <- batchResult{index: idx, err: err}
+				return
+			}
+			results <- batchResult{index: idx, proposalID: result.ProposalID}
+		}(i, recordID)
+	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
+	var proposalIDs []int64
+	var created, failed int
+	for r := range results {
+		if r.err != nil {
+			log.Printf("❌ Bulk update item %d failed: %v", r.index, r.err)
+			failed++
+			continue
+		}
+		proposalIDs = append(proposalIDs, r.proposalID)
+		created++
+	}
+
+	log.Printf("✅ ProposeBulkUpdateAll completed: updated=%d, failed=%d", created, failed)
+	return &CRMProposeBatchResult{
+		Success:     failed == 0,
+		Created:     created,
+		Failed:      failed,
+		ProposalIDs: proposalIDs,
+	}, nil
 }
 
 // ProposeRecordCreateCtx proposes creating a new CRM record (queued for approval)

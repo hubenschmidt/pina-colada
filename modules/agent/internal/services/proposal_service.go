@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 
 	apperrors "agent/internal/errors"
 	"agent/internal/repositories"
@@ -149,8 +150,14 @@ func (s *ProposalService) ProposeOperationBytes(
 }
 
 // GetPendingProposals returns pending proposals for a tenant
-func (s *ProposalService) GetPendingProposals(tenantID int64, page, pageSize int) (*serializers.PagedResponse, error) {
-	params := repositories.NewPaginationParams(page, pageSize, "created_at", "DESC")
+func (s *ProposalService) GetPendingProposals(tenantID int64, page, pageSize int, orderBy, order string) (*serializers.PagedResponse, error) {
+	if orderBy == "" {
+		orderBy = "created_at"
+	}
+	if order == "" {
+		order = "DESC"
+	}
+	params := repositories.NewPaginationParams(page, pageSize, orderBy, order)
 	result, err := s.proposalRepo.FindPending(tenantID, params)
 	if err != nil {
 		return nil, err
@@ -223,27 +230,52 @@ func (s *ProposalService) RejectProposal(proposalID, reviewerID int64) (*seriali
 	return proposalToResponse(proposal), nil
 }
 
-// BulkApprove approves multiple proposals
+// BulkApprove approves multiple proposals concurrently
 func (s *ProposalService) BulkApprove(proposalIDs []int64, reviewerID int64) ([]serializers.ProposalResponse, []error) {
-	results := make([]serializers.ProposalResponse, 0, len(proposalIDs))
-	errs := make([]error, 0)
-
-	for _, id := range proposalIDs {
-		resp, err := s.approveOne(id, reviewerID)
-		results, errs = collectResult(results, errs, resp, err)
-	}
-
-	return results, errs
+	return s.bulkProcess(proposalIDs, reviewerID, s.approveOne)
 }
 
-// BulkReject rejects multiple proposals
+// BulkReject rejects multiple proposals concurrently
 func (s *ProposalService) BulkReject(proposalIDs []int64, reviewerID int64) ([]serializers.ProposalResponse, []error) {
-	results := make([]serializers.ProposalResponse, 0, len(proposalIDs))
-	errs := make([]error, 0)
+	return s.bulkProcess(proposalIDs, reviewerID, s.rejectOne)
+}
+
+type processFunc func(id, reviewerID int64) (*serializers.ProposalResponse, error)
+
+// bulkProcess processes multiple proposals concurrently
+func (s *ProposalService) bulkProcess(proposalIDs []int64, reviewerID int64, fn processFunc) ([]serializers.ProposalResponse, []error) {
+	type result struct {
+		resp *serializers.ProposalResponse
+		err  error
+	}
+
+	resultsChan := make(chan result, len(proposalIDs))
+	var wg sync.WaitGroup
 
 	for _, id := range proposalIDs {
-		resp, err := s.rejectOne(id, reviewerID)
-		results, errs = collectResult(results, errs, resp, err)
+		wg.Add(1)
+		go func(proposalID int64) {
+			defer wg.Done()
+			resp, err := fn(proposalID, reviewerID)
+			resultsChan <- result{resp: resp, err: err}
+		}(id)
+	}
+
+	go func() {
+		wg.Wait()
+		close(resultsChan)
+	}()
+
+	results := make([]serializers.ProposalResponse, 0, len(proposalIDs))
+	errs := make([]error, 0)
+	for r := range resultsChan {
+		if r.err != nil {
+			errs = append(errs, r.err)
+			continue
+		}
+		if r.resp != nil {
+			results = append(results, *r.resp)
+		}
 	}
 
 	return results, errs
@@ -255,13 +287,6 @@ func (s *ProposalService) approveOne(id, reviewerID int64) (*serializers.Proposa
 
 func (s *ProposalService) rejectOne(id, reviewerID int64) (*serializers.ProposalResponse, error) {
 	return s.RejectProposal(id, reviewerID)
-}
-
-func collectResult(results []serializers.ProposalResponse, errs []error, resp *serializers.ProposalResponse, err error) ([]serializers.ProposalResponse, []error) {
-	if err != nil {
-		return results, append(errs, err)
-	}
-	return append(results, *resp), errs
 }
 
 // UpdateProposalPayload updates a proposal's payload and re-validates

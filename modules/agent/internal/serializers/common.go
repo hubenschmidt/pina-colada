@@ -3,10 +3,10 @@ package serializers
 // PagedResponse represents a paginated API response
 type PagedResponse struct {
 	Items      interface{} `json:"items"`
-	TotalCount int64       `json:"total_count"`
-	Page       int         `json:"page"`
-	PageSize   int         `json:"page_size"`
-	TotalPages int         `json:"total_pages"`
+	TotalCount int64       `json:"totalCount"`
+	Page       int         `json:"currentPage"`
+	PageSize   int         `json:"pageSize"`
+	TotalPages int         `json:"totalPages"`
 }
 
 // NewPagedResponse creates a paged response

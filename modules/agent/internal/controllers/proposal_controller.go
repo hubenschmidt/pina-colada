@@ -32,8 +32,10 @@ func (c *ProposalController) GetPending(w http.ResponseWriter, r *http.Request) 
 
 	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
 	pageSize, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	orderBy := r.URL.Query().Get("orderBy")
+	order := r.URL.Query().Get("order")
 
-	result, err := c.proposalService.GetPendingProposals(tenantID, page, pageSize)
+	result, err := c.proposalService.GetPendingProposals(tenantID, page, pageSize, orderBy, order)
 	if err != nil {
 		writeProposalError(w, http.StatusInternalServerError, err.Error())
 		return

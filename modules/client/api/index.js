@@ -1346,10 +1346,12 @@ export const compareMetricSessions = async (sessionIds) => {
 // Proposal Queue API
 // ==============================================
 
-export const getProposals = async (page = 1, limit = 50) => {
+export const getProposals = async (page = 1, limit = 50, orderBy = "created_at", order = "DESC") => {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
+    orderBy,
+    order,
   });
   return apiGet(`/proposals?${params}`);
 };

@@ -33,8 +33,8 @@ func NewPaginationParams(page, pageSize int, orderBy, order string) PaginationPa
 	if pageSize < 1 {
 		pageSize = 25
 	}
-	if pageSize > 100 {
-		pageSize = 100
+	if pageSize > 500 {
+		pageSize = 500
 	}
 	if order == "" {
 		order = "DESC"
