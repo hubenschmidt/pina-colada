@@ -246,6 +246,7 @@ func (r *JobRepository) GetRecentResumeDate() (*time.Time, error) {
 var jobOrderColumns = map[string]string{
 	"date":             `"Lead".created_at`,
 	"application_date": `"Lead".created_at`,
+	"created_at":       `"Lead".created_at`,
 	"updated_at":       `"Lead".updated_at`,
 	"job_title":        `"Job".job_title`,
 	"resume":           `"Job".resume_date`,
