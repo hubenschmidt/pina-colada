@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { env } from "next-runtime-env";
 import { fetchBearerToken } from "../lib/fetch-bearer-token";
 
 const SSE_STATES = { CONNECTING: 0, OPEN: 1, CLOSED: 2 };
@@ -50,11 +51,9 @@ const parseSSEBuffer = (buffer) => {
 
 const getSSEBaseUrl = () => {
   if (typeof window === "undefined") return "";
-  // Use localhost for browser (Docker's "agent" hostname isn't resolvable from browser)
-  const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  const result = apiUrl.replace("://agent:", "://localhost:");
-  console.log("[SSE] NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL, "-> result:", result);
-  return result;
+  const apiUrl = env("NEXT_PUBLIC_API_URL") || "http://localhost:8000";
+  // Replace Docker hostname with localhost for browser access
+  return apiUrl.replace("://agent:", "://localhost:");
 };
 
 const parseEventData = (data) => {
