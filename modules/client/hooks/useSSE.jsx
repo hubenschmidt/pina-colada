@@ -52,7 +52,9 @@ const getSSEBaseUrl = () => {
   if (typeof window === "undefined") return "";
   // Use localhost for browser (Docker's "agent" hostname isn't resolvable from browser)
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  return apiUrl.replace("://agent:", "://localhost:");
+  const result = apiUrl.replace("://agent:", "://localhost:");
+  console.log("[SSE] NEXT_PUBLIC_API_URL:", process.env.NEXT_PUBLIC_API_URL, "-> result:", result);
+  return result;
 };
 
 const parseEventData = (data) => {
