@@ -516,7 +516,11 @@ const AutomationPage = () => {
                         <Loader size="sm" />
                       </Group>
                     ) : (
-                      <RunHistoryTable runs={crawlerRuns[crawler.id] || []} />
+                      <RunHistoryTable
+                        runs={crawlerRuns[crawler.id] || []}
+                        compilationTarget={crawler.compilation_target}
+                        totalProposals={crawler.total_proposals_created || 0}
+                      />
                     )}
                   </Collapse>
                 </Stack>
@@ -771,7 +775,7 @@ const AutomationPage = () => {
   );
 };
 
-const RunHistoryTable = ({ runs }) => {
+const RunHistoryTable = ({ runs, compilationTarget, totalProposals }) => {
   if (runs.length === 0) {
     return (
       <Text c="dimmed" size="sm" ta="center" py="md">
@@ -780,12 +784,15 @@ const RunHistoryTable = ({ runs }) => {
     );
   }
 
+  const isCompiled = totalProposals >= compilationTarget;
+
   return (
     <Table size="sm">
       <Table.Thead>
         <Table.Tr>
           <Table.Th>Started</Table.Th>
           <Table.Th>Status</Table.Th>
+          <Table.Th>Compiled</Table.Th>
           <Table.Th>Leads</Table.Th>
           <Table.Th>Proposals</Table.Th>
           <Table.Th>Query</Table.Th>
@@ -802,6 +809,9 @@ const RunHistoryTable = ({ runs }) => {
               >
                 {run.status}
               </Badge>
+            </Table.Td>
+            <Table.Td>
+              {isCompiled && <CheckCircle size={16} color="lime" />}
             </Table.Td>
             <Table.Td>{run.leads_found}</Table.Td>
             <Table.Td>{run.proposals_created}</Table.Td>
