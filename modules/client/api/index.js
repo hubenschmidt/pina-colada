@@ -1346,13 +1346,16 @@ export const compareMetricSessions = async (sessionIds) => {
 // Proposal Queue API
 // ==============================================
 
-export const getProposals = async (page = 1, limit = 50, orderBy = "created_at", order = "DESC") => {
+export const getProposals = async (page = 1, limit = 50, orderBy = "created_at", order = "DESC", filters = {}) => {
   const params = new URLSearchParams({
     page: page.toString(),
     limit: limit.toString(),
     orderBy,
     order,
   });
+  if (filters.automation_config_id) {
+    params.set("automation_config_id", filters.automation_config_id.toString());
+  }
   return apiGet(`/proposals?${params}`);
 };
 
@@ -1442,5 +1445,41 @@ export const getUserRoles = async () => {
 
 export const updateUserRole = async (userId, roleId) => {
   return apiPut(`/admin/users/${userId}/role`, { role_id: roleId });
+};
+
+// ==============================================
+// Automation Crawlers API
+// ==============================================
+
+export const getCrawlers = async () => {
+  return apiGet("/automation/crawlers");
+};
+
+export const getCrawler = async (id) => {
+  return apiGet(`/automation/crawlers/${id}`);
+};
+
+export const createCrawler = async (data) => {
+  return apiPost("/automation/crawlers", data);
+};
+
+export const updateCrawler = async (id, data) => {
+  return apiPut(`/automation/crawlers/${id}`, data);
+};
+
+export const deleteCrawler = async (id) => {
+  await apiDelete(`/automation/crawlers/${id}`);
+};
+
+export const toggleCrawler = async (id, enabled) => {
+  return apiPost(`/automation/crawlers/${id}/toggle`, { enabled });
+};
+
+export const getCrawlerRuns = async (id, limit = 10) => {
+  return apiGet(`/automation/crawlers/${id}/runs?limit=${limit}`);
+};
+
+export const testCrawler = async (id) => {
+  return apiPost(`/automation/crawlers/${id}/test`);
 };
 

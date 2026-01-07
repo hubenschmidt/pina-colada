@@ -61,12 +61,16 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
       POSTGRES_DB: ${COMPOSE_PROJECT_NAME:-pina-colada}
+      # Enable polling for hot-reload in Docker
+      WATCHPACK_POLLING: "true"
+      CHOKIDAR_USEPOLLING: "true"
+      CHOKIDAR_INTERVAL: "500"
     depends_on:
       app-postgres:
         condition: service_healthy
       agent:
         condition: service_healthy
-    command: ["npm", "run", "dev"] # overrides Dockerfile start command in dev env
+    command: ["node", "node_modules/.bin/next", "dev", "-p", "3001"]
     restart: always
     logging:
       driver: "json-file"

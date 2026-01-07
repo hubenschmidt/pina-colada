@@ -16,9 +16,26 @@ import (
 	"agent/internal/controllers"
 	"agent/internal/repositories"
 	"agent/internal/routes"
+	"agent/internal/scheduler"
 	"agent/internal/services"
 	"agent/pkg/db"
 )
+
+// documentLoaderAdapter wraps DocumentService to implement services.DocumentLoader
+type documentLoaderAdapter struct {
+	docService *services.DocumentService
+}
+
+func (a *documentLoaderAdapter) GetDocumentByID(id int64) (*services.DownloadDocumentResult, error) {
+	doc, err := a.docService.GetDocumentByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if doc == nil {
+		return nil, nil
+	}
+	return a.docService.DownloadDocument(id, doc.TenantID)
+}
 
 func main() {
 	// Load configuration
@@ -65,6 +82,7 @@ func main() {
 	approvalConfigRepo := repositories.NewApprovalConfigRepository(database)
 	roleRepo := repositories.NewRoleRepository(database)
 	genericEntityRepo := repositories.NewGenericEntityRepository(database)
+	automationRepo := repositories.NewAutomationRepository(database)
 
 	// Initialize services
 	authService := services.NewAuthService(userRepo)
@@ -98,6 +116,8 @@ func main() {
 	roleService := services.NewRoleService(roleRepo)
 	genericEntityService := services.NewGenericEntityService(genericEntityRepo)
 	visitorService := services.NewVisitorService(cfg)
+	docLoader := &documentLoaderAdapter{docService: docService}
+	automationService := services.NewAutomationService(automationRepo, proposalRepo, proposalService, docLoader, cfg.SerperAPIKey, cfg.AnthropicAPIKey, cfg.OpenAIAPIKey)
 
 	// Stop any orphaned recording sessions from previous runs
 	if stoppedCount, err := metricService.StopAllActiveSessions(); err != nil {
@@ -111,6 +131,9 @@ func main() {
 
 	// Initialize ADK agent orchestrator (only if OpenAI API key is configured)
 	agentOrchestrator := initOrchestrator(cfg, docService, jobService, convService, configCache, metricService, permService, proposalService, genericEntityService)
+
+	// Initialize automation worker (wraps service for scheduler)
+	automationWorker := scheduler.NewAutomationWorker(automationService)
 
 	// Initialize controllers
 	ctrls := &routes.Controllers{
@@ -143,11 +166,29 @@ func main() {
 		Proposal:       controllers.NewProposalController(proposalService),
 		ApprovalConfig: controllers.NewApprovalConfigController(approvalConfigService),
 		Role:           controllers.NewRoleController(roleService),
+		Automation:     controllers.NewAutomationController(automationService, automationWorker),
 	}
 
 	// Initialize router and register routes
 	router := routes.NewRouter()
 	routes.RegisterRoutes(router, ctrls, authService)
+
+	// Initialize and start scheduler
+	digestService := scheduler.NewDigestService(
+		automationRepo,
+		proposalRepo,
+		cfg.SMTPHost,
+		cfg.SMTPPort,
+		cfg.SMTPUsername,
+		cfg.SMTPPassword,
+		cfg.SMTPFromEmail,
+		cfg.AnthropicAPIKey,
+	)
+	sched := scheduler.NewScheduler(automationWorker, digestService)
+	if err := sched.Start(); err != nil {
+		log.Printf("Warning: failed to start scheduler: %v", err)
+	}
+	defer sched.Stop()
 
 	// Create HTTP server
 	server := &http.Server{

@@ -75,6 +75,7 @@ require (
 	github.com/matteo-grella/dwarfreflect v0.1.0-alpha // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/modelcontextprotocol/go-sdk v0.7.0 // indirect
+	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect

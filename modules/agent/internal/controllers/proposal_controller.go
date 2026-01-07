@@ -35,7 +35,14 @@ func (c *ProposalController) GetPending(w http.ResponseWriter, r *http.Request) 
 	orderBy := r.URL.Query().Get("orderBy")
 	order := r.URL.Query().Get("order")
 
-	result, err := c.proposalService.GetPendingProposals(tenantID, page, pageSize, orderBy, order)
+	var automationConfigID *int64
+	if configIDStr := r.URL.Query().Get("automation_config_id"); configIDStr != "" {
+		if parsed, err := strconv.ParseInt(configIDStr, 10, 64); err == nil {
+			automationConfigID = &parsed
+		}
+	}
+
+	result, err := c.proposalService.GetPendingProposals(tenantID, page, pageSize, orderBy, order, automationConfigID)
 	if err != nil {
 		writeProposalError(w, http.StatusInternalServerError, err.Error())
 		return

@@ -42,6 +42,7 @@ type Controllers struct {
 	Proposal       *controllers.ProposalController
 	ApprovalConfig *controllers.ApprovalConfigController
 	Role           *controllers.RoleController
+	Automation     *controllers.AutomationController
 }
 
 // NewRouter creates and configures the Chi router
@@ -434,5 +435,19 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 		// Admin user-roles routes
 		r.Get("/admin/user-roles", c.Role.GetUserRoles)
 		r.Put("/admin/users/{id}/role", c.Role.UpdateUserRole)
+
+		// Automation routes
+		r.Route("/automation", func(r chi.Router) {
+			r.Get("/crawlers", c.Automation.GetCrawlers)
+			r.Post("/crawlers", c.Automation.CreateCrawler)
+			r.Route("/crawlers/{id}", func(r chi.Router) {
+				r.Get("/", c.Automation.GetCrawler)
+				r.Put("/", c.Automation.UpdateCrawler)
+				r.Delete("/", c.Automation.DeleteCrawler)
+				r.Post("/toggle", c.Automation.ToggleCrawler)
+				r.Get("/runs", c.Automation.GetCrawlerRuns)
+				r.Post("/test", c.Automation.TestCrawler)
+			})
+		})
 	})
 }

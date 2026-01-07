@@ -23,6 +23,7 @@ import {
   Files,
   Activity,
   Database,
+  Bot,
 } from "lucide-react";
 import { Stack, ScrollArea, Select } from "@mantine/core";
 import { useNavContext } from "../../context/navContext";
@@ -232,6 +233,16 @@ export const Sidebar = () => {
                 }`}>
                 <Database className="h-4 w-4 text-lime-600 dark:text-lime-400" />
                 Data
+              </button>
+
+              {/* Automation */}
+              <button
+                onClick={() => router.push("/automation")}
+                className={`flex w-full items-center gap-2 rounded px-3 py-2 text-sm text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800 ${
+                  pathname === "/automation" ? "font-bold" : "font-normal"
+                }`}>
+                <Bot className="h-4 w-4 text-lime-600 dark:text-lime-400" />
+                Automation
               </button>
 
               {/* Deals - disabled for now, will implement later */}

@@ -1,6 +1,7 @@
 package repositories
 
 import (
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -73,32 +74,37 @@ var SupportedEntities = []string{
 
 // ProposalDTO represents proposal data returned from repository
 type ProposalDTO struct {
-	ID               int64
-	TenantID         int64
-	ProposedByID     int64
-	EntityType       string
-	EntityID         *int64
-	Operation        string
-	Payload          datatypes.JSON
-	Status           string
-	ValidationErrors datatypes.JSON
-	ReviewedByID     *int64
-	ReviewedAt       *time.Time
-	ExecutedAt       *time.Time
-	ErrorMessage     *string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
+	ID                   int64
+	TenantID             int64
+	ProposedByID         int64
+	EntityType           string
+	EntityID             *int64
+	Operation            string
+	Payload              datatypes.JSON
+	Status               string
+	ValidationErrors     datatypes.JSON
+	ReviewedByID         *int64
+	ReviewedAt           *time.Time
+	ExecutedAt           *time.Time
+	ErrorMessage         *string
+	Source               *string
+	AutomationConfigID   *int64
+	AutomationConfigName *string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
 }
 
 // ProposalCreateInput contains data needed to create a proposal
 type ProposalCreateInput struct {
-	TenantID         int64
-	ProposedByID     int64
-	EntityType       string
-	EntityID         *int64
-	Operation        string
-	Payload          datatypes.JSON
-	ValidationErrors datatypes.JSON
+	TenantID           int64
+	ProposedByID       int64
+	EntityType         string
+	EntityID           *int64
+	Operation          string
+	Payload            datatypes.JSON
+	ValidationErrors   datatypes.JSON
+	Source             *string
+	AutomationConfigID *int64
 }
 
 // ProposalRepository handles proposal data access
@@ -114,14 +120,16 @@ func NewProposalRepository(db *gorm.DB) *ProposalRepository {
 // Create creates a new proposal
 func (r *ProposalRepository) Create(input ProposalCreateInput) (int64, error) {
 	proposal := &models.AgentProposal{
-		TenantID:         input.TenantID,
-		ProposedByID:     input.ProposedByID,
-		EntityType:       input.EntityType,
-		EntityID:         input.EntityID,
-		Operation:        input.Operation,
-		Payload:          input.Payload,
-		ValidationErrors: input.ValidationErrors,
-		Status:           ProposalStatusPending,
+		TenantID:           input.TenantID,
+		ProposedByID:       input.ProposedByID,
+		EntityType:         input.EntityType,
+		EntityID:           input.EntityID,
+		Operation:          input.Operation,
+		Payload:            input.Payload,
+		ValidationErrors:   input.ValidationErrors,
+		Status:             ProposalStatusPending,
+		Source:             input.Source,
+		AutomationConfigID: input.AutomationConfigID,
 	}
 	if err := r.db.Create(proposal).Error; err != nil {
 		return 0, err
@@ -151,28 +159,65 @@ func (r *ProposalRepository) GetAllPendingIDs(tenantID int64) ([]int64, error) {
 	return ids, err
 }
 
+// CountPendingByConfigID returns count of pending proposals for a specific automation config
+func (r *ProposalRepository) CountPendingByConfigID(configID int64) (int64, error) {
+	var count int64
+	err := r.db.Model(&models.AgentProposal{}).
+		Where("automation_config_id = ? AND status = ?", configID, ProposalStatusPending).
+		Count(&count).Error
+	return count, err
+}
+
+// ProposalFilterParams contains optional filters for proposal queries
+type ProposalFilterParams struct {
+	AutomationConfigID *int64
+}
+
 // FindPending returns pending proposals for a tenant with pagination
-func (r *ProposalRepository) FindPending(tenantID int64, params PaginationParams) (*PaginatedResult[ProposalDTO], error) {
-	var proposals []models.AgentProposal
+func (r *ProposalRepository) FindPending(tenantID int64, params PaginationParams, filters *ProposalFilterParams) (*PaginatedResult[ProposalDTO], error) {
 	var totalCount int64
 
-	query := r.db.Model(&models.AgentProposal{}).
-		Where("tenant_id = ? AND status = ?", tenantID, ProposalStatusPending)
+	// Build base query for count
+	countQuery := r.db.Model(&models.AgentProposal{}).
+		Where("\"Agent_Proposal\".tenant_id = ? AND \"Agent_Proposal\".status = ?", tenantID, ProposalStatusPending)
 
-	if err := query.Count(&totalCount).Error; err != nil {
+	if filters != nil && filters.AutomationConfigID != nil {
+		countQuery = countQuery.Where("\"Agent_Proposal\".automation_config_id = ?", *filters.AutomationConfigID)
+	}
+
+	if err := countQuery.Count(&totalCount).Error; err != nil {
 		return nil, err
+	}
+
+	// Build query with join for config name
+	type proposalWithConfig struct {
+		models.AgentProposal
+		AutomationConfigName *string `gorm:"column:automation_config_name"`
+	}
+
+	var results []proposalWithConfig
+
+	query := r.db.Table("\"Agent_Proposal\"").
+		Select("\"Agent_Proposal\".*, \"Automation_Config\".name as automation_config_name").
+		Joins("LEFT JOIN \"Automation_Config\" ON \"Agent_Proposal\".automation_config_id = \"Automation_Config\".id").
+		Where("\"Agent_Proposal\".tenant_id = ? AND \"Agent_Proposal\".status = ?", tenantID, ProposalStatusPending)
+
+	if filters != nil && filters.AutomationConfigID != nil {
+		query = query.Where("\"Agent_Proposal\".automation_config_id = ?", *filters.AutomationConfigID)
 	}
 
 	query = ApplyPagination(query, params)
-	query = query.Order("created_at DESC")
+	query = query.Order("\"Agent_Proposal\".created_at DESC")
 
-	if err := query.Find(&proposals).Error; err != nil {
+	if err := query.Find(&results).Error; err != nil {
 		return nil, err
 	}
 
-	dtos := make([]ProposalDTO, len(proposals))
-	for i := range proposals {
-		dtos[i] = *modelToDTO(&proposals[i])
+	dtos := make([]ProposalDTO, len(results))
+	for i := range results {
+		dto := modelToDTO(&results[i].AgentProposal)
+		dto.AutomationConfigName = results[i].AutomationConfigName
+		dtos[i] = *dto
 	}
 
 	return &PaginatedResult[ProposalDTO]{
@@ -255,20 +300,65 @@ func (r *ProposalRepository) UpdatePayload(id int64, payload, validationErrors d
 
 func modelToDTO(p *models.AgentProposal) *ProposalDTO {
 	return &ProposalDTO{
-		ID:               p.ID,
-		TenantID:         p.TenantID,
-		ProposedByID:     p.ProposedByID,
-		EntityType:       p.EntityType,
-		EntityID:         p.EntityID,
-		Operation:        p.Operation,
-		Payload:          p.Payload,
-		Status:           p.Status,
-		ValidationErrors: p.ValidationErrors,
-		ReviewedByID:     p.ReviewedByID,
-		ReviewedAt:       p.ReviewedAt,
-		ExecutedAt:       p.ExecutedAt,
-		ErrorMessage:     p.ErrorMessage,
-		CreatedAt:        p.CreatedAt,
-		UpdatedAt:        p.UpdatedAt,
+		ID:                 p.ID,
+		TenantID:           p.TenantID,
+		ProposedByID:       p.ProposedByID,
+		EntityType:         p.EntityType,
+		EntityID:           p.EntityID,
+		Operation:          p.Operation,
+		Payload:            p.Payload,
+		Status:             p.Status,
+		ValidationErrors:   p.ValidationErrors,
+		ReviewedByID:       p.ReviewedByID,
+		ReviewedAt:         p.ReviewedAt,
+		ExecutedAt:         p.ExecutedAt,
+		ErrorMessage:       p.ErrorMessage,
+		Source:             p.Source,
+		AutomationConfigID: p.AutomationConfigID,
+		CreatedAt:          p.CreatedAt,
+		UpdatedAt:          p.UpdatedAt,
 	}
+}
+
+// AutomationProposalDTO represents a simplified proposal for automation digest
+type AutomationProposalDTO struct {
+	ID        int64
+	Status    string
+	CreatedAt time.Time
+	JobTitle  string
+	Account   string
+}
+
+// GetAutomationProposals returns proposals created by automation in the given time range
+func (r *ProposalRepository) GetAutomationProposals(tenantID, userID int64, since time.Time) ([]AutomationProposalDTO, error) {
+	var proposals []models.AgentProposal
+	err := r.db.Where("tenant_id = ? AND proposed_by_id = ? AND source = ? AND created_at >= ?",
+		tenantID, userID, "automation", since).
+		Order("created_at DESC").
+		Find(&proposals).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]AutomationProposalDTO, len(proposals))
+	for i := range proposals {
+		p := &proposals[i]
+		dto := AutomationProposalDTO{
+			ID:        p.ID,
+			Status:    p.Status,
+			CreatedAt: p.CreatedAt,
+		}
+		// Extract job_title and account from payload
+		var payload map[string]interface{}
+		if err := json.Unmarshal(p.Payload, &payload); err == nil {
+			if title, ok := payload["job_title"].(string); ok {
+				dto.JobTitle = title
+			}
+			if account, ok := payload["account"].(string); ok {
+				dto.Account = account
+			}
+		}
+		result[i] = dto
+	}
+	return result, nil
 }

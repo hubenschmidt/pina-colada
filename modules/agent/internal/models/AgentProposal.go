@@ -20,8 +20,10 @@ type AgentProposal struct {
 	ReviewedAt   *time.Time     `json:"reviewed_at"`
 	ExecutedAt   *time.Time     `json:"executed_at"`
 	ErrorMessage *string        `json:"error_message"`
-	CreatedAt    time.Time      `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt    time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
+	Source             *string        `json:"source"`
+	AutomationConfigID *int64         `gorm:"column:automation_config_id" json:"automation_config_id"`
+	CreatedAt          time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt          time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 func (AgentProposal) TableName() string {

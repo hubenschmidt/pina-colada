@@ -149,8 +149,42 @@ func (s *ProposalService) ProposeOperationBytes(
 	}, nil
 }
 
+// CreateProposal creates a proposal with a source (for automation)
+func (s *ProposalService) CreateProposal(tenantID, userID int64, entityType, operation string, payload map[string]interface{}, source *string, automationConfigID *int64) (int64, error) {
+	if !isValidEntityType(entityType) {
+		return 0, ErrProposalInvalidEntity
+	}
+	if !isValidOperation(operation) {
+		return 0, ErrProposalInvalidOperation
+	}
+
+	payloadJSON, err := json.Marshal(payload)
+	if err != nil {
+		return 0, err
+	}
+
+	validationErrors := validation.ValidatePayload(entityType, operation, datatypes.JSON(payloadJSON))
+	var validationErrorsJSON datatypes.JSON
+	if len(validationErrors) > 0 {
+		validationErrorsJSON, _ = json.Marshal(validationErrors)
+	}
+
+	input := repositories.ProposalCreateInput{
+		TenantID:           tenantID,
+		ProposedByID:       userID,
+		EntityType:         entityType,
+		Operation:          operation,
+		Payload:            datatypes.JSON(payloadJSON),
+		ValidationErrors:   validationErrorsJSON,
+		Source:             source,
+		AutomationConfigID: automationConfigID,
+	}
+
+	return s.proposalRepo.Create(input)
+}
+
 // GetPendingProposals returns pending proposals for a tenant
-func (s *ProposalService) GetPendingProposals(tenantID int64, page, pageSize int, orderBy, order string) (*serializers.PagedResponse, error) {
+func (s *ProposalService) GetPendingProposals(tenantID int64, page, pageSize int, orderBy, order string, automationConfigID *int64) (*serializers.PagedResponse, error) {
 	if orderBy == "" {
 		orderBy = "created_at"
 	}
@@ -158,7 +192,13 @@ func (s *ProposalService) GetPendingProposals(tenantID int64, page, pageSize int
 		order = "DESC"
 	}
 	params := repositories.NewPaginationParams(page, pageSize, orderBy, order)
-	result, err := s.proposalRepo.FindPending(tenantID, params)
+
+	var filters *repositories.ProposalFilterParams
+	if automationConfigID != nil {
+		filters = &repositories.ProposalFilterParams{AutomationConfigID: automationConfigID}
+	}
+
+	result, err := s.proposalRepo.FindPending(tenantID, params, filters)
 	if err != nil {
 		return nil, err
 	}
@@ -747,20 +787,22 @@ func isValidOperation(operation string) bool {
 
 func proposalToResponse(p *repositories.ProposalDTO) *serializers.ProposalResponse {
 	return &serializers.ProposalResponse{
-		ID:               p.ID,
-		TenantID:         p.TenantID,
-		ProposedByID:     p.ProposedByID,
-		EntityType:       p.EntityType,
-		EntityID:         p.EntityID,
-		Operation:        p.Operation,
-		Payload:          p.Payload,
-		Status:           p.Status,
-		ValidationErrors: p.ValidationErrors,
-		ReviewedByID:     p.ReviewedByID,
-		ReviewedAt:       p.ReviewedAt,
-		ExecutedAt:       p.ExecutedAt,
-		ErrorMessage:     p.ErrorMessage,
-		CreatedAt:        p.CreatedAt,
-		UpdatedAt:        p.UpdatedAt,
+		ID:                   p.ID,
+		TenantID:             p.TenantID,
+		ProposedByID:         p.ProposedByID,
+		EntityType:           p.EntityType,
+		EntityID:             p.EntityID,
+		Operation:            p.Operation,
+		Payload:              p.Payload,
+		Status:               p.Status,
+		ValidationErrors:     p.ValidationErrors,
+		ReviewedByID:         p.ReviewedByID,
+		ReviewedAt:           p.ReviewedAt,
+		ExecutedAt:           p.ExecutedAt,
+		ErrorMessage:         p.ErrorMessage,
+		AutomationConfigID:   p.AutomationConfigID,
+		AutomationConfigName: p.AutomationConfigName,
+		CreatedAt:            p.CreatedAt,
+		UpdatedAt:            p.UpdatedAt,
 	}
 }
