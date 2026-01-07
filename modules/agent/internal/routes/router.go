@@ -2,6 +2,8 @@ package routes
 
 import (
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
@@ -54,8 +56,13 @@ func NewRouter() *chi.Mux {
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
+	// CORS origins from env (comma-separated) or defaults
+	corsOrigins := []string{"http://localhost:3001", "http://127.0.0.1:3001"}
+	if envOrigins := os.Getenv("CORS_ALLOWED_ORIGINS"); envOrigins != "" {
+		corsOrigins = strings.Split(envOrigins, ",")
+	}
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"http://localhost:3001", "http://127.0.0.1:3001"},
+		AllowedOrigins:   corsOrigins,
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Tenant-ID"},
 		ExposedHeaders:   []string{"Link"},
