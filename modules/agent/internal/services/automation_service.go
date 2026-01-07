@@ -453,7 +453,7 @@ func (s *AutomationService) checkAndSetCompiledAt(cfg *repositories.AutomationCo
 func (s *AutomationService) logAutomationConfig(cfg *repositories.AutomationConfigDTO) {
 	log.Printf("Automation service: === Starting config=%d '%s' ===", cfg.ID, cfg.Name)
 	log.Printf("  entity_type=%s, enabled=%v", cfg.EntityType, cfg.Enabled)
-	log.Printf("  interval_seconds=%d, prospects_per_run=%d, concurrent_searches=%d", cfg.IntervalSeconds, cfg.ProspectsPerRun, cfg.ConcurrentSearches)
+	log.Printf("  interval_seconds=%d, concurrent_searches=%d", cfg.IntervalSeconds, cfg.ConcurrentSearches)
 	log.Printf("  compilation_target=%d, ats_mode=%v, time_filter=%v", cfg.CompilationTarget, cfg.ATSMode, cfg.TimeFilter)
 	log.Printf("  search_slots=%v", cfg.SearchSlots)
 	log.Printf("  target_type=%v, target_ids=%v", cfg.TargetType, cfg.TargetIDs)
@@ -483,7 +483,7 @@ func (s *AutomationService) calculateDeficit(cfg *repositories.AutomationConfigD
 func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDTO, batches [][]string, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32, []string) {
 	var searchWg sync.WaitGroup
 	var totalProspectsFound int32
-	resultsChan := make(chan []jobResult, len(batches))
+	resultsChan := make(chan searchBatchResult, len(batches))
 
 	for i, batch := range batches {
 		searchWg.Add(1)
@@ -502,54 +502,58 @@ func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDT
 	return s.processSearchResultsWithConcurrentAgent(cfg, resultsChan, &totalProspectsFound, deficit, combinedQuery, dedup)
 }
 
-func (s *AutomationService) processSearchResultsSequential(cfg *repositories.AutomationConfigDTO, resultsChan <-chan []jobResult, totalProspectsFound *int32, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32) {
+func (s *AutomationService) processSearchResultsSequential(cfg *repositories.AutomationConfigDTO, resultsChan <-chan searchBatchResult, totalProspectsFound *int32, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32) {
 	var totalProposalsCreated int32
 	source := "automation"
 	configID := cfg.ID
 
-	for results := range resultsChan {
-		atomic.AddInt32(totalProspectsFound, int32(len(results)))
-		created := s.processRawResults(cfg, results, combinedQuery, source, configID, deficit, &totalProposalsCreated, dedup)
+	for batch := range resultsChan {
+		atomic.AddInt32(totalProspectsFound, int32(len(batch.Jobs)))
+		created := s.processRawResults(cfg, batch.Jobs, combinedQuery, source, configID, deficit, &totalProposalsCreated, dedup)
 		atomic.AddInt32(&totalProposalsCreated, int32(created))
 	}
 
 	return *totalProspectsFound, totalProposalsCreated
 }
 
-func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *repositories.AutomationConfigDTO, resultsChan <-chan []jobResult, totalProspectsFound *int32, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32, []string) {
+func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *repositories.AutomationConfigDTO, resultsChan <-chan searchBatchResult, totalProspectsFound *int32, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32, []string) {
 	documentContext := s.loadDocumentContext(cfg.SourceDocumentIDs)
 
 	var reviewWg sync.WaitGroup
 	reviewedChan := make(chan []reviewedJobResult, 10)
 	querySuggestionsUsed := false
 	var suggestedQueries []string
+	var collectedRelatedSearches []string
 
 	// Spawn concurrent agent review goroutines for each batch
-	for results := range resultsChan {
-		atomic.AddInt32(totalProspectsFound, int32(len(results)))
+	for batch := range resultsChan {
+		atomic.AddInt32(totalProspectsFound, int32(len(batch.Jobs)))
+
+		// Collect related searches for hybrid query suggestions
+		collectedRelatedSearches = append(collectedRelatedSearches, batch.RelatedSearches...)
 
 		// Filter duplicates BEFORE sending to LLM
-		filtered := s.filterDuplicates(results, dedup)
+		filtered := s.filterDuplicates(batch.Jobs, dedup)
 
 		// Has new results - send to LLM review
 		if len(filtered) > 0 {
-			log.Printf("Automation: %d/%d results are new, sending to LLM review", len(filtered), len(results))
+			log.Printf("Automation: %d/%d results are new, sending to LLM review", len(filtered), len(batch.Jobs))
 			reviewWg.Add(1)
 			go s.agentReviewWorker(cfg, filtered, documentContext, reviewedChan, &reviewWg)
 			continue
 		}
 
 		// All duplicates
-		log.Printf("Automation: all %d results are duplicates, skipping LLM review", len(results))
+		log.Printf("Automation: all %d results are duplicates, skipping LLM review", len(batch.Jobs))
 
 		// Already tried query suggestions this run
 		if querySuggestionsUsed {
 			continue
 		}
 
-		// Ask LLM for new query suggestions (once per run)
+		// Ask for new query suggestions (hybrid: try Serper related searches first, then LLM)
 		querySuggestionsUsed = true
-		suggestedQueries = s.searchWithSuggestedQueries(cfg, documentContext, dedup, &reviewWg, reviewedChan)
+		suggestedQueries = s.searchWithSuggestedQueries(cfg, documentContext, dedup, collectedRelatedSearches, &reviewWg, reviewedChan)
 	}
 
 	go func() {
@@ -608,16 +612,18 @@ func (s *AutomationService) deficitReached(totalCreated *int32, created int, def
 
 func (s *AutomationService) tryCreateProposal(cfg *repositories.AutomationConfigDTO, job jobResult, matchReason, combinedQuery, source string, configID int64, dedup *dedupData) int {
 	// Check for duplicate before creating
-	if dedup != nil && dedup.isDuplicate(job) {
-		log.Printf("Automation service: skipping duplicate job: %s at %s", job.Title, job.Company)
-		return 0
+	if dedup != nil {
+		if dupSource := dedup.duplicateSource(job); dupSource != "" {
+			log.Printf("Automation service: skipping duplicate [%s]: %s at %s", dupSource, job.Title, job.Company)
+			return 0
+		}
 	}
 	if !s.createProposalFromJob(cfg, job, matchReason, combinedQuery, source, configID) {
 		return 0
 	}
 	// Add to dedup set to prevent duplicates within the same run
 	if dedup != nil && job.URL != "" {
-		dedup.urlSet[job.URL] = true
+		dedup.urlSource[job.URL] = "Proposal"
 	}
 	return 1
 }
@@ -649,20 +655,23 @@ func (s *AutomationService) recordRejectedJob(cfg *repositories.AutomationConfig
 	}
 }
 
-func (s *AutomationService) searchWorker(workerID int, keywords []string, cfg *repositories.AutomationConfigDTO, results chan<- []jobResult, wg *sync.WaitGroup) {
+func (s *AutomationService) searchWorker(workerID int, keywords []string, cfg *repositories.AutomationConfigDTO, results chan<- searchBatchResult, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	query := strings.Join(keywords, " ")
 	log.Printf("Automation service[%d]: searching for '%s'", workerID, query)
 
-	jobs, err := s.searchJobs(query, cfg.ProspectsPerRun, cfg.ATSMode, cfg.TimeFilter)
+	searchResult, err := s.searchJobs(query, cfg.ATSMode, cfg.TimeFilter, cfg.Location)
 	if err != nil {
 		log.Printf("Automation service[%d]: search failed: %v", workerID, err)
 		return
 	}
 
-	log.Printf("Automation service[%d]: found %d results", workerID, len(jobs))
-	results <- jobs
+	log.Printf("Automation service[%d]: found %d results, %d related searches", workerID, len(searchResult.Jobs), len(searchResult.RelatedSearches))
+	results <- searchBatchResult{
+		Jobs:            searchResult.Jobs,
+		RelatedSearches: searchResult.RelatedSearches,
+	}
 }
 
 func (s *AutomationService) createProposalFromJob(cfg *repositories.AutomationConfigDTO, job jobResult, matchReason, combinedQuery, source string, configID int64) bool {
@@ -694,6 +703,10 @@ func (s *AutomationService) buildSearchQueries(cfg *repositories.AutomationConfi
 			continue
 		}
 		batches = append(batches, slot)
+		// Limit to ConcurrentSearches
+		if cfg.ConcurrentSearches > 0 && len(batches) >= cfg.ConcurrentSearches {
+			break
+		}
 	}
 	return batches
 }
@@ -714,7 +727,19 @@ type jobResult struct {
 	Snippet string
 }
 
-func (s *AutomationService) searchJobs(query string, maxResults int, atsMode bool, timeFilter *string) ([]jobResult, error) {
+// searchResultWithRelated wraps job results with related searches from Serper
+type searchResultWithRelated struct {
+	Jobs            []jobResult
+	RelatedSearches []string
+}
+
+// searchBatchResult is sent through channels from search workers
+type searchBatchResult struct {
+	Jobs            []jobResult
+	RelatedSearches []string
+}
+
+func (s *AutomationService) searchJobs(query string, atsMode bool, timeFilter, location *string) (*searchResultWithRelated, error) {
 	if s.serperAPIKey == "" {
 		return nil, fmt.Errorf("SERPER_API_KEY not configured")
 	}
@@ -726,15 +751,17 @@ func (s *AutomationService) searchJobs(query string, maxResults int, atsMode boo
 
 	tbs := mapTimeFilter(timeFilter)
 
-	log.Printf("🔧 [Serper] Calling API - query=%q, maxResults=%d, atsMode=%v, timeFilter=%v",
-		enhancedQuery, maxResults, atsMode, timeFilter)
+	log.Printf("🔧 [Serper] Calling API - query=%q, atsMode=%v, timeFilter=%v, location=%v",
+		enhancedQuery, atsMode, timeFilter, location)
 
 	reqBody := map[string]interface{}{
-		"q":   enhancedQuery,
-		"num": maxResults,
+		"q": enhancedQuery,
 	}
 	if tbs != "" {
 		reqBody["tbs"] = tbs
+	}
+	if location != nil && *location != "" {
+		reqBody["location"] = *location
 	}
 
 	jsonBody, err := json.Marshal(reqBody)
@@ -742,13 +769,13 @@ func (s *AutomationService) searchJobs(query string, maxResults int, atsMode boo
 		return nil, fmt.Errorf("error encoding request: %w", err)
 	}
 
-	results, err := s.executeSerperRequest(jsonBody)
+	result, err := s.executeSerperRequest(jsonBody)
 	if err != nil {
 		log.Printf("🔧 [Serper] API error: %v", err)
 		return nil, err
 	}
-	log.Printf("🔧 [Serper] API returned %d results", len(results))
-	return results, nil
+	log.Printf("🔧 [Serper] API returned %d results, %d related searches", len(result.Jobs), len(result.RelatedSearches))
+	return result, nil
 }
 
 func mapTimeFilter(timeFilter *string) string {
@@ -763,7 +790,7 @@ func mapTimeFilter(timeFilter *string) string {
 	return filters[*timeFilter]
 }
 
-func (s *AutomationService) executeSerperRequest(jsonBody []byte) ([]jobResult, error) {
+func (s *AutomationService) executeSerperRequest(jsonBody []byte) (*searchResultWithRelated, error) {
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequestWithContext(context.Background(), "POST", "https://google.serper.dev/search", bytes.NewBuffer(jsonBody))
 	if err != nil {
@@ -787,29 +814,43 @@ func (s *AutomationService) executeSerperRequest(jsonBody []byte) ([]jobResult, 
 	return s.parseSerperResponse(resp.Body)
 }
 
-func (s *AutomationService) parseSerperResponse(body io.Reader) ([]jobResult, error) {
+func (s *AutomationService) parseSerperResponse(body io.Reader) (*searchResultWithRelated, error) {
 	var serperResp struct {
 		Organic []struct {
 			Title   string `json:"title"`
 			Link    string `json:"link"`
 			Snippet string `json:"snippet"`
 		} `json:"organic"`
+		RelatedSearches []struct {
+			Query string `json:"query"`
+		} `json:"relatedSearches"`
 	}
 
 	if err := json.NewDecoder(body).Decode(&serperResp); err != nil {
 		return nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
-	var results []jobResult
+	var jobs []jobResult
 	for _, item := range serperResp.Organic {
-		results = append(results, jobResult{
+		jobs = append(jobs, jobResult{
 			Title:   item.Title,
 			Company: extractCompanyFromTitle(item.Title),
 			URL:     item.Link,
 			Snippet: item.Snippet,
 		})
 	}
-	return results, nil
+
+	var relatedSearches []string
+	for _, rs := range serperResp.RelatedSearches {
+		if rs.Query != "" {
+			relatedSearches = append(relatedSearches, rs.Query)
+		}
+	}
+
+	return &searchResultWithRelated{
+		Jobs:            jobs,
+		RelatedSearches: relatedSearches,
+	}, nil
 }
 
 func buildATSQuery(baseQuery string) string {
@@ -1268,13 +1309,13 @@ type dedupData struct {
 	existingJobs     []repositories.JobDedupInfo
 	pendingProposals []repositories.PendingJobProposal
 	rejectedJobs     []repositories.RejectedJobInfo
-	urlSet           map[string]bool
+	urlSource        map[string]string // URL -> source ("Job", "Proposal", "Rejected")
 }
 
 // loadDedupData loads existing jobs, pending proposals, and rejected jobs for deduplication
 func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	data := &dedupData{
-		urlSet: make(map[string]bool),
+		urlSource: make(map[string]string),
 	}
 
 	// Load existing jobs
@@ -1285,7 +1326,7 @@ func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	data.existingJobs = jobs
 	for _, j := range jobs {
 		if j.URL != "" {
-			data.urlSet[j.URL] = true
+			data.urlSource[j.URL] = "Job"
 		}
 	}
 	log.Printf("🔍 Dedup [Job]: loaded %d existing jobs", len(jobs))
@@ -1298,7 +1339,7 @@ func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	data.pendingProposals = proposals
 	for _, p := range proposals {
 		if p.URL != "" {
-			data.urlSet[p.URL] = true
+			data.urlSource[p.URL] = "Proposal"
 		}
 	}
 	log.Printf("🔍 Dedup [Proposal]: loaded %d pending proposals", len(proposals))
@@ -1311,20 +1352,22 @@ func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	data.rejectedJobs = rejected
 	for _, r := range rejected {
 		if r.URL != "" {
-			data.urlSet[r.URL] = true
+			data.urlSource[r.URL] = "Rejected"
 		}
 	}
 	log.Printf("🔍 Dedup [Rejected]: loaded %d agent-rejected jobs", len(rejected))
 
-	log.Printf("✅ Dedup ready: %d total URLs to check against", len(data.urlSet))
+	log.Printf("✅ Dedup ready: %d total URLs to check against", len(data.urlSource))
 	return data
 }
 
-// isDuplicate checks if a job result is a duplicate
-func (d *dedupData) isDuplicate(job jobResult) bool {
+// duplicateSource returns the source of the duplicate ("Job", "Proposal", "Rejected") or empty if not duplicate
+func (d *dedupData) duplicateSource(job jobResult) string {
 	// Check URL first (fast path)
-	if job.URL != "" && d.urlSet[job.URL] {
-		return true
+	if job.URL != "" {
+		if source, ok := d.urlSource[job.URL]; ok {
+			return source
+		}
 	}
 
 	// Check against existing jobs by company + title
@@ -1347,7 +1390,7 @@ func (d *dedupData) isDuplicate(job jobResult) bool {
 			if companyMatch && (normalizedTitle == existingTitle ||
 				strings.Contains(normalizedTitle, existingTitle) ||
 				strings.Contains(existingTitle, normalizedTitle)) {
-				return true
+				return "Job"
 			}
 		}
 
@@ -1367,12 +1410,12 @@ func (d *dedupData) isDuplicate(job jobResult) bool {
 			if companyMatch && (normalizedTitle == pendingTitle ||
 				strings.Contains(normalizedTitle, pendingTitle) ||
 				strings.Contains(pendingTitle, normalizedTitle)) {
-				return true
+				return "Proposal"
 			}
 		}
 	}
 
-	return false
+	return ""
 }
 
 // normalizeCompanyName removes common suffixes and normalizes for comparison
@@ -1402,8 +1445,8 @@ func (s *AutomationService) filterDuplicates(results []jobResult, dedup *dedupDa
 	}
 	filtered := make([]jobResult, 0, len(results))
 	for _, job := range results {
-		if dedup.isDuplicate(job) {
-			log.Printf("Automation: filtering duplicate: %s at %s", job.Title, job.Company)
+		if dupSource := dedup.duplicateSource(job); dupSource != "" {
+			log.Printf("Automation: filtering duplicate [%s]: %s at %s", dupSource, job.Title, job.Company)
 			continue
 		}
 		filtered = append(filtered, job)
@@ -1411,24 +1454,37 @@ func (s *AutomationService) filterDuplicates(results []jobResult, dedup *dedupDa
 	return filtered
 }
 
-// searchWithSuggestedQueries asks LLM for new queries and searches with them
+// searchWithSuggestedQueries uses hybrid approach: try Serper related searches first (free), then fall back to LLM
 // Returns the suggested queries for logging
-func (s *AutomationService) searchWithSuggestedQueries(cfg *repositories.AutomationConfigDTO, docContext string, dedup *dedupData, reviewWg *sync.WaitGroup, reviewedChan chan<- []reviewedJobResult) []string {
-	newQueries := s.suggestNewQueries(cfg, docContext, dedup)
+func (s *AutomationService) searchWithSuggestedQueries(cfg *repositories.AutomationConfigDTO, docContext string, dedup *dedupData, relatedSearches []string, reviewWg *sync.WaitGroup, reviewedChan chan<- []reviewedJobResult) []string {
+	var newQueries []string
+
+	// Hybrid approach: try Serper related searches first (free)
+	if len(relatedSearches) > 0 {
+		log.Printf("🔍 Hybrid: trying %d related searches from Serper (free)", len(relatedSearches))
+		newQueries = s.prepareRelatedSearchQueries(cfg, relatedSearches, dedup)
+	}
+
+	// Fall back to LLM suggestions if no related searches or all were filtered
+	if len(newQueries) == 0 {
+		log.Printf("🤖 Hybrid: falling back to LLM query suggestions")
+		newQueries = s.suggestNewQueries(cfg, docContext, dedup)
+	}
+
 	if len(newQueries) == 0 {
 		return nil
 	}
 
 	for _, query := range newQueries {
-		newResults, err := s.searchJobs(query, cfg.ProspectsPerRun, cfg.ATSMode, cfg.TimeFilter)
+		searchResult, err := s.searchJobs(query, cfg.ATSMode, cfg.TimeFilter, cfg.Location)
 		if err != nil {
 			log.Printf("Automation: suggested query search failed: %v", err)
 			continue
 		}
 
-		newFiltered := s.filterDuplicates(newResults, dedup)
+		newFiltered := s.filterDuplicates(searchResult.Jobs, dedup)
 		if len(newFiltered) == 0 {
-			log.Printf("Automation: suggested query '%s' returned %d results, all duplicates", query, len(newResults))
+			log.Printf("Automation: suggested query '%s' returned %d results, all duplicates", query, len(searchResult.Jobs))
 			continue
 		}
 
@@ -1438,6 +1494,48 @@ func (s *AutomationService) searchWithSuggestedQueries(cfg *repositories.Automat
 	}
 
 	return newQueries
+}
+
+// prepareRelatedSearchQueries filters and prepares related searches for use as queries
+func (s *AutomationService) prepareRelatedSearchQueries(cfg *repositories.AutomationConfigDTO, relatedSearches []string, dedup *dedupData) []string {
+	// Deduplicate related searches
+	seen := make(map[string]bool)
+	var unique []string
+	for _, rs := range relatedSearches {
+		rsLower := strings.ToLower(strings.TrimSpace(rs))
+		if seen[rsLower] {
+			continue
+		}
+		seen[rsLower] = true
+		unique = append(unique, rs)
+	}
+
+	// Append location if configured
+	location := ""
+	if cfg.Location != nil && *cfg.Location != "" {
+		location = " " + *cfg.Location
+	}
+
+	// Limit to ConcurrentSearches
+	limit := cfg.ConcurrentSearches
+	if limit < 1 {
+		limit = 1
+	}
+	if len(unique) > limit {
+		unique = unique[:limit]
+	}
+
+	// Add location to each query
+	var prepared []string
+	for _, q := range unique {
+		prepared = append(prepared, q+location)
+	}
+
+	if len(prepared) > 0 {
+		log.Printf("🔍 Prepared %d related search queries: %v", len(prepared), prepared)
+	}
+
+	return prepared
 }
 
 // suggestNewQueries asks LLM to suggest alternative job titles for search

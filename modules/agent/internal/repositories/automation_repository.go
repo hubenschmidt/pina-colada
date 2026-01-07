@@ -63,7 +63,6 @@ type AutomationConfigInput struct {
 	EntityType         *string
 	Enabled            *bool
 	IntervalSeconds    *int
-	ProspectsPerRun    *int
 	ConcurrentSearches  *int
 	CompilationTarget   *int
 	DisableOnCompiled   *bool
@@ -432,9 +431,6 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	}
 	if input.IntervalSeconds != nil {
 		cfg.IntervalSeconds = *input.IntervalSeconds
-	}
-	if input.ProspectsPerRun != nil {
-		cfg.ProspectsPerRun = *input.ProspectsPerRun
 	}
 	if input.ConcurrentSearches != nil {
 		cfg.ConcurrentSearches = *input.ConcurrentSearches

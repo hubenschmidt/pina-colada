@@ -47,7 +47,6 @@ type CrawlerRequest struct {
 	EntityType         *string  `json:"entity_type,omitempty"`
 	Enabled            *bool    `json:"enabled,omitempty"`
 	IntervalSeconds    *int     `json:"interval_seconds,omitempty"`
-	ProspectsPerRun    *int     `json:"prospects_per_run,omitempty"`
 	ConcurrentSearches *int     `json:"concurrent_searches,omitempty"`
 	CompilationTarget  *int     `json:"compilation_target,omitempty"`
 	DisableOnCompiled  *bool    `json:"disable_on_compiled,omitempty"`
@@ -55,6 +54,7 @@ type CrawlerRequest struct {
 	SearchSlots        [][]string `json:"search_slots,omitempty"`
 	ATSMode            *bool      `json:"ats_mode,omitempty"`
 	TimeFilter         *string  `json:"time_filter,omitempty"`
+	Location           *string  `json:"location,omitempty"`
 	TargetType         *string  `json:"target_type,omitempty"`
 	TargetIDs          []int64  `json:"target_ids,omitempty"`
 	SourceDocumentIDs  []int64  `json:"source_document_ids,omitempty"`
@@ -328,7 +328,6 @@ func (c *AutomationController) requestToInput(req CrawlerRequest) repositories.A
 		EntityType:         req.EntityType,
 		Enabled:            req.Enabled,
 		IntervalSeconds:    req.IntervalSeconds,
-		ProspectsPerRun:    req.ProspectsPerRun,
 		ConcurrentSearches: req.ConcurrentSearches,
 		CompilationTarget:  req.CompilationTarget,
 		DisableOnCompiled:  req.DisableOnCompiled,
@@ -336,6 +335,7 @@ func (c *AutomationController) requestToInput(req CrawlerRequest) repositories.A
 		SearchSlots:        req.SearchSlots,
 		ATSMode:            req.ATSMode,
 		TimeFilter:         req.TimeFilter,
+		Location:           req.Location,
 		TargetType:         req.TargetType,
 		TargetIDs:          req.TargetIDs,
 		SourceDocumentIDs:  req.SourceDocumentIDs,

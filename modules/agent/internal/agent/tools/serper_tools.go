@@ -204,9 +204,9 @@ func (t *SerperTools) loadExistingJobs() []JobInfo {
 // JobSearchParams defines parameters for job search
 type JobSearchParams struct {
 	Query      string `json:"query" jsonschema:"Job search query (e.g., 'Senior Software Engineer NYC startups')"`
-	MaxResults int    `json:"max_results,omitempty" jsonschema:"Number of results to return (default 10, max 20)"`
 	ATSMode    bool   `json:"ats_mode,omitempty" jsonschema:"Set true to search only ATS platforms (Lever, Greenhouse, Ashby) for direct application links - best for startup jobs"`
 	TimeFilter string `json:"time_filter,omitempty" jsonschema:"REQUIRED when user specifies recency. Filter by: 'day' (24h), 'week' (7 days), 'month' (30 days). Map user request: 'last 7 days'/'this week' → 'week', 'last 24h'/'today' → 'day', 'last 2 weeks'/'last 30 days' → 'month'."`
+	Location   string `json:"location,omitempty" jsonschema:"Geographic location for search results (e.g., 'United States', 'New York, NY', 'San Francisco, CA')"`
 }
 
 // WebSearchParams defines parameters for general web search
@@ -222,8 +222,9 @@ type WebSearchResult struct {
 
 // JobSearchResult is the result of a job search
 type JobSearchResult struct {
-	Results string `json:"results"`
-	Count   int    `json:"count"`
+	Results         string   `json:"results"`
+	Count           int      `json:"count"`
+	RelatedSearches []string `json:"related_searches,omitempty"`
 }
 
 // JobListing represents a single job for compact cache storage
@@ -238,19 +239,25 @@ type JobListing struct {
 // --- Serper API Types ---
 
 type serperRequest struct {
-	Q   string `json:"q"`
-	Num int    `json:"num,omitempty"` // Number of results to request (default 10)
-	Tbs string `json:"tbs,omitempty"` // Time-based search filter (e.g., qdr:w = past week)
+	Q        string `json:"q"`
+	Tbs      string `json:"tbs,omitempty"`      // Time-based search filter (e.g., qdr:w = past week)
+	Location string `json:"location,omitempty"` // Geographic location (e.g., "United States", "New York, NY")
 }
 
 type serperResponse struct {
-	Organic []serperOrganicResult `json:"organic"`
+	Organic         []serperOrganicResult `json:"organic"`
+	RelatedSearches []relatedSearch       `json:"relatedSearches,omitempty"`
+}
+
+type relatedSearch struct {
+	Query string `json:"query"`
 }
 
 type serperOrganicResult struct {
 	Title   string `json:"title"`
 	Link    string `json:"link"`
 	Snippet string `json:"snippet"`
+	Date    string `json:"date,omitempty"` // e.g., "Feb 12, 2017", "Jul 4, 2023"
 }
 
 // --- Tool Functions ---
@@ -301,15 +308,6 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	}
 	log.Printf("job_search query (ats=%v): %s", params.ATSMode, enhancedQuery)
 
-	// Determine max results (default 10, max 20 - Serper limit)
-	maxResults := params.MaxResults
-	if maxResults <= 0 {
-		maxResults = 10
-	}
-	if maxResults > 20 {
-		maxResults = 20
-	}
-
 	// Map time filter to Serper tbs parameter
 	var tbs string
 	switch params.TimeFilter {
@@ -321,8 +319,8 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		tbs = "qdr:m"
 	}
 
-	// Call Serper API - always request 20 (max allowed)
-	reqBody := serperRequest{Q: enhancedQuery, Num: 20, Tbs: tbs}
+	// Call Serper API (num parameter deprecated by Google Sept 2025)
+	reqBody := serperRequest{Q: enhancedQuery, Tbs: tbs, Location: params.Location}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return &JobSearchResult{Results: fmt.Sprintf("Error encoding request: %v", err)}, nil
@@ -355,9 +353,20 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		return &JobSearchResult{Results: fmt.Sprintf("Error parsing response: %v", err)}, nil
 	}
 
+	// Extract related searches for query suggestions (free alternative to LLM)
+	var relatedSearches []string
+	for _, rs := range serperResp.RelatedSearches {
+		if rs.Query != "" {
+			relatedSearches = append(relatedSearches, rs.Query)
+		}
+	}
+	if len(relatedSearches) > 0 {
+		log.Printf("🔍 Found %d related searches from Serper API", len(relatedSearches))
+	}
+
 	// Extract structured listings (filtered by existing jobs and seen URLs)
 	seenURLs := t.getSeenURLs()
-	listings := extractListings(serperResp.Organic, maxResults, existingJobs, seenURLs)
+	listings := extractListings(serperResp.Organic, existingJobs, seenURLs)
 
 	// Verify posting dates if time filter is set, or auto-verify in ATS mode
 	var maxAge time.Duration
@@ -403,15 +412,17 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	if listingCount == 0 {
 		msg := "No new job postings found. All results were either already shown, applied to, or marked as 'do not apply'. Try a different search query."
 		return &JobSearchResult{
-			Results: msg,
-			Count:   0,
+			Results:         msg,
+			Count:           0,
+			RelatedSearches: relatedSearches,
 		}, nil
 	}
 
 	// Format for display (show dates only when verification was attempted)
 	return &JobSearchResult{
-		Results: formatListings(listings, maxAge > 0),
-		Count:   listingCount,
+		Results:         formatListings(listings, maxAge > 0),
+		Count:           listingCount,
+		RelatedSearches: relatedSearches,
 	}, nil
 }
 
@@ -451,13 +462,10 @@ func enhanceJobQuery(query string) string {
 }
 
 // extractListings extracts structured job listings from organic results
-func extractListings(organic []serperOrganicResult, maxResults int, existingJobs []JobInfo, seenURLs map[string]bool) []JobListing {
+func extractListings(organic []serperOrganicResult, existingJobs []JobInfo, seenURLs map[string]bool) []JobListing {
 	var listings []JobListing
 
 	for _, item := range organic {
-		if len(listings) >= maxResults {
-			return listings
-		}
 		listing := extractListing(item, existingJobs, seenURLs)
 		if listing != nil {
 			listings = append(listings, *listing)
@@ -465,6 +473,26 @@ func extractListings(organic []serperOrganicResult, maxResults int, existingJobs
 	}
 
 	return listings
+}
+
+// parseSerperDate parses date strings from Serper API (e.g., "Feb 12, 2017", "Jul 4, 2023")
+func parseSerperDate(dateStr string) time.Time {
+	if dateStr == "" {
+		return time.Time{}
+	}
+	// Try common formats returned by Serper
+	formats := []string{
+		"Jan 2, 2006",  // "Feb 12, 2017"
+		"Jan 02, 2006", // "Feb 02, 2017"
+		"2 Jan 2006",   // "12 Feb 2017"
+		"02 Jan 2006",  // "02 Feb 2017"
+	}
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			return t
+		}
+	}
+	return time.Time{}
 }
 
 func extractListing(item serperOrganicResult, existingJobs []JobInfo, seenURLs map[string]bool) *JobListing {
@@ -488,7 +516,18 @@ func extractListing(item serperOrganicResult, existingJobs []JobInfo, seenURLs m
 		log.Printf("   Filtered out existing job: %s at %s", title, company)
 		return nil
 	}
-	return &JobListing{C: company, T: title, U: item.Link}
+
+	listing := &JobListing{C: company, T: title, U: item.Link}
+
+	// Parse date from Serper API if available (avoids page fetch)
+	if item.Date != "" {
+		listing.Posted = parseSerperDate(item.Date)
+		if !listing.Posted.IsZero() {
+			log.Printf("   📅 Using API date for %s: %s", company, item.Date)
+		}
+	}
+
+	return listing
 }
 
 // formatListings converts structured listings to display string
@@ -680,7 +719,7 @@ func (t *SerperTools) WebSearchCtx(ctx context.Context, params WebSearchParams) 
 
 	log.Printf("🔍 web_search: query=%s", params.Query)
 
-	reqBody := serperRequest{Q: params.Query, Num: 10}
+	reqBody := serperRequest{Q: params.Query}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return &WebSearchResult{Results: fmt.Sprintf("Error encoding request: %v", err)}, nil
@@ -825,15 +864,43 @@ func parsePostingDate(html string) (time.Time, bool, string) {
 	return time.Time{}, false, ""
 }
 
-// verifyPostingDates fetches URLs concurrently and filters by posting date
+// verifyPostingDates filters listings by posting date
 // maxAge is the maximum age for listings (e.g., 7*24*time.Hour for 1 week)
 // strictFilter: if true, exclude listings with unknown dates; if false, include them at the end
-// Returns listings with verified dates, plus listings with unknown dates (if strictFilter is false)
+// Listings with API dates are checked directly; others are fetched concurrently
 func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilter bool) []JobListing {
 	if len(listings) == 0 {
 		return listings
 	}
 
+	cutoff := time.Now().Add(-maxAge)
+	var verified []JobListing
+	var unknown []JobListing
+	var needsFetch []int // indices of listings that need page fetch
+
+	// First pass: check listings with API dates, collect those needing fetch
+	for i, listing := range listings {
+		if !listing.Posted.IsZero() {
+			// Already have date from API - apply cutoff directly
+			if listing.Posted.Before(cutoff) {
+				log.Printf("   📅 Filtered out old posting (%s): %s - %s [API date]", listing.Posted.Format("Jan 2"), listing.C, listing.T)
+				continue
+			}
+			verified = append(verified, listing)
+			log.Printf("   📅 Verified fresh posting (%s): %s - %s [API date]", listing.Posted.Format("Jan 2"), listing.C, listing.T)
+			continue
+		}
+		needsFetch = append(needsFetch, i)
+	}
+
+	// If no listings need fetching, return early
+	if len(needsFetch) == 0 {
+		return append(verified, unknown...)
+	}
+
+	log.Printf("   📅 %d listings have API dates, %d need page fetch", len(listings)-len(needsFetch), len(needsFetch))
+
+	// Second pass: fetch pages concurrently for listings without API dates
 	type result struct {
 		index  int
 		posted time.Time
@@ -841,20 +908,20 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilte
 		source string
 	}
 
-	results := make(chan result, len(listings))
+	results := make(chan result, len(needsFetch))
 	sem := make(chan struct{}, 5) // Limit to 5 concurrent requests
 
 	var wg sync.WaitGroup
-	for i, listing := range listings {
+	for _, idx := range needsFetch {
 		wg.Add(1)
-		go func(idx int, url string) {
+		go func(i int, url string) {
 			defer wg.Done()
 			sem <- struct{}{}        // Acquire
 			defer func() { <-sem }() // Release
 
 			posted, ok, source := fetchPostingDate(url)
-			results <- result{index: idx, posted: posted, ok: ok, source: source}
-		}(i, listing.U)
+			results <- result{index: i, posted: posted, ok: ok, source: source}
+		}(idx, listings[idx].U)
 	}
 
 	go func() {
@@ -868,19 +935,15 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilte
 		postingDates[r.index] = r
 	}
 
-	// Filter and annotate listings
-	cutoff := time.Now().Add(-maxAge)
-	var verified []JobListing
-	var unknown []JobListing
-
-	for i, listing := range listings {
-		r := postingDates[i]
+	// Filter fetched listings
+	for _, idx := range needsFetch {
+		listing := listings[idx]
+		r := postingDates[idx]
 		if !r.ok {
 			if strictFilter {
 				log.Printf("   Filtered out (date unknown, strict filter): %s - %s", listing.C, listing.T)
 				continue
 			}
-			// Unknown date - keep but mark
 			unknown = append(unknown, listing)
 			log.Printf("   Date unknown for: %s - %s (no parseable date found)", listing.C, listing.T)
 			continue

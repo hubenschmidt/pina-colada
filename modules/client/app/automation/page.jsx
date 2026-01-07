@@ -103,7 +103,6 @@ const emptyForm = {
   entity_type: "job",
   interval_value: 30,
   interval_unit: "minutes",
-  prospects_per_run: 10,
   concurrent_searches: 1,
   compilation_target: 100,
   disable_on_compiled: false,
@@ -244,7 +243,6 @@ const AutomationPage = () => {
       entity_type: crawler.entity_type || "job",
       interval_value: useMinutes ? seconds / 60 : seconds,
       interval_unit: useMinutes ? "minutes" : "seconds",
-      prospects_per_run: crawler.prospects_per_run || 10,
       concurrent_searches: crawler.concurrent_searches || 1,
       compilation_target: crawler.compilation_target || 100,
       disable_on_compiled: crawler.disable_on_compiled ?? false,
@@ -623,13 +621,6 @@ const AutomationPage = () => {
                 style={{ flex: 1 }}
               />
             </Group>
-            <NumberInput
-              label="Prospects per Run"
-              value={form.prospects_per_run}
-              onChange={(val) => updateForm("prospects_per_run", val)}
-              min={1}
-              max={50}
-            />
           </Group>
 
           <Group grow>
