@@ -226,6 +226,7 @@ func (s *AutomationService) GetCrawlerRuns(configID int64, page, limit int) (*se
 			ProposalsCreated: logs[i].ProposalsCreated,
 			ErrorMessage:     logs[i].ErrorMessage,
 			SearchQuery:      logs[i].SearchQuery,
+			SuggestedQueries: logs[i].SuggestedQueries,
 			Compiled:         logs[i].Compiled,
 		}
 	}
@@ -318,7 +319,7 @@ func (s *AutomationService) executeAutomation(cfg *repositories.AutomationConfig
 	})
 
 	keywordBatches := s.buildSearchQueries(cfg)
-	totalProspects, totalProposals := s.executeSearches(cfg, keywordBatches, deficit, combinedQuery, dedup)
+	totalProspects, totalProposals, suggestedQueries := s.executeSearches(cfg, keywordBatches, deficit, combinedQuery, dedup)
 
 	// Check if this run crossed the compilation threshold (from below to at-or-above)
 	currentActive, _ := s.automationRepo.GetActiveProposals(cfg.ID)
@@ -331,7 +332,14 @@ func (s *AutomationService) executeAutomation(cfg *repositories.AutomationConfig
 		s.automationRepo.DisableConfig(cfg.ID)
 	}
 
-	s.automationRepo.CompleteRunLog(logID, "done", int(totalProspects), int(totalProposals), nil, compiled)
+	// Format suggested queries for storage
+	var suggestedQueriesStr *string
+	if len(suggestedQueries) > 0 {
+		joined := strings.Join(suggestedQueries, "; ")
+		suggestedQueriesStr = &joined
+	}
+
+	s.automationRepo.CompleteRunLog(logID, "done", int(totalProspects), int(totalProposals), nil, suggestedQueriesStr, compiled)
 
 	// Notify SSE subscribers that run completed
 	completedAt := time.Now()
@@ -343,6 +351,7 @@ func (s *AutomationService) executeAutomation(cfg *repositories.AutomationConfig
 		ProspectsFound:        int(totalProspects),
 		ProposalsCreated:      int(totalProposals),
 		SearchQuery:           &combinedQuery,
+		SuggestedQueries:      suggestedQueriesStr,
 		Compiled:              compiled,
 		ConfigActiveProposals: &currentActive,
 	}
@@ -471,7 +480,7 @@ func (s *AutomationService) calculateDeficit(cfg *repositories.AutomationConfigD
 	return compilationTarget - pendingCount
 }
 
-func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDTO, batches [][]string, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32) {
+func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDTO, batches [][]string, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32, []string) {
 	var searchWg sync.WaitGroup
 	var totalProspectsFound int32
 	resultsChan := make(chan []jobResult, len(batches))
@@ -487,7 +496,8 @@ func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDT
 	}()
 
 	if !cfg.UseAgent {
-		return s.processSearchResultsSequential(cfg, resultsChan, &totalProspectsFound, deficit, combinedQuery, dedup)
+		prospects, proposals := s.processSearchResultsSequential(cfg, resultsChan, &totalProspectsFound, deficit, combinedQuery, dedup)
+		return prospects, proposals, nil
 	}
 	return s.processSearchResultsWithConcurrentAgent(cfg, resultsChan, &totalProspectsFound, deficit, combinedQuery, dedup)
 }
@@ -506,17 +516,40 @@ func (s *AutomationService) processSearchResultsSequential(cfg *repositories.Aut
 	return *totalProspectsFound, totalProposalsCreated
 }
 
-func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *repositories.AutomationConfigDTO, resultsChan <-chan []jobResult, totalProspectsFound *int32, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32) {
+func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *repositories.AutomationConfigDTO, resultsChan <-chan []jobResult, totalProspectsFound *int32, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32, []string) {
 	documentContext := s.loadDocumentContext(cfg.SourceDocumentIDs)
 
 	var reviewWg sync.WaitGroup
 	reviewedChan := make(chan []reviewedJobResult, 10)
+	querySuggestionsUsed := false
+	var suggestedQueries []string
 
 	// Spawn concurrent agent review goroutines for each batch
 	for results := range resultsChan {
 		atomic.AddInt32(totalProspectsFound, int32(len(results)))
-		reviewWg.Add(1)
-		go s.agentReviewWorker(cfg, results, documentContext, reviewedChan, &reviewWg)
+
+		// Filter duplicates BEFORE sending to LLM
+		filtered := s.filterDuplicates(results, dedup)
+
+		// Has new results - send to LLM review
+		if len(filtered) > 0 {
+			log.Printf("Automation: %d/%d results are new, sending to LLM review", len(filtered), len(results))
+			reviewWg.Add(1)
+			go s.agentReviewWorker(cfg, filtered, documentContext, reviewedChan, &reviewWg)
+			continue
+		}
+
+		// All duplicates
+		log.Printf("Automation: all %d results are duplicates, skipping LLM review", len(results))
+
+		// Already tried query suggestions this run
+		if querySuggestionsUsed {
+			continue
+		}
+
+		// Ask LLM for new query suggestions (once per run)
+		querySuggestionsUsed = true
+		suggestedQueries = s.searchWithSuggestedQueries(cfg, documentContext, dedup, &reviewWg, reviewedChan)
 	}
 
 	go func() {
@@ -524,7 +557,8 @@ func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *reposit
 		close(reviewedChan)
 	}()
 
-	return s.collectAndCreateProposals(cfg, reviewedChan, totalProspectsFound, deficit, combinedQuery, dedup)
+	prospectsFound, proposalsCreated := s.collectAndCreateProposals(cfg, reviewedChan, totalProspectsFound, deficit, combinedQuery, dedup)
+	return prospectsFound, proposalsCreated, suggestedQueries
 }
 
 func (s *AutomationService) agentReviewWorker(cfg *repositories.AutomationConfigDTO, results []jobResult, documentContext string, reviewedChan chan<- []reviewedJobResult, wg *sync.WaitGroup) {
@@ -589,10 +623,30 @@ func (s *AutomationService) tryCreateProposal(cfg *repositories.AutomationConfig
 }
 
 func (s *AutomationService) tryCreateApprovedProposal(cfg *repositories.AutomationConfigDTO, job reviewedJobResult, combinedQuery, source string, configID int64, dedup *dedupData) int {
-	if !job.Approved {
-		return 0
+	if job.Approved {
+		return s.tryCreateProposal(cfg, job.jobResult, job.Reason, combinedQuery, source, configID, dedup)
 	}
-	return s.tryCreateProposal(cfg, job.jobResult, job.Reason, combinedQuery, source, configID, dedup)
+
+	// Record rejected job to prevent re-review
+	s.recordRejectedJob(cfg, job)
+	return 0
+}
+
+func (s *AutomationService) recordRejectedJob(cfg *repositories.AutomationConfigDTO, job reviewedJobResult) {
+	if job.URL == "" {
+		return
+	}
+	err := s.automationRepo.CreateRejectedJob(repositories.RejectedJobInput{
+		AutomationConfigID: cfg.ID,
+		TenantID:           cfg.TenantID,
+		URL:                job.URL,
+		JobTitle:           job.Title,
+		Company:            job.Company,
+		Reason:             job.Reason,
+	})
+	if err != nil {
+		log.Printf("Automation: failed to record rejected job: %v", err)
+	}
 }
 
 func (s *AutomationService) searchWorker(workerID int, keywords []string, cfg *repositories.AutomationConfigDTO, results chan<- []jobResult, wg *sync.WaitGroup) {
@@ -672,6 +726,9 @@ func (s *AutomationService) searchJobs(query string, maxResults int, atsMode boo
 
 	tbs := mapTimeFilter(timeFilter)
 
+	log.Printf("🔧 [Serper] Calling API - query=%q, maxResults=%d, atsMode=%v, timeFilter=%v",
+		enhancedQuery, maxResults, atsMode, timeFilter)
+
 	reqBody := map[string]interface{}{
 		"q":   enhancedQuery,
 		"num": maxResults,
@@ -685,7 +742,13 @@ func (s *AutomationService) searchJobs(query string, maxResults int, atsMode boo
 		return nil, fmt.Errorf("error encoding request: %w", err)
 	}
 
-	return s.executeSerperRequest(jsonBody)
+	results, err := s.executeSerperRequest(jsonBody)
+	if err != nil {
+		log.Printf("🔧 [Serper] API error: %v", err)
+		return nil, err
+	}
+	log.Printf("🔧 [Serper] API returned %d results", len(results))
+	return results, nil
 }
 
 func mapTimeFilter(timeFilter *string) string {
@@ -950,11 +1013,14 @@ func (s *AutomationService) reviewWithAnthropic(model string, customPrompt *stri
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
+	log.Printf("🤖 [Anthropic] Calling API - model=%s, results=%d", model, len(results))
+	start := time.Now()
 	resp, err := client.Messages.New(ctx, params)
 	if err != nil {
-		log.Printf("Automation service: Anthropic agent review failed: %v", err)
+		log.Printf("🤖 [Anthropic] API error after %v: %v", time.Since(start), err)
 		return approveAllResults(results)
 	}
+	log.Printf("🤖 [Anthropic] API returned in %v", time.Since(start))
 
 	reviews := s.parseAgentResponse(resp, results)
 	s.logAgentReviews(reviews)
@@ -983,11 +1049,14 @@ func (s *AutomationService) reviewWithOpenAI(model string, customPrompt *string,
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
+	log.Printf("🤖 [OpenAI] Calling API - model=%s, results=%d", model, len(results))
+	start := time.Now()
 	resp, err := client.Chat.Completions.New(ctx, params)
 	if err != nil {
-		log.Printf("Automation service: OpenAI agent review failed: %v", err)
+		log.Printf("🤖 [OpenAI] API error after %v: %v", time.Since(start), err)
 		return approveAllResults(results)
 	}
+	log.Printf("🤖 [OpenAI] API returned in %v", time.Since(start))
 
 	reviews := s.parseOpenAIAgentResponse(resp, results)
 	s.logAgentReviews(reviews)
@@ -1178,6 +1247,7 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 		SearchSlots:           dto.SearchSlots,
 		ATSMode:               dto.ATSMode,
 		TimeFilter:            dto.TimeFilter,
+		Location:              dto.Location,
 		TargetType:            dto.TargetType,
 		TargetIDs:             dto.TargetIDs,
 		SourceDocumentIDs:     dto.SourceDocumentIDs,
@@ -1197,10 +1267,11 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 type dedupData struct {
 	existingJobs     []repositories.JobDedupInfo
 	pendingProposals []repositories.PendingJobProposal
+	rejectedJobs     []repositories.RejectedJobInfo
 	urlSet           map[string]bool
 }
 
-// loadDedupData loads existing jobs and pending proposals for deduplication
+// loadDedupData loads existing jobs, pending proposals, and rejected jobs for deduplication
 func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	data := &dedupData{
 		urlSet: make(map[string]bool),
@@ -1210,30 +1281,42 @@ func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	jobs, err := s.jobRepo.GetJobsForDedup(tenantID)
 	if err != nil {
 		log.Printf("Automation service: failed to load jobs for dedup: %v", err)
-	} else {
-		data.existingJobs = jobs
-		for _, j := range jobs {
-			if j.URL != "" {
-				data.urlSet[j.URL] = true
-			}
+	}
+	data.existingJobs = jobs
+	for _, j := range jobs {
+		if j.URL != "" {
+			data.urlSet[j.URL] = true
 		}
 	}
+	log.Printf("🔍 Dedup [Job]: loaded %d existing jobs", len(jobs))
 
 	// Load pending proposals
 	proposals, err := s.proposalRepo.GetPendingJobProposals(tenantID)
 	if err != nil {
 		log.Printf("Automation service: failed to load pending proposals for dedup: %v", err)
-	} else {
-		data.pendingProposals = proposals
-		for _, p := range proposals {
-			if p.URL != "" {
-				data.urlSet[p.URL] = true
-			}
+	}
+	data.pendingProposals = proposals
+	for _, p := range proposals {
+		if p.URL != "" {
+			data.urlSet[p.URL] = true
 		}
 	}
+	log.Printf("🔍 Dedup [Proposal]: loaded %d pending proposals", len(proposals))
 
-	log.Printf("Automation service: loaded dedup data - %d existing jobs, %d pending proposals",
-		len(data.existingJobs), len(data.pendingProposals))
+	// Load agent-rejected jobs
+	rejected, err := s.automationRepo.GetRejectedJobs(tenantID)
+	if err != nil {
+		log.Printf("Automation service: failed to load rejected jobs for dedup: %v", err)
+	}
+	data.rejectedJobs = rejected
+	for _, r := range rejected {
+		if r.URL != "" {
+			data.urlSet[r.URL] = true
+		}
+	}
+	log.Printf("🔍 Dedup [Rejected]: loaded %d agent-rejected jobs", len(rejected))
+
+	log.Printf("✅ Dedup ready: %d total URLs to check against", len(data.urlSet))
 	return data
 }
 
@@ -1310,4 +1393,163 @@ func normalizeTitleForMatch(title string) string {
 		title = strings.TrimPrefix(title, prefix)
 	}
 	return strings.TrimSpace(title)
+}
+
+// filterDuplicates removes jobs that already exist in the dedup data
+func (s *AutomationService) filterDuplicates(results []jobResult, dedup *dedupData) []jobResult {
+	if dedup == nil {
+		return results
+	}
+	filtered := make([]jobResult, 0, len(results))
+	for _, job := range results {
+		if dedup.isDuplicate(job) {
+			log.Printf("Automation: filtering duplicate: %s at %s", job.Title, job.Company)
+			continue
+		}
+		filtered = append(filtered, job)
+	}
+	return filtered
+}
+
+// searchWithSuggestedQueries asks LLM for new queries and searches with them
+// Returns the suggested queries for logging
+func (s *AutomationService) searchWithSuggestedQueries(cfg *repositories.AutomationConfigDTO, docContext string, dedup *dedupData, reviewWg *sync.WaitGroup, reviewedChan chan<- []reviewedJobResult) []string {
+	newQueries := s.suggestNewQueries(cfg, docContext, dedup)
+	if len(newQueries) == 0 {
+		return nil
+	}
+
+	for _, query := range newQueries {
+		newResults, err := s.searchJobs(query, cfg.ProspectsPerRun, cfg.ATSMode, cfg.TimeFilter)
+		if err != nil {
+			log.Printf("Automation: suggested query search failed: %v", err)
+			continue
+		}
+
+		newFiltered := s.filterDuplicates(newResults, dedup)
+		if len(newFiltered) == 0 {
+			log.Printf("Automation: suggested query '%s' returned %d results, all duplicates", query, len(newResults))
+			continue
+		}
+
+		log.Printf("Automation: found %d new jobs from suggested query '%s'", len(newFiltered), query)
+		reviewWg.Add(1)
+		go s.agentReviewWorker(cfg, newFiltered, docContext, reviewedChan, reviewWg)
+	}
+
+	return newQueries
+}
+
+// suggestNewQueries asks LLM to suggest alternative job titles for search
+// Returns exactly ConcurrentSearches number of queries, each with location appended
+func (s *AutomationService) suggestNewQueries(cfg *repositories.AutomationConfigDTO, docContext string, dedup *dedupData) []string {
+	if s.anthropicAPIKey == "" {
+		log.Printf("Automation: no Anthropic API key, skipping query suggestions")
+		return nil
+	}
+
+	numQueries := cfg.ConcurrentSearches
+	if numQueries < 1 {
+		numQueries = 1
+	}
+
+	// Build context of seen companies (limit to 15)
+	seenCompanies := make([]string, 0, 15)
+	for _, job := range dedup.existingJobs {
+		if job.Company == "" {
+			continue
+		}
+		seenCompanies = append(seenCompanies, job.Company)
+		if len(seenCompanies) >= 15 {
+			break
+		}
+	}
+
+	// Extract just job titles from current search slots
+	currentTitles := make([]string, 0, len(cfg.SearchSlots))
+	for _, slot := range cfg.SearchSlots {
+		if len(slot) > 0 {
+			currentTitles = append(currentTitles, slot[0])
+		}
+	}
+
+	// Build system prompt context
+	systemPromptContext := ""
+	if cfg.SystemPrompt != nil && *cfg.SystemPrompt != "" {
+		systemPromptContext = fmt.Sprintf(`
+Original search instructions:
+%s
+`, *cfg.SystemPrompt)
+	}
+
+	prompt := fmt.Sprintf(`Based on this resume/context:
+%s
+%s
+Current job titles being searched:
+%v
+
+Companies already found (avoid similar):
+%v
+
+Suggest exactly %d NEW job title(s) to search for.
+Requirements:
+- Different from current titles but matching the skills in the resume
+- Follow the original search instructions above
+- Focus on: alternative job titles, niche roles, or different industries
+- Return ONLY job titles, one per line
+- No explanations, no numbering, no location info`, docContext, systemPromptContext, currentTitles, seenCompanies, numQueries)
+
+	log.Printf("🤖 [Anthropic] Requesting %d query suggestions (docContext: %d chars, systemPrompt: %v)",
+		numQueries, len(docContext), cfg.SystemPrompt != nil && *cfg.SystemPrompt != "")
+
+	client := anthropic.NewClient(option.WithAPIKey(s.anthropicAPIKey))
+	resp, err := client.Messages.New(context.Background(), anthropic.MessageNewParams{
+		Model:     anthropic.ModelClaude3_5Haiku20241022,
+		MaxTokens: 200,
+		Messages: []anthropic.MessageParam{
+			anthropic.NewUserMessage(anthropic.NewTextBlock(prompt)),
+		},
+	})
+	if err != nil {
+		log.Printf("Automation: failed to get query suggestions: %v", err)
+		return nil
+	}
+
+	if len(resp.Content) == 0 {
+		return nil
+	}
+
+	text := resp.Content[0].Text
+	lines := strings.Split(strings.TrimSpace(text), "\n")
+
+	// Parse job titles and append location
+	location := ""
+	if cfg.Location != nil {
+		location = *cfg.Location
+	}
+
+	queries := make([]string, 0, numQueries)
+	for _, line := range lines {
+		if len(queries) >= numQueries {
+			break
+		}
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		// Remove common prefixes
+		line = strings.TrimPrefix(line, "- ")
+		line = strings.TrimPrefix(line, "* ")
+		if len(line) > 2 && line[1] == '.' {
+			line = strings.TrimSpace(line[2:])
+		}
+		// Append location if configured
+		if location != "" {
+			line = line + " " + location
+		}
+		queries = append(queries, line)
+	}
+
+	log.Printf("Automation: LLM suggested %d new queries: %v", len(queries), queries)
+	return queries
 }

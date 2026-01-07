@@ -24,6 +24,7 @@ type AutomationConfigResponse struct {
 	SearchSlots        [][]string `json:"search_slots"`
 	ATSMode            bool       `json:"ats_mode"`
 	TimeFilter         *string    `json:"time_filter"`
+	Location           *string    `json:"location"`
 	TargetType         *string    `json:"target_type"`
 	TargetIDs          []int64    `json:"target_ids"`
 	SourceDocumentIDs  []int64    `json:"source_document_ids"`
@@ -48,7 +49,8 @@ type AutomationRunLogResponse struct {
 	ProposalsCreated int        `json:"proposals_created"`
 	ErrorMessage     *string    `json:"error_message"`
 	SearchQuery      *string    `json:"search_query"`
-	Compiled bool `json:"compiled"`
+	SuggestedQueries *string    `json:"suggested_queries"`
+	Compiled         bool       `json:"compiled"`
 	// ConfigActiveProposals is included in SSE events to update crawler stats
 	ConfigActiveProposals *int `json:"config_active_proposals,omitempty"`
 	// ConfigEnabled is included in SSE events when crawler is auto-paused

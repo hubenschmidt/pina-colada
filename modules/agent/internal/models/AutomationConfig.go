@@ -26,6 +26,7 @@ type AutomationConfig struct {
 	SearchSlots        datatypes.JSON `gorm:"column:search_slots;type:jsonb" json:"search_slots"`
 	ATSMode            bool           `gorm:"column:ats_mode;not null;default:true" json:"ats_mode"`
 	TimeFilter         *string        `gorm:"column:time_filter" json:"time_filter"`
+	Location           *string        `gorm:"column:location" json:"location"`
 	TargetType        *string        `gorm:"column:target_type" json:"target_type"`
 	TargetIDs         datatypes.JSON `gorm:"column:target_ids;type:jsonb" json:"target_ids"`
 	SourceDocumentIDs datatypes.JSON `gorm:"column:source_document_ids;type:jsonb" json:"source_document_ids"`

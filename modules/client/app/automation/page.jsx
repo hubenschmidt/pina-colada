@@ -108,6 +108,7 @@ const emptyForm = {
   compilation_target: 100,
   disable_on_compiled: false,
   search_slots: [[]],
+  location: "",
   ats_mode: true,
   time_filter: "week",
   target_type: null,
@@ -248,6 +249,7 @@ const AutomationPage = () => {
       compilation_target: crawler.compilation_target || 100,
       disable_on_compiled: crawler.disable_on_compiled ?? false,
       search_slots: crawler.search_slots?.length ? crawler.search_slots : [[]],
+      location: crawler.location || "",
       ats_mode: crawler.ats_mode ?? true,
       time_filter: crawler.time_filter || "week",
       target_type: crawler.target_type || null,
@@ -677,6 +679,14 @@ const AutomationPage = () => {
             )}
           </Stack>
 
+          <TextInput
+            label="Location"
+            description="Appended to search queries (e.g., NYC, Remote)"
+            placeholder="Enter location..."
+            value={form.location || ""}
+            onChange={(e) => updateForm("location", e.currentTarget.value)}
+          />
+
           <Group grow>
             <Select
               label="Time Filter"
@@ -959,7 +969,7 @@ const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onP
       header: "Query",
       render: (row) => (
         <Text size="xs" lineClamp={1}>
-          {row.search_query || "-"}
+          {row.status === "running" ? "-" : (row.suggested_queries || row.search_query || "-")}
         </Text>
       ),
     },

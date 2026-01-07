@@ -73,6 +73,7 @@ var aggregatorPatterns = []string{
 	"theladders.com", "jobtoday.com", "zippia.com", "whatjobs.com",
 	"appinventiv.com", "diffblog", "dynamodb", "instagram.com",
 	"asian-jobs", "womenforhire", "snagajob", "getclera.com/job",
+	"alignerr.com",
 }
 
 // normalizeCompanyName removes common suffixes and normalizes for matching

@@ -6,6 +6,7 @@ import (
 
 	"gorm.io/datatypes"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"agent/internal/models"
 )
@@ -40,6 +41,7 @@ type AutomationConfigDTO struct {
 	SearchSlots        [][]string
 	ATSMode            bool
 	TimeFilter         *string
+	Location           *string
 	TargetType         *string
 	TargetIDs          []int64
 	SourceDocumentIDs  []int64
@@ -69,6 +71,7 @@ type AutomationConfigInput struct {
 	SearchSlots        [][]string
 	ATSMode            *bool
 	TimeFilter         *string
+	Location           *string
 	TargetType         *string
 	TargetIDs          []int64
 	SourceDocumentIDs  []int64
@@ -90,6 +93,7 @@ type AutomationRunLogDTO struct {
 	ProposalsCreated int
 	ErrorMessage     *string
 	SearchQuery      *string
+	SuggestedQueries *string
 	Compiled         bool
 }
 
@@ -295,17 +299,18 @@ func (r *AutomationRepository) CreateRunLog(configID int64, searchQuery string) 
 }
 
 // CompleteRunLog marks a run log as completed
-func (r *AutomationRepository) CompleteRunLog(logID int64, status string, prospectsFound, proposalsCreated int, errorMsg *string, compiled bool) error {
+func (r *AutomationRepository) CompleteRunLog(logID int64, status string, prospectsFound, proposalsCreated int, errorMsg, suggestedQueries *string, compiled bool) error {
 	now := time.Now()
 	return r.db.Model(&models.AutomationRunLog{}).
 		Where("id = ?", logID).
 		Updates(map[string]interface{}{
-			"completed_at":      now,
-			"status":            status,
-			"prospects_found":   prospectsFound,
-			"proposals_created": proposalsCreated,
-			"error_message":     errorMsg,
-			"compiled":          compiled,
+			"completed_at":       now,
+			"status":             status,
+			"prospects_found":    prospectsFound,
+			"proposals_created":  proposalsCreated,
+			"error_message":      errorMsg,
+			"suggested_queries":  suggestedQueries,
+			"compiled":           compiled,
 		}).Error
 }
 
@@ -340,6 +345,7 @@ func (r *AutomationRepository) GetRunLogs(configID int64, page, limit int) ([]Au
 			ProposalsCreated: logs[i].ProposalsCreated,
 			ErrorMessage:     logs[i].ErrorMessage,
 			SearchQuery:      logs[i].SearchQuery,
+			SuggestedQueries: logs[i].SuggestedQueries,
 			Compiled:         logs[i].Compiled,
 		}
 	}
@@ -386,6 +392,7 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 		SystemPrompt:       cfg.SystemPrompt,
 		ATSMode:            cfg.ATSMode,
 		TimeFilter:         cfg.TimeFilter,
+		Location:           cfg.Location,
 		TargetType:         cfg.TargetType,
 		DigestEnabled:      cfg.DigestEnabled,
 		DigestEmails:       cfg.DigestEmails,
@@ -450,6 +457,9 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.TimeFilter != nil {
 		cfg.TimeFilter = input.TimeFilter
 	}
+	if input.Location != nil {
+		cfg.Location = input.Location
+	}
 	if input.TargetType != nil {
 		cfg.TargetType = input.TargetType
 	}
@@ -482,4 +492,65 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 func toJSON(v interface{}) datatypes.JSON {
 	b, _ := json.Marshal(v)
 	return datatypes.JSON(b)
+}
+
+// RejectedJobInput is input for creating a rejected job record
+type RejectedJobInput struct {
+	AutomationConfigID int64
+	TenantID           int64
+	URL                string
+	JobTitle           string
+	Company            string
+	Reason             string
+}
+
+// CreateRejectedJob records a job rejected by agent review
+func (r *AutomationRepository) CreateRejectedJob(input RejectedJobInput) error {
+	job := &models.AutomationRejectedJob{
+		AutomationConfigID: input.AutomationConfigID,
+		TenantID:           input.TenantID,
+		URL:                input.URL,
+	}
+	if input.JobTitle != "" {
+		job.JobTitle = &input.JobTitle
+	}
+	if input.Company != "" {
+		job.Company = &input.Company
+	}
+	if input.Reason != "" {
+		job.Reason = &input.Reason
+	}
+
+	// Upsert - ignore if URL already exists for this config
+	return r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(job).Error
+}
+
+// RejectedJobInfo is minimal info for dedup checks
+type RejectedJobInfo struct {
+	URL      string
+	JobTitle string
+	Company  string
+}
+
+// GetRejectedJobs returns rejected jobs for a tenant for dedup
+func (r *AutomationRepository) GetRejectedJobs(tenantID int64) ([]RejectedJobInfo, error) {
+	var jobs []models.AutomationRejectedJob
+	err := r.db.Select("url", "job_title", "company").
+		Where("tenant_id = ?", tenantID).
+		Find(&jobs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]RejectedJobInfo, len(jobs))
+	for i, j := range jobs {
+		result[i] = RejectedJobInfo{URL: j.URL}
+		if j.JobTitle != nil {
+			result[i].JobTitle = *j.JobTitle
+		}
+		if j.Company != nil {
+			result[i].Company = *j.Company
+		}
+	}
+	return result, nil
 }
