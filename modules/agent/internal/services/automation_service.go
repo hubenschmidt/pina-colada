@@ -22,6 +22,7 @@ import (
 
 	"agent/internal/repositories"
 	"agent/internal/serializers"
+	"agent/internal/sse"
 )
 
 var ErrCrawlerNotFound = errors.New("crawler not found")
@@ -40,6 +41,7 @@ type DocumentLoader interface {
 type AutomationService struct {
 	automationRepo  *repositories.AutomationRepository
 	proposalRepo    *repositories.ProposalRepository
+	jobRepo         *repositories.JobRepository
 	proposalService ProposalCreator
 	docLoader       DocumentLoader
 	serperAPIKey    string
@@ -51,6 +53,7 @@ type AutomationService struct {
 func NewAutomationService(
 	automationRepo *repositories.AutomationRepository,
 	proposalRepo *repositories.ProposalRepository,
+	jobRepo *repositories.JobRepository,
 	proposalService ProposalCreator,
 	docLoader DocumentLoader,
 	serperAPIKey string,
@@ -60,11 +63,24 @@ func NewAutomationService(
 	return &AutomationService{
 		automationRepo:  automationRepo,
 		proposalRepo:    proposalRepo,
+		jobRepo:         jobRepo,
 		proposalService: proposalService,
 		docLoader:       docLoader,
 		serperAPIKey:    serperAPIKey,
 		anthropicAPIKey: anthropicAPIKey,
 		openAIAPIKey:    openAIAPIKey,
+	}
+}
+
+// CleanupStaleRuns marks any "running" jobs as failed (called on startup)
+func (s *AutomationService) CleanupStaleRuns() {
+	count, err := s.automationRepo.CleanupStaleRuns()
+	if err != nil {
+		log.Printf("Automation: failed to cleanup stale runs: %v", err)
+		return
+	}
+	if count > 0 {
+		log.Printf("Automation: marked %d stale runs as failed", count)
 	}
 }
 
@@ -105,11 +121,59 @@ func (s *AutomationService) CreateCrawler(tenantID, userID int64, input reposito
 
 // UpdateCrawler updates an existing crawler
 func (s *AutomationService) UpdateCrawler(configID int64, input repositories.AutomationConfigInput) (*serializers.AutomationConfigResponse, error) {
+	oldCfg, err := s.automationRepo.GetConfigByID(configID)
+	if err != nil {
+		return nil, err
+	}
+
 	cfg, err := s.automationRepo.UpdateConfig(configID, input)
 	if err != nil {
 		return nil, err
 	}
+
+	s.handleDisableOnCompiledChange(configID, oldCfg, cfg)
+
 	return s.dtoToResponse(cfg), nil
+}
+
+func (s *AutomationService) handleDisableOnCompiledChange(configID int64, oldCfg, cfg *repositories.AutomationConfigDTO) {
+	if oldCfg == nil {
+		return
+	}
+
+	// Case 1: Paused crawler set to disable_on_compiled=true -> disable it
+	wasPaused := oldCfg.Enabled && oldCfg.CompiledAt != nil && !oldCfg.DisableOnCompiled
+	if wasPaused && cfg.DisableOnCompiled {
+		s.automationRepo.DisableConfig(configID)
+		cfg.Enabled = false
+		sse.Publish(sse.CrawlerTopic(configID), sse.Event{
+			Type: "config_updated",
+			Data: map[string]interface{}{"enabled": false},
+		})
+		return
+	}
+
+	// Case 2: Disabled crawler set to disable_on_compiled=false -> resume if below target
+	wasDisabled := !oldCfg.Enabled && oldCfg.CompiledAt != nil && oldCfg.DisableOnCompiled
+	if !wasDisabled || cfg.DisableOnCompiled {
+		return
+	}
+
+	activeProposals, _ := s.automationRepo.GetActiveProposals(configID)
+	if activeProposals >= cfg.CompilationTarget {
+		return
+	}
+
+	// Re-enable and resume
+	enabled := true
+	s.automationRepo.UpdateConfig(configID, repositories.AutomationConfigInput{Enabled: &enabled})
+	s.automationRepo.SetNextRun(configID, time.Now())
+	s.automationRepo.ClearCompiledAt(configID)
+	cfg.Enabled = true
+	sse.Publish(sse.CrawlerTopic(configID), sse.Event{
+		Type: "config_updated",
+		Data: map[string]interface{}{"enabled": true},
+	})
 }
 
 // DeleteCrawler deletes a crawler
@@ -144,9 +208,9 @@ func (s *AutomationService) ToggleCrawler(configID int64, enabled bool) (*serial
 	return s.GetCrawler(configID)
 }
 
-// GetCrawlerRuns returns recent run logs for a crawler
-func (s *AutomationService) GetCrawlerRuns(configID int64, limit int) ([]serializers.AutomationRunLogResponse, error) {
-	logs, err := s.automationRepo.GetRunLogs(configID, limit)
+// GetCrawlerRuns returns paginated run logs for a crawler
+func (s *AutomationService) GetCrawlerRuns(configID int64, page, limit int) (*serializers.PagedResponse, error) {
+	logs, totalCount, err := s.automationRepo.GetRunLogs(configID, page, limit)
 	if err != nil {
 		return nil, err
 	}
@@ -158,13 +222,26 @@ func (s *AutomationService) GetCrawlerRuns(configID int64, limit int) ([]seriali
 			StartedAt:        logs[i].StartedAt,
 			CompletedAt:      logs[i].CompletedAt,
 			Status:           logs[i].Status,
-			LeadsFound:       logs[i].LeadsFound,
+			ProspectsFound:   logs[i].ProspectsFound,
 			ProposalsCreated: logs[i].ProposalsCreated,
 			ErrorMessage:     logs[i].ErrorMessage,
 			SearchQuery:      logs[i].SearchQuery,
+			Compiled:         logs[i].Compiled,
 		}
 	}
-	return result, nil
+
+	totalPages := int(totalCount) / limit
+	if int(totalCount)%limit > 0 {
+		totalPages++
+	}
+
+	return &serializers.PagedResponse{
+		Items:      result,
+		TotalCount: totalCount,
+		Page:       page,
+		PageSize:   limit,
+		TotalPages: totalPages,
+	}, nil
 }
 
 // ProcessDueAutomations checks and executes all due automations
@@ -207,43 +284,168 @@ func (s *AutomationService) executeAutomation(cfg *repositories.AutomationConfig
 
 	deficit := s.calculateDeficit(cfg)
 	if deficit <= 0 {
-		log.Printf("Automation service: config=%d compilation target reached, skipping", cfg.ID)
+		s.pauseCrawler(cfg)
 		return
 	}
 
 	log.Printf("Automation service: config=%d needs %d more proposals", cfg.ID, deficit)
 
-	keywords := cfg.SearchKeywords
-	if len(keywords) == 0 {
-		log.Printf("Automation service: no search keywords for config %d", cfg.ID)
+	if len(cfg.SearchSlots) == 0 {
+		log.Printf("Automation service: no search slots for config %d", cfg.ID)
 		return
 	}
 
-	combinedQuery := strings.Join(keywords, ", ")
+	// Load dedup data before starting searches
+	dedup := s.loadDedupData(cfg.TenantID)
+
+	combinedQuery := s.buildCombinedQuery(cfg.SearchSlots)
 	logID, err := s.automationRepo.CreateRunLog(cfg.ID, combinedQuery)
 	if err != nil {
 		log.Printf("Automation service: failed to create run log: %v", err)
 		return
 	}
 
+	// Notify SSE subscribers that run started
+	now := time.Now()
+	sse.Publish(sse.CrawlerTopic(cfg.ID), sse.Event{
+		Type: "run_started",
+		Data: serializers.AutomationRunLogResponse{
+			ID:          logID,
+			StartedAt:   now,
+			Status:      "running",
+			SearchQuery: &combinedQuery,
+		},
+	})
+
 	keywordBatches := s.buildSearchQueries(cfg)
-	totalLeads, totalProposals := s.executeSearches(cfg, keywordBatches, deficit, combinedQuery)
+	totalProspects, totalProposals := s.executeSearches(cfg, keywordBatches, deficit, combinedQuery, dedup)
 
-	s.automationRepo.CompleteRunLog(logID, "completed", int(totalLeads), int(totalProposals), nil)
+	// Check if this run crossed the compilation threshold (from below to at-or-above)
+	currentActive, _ := s.automationRepo.GetActiveProposals(cfg.ID)
+	previousActive := currentActive - int(totalProposals)
+	compiled := previousActive < cfg.CompilationTarget && currentActive >= cfg.CompilationTarget
 
-	nextRun := time.Now().Add(time.Duration(cfg.IntervalMinutes) * time.Minute)
+	// Disable crawler when compilation target is reached (if configured)
+	shouldDisable := compiled && cfg.DisableOnCompiled
+	if shouldDisable {
+		s.automationRepo.DisableConfig(cfg.ID)
+	}
+
+	s.automationRepo.CompleteRunLog(logID, "done", int(totalProspects), int(totalProposals), nil, compiled)
+
+	// Notify SSE subscribers that run completed
+	completedAt := time.Now()
+	sseEvent := serializers.AutomationRunLogResponse{
+		ID:                    logID,
+		StartedAt:             now,
+		CompletedAt:           &completedAt,
+		Status:                "done",
+		ProspectsFound:        int(totalProspects),
+		ProposalsCreated:      int(totalProposals),
+		SearchQuery:           &combinedQuery,
+		Compiled:              compiled,
+		ConfigActiveProposals: &currentActive,
+	}
+	if shouldDisable {
+		enabled := false
+		sseEvent.ConfigEnabled = &enabled
+	}
+	sse.Publish(sse.CrawlerTopic(cfg.ID), sse.Event{
+		Type: "run_completed",
+		Data: sseEvent,
+	})
+
+	nextRun := time.Now().Add(time.Duration(cfg.IntervalSeconds) * time.Second)
 	s.automationRepo.UpdateLastRun(cfg.ID, time.Now(), nextRun)
 
+	// Check if compilation target was just reached
+	s.checkAndSetCompiledAt(cfg)
+
 	log.Printf("Automation service: completed config=%d - found=%d, proposals=%d",
-		cfg.ID, totalLeads, totalProposals)
+		cfg.ID, totalProspects, totalProposals)
+}
+
+func (s *AutomationService) pauseCrawler(cfg *repositories.AutomationConfigDTO) {
+	s.checkAndSetCompiledAt(cfg)
+
+	if cfg.DisableOnCompiled {
+		s.automationRepo.DisableConfig(cfg.ID)
+		enabled := false
+		sse.Publish(sse.CrawlerTopic(cfg.ID), sse.Event{
+			Type: "config_updated",
+			Data: map[string]interface{}{
+				"enabled":          enabled,
+				"active_proposals": cfg.CompilationTarget,
+			},
+		})
+		log.Printf("Automation service: config=%d disabled - compilation target reached (%d/%d)",
+			cfg.ID, cfg.CompilationTarget, cfg.CompilationTarget)
+		return
+	}
+
+	// Set next_run_at to far future to stop scheduler from triggering
+	farFuture := time.Now().AddDate(100, 0, 0)
+	s.automationRepo.SetNextRun(cfg.ID, farFuture)
+	log.Printf("Automation service: config=%d paused - compilation target reached (%d/%d)",
+		cfg.ID, cfg.CompilationTarget, cfg.CompilationTarget)
+}
+
+// ResumePausedCrawlers checks for crawlers that should resume after proposals dropped below target
+func (s *AutomationService) ResumePausedCrawlers() {
+	configs, err := s.automationRepo.GetPausedCrawlers()
+	if err != nil {
+		log.Printf("Automation service: failed to get paused crawlers: %v", err)
+		return
+	}
+
+	for i := range configs {
+		s.checkAndResumeCrawler(&configs[i])
+	}
+}
+
+func (s *AutomationService) checkAndResumeCrawler(cfg *repositories.AutomationConfigDTO) {
+	activeProposals, err := s.automationRepo.GetActiveProposals(cfg.ID)
+	if err != nil {
+		return
+	}
+
+	if activeProposals >= cfg.CompilationTarget {
+		return
+	}
+
+	// Proposals dropped below target - resume crawler
+	now := time.Now()
+	s.automationRepo.SetNextRun(cfg.ID, now)
+	s.automationRepo.ClearCompiledAt(cfg.ID)
+	log.Printf("Automation service: config=%d resumed - proposals dropped below target (%d/%d)",
+		cfg.ID, activeProposals, cfg.CompilationTarget)
+}
+
+func (s *AutomationService) checkAndSetCompiledAt(cfg *repositories.AutomationConfigDTO) {
+	if cfg.CompiledAt != nil {
+		return
+	}
+
+	totalProposals, err := s.automationRepo.GetActiveProposals(cfg.ID)
+	if err != nil {
+		return
+	}
+
+	if totalProposals < cfg.CompilationTarget {
+		return
+	}
+
+	now := time.Now()
+	s.automationRepo.SetCompiledAt(cfg.ID, now)
+	log.Printf("Automation service: ✅ compilation target reached for config=%d (%d/%d)",
+		cfg.ID, totalProposals, cfg.CompilationTarget)
 }
 
 func (s *AutomationService) logAutomationConfig(cfg *repositories.AutomationConfigDTO) {
 	log.Printf("Automation service: === Starting config=%d '%s' ===", cfg.ID, cfg.Name)
 	log.Printf("  entity_type=%s, enabled=%v", cfg.EntityType, cfg.Enabled)
-	log.Printf("  interval_minutes=%d, leads_per_run=%d, concurrent_searches=%d", cfg.IntervalMinutes, cfg.LeadsPerRun, cfg.ConcurrentSearches)
+	log.Printf("  interval_seconds=%d, prospects_per_run=%d, concurrent_searches=%d", cfg.IntervalSeconds, cfg.ProspectsPerRun, cfg.ConcurrentSearches)
 	log.Printf("  compilation_target=%d, ats_mode=%v, time_filter=%v", cfg.CompilationTarget, cfg.ATSMode, cfg.TimeFilter)
-	log.Printf("  search_keywords=%v", cfg.SearchKeywords)
 	log.Printf("  search_slots=%v", cfg.SearchSlots)
 	log.Printf("  target_type=%v, target_ids=%v", cfg.TargetType, cfg.TargetIDs)
 	log.Printf("  source_document_ids=%v", cfg.SourceDocumentIDs)
@@ -269,9 +471,9 @@ func (s *AutomationService) calculateDeficit(cfg *repositories.AutomationConfigD
 	return compilationTarget - pendingCount
 }
 
-func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDTO, batches [][]string, deficit int64, combinedQuery string) (int32, int32) {
+func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDTO, batches [][]string, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32) {
 	var searchWg sync.WaitGroup
-	var totalLeadsFound int32
+	var totalProspectsFound int32
 	resultsChan := make(chan []jobResult, len(batches))
 
 	for i, batch := range batches {
@@ -285,26 +487,26 @@ func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDT
 	}()
 
 	if !cfg.UseAgent {
-		return s.processSearchResultsSequential(cfg, resultsChan, &totalLeadsFound, deficit, combinedQuery)
+		return s.processSearchResultsSequential(cfg, resultsChan, &totalProspectsFound, deficit, combinedQuery, dedup)
 	}
-	return s.processSearchResultsWithConcurrentAgent(cfg, resultsChan, &totalLeadsFound, deficit, combinedQuery)
+	return s.processSearchResultsWithConcurrentAgent(cfg, resultsChan, &totalProspectsFound, deficit, combinedQuery, dedup)
 }
 
-func (s *AutomationService) processSearchResultsSequential(cfg *repositories.AutomationConfigDTO, resultsChan <-chan []jobResult, totalLeadsFound *int32, deficit int64, combinedQuery string) (int32, int32) {
+func (s *AutomationService) processSearchResultsSequential(cfg *repositories.AutomationConfigDTO, resultsChan <-chan []jobResult, totalProspectsFound *int32, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32) {
 	var totalProposalsCreated int32
 	source := "automation"
 	configID := cfg.ID
 
 	for results := range resultsChan {
-		atomic.AddInt32(totalLeadsFound, int32(len(results)))
-		created := s.processRawResults(cfg, results, combinedQuery, source, configID, deficit, &totalProposalsCreated)
+		atomic.AddInt32(totalProspectsFound, int32(len(results)))
+		created := s.processRawResults(cfg, results, combinedQuery, source, configID, deficit, &totalProposalsCreated, dedup)
 		atomic.AddInt32(&totalProposalsCreated, int32(created))
 	}
 
-	return *totalLeadsFound, totalProposalsCreated
+	return *totalProspectsFound, totalProposalsCreated
 }
 
-func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *repositories.AutomationConfigDTO, resultsChan <-chan []jobResult, totalLeadsFound *int32, deficit int64, combinedQuery string) (int32, int32) {
+func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *repositories.AutomationConfigDTO, resultsChan <-chan []jobResult, totalProspectsFound *int32, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32) {
 	documentContext := s.loadDocumentContext(cfg.SourceDocumentIDs)
 
 	var reviewWg sync.WaitGroup
@@ -312,7 +514,7 @@ func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *reposit
 
 	// Spawn concurrent agent review goroutines for each batch
 	for results := range resultsChan {
-		atomic.AddInt32(totalLeadsFound, int32(len(results)))
+		atomic.AddInt32(totalProspectsFound, int32(len(results)))
 		reviewWg.Add(1)
 		go s.agentReviewWorker(cfg, results, documentContext, reviewedChan, &reviewWg)
 	}
@@ -322,7 +524,7 @@ func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *reposit
 		close(reviewedChan)
 	}()
 
-	return s.collectAndCreateProposals(cfg, reviewedChan, totalLeadsFound, deficit, combinedQuery)
+	return s.collectAndCreateProposals(cfg, reviewedChan, totalProspectsFound, deficit, combinedQuery, dedup)
 }
 
 func (s *AutomationService) agentReviewWorker(cfg *repositories.AutomationConfigDTO, results []jobResult, documentContext string, reviewedChan chan<- []reviewedJobResult, wg *sync.WaitGroup) {
@@ -331,37 +533,37 @@ func (s *AutomationService) agentReviewWorker(cfg *repositories.AutomationConfig
 	reviewedChan <- reviewed
 }
 
-func (s *AutomationService) collectAndCreateProposals(cfg *repositories.AutomationConfigDTO, reviewedChan <-chan []reviewedJobResult, totalLeadsFound *int32, deficit int64, combinedQuery string) (int32, int32) {
+func (s *AutomationService) collectAndCreateProposals(cfg *repositories.AutomationConfigDTO, reviewedChan <-chan []reviewedJobResult, totalProspectsFound *int32, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32) {
 	var totalProposalsCreated int32
 	source := "automation"
 	configID := cfg.ID
 
 	for reviewed := range reviewedChan {
-		created := s.createProposalsFromReviewed(cfg, reviewed, combinedQuery, source, configID, deficit, &totalProposalsCreated)
+		created := s.createProposalsFromReviewed(cfg, reviewed, combinedQuery, source, configID, deficit, &totalProposalsCreated, dedup)
 		atomic.AddInt32(&totalProposalsCreated, int32(created))
 	}
 
-	return *totalLeadsFound, totalProposalsCreated
+	return *totalProspectsFound, totalProposalsCreated
 }
 
-func (s *AutomationService) createProposalsFromReviewed(cfg *repositories.AutomationConfigDTO, reviewed []reviewedJobResult, combinedQuery, source string, configID, deficit int64, totalCreated *int32) int {
+func (s *AutomationService) createProposalsFromReviewed(cfg *repositories.AutomationConfigDTO, reviewed []reviewedJobResult, combinedQuery, source string, configID, deficit int64, totalCreated *int32, dedup *dedupData) int {
 	created := 0
 	for _, job := range reviewed {
 		if s.deficitReached(totalCreated, created, deficit) {
 			return created
 		}
-		created += s.tryCreateApprovedProposal(cfg, job, combinedQuery, source, configID)
+		created += s.tryCreateApprovedProposal(cfg, job, combinedQuery, source, configID, dedup)
 	}
 	return created
 }
 
-func (s *AutomationService) processRawResults(cfg *repositories.AutomationConfigDTO, results []jobResult, combinedQuery, source string, configID, deficit int64, totalCreated *int32) int {
+func (s *AutomationService) processRawResults(cfg *repositories.AutomationConfigDTO, results []jobResult, combinedQuery, source string, configID, deficit int64, totalCreated *int32, dedup *dedupData) int {
 	created := 0
 	for _, job := range results {
 		if s.deficitReached(totalCreated, created, deficit) {
 			return created
 		}
-		created += s.tryCreateProposal(cfg, job, "", combinedQuery, source, configID)
+		created += s.tryCreateProposal(cfg, job, "", combinedQuery, source, configID, dedup)
 	}
 	return created
 }
@@ -370,18 +572,27 @@ func (s *AutomationService) deficitReached(totalCreated *int32, created int, def
 	return int64(atomic.LoadInt32(totalCreated))+int64(created) >= deficit
 }
 
-func (s *AutomationService) tryCreateProposal(cfg *repositories.AutomationConfigDTO, job jobResult, matchReason, combinedQuery, source string, configID int64) int {
+func (s *AutomationService) tryCreateProposal(cfg *repositories.AutomationConfigDTO, job jobResult, matchReason, combinedQuery, source string, configID int64, dedup *dedupData) int {
+	// Check for duplicate before creating
+	if dedup != nil && dedup.isDuplicate(job) {
+		log.Printf("Automation service: skipping duplicate job: %s at %s", job.Title, job.Company)
+		return 0
+	}
 	if !s.createProposalFromJob(cfg, job, matchReason, combinedQuery, source, configID) {
 		return 0
+	}
+	// Add to dedup set to prevent duplicates within the same run
+	if dedup != nil && job.URL != "" {
+		dedup.urlSet[job.URL] = true
 	}
 	return 1
 }
 
-func (s *AutomationService) tryCreateApprovedProposal(cfg *repositories.AutomationConfigDTO, job reviewedJobResult, combinedQuery, source string, configID int64) int {
+func (s *AutomationService) tryCreateApprovedProposal(cfg *repositories.AutomationConfigDTO, job reviewedJobResult, combinedQuery, source string, configID int64, dedup *dedupData) int {
 	if !job.Approved {
 		return 0
 	}
-	return s.tryCreateProposal(cfg, job.jobResult, job.Reason, combinedQuery, source, configID)
+	return s.tryCreateProposal(cfg, job.jobResult, job.Reason, combinedQuery, source, configID, dedup)
 }
 
 func (s *AutomationService) searchWorker(workerID int, keywords []string, cfg *repositories.AutomationConfigDTO, results chan<- []jobResult, wg *sync.WaitGroup) {
@@ -390,7 +601,7 @@ func (s *AutomationService) searchWorker(workerID int, keywords []string, cfg *r
 	query := strings.Join(keywords, " ")
 	log.Printf("Automation service[%d]: searching for '%s'", workerID, query)
 
-	jobs, err := s.searchJobs(query, cfg.LeadsPerRun, cfg.ATSMode, cfg.TimeFilter)
+	jobs, err := s.searchJobs(query, cfg.ProspectsPerRun, cfg.ATSMode, cfg.TimeFilter)
 	if err != nil {
 		log.Printf("Automation service[%d]: search failed: %v", workerID, err)
 		return
@@ -423,83 +634,22 @@ func (s *AutomationService) createProposalFromJob(cfg *repositories.AutomationCo
 }
 
 func (s *AutomationService) buildSearchQueries(cfg *repositories.AutomationConfigDTO) [][]string {
-	keywords := cfg.SearchKeywords
-	if len(keywords) == 0 {
-		return nil
-	}
-
-	if len(cfg.SearchSlots) == 0 {
-		return s.autoDistributeKeywords(cfg)
-	}
-
-	if len(cfg.SearchSlots) == 1 && len(cfg.SearchSlots[0]) == 0 {
-		return [][]string{keywords}
-	}
-
-	batches := s.buildBatchesFromSlots(cfg.SearchSlots, keywords)
-	if len(batches) == 0 {
-		return s.autoDistributeKeywords(cfg)
-	}
-	return batches
-}
-
-func (s *AutomationService) autoDistributeKeywords(cfg *repositories.AutomationConfigDTO) [][]string {
-	concurrency := cfg.ConcurrentSearches
-	if concurrency < 1 {
-		concurrency = 1
-	}
-	return s.distributeKeywords(cfg.SearchKeywords, concurrency)
-}
-
-func (s *AutomationService) distributeKeywords(keywords []string, n int) [][]string {
-	if n <= 0 {
-		n = 1
-	}
-	if n > len(keywords) {
-		n = len(keywords)
-	}
-
-	batches := make([][]string, n)
-	for i, kw := range keywords {
-		batches[i%n] = append(batches[i%n], kw)
-	}
-
-	var result [][]string
-	for _, batch := range batches {
-		result = appendNonEmpty(result, batch)
-	}
-	return result
-}
-
-func (s *AutomationService) buildBatchesFromSlots(slots [][]int, keywords []string) [][]string {
 	var batches [][]string
-	for _, slot := range slots {
-		batch := s.buildBatchFromSlot(slot, keywords)
-		batches = appendNonEmpty(batches, batch)
+	for _, slot := range cfg.SearchSlots {
+		if len(slot) == 0 {
+			continue
+		}
+		batches = append(batches, slot)
 	}
 	return batches
 }
 
-func (s *AutomationService) buildBatchFromSlot(slot []int, keywords []string) []string {
-	var batch []string
-	for _, idx := range slot {
-		batch = appendIfValidIndex(batch, idx, keywords)
+func (s *AutomationService) buildCombinedQuery(slots [][]string) string {
+	var allKeywords []string
+	for _, slot := range slots {
+		allKeywords = append(allKeywords, slot...)
 	}
-	return batch
-}
-
-func appendNonEmpty(batches [][]string, batch []string) [][]string {
-	if len(batch) == 0 {
-		return batches
-	}
-	return append(batches, batch)
-}
-
-func appendIfValidIndex(batch []string, idx int, keywords []string) []string {
-	if idx < 0 || idx >= len(keywords) {
-		return batch
-	}
-	return append(batch, keywords[idx])
+	return strings.Join(allKeywords, ", ")
 }
 
 // jobResult represents a job search result
@@ -1005,7 +1155,7 @@ func logRejectionIfApplicable(r reviewedJobResult) {
 }
 
 func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO) *serializers.AutomationConfigResponse {
-	totalProposals, _ := s.automationRepo.GetTotalProposalsCreated(dto.ID)
+	totalProposals, _ := s.automationRepo.GetActiveProposals(dto.ID)
 
 	return &serializers.AutomationConfigResponse{
 		ID:                    dto.ID,
@@ -1014,16 +1164,17 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 		Name:                  dto.Name,
 		EntityType:            dto.EntityType,
 		Enabled:               dto.Enabled,
-		IntervalMinutes:       dto.IntervalMinutes,
+		IntervalSeconds:       dto.IntervalSeconds,
 		LastRunAt:             dto.LastRunAt,
 		NextRunAt:             dto.NextRunAt,
 		RunCount:              dto.RunCount,
-		LeadsPerRun:           dto.LeadsPerRun,
+		ProspectsPerRun:       dto.ProspectsPerRun,
 		ConcurrentSearches:    dto.ConcurrentSearches,
 		CompilationTarget:     dto.CompilationTarget,
-		TotalProposalsCreated: totalProposals,
+		DisableOnCompiled:     dto.DisableOnCompiled,
+		ActiveProposals:       totalProposals,
+		CompiledAt:            dto.CompiledAt,
 		SystemPrompt:          dto.SystemPrompt,
-		SearchKeywords:        dto.SearchKeywords,
 		SearchSlots:           dto.SearchSlots,
 		ATSMode:               dto.ATSMode,
 		TimeFilter:            dto.TimeFilter,
@@ -1040,4 +1191,123 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 		CreatedAt:             dto.CreatedAt,
 		UpdatedAt:             dto.UpdatedAt,
 	}
+}
+
+// dedupData holds preloaded data for deduplication
+type dedupData struct {
+	existingJobs     []repositories.JobDedupInfo
+	pendingProposals []repositories.PendingJobProposal
+	urlSet           map[string]bool
+}
+
+// loadDedupData loads existing jobs and pending proposals for deduplication
+func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
+	data := &dedupData{
+		urlSet: make(map[string]bool),
+	}
+
+	// Load existing jobs
+	jobs, err := s.jobRepo.GetJobsForDedup(tenantID)
+	if err != nil {
+		log.Printf("Automation service: failed to load jobs for dedup: %v", err)
+	} else {
+		data.existingJobs = jobs
+		for _, j := range jobs {
+			if j.URL != "" {
+				data.urlSet[j.URL] = true
+			}
+		}
+	}
+
+	// Load pending proposals
+	proposals, err := s.proposalRepo.GetPendingJobProposals(tenantID)
+	if err != nil {
+		log.Printf("Automation service: failed to load pending proposals for dedup: %v", err)
+	} else {
+		data.pendingProposals = proposals
+		for _, p := range proposals {
+			if p.URL != "" {
+				data.urlSet[p.URL] = true
+			}
+		}
+	}
+
+	log.Printf("Automation service: loaded dedup data - %d existing jobs, %d pending proposals",
+		len(data.existingJobs), len(data.pendingProposals))
+	return data
+}
+
+// isDuplicate checks if a job result is a duplicate
+func (d *dedupData) isDuplicate(job jobResult) bool {
+	// Check URL first (fast path)
+	if job.URL != "" && d.urlSet[job.URL] {
+		return true
+	}
+
+	// Check against existing jobs by company + title
+	normalizedCompany := normalizeCompanyName(job.Company)
+	normalizedTitle := normalizeTitleForMatch(job.Title)
+
+	if len(normalizedCompany) >= 4 {
+		for _, existing := range d.existingJobs {
+			existingCompany := normalizeCompanyName(existing.Company)
+			existingTitle := normalizeTitleForMatch(existing.JobTitle)
+
+			if existingCompany == "" || len(existingCompany) < 4 {
+				continue
+			}
+
+			companyMatch := normalizedCompany == existingCompany ||
+				strings.Contains(normalizedCompany, existingCompany) ||
+				strings.Contains(existingCompany, normalizedCompany)
+
+			if companyMatch && (normalizedTitle == existingTitle ||
+				strings.Contains(normalizedTitle, existingTitle) ||
+				strings.Contains(existingTitle, normalizedTitle)) {
+				return true
+			}
+		}
+
+		// Check against pending proposals by company + title
+		for _, pending := range d.pendingProposals {
+			pendingCompany := normalizeCompanyName(pending.Company)
+			pendingTitle := normalizeTitleForMatch(pending.Title)
+
+			if pendingCompany == "" || len(pendingCompany) < 4 {
+				continue
+			}
+
+			companyMatch := normalizedCompany == pendingCompany ||
+				strings.Contains(normalizedCompany, pendingCompany) ||
+				strings.Contains(pendingCompany, normalizedCompany)
+
+			if companyMatch && (normalizedTitle == pendingTitle ||
+				strings.Contains(normalizedTitle, pendingTitle) ||
+				strings.Contains(pendingTitle, normalizedTitle)) {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+// normalizeCompanyName removes common suffixes and normalizes for comparison
+func normalizeCompanyName(name string) string {
+	name = strings.ToLower(strings.TrimSpace(name))
+	suffixes := []string{", inc.", ", inc", " inc.", " inc", ", llc", " llc", ", corp.", " corp.", ", corp", " corp", ", ltd.", " ltd.", ", ltd", " ltd", " co.", " co"}
+	for _, suffix := range suffixes {
+		name = strings.TrimSuffix(name, suffix)
+	}
+	return strings.TrimSpace(name)
+}
+
+// normalizeTitleForMatch removes seniority modifiers for fuzzy matching
+func normalizeTitleForMatch(title string) string {
+	title = strings.ToLower(strings.TrimSpace(title))
+	prefixes := []string{"senior ", "sr. ", "sr ", "lead ", "principal ", "staff ", "junior ", "jr. ", "jr ", "associate ", "entry level ", "entry-level "}
+	for _, prefix := range prefixes {
+		title = strings.TrimPrefix(title, prefix)
+	}
+	return strings.TrimSpace(title)
 }

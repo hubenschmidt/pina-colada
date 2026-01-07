@@ -1475,11 +1475,15 @@ export const toggleCrawler = async (id, enabled) => {
   return apiPost(`/automation/crawlers/${id}/toggle`, { enabled });
 };
 
-export const getCrawlerRuns = async (id, limit = 10) => {
-  return apiGet(`/automation/crawlers/${id}/runs?limit=${limit}`);
+export const getCrawlerRuns = async (id, page = 1, limit = 10) => {
+  return apiGet(`/automation/crawlers/${id}/runs?page=${page}&limit=${limit}`);
 };
 
 export const testCrawler = async (id) => {
   return apiPost(`/automation/crawlers/${id}/test`);
+};
+
+export const sendTestDigest = async (id) => {
+  return apiPost(`/automation/crawlers/${id}/test-digest`);
 };
 

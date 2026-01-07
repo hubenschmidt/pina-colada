@@ -13,15 +13,16 @@ type AutomationConfig struct {
 	Name               string         `gorm:"column:name;not null" json:"name"`
 	EntityType         string         `gorm:"column:entity_type;not null;default:'job'" json:"entity_type"`
 	Enabled            bool           `gorm:"column:enabled;not null;default:false" json:"enabled"`
-	IntervalMinutes    int            `gorm:"column:interval_minutes;not null;default:30" json:"interval_minutes"`
+	IntervalSeconds    int            `gorm:"column:interval_seconds;not null;default:1800" json:"interval_seconds"`
 	LastRunAt          *time.Time     `gorm:"column:last_run_at" json:"last_run_at"`
 	NextRunAt          *time.Time     `gorm:"column:next_run_at" json:"next_run_at"`
 	RunCount           int            `gorm:"column:run_count;not null;default:0" json:"run_count"`
-	LeadsPerRun        int            `gorm:"column:leads_per_run;not null;default:10" json:"leads_per_run"`
+	ProspectsPerRun    int            `gorm:"column:prospects_per_run;not null;default:10" json:"prospects_per_run"`
 	ConcurrentSearches int            `gorm:"column:concurrent_searches;not null;default:1" json:"concurrent_searches"`
 	CompilationTarget  int            `gorm:"column:compilation_target;not null;default:100" json:"compilation_target"`
+	DisableOnCompiled  bool           `gorm:"column:disable_on_compiled;not null;default:false" json:"disable_on_compiled"`
+	CompiledAt         *time.Time     `gorm:"column:compiled_at" json:"compiled_at"`
 	SystemPrompt       *string        `gorm:"column:system_prompt" json:"system_prompt"`
-	SearchKeywords     datatypes.JSON `gorm:"column:search_keywords;type:jsonb" json:"search_keywords"`
 	SearchSlots        datatypes.JSON `gorm:"column:search_slots;type:jsonb" json:"search_slots"`
 	ATSMode            bool           `gorm:"column:ats_mode;not null;default:true" json:"ats_mode"`
 	TimeFilter         *string        `gorm:"column:time_filter" json:"time_filter"`

@@ -339,7 +339,22 @@ func (r *ProposalRepository) GetAutomationProposals(tenantID, userID int64, sinc
 	if err != nil {
 		return nil, err
 	}
+	return r.proposalsToDTO(proposals), nil
+}
 
+// GetProposalsByConfigID returns proposals for a specific automation config
+func (r *ProposalRepository) GetProposalsByConfigID(configID int64) ([]AutomationProposalDTO, error) {
+	var proposals []models.AgentProposal
+	err := r.db.Where("automation_config_id = ?", configID).
+		Order("created_at DESC").
+		Find(&proposals).Error
+	if err != nil {
+		return nil, err
+	}
+	return r.proposalsToDTO(proposals), nil
+}
+
+func (r *ProposalRepository) proposalsToDTO(proposals []models.AgentProposal) []AutomationProposalDTO {
 	result := make([]AutomationProposalDTO, len(proposals))
 	for i := range proposals {
 		p := &proposals[i]
@@ -348,7 +363,6 @@ func (r *ProposalRepository) GetAutomationProposals(tenantID, userID int64, sinc
 			Status:    p.Status,
 			CreatedAt: p.CreatedAt,
 		}
-		// Extract job_title and account from payload
 		var payload map[string]interface{}
 		if err := json.Unmarshal(p.Payload, &payload); err == nil {
 			if title, ok := payload["job_title"].(string); ok {
@@ -359,6 +373,43 @@ func (r *ProposalRepository) GetAutomationProposals(tenantID, userID int64, sinc
 			}
 		}
 		result[i] = dto
+	}
+	return result
+}
+
+// PendingJobProposal holds minimal proposal data for deduplication
+type PendingJobProposal struct {
+	URL     string
+	Title   string
+	Company string
+}
+
+// GetPendingJobProposals returns pending job proposals with URL, title, and company for deduplication
+func (r *ProposalRepository) GetPendingJobProposals(tenantID int64) ([]PendingJobProposal, error) {
+	var proposals []models.AgentProposal
+	err := r.db.Where("tenant_id = ? AND status = ? AND entity_type = ?", tenantID, ProposalStatusPending, "job").
+		Find(&proposals).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]PendingJobProposal, 0, len(proposals))
+	for _, p := range proposals {
+		var payload map[string]interface{}
+		if err := json.Unmarshal(p.Payload, &payload); err != nil {
+			continue
+		}
+		prop := PendingJobProposal{}
+		if url, ok := payload["url"].(string); ok {
+			prop.URL = url
+		}
+		if title, ok := payload["job_title"].(string); ok {
+			prop.Title = title
+		}
+		if account, ok := payload["account"].(string); ok {
+			prop.Company = account
+		}
+		result = append(result, prop)
 	}
 	return result, nil
 }

@@ -10,17 +10,18 @@ type AutomationConfigResponse struct {
 	Name                  string     `json:"name"`
 	EntityType            string     `json:"entity_type"`
 	Enabled               bool       `json:"enabled"`
-	IntervalMinutes       int        `json:"interval_minutes"`
+	IntervalSeconds       int        `json:"interval_seconds"`
 	LastRunAt             *time.Time `json:"last_run_at"`
 	NextRunAt             *time.Time `json:"next_run_at"`
 	RunCount              int        `json:"run_count"`
-	LeadsPerRun           int        `json:"leads_per_run"`
+	ProspectsPerRun       int        `json:"prospects_per_run"`
 	ConcurrentSearches    int        `json:"concurrent_searches"`
-	CompilationTarget     int        `json:"compilation_target"`
-	TotalProposalsCreated int        `json:"total_proposals_created"`
+	CompilationTarget int  `json:"compilation_target"`
+	DisableOnCompiled bool `json:"disable_on_compiled"`
+	ActiveProposals   int  `json:"active_proposals"`
+	CompiledAt        *time.Time `json:"compiled_at"`
 	SystemPrompt       *string    `json:"system_prompt"`
-	SearchKeywords     []string   `json:"search_keywords"`
-	SearchSlots        [][]int    `json:"search_slots"`
+	SearchSlots        [][]string `json:"search_slots"`
 	ATSMode            bool       `json:"ats_mode"`
 	TimeFilter         *string    `json:"time_filter"`
 	TargetType         *string    `json:"target_type"`
@@ -43,8 +44,13 @@ type AutomationRunLogResponse struct {
 	StartedAt        time.Time  `json:"started_at"`
 	CompletedAt      *time.Time `json:"completed_at"`
 	Status           string     `json:"status"`
-	LeadsFound       int        `json:"leads_found"`
+	ProspectsFound   int        `json:"prospects_found"`
 	ProposalsCreated int        `json:"proposals_created"`
 	ErrorMessage     *string    `json:"error_message"`
 	SearchQuery      *string    `json:"search_query"`
+	Compiled bool `json:"compiled"`
+	// ConfigActiveProposals is included in SSE events to update crawler stats
+	ConfigActiveProposals *int `json:"config_active_proposals,omitempty"`
+	// ConfigEnabled is included in SSE events when crawler is auto-paused
+	ConfigEnabled *bool `json:"config_enabled,omitempty"`
 }

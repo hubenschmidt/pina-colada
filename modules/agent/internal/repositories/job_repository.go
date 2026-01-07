@@ -308,3 +308,45 @@ func (r *JobRepository) UpdateJobStatus(jobID int64, statusName string, userID i
 		"updated_by":        userID,
 	}).Error
 }
+
+// JobDedupInfo holds minimal job data for deduplication
+type JobDedupInfo struct {
+	JobTitle string
+	Company  string
+	URL      string
+}
+
+// GetJobsForDedup returns minimal job info for deduplication checking
+func (r *JobRepository) GetJobsForDedup(tenantID int64) ([]JobDedupInfo, error) {
+	type result struct {
+		JobTitle    string
+		JobURL      *string
+		AccountName *string
+	}
+
+	var results []result
+	err := r.db.Table(`"Job"`).
+		Select(`"Job".job_title, "Job".job_url, "Account".name as account_name`).
+		Joins(`JOIN "Lead" ON "Lead".id = "Job".id`).
+		Joins(`LEFT JOIN "Account" ON "Account".id = "Lead".account_id`).
+		Where(`"Lead".tenant_id = ?`, tenantID).
+		Find(&results).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	jobs := make([]JobDedupInfo, len(results))
+	for i, r := range results {
+		jobs[i] = JobDedupInfo{
+			JobTitle: r.JobTitle,
+		}
+		if r.AccountName != nil {
+			jobs[i].Company = *r.AccountName
+		}
+		if r.JobURL != nil {
+			jobs[i].URL = *r.JobURL
+		}
+	}
+	return jobs, nil
+}

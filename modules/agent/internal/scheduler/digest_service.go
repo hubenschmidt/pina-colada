@@ -298,6 +298,37 @@ func extractDigestText(resp *anthropic.Message) string {
 	return strings.TrimSpace(text)
 }
 
+// SendTestDigest sends a test digest for a specific crawler to the configured emails
+func (s *DigestService) SendTestDigest(configID int64) error {
+	if s.smtpUsername == "" || s.smtpPassword == "" {
+		return fmt.Errorf("SMTP not configured")
+	}
+
+	cfg, err := s.automationRepo.GetConfigByID(configID)
+	if err != nil {
+		return fmt.Errorf("failed to get config: %w", err)
+	}
+	if cfg == nil {
+		return fmt.Errorf("crawler not found")
+	}
+	if cfg.DigestEmails == nil || *cfg.DigestEmails == "" {
+		return fmt.Errorf("no digest emails configured")
+	}
+
+	proposals, err := s.proposalRepo.GetProposalsByConfigID(configID)
+	if err != nil {
+		return fmt.Errorf("failed to get proposals: %w", err)
+	}
+
+	pending, approved, rejected := s.groupProposalsByStatus(proposals)
+	body := s.buildDigestBody(cfg, pending, approved, rejected)
+	subject := fmt.Sprintf("[TEST] Job Lead Automation Digest - %s", cfg.Name)
+
+	s.sendToRecipients(cfg.DigestEmails, subject, body)
+	log.Printf("Digest service: sent test digest for config %d to %s", configID, *cfg.DigestEmails)
+	return nil
+}
+
 func (s *DigestService) sendEmail(to, subject, body string) error {
 	addr := fmt.Sprintf("%s:%d", s.smtpHost, s.smtpPort)
 	auth := smtp.PlainAuth("", s.smtpUsername, s.smtpPassword, s.smtpHost)

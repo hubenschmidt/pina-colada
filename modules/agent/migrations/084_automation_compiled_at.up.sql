@@ -1,0 +1,5 @@
+ALTER TABLE "Automation_Config"
+ADD COLUMN compiled_at TIMESTAMP WITH TIME ZONE;
+
+ALTER TABLE "Automation_Run_Log"
+ADD COLUMN compiled BOOLEAN NOT NULL DEFAULT FALSE;

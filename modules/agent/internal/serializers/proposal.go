@@ -22,6 +22,7 @@ type ProposalResponse struct {
 	ReviewedAt           *time.Time     `json:"reviewed_at,omitempty"`
 	ExecutedAt           *time.Time     `json:"executed_at,omitempty"`
 	ErrorMessage         *string        `json:"error_message,omitempty"`
+	Source               *string        `json:"source,omitempty"`
 	AutomationConfigID   *int64         `json:"automation_config_id,omitempty"`
 	AutomationConfigName *string        `json:"automation_config_name,omitempty"`
 	CreatedAt            time.Time      `json:"created_at,omitempty"`

@@ -800,6 +800,7 @@ func proposalToResponse(p *repositories.ProposalDTO) *serializers.ProposalRespon
 		ReviewedAt:           p.ReviewedAt,
 		ExecutedAt:           p.ExecutedAt,
 		ErrorMessage:         p.ErrorMessage,
+		Source:               p.Source,
 		AutomationConfigID:   p.AutomationConfigID,
 		AutomationConfigName: p.AutomationConfigName,
 		CreatedAt:            p.CreatedAt,

@@ -5,12 +5,14 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"agent/internal/middleware"
 	"agent/internal/repositories"
 	"agent/internal/services"
+	"agent/internal/sse"
 )
 
 // TestRunner interface for running automation tests
@@ -18,17 +20,24 @@ type TestRunner interface {
 	ExecuteForConfig(configID int64) error
 }
 
+// DigestTester interface for sending test digests
+type DigestTester interface {
+	SendTestDigest(configID int64) error
+}
+
 // AutomationController handles automation HTTP requests
 type AutomationController struct {
 	automationService *services.AutomationService
 	testRunner        TestRunner
+	digestTester      DigestTester
 }
 
 // NewAutomationController creates a new automation controller
-func NewAutomationController(automationService *services.AutomationService, testRunner TestRunner) *AutomationController {
+func NewAutomationController(automationService *services.AutomationService, testRunner TestRunner, digestTester DigestTester) *AutomationController {
 	return &AutomationController{
 		automationService: automationService,
 		testRunner:        testRunner,
+		digestTester:      digestTester,
 	}
 }
 
@@ -37,14 +46,14 @@ type CrawlerRequest struct {
 	Name               *string  `json:"name,omitempty"`
 	EntityType         *string  `json:"entity_type,omitempty"`
 	Enabled            *bool    `json:"enabled,omitempty"`
-	IntervalMinutes    *int     `json:"interval_minutes,omitempty"`
-	LeadsPerRun        *int     `json:"leads_per_run,omitempty"`
+	IntervalSeconds    *int     `json:"interval_seconds,omitempty"`
+	ProspectsPerRun    *int     `json:"prospects_per_run,omitempty"`
 	ConcurrentSearches *int     `json:"concurrent_searches,omitempty"`
 	CompilationTarget  *int     `json:"compilation_target,omitempty"`
-	SystemPrompt       *string  `json:"system_prompt,omitempty"`
-	SearchKeywords     []string `json:"search_keywords,omitempty"`
-	SearchSlots        [][]int  `json:"search_slots,omitempty"`
-	ATSMode            *bool    `json:"ats_mode,omitempty"`
+	DisableOnCompiled  *bool    `json:"disable_on_compiled,omitempty"`
+	SystemPrompt       *string    `json:"system_prompt,omitempty"`
+	SearchSlots        [][]string `json:"search_slots,omitempty"`
+	ATSMode            *bool      `json:"ats_mode,omitempty"`
 	TimeFilter         *string  `json:"time_filter,omitempty"`
 	TargetType         *string  `json:"target_type,omitempty"`
 	TargetIDs          []int64  `json:"target_ids,omitempty"`
@@ -213,20 +222,16 @@ func (c *AutomationController) GetCrawlerRuns(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	limit := 10
-	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 {
-			limit = parsed
-		}
-	}
+	page := parseIntQueryParam(r, "page", 1)
+	limit := parseIntQueryParam(r, "limit", 10)
 
-	result, err := c.automationService.GetCrawlerRuns(configID, limit)
+	result, err := c.automationService.GetCrawlerRuns(configID, page, limit)
 	if err != nil {
 		writeAutomationError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeAutomationJSON(w, http.StatusOK, map[string]interface{}{"runs": result})
+	writeAutomationJSON(w, http.StatusOK, result)
 }
 
 // TestCrawler handles POST /automation/crawlers/{id}/test
@@ -253,6 +258,65 @@ func (c *AutomationController) TestCrawler(w http.ResponseWriter, r *http.Reques
 	writeAutomationJSON(w, http.StatusOK, map[string]string{"status": "test run initiated"})
 }
 
+// SendTestDigest handles POST /automation/crawlers/{id}/test-digest
+func (c *AutomationController) SendTestDigest(w http.ResponseWriter, r *http.Request) {
+	configID, err := c.parseConfigID(r)
+	if err != nil {
+		writeAutomationError(w, http.StatusBadRequest, "invalid crawler ID")
+		return
+	}
+
+	if c.digestTester == nil {
+		writeAutomationError(w, http.StatusServiceUnavailable, "digest service not configured")
+		return
+	}
+
+	if err := c.digestTester.SendTestDigest(configID); err != nil {
+		writeAutomationError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeAutomationJSON(w, http.StatusOK, map[string]string{"status": "test digest sent"})
+}
+
+// StreamCrawlerRuns handles GET /automation/crawlers/{id}/runs/stream (SSE)
+func (c *AutomationController) StreamCrawlerRuns(w http.ResponseWriter, r *http.Request) {
+	configID, err := c.parseConfigID(r)
+	if err != nil {
+		writeAutomationError(w, http.StatusBadRequest, "invalid crawler ID")
+		return
+	}
+
+	sw := sse.NewWriter(w)
+	if sw == nil {
+		writeAutomationError(w, http.StatusInternalServerError, "streaming not supported")
+		return
+	}
+
+	// Disable timeouts for SSE streaming
+	rc := http.NewResponseController(w)
+	_ = rc.SetWriteDeadline(time.Time{})
+	_ = rc.SetReadDeadline(time.Time{})
+
+	page := parseIntQueryParam(r, "page", 1)
+	limit := parseIntQueryParam(r, "limit", 10)
+
+	// Send initial data
+	result, err := c.automationService.GetCrawlerRuns(configID, page, limit)
+	if err != nil {
+		_ = sw.Send(sse.Event{Type: "error", Data: map[string]string{"error": err.Error()}})
+		return
+	}
+	_ = sw.Send(sse.Event{Type: "init", Data: result})
+
+	// Subscribe to updates
+	topic := sse.CrawlerTopic(configID)
+	eventCh := sse.Subscribe(topic)
+	defer sse.Unsubscribe(topic, eventCh)
+
+	sse.StreamWithKeepAlive(r.Context(), sw, 10*time.Second, eventCh)
+}
+
 func (c *AutomationController) parseConfigID(r *http.Request) (int64, error) {
 	idStr := chi.URLParam(r, "id")
 	return strconv.ParseInt(idStr, 10, 64)
@@ -263,12 +327,12 @@ func (c *AutomationController) requestToInput(req CrawlerRequest) repositories.A
 		Name:               req.Name,
 		EntityType:         req.EntityType,
 		Enabled:            req.Enabled,
-		IntervalMinutes:    req.IntervalMinutes,
-		LeadsPerRun:        req.LeadsPerRun,
+		IntervalSeconds:    req.IntervalSeconds,
+		ProspectsPerRun:    req.ProspectsPerRun,
 		ConcurrentSearches: req.ConcurrentSearches,
 		CompilationTarget:  req.CompilationTarget,
+		DisableOnCompiled:  req.DisableOnCompiled,
 		SystemPrompt:       req.SystemPrompt,
-		SearchKeywords:     req.SearchKeywords,
 		SearchSlots:        req.SearchSlots,
 		ATSMode:            req.ATSMode,
 		TimeFilter:         req.TimeFilter,
@@ -292,4 +356,16 @@ func writeAutomationJSON(w http.ResponseWriter, status int, data interface{}) {
 
 func writeAutomationError(w http.ResponseWriter, status int, message string) {
 	writeAutomationJSON(w, status, map[string]string{"error": message})
+}
+
+func parseIntQueryParam(r *http.Request, key string, defaultVal int) int {
+	val := r.URL.Query().Get(key)
+	if val == "" {
+		return defaultVal
+	}
+	parsed, err := strconv.Atoi(val)
+	if err != nil || parsed < 1 {
+		return defaultVal
+	}
+	return parsed
 }

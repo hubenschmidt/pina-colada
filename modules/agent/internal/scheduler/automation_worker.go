@@ -4,6 +4,7 @@ package scheduler
 type AutomationExecutor interface {
 	ProcessDueAutomations()
 	ExecuteForConfig(configID int64) error
+	ResumePausedCrawlers()
 }
 
 // AutomationWorker wraps an executor for scheduler use
@@ -30,4 +31,12 @@ func (w *AutomationWorker) ExecuteForConfig(configID int64) error {
 		return nil
 	}
 	return w.executor.ExecuteForConfig(configID)
+}
+
+// ResumePausedCrawlers delegates to the executor
+func (w *AutomationWorker) ResumePausedCrawlers() {
+	if w.executor == nil {
+		return
+	}
+	w.executor.ResumePausedCrawlers()
 }

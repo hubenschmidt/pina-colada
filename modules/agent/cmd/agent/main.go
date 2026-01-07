@@ -117,7 +117,10 @@ func main() {
 	genericEntityService := services.NewGenericEntityService(genericEntityRepo)
 	visitorService := services.NewVisitorService(cfg)
 	docLoader := &documentLoaderAdapter{docService: docService}
-	automationService := services.NewAutomationService(automationRepo, proposalRepo, proposalService, docLoader, cfg.SerperAPIKey, cfg.AnthropicAPIKey, cfg.OpenAIAPIKey)
+	automationService := services.NewAutomationService(automationRepo, proposalRepo, jobRepo, proposalService, docLoader, cfg.SerperAPIKey, cfg.AnthropicAPIKey, cfg.OpenAIAPIKey)
+
+	// Cleanup any stale automation runs from previous server runs
+	automationService.CleanupStaleRuns()
 
 	// Stop any orphaned recording sessions from previous runs
 	if stoppedCount, err := metricService.StopAllActiveSessions(); err != nil {
@@ -134,6 +137,18 @@ func main() {
 
 	// Initialize automation worker (wraps service for scheduler)
 	automationWorker := scheduler.NewAutomationWorker(automationService)
+
+	// Initialize digest service (needed by controller and scheduler)
+	digestService := scheduler.NewDigestService(
+		automationRepo,
+		proposalRepo,
+		cfg.SMTPHost,
+		cfg.SMTPPort,
+		cfg.SMTPUsername,
+		cfg.SMTPPassword,
+		cfg.SMTPFromEmail,
+		cfg.AnthropicAPIKey,
+	)
 
 	// Initialize controllers
 	ctrls := &routes.Controllers{
@@ -166,7 +181,7 @@ func main() {
 		Proposal:       controllers.NewProposalController(proposalService),
 		ApprovalConfig: controllers.NewApprovalConfigController(approvalConfigService),
 		Role:           controllers.NewRoleController(roleService),
-		Automation:     controllers.NewAutomationController(automationService, automationWorker),
+		Automation:     controllers.NewAutomationController(automationService, automationWorker, digestService),
 	}
 
 	// Initialize router and register routes
@@ -174,16 +189,6 @@ func main() {
 	routes.RegisterRoutes(router, ctrls, authService)
 
 	// Initialize and start scheduler
-	digestService := scheduler.NewDigestService(
-		automationRepo,
-		proposalRepo,
-		cfg.SMTPHost,
-		cfg.SMTPPort,
-		cfg.SMTPUsername,
-		cfg.SMTPPassword,
-		cfg.SMTPFromEmail,
-		cfg.AnthropicAPIKey,
-	)
 	sched := scheduler.NewScheduler(automationWorker, digestService)
 	if err := sched.Start(); err != nil {
 		log.Printf("Warning: failed to start scheduler: %v", err)

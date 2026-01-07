@@ -28,16 +28,16 @@ type AutomationConfigDTO struct {
 	Name               string
 	EntityType         string
 	Enabled            bool
-	IntervalMinutes    int
+	IntervalSeconds    int
 	LastRunAt          *time.Time
 	NextRunAt          *time.Time
 	RunCount           int
-	LeadsPerRun        int
-	ConcurrentSearches int
-	CompilationTarget  int
-	SystemPrompt       *string
-	SearchKeywords     []string
-	SearchSlots        [][]int
+	ProspectsPerRun    int
+	ConcurrentSearches  int
+	CompilationTarget   int
+	DisableOnCompiled   bool
+	SystemPrompt        *string
+	SearchSlots        [][]string
 	ATSMode            bool
 	TimeFilter         *string
 	TargetType         *string
@@ -50,6 +50,7 @@ type AutomationConfigDTO struct {
 	LastDigestAt       *time.Time
 	UseAgent           bool
 	AgentModel         *string
+	CompiledAt         *time.Time
 	CreatedAt          time.Time
 	UpdatedAt          time.Time
 }
@@ -59,13 +60,13 @@ type AutomationConfigInput struct {
 	Name               *string
 	EntityType         *string
 	Enabled            *bool
-	IntervalMinutes    *int
-	LeadsPerRun        *int
-	ConcurrentSearches *int
-	CompilationTarget  *int
-	SystemPrompt       *string
-	SearchKeywords     []string
-	SearchSlots        [][]int
+	IntervalSeconds    *int
+	ProspectsPerRun    *int
+	ConcurrentSearches  *int
+	CompilationTarget   *int
+	DisableOnCompiled   *bool
+	SystemPrompt        *string
+	SearchSlots        [][]string
 	ATSMode            *bool
 	TimeFilter         *string
 	TargetType         *string
@@ -85,10 +86,11 @@ type AutomationRunLogDTO struct {
 	StartedAt        time.Time
 	CompletedAt      *time.Time
 	Status           string
-	LeadsFound       int
+	ProspectsFound   int
 	ProposalsCreated int
 	ErrorMessage     *string
 	SearchQuery      *string
+	Compiled         bool
 }
 
 // GetUserConfigs returns all automation configs for a user
@@ -170,6 +172,21 @@ func (r *AutomationRepository) DeleteConfig(configID int64) error {
 	return r.db.Delete(&models.AutomationConfig{}, configID).Error
 }
 
+// GetPausedCrawlers returns crawlers that are paused (enabled, compiled, not disable_on_compiled)
+func (r *AutomationRepository) GetPausedCrawlers() ([]AutomationConfigDTO, error) {
+	var configs []models.AutomationConfig
+	err := r.db.Where("enabled = ? AND compiled_at IS NOT NULL AND disable_on_compiled = ?", true, false).Find(&configs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]AutomationConfigDTO, len(configs))
+	for i := range configs {
+		result[i] = *r.modelToDTO(&configs[i])
+	}
+	return result, nil
+}
+
 // GetDueAutomations returns enabled automations that are due to run
 func (r *AutomationRepository) GetDueAutomations(now time.Time) ([]AutomationConfigDTO, error) {
 	var configs []models.AutomationConfig
@@ -235,6 +252,36 @@ func (r *AutomationRepository) UpdateLastDigest(configID int64, digestTime time.
 		}).Error
 }
 
+// SetCompiledAt marks when the compilation target was reached
+func (r *AutomationRepository) SetCompiledAt(configID int64, compiledAt time.Time) error {
+	return r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Updates(map[string]interface{}{
+			"compiled_at": compiledAt,
+			"updated_at":  time.Now(),
+		}).Error
+}
+
+// ClearCompiledAt clears the compiled_at timestamp (when proposals drop below target)
+func (r *AutomationRepository) ClearCompiledAt(configID int64) error {
+	return r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Updates(map[string]interface{}{
+			"compiled_at": nil,
+			"updated_at":  time.Now(),
+		}).Error
+}
+
+// DisableConfig sets enabled=false on the config
+func (r *AutomationRepository) DisableConfig(configID int64) error {
+	return r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Updates(map[string]interface{}{
+			"enabled":    false,
+			"updated_at": time.Now(),
+		}).Error
+}
+
 // CreateRunLog creates a new run log entry
 func (r *AutomationRepository) CreateRunLog(configID int64, searchQuery string) (int64, error) {
 	log := models.AutomationRunLog{
@@ -248,28 +295,38 @@ func (r *AutomationRepository) CreateRunLog(configID int64, searchQuery string) 
 }
 
 // CompleteRunLog marks a run log as completed
-func (r *AutomationRepository) CompleteRunLog(logID int64, status string, leadsFound, proposalsCreated int, errorMsg *string) error {
+func (r *AutomationRepository) CompleteRunLog(logID int64, status string, prospectsFound, proposalsCreated int, errorMsg *string, compiled bool) error {
 	now := time.Now()
 	return r.db.Model(&models.AutomationRunLog{}).
 		Where("id = ?", logID).
 		Updates(map[string]interface{}{
 			"completed_at":      now,
 			"status":            status,
-			"leads_found":       leadsFound,
+			"prospects_found":   prospectsFound,
 			"proposals_created": proposalsCreated,
 			"error_message":     errorMsg,
+			"compiled":          compiled,
 		}).Error
 }
 
-// GetRunLogs returns recent run logs for a config
-func (r *AutomationRepository) GetRunLogs(configID int64, limit int) ([]AutomationRunLogDTO, error) {
+// GetRunLogs returns paginated run logs for a config
+func (r *AutomationRepository) GetRunLogs(configID int64, page, limit int) ([]AutomationRunLogDTO, int64, error) {
+	var totalCount int64
+	if err := r.db.Model(&models.AutomationRunLog{}).
+		Where("automation_config_id = ?", configID).
+		Count(&totalCount).Error; err != nil {
+		return nil, 0, err
+	}
+
 	var logs []models.AutomationRunLog
+	offset := (page - 1) * limit
 	err := r.db.Where("automation_config_id = ?", configID).
 		Order("started_at DESC").
+		Offset(offset).
 		Limit(limit).
 		Find(&logs).Error
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	result := make([]AutomationRunLogDTO, len(logs))
@@ -279,23 +336,35 @@ func (r *AutomationRepository) GetRunLogs(configID int64, limit int) ([]Automati
 			StartedAt:        logs[i].StartedAt,
 			CompletedAt:      logs[i].CompletedAt,
 			Status:           logs[i].Status,
-			LeadsFound:       logs[i].LeadsFound,
+			ProspectsFound:   logs[i].ProspectsFound,
 			ProposalsCreated: logs[i].ProposalsCreated,
 			ErrorMessage:     logs[i].ErrorMessage,
 			SearchQuery:      logs[i].SearchQuery,
+			Compiled:         logs[i].Compiled,
 		}
 	}
-	return result, nil
+	return result, totalCount, nil
 }
 
-// GetTotalProposalsCreated returns the sum of proposals_created for a config
-func (r *AutomationRepository) GetTotalProposalsCreated(configID int64) (int, error) {
-	var total int
-	err := r.db.Model(&models.AutomationRunLog{}).
-		Where("automation_config_id = ?", configID).
-		Select("COALESCE(SUM(proposals_created), 0)").
-		Scan(&total).Error
-	return total, err
+// GetActiveProposals returns count of pending proposals for a config
+func (r *AutomationRepository) GetActiveProposals(configID int64) (int, error) {
+	var total int64
+	err := r.db.Model(&models.AgentProposal{}).
+		Where("automation_config_id = ? AND status = ?", configID, "pending").
+		Count(&total).Error
+	return int(total), err
+}
+
+// CleanupStaleRuns marks any "running" jobs as failed (called on startup)
+func (r *AutomationRepository) CleanupStaleRuns() (int64, error) {
+	result := r.db.Model(&models.AutomationRunLog{}).
+		Where("status = ?", "running").
+		Updates(map[string]interface{}{
+			"status":        "failed",
+			"completed_at":  time.Now(),
+			"error_message": "Server restarted while run was in progress",
+		})
+	return result.RowsAffected, result.Error
 }
 
 func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *AutomationConfigDTO {
@@ -306,13 +375,14 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 		Name:               cfg.Name,
 		EntityType:         cfg.EntityType,
 		Enabled:            cfg.Enabled,
-		IntervalMinutes:    cfg.IntervalMinutes,
+		IntervalSeconds:    cfg.IntervalSeconds,
 		LastRunAt:          cfg.LastRunAt,
 		NextRunAt:          cfg.NextRunAt,
 		RunCount:           cfg.RunCount,
-		LeadsPerRun:        cfg.LeadsPerRun,
+		ProspectsPerRun:    cfg.ProspectsPerRun,
 		ConcurrentSearches: cfg.ConcurrentSearches,
 		CompilationTarget:  cfg.CompilationTarget,
+		DisableOnCompiled:  cfg.DisableOnCompiled,
 		SystemPrompt:       cfg.SystemPrompt,
 		ATSMode:            cfg.ATSMode,
 		TimeFilter:         cfg.TimeFilter,
@@ -324,14 +394,12 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 		LastDigestAt:       cfg.LastDigestAt,
 		UseAgent:           cfg.UseAgent,
 		AgentModel:         cfg.AgentModel,
+		CompiledAt:         cfg.CompiledAt,
 		CreatedAt:          cfg.CreatedAt,
 		UpdatedAt:          cfg.UpdatedAt,
 	}
 
 	// Parse JSON arrays
-	if cfg.SearchKeywords != nil {
-		_ = json.Unmarshal(cfg.SearchKeywords, &dto.SearchKeywords)
-	}
 	if cfg.SearchSlots != nil {
 		_ = json.Unmarshal(cfg.SearchSlots, &dto.SearchSlots)
 	}
@@ -355,11 +423,11 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.Enabled != nil {
 		cfg.Enabled = *input.Enabled
 	}
-	if input.IntervalMinutes != nil {
-		cfg.IntervalMinutes = *input.IntervalMinutes
+	if input.IntervalSeconds != nil {
+		cfg.IntervalSeconds = *input.IntervalSeconds
 	}
-	if input.LeadsPerRun != nil {
-		cfg.LeadsPerRun = *input.LeadsPerRun
+	if input.ProspectsPerRun != nil {
+		cfg.ProspectsPerRun = *input.ProspectsPerRun
 	}
 	if input.ConcurrentSearches != nil {
 		cfg.ConcurrentSearches = *input.ConcurrentSearches
@@ -367,11 +435,11 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.CompilationTarget != nil {
 		cfg.CompilationTarget = *input.CompilationTarget
 	}
+	if input.DisableOnCompiled != nil {
+		cfg.DisableOnCompiled = *input.DisableOnCompiled
+	}
 	if input.SystemPrompt != nil {
 		cfg.SystemPrompt = input.SystemPrompt
-	}
-	if input.SearchKeywords != nil {
-		cfg.SearchKeywords = toJSON(input.SearchKeywords)
 	}
 	if input.SearchSlots != nil {
 		cfg.SearchSlots = toJSON(input.SearchSlots)

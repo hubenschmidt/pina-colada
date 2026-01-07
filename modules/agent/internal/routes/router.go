@@ -55,7 +55,7 @@ func NewRouter() *chi.Mux {
 	r.Use(middleware.RequestID)
 	r.Use(middleware.RealIP)
 	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   []string{"*"},
+		AllowedOrigins:   []string{"http://localhost:3001", "http://127.0.0.1:3001"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-Tenant-ID"},
 		ExposedHeaders:   []string{"Link"},
@@ -446,7 +446,9 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 				r.Delete("/", c.Automation.DeleteCrawler)
 				r.Post("/toggle", c.Automation.ToggleCrawler)
 				r.Get("/runs", c.Automation.GetCrawlerRuns)
+				r.Get("/runs/stream", c.Automation.StreamCrawlerRuns)
 				r.Post("/test", c.Automation.TestCrawler)
+				r.Post("/test-digest", c.Automation.SendTestDigest)
 			})
 		})
 	})

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import {
   Container,
   Stack,
@@ -14,7 +14,6 @@ import {
   Paper,
   Group,
   Badge,
-  Table,
   Select,
   MultiSelect,
   TagsInput,
@@ -23,7 +22,6 @@ import {
   Modal,
   ActionIcon,
   Menu,
-  Collapse,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
 import {
@@ -40,6 +38,9 @@ import {
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
+import { DataTable } from "../../components/DataTable/DataTable";
+import SSEIndicator from "../../components/SSEIndicator/SSEIndicator";
+import { useSSE } from "../../hooks/useSSE";
 import { usePageLoading } from "../../context/pageLoadingContext";
 import { useUserContext } from "../../context/userContext";
 import {
@@ -48,8 +49,8 @@ import {
   updateCrawler,
   deleteCrawler,
   toggleCrawler,
-  getCrawlerRuns,
   testCrawler,
+  sendTestDigest,
   searchIndividuals,
   searchOrganizations,
   searchContacts,
@@ -86,21 +87,27 @@ const TARGET_TYPE_OPTIONS = {
 };
 
 const AGENT_MODEL_OPTIONS = [
-  { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4 (Recommended)" },
-  { value: "claude-haiku-4-20250514", label: "Claude Haiku 4 (Faster)" },
+  { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4.5 (Recommended)" },
+  { value: "claude-haiku-4-20250514", label: "Claude Haiku 4.5 (Faster)" },
   { value: "gpt-5.2", label: "GPT 5.2" },
   { value: "gpt-5.1", label: "GPT 5.1" },
+];
+
+const INTERVAL_UNITS = [
+  { value: "seconds", label: "Seconds" },
+  { value: "minutes", label: "Minutes" },
 ];
 
 const emptyForm = {
   name: "",
   entity_type: "job",
-  interval_minutes: 30,
-  leads_per_run: 10,
+  interval_value: 30,
+  interval_unit: "minutes",
+  prospects_per_run: 10,
   concurrent_searches: 1,
   compilation_target: 100,
-  search_keywords: [],
-  search_slots: [],
+  disable_on_compiled: false,
+  search_slots: [[]],
   ats_mode: true,
   time_filter: "week",
   target_type: null,
@@ -130,8 +137,9 @@ const AutomationPage = () => {
   const [form, setForm] = useState(emptyForm);
 
   const [expandedRuns, setExpandedRuns] = useState({});
-  const [crawlerRuns, setCrawlerRuns] = useState({});
-  const [loadingRuns, setLoadingRuns] = useState({});
+  const [crawlerPages, setCrawlerPages] = useState({});
+  const [crawlerPageSizes, setCrawlerPageSizes] = useState({});
+  const [sseStatus, setSseStatus] = useState({});
 
   const [targetOptions, setTargetOptions] = useState([]);
   const [searchingTargets, setSearchingTargets] = useState(false);
@@ -227,15 +235,19 @@ const AutomationPage = () => {
 
   const handleOpenEdit = async (crawler) => {
     setEditingCrawler(crawler);
+    // Convert seconds to appropriate unit for display
+    const seconds = crawler.interval_seconds || 1800;
+    const useMinutes = seconds >= 60 && seconds % 60 === 0;
     setForm({
       name: crawler.name || "",
       entity_type: crawler.entity_type || "job",
-      interval_minutes: crawler.interval_minutes || 30,
-      leads_per_run: crawler.leads_per_run || 10,
+      interval_value: useMinutes ? seconds / 60 : seconds,
+      interval_unit: useMinutes ? "minutes" : "seconds",
+      prospects_per_run: crawler.prospects_per_run || 10,
       concurrent_searches: crawler.concurrent_searches || 1,
       compilation_target: crawler.compilation_target || 100,
-      search_keywords: crawler.search_keywords || [],
-      search_slots: crawler.search_slots || [],
+      disable_on_compiled: crawler.disable_on_compiled ?? false,
+      search_slots: crawler.search_slots?.length ? crawler.search_slots : [[]],
       ats_mode: crawler.ats_mode ?? true,
       time_filter: crawler.time_filter || "week",
       target_type: crawler.target_type || null,
@@ -293,24 +305,26 @@ const AutomationPage = () => {
       return;
     }
 
-    if (form.search_keywords.length === 0) {
-      setModalError("At least one search keyword is required");
-      return;
-    }
-
     // Filter out empty slots before saving
     const cleanedSlots = (form.search_slots || []).filter((slot) => slot && slot.length > 0);
 
-    // When using multiple concurrent searches, at least one slot must have keywords
-    if (form.concurrent_searches > 1 && cleanedSlots.length === 0) {
-      setModalError("Assign at least one keyword to a search slot");
+    if (cleanedSlots.length === 0) {
+      setModalError("At least one search slot must have keywords");
       return;
     }
+
+    // Convert interval to seconds for API
+    const intervalSeconds = form.interval_unit === "minutes"
+      ? form.interval_value * 60
+      : form.interval_value;
 
     const cleanedForm = {
       ...form,
       search_slots: cleanedSlots,
+      interval_seconds: intervalSeconds,
     };
+    delete cleanedForm.interval_value;
+    delete cleanedForm.interval_unit;
 
     setSaving(true);
     try {
@@ -360,26 +374,42 @@ const AutomationPage = () => {
     }
   };
 
-  const toggleRunsExpanded = async (crawlerId, forceExpand = false) => {
-    const isExpanded = expandedRuns[crawlerId];
-
-    if (!isExpanded || forceExpand) {
-      setLoadingRuns((prev) => ({ ...prev, [crawlerId]: true }));
-      try {
-        const data = await getCrawlerRuns(crawlerId, 10);
-        setCrawlerRuns((prev) => ({ ...prev, [crawlerId]: data.runs || [] }));
-      } catch (error) {
-        showAlert(error.message, "red");
-      } finally {
-        setLoadingRuns((prev) => ({ ...prev, [crawlerId]: false }));
-      }
+  const handleSendTestDigest = async () => {
+    if (!editingCrawler) return;
+    try {
+      await sendTestDigest(editingCrawler.id);
+      showAlert("Test digest email sent", "lime");
+    } catch (error) {
+      setModalError(error.message);
     }
+  };
 
-    if (!forceExpand) {
-      setExpandedRuns((prev) => ({ ...prev, [crawlerId]: !isExpanded }));
-    } else {
+  // SSE handles data fetching - these just update state which triggers SSE reconnect
+  const handleCrawlerPageChange = (crawlerId, page) => {
+    setCrawlerPages((prev) => ({ ...prev, [crawlerId]: page }));
+  };
+
+  const handleCrawlerPageSizeChange = (crawlerId, pageSize) => {
+    setCrawlerPageSizes((prev) => ({ ...prev, [crawlerId]: pageSize }));
+    setCrawlerPages((prev) => ({ ...prev, [crawlerId]: 1 }));
+  };
+
+  const handleSseStatusChange = useCallback((crawlerId, status) => {
+    setSseStatus((prev) => ({ ...prev, [crawlerId]: status }));
+  }, []);
+
+  const handleCrawlerUpdate = useCallback((crawlerId, updates) => {
+    setCrawlers((prev) =>
+      prev.map((c) => (c.id === crawlerId ? { ...c, ...updates } : c))
+    );
+  }, []);
+
+  const toggleRunsExpanded = (crawlerId, forceExpand = false) => {
+    if (forceExpand) {
       setExpandedRuns((prev) => ({ ...prev, [crawlerId]: true }));
+      return;
     }
+    setExpandedRuns((prev) => ({ ...prev, [crawlerId]: !prev[crawlerId] }));
   };
 
   const updateForm = (field, value) => {
@@ -399,7 +429,7 @@ const AutomationPage = () => {
       <Container size="lg" py="xl">
         <Stack align="center" gap="md">
           <Loader />
-          <Text>Loading automation crawlers...</Text>
+          <Text>Loading crawlers...</Text>
         </Stack>
       </Container>
     );
@@ -426,7 +456,7 @@ const AutomationPage = () => {
 
         <Group justify="space-between">
           <div>
-            <Title order={1}>Automation Crawlers</Title>
+            <Title order={1}>Crawlers</Title>
             <Text c="dimmed">Configure automated lead sourcing crawlers for different entity types.</Text>
           </div>
           <Button leftSection={<Plus size={16} />} onClick={handleOpenCreate}>
@@ -458,19 +488,20 @@ const AutomationPage = () => {
                       </ActionIcon>
                       <div>
                         <Group gap="xs">
+                          <SSEIndicator status={sseStatus[crawler.id]} />
                           <Text fw={500}>{crawler.name}</Text>
                           <Text size="xs" c="dimmed">(Target: {crawler.compilation_target})</Text>
                         </Group>
                         <Text size="xs" c="dimmed">
                           {ENTITY_TYPES.find((t) => t.value === crawler.entity_type)?.label || crawler.entity_type}
-                          {` • ${crawler.total_proposals_created || 0} proposals`}
+                          {` • ${crawler.active_proposals || 0} proposals`}
                           {crawler.next_run_at && ` • Next: ${new Date(crawler.next_run_at).toLocaleString()}`}
                         </Text>
                       </div>
                     </Group>
 
                     <Group gap="xs">
-                      {crawler.total_proposals_created >= crawler.compilation_target && (
+                      {crawler.active_proposals >= crawler.compilation_target && (
                         <Badge color="lime" size="sm" leftSection={<CheckCircle size={12} />}>
                           Compiled
                         </Badge>
@@ -510,19 +541,18 @@ const AutomationPage = () => {
                     </Group>
                   </Group>
 
-                  <Collapse in={expandedRuns[crawler.id]}>
-                    {loadingRuns[crawler.id] ? (
-                      <Group justify="center" py="md">
-                        <Loader size="sm" />
-                      </Group>
-                    ) : (
-                      <RunHistoryTable
-                        runs={crawlerRuns[crawler.id] || []}
-                        compilationTarget={crawler.compilation_target}
-                        totalProposals={crawler.total_proposals_created || 0}
-                      />
-                    )}
-                  </Collapse>
+                  {expandedRuns[crawler.id] && (
+                    <CrawlerRunsSSE
+                      crawlerId={crawler.id}
+                      isExpanded={expandedRuns[crawler.id]}
+                      pageValue={crawlerPages[crawler.id] || 1}
+                      pageSizeValue={crawlerPageSizes[crawler.id] || 10}
+                      onPageChange={(page) => handleCrawlerPageChange(crawler.id, page)}
+                      onPageSizeChange={(size) => handleCrawlerPageSizeChange(crawler.id, size)}
+                      onStatusChange={handleSseStatusChange}
+                      onCrawlerUpdate={handleCrawlerUpdate}
+                    />
+                  )}
                 </Stack>
               </Paper>
             ))}
@@ -537,6 +567,15 @@ const AutomationPage = () => {
         size={"xl"}
       >
         <Stack gap="md">
+          <Group justify="flex-end">
+            <Button variant="default" onClick={closeModal}>
+              Cancel
+            </Button>
+            <Button onClick={handleSave} loading={saving}>
+              {editingCrawler ? "Update" : "Create"}
+            </Button>
+          </Group>
+
           {modalError && (
             <Alert color="red" icon={<AlertCircle size={16} />} withCloseButton onClose={() => setModalError(null)}>
               {modalError}
@@ -564,18 +603,28 @@ const AutomationPage = () => {
           </Group>
 
           <Group grow>
+            <Group grow gap="xs">
+              <NumberInput
+                label="Interval"
+                value={form.interval_value}
+                onChange={(val) => updateForm("interval_value", val)}
+                min={1}
+                max={form.interval_unit === "minutes" ? 1440 : 86400}
+                leftSection={<Clock size={16} />}
+                style={{ flex: 2 }}
+              />
+              <Select
+                label="Unit"
+                value={form.interval_unit}
+                onChange={(val) => updateForm("interval_unit", val)}
+                data={INTERVAL_UNITS}
+                style={{ flex: 1 }}
+              />
+            </Group>
             <NumberInput
-              label="Interval (minutes)"
-              value={form.interval_minutes}
-              onChange={(val) => updateForm("interval_minutes", val)}
-              min={1}
-              max={1440}
-              leftSection={<Clock size={16} />}
-            />
-            <NumberInput
-              label="Leads per Run"
-              value={form.leads_per_run}
-              onChange={(val) => updateForm("leads_per_run", val)}
+              label="Prospects per Run"
+              value={form.prospects_per_run}
+              onChange={(val) => updateForm("prospects_per_run", val)}
               min={1}
               max={50}
             />
@@ -593,43 +642,40 @@ const AutomationPage = () => {
               label="Compilation Target"
               value={form.compilation_target}
               onChange={(val) => updateForm("compilation_target", val)}
-              min={10}
+              min={1}
               max={1000}
+            />
+            <Switch
+              label="Disable on target"
+              description="Else crawler will pause on target"
+              checked={form.disable_on_compiled}
+              onChange={(e) => updateForm("disable_on_compiled", e.currentTarget.checked)}
+              color="lime"
             />
           </Group>
 
-          <TagsInput
-            label="Search Keywords"
-            placeholder="Enter keyword and press Enter"
-            value={form.search_keywords}
-            onChange={(val) => updateForm("search_keywords", val)}
-            leftSection={<Search size={16} />}
-          />
-
-          {form.search_keywords.length > 0 && form.concurrent_searches > 1 && (
-            <Stack gap="xs">
-              <Text size="sm" fw={500}>Assign Keywords to Search Slots</Text>
-              <Text size="xs" c="dimmed">Each slot runs as a separate concurrent search. Unassigned keywords are not searched.</Text>
-              {Array.from({ length: form.concurrent_searches }).map((_, slotIndex) => (
-                <MultiSelect
-                  key={slotIndex}
-                  label={`Slot ${slotIndex + 1}`}
-                  placeholder="Select keywords for this slot"
-                  data={form.search_keywords.map((kw, i) => ({ value: String(i), label: kw }))}
-                  value={(form.search_slots[slotIndex] || []).map(String)}
-                  onChange={(vals) => {
-                    const newSlots = [...(form.search_slots || [])];
-                    while (newSlots.length < form.concurrent_searches) {
-                      newSlots.push([]);
-                    }
-                    newSlots[slotIndex] = vals.map(Number);
-                    updateForm("search_slots", newSlots);
-                  }}
-                  clearable
-                />
-              ))}
-            </Stack>
-          )}
+          <Stack gap="xs">
+            {Array.from({ length: form.concurrent_searches }).map((_, slotIndex) => (
+              <TagsInput
+                key={slotIndex}
+                label={form.concurrent_searches === 1 ? "Search Keywords" : `Slot ${slotIndex + 1}`}
+                placeholder="Enter keyword and press Enter"
+                value={form.search_slots[slotIndex] || []}
+                onChange={(val) => {
+                  const newSlots = [...(form.search_slots || [])];
+                  while (newSlots.length < form.concurrent_searches) {
+                    newSlots.push([]);
+                  }
+                  newSlots[slotIndex] = val;
+                  updateForm("search_slots", newSlots);
+                }}
+                leftSection={<Search size={16} />}
+              />
+            ))}
+            {form.concurrent_searches > 1 && (
+              <Text size="xs" c="dimmed">Each slot runs as a separate concurrent search.</Text>
+            )}
+          </Stack>
 
           <Group grow>
             <Select
@@ -758,72 +804,181 @@ const AutomationPage = () => {
                 clearable
                 placeholder="None - use simple format"
               />
+
+              {editingCrawler && (
+                <Button
+                  variant="light"
+                  leftSection={<Mail size={16} />}
+                  onClick={handleSendTestDigest}
+                >
+                  Send Test Email
+                </Button>
+              )}
             </>
           )}
 
-          <Group justify="flex-end" mt="md">
-            <Button variant="default" onClick={closeModal}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} loading={saving}>
-              {editingCrawler ? "Update" : "Create"}
-            </Button>
-          </Group>
         </Stack>
       </Modal>
     </Container>
   );
 };
 
-const RunHistoryTable = ({ runs, compilationTarget, totalProposals }) => {
-  if (runs.length === 0) {
+// SSE-enabled wrapper for real-time run updates
+const CrawlerRunsSSE = ({ crawlerId, isExpanded, pageValue, pageSizeValue, onPageChange, onPageSizeChange, onStatusChange, onCrawlerUpdate }) => {
+  const [localData, setLocalData] = useState(null);
+
+  const handleSSEEvent = useCallback((type, payload) => {
+    // Handle config updates (e.g., crawler disabled on compilation target)
+    if (type === "config_updated") {
+      const updates = {
+        ...(payload.enabled != null && { enabled: payload.enabled }),
+        ...(payload.active_proposals != null && { active_proposals: payload.active_proposals }),
+      };
+      onCrawlerUpdate?.(crawlerId, updates);
+      return;
+    }
+
+    if (type !== "run_started" && type !== "run_completed") return;
+
+    // Update crawler stats if included in payload
+    const updates = {
+      ...(payload.config_active_proposals != null && { active_proposals: payload.config_active_proposals }),
+      ...(payload.config_enabled != null && { enabled: payload.config_enabled }),
+    };
+    if (type === "run_completed" && Object.keys(updates).length > 0) {
+      onCrawlerUpdate?.(crawlerId, updates);
+    }
+
+    setLocalData((prev) => {
+      if (!prev) return prev;
+
+      const items = prev.items || [];
+      const existingIndex = items.findIndex((r) => r.id === payload.id);
+
+      // Update existing run or prepend new one
+      if (existingIndex >= 0) {
+        const updated = [...items];
+        updated[existingIndex] = payload;
+        return { ...prev, items: updated };
+      }
+
+      // New run - prepend to list
+      return {
+        ...prev,
+        items: [payload, ...items].slice(0, pageSizeValue),
+        totalCount: prev.totalCount + 1,
+      };
+    });
+  }, [crawlerId, pageSizeValue, onCrawlerUpdate]);
+
+  const sseUrl = `/automation/crawlers/${crawlerId}/runs/stream?page=${pageValue}&limit=${pageSizeValue}`;
+  const { data: sseData, isConnected, error, lastPulse } = useSSE(sseUrl, {
+    enabled: isExpanded && !!crawlerId,
+    onEvent: handleSSEEvent,
+  });
+
+  // Sync SSE init data to local state
+  useEffect(() => {
+    if (sseData) {
+      setLocalData(sseData);
+    }
+  }, [sseData]);
+
+  // Reconnecting = had data but lost connection
+  const isReconnecting = !isConnected && !!localData;
+
+  // Report connection status to parent, clear on unmount
+  useEffect(() => {
+    onStatusChange(crawlerId, { connected: isConnected, reconnecting: isReconnecting, pulsing: false });
+    return () => onStatusChange(crawlerId, null);
+  }, [crawlerId, isConnected, isReconnecting, onStatusChange]);
+
+  // Pulse animation on keep-alive
+  useEffect(() => {
+    if (!lastPulse) return;
+    onStatusChange(crawlerId, { connected: isConnected, reconnecting: false, pulsing: true });
+    const timer = setTimeout(() => onStatusChange(crawlerId, { connected: isConnected, reconnecting: false, pulsing: false }), 500);
+    return () => clearTimeout(timer);
+  }, [crawlerId, lastPulse, isConnected, onStatusChange]);
+
+  if (!localData && !error) {
     return (
-      <Text c="dimmed" size="sm" ta="center" py="md">
-        No runs yet.
-      </Text>
+      <Group justify="center" py="md">
+        <Loader size="sm" />
+      </Group>
     );
   }
 
-  const isCompiled = totalProposals >= compilationTarget;
+  return (
+    <Stack gap={4}>
+      <RunHistoryDataTable
+        data={localData}
+        pageValue={pageValue}
+        onPageChange={onPageChange}
+        pageSizeValue={pageSizeValue}
+        onPageSizeChange={onPageSizeChange}
+      />
+    </Stack>
+  );
+};
+
+const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onPageSizeChange }) => {
+
+  const getStatusColor = (status) => {
+    if (status === "done") return "lime";
+    if (status === "running") return "blue";
+    return "red";
+  };
+
+  const columns = [
+    {
+      header: "Started",
+      accessor: (row) => new Date(row.started_at).toLocaleString(),
+    },
+    {
+      header: "Status",
+      render: (row) => (
+        <Badge size="xs" color={getStatusColor(row.status)}>
+          {row.status}
+        </Badge>
+      ),
+    },
+    {
+      header: "Compiled",
+      render: (row) => (row.compiled ? <CheckCircle size={16} color="lime" /> : null),
+    },
+    {
+      header: "Prospects",
+      accessor: "prospects_found",
+    },
+    {
+      header: "Proposals",
+      accessor: "proposals_created",
+    },
+    {
+      header: "Query",
+      render: (row) => (
+        <Text size="xs" lineClamp={1}>
+          {row.search_query || "-"}
+        </Text>
+      ),
+    },
+  ];
 
   return (
-    <Table size="sm">
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th>Started</Table.Th>
-          <Table.Th>Status</Table.Th>
-          <Table.Th>Compiled</Table.Th>
-          <Table.Th>Leads</Table.Th>
-          <Table.Th>Proposals</Table.Th>
-          <Table.Th>Query</Table.Th>
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>
-        {runs.map((run) => (
-          <Table.Tr key={run.id}>
-            <Table.Td>{new Date(run.started_at).toLocaleString()}</Table.Td>
-            <Table.Td>
-              <Badge
-                size="xs"
-                color={run.status === "completed" ? "lime" : run.status === "running" ? "blue" : "red"}
-              >
-                {run.status}
-              </Badge>
-            </Table.Td>
-            <Table.Td>
-              {isCompiled && <CheckCircle size={16} color="lime" />}
-            </Table.Td>
-            <Table.Td>{run.leads_found}</Table.Td>
-            <Table.Td>{run.proposals_created}</Table.Td>
-            <Table.Td>
-              <Text size="xs" lineClamp={1}>
-                {run.search_query || "-"}
-              </Text>
-            </Table.Td>
-          </Table.Tr>
-        ))}
-      </Table.Tbody>
-    </Table>
+    <DataTable
+      data={data}
+      columns={columns}
+      rowKey={(row) => row.id}
+      pageValue={pageValue}
+      onPageChange={onPageChange}
+      pageSizeValue={pageSizeValue}
+      onPageSizeChange={onPageSizeChange}
+      pageSizeOptions={[5, 10, 25, 50]}
+      emptyText="No runs yet."
+      withTableBorder={false}
+      withColumnBorders={false}
+    />
   );
 };
 

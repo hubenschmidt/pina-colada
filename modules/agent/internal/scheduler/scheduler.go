@@ -27,12 +27,13 @@ func NewScheduler(
 
 // Start begins the scheduler
 func (s *Scheduler) Start() error {
-	_, err := s.cron.AddFunc("* * * * *", s.checkDueAutomations)
+	// Check for due automations every 10 seconds to support short intervals
+	_, err := s.cron.AddFunc("@every 10s", s.checkDueAutomations)
 	if err != nil {
 		return err
 	}
 
-	_, err = s.cron.AddFunc("0 11 * * *", s.runDailyDigest)
+	_, err = s.cron.AddFunc("@every 1h", s.runDailyDigest)
 	if err != nil {
 		return err
 	}
@@ -53,6 +54,7 @@ func (s *Scheduler) checkDueAutomations() {
 	if s.worker == nil {
 		return
 	}
+	s.worker.ResumePausedCrawlers()
 	s.worker.ProcessDueAutomations()
 }
 

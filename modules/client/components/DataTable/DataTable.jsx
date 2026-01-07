@@ -84,7 +84,7 @@ export const DataTable = ({
   };
 
   return (
-    <Box>
+    <Box style={{ backgroundColor: "var(--surface-secondary)", borderRadius: 8, padding: 16 }}>
       {/* Top summary + pager */}
       <Group justify="flex-end" mb="xs">
         <Group gap="xs" align="center">

@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Paper,
   Title,
   Stack,
   Group,
@@ -232,7 +231,7 @@ const ProposalQueue = () => {
       ),
     },
     {
-      header: "Entity Type",
+      header: "Type",
       accessor: "entity_type",
       sortKey: "entity_type",
       sortable: true,
@@ -266,6 +265,11 @@ const ProposalQueue = () => {
       render: (row) => formatDate(row.created_at),
     },
     {
+      header: "Source",
+      accessor: "automation_config_name",
+      render: (row) => row.automation_config_name || "-",
+    },
+    {
       header: "Status",
       render: (row) =>
         hasValidationErrors(row) ? (
@@ -285,8 +289,7 @@ const ProposalQueue = () => {
   };
 
   return (
-    <Paper withBorder p="lg">
-      <Stack gap="md">
+    <Stack gap="md">
         <Group justify="space-between">
           <Title order={4}>Pending Proposals ({totalCount})</Title>
           <Group gap="xs">
@@ -369,7 +372,6 @@ const ProposalQueue = () => {
           emptyText="No pending proposals"
           highlightOnHover
         />
-      </Stack>
 
       <ProposalDetailModal
         proposal={activeProposal}
@@ -378,7 +380,7 @@ const ProposalQueue = () => {
         onReject={handleSingleReject}
         onPayloadUpdated={loadProposals}
       />
-    </Paper>
+    </Stack>
   );
 };
 
