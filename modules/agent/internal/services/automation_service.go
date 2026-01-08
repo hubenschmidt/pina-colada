@@ -748,6 +748,9 @@ func (s *AutomationService) searchJobs(query string, atsMode bool, timeFilter, l
 	if atsMode {
 		enhancedQuery = buildATSQuery(query)
 	}
+	if location != nil && *location != "" {
+		enhancedQuery = enhancedQuery + " " + *location
+	}
 
 	tbs := mapTimeFilter(timeFilter)
 
@@ -1486,14 +1489,20 @@ func (s *AutomationService) searchWithSuggestedQueries(cfg *repositories.Automat
 
 	// Hybrid approach: try Serper related searches first (free)
 	if len(relatedSearches) > 0 {
-		log.Printf("🔍 Hybrid: trying %d related searches from Serper (free)", len(relatedSearches))
+		log.Printf("🔍 Hybrid: received %d related searches from Serper: %v", len(relatedSearches), relatedSearches)
 		newQueries = s.prepareRelatedSearchQueries(cfg, relatedSearches, dedup)
+		if len(newQueries) > 0 {
+			log.Printf("🔍 Hybrid: using %d Serper-suggested queries (free): %v", len(newQueries), newQueries)
+		}
 	}
 
 	// Fall back to LLM suggestions if no related searches or all were filtered
 	if len(newQueries) == 0 {
-		log.Printf("🤖 Hybrid: falling back to LLM query suggestions")
+		log.Printf("🤖 Hybrid: no usable related searches, calling LLM for query suggestions...")
 		newQueries = s.suggestNewQueries(cfg, docContext, dedup)
+		if len(newQueries) > 0 {
+			log.Printf("🤖 Hybrid: LLM suggested %d new queries: %v", len(newQueries), newQueries)
+		}
 	}
 
 	if len(newQueries) == 0 {
