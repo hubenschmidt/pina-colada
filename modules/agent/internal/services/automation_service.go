@@ -755,7 +755,8 @@ func (s *AutomationService) searchJobs(query string, atsMode bool, timeFilter, l
 		enhancedQuery, atsMode, ptrStr(timeFilter), ptrStr(location))
 
 	reqBody := map[string]interface{}{
-		"q": enhancedQuery,
+		"q":  enhancedQuery,
+		"gl": "us",
 	}
 	if tbs != "" {
 		reqBody["tbs"] = tbs
