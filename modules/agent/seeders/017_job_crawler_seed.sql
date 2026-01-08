@@ -84,12 +84,12 @@ BEGIN
         CASE WHEN v_individual_id IS NOT NULL THEN jsonb_build_array(v_individual_id) ELSE '[]'::jsonb END,
         CASE WHEN v_doc_id IS NOT NULL THEN jsonb_build_array(v_doc_id) ELSE '[]'::jsonb END,
         true,
-        'gpt-5.2',
+        'gpt-5.1',
         'Please job search for matches using the resume linked on his Individual record. Jobs should be located in New York and at startups (seed, series A, B, and C).',
         true,
         'whubenschmidt@gmail.com',
         '09:00',
-        'claude-sonnet-4-20250514',
+        'claude-sonnet-4-5-20250929',
         NOW(),
         NOW()
     )
