@@ -4226,6 +4226,67 @@
           "response": []
         }
       ]
+    },
+    {
+      "name": "Automation",
+      "item": [
+        {
+          "name": "Get Crawlers",
+          "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]},
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/automation/crawlers", "host": ["{{base_url}}"], "path": ["automation", "crawlers"]},
+            "description": "Get all crawlers for the current user"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Crawler",
+          "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]},
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/automation/crawlers/{{crawler_id}}", "host": ["{{base_url}}"], "path": ["automation", "crawlers", "{{crawler_id}}"]},
+            "description": "Get a specific crawler by ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Test Crawler (Serper Search)",
+          "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]},
+            "method": "POST",
+            "header": [],
+            "url": {"raw": "{{base_url}}/automation/crawlers/{{crawler_id}}/test", "host": ["{{base_url}}"], "path": ["automation", "crawlers", "{{crawler_id}}", "test"]},
+            "description": "Trigger a test run of the crawler. Executes Serper search with the crawler's search_slots, ats_mode, time_filter, and location. Results appear in crawler runs."
+          },
+          "response": []
+        },
+        {
+          "name": "Toggle Crawler",
+          "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]},
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "body": {"mode": "raw", "raw": "{\n  \"enabled\": true\n}"},
+            "url": {"raw": "{{base_url}}/automation/crawlers/{{crawler_id}}/toggle", "host": ["{{base_url}}"], "path": ["automation", "crawlers", "{{crawler_id}}", "toggle"]},
+            "description": "Enable or disable a crawler"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Crawler Runs",
+          "request": {
+            "auth": {"type": "bearer", "bearer": [{"key": "token", "value": "{{bearer_token}}", "type": "string"}]},
+            "method": "GET",
+            "header": [],
+            "url": {"raw": "{{base_url}}/automation/crawlers/{{crawler_id}}/runs?page=1&limit=10", "host": ["{{base_url}}"], "path": ["automation", "crawlers", "{{crawler_id}}", "runs"], "query": [{"key": "page", "value": "1"}, {"key": "limit", "value": "10"}]},
+            "description": "Get paginated run history for a crawler"
+          },
+          "response": []
+        }
+      ]
     }
   ],
   "variable": [
@@ -4239,6 +4300,12 @@
       "value": "",
       "type": "string",
       "description": "JWT access token from Auth0. Get from /api/auth/token or Auth0 test tab"
+    },
+    {
+      "key": "crawler_id",
+      "value": "1",
+      "type": "string",
+      "description": "Crawler ID from seeder 017_job_crawler_seed.sql (test job crawler)"
     }
   ]
 }

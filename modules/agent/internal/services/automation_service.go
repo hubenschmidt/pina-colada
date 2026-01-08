@@ -778,6 +778,13 @@ func (s *AutomationService) searchJobs(query string, atsMode bool, timeFilter, l
 	return result, nil
 }
 
+func ptrStr(s *string) string {
+	if s == nil {
+		return "<nil>"
+	}
+	return *s
+}
+
 func mapTimeFilter(timeFilter *string) string {
 	if timeFilter == nil {
 		return ""
@@ -811,7 +818,17 @@ func (s *AutomationService) executeSerperRequest(jsonBody []byte) (*searchResult
 		return nil, fmt.Errorf("search failed: HTTP %d - %s", resp.StatusCode, string(body))
 	}
 
-	return s.parseSerperResponse(resp.Body)
+	// Read body for logging, then pass to parser
+	rawBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, rawBody, "", "  "); err == nil {
+		log.Printf("🔧🔧🔧🔧🔧 [Serper] Raw response:\n%s", prettyJSON.String())
+	}
+
+	return s.parseSerperResponse(bytes.NewReader(rawBody))
 }
 
 func (s *AutomationService) parseSerperResponse(body io.Reader) (*searchResultWithRelated, error) {
@@ -856,9 +873,16 @@ func (s *AutomationService) parseSerperResponse(body io.Reader) (*searchResultWi
 func buildATSQuery(baseQuery string) string {
 	atsKeywords := []string{
 		"site:greenhouse.io",
+		"site:boards.greenhouse.io",
 		"site:lever.co",
 		"site:jobs.ashbyhq.com",
-		"site:boards.eu.greenhouse.io",
+		"site:apply.workable.com",
+		"site:jobs.smartrecruiters.com",
+		"site:jobs.jobvite.com",
+		"site:*.breezy.hr",
+		"site:*.recruitee.com",
+		"site:jobs.icims.com",
+		"site:*.pinpointhq.com",
 	}
 	return baseQuery + " (" + strings.Join(atsKeywords, " OR ") + ")"
 }
@@ -1268,39 +1292,39 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 	totalProposals, _ := s.automationRepo.GetActiveProposals(dto.ID)
 
 	return &serializers.AutomationConfigResponse{
-		ID:                    dto.ID,
-		TenantID:              dto.TenantID,
-		UserID:                dto.UserID,
-		Name:                  dto.Name,
-		EntityType:            dto.EntityType,
-		Enabled:               dto.Enabled,
-		IntervalSeconds:       dto.IntervalSeconds,
-		LastRunAt:             dto.LastRunAt,
-		NextRunAt:             dto.NextRunAt,
-		RunCount:              dto.RunCount,
-		ProspectsPerRun:       dto.ProspectsPerRun,
-		ConcurrentSearches:    dto.ConcurrentSearches,
-		CompilationTarget:     dto.CompilationTarget,
-		DisableOnCompiled:     dto.DisableOnCompiled,
-		ActiveProposals:       totalProposals,
-		CompiledAt:            dto.CompiledAt,
-		SystemPrompt:          dto.SystemPrompt,
-		SearchSlots:           dto.SearchSlots,
-		ATSMode:               dto.ATSMode,
-		TimeFilter:            dto.TimeFilter,
-		Location:              dto.Location,
-		TargetType:            dto.TargetType,
-		TargetIDs:             dto.TargetIDs,
-		SourceDocumentIDs:     dto.SourceDocumentIDs,
-		DigestEnabled:         dto.DigestEnabled,
-		DigestEmails:          dto.DigestEmails,
-		DigestTime:            dto.DigestTime,
-		DigestModel:           dto.DigestModel,
-		LastDigestAt:          dto.LastDigestAt,
-		UseAgent:              dto.UseAgent,
-		AgentModel:            dto.AgentModel,
-		CreatedAt:             dto.CreatedAt,
-		UpdatedAt:             dto.UpdatedAt,
+		ID:                 dto.ID,
+		TenantID:           dto.TenantID,
+		UserID:             dto.UserID,
+		Name:               dto.Name,
+		EntityType:         dto.EntityType,
+		Enabled:            dto.Enabled,
+		IntervalSeconds:    dto.IntervalSeconds,
+		LastRunAt:          dto.LastRunAt,
+		NextRunAt:          dto.NextRunAt,
+		RunCount:           dto.RunCount,
+		ProspectsPerRun:    dto.ProspectsPerRun,
+		ConcurrentSearches: dto.ConcurrentSearches,
+		CompilationTarget:  dto.CompilationTarget,
+		DisableOnCompiled:  dto.DisableOnCompiled,
+		ActiveProposals:    totalProposals,
+		CompiledAt:         dto.CompiledAt,
+		SystemPrompt:       dto.SystemPrompt,
+		SearchSlots:        dto.SearchSlots,
+		ATSMode:            dto.ATSMode,
+		TimeFilter:         dto.TimeFilter,
+		Location:           dto.Location,
+		TargetType:         dto.TargetType,
+		TargetIDs:          dto.TargetIDs,
+		SourceDocumentIDs:  dto.SourceDocumentIDs,
+		DigestEnabled:      dto.DigestEnabled,
+		DigestEmails:       dto.DigestEmails,
+		DigestTime:         dto.DigestTime,
+		DigestModel:        dto.DigestModel,
+		LastDigestAt:       dto.LastDigestAt,
+		UseAgent:           dto.UseAgent,
+		AgentModel:         dto.AgentModel,
+		CreatedAt:          dto.CreatedAt,
+		UpdatedAt:          dto.UpdatedAt,
 	}
 }
 
