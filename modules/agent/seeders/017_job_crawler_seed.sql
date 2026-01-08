@@ -76,7 +76,7 @@ BEGIN
         10,
         2,
         40,
-        '[["senior software engineer"], ["full stack developer"]]'::jsonb,
+        '["(senior OR staff) software engineer -junior -intern", "(typescript OR javascript) node.js intitle:engineer"]'::jsonb,
         'NYC',
         true,
         'week',

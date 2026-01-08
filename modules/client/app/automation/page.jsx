@@ -16,7 +16,6 @@ import {
   Badge,
   Select,
   MultiSelect,
-  TagsInput,
   Loader,
   Alert,
   Modal,
@@ -28,7 +27,6 @@ import {
   Play,
   Clock,
   Mail,
-  Search,
   AlertCircle,
   CheckCircle,
   Plus,
@@ -106,7 +104,7 @@ const emptyForm = {
   concurrent_searches: 1,
   compilation_target: 100,
   disable_on_compiled: false,
-  search_slots: [[]],
+  search_slots: [""],
   location: "",
   ats_mode: true,
   time_filter: "week",
@@ -246,7 +244,7 @@ const AutomationPage = () => {
       concurrent_searches: crawler.concurrent_searches || 1,
       compilation_target: crawler.compilation_target || 100,
       disable_on_compiled: crawler.disable_on_compiled ?? false,
-      search_slots: crawler.search_slots?.length ? crawler.search_slots : [[]],
+      search_slots: crawler.search_slots?.length ? crawler.search_slots : [""],
       location: crawler.location || "",
       ats_mode: crawler.ats_mode ?? true,
       time_filter: crawler.time_filter || "week",
@@ -306,10 +304,10 @@ const AutomationPage = () => {
     }
 
     // Filter out empty slots before saving
-    const cleanedSlots = (form.search_slots || []).filter((slot) => slot && slot.length > 0);
+    const cleanedSlots = (form.search_slots || []).filter((slot) => slot && slot.trim().length > 0);
 
     if (cleanedSlots.length === 0) {
-      setModalError("At least one search slot must have keywords");
+      setModalError("At least one search slot must have a query");
       return;
     }
 
@@ -649,20 +647,21 @@ const AutomationPage = () => {
 
           <Stack gap="xs">
             {Array.from({ length: form.concurrent_searches }).map((_, slotIndex) => (
-              <TagsInput
+              <Textarea
                 key={slotIndex}
-                label={form.concurrent_searches === 1 ? "Search Keywords" : `Slot ${slotIndex + 1}`}
-                placeholder="Enter keyword and press Enter"
-                value={form.search_slots[slotIndex] || []}
-                onChange={(val) => {
+                label={form.concurrent_searches === 1 ? "Search Query" : `Slot ${slotIndex + 1}`}
+                placeholder="e.g. (typescript OR javascript) node.js intitle:engineer -junior"
+                description={slotIndex === 0 ? "Operators: OR, (), \"\", -, intitle:" : undefined}
+                value={form.search_slots[slotIndex] || ""}
+                onChange={(e) => {
                   const newSlots = [...(form.search_slots || [])];
                   while (newSlots.length < form.concurrent_searches) {
-                    newSlots.push([]);
+                    newSlots.push("");
                   }
-                  newSlots[slotIndex] = val;
+                  newSlots[slotIndex] = e.target.value;
                   updateForm("search_slots", newSlots);
                 }}
-                leftSection={<Search size={16} />}
+                minRows={2}
               />
             ))}
             {form.concurrent_searches > 1 && (

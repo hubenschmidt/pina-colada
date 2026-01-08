@@ -480,14 +480,14 @@ func (s *AutomationService) calculateDeficit(cfg *repositories.AutomationConfigD
 	return compilationTarget - pendingCount
 }
 
-func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDTO, batches [][]string, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32, []string) {
+func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDTO, queries []string, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32, []string) {
 	var searchWg sync.WaitGroup
 	var totalProspectsFound int32
-	resultsChan := make(chan searchBatchResult, len(batches))
+	resultsChan := make(chan searchBatchResult, len(queries))
 
-	for i, batch := range batches {
+	for i, query := range queries {
 		searchWg.Add(1)
-		go s.searchWorker(i, batch, cfg, resultsChan, &searchWg)
+		go s.searchWorker(i, query, cfg, resultsChan, &searchWg)
 	}
 
 	go func() {
@@ -655,10 +655,9 @@ func (s *AutomationService) recordRejectedJob(cfg *repositories.AutomationConfig
 	}
 }
 
-func (s *AutomationService) searchWorker(workerID int, keywords []string, cfg *repositories.AutomationConfigDTO, results chan<- searchBatchResult, wg *sync.WaitGroup) {
+func (s *AutomationService) searchWorker(workerID int, query string, cfg *repositories.AutomationConfigDTO, results chan<- searchBatchResult, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	query := strings.Join(keywords, " ")
 	log.Printf("Automation service[%d]: searching for '%s'", workerID, query)
 
 	searchResult, err := s.searchJobs(query, cfg.ATSMode, cfg.TimeFilter, cfg.Location)
@@ -696,27 +695,28 @@ func (s *AutomationService) createProposalFromJob(cfg *repositories.AutomationCo
 	return true
 }
 
-func (s *AutomationService) buildSearchQueries(cfg *repositories.AutomationConfigDTO) [][]string {
-	var batches [][]string
+func (s *AutomationService) buildSearchQueries(cfg *repositories.AutomationConfigDTO) []string {
+	var queries []string
 	for _, slot := range cfg.SearchSlots {
-		if len(slot) == 0 {
+		if strings.TrimSpace(slot) == "" {
 			continue
 		}
-		batches = append(batches, slot)
-		// Limit to ConcurrentSearches
-		if cfg.ConcurrentSearches > 0 && len(batches) >= cfg.ConcurrentSearches {
+		queries = append(queries, slot)
+		if cfg.ConcurrentSearches > 0 && len(queries) >= cfg.ConcurrentSearches {
 			break
 		}
 	}
-	return batches
+	return queries
 }
 
-func (s *AutomationService) buildCombinedQuery(slots [][]string) string {
-	var allKeywords []string
+func (s *AutomationService) buildCombinedQuery(slots []string) string {
+	var nonEmpty []string
 	for _, slot := range slots {
-		allKeywords = append(allKeywords, slot...)
+		if trimmed := strings.TrimSpace(slot); trimmed != "" {
+			nonEmpty = append(nonEmpty, trimmed)
+		}
 	}
-	return strings.Join(allKeywords, ", ")
+	return strings.Join(nonEmpty, " ")
 }
 
 // jobResult represents a job search result
@@ -751,8 +751,8 @@ func (s *AutomationService) searchJobs(query string, atsMode bool, timeFilter, l
 
 	tbs := mapTimeFilter(timeFilter)
 
-	log.Printf("🔧 [Serper] Calling API - query=%q, atsMode=%v, timeFilter=%v, location=%v",
-		enhancedQuery, atsMode, timeFilter, location)
+	log.Printf("🔧 [Serper] Calling API - query=%q, atsMode=%v, timeFilter=%s, location=%s",
+		enhancedQuery, atsMode, ptrStr(timeFilter), ptrStr(location))
 
 	reqBody := map[string]interface{}{
 		"q": enhancedQuery,
@@ -1587,11 +1587,11 @@ func (s *AutomationService) suggestNewQueries(cfg *repositories.AutomationConfig
 		}
 	}
 
-	// Extract just job titles from current search slots
+	// Extract current search queries from slots
 	currentTitles := make([]string, 0, len(cfg.SearchSlots))
 	for _, slot := range cfg.SearchSlots {
-		if len(slot) > 0 {
-			currentTitles = append(currentTitles, slot[0])
+		if strings.TrimSpace(slot) != "" {
+			currentTitles = append(currentTitles, slot)
 		}
 	}
 

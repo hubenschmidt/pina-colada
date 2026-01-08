@@ -38,7 +38,7 @@ type AutomationConfigDTO struct {
 	CompilationTarget   int
 	DisableOnCompiled   bool
 	SystemPrompt        *string
-	SearchSlots        [][]string
+	SearchSlots        []string
 	ATSMode            bool
 	TimeFilter         *string
 	Location           *string
@@ -67,7 +67,7 @@ type AutomationConfigInput struct {
 	CompilationTarget   *int
 	DisableOnCompiled   *bool
 	SystemPrompt        *string
-	SearchSlots        [][]string
+	SearchSlots        []string
 	ATSMode            *bool
 	TimeFilter         *string
 	Location           *string

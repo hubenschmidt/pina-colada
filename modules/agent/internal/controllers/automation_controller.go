@@ -51,7 +51,7 @@ type CrawlerRequest struct {
 	CompilationTarget  *int     `json:"compilation_target,omitempty"`
 	DisableOnCompiled  *bool    `json:"disable_on_compiled,omitempty"`
 	SystemPrompt       *string    `json:"system_prompt,omitempty"`
-	SearchSlots        [][]string `json:"search_slots,omitempty"`
+	SearchSlots        []string `json:"search_slots,omitempty"`
 	ATSMode            *bool      `json:"ats_mode,omitempty"`
 	TimeFilter         *string  `json:"time_filter,omitempty"`
 	Location           *string  `json:"location,omitempty"`
