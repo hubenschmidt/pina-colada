@@ -242,6 +242,7 @@ type JobListing struct {
 
 type serperRequest struct {
 	Q        string `json:"q"`
+	GL       string `json:"gl,omitempty"`       // Country code (e.g., "us")
 	Tbs      string `json:"tbs,omitempty"`      // Time-based search filter (e.g., qdr:w = past week)
 	Location string `json:"location,omitempty"` // Geographic location (e.g., "United States", "New York, NY")
 }
@@ -311,18 +312,10 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	log.Printf("job_search query (ats=%v): %s", params.ATSMode, enhancedQuery)
 
 	// Map time filter to Serper tbs parameter
-	var tbs string
-	switch params.TimeFilter {
-	case "day":
-		tbs = "qdr:d"
-	case "week":
-		tbs = "qdr:w"
-	case "month":
-		tbs = "qdr:m"
-	}
+	tbs := mapTimeFilter(params.TimeFilter)
 
 	// Call Serper API (num parameter deprecated by Google Sept 2025)
-	reqBody := serperRequest{Q: enhancedQuery, Tbs: tbs, Location: params.Location}
+	reqBody := serperRequest{Q: enhancedQuery, GL: "us", Tbs: tbs, Location: params.Location}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return &JobSearchResult{Results: fmt.Sprintf("Error encoding request: %v", err)}, nil
@@ -434,31 +427,25 @@ func buildATSQuery(baseQuery string) string {
 	return baseQuery + " (" + strings.Join(lib.ATSSites, " OR ") + ")"
 }
 
-// enhanceJobQuery adds career focus and minimal exclusions
+// enhanceJobQuery adds career focus and excludes job boards/aggregators
 func enhanceJobQuery(query string) string {
-	// Add "careers" to bias toward company pages, exclude job boards and aggregators
-	exclusions := []string{
-		// Major job boards
-		"-site:linkedin.com", "-site:indeed.com", "-site:glassdoor.com",
-		"-site:ziprecruiter.com", "-site:dice.com", "-site:monster.com",
-		"-site:simplyhired.com", "-site:careerbuilder.com",
-		// Tech job boards
-		"-site:builtinnyc.com", "-site:builtin.com", "-site:jobright.ai",
-		"-site:wellfound.com", "-site:roberthalf.com", "-site:hired.com",
-		"-site:angel.co", "-site:stackoverflow.com/jobs",
-		// Remote job boards
-		"-site:remoteok.com", "-site:remoterocketship.com", "-site:weworkremotely.com",
-		"-site:remote.co", "-site:flexjobs.com", "-site:dailyremote.com",
-		// AI/ML specific job boards
-		"-site:aijobs.com", "-site:aijobs.net", "-site:mljobs.com",
-		// Aggregators
-		"-site:jobleads.com", "-site:jobgether.com", "-site:jooble.org",
-		"-site:neuvoo.com", "-site:talent.com", "-site:getwork.com",
-		"-site:codingjobboard.com", "-site:snagajob.com", "-site:jobget.com",
-		"-site:jobtarget.com", "-site:harnham.com", "-site:glocomms.com",
-		"-site:hiringagents.com", "-site:funded.club",
+	return query + " careers " + strings.Join(lib.JobBoardExclusions, " ")
+}
+
+// mapTimeFilter normalizes time filter strings to Serper tbs parameter
+func mapTimeFilter(filter string) string {
+	f := strings.ToLower(filter)
+	// Check multi-day/week periods first (before "day" or "week" match)
+	if strings.Contains(f, "month") || strings.Contains(f, "30 day") || strings.Contains(f, "14 day") || strings.Contains(f, "2 week") {
+		return "qdr:m"
 	}
-	return query + " careers " + strings.Join(exclusions, " ")
+	if strings.Contains(f, "week") || strings.Contains(f, "7 day") {
+		return "qdr:w"
+	}
+	if strings.Contains(f, "day") || strings.Contains(f, "24h") || strings.Contains(f, "today") {
+		return "qdr:d"
+	}
+	return ""
 }
 
 // extractListings extracts structured job listings from organic results
@@ -719,7 +706,7 @@ func (t *SerperTools) WebSearchCtx(ctx context.Context, params WebSearchParams) 
 
 	log.Printf("🔍 web_search: query=%s", params.Query)
 
-	reqBody := serperRequest{Q: params.Query}
+	reqBody := serperRequest{Q: params.Query, GL: "us"}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
 		return &WebSearchResult{Results: fmt.Sprintf("Error encoding request: %v", err)}, nil
