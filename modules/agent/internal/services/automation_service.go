@@ -677,9 +677,9 @@ func (s *AutomationService) tryCreateProposal(cfg *repositories.AutomationConfig
 	if !s.createProposalFromJob(cfg, job, matchReason, combinedQuery, source, configID) {
 		return 0
 	}
-	// Add to dedup set to prevent duplicates within the same run
-	if dedup != nil && job.URL != "" {
-		dedup.urlSource[job.URL] = "Proposal"
+	// Update dedup status from "Pending" to "Proposal"
+	if dedup != nil {
+		dedup.markURL(job.URL, "Proposal")
 	}
 	return 1
 }
@@ -1391,6 +1391,7 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 
 // dedupData holds preloaded data for deduplication
 type dedupData struct {
+	mu               sync.RWMutex
 	existingJobs     []repositories.JobDedupInfo
 	pendingProposals []repositories.PendingJobProposal
 	rejectedJobs     []repositories.RejectedJobInfo
@@ -1460,6 +1461,9 @@ func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 
 // duplicateSource returns the source of the duplicate ("Job", "Proposal", "Rejected") or empty if not duplicate
 func (d *dedupData) duplicateSource(job jobResult) string {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
 	// Check URL first (fast path)
 	if job.URL != "" {
 		if source, ok := d.urlSource[job.URL]; ok {
@@ -1515,6 +1519,16 @@ func (d *dedupData) duplicateSource(job jobResult) string {
 	return ""
 }
 
+// markURL adds a URL to the dedup set (thread-safe)
+func (d *dedupData) markURL(url, source string) {
+	if url == "" {
+		return
+	}
+	d.mu.Lock()
+	d.urlSource[url] = source
+	d.mu.Unlock()
+}
+
 // normalizeCompanyName removes common suffixes and normalizes for comparison
 func normalizeCompanyName(name string) string {
 	name = strings.ToLower(strings.TrimSpace(name))
@@ -1546,6 +1560,8 @@ func (s *AutomationService) filterDuplicates(results []jobResult, dedup *dedupDa
 			log.Printf("Automation: filtering duplicate [%s]: %s at %s", dupSource, job.Title, job.Company)
 			continue
 		}
+		// Mark URL immediately to prevent duplicates across concurrent batches
+		dedup.markURL(job.URL, "Pending")
 		filtered = append(filtered, job)
 	}
 	return filtered
