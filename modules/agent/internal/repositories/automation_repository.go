@@ -50,11 +50,12 @@ type AutomationConfigDTO struct {
 	DigestTime         *string
 	DigestModel        *string
 	LastDigestAt       *time.Time
-	UseAgent           bool
-	AgentModel         *string
-	CompiledAt         *time.Time
-	CreatedAt          time.Time
-	UpdatedAt          time.Time
+	UseAgent            bool
+	AgentModel          *string
+	CompiledAt          *time.Time
+	EmptyProposalLimit  int
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 // AutomationConfigInput for creating/updating config
@@ -80,6 +81,7 @@ type AutomationConfigInput struct {
 	DigestModel        *string
 	UseAgent           *bool
 	AgentModel         *string
+	EmptyProposalLimit *int
 }
 
 // AutomationRunLogDTO represents a run log entry
@@ -372,6 +374,27 @@ func (r *AutomationRepository) CleanupStaleRuns() (int64, error) {
 	return result.RowsAffected, result.Error
 }
 
+// IncrementZeroRuns increments consecutive_zero_runs and returns the new count
+func (r *AutomationRepository) IncrementZeroRuns(configID int64) (int, error) {
+	err := r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Update("consecutive_zero_runs", gorm.Expr("consecutive_zero_runs + 1")).Error
+	if err != nil {
+		return 0, err
+	}
+	var count int
+	r.db.Model(&models.AutomationConfig{}).Where("id = ?", configID).
+		Pluck("consecutive_zero_runs", &count)
+	return count, nil
+}
+
+// ResetZeroRuns resets consecutive_zero_runs to 0
+func (r *AutomationRepository) ResetZeroRuns(configID int64) error {
+	return r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Update("consecutive_zero_runs", 0).Error
+}
+
 func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *AutomationConfigDTO {
 	dto := &AutomationConfigDTO{
 		ID:                 cfg.ID,
@@ -401,6 +424,7 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 		UseAgent:           cfg.UseAgent,
 		AgentModel:         cfg.AgentModel,
 		CompiledAt:         cfg.CompiledAt,
+		EmptyProposalLimit: cfg.EmptyProposalLimit,
 		CreatedAt:          cfg.CreatedAt,
 		UpdatedAt:          cfg.UpdatedAt,
 	}
@@ -482,6 +506,9 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	}
 	if input.AgentModel != nil {
 		cfg.AgentModel = input.AgentModel
+	}
+	if input.EmptyProposalLimit != nil {
+		cfg.EmptyProposalLimit = *input.EmptyProposalLimit
 	}
 }
 

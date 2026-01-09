@@ -120,6 +120,7 @@ const emptyForm = {
   digest_model: null,
   use_agent: false,
   agent_model: "claude-sonnet-4-20250514",
+  empty_proposal_limit: 0,
 };
 
 const AutomationPage = () => {
@@ -260,6 +261,7 @@ const AutomationPage = () => {
       digest_model: crawler.digest_model || null,
       use_agent: crawler.use_agent ?? false,
       agent_model: crawler.agent_model || "claude-sonnet-4-20250514",
+      empty_proposal_limit: crawler.empty_proposal_limit || 0,
     });
 
     // Load target entity names if set
@@ -659,6 +661,15 @@ const AutomationPage = () => {
               color="lime"
             />
           </Group>
+
+          <NumberInput
+            label="Empty Proposal Limit"
+            description="Auto-disable after N consecutive runs with 0 proposals (0 = disabled)"
+            value={form.empty_proposal_limit}
+            onChange={(val) => updateForm("empty_proposal_limit", val)}
+            min={0}
+            max={100}
+          />
 
           <Stack gap="xs">
             {Array.from({ length: form.concurrent_searches }).map((_, slotIndex) => (

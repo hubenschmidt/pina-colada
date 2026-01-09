@@ -375,6 +375,19 @@ func (s *AutomationService) executeAutomation(cfg *repositories.AutomationConfig
 	// Check if compilation target was just reached
 	s.checkAndSetCompiledAt(cfg)
 
+	// Track consecutive zero-proposal runs
+	if totalProposals > 0 {
+		s.automationRepo.ResetZeroRuns(cfg.ID)
+	}
+	if totalProposals == 0 && cfg.EmptyProposalLimit > 0 {
+		consecutiveZeroRuns, _ := s.automationRepo.IncrementZeroRuns(cfg.ID)
+		if consecutiveZeroRuns >= cfg.EmptyProposalLimit {
+			s.automationRepo.DisableConfig(cfg.ID)
+			log.Printf("Automation service: auto-disabled config=%d after %d consecutive runs with 0 proposals",
+				cfg.ID, consecutiveZeroRuns)
+		}
+	}
+
 	log.Printf("Automation service: completed config=%d - found=%d, proposals=%d",
 		cfg.ID, totalProspects, totalProposals)
 }
@@ -1332,6 +1345,7 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 		LastDigestAt:       dto.LastDigestAt,
 		UseAgent:           dto.UseAgent,
 		AgentModel:         dto.AgentModel,
+		EmptyProposalLimit: dto.EmptyProposalLimit,
 		CreatedAt:          dto.CreatedAt,
 		UpdatedAt:          dto.UpdatedAt,
 	}
