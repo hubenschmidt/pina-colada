@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"agent/internal/lib"
 )
 
 // JobServiceInterface defines the methods needed from JobService for filtering
@@ -429,9 +431,7 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 // buildATSQuery creates an ATS-biased query for direct company job pages
 // Use this for startup/tech company searches to get direct application links
 func buildATSQuery(baseQuery string) string {
-	// ATS platforms where companies post directly
-	ats := "(site:lever.co OR site:greenhouse.io OR site:jobs.ashbyhq.com OR site:boards.greenhouse.io)"
-	return baseQuery + " " + ats
+	return baseQuery + " (" + strings.Join(lib.ATSSites, " OR ") + ")"
 }
 
 // enhanceJobQuery adds career focus and minimal exclusions
