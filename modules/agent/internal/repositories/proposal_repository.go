@@ -413,3 +413,33 @@ func (r *ProposalRepository) GetPendingJobProposals(tenantID int64) ([]PendingJo
 	}
 	return result, nil
 }
+
+// GetRejectedJobProposals returns user-rejected job proposals for deduplication
+func (r *ProposalRepository) GetRejectedJobProposals(tenantID int64) ([]PendingJobProposal, error) {
+	var proposals []models.AgentProposal
+	err := r.db.Where("tenant_id = ? AND status = ? AND entity_type = ?", tenantID, ProposalStatusRejected, "job").
+		Find(&proposals).Error
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]PendingJobProposal, 0, len(proposals))
+	for _, p := range proposals {
+		var payload map[string]interface{}
+		if err := json.Unmarshal(p.Payload, &payload); err != nil {
+			continue
+		}
+		prop := PendingJobProposal{}
+		if url, ok := payload["url"].(string); ok {
+			prop.URL = url
+		}
+		if title, ok := payload["job_title"].(string); ok {
+			prop.Title = title
+		}
+		if account, ok := payload["account"].(string); ok {
+			prop.Company = account
+		}
+		result = append(result, prop)
+	}
+	return result, nil
+}
