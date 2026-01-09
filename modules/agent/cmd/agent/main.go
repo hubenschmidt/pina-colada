@@ -117,7 +117,7 @@ func main() {
 	genericEntityService := services.NewGenericEntityService(genericEntityRepo)
 	visitorService := services.NewVisitorService(cfg)
 	docLoader := &documentLoaderAdapter{docService: docService}
-	automationService := services.NewAutomationService(automationRepo, proposalRepo, jobRepo, proposalService, docLoader, cfg.SerperAPIKey, cfg.AnthropicAPIKey, cfg.OpenAIAPIKey)
+	automationService := services.NewAutomationService(automationRepo, proposalRepo, jobRepo, proposalService, docLoader, cfg.SerperAPIKey, cfg.AnthropicAPIKey, cfg.OpenAIAPIKey, cfg.Env, cfg.PushoverUser, cfg.PushoverToken)
 
 	// Cleanup any stale automation runs from previous server runs
 	automationService.CleanupStaleRuns()
