@@ -21,7 +21,7 @@ type AutomationConfigResponse struct {
 	ActiveProposals   int  `json:"active_proposals"`
 	CompiledAt        *time.Time `json:"compiled_at"`
 	SystemPrompt       *string    `json:"system_prompt"`
-	SearchSlots        [][]string `json:"search_slots"`
+	SearchSlots        []string `json:"search_slots"`
 	ATSMode            bool       `json:"ats_mode"`
 	TimeFilter         *string    `json:"time_filter"`
 	Location           *string    `json:"location"`

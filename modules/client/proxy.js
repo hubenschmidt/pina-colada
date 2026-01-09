@@ -16,9 +16,12 @@ export const proxy = async (request) => {
   // Allow public routes
   const publicRoutes = ["/", "/login", "/about", "/terms", "/privacy"];
 
-  // Allow auth routes
+  // Allow auth routes (both /auth/* and /api/auth/*)
   if (pathname.startsWith("/auth/")) {
     return await auth0.middleware(request);
+  }
+  if (pathname.startsWith("/api/auth/")) {
+    return NextResponse.next();
   }
 
   // Allow public routes and hash routes (handled client-side)

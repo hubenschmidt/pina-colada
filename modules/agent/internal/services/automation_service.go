@@ -181,6 +181,11 @@ func (s *AutomationService) DeleteCrawler(configID int64) error {
 	return s.automationRepo.DeleteConfig(configID)
 }
 
+// ClearRejectedJobs deletes all rejected jobs for a crawler
+func (s *AutomationService) ClearRejectedJobs(configID int64) error {
+	return s.automationRepo.ClearRejectedJobs(configID)
+}
+
 // ToggleCrawler enables or disables a crawler
 func (s *AutomationService) ToggleCrawler(configID int64, enabled bool) (*serializers.AutomationConfigResponse, error) {
 	cfg, err := s.automationRepo.GetConfigByID(configID)
@@ -480,14 +485,14 @@ func (s *AutomationService) calculateDeficit(cfg *repositories.AutomationConfigD
 	return compilationTarget - pendingCount
 }
 
-func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDTO, batches [][]string, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32, []string) {
+func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDTO, queries []string, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32, []string) {
 	var searchWg sync.WaitGroup
 	var totalProspectsFound int32
-	resultsChan := make(chan searchBatchResult, len(batches))
+	resultsChan := make(chan searchBatchResult, len(queries))
 
-	for i, batch := range batches {
+	for i, query := range queries {
 		searchWg.Add(1)
-		go s.searchWorker(i, batch, cfg, resultsChan, &searchWg)
+		go s.searchWorker(i, query, cfg, resultsChan, &searchWg)
 	}
 
 	go func() {
@@ -655,10 +660,9 @@ func (s *AutomationService) recordRejectedJob(cfg *repositories.AutomationConfig
 	}
 }
 
-func (s *AutomationService) searchWorker(workerID int, keywords []string, cfg *repositories.AutomationConfigDTO, results chan<- searchBatchResult, wg *sync.WaitGroup) {
+func (s *AutomationService) searchWorker(workerID int, query string, cfg *repositories.AutomationConfigDTO, results chan<- searchBatchResult, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	query := strings.Join(keywords, " ")
 	log.Printf("Automation service[%d]: searching for '%s'", workerID, query)
 
 	searchResult, err := s.searchJobs(query, cfg.ATSMode, cfg.TimeFilter, cfg.Location)
@@ -696,27 +700,28 @@ func (s *AutomationService) createProposalFromJob(cfg *repositories.AutomationCo
 	return true
 }
 
-func (s *AutomationService) buildSearchQueries(cfg *repositories.AutomationConfigDTO) [][]string {
-	var batches [][]string
+func (s *AutomationService) buildSearchQueries(cfg *repositories.AutomationConfigDTO) []string {
+	var queries []string
 	for _, slot := range cfg.SearchSlots {
-		if len(slot) == 0 {
+		if strings.TrimSpace(slot) == "" {
 			continue
 		}
-		batches = append(batches, slot)
-		// Limit to ConcurrentSearches
-		if cfg.ConcurrentSearches > 0 && len(batches) >= cfg.ConcurrentSearches {
+		queries = append(queries, slot)
+		if cfg.ConcurrentSearches > 0 && len(queries) >= cfg.ConcurrentSearches {
 			break
 		}
 	}
-	return batches
+	return queries
 }
 
-func (s *AutomationService) buildCombinedQuery(slots [][]string) string {
-	var allKeywords []string
+func (s *AutomationService) buildCombinedQuery(slots []string) string {
+	var nonEmpty []string
 	for _, slot := range slots {
-		allKeywords = append(allKeywords, slot...)
+		if trimmed := strings.TrimSpace(slot); trimmed != "" {
+			nonEmpty = append(nonEmpty, trimmed)
+		}
 	}
-	return strings.Join(allKeywords, ", ")
+	return strings.Join(nonEmpty, " ")
 }
 
 // jobResult represents a job search result
@@ -748,14 +753,18 @@ func (s *AutomationService) searchJobs(query string, atsMode bool, timeFilter, l
 	if atsMode {
 		enhancedQuery = buildATSQuery(query)
 	}
+	if location != nil && *location != "" {
+		enhancedQuery = enhancedQuery + " " + *location
+	}
 
 	tbs := mapTimeFilter(timeFilter)
 
-	log.Printf("🔧 [Serper] Calling API - query=%q, atsMode=%v, timeFilter=%v, location=%v",
-		enhancedQuery, atsMode, timeFilter, location)
+	log.Printf("🔧 [Serper] Calling API - query=%q, atsMode=%v, timeFilter=%s, location=%s",
+		enhancedQuery, atsMode, ptrStr(timeFilter), ptrStr(location))
 
 	reqBody := map[string]interface{}{
-		"q": enhancedQuery,
+		"q":  enhancedQuery,
+		"gl": "us",
 	}
 	if tbs != "" {
 		reqBody["tbs"] = tbs
@@ -776,6 +785,13 @@ func (s *AutomationService) searchJobs(query string, atsMode bool, timeFilter, l
 	}
 	log.Printf("🔧 [Serper] API returned %d results, %d related searches", len(result.Jobs), len(result.RelatedSearches))
 	return result, nil
+}
+
+func ptrStr(s *string) string {
+	if s == nil {
+		return "<nil>"
+	}
+	return *s
 }
 
 func mapTimeFilter(timeFilter *string) string {
@@ -811,7 +827,17 @@ func (s *AutomationService) executeSerperRequest(jsonBody []byte) (*searchResult
 		return nil, fmt.Errorf("search failed: HTTP %d - %s", resp.StatusCode, string(body))
 	}
 
-	return s.parseSerperResponse(resp.Body)
+	// Read body for logging, then pass to parser
+	rawBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read response: %w", err)
+	}
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, rawBody, "", "  "); err == nil {
+		log.Printf("🔧🔧🔧🔧🔧 [Serper] Raw response:\n%s", prettyJSON.String())
+	}
+
+	return s.parseSerperResponse(bytes.NewReader(rawBody))
 }
 
 func (s *AutomationService) parseSerperResponse(body io.Reader) (*searchResultWithRelated, error) {
@@ -856,9 +882,16 @@ func (s *AutomationService) parseSerperResponse(body io.Reader) (*searchResultWi
 func buildATSQuery(baseQuery string) string {
 	atsKeywords := []string{
 		"site:greenhouse.io",
+		"site:boards.greenhouse.io",
 		"site:lever.co",
 		"site:jobs.ashbyhq.com",
-		"site:boards.eu.greenhouse.io",
+		"site:apply.workable.com",
+		"site:jobs.smartrecruiters.com",
+		"site:jobs.jobvite.com",
+		"site:*.breezy.hr",
+		"site:*.recruitee.com",
+		"site:jobs.icims.com",
+		"site:*.pinpointhq.com",
 	}
 	return baseQuery + " (" + strings.Join(atsKeywords, " OR ") + ")"
 }
@@ -1268,39 +1301,39 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 	totalProposals, _ := s.automationRepo.GetActiveProposals(dto.ID)
 
 	return &serializers.AutomationConfigResponse{
-		ID:                    dto.ID,
-		TenantID:              dto.TenantID,
-		UserID:                dto.UserID,
-		Name:                  dto.Name,
-		EntityType:            dto.EntityType,
-		Enabled:               dto.Enabled,
-		IntervalSeconds:       dto.IntervalSeconds,
-		LastRunAt:             dto.LastRunAt,
-		NextRunAt:             dto.NextRunAt,
-		RunCount:              dto.RunCount,
-		ProspectsPerRun:       dto.ProspectsPerRun,
-		ConcurrentSearches:    dto.ConcurrentSearches,
-		CompilationTarget:     dto.CompilationTarget,
-		DisableOnCompiled:     dto.DisableOnCompiled,
-		ActiveProposals:       totalProposals,
-		CompiledAt:            dto.CompiledAt,
-		SystemPrompt:          dto.SystemPrompt,
-		SearchSlots:           dto.SearchSlots,
-		ATSMode:               dto.ATSMode,
-		TimeFilter:            dto.TimeFilter,
-		Location:              dto.Location,
-		TargetType:            dto.TargetType,
-		TargetIDs:             dto.TargetIDs,
-		SourceDocumentIDs:     dto.SourceDocumentIDs,
-		DigestEnabled:         dto.DigestEnabled,
-		DigestEmails:          dto.DigestEmails,
-		DigestTime:            dto.DigestTime,
-		DigestModel:           dto.DigestModel,
-		LastDigestAt:          dto.LastDigestAt,
-		UseAgent:              dto.UseAgent,
-		AgentModel:            dto.AgentModel,
-		CreatedAt:             dto.CreatedAt,
-		UpdatedAt:             dto.UpdatedAt,
+		ID:                 dto.ID,
+		TenantID:           dto.TenantID,
+		UserID:             dto.UserID,
+		Name:               dto.Name,
+		EntityType:         dto.EntityType,
+		Enabled:            dto.Enabled,
+		IntervalSeconds:    dto.IntervalSeconds,
+		LastRunAt:          dto.LastRunAt,
+		NextRunAt:          dto.NextRunAt,
+		RunCount:           dto.RunCount,
+		ProspectsPerRun:    dto.ProspectsPerRun,
+		ConcurrentSearches: dto.ConcurrentSearches,
+		CompilationTarget:  dto.CompilationTarget,
+		DisableOnCompiled:  dto.DisableOnCompiled,
+		ActiveProposals:    totalProposals,
+		CompiledAt:         dto.CompiledAt,
+		SystemPrompt:       dto.SystemPrompt,
+		SearchSlots:        dto.SearchSlots,
+		ATSMode:            dto.ATSMode,
+		TimeFilter:         dto.TimeFilter,
+		Location:           dto.Location,
+		TargetType:         dto.TargetType,
+		TargetIDs:          dto.TargetIDs,
+		SourceDocumentIDs:  dto.SourceDocumentIDs,
+		DigestEnabled:      dto.DigestEnabled,
+		DigestEmails:       dto.DigestEmails,
+		DigestTime:         dto.DigestTime,
+		DigestModel:        dto.DigestModel,
+		LastDigestAt:       dto.LastDigestAt,
+		UseAgent:           dto.UseAgent,
+		AgentModel:         dto.AgentModel,
+		CreatedAt:          dto.CreatedAt,
+		UpdatedAt:          dto.UpdatedAt,
 	}
 }
 
@@ -1461,14 +1494,20 @@ func (s *AutomationService) searchWithSuggestedQueries(cfg *repositories.Automat
 
 	// Hybrid approach: try Serper related searches first (free)
 	if len(relatedSearches) > 0 {
-		log.Printf("🔍 Hybrid: trying %d related searches from Serper (free)", len(relatedSearches))
+		log.Printf("🔍 Hybrid: received %d related searches from Serper: %v", len(relatedSearches), relatedSearches)
 		newQueries = s.prepareRelatedSearchQueries(cfg, relatedSearches, dedup)
+		if len(newQueries) > 0 {
+			log.Printf("🔍 Hybrid: using %d Serper-suggested queries (free): %v", len(newQueries), newQueries)
+		}
 	}
 
 	// Fall back to LLM suggestions if no related searches or all were filtered
 	if len(newQueries) == 0 {
-		log.Printf("🤖 Hybrid: falling back to LLM query suggestions")
+		log.Printf("🤖 Hybrid: no usable related searches, calling LLM for query suggestions...")
 		newQueries = s.suggestNewQueries(cfg, docContext, dedup)
+		if len(newQueries) > 0 {
+			log.Printf("🤖 Hybrid: LLM suggested %d new queries: %v", len(newQueries), newQueries)
+		}
 	}
 
 	if len(newQueries) == 0 {
@@ -1563,11 +1602,11 @@ func (s *AutomationService) suggestNewQueries(cfg *repositories.AutomationConfig
 		}
 	}
 
-	// Extract just job titles from current search slots
+	// Extract current search queries from slots
 	currentTitles := make([]string, 0, len(cfg.SearchSlots))
 	for _, slot := range cfg.SearchSlots {
-		if len(slot) > 0 {
-			currentTitles = append(currentTitles, slot[0])
+		if strings.TrimSpace(slot) != "" {
+			currentTitles = append(currentTitles, slot)
 		}
 	}
 

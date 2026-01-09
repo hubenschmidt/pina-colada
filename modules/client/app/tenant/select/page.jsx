@@ -40,7 +40,7 @@ const TenantSelectPage = () => {
   useEffect(() => {
     if (userLoading) return;
     if (!isAuthed) {
-      router.push("/auth/login");
+      window.location.href = "/auth/login";
     }
   }, [userLoading, isAuthed, router]);
 

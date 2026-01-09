@@ -13,6 +13,7 @@ import (
 )
 
 type VisitorService struct {
+	env           string
 	pushoverUser  string
 	pushoverToken string
 	httpClient    *http.Client
@@ -47,6 +48,7 @@ type VisitorInfo struct {
 
 func NewVisitorService(cfg *config.Config) *VisitorService {
 	return &VisitorService{
+		env:           cfg.Env,
 		pushoverUser:  cfg.PushoverUser,
 		pushoverToken: cfg.PushoverToken,
 		httpClient:    &http.Client{Timeout: 10 * time.Second},
@@ -59,11 +61,20 @@ func (s *VisitorService) NotifyVisitor(info VisitorInfo) error {
 		return nil
 	}
 
+	if s.env == "development" {
+		return nil
+	}
+
 	if s.isDuplicateVisit(info.IP) {
 		return nil
 	}
 
 	location := s.getGeoLocation(info.IP)
+
+	if location == "Ossining, New York, United States" {
+		return nil
+	}
+
 	device := parseDeviceType(info.UserAgent)
 	referrer := info.Referrer
 	if referrer == "" {
