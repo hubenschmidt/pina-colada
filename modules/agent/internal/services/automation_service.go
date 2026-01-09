@@ -1377,6 +1377,18 @@ func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	}
 	log.Printf("🔍 Dedup [Proposal]: loaded %d pending proposals", len(proposals))
 
+	// Load user-rejected proposals
+	rejectedProposals, err := s.proposalRepo.GetRejectedJobProposals(tenantID)
+	if err != nil {
+		log.Printf("Automation service: failed to load rejected proposals for dedup: %v", err)
+	}
+	for _, p := range rejectedProposals {
+		if p.URL != "" {
+			data.urlSource[p.URL] = "UserRejected"
+		}
+	}
+	log.Printf("🔍 Dedup [UserRejected]: loaded %d user-rejected proposals", len(rejectedProposals))
+
 	// Load agent-rejected jobs
 	rejected, err := s.automationRepo.GetRejectedJobs(tenantID)
 	if err != nil {
