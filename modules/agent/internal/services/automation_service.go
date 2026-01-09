@@ -801,7 +801,7 @@ func (s *AutomationService) searchJobs(query string, atsMode bool, timeFilter, l
 		return nil, fmt.Errorf("SERPER_API_KEY not configured")
 	}
 
-	enhancedQuery := query
+	enhancedQuery := query + " careers " + strings.Join(lib.JobBoardExclusions, " ")
 	if atsMode {
 		enhancedQuery = buildATSQuery(query)
 	}
