@@ -35,6 +35,7 @@ type AutomationConfigResponse struct {
 	LastDigestAt       *time.Time `json:"last_digest_at"`
 	UseAgent           bool       `json:"use_agent"`
 	AgentModel         *string    `json:"agent_model"`
+	EmptyProposalLimit int        `json:"empty_proposal_limit"`
 	CreatedAt          time.Time  `json:"created_at,omitempty"`
 	UpdatedAt          time.Time  `json:"updated_at,omitempty"`
 }

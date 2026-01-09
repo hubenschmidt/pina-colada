@@ -21,16 +21,18 @@ export const StatusSelect = ({ value, options, colors = {}, onUpdate, field = "s
   };
 
   return (
-    <Select
-      size="xs"
-      value={localValue}
-      data={options}
-      onChange={handleChange}
-      disabled={loading || !onUpdate}
-      allowDeselect={false}
-      classNames={{
-        input: `text-xs font-medium rounded border ${colors[localValue] || "bg-gray-100 text-gray-800"}`,
-      }}
-    />
+    <div data-mantine-stop-propagation onClick={(e) => e.stopPropagation()}>
+      <Select
+        size="xs"
+        value={localValue}
+        data={options}
+        onChange={handleChange}
+        disabled={loading || !onUpdate}
+        allowDeselect={false}
+        classNames={{
+          input: `text-xs font-medium rounded border ${colors[localValue] || "bg-gray-100 text-gray-800"}`,
+        }}
+      />
+    </div>
   );
 };

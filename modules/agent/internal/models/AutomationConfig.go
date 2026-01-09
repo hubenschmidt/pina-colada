@@ -36,9 +36,11 @@ type AutomationConfig struct {
 	DigestModel        *string        `gorm:"column:digest_model" json:"digest_model"`
 	LastDigestAt       *time.Time     `gorm:"column:last_digest_at" json:"last_digest_at"`
 	UseAgent           bool           `gorm:"column:use_agent;not null;default:false" json:"use_agent"`
-	AgentModel         *string        `gorm:"column:agent_model" json:"agent_model"`
-	CreatedAt          time.Time      `gorm:"autoCreateTime" json:"created_at"`
-	UpdatedAt          time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
+	AgentModel           *string        `gorm:"column:agent_model" json:"agent_model"`
+	ConsecutiveZeroRuns  int            `gorm:"column:consecutive_zero_runs;not null;default:0" json:"consecutive_zero_runs"`
+	EmptyProposalLimit   int            `gorm:"column:empty_proposal_limit;not null;default:0" json:"empty_proposal_limit"`
+	CreatedAt            time.Time      `gorm:"autoCreateTime" json:"created_at"`
+	UpdatedAt            time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 }
 
 func (AutomationConfig) TableName() string {
