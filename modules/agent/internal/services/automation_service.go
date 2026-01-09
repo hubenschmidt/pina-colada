@@ -578,17 +578,22 @@ func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *reposit
 
 		// Filter duplicates BEFORE sending to LLM
 		filtered := s.filterDuplicates(batch.Jobs, dedup)
-
-		// Has new results - send to LLM review
-		if len(filtered) > 0 {
-			log.Printf("Automation: %d/%d results are new, sending to LLM review", len(filtered), len(batch.Jobs))
-			reviewWg.Add(1)
-			go s.agentReviewWorker(cfg, filtered, documentContext, reviewedChan, &reviewWg)
+		if len(filtered) == 0 {
+			log.Printf("Automation: all %d results are duplicates, skipping", len(batch.Jobs))
 			continue
 		}
 
-		// All duplicates
-		log.Printf("Automation: all %d results are duplicates, skipping LLM review", len(batch.Jobs))
+		// Validate URLs with HEAD requests
+		filtered = s.validateURLs(filtered)
+		if len(filtered) == 0 {
+			log.Printf("Automation: all URLs failed validation, skipping LLM review")
+			continue
+		}
+
+		// Send to LLM review
+		log.Printf("Automation: %d results passed filters, sending to LLM review", len(filtered))
+		reviewWg.Add(1)
+		go s.agentReviewWorker(cfg, filtered, documentContext, reviewedChan, &reviewWg)
 
 		// Already tried query suggestions this run
 		if querySuggestionsUsed {
@@ -1537,6 +1542,43 @@ func (s *AutomationService) filterDuplicates(results []jobResult, dedup *dedupDa
 		filtered = append(filtered, job)
 	}
 	return filtered
+}
+
+// validateURLs checks URLs with HEAD requests to filter broken links
+func (s *AutomationService) validateURLs(results []jobResult) []jobResult {
+	if len(results) == 0 {
+		return results
+	}
+
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			return nil // follow redirects
+		},
+	}
+
+	valid := make([]jobResult, 0, len(results))
+	for _, r := range results {
+		resp, err := client.Head(r.URL)
+		if err != nil {
+			log.Printf("Automation: URL validation failed for %s: %v", r.URL, err)
+			continue
+		}
+		resp.Body.Close()
+
+		if resp.StatusCode >= 400 {
+			log.Printf("Automation: skipping broken link %s (status %d)", r.URL, resp.StatusCode)
+			continue
+		}
+
+		valid = append(valid, r)
+	}
+
+	if len(valid) < len(results) {
+		log.Printf("Automation: URL validation filtered %d/%d broken links", len(results)-len(valid), len(results))
+	}
+
+	return valid
 }
 
 // searchWithSuggestedQueries uses hybrid approach: try Serper related searches first (free), then fall back to LLM
