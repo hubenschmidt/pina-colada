@@ -64,6 +64,7 @@ type CrawlerRequest struct {
 	DigestModel        *string  `json:"digest_model,omitempty"`
 	UseAgent           *bool    `json:"use_agent,omitempty"`
 	AgentModel         *string  `json:"agent_model,omitempty"`
+	EmptyProposalLimit *int     `json:"empty_proposal_limit,omitempty"`
 }
 
 // ToggleRequest represents the request body for toggling a crawler
@@ -361,6 +362,7 @@ func (c *AutomationController) requestToInput(req CrawlerRequest) repositories.A
 		DigestModel:        req.DigestModel,
 		UseAgent:           req.UseAgent,
 		AgentModel:         req.AgentModel,
+		EmptyProposalLimit: req.EmptyProposalLimit,
 	}
 }
 

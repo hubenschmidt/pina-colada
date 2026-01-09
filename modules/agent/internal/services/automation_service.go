@@ -210,6 +210,7 @@ func (s *AutomationService) ToggleCrawler(configID int64, enabled bool) (*serial
 	}
 
 	_ = s.automationRepo.SetNextRun(result.ID, now)
+	_ = s.automationRepo.ResetZeroRuns(result.ID)
 	return s.GetCrawler(configID)
 }
 
@@ -385,6 +386,10 @@ func (s *AutomationService) executeAutomation(cfg *repositories.AutomationConfig
 			s.automationRepo.DisableConfig(cfg.ID)
 			log.Printf("Automation service: auto-disabled config=%d after %d consecutive runs with 0 proposals",
 				cfg.ID, consecutiveZeroRuns)
+			sse.Publish(sse.CrawlerTopic(cfg.ID), sse.Event{
+				Type: "config_updated",
+				Data: map[string]interface{}{"enabled": false},
+			})
 		}
 	}
 
