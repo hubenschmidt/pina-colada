@@ -33,6 +33,7 @@ import {
   MoreVertical,
   Edit,
   Trash,
+  RefreshCw,
   ChevronDown,
   ChevronRight,
 } from "lucide-react";
@@ -49,6 +50,7 @@ import {
   toggleCrawler,
   testCrawler,
   sendTestDigest,
+  clearRejectedJobs,
   searchIndividuals,
   searchOrganizations,
   searchContacts,
@@ -372,6 +374,16 @@ const AutomationPage = () => {
     }
   };
 
+  const handleClearRejectedJobs = async (crawler) => {
+    if (!window.confirm(`Clear all rejected jobs for "${crawler.name}"? This will allow previously rejected results to be re-evaluated.`)) return;
+    try {
+      await clearRejectedJobs(crawler.id);
+      showAlert("Rejected jobs cleared", "lime");
+    } catch (error) {
+      showAlert(error.message, "red");
+    }
+  };
+
   const handleSendTestDigest = async () => {
     if (!editingCrawler) return;
     try {
@@ -525,6 +537,9 @@ const AutomationPage = () => {
                           </Menu.Item>
                           <Menu.Item leftSection={<Play size={14} />} onClick={() => handleTestRun(crawler)}>
                             Test Run
+                          </Menu.Item>
+                          <Menu.Item leftSection={<RefreshCw size={14} />} onClick={() => handleClearRejectedJobs(crawler)}>
+                            Clear Rejected Jobs
                           </Menu.Item>
                           <Menu.Divider />
                           <Menu.Item

@@ -456,6 +456,7 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 				r.Get("/runs/stream", c.Automation.StreamCrawlerRuns)
 				r.Post("/test", c.Automation.TestCrawler)
 				r.Post("/test-digest", c.Automation.SendTestDigest)
+				r.Delete("/rejected-jobs", c.Automation.ClearRejectedJobs)
 			})
 		})
 	})

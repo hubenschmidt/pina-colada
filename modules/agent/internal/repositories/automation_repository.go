@@ -550,3 +550,8 @@ func (r *AutomationRepository) GetRejectedJobs(tenantID int64) ([]RejectedJobInf
 	}
 	return result, nil
 }
+
+// ClearRejectedJobs deletes all rejected jobs for a given automation config
+func (r *AutomationRepository) ClearRejectedJobs(configID int64) error {
+	return r.db.Where("automation_config_id = ?", configID).Delete(&models.AutomationRejectedJob{}).Error
+}

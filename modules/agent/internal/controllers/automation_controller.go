@@ -187,6 +187,22 @@ func (c *AutomationController) DeleteCrawler(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// ClearRejectedJobs handles DELETE /automation/crawlers/{id}/rejected-jobs
+func (c *AutomationController) ClearRejectedJobs(w http.ResponseWriter, r *http.Request) {
+	configID, err := c.parseConfigID(r)
+	if err != nil {
+		writeAutomationError(w, http.StatusBadRequest, "invalid crawler ID")
+		return
+	}
+
+	if err := c.automationService.ClearRejectedJobs(configID); err != nil {
+		writeAutomationError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeAutomationJSON(w, http.StatusOK, map[string]string{"status": "rejected jobs cleared"})
+}
+
 // ToggleCrawler handles POST /automation/crawlers/{id}/toggle
 func (c *AutomationController) ToggleCrawler(w http.ResponseWriter, r *http.Request) {
 	configID, err := c.parseConfigID(r)

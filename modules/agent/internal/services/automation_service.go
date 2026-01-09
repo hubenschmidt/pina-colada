@@ -181,6 +181,11 @@ func (s *AutomationService) DeleteCrawler(configID int64) error {
 	return s.automationRepo.DeleteConfig(configID)
 }
 
+// ClearRejectedJobs deletes all rejected jobs for a crawler
+func (s *AutomationService) ClearRejectedJobs(configID int64) error {
+	return s.automationRepo.ClearRejectedJobs(configID)
+}
+
 // ToggleCrawler enables or disables a crawler
 func (s *AutomationService) ToggleCrawler(configID int64, enabled bool) (*serializers.AutomationConfigResponse, error) {
 	cfg, err := s.automationRepo.GetConfigByID(configID)
