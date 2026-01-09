@@ -335,7 +335,7 @@ func (s *AutomationService) executeAutomation(cfg *repositories.AutomationConfig
 	})
 
 	keywordBatches := s.buildSearchQueries(cfg)
-	totalProspects, totalProposals, suggestedQueries := s.executeSearches(cfg, keywordBatches, deficit, combinedQuery, dedup)
+	totalProspects, totalProposals, suggestedQueries := s.executeSearches(cfg, keywordBatches, deficit, dedup)
 
 	// Check if this run crossed the compilation threshold (from below to at-or-above)
 	currentActive, _ := s.automationRepo.GetActiveProposals(cfg.ID)
@@ -524,7 +524,7 @@ func (s *AutomationService) calculateDeficit(cfg *repositories.AutomationConfigD
 	return compilationTarget - pendingCount
 }
 
-func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDTO, queries []string, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32, []string) {
+func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDTO, queries []string, deficit int64, dedup *dedupData) (int32, int32, []string) {
 	var searchWg sync.WaitGroup
 	var totalProspectsFound int32
 	resultsChan := make(chan searchBatchResult, len(queries))
@@ -540,27 +540,31 @@ func (s *AutomationService) executeSearches(cfg *repositories.AutomationConfigDT
 	}()
 
 	if !cfg.UseAgent {
-		prospects, proposals := s.processSearchResultsSequential(cfg, resultsChan, &totalProspectsFound, deficit, combinedQuery, dedup)
+		prospects, proposals := s.processSearchResultsSequential(cfg, resultsChan, &totalProspectsFound, deficit, dedup)
 		return prospects, proposals, nil
 	}
-	return s.processSearchResultsWithConcurrentAgent(cfg, resultsChan, &totalProspectsFound, deficit, combinedQuery, dedup)
+	return s.processSearchResultsWithConcurrentAgent(cfg, resultsChan, &totalProspectsFound, deficit, dedup)
 }
 
-func (s *AutomationService) processSearchResultsSequential(cfg *repositories.AutomationConfigDTO, resultsChan <-chan searchBatchResult, totalProspectsFound *int32, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32) {
+func (s *AutomationService) processSearchResultsSequential(cfg *repositories.AutomationConfigDTO, resultsChan <-chan searchBatchResult, totalProspectsFound *int32, deficit int64, dedup *dedupData) (int32, int32) {
 	var totalProposalsCreated int32
 	source := "automation"
 	configID := cfg.ID
 
+	// Use document names for source_document field
+	documentContext := s.loadDocumentContext(cfg.SourceDocumentIDs)
+	sourceDocument := strings.Join(extractDocumentNames(documentContext), ", ")
+
 	for batch := range resultsChan {
 		atomic.AddInt32(totalProspectsFound, int32(len(batch.Jobs)))
-		created := s.processRawResults(cfg, batch.Jobs, combinedQuery, source, configID, deficit, &totalProposalsCreated, dedup)
+		created := s.processRawResults(cfg, batch.Jobs, sourceDocument, source, configID, deficit, &totalProposalsCreated, dedup)
 		atomic.AddInt32(&totalProposalsCreated, int32(created))
 	}
 
 	return *totalProspectsFound, totalProposalsCreated
 }
 
-func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *repositories.AutomationConfigDTO, resultsChan <-chan searchBatchResult, totalProspectsFound *int32, deficit int64, combinedQuery string, dedup *dedupData) (int32, int32, []string) {
+func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *repositories.AutomationConfigDTO, resultsChan <-chan searchBatchResult, totalProspectsFound *int32, deficit int64, dedup *dedupData) (int32, int32, []string) {
 	documentContext := s.loadDocumentContext(cfg.SourceDocumentIDs)
 
 	var reviewWg sync.WaitGroup
@@ -610,7 +614,10 @@ func (s *AutomationService) processSearchResultsWithConcurrentAgent(cfg *reposit
 		close(reviewedChan)
 	}()
 
-	prospectsFound, proposalsCreated := s.collectAndCreateProposals(cfg, reviewedChan, totalProspectsFound, deficit, combinedQuery, dedup)
+	// Use document names for source_document field, not search query
+	sourceDocument := strings.Join(extractDocumentNames(documentContext), ", ")
+
+	prospectsFound, proposalsCreated := s.collectAndCreateProposals(cfg, reviewedChan, totalProspectsFound, deficit, sourceDocument, dedup)
 	return prospectsFound, proposalsCreated, suggestedQueries
 }
 
