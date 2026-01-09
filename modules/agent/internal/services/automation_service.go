@@ -21,6 +21,7 @@ import (
 	"github.com/openai/openai-go/v2"
 	openaiOption "github.com/openai/openai-go/v2/option"
 
+	"agent/internal/lib"
 	"agent/internal/repositories"
 	"agent/internal/serializers"
 	"agent/internal/sse"
@@ -931,20 +932,7 @@ func (s *AutomationService) parseSerperResponse(body io.Reader) (*searchResultWi
 }
 
 func buildATSQuery(baseQuery string) string {
-	atsKeywords := []string{
-		"site:greenhouse.io",
-		"site:boards.greenhouse.io",
-		"site:lever.co",
-		"site:jobs.ashbyhq.com",
-		"site:apply.workable.com",
-		"site:jobs.smartrecruiters.com",
-		"site:jobs.jobvite.com",
-		"site:*.breezy.hr",
-		"site:*.recruitee.com",
-		"site:jobs.icims.com",
-		"site:*.pinpointhq.com",
-	}
-	return baseQuery + " (" + strings.Join(atsKeywords, " OR ") + ")"
+	return baseQuery + " (" + strings.Join(lib.ATSSites, " OR ") + ")"
 }
 
 func extractCompanyFromTitle(title string) string {
