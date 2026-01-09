@@ -9,6 +9,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -47,6 +48,9 @@ type AutomationService struct {
 	serperAPIKey    string
 	anthropicAPIKey string
 	openAIAPIKey    string
+	env             string
+	pushoverUser    string
+	pushoverToken   string
 }
 
 // NewAutomationService creates a new automation service
@@ -59,6 +63,9 @@ func NewAutomationService(
 	serperAPIKey string,
 	anthropicAPIKey string,
 	openAIAPIKey string,
+	env string,
+	pushoverUser string,
+	pushoverToken string,
 ) *AutomationService {
 	return &AutomationService{
 		automationRepo:  automationRepo,
@@ -69,6 +76,9 @@ func NewAutomationService(
 		serperAPIKey:    serperAPIKey,
 		anthropicAPIKey: anthropicAPIKey,
 		openAIAPIKey:    openAIAPIKey,
+		env:             env,
+		pushoverUser:    pushoverUser,
+		pushoverToken:   pushoverToken,
 	}
 }
 
@@ -332,6 +342,10 @@ func (s *AutomationService) executeAutomation(cfg *repositories.AutomationConfig
 	previousActive := currentActive - int(totalProposals)
 	compiled := previousActive < cfg.CompilationTarget && currentActive >= cfg.CompilationTarget
 
+	if compiled {
+		s.sendPushover("Compilation Target Reached", fmt.Sprintf("%s reached %d proposals", cfg.Name, currentActive))
+	}
+
 	// Disable crawler when compilation target is reached (if configured)
 	shouldDisable := compiled && cfg.DisableOnCompiled
 	if shouldDisable {
@@ -376,25 +390,32 @@ func (s *AutomationService) executeAutomation(cfg *repositories.AutomationConfig
 	// Check if compilation target was just reached
 	s.checkAndSetCompiledAt(cfg)
 
+	log.Printf("Automation service: completed config=%d - found=%d, proposals=%d",
+		cfg.ID, totalProspects, totalProposals)
+
 	// Track consecutive zero-proposal runs
 	if totalProposals > 0 {
 		s.automationRepo.ResetZeroRuns(cfg.ID)
-	}
-	if totalProposals == 0 && cfg.EmptyProposalLimit > 0 {
-		consecutiveZeroRuns, _ := s.automationRepo.IncrementZeroRuns(cfg.ID)
-		if consecutiveZeroRuns >= cfg.EmptyProposalLimit {
-			s.automationRepo.DisableConfig(cfg.ID)
-			log.Printf("Automation service: auto-disabled config=%d after %d consecutive runs with 0 proposals",
-				cfg.ID, consecutiveZeroRuns)
-			sse.Publish(sse.CrawlerTopic(cfg.ID), sse.Event{
-				Type: "config_updated",
-				Data: map[string]interface{}{"enabled": false},
-			})
-		}
+		return
 	}
 
-	log.Printf("Automation service: completed config=%d - found=%d, proposals=%d",
-		cfg.ID, totalProspects, totalProposals)
+	if cfg.EmptyProposalLimit == 0 {
+		return
+	}
+
+	consecutiveZeroRuns, _ := s.automationRepo.IncrementZeroRuns(cfg.ID)
+	if consecutiveZeroRuns < cfg.EmptyProposalLimit {
+		return
+	}
+
+	s.automationRepo.DisableConfig(cfg.ID)
+	log.Printf("Automation service: auto-disabled config=%d after %d consecutive runs with 0 proposals",
+		cfg.ID, consecutiveZeroRuns)
+	sse.Publish(sse.CrawlerTopic(cfg.ID), sse.Event{
+		Type: "config_updated",
+		Data: map[string]interface{}{"enabled": false},
+	})
+	s.sendPushover("Crawler Auto-Disabled", fmt.Sprintf("%s disabled after %d runs with 0 proposals", cfg.Name, consecutiveZeroRuns))
 }
 
 func (s *AutomationService) pauseCrawler(cfg *repositories.AutomationConfigDTO) {
@@ -1720,4 +1741,27 @@ Requirements:
 
 	log.Printf("Automation: LLM suggested %d new queries: %v", len(queries), queries)
 	return queries
+}
+
+func (s *AutomationService) sendPushover(title, message string) {
+	if s.pushoverUser == "" || s.pushoverToken == "" {
+		return
+	}
+	if s.env == "development" {
+		return
+	}
+
+	form := url.Values{
+		"token":   {s.pushoverToken},
+		"user":    {s.pushoverUser},
+		"title":   {title},
+		"message": {message},
+	}
+
+	resp, err := http.PostForm("https://api.pushover.net/1/messages.json", form)
+	if err != nil {
+		log.Printf("Pushover error: %v", err)
+		return
+	}
+	defer resp.Body.Close()
 }
