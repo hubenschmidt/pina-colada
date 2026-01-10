@@ -22,28 +22,28 @@ type VisitorService struct {
 }
 
 type VisitorInfo struct {
-	IP                    string
-	UserAgent             string
-	Referrer              string
-	URL                   string   `json:"url"`
-	HardwareConcurrency   int      `json:"hardware_concurrency"`
-	Platform              string   `json:"platform"`
-	Language              string   `json:"language"`
-	Languages             []string `json:"languages"`
-	Timezone              string   `json:"timezone"`
-	ScreenWidth           int      `json:"screen_width"`
-	ScreenHeight          int      `json:"screen_height"`
-	ColorDepth            int      `json:"color_depth"`
-	ViewportWidth         int      `json:"viewport_width"`
-	ViewportHeight        int      `json:"viewport_height"`
-	DevicePixelRatio      float64  `json:"device_pixel_ratio"`
-	TouchSupport          bool     `json:"touch_support"`
-	ConnectionType        string   `json:"connection_type"`
-	ConnectionDownlink    float64  `json:"connection_downlink"`
-	PrefersDark           bool     `json:"prefers_dark"`
-	PrefersReducedMotion  bool     `json:"prefers_reduced_motion"`
-	DNT                   bool     `json:"dnt"`
-	CookiesEnabled        bool     `json:"cookies_enabled"`
+	IP                   string
+	UserAgent            string
+	Referrer             string
+	URL                  string   `json:"url"`
+	HardwareConcurrency  int      `json:"hardware_concurrency"`
+	Platform             string   `json:"platform"`
+	Language             string   `json:"language"`
+	Languages            []string `json:"languages"`
+	Timezone             string   `json:"timezone"`
+	ScreenWidth          int      `json:"screen_width"`
+	ScreenHeight         int      `json:"screen_height"`
+	ColorDepth           int      `json:"color_depth"`
+	ViewportWidth        int      `json:"viewport_width"`
+	ViewportHeight       int      `json:"viewport_height"`
+	DevicePixelRatio     float64  `json:"device_pixel_ratio"`
+	TouchSupport         bool     `json:"touch_support"`
+	ConnectionType       string   `json:"connection_type"`
+	ConnectionDownlink   float64  `json:"connection_downlink"`
+	PrefersDark          bool     `json:"prefers_dark"`
+	PrefersReducedMotion bool     `json:"prefers_reduced_motion"`
+	DNT                  bool     `json:"dnt"`
+	CookiesEnabled       bool     `json:"cookies_enabled"`
 }
 
 func NewVisitorService(cfg *config.Config) *VisitorService {
