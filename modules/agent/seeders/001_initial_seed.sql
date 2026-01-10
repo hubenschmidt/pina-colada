@@ -99,37 +99,25 @@ BEGIN
         WHERE id = v_individual_id;
     END IF;
 
-    -- Create or update User for Jennifer
+    -- Create or update User for Jennifer (NO tenant assignment - simulates new user without tenant)
     SELECT id INTO v_user_id FROM "User" WHERE email = 'jennifervlev@gmail.com' LIMIT 1;
 
     IF v_user_id IS NULL THEN
-        INSERT INTO "User" (tenant_id, individual_id, email, first_name, last_name, status, created_at, updated_at)
-        VALUES (v_tenant_id, v_individual_id, 'jennifervlev@gmail.com', 'Jennifer', 'Lev', 'active', NOW(), NOW())
+        INSERT INTO "User" (individual_id, email, first_name, last_name, status, created_at, updated_at)
+        VALUES (v_individual_id, 'jennifervlev@gmail.com', 'Jennifer', 'Lev', 'active', NOW(), NOW())
         RETURNING id INTO v_user_id;
     ELSE
         UPDATE "User"
-        SET tenant_id = v_tenant_id,
-            individual_id = v_individual_id,
+        SET individual_id = v_individual_id,
             first_name = 'Jennifer',
             last_name = 'Lev',
             updated_at = NOW()
         WHERE id = v_user_id;
     END IF;
 
-    -- Create member role if it doesn't exist
-    SELECT id INTO v_role_id FROM "Role" WHERE tenant_id = v_tenant_id AND name = 'member' LIMIT 1;
-    IF v_role_id IS NULL THEN
-        INSERT INTO "Role" (tenant_id, name, description)
-        VALUES (v_tenant_id, 'member', 'Standard team member access')
-        RETURNING id INTO v_role_id;
-    END IF;
+    -- NOTE: No User_Role created for Jennifer - she should be directed to tenant setup on login
 
-    -- Assign member role to Jennifer
-    INSERT INTO "User_Role" (user_id, role_id, created_at)
-    VALUES (v_user_id, v_role_id, NOW())
-    ON CONFLICT DO NOTHING;
-
-    RAISE NOTICE 'Second user Jennifer Lev created successfully. User ID: %', v_user_id;
+    RAISE NOTICE 'Second user Jennifer Lev created successfully (no tenant). User ID: %', v_user_id;
 END $$;
 
 -- ==============================

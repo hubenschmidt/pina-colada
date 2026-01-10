@@ -219,7 +219,7 @@ func (r *UserRepository) assignUserToExistingTenant(userID int64, tenant *models
 
 	// Find owner role for this tenant
 	var ownerRole models.Role
-	err = r.db.Where("tenant_id = ? AND name = ?", tenant.ID, "Owner").First(&ownerRole).Error
+	err = r.db.Where("tenant_id = ? AND name = ?", tenant.ID, "owner").First(&ownerRole).Error
 	if err != nil {
 		return nil, err
 	}
@@ -227,6 +227,11 @@ func (r *UserRepository) assignUserToExistingTenant(userID int64, tenant *models
 	// Assign user as owner
 	userRole := models.UserRole{UserID: userID, RoleID: ownerRole.ID}
 	if err := r.db.Create(&userRole).Error; err != nil {
+		return nil, err
+	}
+
+	// Update user's tenant_id
+	if err := r.db.Model(&models.User{}).Where("id = ?", userID).Update("tenant_id", tenant.ID).Error; err != nil {
 		return nil, err
 	}
 
@@ -271,11 +276,11 @@ func (r *UserRepository) createNewTenantWithOwner(input TenantCreateInput) (*Ten
 			return err
 		}
 
-		// Create default roles for tenant
+		// Create default roles for tenant (lowercase to match migration 058)
 		roles := []models.Role{
-			{TenantID: &tenant.ID, Name: "Owner"},
-			{TenantID: &tenant.ID, Name: "Admin"},
-			{TenantID: &tenant.ID, Name: "Member"},
+			{TenantID: &tenant.ID, Name: "owner"},
+			{TenantID: &tenant.ID, Name: "admin"},
+			{TenantID: &tenant.ID, Name: "member"},
 		}
 		for i := range roles {
 			if err := tx.Create(&roles[i]).Error; err != nil {
@@ -286,6 +291,11 @@ func (r *UserRepository) createNewTenantWithOwner(input TenantCreateInput) (*Ten
 		// Assign user as owner (first role)
 		userRole := models.UserRole{UserID: input.UserID, RoleID: roles[0].ID}
 		if err := tx.Create(&userRole).Error; err != nil {
+			return err
+		}
+
+		// Update user's tenant_id
+		if err := tx.Model(&models.User{}).Where("id = ?", input.UserID).Update("tenant_id", tenant.ID).Error; err != nil {
 			return err
 		}
 

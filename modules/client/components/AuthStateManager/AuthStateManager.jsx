@@ -44,7 +44,12 @@ export const AuthStateManager = () => {
         });
 
         const tenantId = response.current_tenant_id || response.user.tenant_id;
-        const tenant = response.tenants.find((t) => t.id === tenantId);
+        let tenant = response.tenants.find((t) => t.id === tenantId);
+
+        // Fallback: if no tenant_id but user has exactly one tenant, use it
+        if (!tenant && response.tenants.length === 1) {
+          tenant = response.tenants[0];
+        }
 
         if (tenant) {
           dispatchUser({

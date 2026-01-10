@@ -27,10 +27,13 @@ BEGIN
     SELECT id INTO v_user_id_william FROM "User" WHERE email = 'whubenschmidt@gmail.com' AND tenant_id = v_tenant_id LIMIT 1;
 
     -- Get Jennifer Lev's user ID (created in 001_initial_seed.sql)
+    -- Note: Jennifer may not have tenant_id if testing tenant setup flow
     SELECT id INTO v_user_id_jennifer FROM "User" WHERE email = 'jennifervlev@gmail.com' AND tenant_id = v_tenant_id LIMIT 1;
 
+    -- Fallback: if Jennifer not in tenant, use William for all comments
     IF v_user_id_jennifer IS NULL THEN
-        RAISE NOTICE 'Jennifer Lev user not found - she should be created in 001_initial_seed.sql';
+        RAISE NOTICE 'Jennifer Lev user not found in tenant - using William for all comments';
+        v_user_id_jennifer := v_user_id_william;
     END IF;
 
     -- Fallback: if William not found, use any user
