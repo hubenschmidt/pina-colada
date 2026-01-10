@@ -31,10 +31,10 @@ func (r *UserRepository) FindByAuth0Sub(auth0Sub string) (*models.User, error) {
 	return &user, nil
 }
 
-// FindByEmail finds a user by email
+// FindByEmail finds a user by email (case-insensitive)
 func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 	var user models.User
-	err := r.db.Where("email = ?", email).First(&user).Error
+	err := r.db.Where("LOWER(email) = LOWER(?)", email).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, apperrors.ErrNotFound
 	}

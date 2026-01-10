@@ -450,7 +450,7 @@ const AutomationPage = () => {
 
   const documentOptions = documents.map((doc) => ({
     value: String(doc.id),
-    label: doc.filename,
+    label: `${doc.filename} (v${doc.version_number || 1})`,
   }));
 
   return (
