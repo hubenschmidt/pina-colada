@@ -6,6 +6,7 @@ import (
 	apperrors "agent/internal/errors"
 	"agent/internal/models"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type PreferenceRepository struct {
@@ -46,12 +47,20 @@ func (r *PreferenceRepository) GetUserPreferences(userID int64) (*UserPrefsDTO, 
 }
 
 func (r *PreferenceRepository) FindOrCreateUserPreferences(userID int64) (*UserPrefsDTO, error) {
-	var prefs models.UserPreferences
-	err := r.db.Where("user_id = ?", userID).FirstOrCreate(&prefs, models.UserPreferences{UserID: userID}).Error
+	prefs := models.UserPreferences{UserID: userID}
+	err := r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "user_id"}},
+		DoNothing: true,
+	}).Create(&prefs).Error
 	if err != nil {
 		return nil, err
 	}
-	return &UserPrefsDTO{Theme: prefs.Theme, Timezone: prefs.Timezone}, nil
+	// Fetch the actual record (in case it already existed)
+	var result models.UserPreferences
+	if err := r.db.Where("user_id = ?", userID).First(&result).Error; err != nil {
+		return nil, err
+	}
+	return &UserPrefsDTO{Theme: result.Theme, Timezone: result.Timezone}, nil
 }
 
 func (r *PreferenceRepository) UpdateUserPreferences(userID int64, updates map[string]interface{}) error {
@@ -78,15 +87,22 @@ func (r *PreferenceRepository) GetUserWithTenant(userID int64) (*UserTenantDTO, 
 	return &UserTenantDTO{UserID: user.ID, TenantID: user.TenantID}, nil
 }
 
-// FindOrCreateTenantPreferences finds or creates tenant preferences
+// FindOrCreateTenantPreferences finds or creates tenant preferences using upsert
 func (r *PreferenceRepository) FindOrCreateTenantPreferences(tenantID int64) (*TenantPrefsDTO, error) {
-	var prefs models.TenantPreferences
-	defaults := models.TenantPreferences{TenantID: tenantID, Theme: "light"}
-	err := r.db.Where("tenant_id = ?", tenantID).FirstOrCreate(&prefs, defaults).Error
+	prefs := models.TenantPreferences{TenantID: tenantID, Theme: "light"}
+	err := r.db.Clauses(clause.OnConflict{
+		Columns:   []clause.Column{{Name: "tenant_id"}},
+		DoNothing: true,
+	}).Create(&prefs).Error
 	if err != nil {
 		return nil, err
 	}
-	return &TenantPrefsDTO{Theme: prefs.Theme}, nil
+	// Fetch the actual record (in case it already existed)
+	var result models.TenantPreferences
+	if err := r.db.Where("tenant_id = ?", tenantID).First(&result).Error; err != nil {
+		return nil, err
+	}
+	return &TenantPrefsDTO{Theme: result.Theme}, nil
 }
 
 // UpdateTenantPreferences updates tenant preferences
