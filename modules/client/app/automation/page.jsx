@@ -524,7 +524,7 @@ const AutomationPage = () => {
                         </Text>
                         {crawler.suggested_query && (
                           <Text size="xs" c="lime" lineClamp={1}>
-                            Suggested: {crawler.suggested_query}
+                            Suggested: {crawler.suggested_query}{crawler.excluded ? ` ${crawler.excluded}` : ""}{crawler.location ? ` "${crawler.location}"` : ""}
                           </Text>
                         )}
                       </div>

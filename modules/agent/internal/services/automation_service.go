@@ -724,9 +724,6 @@ func (s *AutomationService) searchJobs(query string, atsMode bool, timeFilter, l
 	if atsMode {
 		enhancedQuery = buildATSQuery(query)
 	}
-	if location != nil && *location != "" {
-		enhancedQuery = enhancedQuery + " " + *location
-	}
 
 	tbs := mapTimeFilter(timeFilter)
 
@@ -1010,6 +1007,10 @@ func (s *AutomationService) getActiveQuery(cfg *repositories.AutomationConfigDTO
 
 	if cfg.Excluded != nil && *cfg.Excluded != "" {
 		query = query + " " + *cfg.Excluded
+	}
+
+	if cfg.Location != nil && *cfg.Location != "" {
+		query = query + " \"" + *cfg.Location + "\""
 	}
 
 	return query
