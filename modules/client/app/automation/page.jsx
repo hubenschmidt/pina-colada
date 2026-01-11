@@ -21,8 +21,10 @@ import {
   Modal,
   ActionIcon,
   Menu,
+  Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { useMantineColorScheme } from "@mantine/core";
 import {
   Play,
   Clock,
@@ -125,12 +127,15 @@ const emptyForm = {
   digest_model: null,
   use_agent: false,
   agent_model: "claude-sonnet-4-5-20250929",
+  use_analytics: false,
+  analytics_model: "claude-3-haiku-20240307",
   empty_proposal_limit: null,
 };
 
 const AutomationPage = () => {
   const { dispatchPageLoading } = usePageLoading();
   const { userState } = useUserContext();
+  const { colorScheme } = useMantineColorScheme();
   const [crawlers, setCrawlers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -271,6 +276,8 @@ const AutomationPage = () => {
       digest_model: crawler.digest_model || null,
       use_agent: crawler.use_agent ?? false,
       agent_model: crawler.agent_model || "claude-sonnet-4-5-20250929",
+      use_analytics: crawler.use_analytics ?? false,
+      analytics_model: crawler.analytics_model || "claude-3-haiku-20240307",
       empty_proposal_limit: crawler.empty_proposal_limit || null,
     });
 
@@ -597,7 +604,7 @@ const AutomationPage = () => {
         opened={modalOpened}
         onClose={closeModal}
         title={editingCrawler ? "Edit Crawler" : "New Crawler"}
-        size={"xl"}
+        size={"1600"}
       >
         <Stack gap="md">
           <Group justify="flex-end">
@@ -687,17 +694,19 @@ const AutomationPage = () => {
           <Stack gap="xs">
             <Textarea
               label="Search Query"
-              placeholder="e.g. (typescript OR javascript) node.js intitle:engineer -junior"
-              description={'Operators: OR, (), "", -, intitle:'}
+              placeholder="e.g. (typescript OR javascript) node.js intitle:engineer"
+              description={'Operators: OR, (), "", intitle:'}
               value={form.use_suggested_query && form.suggested_query
                 ? form.suggested_query
                 : form.search_query}
               onChange={(e) => {
+                const value = e.currentTarget.value.replace(/-\w+/g, "").replace(/\s+/g, " ").trim();
                 const field = form.use_suggested_query && form.suggested_query
                   ? "suggested_query"
                   : "search_query";
-                updateForm(field, e.currentTarget.value);
+                updateForm(field, value);
               }}
+              error={/^-|-\s/.test(form.search_query || "") ? "Use Excluded Terms field for exclusions (-)" : null}
               minRows={2}
               styles={form.use_suggested_query && form.suggested_query
                 ? { input: { borderColor: "var(--mantine-color-lime-6)" } }
@@ -710,6 +719,14 @@ const AutomationPage = () => {
                   : "A suggested query is available. Toggle on to use it."}
               </Text>
             )}
+            <TextInput
+              label="Excluded Terms"
+              description="Operators: -, OR, (), intitle:"
+              placeholder="-junior -intern -entry"
+              value={form.excluded || ""}
+              onChange={(e) => updateForm("excluded", e.currentTarget.value)}
+            />
+
             <Switch
               label="Use suggested query"
               description={form.suggested_query ? "AI-generated query from Serper related searches" : "Will use AI suggestions when available"}
@@ -718,15 +735,9 @@ const AutomationPage = () => {
               color="lime"
               size="sm"
             />
+
           </Stack>
 
-          <TextInput
-            label="Excluded Terms"
-            description="Terms to exclude from search (e.g., -junior -intern -entry)"
-            placeholder="-junior -intern -entry"
-            value={form.excluded || ""}
-            onChange={(e) => updateForm("excluded", e.currentTarget.value)}
-          />
 
           <TextInput
             label="Location"
@@ -819,6 +830,23 @@ const AutomationPage = () => {
             />
           )}
 
+          <Switch
+            label="Use Query Analytics"
+            description="LLM analyzes historical runs to improve query suggestions"
+            checked={form.use_analytics}
+            onChange={(e) => updateForm("use_analytics", e.currentTarget.checked)}
+            color="lime"
+          />
+
+          {form.use_analytics && (
+            <Select
+              label="Analytics Model"
+              description="Cheaper models recommended to reduce costs"
+              value={form.analytics_model}
+              onChange={(val) => updateForm("analytics_model", val)}
+              data={AGENT_MODEL_OPTIONS}
+            />
+          )}
 
           <Stack gap="xs">
             <Text size="sm" fw={500}>System Prompt</Text>
@@ -1020,6 +1048,7 @@ const CrawlerRunsSSE = ({ crawlerId, isExpanded, pageValue, pageSizeValue, onPag
 };
 
 const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onPageSizeChange }) => {
+  const { colorScheme } = useMantineColorScheme();
 
   const getStatusColor = (status) => {
     if (status === "done") return "lime";
@@ -1058,6 +1087,24 @@ const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onP
         <Text size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
           {row.status === "running" ? "-" : (row.executed_query || "-")}
         </Text>
+      ),
+    },
+    {
+      header: "Prompt",
+      render: (row) => (
+        <Tooltip
+          label={row.executed_system_prompt || "-"}
+          multiline
+          w={400}
+          withArrow
+          position="left"
+          disabled={!row.executed_system_prompt}
+          color={colorScheme === "dark" ? "dark" : "gray"}
+        >
+          <Text size="xs" c="dimmed" lineClamp={2} style={{ maxWidth: 300, cursor: row.executed_system_prompt ? "help" : "default" }}>
+            {row.executed_system_prompt || "-"}
+          </Text>
+        </Tooltip>
       ),
     },
   ];

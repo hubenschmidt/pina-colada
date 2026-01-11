@@ -40,6 +40,8 @@ type AutomationConfigResponse struct {
 	LastDigestAt       *time.Time `json:"last_digest_at"`
 	UseAgent           bool       `json:"use_agent"`
 	AgentModel         *string    `json:"agent_model"`
+	UseAnalytics       bool       `json:"use_analytics"`
+	AnalyticsModel     *string    `json:"analytics_model"`
 	EmptyProposalLimit int        `json:"empty_proposal_limit"`
 	CreatedAt          time.Time  `json:"created_at,omitempty"`
 	UpdatedAt          time.Time  `json:"updated_at,omitempty"`
@@ -54,9 +56,10 @@ type AutomationRunLogResponse struct {
 	ProspectsFound   int        `json:"prospects_found"`
 	ProposalsCreated int        `json:"proposals_created"`
 	ErrorMessage     *string    `json:"error_message"`
-	ExecutedQuery   *string `json:"executed_query"`
-	RelatedSearches *string `json:"related_searches"`
-	Compiled         bool       `json:"compiled"`
+	ExecutedQuery        *string `json:"executed_query"`
+	ExecutedSystemPrompt *string `json:"executed_system_prompt"`
+	RelatedSearches      *string `json:"related_searches"`
+	Compiled             bool    `json:"compiled"`
 	// ConfigActiveProposals is included in SSE events to update crawler stats
 	ConfigActiveProposals *int `json:"config_active_proposals,omitempty"`
 	// ConfigEnabled is included in SSE events when crawler is auto-paused

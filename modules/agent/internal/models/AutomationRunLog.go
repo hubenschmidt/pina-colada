@@ -11,9 +11,10 @@ type AutomationRunLog struct {
 	ProspectsFound       int        `gorm:"column:prospects_found;not null;default:0" json:"prospects_found"`
 	ProposalsCreated     int        `gorm:"column:proposals_created;not null;default:0" json:"proposals_created"`
 	ErrorMessage         *string    `gorm:"column:error_message" json:"error_message"`
-	ExecutedQuery   *string `gorm:"column:executed_query" json:"executed_query"`
-	RelatedSearches *string `gorm:"column:related_searches" json:"related_searches"`
-	Compiled             bool       `gorm:"column:compiled;not null;default:false" json:"compiled"`
+	ExecutedQuery        *string `gorm:"column:executed_query" json:"executed_query"`
+	ExecutedSystemPrompt *string `gorm:"column:executed_system_prompt" json:"executed_system_prompt"`
+	RelatedSearches      *string `gorm:"column:related_searches" json:"related_searches"`
+	Compiled             bool    `gorm:"column:compiled;not null;default:false" json:"compiled"`
 }
 
 func (AutomationRunLog) TableName() string {

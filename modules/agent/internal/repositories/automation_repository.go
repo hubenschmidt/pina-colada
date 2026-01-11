@@ -2,6 +2,8 @@ package repositories
 
 import (
 	"encoding/json"
+	"regexp"
+	"strings"
 	"time"
 
 	"gorm.io/datatypes"
@@ -57,6 +59,8 @@ type AutomationConfigDTO struct {
 	LastDigestAt       *time.Time
 	UseAgent            bool
 	AgentModel          *string
+	UseAnalytics        bool
+	AnalyticsModel      *string
 	CompiledAt          *time.Time
 	EmptyProposalLimit  int
 	CreatedAt           time.Time
@@ -89,21 +93,24 @@ type AutomationConfigInput struct {
 	DigestModel        *string
 	UseAgent           *bool
 	AgentModel         *string
+	UseAnalytics       *bool
+	AnalyticsModel     *string
 	EmptyProposalLimit *int
 }
 
 // AutomationRunLogDTO represents a run log entry
 type AutomationRunLogDTO struct {
-	ID               int64
-	StartedAt        time.Time
-	CompletedAt      *time.Time
-	Status           string
-	ProspectsFound   int
-	ProposalsCreated int
-	ErrorMessage     *string
-	ExecutedQuery   *string
-	RelatedSearches *string
-	Compiled         bool
+	ID                   int64
+	StartedAt            time.Time
+	CompletedAt          *time.Time
+	Status               string
+	ProspectsFound       int
+	ProposalsCreated     int
+	ErrorMessage         *string
+	ExecutedQuery        *string
+	ExecutedSystemPrompt *string
+	RelatedSearches      *string
+	Compiled             bool
 }
 
 // GetUserConfigs returns all automation configs for a user
@@ -315,12 +322,13 @@ func (r *AutomationRepository) DisableConfig(configID int64) error {
 }
 
 // CreateRunLog creates a new run log entry
-func (r *AutomationRepository) CreateRunLog(configID int64, executedQuery string) (int64, error) {
+func (r *AutomationRepository) CreateRunLog(configID int64, executedQuery string, executedSystemPrompt *string) (int64, error) {
 	log := models.AutomationRunLog{
-		AutomationConfigID: configID,
-		StartedAt:          time.Now(),
-		Status:             "running",
-		ExecutedQuery:      &executedQuery,
+		AutomationConfigID:   configID,
+		StartedAt:            time.Now(),
+		Status:               "running",
+		ExecutedQuery:        &executedQuery,
+		ExecutedSystemPrompt: executedSystemPrompt,
 	}
 	err := r.db.Create(&log).Error
 	return log.ID, err
@@ -365,16 +373,17 @@ func (r *AutomationRepository) GetRunLogs(configID int64, page, limit int) ([]Au
 	result := make([]AutomationRunLogDTO, len(logs))
 	for i := range logs {
 		result[i] = AutomationRunLogDTO{
-			ID:               logs[i].ID,
-			StartedAt:        logs[i].StartedAt,
-			CompletedAt:      logs[i].CompletedAt,
-			Status:           logs[i].Status,
-			ProspectsFound:   logs[i].ProspectsFound,
-			ProposalsCreated: logs[i].ProposalsCreated,
-			ErrorMessage:     logs[i].ErrorMessage,
-			ExecutedQuery:    logs[i].ExecutedQuery,
-			RelatedSearches:  logs[i].RelatedSearches,
-			Compiled:         logs[i].Compiled,
+			ID:                   logs[i].ID,
+			StartedAt:            logs[i].StartedAt,
+			CompletedAt:          logs[i].CompletedAt,
+			Status:               logs[i].Status,
+			ProspectsFound:       logs[i].ProspectsFound,
+			ProposalsCreated:     logs[i].ProposalsCreated,
+			ErrorMessage:         logs[i].ErrorMessage,
+			ExecutedQuery:        logs[i].ExecutedQuery,
+			ExecutedSystemPrompt: logs[i].ExecutedSystemPrompt,
+			RelatedSearches:      logs[i].RelatedSearches,
+			Compiled:             logs[i].Compiled,
 		}
 	}
 	return result, totalCount, nil
@@ -456,6 +465,8 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 		LastDigestAt:       cfg.LastDigestAt,
 		UseAgent:           cfg.UseAgent,
 		AgentModel:         cfg.AgentModel,
+		UseAnalytics:       cfg.UseAnalytics,
+		AnalyticsModel:     cfg.AnalyticsModel,
 		CompiledAt:         cfg.CompiledAt,
 		EmptyProposalLimit: cfg.EmptyProposalLimit,
 		CreatedAt:          cfg.CreatedAt,
@@ -502,7 +513,7 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 		cfg.SuggestionThreshold = *input.SuggestionThreshold
 	}
 	if input.SearchQuery != nil {
-		cfg.SearchQuery = input.SearchQuery
+		cfg.SearchQuery = sanitizeSearchQuery(input.SearchQuery)
 	}
 	if input.UseSuggestedQuery != nil {
 		cfg.UseSuggestedQuery = *input.UseSuggestedQuery
@@ -545,6 +556,12 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	}
 	if input.AgentModel != nil {
 		cfg.AgentModel = input.AgentModel
+	}
+	if input.UseAnalytics != nil {
+		cfg.UseAnalytics = *input.UseAnalytics
+	}
+	if input.AnalyticsModel != nil {
+		cfg.AnalyticsModel = input.AnalyticsModel
 	}
 	if input.EmptyProposalLimit != nil {
 		cfg.EmptyProposalLimit = *input.EmptyProposalLimit
@@ -663,4 +680,219 @@ func (r *AutomationRepository) ClearSuggestedQuery(configID int64) error {
 	return r.db.Model(&models.AutomationConfig{}).
 		Where("id = ?", configID).
 		Update("suggested_query", nil).Error
+}
+
+// QueryPerformance represents analytics for a single query
+type QueryPerformance struct {
+	Query            string
+	ProspectsFound   int
+	ProposalsCreated int
+	ConversionRate   float64
+	RunCount         int
+}
+
+// RunAnalytics holds aggregated analytics from historical runs
+type RunAnalytics struct {
+	TotalRuns             int
+	ConsecutiveZeroRuns   int
+	AvgConversionRate     float64
+	BestQueries           []QueryPerformance
+	WorstQueries          []QueryPerformance
+	UntriedRelatedSearches []string
+}
+
+// GetRunAnalytics returns aggregated analytics for a config's historical runs
+func (r *AutomationRepository) GetRunAnalytics(configID int64, limit int) (*RunAnalytics, error) {
+	var logs []models.AutomationRunLog
+	err := r.db.Where("automation_config_id = ? AND status = ?", configID, "done").
+		Order("started_at DESC").
+		Limit(limit).
+		Find(&logs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if len(logs) == 0 {
+		return &RunAnalytics{}, nil
+	}
+
+	consecutiveZeroRuns := countConsecutiveZeroRuns(logs)
+	queryStats, executedQueries, allRelatedSearches := aggregateQueryStats(logs)
+
+	// Calculate conversion rates and sort
+	var queryList []QueryPerformance
+	var totalConversion float64
+	for _, stats := range queryStats {
+		if stats.ProspectsFound > 0 {
+			stats.ConversionRate = float64(stats.ProposalsCreated) / float64(stats.ProspectsFound) * 100
+		}
+		queryList = append(queryList, *stats)
+		totalConversion += stats.ConversionRate
+	}
+
+	avgConversion := 0.0
+	if len(queryList) > 0 {
+		avgConversion = totalConversion / float64(len(queryList))
+	}
+
+	// Sort by proposals (best first)
+	sortedByProposals := make([]QueryPerformance, len(queryList))
+	copy(sortedByProposals, queryList)
+	for i := 0; i < len(sortedByProposals)-1; i++ {
+		for j := i + 1; j < len(sortedByProposals); j++ {
+			if sortedByProposals[j].ProposalsCreated > sortedByProposals[i].ProposalsCreated {
+				sortedByProposals[i], sortedByProposals[j] = sortedByProposals[j], sortedByProposals[i]
+			}
+		}
+	}
+
+	// Top 3 best queries
+	bestQueries := sortedByProposals
+	if len(bestQueries) > 3 {
+		bestQueries = bestQueries[:3]
+	}
+
+	// Bottom 3 worst queries (that had prospects but 0 proposals)
+	worstQueries := findWorstQueries(sortedByProposals, 3)
+
+	// Find untried related searches
+	untriedSearches := findUntriedSearches(allRelatedSearches, executedQueries)
+
+	return &RunAnalytics{
+		TotalRuns:              len(logs),
+		ConsecutiveZeroRuns:    consecutiveZeroRuns,
+		AvgConversionRate:      avgConversion,
+		BestQueries:            bestQueries,
+		WorstQueries:           worstQueries,
+		UntriedRelatedSearches: untriedSearches,
+	}, nil
+}
+
+// findWorstQueries returns queries that had prospects but zero proposals
+func findWorstQueries(sorted []QueryPerformance, limit int) []QueryPerformance {
+	var worst []QueryPerformance
+	for i := len(sorted) - 1; i >= 0; i-- {
+		if len(worst) >= limit {
+			return worst
+		}
+		worst = appendIfWorstQuery(sorted[i], worst)
+	}
+	return worst
+}
+
+func appendIfWorstQuery(q QueryPerformance, worst []QueryPerformance) []QueryPerformance {
+	if q.ProspectsFound == 0 || q.ProposalsCreated != 0 {
+		return worst
+	}
+	return append(worst, q)
+}
+
+// countConsecutiveZeroRuns counts consecutive zero-proposal runs from most recent
+func countConsecutiveZeroRuns(logs []models.AutomationRunLog) int {
+	count := 0
+	for _, log := range logs {
+		if log.ProposalsCreated != 0 {
+			return count
+		}
+		count++
+	}
+	return count
+}
+
+// aggregateQueryStats aggregates query performance data from logs
+func aggregateQueryStats(logs []models.AutomationRunLog) (map[string]*QueryPerformance, map[string]bool, []string) {
+	queryStats := make(map[string]*QueryPerformance)
+	executedQueries := make(map[string]bool)
+	var allRelatedSearches []string
+
+	for _, log := range logs {
+		queryStats, executedQueries = processLogQuery(log, queryStats, executedQueries)
+		allRelatedSearches = appendRelatedSearches(log, allRelatedSearches)
+	}
+
+	return queryStats, executedQueries, allRelatedSearches
+}
+
+func processLogQuery(log models.AutomationRunLog, queryStats map[string]*QueryPerformance, executedQueries map[string]bool) (map[string]*QueryPerformance, map[string]bool) {
+	if log.ExecutedQuery == nil || *log.ExecutedQuery == "" {
+		return queryStats, executedQueries
+	}
+
+	query := *log.ExecutedQuery
+	executedQueries[query] = true
+
+	stats, exists := queryStats[query]
+	if !exists {
+		stats = &QueryPerformance{Query: query}
+		queryStats[query] = stats
+	}
+	stats.ProspectsFound += log.ProspectsFound
+	stats.ProposalsCreated += log.ProposalsCreated
+	stats.RunCount++
+
+	return queryStats, executedQueries
+}
+
+func appendRelatedSearches(log models.AutomationRunLog, searches []string) []string {
+	if log.RelatedSearches == nil || *log.RelatedSearches == "" {
+		return searches
+	}
+	return append(searches, *log.RelatedSearches)
+}
+
+// findUntriedSearches extracts unique related searches that haven't been executed
+func findUntriedSearches(allRelatedSearches []string, executedQueries map[string]bool) []string {
+	seen := make(map[string]bool)
+	var untried []string
+
+	for _, searchesStr := range allRelatedSearches {
+		searches := splitAndTrim(searchesStr)
+		untried = appendUntriedSearches(searches, seen, executedQueries, untried)
+	}
+
+	if len(untried) > 5 {
+		return untried[:5]
+	}
+	return untried
+}
+
+func appendUntriedSearches(searches []string, seen, executedQueries map[string]bool, untried []string) []string {
+	for _, search := range searches {
+		untried = appendIfUntried(search, seen, executedQueries, untried)
+	}
+	return untried
+}
+
+func appendIfUntried(search string, seen, executedQueries map[string]bool, untried []string) []string {
+	if search == "" || seen[search] || executedQueries[search] {
+		return untried
+	}
+	seen[search] = true
+	return append(untried, search)
+}
+
+// sanitizeSearchQuery removes exclusion terms (-term) from search query
+// Exclusions should be in the separate "excluded" field
+func sanitizeSearchQuery(query *string) *string {
+	if query == nil || *query == "" {
+		return query
+	}
+	// Remove -term patterns (exclusions)
+	re := regexp.MustCompile(`-\w+`)
+	sanitized := re.ReplaceAllString(*query, "")
+	// Clean up extra whitespace
+	sanitized = regexp.MustCompile(`\s+`).ReplaceAllString(sanitized, " ")
+	sanitized = strings.TrimSpace(sanitized)
+	return &sanitized
+}
+
+func splitAndTrim(s string) []string {
+	var result []string
+	for _, part := range strings.Split(s, ",") {
+		trimmed := strings.TrimSpace(part)
+		if trimmed != "" {
+			result = append(result, trimmed)
+		}
+	}
+	return result
 }

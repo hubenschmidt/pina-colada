@@ -258,16 +258,17 @@ func (s *AutomationService) GetCrawlerRuns(configID int64, page, limit int) (*se
 	result := make([]serializers.AutomationRunLogResponse, len(logs))
 	for i := range logs {
 		result[i] = serializers.AutomationRunLogResponse{
-			ID:               logs[i].ID,
-			StartedAt:        logs[i].StartedAt,
-			CompletedAt:      logs[i].CompletedAt,
-			Status:           logs[i].Status,
-			ProspectsFound:   logs[i].ProspectsFound,
-			ProposalsCreated: logs[i].ProposalsCreated,
-			ErrorMessage:     logs[i].ErrorMessage,
-			ExecutedQuery:    logs[i].ExecutedQuery,
-			RelatedSearches:  logs[i].RelatedSearches,
-			Compiled:         logs[i].Compiled,
+			ID:                   logs[i].ID,
+			StartedAt:            logs[i].StartedAt,
+			CompletedAt:          logs[i].CompletedAt,
+			Status:               logs[i].Status,
+			ProspectsFound:       logs[i].ProspectsFound,
+			ProposalsCreated:     logs[i].ProposalsCreated,
+			ErrorMessage:         logs[i].ErrorMessage,
+			ExecutedQuery:        logs[i].ExecutedQuery,
+			ExecutedSystemPrompt: logs[i].ExecutedSystemPrompt,
+			RelatedSearches:      logs[i].RelatedSearches,
+			Compiled:             logs[i].Compiled,
 		}
 	}
 
@@ -316,6 +317,10 @@ func (s *AutomationService) ExecuteForConfig(configID int64) error {
 		return fmt.Errorf("crawler not found")
 	}
 
+	// Claim the config by setting next_run_at to prevent scheduler race condition
+	nextRun := time.Now().Add(time.Duration(cfg.IntervalSeconds) * time.Second)
+	s.automationRepo.SetNextRun(configID, nextRun)
+
 	go s.executeAutomation(cfg)
 	return nil
 }
@@ -341,7 +346,10 @@ func (s *AutomationService) executeAutomation(cfg *repositories.AutomationConfig
 	// Load dedup data before starting searches
 	dedup := s.loadDedupData(cfg.TenantID)
 
-	logID, err := s.automationRepo.CreateRunLog(cfg.ID, query)
+	// Get active system prompt for audit trail
+	activePrompt := s.getActivePrompt(cfg)
+
+	logID, err := s.automationRepo.CreateRunLog(cfg.ID, query, activePrompt)
 	if err != nil {
 		log.Printf("Automation service: failed to create run log: %v", err)
 		return
@@ -1325,37 +1333,12 @@ func (s *AutomationService) checkAndSuggestQueryImprovement(cfg *repositories.Au
 		return
 	}
 
-	// Get current active query to filter out
-	currentQuery := ""
-	if cfg.UseSuggestedQuery && cfg.SuggestedQuery != nil {
-		currentQuery = strings.ToLower(*cfg.SuggestedQuery)
-	} else if cfg.SearchQuery != nil {
-		currentQuery = strings.ToLower(*cfg.SearchQuery)
-	}
+	currentQuery := getCurrentQueryLower(cfg)
 
 	log.Printf("Automation service: checking query improvement for config=%d, %d related searches, currentQuery=%q",
 		cfg.ID, len(relatedSearches), truncateString(currentQuery, 80))
 
-	// Try Serper related searches first
-	var suggested string
-	var source string
-	for _, rs := range relatedSearches {
-		if strings.ToLower(rs) == currentQuery {
-			log.Printf("Automation service: skipping related search (matches current): %s", truncateString(rs, 80))
-			continue
-		}
-		suggested = rs
-		source = "serper"
-		log.Printf("Automation service: picked Serper suggestion: %s", truncateString(rs, 80))
-		break
-	}
-
-	// Fallback to LLM if no new suggestions from Serper
-	if suggested == "" {
-		log.Printf("Automation service: no new Serper suggestions for config=%d, trying LLM fallback", cfg.ID)
-		suggested = s.generateQueryWithLLM(cfg, currentQuery)
-		source = "llm"
-	}
+	suggested, source := s.findQuerySuggestion(cfg, relatedSearches, currentQuery)
 
 	if suggested == "" {
 		log.Printf("Automation service: no query suggestions available for config=%d", cfg.ID)
@@ -1374,6 +1357,37 @@ func (s *AutomationService) checkAndSuggestQueryImprovement(cfg *repositories.Au
 	})
 }
 
+func getCurrentQueryLower(cfg *repositories.AutomationConfigDTO) string {
+	if cfg.UseSuggestedQuery && cfg.SuggestedQuery != nil {
+		return strings.ToLower(*cfg.SuggestedQuery)
+	}
+	if cfg.SearchQuery != nil {
+		return strings.ToLower(*cfg.SearchQuery)
+	}
+	return ""
+}
+
+func (s *AutomationService) findQuerySuggestion(cfg *repositories.AutomationConfigDTO, relatedSearches []string, currentQuery string) (string, string) {
+	suggested := findFirstNewRelatedSearch(relatedSearches, currentQuery)
+	if suggested != "" {
+		log.Printf("Automation service: picked Serper suggestion: %s", truncateString(suggested, 80))
+		return suggested, "serper"
+	}
+
+	log.Printf("Automation service: no new Serper suggestions for config=%d, trying LLM fallback", cfg.ID)
+	return s.generateQueryWithLLM(cfg, currentQuery), "llm"
+}
+
+func findFirstNewRelatedSearch(relatedSearches []string, currentQuery string) string {
+	for _, rs := range relatedSearches {
+		if strings.ToLower(rs) != currentQuery {
+			return rs
+		}
+		log.Printf("Automation service: skipping related search (matches current): %s", truncateString(rs, 80))
+	}
+	return ""
+}
+
 func (s *AutomationService) generateQueryWithLLM(cfg *repositories.AutomationConfigDTO, currentQuery string) string {
 	documentContext := s.loadDocumentContext(cfg.SourceDocumentIDs)
 
@@ -1382,34 +1396,117 @@ func (s *AutomationService) generateQueryWithLLM(cfg *repositories.AutomationCon
 		systemPrompt = *cfg.SystemPrompt
 	}
 
-	prompt := fmt.Sprintf(`You are helping optimize a job search query. The current query is returning 0 relevant results.
-
-CURRENT QUERY (DO NOT REPEAT THIS):
-%s
-
-System prompt describing ideal candidates:
-%s
-
-Document context:
-%s
-
-Generate a COMPLETELY DIFFERENT search query. Requirements:
-- Must be substantially different from the current query
-- Use different keywords, job titles, or skill combinations
-- Try a different approach (broader, narrower, different technologies)
-- Keep it concise (under 100 characters if possible)
-
-Return ONLY the new search query text. No explanations, quotes, or formatting.`, currentQuery, systemPrompt, documentContext)
-
-	model := "claude-sonnet-4-5-20250929"
-	if cfg.AgentModel != nil && *cfg.AgentModel != "" {
-		model = *cfg.AgentModel
+	// Build analytics context if enabled
+	analyticsContext := ""
+	if cfg.UseAnalytics {
+		analyticsContext = s.buildAnalyticsContext(cfg.ID)
 	}
+
+	prompt := s.buildQuerySuggestionPrompt(currentQuery, systemPrompt, documentContext, analyticsContext)
+
+	model := s.getAnalyticsModel(cfg)
 
 	if strings.HasPrefix(model, "gpt-") {
 		return s.generateSuggestionWithOpenAI(model, prompt)
 	}
 	return s.generateSuggestionWithAnthropic(model, prompt)
+}
+
+// getAnalyticsModel returns the model to use for analytics-powered query suggestions
+func (s *AutomationService) getAnalyticsModel(cfg *repositories.AutomationConfigDTO) string {
+	// Use analytics model if set, otherwise fallback to agent model
+	if cfg.UseAnalytics && cfg.AnalyticsModel != nil && *cfg.AnalyticsModel != "" {
+		return *cfg.AnalyticsModel
+	}
+	if cfg.AgentModel != nil && *cfg.AgentModel != "" {
+		return *cfg.AgentModel
+	}
+	return "claude-sonnet-4-5-20250929" // Default to cheap model
+}
+
+// buildAnalyticsContext fetches and formats historical run analytics
+func (s *AutomationService) buildAnalyticsContext(configID int64) string {
+	analytics, err := s.automationRepo.GetRunAnalytics(configID, 20)
+	if err != nil {
+		log.Printf("Automation service: failed to get analytics: %v", err)
+		return ""
+	}
+
+	if analytics.TotalRuns == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	sb.WriteString("\n\nHISTORICAL PERFORMANCE ANALYSIS:\n")
+	sb.WriteString(fmt.Sprintf("- Total runs analyzed: %d\n", analytics.TotalRuns))
+	sb.WriteString(fmt.Sprintf("- Consecutive zero-proposal runs: %d\n", analytics.ConsecutiveZeroRuns))
+	sb.WriteString(fmt.Sprintf("- Average conversion rate: %.1f%%\n", analytics.AvgConversionRate))
+
+	if len(analytics.BestQueries) > 0 {
+		sb.WriteString("\nBEST PERFORMING QUERIES:\n")
+		for _, q := range analytics.BestQueries {
+			sb.WriteString(fmt.Sprintf("- \"%s\" - %d proposals (%.1f%% conversion)\n",
+				truncateString(q.Query, 80), q.ProposalsCreated, q.ConversionRate))
+		}
+	}
+
+	if len(analytics.WorstQueries) > 0 {
+		sb.WriteString("\nWORST PERFORMING QUERIES (had prospects but 0 proposals):\n")
+		for _, q := range analytics.WorstQueries {
+			sb.WriteString(fmt.Sprintf("- \"%s\" - %d prospects, 0 proposals\n",
+				truncateString(q.Query, 80), q.ProspectsFound))
+		}
+	}
+
+	if len(analytics.UntriedRelatedSearches) > 0 {
+		sb.WriteString("\nUNTRIED RELATED SEARCHES (from Serper):\n")
+		for _, search := range analytics.UntriedRelatedSearches {
+			sb.WriteString(fmt.Sprintf("- \"%s\"\n", search))
+		}
+	}
+
+	log.Printf("Automation service: built analytics context (%d chars)", sb.Len())
+	return sb.String()
+}
+
+// buildQuerySuggestionPrompt creates the prompt for query suggestion
+func (s *AutomationService) buildQuerySuggestionPrompt(currentQuery, systemPrompt, documentContext, analyticsContext string) string {
+	var sb strings.Builder
+
+	sb.WriteString(`You are helping optimize a job search query. The current query is returning 0 relevant results.
+
+CURRENT QUERY (DO NOT REPEAT THIS):
+`)
+	sb.WriteString(currentQuery)
+
+	if analyticsContext != "" {
+		sb.WriteString(analyticsContext)
+	}
+
+	sb.WriteString("\n\nSystem prompt describing ideal candidates:\n")
+	sb.WriteString(systemPrompt)
+
+	sb.WriteString("\n\nDocument context:\n")
+	sb.WriteString(documentContext)
+
+	sb.WriteString(`
+
+Generate a COMPLETELY DIFFERENT search query. Requirements:
+- Must be substantially different from the current query
+- Use different keywords, job titles, or skill combinations
+- Try a different approach (broader, narrower, different technologies)
+- Keep it concise (under 100 characters if possible)`)
+
+	if analyticsContext != "" {
+		sb.WriteString(`
+- Incorporate patterns from high-performing queries
+- Avoid patterns from zero-proposal queries
+- Consider trying untried related searches if available`)
+	}
+
+	sb.WriteString("\n\nReturn ONLY the new search query text. No explanations, quotes, or formatting.")
+
+	return sb.String()
 }
 
 func (s *AutomationService) generatePromptSuggestion(cfg *repositories.AutomationConfigDTO, approved, total int, rejectedJobs []reviewedJobResult) string {
@@ -1563,6 +1660,8 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 		LastDigestAt:        dto.LastDigestAt,
 		UseAgent:            dto.UseAgent,
 		AgentModel:          dto.AgentModel,
+		UseAnalytics:        dto.UseAnalytics,
+		AnalyticsModel:      dto.AnalyticsModel,
 		EmptyProposalLimit:  dto.EmptyProposalLimit,
 		CreatedAt:           dto.CreatedAt,
 		UpdatedAt:           dto.UpdatedAt,

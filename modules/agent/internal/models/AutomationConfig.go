@@ -42,6 +42,8 @@ type AutomationConfig struct {
 	LastDigestAt       *time.Time     `gorm:"column:last_digest_at" json:"last_digest_at"`
 	UseAgent           bool           `gorm:"column:use_agent;not null;default:false" json:"use_agent"`
 	AgentModel           *string        `gorm:"column:agent_model" json:"agent_model"`
+	UseAnalytics         bool           `gorm:"column:use_analytics;not null;default:false" json:"use_analytics"`
+	AnalyticsModel       *string        `gorm:"column:analytics_model" json:"analytics_model"`
 	ConsecutiveZeroRuns  int            `gorm:"column:consecutive_zero_runs;not null;default:0" json:"consecutive_zero_runs"`
 	EmptyProposalLimit   int            `gorm:"column:empty_proposal_limit;not null;default:0" json:"empty_proposal_limit"`
 	CreatedAt            time.Time      `gorm:"autoCreateTime" json:"created_at"`
