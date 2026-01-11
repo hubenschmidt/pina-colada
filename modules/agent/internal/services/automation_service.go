@@ -1319,31 +1319,89 @@ func (s *AutomationService) checkAndSuggestPromptImprovement(cfg *repositories.A
 }
 
 func (s *AutomationService) checkAndSuggestQueryImprovement(cfg *repositories.AutomationConfigDTO, relatedSearches []string) {
-	// Skip if not using suggested query and one already exists
 	if !cfg.UseSuggestedQuery && cfg.SuggestedQuery != nil && *cfg.SuggestedQuery != "" {
 		log.Printf("Automation service: suggested query exists but not in use for config=%d", cfg.ID)
 		return
 	}
 
-	if len(relatedSearches) == 0 {
-		log.Printf("Automation service: no related searches to suggest for config=%d", cfg.ID)
-		return
+	// Get current active query to filter out
+	currentQuery := ""
+	if cfg.UseSuggestedQuery && cfg.SuggestedQuery != nil {
+		currentQuery = strings.ToLower(*cfg.SuggestedQuery)
+	} else if cfg.SearchQuery != nil {
+		currentQuery = strings.ToLower(*cfg.SearchQuery)
 	}
 
-	// Pick first related search (exclusions applied separately at search time via cfg.Excluded)
-	suggested := relatedSearches[0]
+	// Try Serper related searches first
+	var suggested string
+	var source string
+	for _, rs := range relatedSearches {
+		if strings.ToLower(rs) == currentQuery {
+			continue
+		}
+		suggested = rs
+		source = "serper"
+		break
+	}
+
+	// Fallback to LLM if no new suggestions from Serper
+	if suggested == "" {
+		log.Printf("Automation service: no new Serper suggestions for config=%d, trying LLM fallback", cfg.ID)
+		suggested = s.generateQueryWithLLM(cfg, currentQuery)
+		source = "llm"
+	}
+
+	if suggested == "" {
+		log.Printf("Automation service: no query suggestions available for config=%d", cfg.ID)
+		return
+	}
 
 	if err := s.automationRepo.UpdateSuggestedQuery(cfg.ID, suggested); err != nil {
 		log.Printf("Automation service: failed to save suggested query: %v", err)
 		return
 	}
-	log.Printf("Automation service: saved suggested query for config=%d: %s", cfg.ID, suggested)
+	log.Printf("Automation service: saved suggested query for config=%d (source=%s): %s", cfg.ID, source, suggested)
 
-	// Notify UI about new suggested query
 	sse.Publish(sse.CrawlerTopic(cfg.ID), sse.Event{
 		Type: "config_updated",
 		Data: map[string]interface{}{"suggested_query": suggested},
 	})
+}
+
+func (s *AutomationService) generateQueryWithLLM(cfg *repositories.AutomationConfigDTO, currentQuery string) string {
+	documentContext := s.loadDocumentContext(cfg.SourceDocumentIDs)
+
+	systemPrompt := "(none)"
+	if cfg.SystemPrompt != nil && *cfg.SystemPrompt != "" {
+		systemPrompt = *cfg.SystemPrompt
+	}
+
+	prompt := fmt.Sprintf(`You are helping optimize a job search query. The current query is not finding good results.
+
+Current query: %s
+
+System prompt describing ideal candidates:
+%s
+
+Document context:
+%s
+
+Generate a NEW search query that might find better results. Consider:
+- Different keywords or job titles
+- Broader or narrower scope
+- Alternative technologies or skills mentioned in the documents
+
+Return ONLY the search query text, nothing else. No explanations, no quotes, no formatting.`, currentQuery, systemPrompt, documentContext)
+
+	model := "claude-sonnet-4-5-20250929"
+	if cfg.AgentModel != nil && *cfg.AgentModel != "" {
+		model = *cfg.AgentModel
+	}
+
+	if strings.HasPrefix(model, "gpt-") {
+		return s.generateSuggestionWithOpenAI(model, prompt)
+	}
+	return s.generateSuggestionWithAnthropic(model, prompt)
 }
 
 func (s *AutomationService) generatePromptSuggestion(cfg *repositories.AutomationConfigDTO, approved, total int, rejectedJobs []reviewedJobResult) string {
