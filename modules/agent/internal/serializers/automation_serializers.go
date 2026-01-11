@@ -15,14 +15,19 @@ type AutomationConfigResponse struct {
 	NextRunAt             *time.Time `json:"next_run_at"`
 	RunCount              int        `json:"run_count"`
 	ProspectsPerRun       int        `json:"prospects_per_run"`
-	ConcurrentSearches    int        `json:"concurrent_searches"`
 	CompilationTarget int  `json:"compilation_target"`
 	DisableOnCompiled bool `json:"disable_on_compiled"`
 	ActiveProposals   int  `json:"active_proposals"`
 	CompiledAt        *time.Time `json:"compiled_at"`
-	SystemPrompt       *string    `json:"system_prompt"`
-	SearchSlots        []string `json:"search_slots"`
-	ATSMode            bool       `json:"ats_mode"`
+	SystemPrompt       *string  `json:"system_prompt"`
+	SuggestedPrompt    *string  `json:"suggested_prompt"`
+	UseSuggestedPrompt  bool     `json:"use_suggested_prompt"`
+	SuggestionThreshold int      `json:"suggestion_threshold"`
+	SearchQuery       *string `json:"search_query"`
+	SuggestedQuery    *string `json:"suggested_query"`
+	UseSuggestedQuery bool    `json:"use_suggested_query"`
+	Excluded          *string `json:"excluded"`
+	ATSMode           bool    `json:"ats_mode"`
 	TimeFilter         *string    `json:"time_filter"`
 	Location           *string    `json:"location"`
 	TargetType         *string    `json:"target_type"`
@@ -49,8 +54,8 @@ type AutomationRunLogResponse struct {
 	ProspectsFound   int        `json:"prospects_found"`
 	ProposalsCreated int        `json:"proposals_created"`
 	ErrorMessage     *string    `json:"error_message"`
-	SearchQuery      *string    `json:"search_query"`
-	SuggestedQueries *string    `json:"suggested_queries"`
+	ExecutedQuery   *string `json:"executed_query"`
+	RelatedSearches *string `json:"related_searches"`
 	Compiled         bool       `json:"compiled"`
 	// ConfigActiveProposals is included in SSE events to update crawler stats
 	ConfigActiveProposals *int `json:"config_active_proposals,omitempty"`

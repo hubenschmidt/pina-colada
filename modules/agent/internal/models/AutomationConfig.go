@@ -18,12 +18,17 @@ type AutomationConfig struct {
 	NextRunAt          *time.Time     `gorm:"column:next_run_at" json:"next_run_at"`
 	RunCount           int            `gorm:"column:run_count;not null;default:0" json:"run_count"`
 	ProspectsPerRun    int            `gorm:"column:prospects_per_run;not null;default:10" json:"prospects_per_run"`
-	ConcurrentSearches int            `gorm:"column:concurrent_searches;not null;default:1" json:"concurrent_searches"`
 	CompilationTarget  int            `gorm:"column:compilation_target;not null;default:100" json:"compilation_target"`
 	DisableOnCompiled  bool           `gorm:"column:disable_on_compiled;not null;default:false" json:"disable_on_compiled"`
 	CompiledAt         *time.Time     `gorm:"column:compiled_at" json:"compiled_at"`
 	SystemPrompt       *string        `gorm:"column:system_prompt" json:"system_prompt"`
-	SearchSlots        datatypes.JSON `gorm:"column:search_slots;type:jsonb" json:"search_slots"`
+	SuggestedPrompt    *string        `gorm:"column:suggested_prompt" json:"suggested_prompt"`
+	UseSuggestedPrompt  bool           `gorm:"column:use_suggested_prompt;not null;default:false" json:"use_suggested_prompt"`
+	SuggestionThreshold int     `gorm:"column:suggestion_threshold;not null;default:50" json:"suggestion_threshold"`
+	SearchQuery       *string `gorm:"column:search_query" json:"search_query"`
+	SuggestedQuery    *string `gorm:"column:suggested_query" json:"suggested_query"`
+	UseSuggestedQuery bool    `gorm:"column:use_suggested_query;not null;default:false" json:"use_suggested_query"`
+	Excluded          *string `gorm:"column:excluded" json:"excluded"`
 	ATSMode            bool           `gorm:"column:ats_mode;not null;default:true" json:"ats_mode"`
 	TimeFilter         *string        `gorm:"column:time_filter" json:"time_filter"`
 	Location           *string        `gorm:"column:location" json:"location"`

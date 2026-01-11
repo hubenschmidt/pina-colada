@@ -87,8 +87,8 @@ const TARGET_TYPE_OPTIONS = {
 };
 
 const AGENT_MODEL_OPTIONS = [
-  { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4.5 (Recommended)" },
-  { value: "claude-haiku-4-20250514", label: "Claude Haiku 4.5 (Faster)" },
+  { value: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5 (Recommended)" },
+  { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (Faster)" },
   { value: "gpt-5.2", label: "GPT 5.2" },
   { value: "gpt-5.1", label: "GPT 5.1" },
 ];
@@ -103,10 +103,12 @@ const emptyForm = {
   entity_type: "job",
   interval_value: 30,
   interval_unit: "minutes",
-  concurrent_searches: 1,
   compilation_target: 100,
   disable_on_compiled: false,
-  search_slots: [""],
+  search_query: "",
+  suggested_query: null,
+  use_suggested_query: false,
+  excluded: "",
   location: "",
   ats_mode: true,
   time_filter: "week",
@@ -114,12 +116,15 @@ const emptyForm = {
   target_ids: [],
   source_document_ids: [],
   system_prompt: "",
+  suggested_prompt: null,
+  use_suggested_prompt: false,
+  suggestion_threshold: 50,
   digest_enabled: true,
   digest_emails: "",
   digest_time: "09:00",
   digest_model: null,
   use_agent: false,
-  agent_model: "claude-sonnet-4-20250514",
+  agent_model: "claude-sonnet-4-5-20250929",
   empty_proposal_limit: null,
 };
 
@@ -244,10 +249,12 @@ const AutomationPage = () => {
       entity_type: crawler.entity_type || "job",
       interval_value: useMinutes ? seconds / 60 : seconds,
       interval_unit: useMinutes ? "minutes" : "seconds",
-      concurrent_searches: crawler.concurrent_searches || 1,
       compilation_target: crawler.compilation_target || 100,
       disable_on_compiled: crawler.disable_on_compiled ?? false,
-      search_slots: crawler.search_slots?.length ? crawler.search_slots : [""],
+      search_query: crawler.search_query || "",
+      suggested_query: crawler.suggested_query || null,
+      use_suggested_query: crawler.use_suggested_query ?? false,
+      excluded: crawler.excluded || "",
       location: crawler.location || "",
       ats_mode: crawler.ats_mode ?? true,
       time_filter: crawler.time_filter || "week",
@@ -255,12 +262,15 @@ const AutomationPage = () => {
       target_ids: crawler.target_ids || [],
       source_document_ids: crawler.source_document_ids || [],
       system_prompt: crawler.system_prompt || "",
+      suggested_prompt: crawler.suggested_prompt || null,
+      use_suggested_prompt: crawler.use_suggested_prompt ?? false,
+      suggestion_threshold: crawler.suggestion_threshold ?? 50,
       digest_enabled: crawler.digest_enabled ?? true,
       digest_emails: crawler.digest_emails || "",
       digest_time: crawler.digest_time || "09:00",
       digest_model: crawler.digest_model || null,
       use_agent: crawler.use_agent ?? false,
-      agent_model: crawler.agent_model || "claude-sonnet-4-20250514",
+      agent_model: crawler.agent_model || "claude-sonnet-4-5-20250929",
       empty_proposal_limit: crawler.empty_proposal_limit || null,
     });
 
@@ -307,11 +317,12 @@ const AutomationPage = () => {
       return;
     }
 
-    // Filter out empty slots before saving
-    const cleanedSlots = (form.search_slots || []).filter((slot) => slot && slot.trim().length > 0);
-
-    if (cleanedSlots.length === 0) {
-      setModalError("At least one search slot must have a query");
+    // Validate search query
+    const query = form.use_suggested_query && form.suggested_query
+      ? form.suggested_query
+      : form.search_query;
+    if (!query || !query.trim()) {
+      setModalError("Search query is required");
       return;
     }
 
@@ -322,12 +333,13 @@ const AutomationPage = () => {
 
     const cleanedForm = {
       ...form,
-      search_slots: cleanedSlots,
       interval_seconds: intervalSeconds,
       empty_proposal_limit: form.empty_proposal_limit || 0,
     };
     delete cleanedForm.interval_value;
     delete cleanedForm.interval_unit;
+    delete cleanedForm.suggested_prompt; // Read-only from backend
+    delete cleanedForm.suggested_query; // Read-only from backend
 
     setSaving(true);
     try {
@@ -510,6 +522,11 @@ const AutomationPage = () => {
                           {` • ${crawler.active_proposals || 0} proposals`}
                           {crawler.next_run_at && ` • Next: ${new Date(crawler.next_run_at).toLocaleString()}`}
                         </Text>
+                        {crawler.suggested_query && (
+                          <Text size="xs" c="lime" lineClamp={1}>
+                            Suggested: {crawler.suggested_query}
+                          </Text>
+                        )}
                       </div>
                     </Group>
 
@@ -641,13 +658,6 @@ const AutomationPage = () => {
 
           <Group grow>
             <NumberInput
-              label="Concurrent Searches"
-              value={form.concurrent_searches}
-              onChange={(val) => updateForm("concurrent_searches", val)}
-              min={1}
-              max={10}
-            />
-            <NumberInput
               label="Compilation Target"
               value={form.compilation_target}
               onChange={(val) => updateForm("compilation_target", val)}
@@ -675,28 +685,48 @@ const AutomationPage = () => {
           />
 
           <Stack gap="xs">
-            {Array.from({ length: form.concurrent_searches }).map((_, slotIndex) => (
-              <Textarea
-                key={slotIndex}
-                label={form.concurrent_searches === 1 ? "Search Query" : `Slot ${slotIndex + 1}`}
-                placeholder="e.g. (typescript OR javascript) node.js intitle:engineer -junior"
-                description={slotIndex === 0 ? "Operators: OR, (), \"\", -, intitle:" : undefined}
-                value={form.search_slots[slotIndex] || ""}
-                onChange={(e) => {
-                  const newSlots = [...(form.search_slots || [])];
-                  while (newSlots.length < form.concurrent_searches) {
-                    newSlots.push("");
-                  }
-                  newSlots[slotIndex] = e.target.value;
-                  updateForm("search_slots", newSlots);
-                }}
-                minRows={2}
-              />
-            ))}
-            {form.concurrent_searches > 1 && (
-              <Text size="xs" c="dimmed">Each slot runs as a separate concurrent search.</Text>
+            <Textarea
+              label="Search Query"
+              placeholder="e.g. (typescript OR javascript) node.js intitle:engineer -junior"
+              description={'Operators: OR, (), "", -, intitle:'}
+              value={form.use_suggested_query && form.suggested_query
+                ? form.suggested_query
+                : form.search_query}
+              onChange={(e) => {
+                const field = form.use_suggested_query && form.suggested_query
+                  ? "suggested_query"
+                  : "search_query";
+                updateForm(field, e.currentTarget.value);
+              }}
+              minRows={2}
+              styles={form.use_suggested_query && form.suggested_query
+                ? { input: { borderColor: "var(--mantine-color-lime-6)" } }
+                : {}}
+            />
+            {form.suggested_query && (
+              <Text size="xs" c="dimmed">
+                {form.use_suggested_query
+                  ? "Editing suggested query. Toggle off to switch back to original."
+                  : "A suggested query is available. Toggle on to use it."}
+              </Text>
             )}
+            <Switch
+              label="Use suggested query"
+              description={form.suggested_query ? "AI-generated query from Serper related searches" : "Will use AI suggestions when available"}
+              checked={form.use_suggested_query}
+              onChange={(e) => updateForm("use_suggested_query", e.currentTarget.checked)}
+              color="lime"
+              size="sm"
+            />
           </Stack>
+
+          <TextInput
+            label="Excluded Terms"
+            description="Terms to exclude from search (e.g., -junior -intern -entry)"
+            placeholder="-junior -intern -entry"
+            value={form.excluded || ""}
+            onChange={(e) => updateForm("excluded", e.currentTarget.value)}
+          />
 
           <TextInput
             label="Location"
@@ -789,14 +819,51 @@ const AutomationPage = () => {
             />
           )}
 
-          <Textarea
-            label="System Prompt"
-            placeholder="Custom instructions for the automation agent..."
-            value={form.system_prompt}
-            onChange={(e) => updateForm("system_prompt", e.currentTarget.value)}
-            minRows={3}
-            autosize
-          />
+
+          <Stack gap="xs">
+            <Text size="sm" fw={500}>System Prompt</Text>
+            <Textarea
+              placeholder="Custom instructions for the automation agent..."
+              value={form.use_suggested_prompt && form.suggested_prompt ? form.suggested_prompt : form.system_prompt}
+              onChange={(e) => {
+                if (form.use_suggested_prompt && form.suggested_prompt) {
+                  updateForm("suggested_prompt", e.currentTarget.value);
+                } else {
+                  updateForm("system_prompt", e.currentTarget.value);
+                }
+              }}
+              minRows={3}
+              autosize
+              styles={form.use_suggested_prompt && form.suggested_prompt ? { input: { borderColor: "var(--mantine-color-lime-6)" } } : {}}
+            />
+            {form.suggested_prompt && (
+              <Text size="xs" c="dimmed">
+                {form.use_suggested_prompt
+                  ? "Editing suggested prompt. Toggle off to switch back to original."
+                  : "A suggested prompt is available. Toggle on to use it."}
+              </Text>
+            )}
+          </Stack>
+
+          <Group grow align="flex-start">
+            <Switch
+              label="Use suggested prompt"
+              description="AI-generated improvement"
+              checked={form?.use_suggested_prompt}
+              onChange={(e) => updateForm("use_suggested_prompt", e.currentTarget.checked)}
+              color="lime"
+              size="sm"
+            />
+            <NumberInput
+              label="Suggestion Threshold"
+              description="Generate suggestion when approval rate below this %"
+              value={form.suggestion_threshold}
+              onChange={(val) => updateForm("suggestion_threshold", val)}
+              min={0}
+              max={100}
+              suffix="%"
+            />
+          </Group>
 
           <Switch
             label="Daily Digest"
@@ -857,11 +924,12 @@ const CrawlerRunsSSE = ({ crawlerId, isExpanded, pageValue, pageSizeValue, onPag
   const [localData, setLocalData] = useState(null);
 
   const handleSSEEvent = useCallback((type, payload) => {
-    // Handle config updates (e.g., crawler disabled on compilation target)
+    // Handle config updates (e.g., crawler disabled on compilation target, suggested query)
     if (type === "config_updated") {
       const updates = {
         ...(payload.enabled != null && { enabled: payload.enabled }),
         ...(payload.active_proposals != null && { active_proposals: payload.active_proposals }),
+        ...(payload.suggested_query != null && { suggested_query: payload.suggested_query }),
       };
       onCrawlerUpdate?.(crawlerId, updates);
       return;
@@ -988,7 +1056,7 @@ const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onP
       header: "Query",
       render: (row) => (
         <Text size="xs" lineClamp={1}>
-          {row.status === "running" ? "-" : (row.suggested_queries || row.search_query || "-")}
+          {row.status === "running" ? "-" : (row.executed_query || "-")}
         </Text>
       ),
     },

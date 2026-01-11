@@ -1,5 +1,12 @@
 # Plan: Improve Job Search Query & Fix Duplicate Check Bug
 
+## Code Rules
+- `/go-code-rules` - Go code (backend)
+- `/csr-code-rules` - Controller-Service-Repository pattern
+- `/js-code-rules` - JavaScript/React code (frontend)
+
+**IMPORTANT**: Use guard clauses and early returns. Avoid nested conditionals, `else`, switch-case, `continue`, or `break`. Flatten conditional logic.
+
 ## Summary
 Three issues to fix:
 1. **Search quality**: Query returns wrong job types, evaluator rejects valid matches
@@ -179,19 +186,17 @@ func (r *AutomationRepository) UpdateSuggestedPrompt(configID int64, suggestion 
 }
 
 func (r *AutomationRepository) AcceptSuggestedPrompt(configID int64) error {
-    return r.db.Transaction(func(tx *gorm.DB) error {
-        var cfg models.AutomationConfig
-        if err := tx.First(&cfg, configID).Error; err != nil {
-            return err
-        }
-        if cfg.SuggestedPrompt == nil || *cfg.SuggestedPrompt == "" {
-            return errors.New("no suggestion to accept")
-        }
-        return tx.Model(&cfg).Updates(map[string]interface{}{
-            "system_prompt":     *cfg.SuggestedPrompt,
-            "suggested_prompt":  nil,
-        }).Error
-    })
+    var cfg models.AutomationConfig
+    if err := r.db.First(&cfg, configID).Error; err != nil {
+        return err
+    }
+    if cfg.SuggestedPrompt == nil || *cfg.SuggestedPrompt == "" {
+        return errors.New("no suggestion to accept")
+    }
+    return r.db.Model(&cfg).Updates(map[string]interface{}{
+        "system_prompt":    *cfg.SuggestedPrompt,
+        "suggested_prompt": nil,
+    }).Error
 }
 ```
 

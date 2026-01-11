@@ -29,6 +29,11 @@ var ATSDomains = []string{
 	"pinpointhq.com",
 }
 
+// JobTitleExclusions contains exclusion terms for filtering out unwanted job types
+var JobTitleExclusions = []string{
+	"-manager", "-director", "-QA", "-SDET", "-test", "-intern", "-junior",
+}
+
 // JobBoardExclusions contains -site: prefixed domains to exclude job boards and aggregators
 var JobBoardExclusions = []string{
 	// Major job boards

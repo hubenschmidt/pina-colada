@@ -47,12 +47,15 @@ type CrawlerRequest struct {
 	EntityType         *string  `json:"entity_type,omitempty"`
 	Enabled            *bool    `json:"enabled,omitempty"`
 	IntervalSeconds    *int     `json:"interval_seconds,omitempty"`
-	ConcurrentSearches *int     `json:"concurrent_searches,omitempty"`
 	CompilationTarget  *int     `json:"compilation_target,omitempty"`
 	DisableOnCompiled  *bool    `json:"disable_on_compiled,omitempty"`
-	SystemPrompt       *string    `json:"system_prompt,omitempty"`
-	SearchSlots        []string `json:"search_slots,omitempty"`
-	ATSMode            *bool      `json:"ats_mode,omitempty"`
+	SystemPrompt       *string  `json:"system_prompt,omitempty"`
+	UseSuggestedPrompt  *bool    `json:"use_suggested_prompt,omitempty"`
+	SuggestionThreshold *int     `json:"suggestion_threshold,omitempty"`
+	SearchQuery       *string `json:"search_query,omitempty"`
+	UseSuggestedQuery *bool   `json:"use_suggested_query,omitempty"`
+	Excluded          *string `json:"excluded,omitempty"`
+	ATSMode           *bool   `json:"ats_mode,omitempty"`
 	TimeFilter         *string  `json:"time_filter,omitempty"`
 	Location           *string  `json:"location,omitempty"`
 	TargetType         *string  `json:"target_type,omitempty"`
@@ -339,17 +342,54 @@ func (c *AutomationController) parseConfigID(r *http.Request) (int64, error) {
 	return strconv.ParseInt(idStr, 10, 64)
 }
 
+// AcceptSuggestedPrompt handles POST /automation/crawlers/{id}/accept-suggestion
+func (c *AutomationController) AcceptSuggestedPrompt(w http.ResponseWriter, r *http.Request) {
+	configID, err := c.parseConfigID(r)
+	if err != nil {
+		writeAutomationError(w, http.StatusBadRequest, "invalid crawler ID")
+		return
+	}
+
+	result, err := c.automationService.AcceptSuggestedPrompt(configID)
+	if err != nil {
+		writeAutomationError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeAutomationJSON(w, http.StatusOK, result)
+}
+
+// DismissSuggestedPrompt handles POST /automation/crawlers/{id}/dismiss-suggestion
+func (c *AutomationController) DismissSuggestedPrompt(w http.ResponseWriter, r *http.Request) {
+	configID, err := c.parseConfigID(r)
+	if err != nil {
+		writeAutomationError(w, http.StatusBadRequest, "invalid crawler ID")
+		return
+	}
+
+	result, err := c.automationService.DismissSuggestedPrompt(configID)
+	if err != nil {
+		writeAutomationError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeAutomationJSON(w, http.StatusOK, result)
+}
+
 func (c *AutomationController) requestToInput(req CrawlerRequest) repositories.AutomationConfigInput {
 	return repositories.AutomationConfigInput{
 		Name:               req.Name,
 		EntityType:         req.EntityType,
 		Enabled:            req.Enabled,
 		IntervalSeconds:    req.IntervalSeconds,
-		ConcurrentSearches: req.ConcurrentSearches,
 		CompilationTarget:  req.CompilationTarget,
 		DisableOnCompiled:  req.DisableOnCompiled,
 		SystemPrompt:       req.SystemPrompt,
-		SearchSlots:        req.SearchSlots,
+		UseSuggestedPrompt:  req.UseSuggestedPrompt,
+		SuggestionThreshold: req.SuggestionThreshold,
+		SearchQuery:         req.SearchQuery,
+		UseSuggestedQuery:   req.UseSuggestedQuery,
+		Excluded:            req.Excluded,
 		ATSMode:            req.ATSMode,
 		TimeFilter:         req.TimeFilter,
 		Location:           req.Location,

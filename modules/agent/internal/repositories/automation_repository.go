@@ -34,12 +34,17 @@ type AutomationConfigDTO struct {
 	NextRunAt          *time.Time
 	RunCount           int
 	ProspectsPerRun    int
-	ConcurrentSearches  int
 	CompilationTarget   int
 	DisableOnCompiled   bool
 	SystemPrompt        *string
-	SearchSlots        []string
-	ATSMode            bool
+	SuggestedPrompt     *string
+	UseSuggestedPrompt  bool
+	SuggestionThreshold int
+	SearchQuery       *string
+	SuggestedQuery    *string
+	UseSuggestedQuery bool
+	Excluded          *string
+	ATSMode           bool
 	TimeFilter         *string
 	Location           *string
 	TargetType         *string
@@ -64,12 +69,15 @@ type AutomationConfigInput struct {
 	EntityType         *string
 	Enabled            *bool
 	IntervalSeconds    *int
-	ConcurrentSearches  *int
 	CompilationTarget   *int
 	DisableOnCompiled   *bool
 	SystemPrompt        *string
-	SearchSlots        []string
-	ATSMode            *bool
+	UseSuggestedPrompt  *bool
+	SuggestionThreshold *int
+	SearchQuery       *string
+	UseSuggestedQuery *bool
+	Excluded          *string
+	ATSMode           *bool
 	TimeFilter         *string
 	Location           *string
 	TargetType         *string
@@ -93,8 +101,8 @@ type AutomationRunLogDTO struct {
 	ProspectsFound   int
 	ProposalsCreated int
 	ErrorMessage     *string
-	SearchQuery      *string
-	SuggestedQueries *string
+	ExecutedQuery   *string
+	RelatedSearches *string
 	Compiled         bool
 }
 
@@ -192,10 +200,29 @@ func (r *AutomationRepository) GetPausedCrawlers() ([]AutomationConfigDTO, error
 	return result, nil
 }
 
-// GetDueAutomations returns enabled automations that are due to run
+// GetDueAutomations returns enabled automations that are due to run.
+// Uses row locking to prevent race conditions with concurrent scheduler ticks.
 func (r *AutomationRepository) GetDueAutomations(now time.Time) ([]AutomationConfigDTO, error) {
 	var configs []models.AutomationConfig
-	err := r.db.Where("enabled = ? AND (next_run_at IS NULL OR next_run_at <= ?)", true, now).Find(&configs).Error
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		// Select due configs with row lock (SKIP LOCKED prevents blocking)
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Where("enabled = ? AND (next_run_at IS NULL OR next_run_at <= ?)", true, now).
+			Find(&configs).Error; err != nil {
+			return err
+		}
+
+		// Claim configs by setting next_run_at to prevent re-pickup
+		for i := range configs {
+			nextRun := now.Add(time.Duration(configs[i].IntervalSeconds) * time.Second)
+			if err := tx.Model(&configs[i]).Update("next_run_at", nextRun).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -288,19 +315,19 @@ func (r *AutomationRepository) DisableConfig(configID int64) error {
 }
 
 // CreateRunLog creates a new run log entry
-func (r *AutomationRepository) CreateRunLog(configID int64, searchQuery string) (int64, error) {
+func (r *AutomationRepository) CreateRunLog(configID int64, executedQuery string) (int64, error) {
 	log := models.AutomationRunLog{
 		AutomationConfigID: configID,
 		StartedAt:          time.Now(),
 		Status:             "running",
-		SearchQuery:        &searchQuery,
+		ExecutedQuery:      &executedQuery,
 	}
 	err := r.db.Create(&log).Error
 	return log.ID, err
 }
 
 // CompleteRunLog marks a run log as completed
-func (r *AutomationRepository) CompleteRunLog(logID int64, status string, prospectsFound, proposalsCreated int, errorMsg, suggestedQueries *string, compiled bool) error {
+func (r *AutomationRepository) CompleteRunLog(logID int64, status string, prospectsFound, proposalsCreated int, errorMsg, relatedSearches *string, compiled bool) error {
 	now := time.Now()
 	return r.db.Model(&models.AutomationRunLog{}).
 		Where("id = ?", logID).
@@ -310,7 +337,7 @@ func (r *AutomationRepository) CompleteRunLog(logID int64, status string, prospe
 			"prospects_found":    prospectsFound,
 			"proposals_created":  proposalsCreated,
 			"error_message":      errorMsg,
-			"suggested_queries":  suggestedQueries,
+			"related_searches":   relatedSearches,
 			"compiled":           compiled,
 		}).Error
 }
@@ -345,8 +372,8 @@ func (r *AutomationRepository) GetRunLogs(configID int64, page, limit int) ([]Au
 			ProspectsFound:   logs[i].ProspectsFound,
 			ProposalsCreated: logs[i].ProposalsCreated,
 			ErrorMessage:     logs[i].ErrorMessage,
-			SearchQuery:      logs[i].SearchQuery,
-			SuggestedQueries: logs[i].SuggestedQueries,
+			ExecutedQuery:    logs[i].ExecutedQuery,
+			RelatedSearches:  logs[i].RelatedSearches,
 			Compiled:         logs[i].Compiled,
 		}
 	}
@@ -408,11 +435,17 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 		NextRunAt:          cfg.NextRunAt,
 		RunCount:           cfg.RunCount,
 		ProspectsPerRun:    cfg.ProspectsPerRun,
-		ConcurrentSearches: cfg.ConcurrentSearches,
 		CompilationTarget:  cfg.CompilationTarget,
 		DisableOnCompiled:  cfg.DisableOnCompiled,
 		SystemPrompt:       cfg.SystemPrompt,
-		ATSMode:            cfg.ATSMode,
+		SuggestedPrompt:    cfg.SuggestedPrompt,
+		UseSuggestedPrompt:  cfg.UseSuggestedPrompt,
+		SuggestionThreshold: cfg.SuggestionThreshold,
+		SearchQuery:       cfg.SearchQuery,
+		SuggestedQuery:    cfg.SuggestedQuery,
+		UseSuggestedQuery: cfg.UseSuggestedQuery,
+		Excluded:          cfg.Excluded,
+		ATSMode:           cfg.ATSMode,
 		TimeFilter:         cfg.TimeFilter,
 		Location:           cfg.Location,
 		TargetType:         cfg.TargetType,
@@ -430,9 +463,6 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 	}
 
 	// Parse JSON arrays
-	if cfg.SearchSlots != nil {
-		_ = json.Unmarshal(cfg.SearchSlots, &dto.SearchSlots)
-	}
 	if cfg.TargetIDs != nil {
 		_ = json.Unmarshal(cfg.TargetIDs, &dto.TargetIDs)
 	}
@@ -456,9 +486,6 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.IntervalSeconds != nil {
 		cfg.IntervalSeconds = *input.IntervalSeconds
 	}
-	if input.ConcurrentSearches != nil {
-		cfg.ConcurrentSearches = *input.ConcurrentSearches
-	}
 	if input.CompilationTarget != nil {
 		cfg.CompilationTarget = *input.CompilationTarget
 	}
@@ -468,8 +495,20 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.SystemPrompt != nil {
 		cfg.SystemPrompt = input.SystemPrompt
 	}
-	if input.SearchSlots != nil {
-		cfg.SearchSlots = toJSON(input.SearchSlots)
+	if input.UseSuggestedPrompt != nil {
+		cfg.UseSuggestedPrompt = *input.UseSuggestedPrompt
+	}
+	if input.SuggestionThreshold != nil {
+		cfg.SuggestionThreshold = *input.SuggestionThreshold
+	}
+	if input.SearchQuery != nil {
+		cfg.SearchQuery = input.SearchQuery
+	}
+	if input.UseSuggestedQuery != nil {
+		cfg.UseSuggestedQuery = *input.UseSuggestedQuery
+	}
+	if input.Excluded != nil {
+		cfg.Excluded = input.Excluded
 	}
 	if input.ATSMode != nil {
 		cfg.ATSMode = *input.ATSMode
@@ -581,4 +620,47 @@ func (r *AutomationRepository) GetRejectedJobs(tenantID int64) ([]RejectedJobInf
 // ClearRejectedJobs deletes all rejected jobs for a given automation config
 func (r *AutomationRepository) ClearRejectedJobs(configID int64) error {
 	return r.db.Where("automation_config_id = ?", configID).Delete(&models.AutomationRejectedJob{}).Error
+}
+
+// UpdateSuggestedPrompt sets a suggested prompt for a config
+func (r *AutomationRepository) UpdateSuggestedPrompt(configID int64, suggestion string) error {
+	return r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Update("suggested_prompt", suggestion).Error
+}
+
+// ClearSuggestedPrompt removes the suggested prompt from a config
+func (r *AutomationRepository) ClearSuggestedPrompt(configID int64) error {
+	return r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Update("suggested_prompt", nil).Error
+}
+
+// AcceptSuggestedPrompt copies suggested_prompt to system_prompt and clears suggestion
+func (r *AutomationRepository) AcceptSuggestedPrompt(configID int64) error {
+	var cfg models.AutomationConfig
+	if err := r.db.First(&cfg, configID).Error; err != nil {
+		return err
+	}
+	if cfg.SuggestedPrompt == nil || *cfg.SuggestedPrompt == "" {
+		return nil
+	}
+	return r.db.Model(&cfg).Updates(map[string]interface{}{
+		"system_prompt":    *cfg.SuggestedPrompt,
+		"suggested_prompt": nil,
+	}).Error
+}
+
+// UpdateSuggestedQuery sets suggested query for a config
+func (r *AutomationRepository) UpdateSuggestedQuery(configID int64, query string) error {
+	return r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Update("suggested_query", query).Error
+}
+
+// ClearSuggestedQuery removes the suggested query from a config
+func (r *AutomationRepository) ClearSuggestedQuery(configID int64) error {
+	return r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Update("suggested_query", nil).Error
 }
