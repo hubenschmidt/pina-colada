@@ -466,7 +466,7 @@ const AutomationPage = () => {
   }));
 
   return (
-    <Container size="lg" py="xl">
+    <Container fluid py="xl" px="xl">
       <Stack gap="xl">
         {alert && (
           <Alert
@@ -1055,7 +1055,7 @@ const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onP
     {
       header: "Query",
       render: (row) => (
-        <Text size="xs" lineClamp={1}>
+        <Text size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
           {row.status === "running" ? "-" : (row.executed_query || "-")}
         </Text>
       ),

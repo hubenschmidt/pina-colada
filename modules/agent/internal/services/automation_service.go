@@ -1333,15 +1333,20 @@ func (s *AutomationService) checkAndSuggestQueryImprovement(cfg *repositories.Au
 		currentQuery = strings.ToLower(*cfg.SearchQuery)
 	}
 
+	log.Printf("Automation service: checking query improvement for config=%d, %d related searches, currentQuery=%q",
+		cfg.ID, len(relatedSearches), truncateString(currentQuery, 80))
+
 	// Try Serper related searches first
 	var suggested string
 	var source string
 	for _, rs := range relatedSearches {
 		if strings.ToLower(rs) == currentQuery {
+			log.Printf("Automation service: skipping related search (matches current): %s", truncateString(rs, 80))
 			continue
 		}
 		suggested = rs
 		source = "serper"
+		log.Printf("Automation service: picked Serper suggestion: %s", truncateString(rs, 80))
 		break
 	}
 
@@ -1377,9 +1382,10 @@ func (s *AutomationService) generateQueryWithLLM(cfg *repositories.AutomationCon
 		systemPrompt = *cfg.SystemPrompt
 	}
 
-	prompt := fmt.Sprintf(`You are helping optimize a job search query. The current query is not finding good results.
+	prompt := fmt.Sprintf(`You are helping optimize a job search query. The current query is returning 0 relevant results.
 
-Current query: %s
+CURRENT QUERY (DO NOT REPEAT THIS):
+%s
 
 System prompt describing ideal candidates:
 %s
@@ -1387,12 +1393,13 @@ System prompt describing ideal candidates:
 Document context:
 %s
 
-Generate a NEW search query that might find better results. Consider:
-- Different keywords or job titles
-- Broader or narrower scope
-- Alternative technologies or skills mentioned in the documents
+Generate a COMPLETELY DIFFERENT search query. Requirements:
+- Must be substantially different from the current query
+- Use different keywords, job titles, or skill combinations
+- Try a different approach (broader, narrower, different technologies)
+- Keep it concise (under 100 characters if possible)
 
-Return ONLY the search query text, nothing else. No explanations, no quotes, no formatting.`, currentQuery, systemPrompt, documentContext)
+Return ONLY the new search query text. No explanations, quotes, or formatting.`, currentQuery, systemPrompt, documentContext)
 
 	model := "claude-sonnet-4-5-20250929"
 	if cfg.AgentModel != nil && *cfg.AgentModel != "" {
