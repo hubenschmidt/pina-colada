@@ -548,8 +548,12 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.SuggestedPrompt != nil {
 		cfg.SuggestedPrompt = input.SuggestedPrompt
 	}
-	if input.UseSuggestedPrompt != nil {
-		cfg.UseSuggestedPrompt = *input.UseSuggestedPrompt
+	if input.UseSuggestedPrompt != nil && *input.UseSuggestedPrompt {
+		cfg.UseSuggestedPrompt = true
+	}
+	if input.UseSuggestedPrompt != nil && !*input.UseSuggestedPrompt {
+		cfg.UseSuggestedPrompt = false
+		cfg.SuggestedPrompt = nil
 	}
 	if input.SuggestionThreshold != nil {
 		cfg.SuggestionThreshold = *input.SuggestionThreshold
@@ -563,8 +567,12 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.SuggestedQuery != nil {
 		cfg.SuggestedQuery = input.SuggestedQuery
 	}
-	if input.UseSuggestedQuery != nil {
-		cfg.UseSuggestedQuery = *input.UseSuggestedQuery
+	if input.UseSuggestedQuery != nil && *input.UseSuggestedQuery {
+		cfg.UseSuggestedQuery = true
+	}
+	if input.UseSuggestedQuery != nil && !*input.UseSuggestedQuery {
+		cfg.UseSuggestedQuery = false
+		cfg.SuggestedQuery = nil
 	}
 	if input.ATSMode != nil {
 		cfg.ATSMode = *input.ATSMode
@@ -795,6 +803,7 @@ type RunAnalytics struct {
 	AvgConversionRate   float64
 	BestQueries         []QueryPerformance
 	WorstQueries        []QueryPerformance
+	RecentQueries       []string
 }
 
 // GetRunAnalytics returns aggregated analytics for a config's historical runs
@@ -851,12 +860,16 @@ func (r *AutomationRepository) GetRunAnalytics(configID int64, limit int) (*RunA
 	// Bottom 3 worst queries (that had prospects but 0 proposals)
 	worstQueries := findWorstQueries(sortedByProposals, 3)
 
+	// Collect recent unique queries (most recent first)
+	recentQueries := extractRecentQueries(logs, 5)
+
 	return &RunAnalytics{
 		TotalRuns:           len(logs),
 		ConsecutiveZeroRuns: consecutiveZeroRuns,
 		AvgConversionRate:   avgConversion,
 		BestQueries:         bestQueries,
 		WorstQueries:        worstQueries,
+		RecentQueries:       recentQueries,
 	}, nil
 }
 
@@ -877,6 +890,30 @@ func appendIfWorstQuery(q QueryPerformance, worst []QueryPerformance) []QueryPer
 		return worst
 	}
 	return append(worst, q)
+}
+
+// extractRecentQueries returns unique recent queries from logs
+func extractRecentQueries(logs []models.AutomationRunLog, limit int) []string {
+	seen := make(map[string]bool)
+	var recent []string
+	for _, log := range logs {
+		recent = appendUniqueQuery(log, seen, recent, limit)
+	}
+	return recent
+}
+
+func appendUniqueQuery(log models.AutomationRunLog, seen map[string]bool, recent []string, limit int) []string {
+	if len(recent) >= limit {
+		return recent
+	}
+	if log.ExecutedQuery == nil || *log.ExecutedQuery == "" {
+		return recent
+	}
+	if seen[*log.ExecutedQuery] {
+		return recent
+	}
+	seen[*log.ExecutedQuery] = true
+	return append(recent, *log.ExecutedQuery)
 }
 
 // countConsecutiveZeroRuns counts consecutive zero-proposal runs from most recent

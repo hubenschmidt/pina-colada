@@ -149,6 +149,7 @@ const AutomationPage = () => {
   const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
   const [editingCrawler, setEditingCrawler] = useState(null);
   const [form, setForm] = useState(emptyForm);
+  const [initialForm, setInitialForm] = useState(emptyForm);
 
   const [expandedRuns, setExpandedRuns] = useState({});
   const [crawlerPages, setCrawlerPages] = useState({});
@@ -242,6 +243,7 @@ const AutomationPage = () => {
   const handleOpenCreate = () => {
     setEditingCrawler(null);
     setForm(emptyForm);
+    setInitialForm(emptyForm);
     setTargetOptions([]);
     setModalError(null);
     openModal();
@@ -252,7 +254,7 @@ const AutomationPage = () => {
     // Convert seconds to appropriate unit for display
     const seconds = crawler.interval_seconds || 1800;
     const useMinutes = seconds >= 60 && seconds % 60 === 0;
-    setForm({
+    const formData = {
       name: crawler.name || "",
       entity_type: crawler.entity_type || "job",
       interval_value: useMinutes ? seconds / 60 : seconds,
@@ -284,7 +286,9 @@ const AutomationPage = () => {
       empty_proposal_limit: crawler.empty_proposal_limit || null,
       prompt_cooldown_runs: crawler.prompt_cooldown_runs ?? 5,
       prompt_cooldown_prospects: crawler.prompt_cooldown_prospects ?? 50,
-    });
+    };
+    setForm(formData);
+    setInitialForm(formData);
 
     // Load target entity names if set
     setTargetOptions([]);
@@ -325,7 +329,7 @@ const AutomationPage = () => {
     setEditingCrawler(null);
     const seconds = crawler.interval_seconds || 1800;
     const useMinutes = seconds >= 60 && seconds % 60 === 0;
-    setForm({
+    const formData = {
       name: `Copy of ${crawler.name || ""}`,
       entity_type: crawler.entity_type || "job",
       interval_value: useMinutes ? seconds / 60 : seconds,
@@ -357,7 +361,9 @@ const AutomationPage = () => {
       empty_proposal_limit: crawler.empty_proposal_limit || null,
       prompt_cooldown_runs: crawler.prompt_cooldown_runs ?? 5,
       prompt_cooldown_prospects: crawler.prompt_cooldown_prospects ?? 50,
-    });
+    };
+    setForm(formData);
+    setInitialForm(formData);
 
     setTargetOptions([]);
     if (crawler.target_ids?.length && crawler.target_type) {
@@ -523,6 +529,8 @@ const AutomationPage = () => {
     setForm((prev) => ({ ...prev, [field]: value }));
   };
 
+  const isFormDirty = JSON.stringify(form) !== JSON.stringify(initialForm);
+
   if (!userState.isAuthed) {
     return (
       <Container size="lg" py="xl">
@@ -580,8 +588,8 @@ const AutomationPage = () => {
             {crawlers.map((crawler) => (
               <Paper key={crawler.id} p="md" withBorder>
                 <Stack gap="sm">
-                  <Group justify="space-between">
-                    <Group>
+                  <Group justify="space-between" wrap="nowrap">
+                    <Group style={{ minWidth: 0 }}>
                       <ActionIcon
                         variant="subtle"
                         onClick={() => toggleRunsExpanded(crawler.id)}
@@ -593,7 +601,7 @@ const AutomationPage = () => {
                           <ChevronRight size={16} />
                         )}
                       </ActionIcon>
-                      <div>
+                      <div style={{ minWidth: 0 }}>
                         <Group gap="xs">
                           <SSEIndicator status={sseStatus[crawler.id]} />
                           <Text fw={500}>{crawler.name}</Text>
@@ -604,7 +612,7 @@ const AutomationPage = () => {
                           {` • ${crawler.active_proposals || 0} proposals`}
                           {crawler.next_run_at && ` • Next: ${new Date(crawler.next_run_at).toLocaleString()}`}
                         </Text>
-                        {crawler.suggested_query && (
+                        {crawler.suggested_query && crawler.use_suggested_query && (
                           <Text size="xs" c="lime" lineClamp={1}>
                             Suggested query: {crawler.suggested_query}{crawler.location ? ` "${crawler.location}"` : ""}
                           </Text>
@@ -681,19 +689,28 @@ const AutomationPage = () => {
       <Modal
         opened={modalOpened}
         onClose={closeModal}
-        title={editingCrawler ? "Edit Crawler" : "New Crawler"}
+        title={
+          <Group justify="space-between" w="100%">
+            <Text fw={500}>{editingCrawler ? "Edit Crawler" : "New Crawler"}</Text>
+            <Group gap="xs" mr="xl">
+              <Button variant="default" size="sm" onClick={closeModal}>
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                color={isFormDirty ? "lime" : "gray"}
+                onClick={handleSave}
+                loading={saving}
+              >
+                Save
+              </Button>
+            </Group>
+          </Group>
+        }
         size={"1600"}
+        styles={{ title: { width: "100%" } }}
       >
         <Stack gap="md">
-          <Group justify="flex-end">
-            <Button variant="default" onClick={closeModal}>
-              Cancel
-            </Button>
-            <Button onClick={handleSave} loading={saving}>
-              {editingCrawler ? "Update" : "Create"}
-            </Button>
-          </Group>
-
           {modalError && (
             <Alert color="red" icon={<AlertCircle size={16} />} withCloseButton onClose={() => setModalError(null)}>
               {modalError}
@@ -778,7 +795,7 @@ const AutomationPage = () => {
               onChange={(e) => updateForm("search_query", e.currentTarget.value)}
               minRows={2}
             />
-            {form.suggested_query && (
+            {form.suggested_query && form.use_suggested_query && (
               <Group gap="xs" align="center">
                 <Text size="xs" c="lime">
                   Suggested: {form.suggested_query}

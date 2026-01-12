@@ -370,8 +370,21 @@ func (s *AutomationService) executeAutomation(cfg *repositories.AutomationConfig
 		return
 	}
 
-	// Load dedup data before starting searches
-	dedup := s.loadDedupData(cfg.TenantID)
+	// Load dedup data and documents in parallel before starting searches
+	var wg sync.WaitGroup
+	var dedup *dedupData
+	var documentContext string
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		dedup = s.loadDedupData(cfg.TenantID)
+	}()
+	go func() {
+		defer wg.Done()
+		documentContext = s.loadDocumentContext(cfg.SourceDocumentIDs)
+	}()
+	wg.Wait()
 
 	// Get active system prompt for audit trail
 	activePrompt := s.getActivePrompt(cfg)
@@ -403,7 +416,7 @@ func (s *AutomationService) executeAutomation(cfg *repositories.AutomationConfig
 		},
 	})
 
-	totalProspects, totalProposals, relatedSearches := s.executeSearch(cfg, query, deficit, dedup)
+	totalProspects, totalProposals, relatedSearches := s.executeSearch(cfg, query, deficit, dedup, documentContext)
 
 	// Check if this run crossed the compilation threshold (from below to at-or-above)
 	currentActive, _ := s.automationRepo.GetActiveProposals(cfg.ID)
@@ -571,12 +584,12 @@ func (s *AutomationService) logAutomationConfig(cfg *repositories.AutomationConf
 	log.Printf("Automation service: === Starting config=%d '%s' ===", cfg.ID, cfg.Name)
 	log.Printf("  entity_type=%s, enabled=%v", cfg.EntityType, cfg.Enabled)
 	log.Printf("  interval_seconds=%d", cfg.IntervalSeconds)
-	log.Printf("  compilation_target=%d, ats_mode=%v, time_filter=%v", cfg.CompilationTarget, cfg.ATSMode, cfg.TimeFilter)
-	log.Printf("  search_query=%v", cfg.SearchQuery)
-	log.Printf("  target_type=%v, target_ids=%v", cfg.TargetType, cfg.TargetIDs)
+	log.Printf("  compilation_target=%d, ats_mode=%v, time_filter=%s", cfg.CompilationTarget, cfg.ATSMode, ptrStr(cfg.TimeFilter))
+	log.Printf("  search_query=%s", ptrStr(cfg.SearchQuery))
+	log.Printf("  target_type=%s, target_ids=%v", ptrStr(cfg.TargetType), cfg.TargetIDs)
 	log.Printf("  source_document_ids=%v", cfg.SourceDocumentIDs)
-	log.Printf("  use_agent=%v, agent_model=%v", cfg.UseAgent, cfg.AgentModel)
-	log.Printf("  system_prompt=%v", cfg.SystemPrompt)
+	log.Printf("  use_agent=%v, agent_model=%s", cfg.UseAgent, ptrStr(cfg.AgentModel))
+	log.Printf("  system_prompt=%s", truncateString(ptrStr(cfg.SystemPrompt), 100))
 }
 
 func (s *AutomationService) calculateDeficit(cfg *repositories.AutomationConfigDTO) int64 {
@@ -597,7 +610,7 @@ func (s *AutomationService) calculateDeficit(cfg *repositories.AutomationConfigD
 	return compilationTarget - pendingCount
 }
 
-func (s *AutomationService) executeSearch(cfg *repositories.AutomationConfigDTO, query string, deficit int64, dedup *dedupData) (int32, int32, []string) {
+func (s *AutomationService) executeSearch(cfg *repositories.AutomationConfigDTO, query string, deficit int64, dedup *dedupData, documentContext string) (int32, int32, []string) {
 	log.Printf("Automation service: searching for '%s'", query)
 
 	searchResult, err := s.searchJobs(query, cfg.ATSMode, cfg.TimeFilter, cfg.Location)
@@ -610,19 +623,17 @@ func (s *AutomationService) executeSearch(cfg *repositories.AutomationConfigDTO,
 	log.Printf("Automation service: found %d results, %d related searches", prospectsFound, len(searchResult.RelatedSearches))
 
 	if !cfg.UseAgent {
-		proposals := s.processSearchResultsSimple(cfg, searchResult.Jobs, deficit, dedup)
+		proposals := s.processSearchResultsSimple(cfg, searchResult.Jobs, deficit, dedup, documentContext)
 		return prospectsFound, proposals, searchResult.RelatedSearches
 	}
 
-	return s.processSearchResultsWithAgent(cfg, searchResult, deficit, dedup)
+	return s.processSearchResultsWithAgent(cfg, searchResult, deficit, dedup, documentContext)
 }
 
-func (s *AutomationService) processSearchResultsSimple(cfg *repositories.AutomationConfigDTO, jobs []jobResult, deficit int64, dedup *dedupData) int32 {
+func (s *AutomationService) processSearchResultsSimple(cfg *repositories.AutomationConfigDTO, jobs []jobResult, deficit int64, dedup *dedupData, documentContext string) int32 {
 	var totalProposalsCreated int32
 	source := "automation"
 	configID := cfg.ID
-
-	documentContext := s.loadDocumentContext(cfg.SourceDocumentIDs)
 	sourceDocument := strings.Join(extractDocumentNames(documentContext), ", ")
 
 	for _, job := range jobs {
@@ -636,8 +647,7 @@ func (s *AutomationService) processSearchResultsSimple(cfg *repositories.Automat
 	return totalProposalsCreated
 }
 
-func (s *AutomationService) processSearchResultsWithAgent(cfg *repositories.AutomationConfigDTO, searchResult *searchResultWithRelated, deficit int64, dedup *dedupData) (int32, int32, []string) {
-	documentContext := s.loadDocumentContext(cfg.SourceDocumentIDs)
+func (s *AutomationService) processSearchResultsWithAgent(cfg *repositories.AutomationConfigDTO, searchResult *searchResultWithRelated, deficit int64, dedup *dedupData, documentContext string) (int32, int32, []string) {
 	prospectsFound := int32(len(searchResult.Jobs))
 
 	// Filter duplicates BEFORE sending to LLM
@@ -1583,14 +1593,19 @@ func (s *AutomationService) generateQueryWithLLM(cfg *repositories.AutomationCon
 		systemPrompt = *cfg.SystemPrompt
 	}
 
-	// Build analytics context if enabled
+	// Get analytics for context and staleness detection
 	analyticsContext := ""
+	consecutiveZeroRuns := 0
 	if cfg.UseAnalytics {
 		analyticsContext = s.buildAnalyticsContext(cfg.ID)
 		log.Printf("🔍 Analytics context for query suggestion:\n%s", analyticsContext)
 	}
+	analytics, err := s.automationRepo.GetRunAnalytics(cfg.ID, 20)
+	if err == nil && analytics != nil {
+		consecutiveZeroRuns = analytics.ConsecutiveZeroRuns
+	}
 
-	prompt := s.buildQuerySuggestionPrompt(currentQuery, systemPrompt, documentContext, analyticsContext, cfg.Location)
+	prompt := s.buildQuerySuggestionPrompt(currentQuery, systemPrompt, documentContext, analyticsContext, cfg.Location, consecutiveZeroRuns)
 
 	model := s.getAnalyticsModel(cfg)
 
@@ -1646,12 +1661,19 @@ func (s *AutomationService) buildAnalyticsContext(configID int64) string {
 		}
 	}
 
+	if len(analytics.RecentQueries) > 0 {
+		sb.WriteString("\nRECENT QUERIES TRIED (avoid similar):\n")
+		for _, q := range analytics.RecentQueries {
+			sb.WriteString(fmt.Sprintf("- %s\n", truncateString(q, 80)))
+		}
+	}
+
 	log.Printf("Automation service: built analytics context (%d chars)", sb.Len())
 	return sb.String()
 }
 
 // buildQuerySuggestionPrompt creates the prompt for query suggestion
-func (s *AutomationService) buildQuerySuggestionPrompt(currentQuery, systemPrompt, documentContext, analyticsContext string, location *string) string {
+func (s *AutomationService) buildQuerySuggestionPrompt(currentQuery, systemPrompt, documentContext, analyticsContext string, location *string, consecutiveZeroRuns int) string {
 	var sb strings.Builder
 
 	sb.WriteString(`You are helping optimize a job search query. The current query is returning 0 relevant results.
@@ -1692,9 +1714,42 @@ Generate a COMPLETELY DIFFERENT search query. Requirements:
 - Consider trying untried related searches if available`)
 	}
 
+	sb.WriteString(buildStalenessWarning(consecutiveZeroRuns))
+
 	sb.WriteString("\n\nReturn ONLY the new search query text. No explanations, quotes, or formatting.")
 
 	return sb.String()
+}
+
+func buildStalenessWarning(consecutiveZeroRuns int) string {
+	if consecutiveZeroRuns >= 10 {
+		log.Printf("🔥 CRITICAL STALENESS: %d consecutive zero-proposal runs - forcing major pivot", consecutiveZeroRuns)
+		return fmt.Sprintf(`
+
+CRITICAL STALENESS: %d consecutive failures!
+- COMPLETELY PIVOT your approach
+- Try a totally different angle (different seniority, different specialty, different industry)
+- Use minimal, broad terms - specificity is killing results
+- Consider if the search criteria itself is too restrictive`, consecutiveZeroRuns)
+	}
+	if consecutiveZeroRuns >= 6 {
+		log.Printf("⚠️ HIGH STALENESS: %d consecutive zero-proposal runs - requesting drastic change", consecutiveZeroRuns)
+		return fmt.Sprintf(`
+
+HIGH STALENESS: %d consecutive zero-proposal runs!
+- Make a DRASTIC change in approach
+- Try completely different job titles (e.g., if searching "engineer", try "developer", "architect", "lead")
+- Consider adjacent roles or broader industry terms
+- Simplify - fewer terms often means more results`, consecutiveZeroRuns)
+	}
+	if consecutiveZeroRuns >= 3 {
+		return fmt.Sprintf(`
+
+STALENESS WARNING: %d consecutive runs with 0 proposals.
+- Try meaningfully different keywords and job titles
+- Consider broadening or narrowing scope significantly`, consecutiveZeroRuns)
+	}
+	return ""
 }
 
 func (s *AutomationService) generatePromptSuggestion(cfg *repositories.AutomationConfigDTO, approved, total int, rejectedJobs []reviewedJobResult) string {
@@ -1915,17 +1970,54 @@ type dedupData struct {
 	urlSource        map[string]string // URL -> source ("Job", "Proposal", "Rejected")
 }
 
-// loadDedupData loads existing jobs, pending proposals, and rejected jobs for deduplication
+// loadDedupData loads existing jobs, pending proposals, and rejected jobs for deduplication (parallel)
 func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	data := &dedupData{
 		urlSource: make(map[string]string),
 	}
 
-	// Load existing jobs
-	jobs, err := s.jobRepo.GetJobsForDedup(tenantID)
-	if err != nil {
-		log.Printf("Automation service: failed to load jobs for dedup: %v", err)
-	}
+	var wg sync.WaitGroup
+	var jobs []repositories.JobDedupInfo
+	var proposals []repositories.PendingJobProposal
+	var rejectedProposals []repositories.PendingJobProposal
+	var rejected []repositories.RejectedJobInfo
+
+	wg.Add(4)
+	go func() {
+		defer wg.Done()
+		var err error
+		jobs, err = s.jobRepo.GetJobsForDedup(tenantID)
+		if err != nil {
+			log.Printf("Automation service: failed to load jobs for dedup: %v", err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		var err error
+		proposals, err = s.proposalRepo.GetPendingJobProposals(tenantID)
+		if err != nil {
+			log.Printf("Automation service: failed to load pending proposals for dedup: %v", err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		var err error
+		rejectedProposals, err = s.proposalRepo.GetRejectedJobProposals(tenantID)
+		if err != nil {
+			log.Printf("Automation service: failed to load rejected proposals for dedup: %v", err)
+		}
+	}()
+	go func() {
+		defer wg.Done()
+		var err error
+		rejected, err = s.automationRepo.GetRejectedJobs(tenantID)
+		if err != nil {
+			log.Printf("Automation service: failed to load rejected jobs for dedup: %v", err)
+		}
+	}()
+	wg.Wait()
+
+	// Merge results (single-threaded, no lock needed)
 	data.existingJobs = jobs
 	for _, j := range jobs {
 		if j.URL != "" {
@@ -1934,11 +2026,6 @@ func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	}
 	log.Printf("🔍 Dedup [Job]: loaded %d existing jobs", len(jobs))
 
-	// Load pending proposals
-	proposals, err := s.proposalRepo.GetPendingJobProposals(tenantID)
-	if err != nil {
-		log.Printf("Automation service: failed to load pending proposals for dedup: %v", err)
-	}
 	data.pendingProposals = proposals
 	for _, p := range proposals {
 		if p.URL != "" {
@@ -1947,11 +2034,6 @@ func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	}
 	log.Printf("🔍 Dedup [Proposal]: loaded %d pending proposals", len(proposals))
 
-	// Load user-rejected proposals
-	rejectedProposals, err := s.proposalRepo.GetRejectedJobProposals(tenantID)
-	if err != nil {
-		log.Printf("Automation service: failed to load rejected proposals for dedup: %v", err)
-	}
 	for _, p := range rejectedProposals {
 		if p.URL != "" {
 			data.urlSource[p.URL] = "UserRejected"
@@ -1959,11 +2041,6 @@ func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	}
 	log.Printf("🔍 Dedup [UserRejected]: loaded %d user-rejected proposals", len(rejectedProposals))
 
-	// Load agent-rejected jobs
-	rejected, err := s.automationRepo.GetRejectedJobs(tenantID)
-	if err != nil {
-		log.Printf("Automation service: failed to load rejected jobs for dedup: %v", err)
-	}
 	data.rejectedJobs = rejected
 	for _, r := range rejected {
 		if r.URL != "" {
@@ -2084,11 +2161,17 @@ func (s *AutomationService) filterDuplicates(results []jobResult, dedup *dedupDa
 	return filtered
 }
 
-// validateURLs checks URLs with HEAD requests to filter broken links
+// validateURLs checks URLs with HEAD requests to filter broken links (concurrent)
 func (s *AutomationService) validateURLs(results []jobResult) []jobResult {
 	if len(results) == 0 {
 		return results
 	}
+
+	const maxConcurrent = 5
+	sem := make(chan struct{}, maxConcurrent)
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	valid := make([]jobResult, 0, len(results))
 
 	client := &http.Client{
 		Timeout: 5 * time.Second,
@@ -2097,28 +2180,42 @@ func (s *AutomationService) validateURLs(results []jobResult) []jobResult {
 		},
 	}
 
-	valid := make([]jobResult, 0, len(results))
 	for _, r := range results {
-		resp, err := client.Head(r.URL)
-		if err != nil {
-			log.Printf("Automation: URL validation failed for %s: %v", r.URL, err)
-			continue
-		}
-		resp.Body.Close()
+		wg.Add(1)
+		go func(job jobResult) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
 
-		if resp.StatusCode >= 400 {
-			log.Printf("Automation: skipping broken link %s (status %d)", r.URL, resp.StatusCode)
-			continue
-		}
-
-		valid = append(valid, r)
+			if isURLValid(client, job.URL) {
+				mu.Lock()
+				valid = append(valid, job)
+				mu.Unlock()
+			}
+		}(r)
 	}
+	wg.Wait()
 
 	if len(valid) < len(results) {
 		log.Printf("Automation: URL validation filtered %d/%d broken links", len(results)-len(valid), len(results))
 	}
 
 	return valid
+}
+
+func isURLValid(client *http.Client, url string) bool {
+	resp, err := client.Head(url)
+	if err != nil {
+		log.Printf("Automation: URL validation failed for %s: %v", url, err)
+		return false
+	}
+	resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		log.Printf("Automation: skipping broken link %s (status %d)", url, resp.StatusCode)
+		return false
+	}
+	return true
 }
 
 // extractExclusions pulls out -term patterns from a search query
