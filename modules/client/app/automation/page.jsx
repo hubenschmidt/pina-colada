@@ -38,6 +38,7 @@ import {
   RefreshCw,
   ChevronDown,
   ChevronRight,
+  Copy,
 } from "lucide-react";
 import { DataTable } from "../../components/DataTable/DataTable";
 import SSEIndicator from "../../components/SSEIndicator/SSEIndicator";
@@ -320,6 +321,78 @@ const AutomationPage = () => {
     openModal();
   };
 
+  const handleDuplicate = async (crawler) => {
+    setEditingCrawler(null);
+    const seconds = crawler.interval_seconds || 1800;
+    const useMinutes = seconds >= 60 && seconds % 60 === 0;
+    setForm({
+      name: `Copy of ${crawler.name || ""}`,
+      entity_type: crawler.entity_type || "job",
+      interval_value: useMinutes ? seconds / 60 : seconds,
+      interval_unit: useMinutes ? "minutes" : "seconds",
+      compilation_target: crawler.compilation_target || 100,
+      disable_on_compiled: crawler.disable_on_compiled ?? false,
+      search_query: crawler.search_query || "",
+      suggested_query: crawler.suggested_query || null,
+      use_suggested_query: crawler.use_suggested_query ?? false,
+      location: crawler.location || "",
+      ats_mode: crawler.ats_mode ?? true,
+      time_filter: crawler.time_filter || "week",
+      target_type: crawler.target_type || null,
+      target_ids: crawler.target_ids || [],
+      source_document_ids: crawler.source_document_ids || [],
+      system_prompt: crawler.system_prompt || "",
+      suggested_prompt: crawler.suggested_prompt || null,
+      use_suggested_prompt: crawler.use_suggested_prompt ?? false,
+      suggestion_threshold: crawler.suggestion_threshold ?? 50,
+      min_prospects_threshold: crawler.min_prospects_threshold ?? 5,
+      digest_enabled: crawler.digest_enabled ?? true,
+      digest_emails: crawler.digest_emails || "",
+      digest_time: crawler.digest_time || "09:00",
+      digest_model: crawler.digest_model || null,
+      use_agent: crawler.use_agent ?? false,
+      agent_model: crawler.agent_model || "claude-sonnet-4-5-20250929",
+      use_analytics: crawler.use_analytics ?? false,
+      analytics_model: crawler.analytics_model || "claude-3-haiku-20240307",
+      empty_proposal_limit: crawler.empty_proposal_limit || null,
+      prompt_cooldown_runs: crawler.prompt_cooldown_runs ?? 5,
+      prompt_cooldown_prospects: crawler.prompt_cooldown_prospects ?? 50,
+    });
+
+    setTargetOptions([]);
+    if (crawler.target_ids?.length && crawler.target_type) {
+      try {
+        const loadedOptions = await Promise.all(
+          crawler.target_ids.map(async (id) => {
+            if (crawler.target_type === "individual") {
+              const ind = await getIndividual(id);
+              return { value: String(id), label: `${ind.first_name} ${ind.last_name}`.trim() || ind.email || `ID: ${id}` };
+            }
+            if (crawler.target_type === "organization") {
+              const org = await getOrganization(id);
+              return { value: String(id), label: org.name || `ID: ${id}` };
+            }
+            if (crawler.target_type === "job") {
+              const job = await getJob(id);
+              return { value: String(id), label: job.job_title || `ID: ${id}` };
+            }
+            if (crawler.target_type === "contact") {
+              const c = await getContact(id);
+              return { value: String(id), label: c.name || c.email || `ID: ${id}` };
+            }
+            return { value: String(id), label: `ID: ${id}` };
+          })
+        );
+        setTargetOptions(loadedOptions);
+      } catch {
+        setTargetOptions([]);
+      }
+    }
+
+    setModalError(null);
+    openModal();
+  };
+
   const handleSave = async () => {
     setModalError(null);
 
@@ -563,6 +636,9 @@ const AutomationPage = () => {
                         <Menu.Dropdown>
                           <Menu.Item leftSection={<Edit size={14} />} onClick={() => handleOpenEdit(crawler)}>
                             Edit
+                          </Menu.Item>
+                          <Menu.Item leftSection={<Copy size={14} />} onClick={() => handleDuplicate(crawler)}>
+                            Duplicate
                           </Menu.Item>
                           <Menu.Item leftSection={<Play size={14} />} onClick={() => handleTestRun(crawler)}>
                             Test Run
