@@ -89,13 +89,7 @@ func (c *AutomationController) GetCrawlers(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		writeAutomationError(w, http.StatusUnauthorized, "user not found")
-		return
-	}
-
-	result, err := c.automationService.GetCrawlers(tenantID, userID)
+	result, err := c.automationService.GetCrawlers(tenantID)
 	if err != nil {
 		writeAutomationError(w, http.StatusInternalServerError, err.Error())
 		return

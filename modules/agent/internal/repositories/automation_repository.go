@@ -118,10 +118,10 @@ type AutomationRunLogDTO struct {
 	PromptUpdated                 bool
 }
 
-// GetUserConfigs returns all automation configs for a user
-func (r *AutomationRepository) GetUserConfigs(tenantID, userID int64) ([]AutomationConfigDTO, error) {
+// GetTenantConfigs returns all automation configs for a tenant
+func (r *AutomationRepository) GetTenantConfigs(tenantID int64) ([]AutomationConfigDTO, error) {
 	var configs []models.AutomationConfig
-	err := r.db.Where("tenant_id = ? AND user_id = ?", tenantID, userID).
+	err := r.db.Where("tenant_id = ?", tenantID).
 		Order("created_at ASC").
 		Find(&configs).Error
 	if err != nil {

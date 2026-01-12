@@ -94,9 +94,9 @@ func (s *AutomationService) CleanupStaleRuns() {
 	}
 }
 
-// GetCrawlers returns all crawlers for a user
-func (s *AutomationService) GetCrawlers(tenantID, userID int64) ([]serializers.AutomationConfigResponse, error) {
-	configs, err := s.automationRepo.GetUserConfigs(tenantID, userID)
+// GetCrawlers returns all crawlers for a tenant
+func (s *AutomationService) GetCrawlers(tenantID int64) ([]serializers.AutomationConfigResponse, error) {
+	configs, err := s.automationRepo.GetTenantConfigs(tenantID)
 	if err != nil {
 		return nil, err
 	}
@@ -1362,7 +1362,11 @@ func logRejectionIfApplicable(r reviewedJobResult) {
 }
 
 func (s *AutomationService) checkAndTriggerSuggestions(cfg *repositories.AutomationConfigDTO, prospects, proposals int, relatedSearches []string) {
-	// Calculate conversion rate
+	// Always generate a new query suggestion to avoid duplicate searches
+	// Same query twice often returns 0 results due to search engine caching/dedup
+	s.checkAndSuggestQueryImprovement(cfg, relatedSearches)
+
+	// Calculate conversion rate for prompt suggestions
 	conversionRate := 0
 	if prospects > 0 {
 		conversionRate = proposals * 100 / prospects
@@ -1378,20 +1382,18 @@ func (s *AutomationService) checkAndTriggerSuggestions(cfg *repositories.Automat
 		minProspects = 5
 	}
 
-	// Trigger suggestions if conversion rate below threshold OR prospects too low
-	shouldSuggest := conversionRate < threshold || prospects < minProspects
+	// Only trigger prompt suggestions if performance is poor
+	shouldSuggestPrompt := conversionRate < threshold || prospects < minProspects
 
-	if !shouldSuggest {
-		log.Printf("Automation service: conversion rate %d%% (%d/%d) >= threshold %d%% and prospects %d >= min %d, no suggestions needed",
-			conversionRate, proposals, prospects, threshold, prospects, minProspects)
+	if !shouldSuggestPrompt {
+		log.Printf("Automation service: conversion rate %d%% (%d/%d) >= threshold %d%%, skipping prompt suggestion",
+			conversionRate, proposals, prospects, threshold)
 		return
 	}
 
-	log.Printf("Automation service: triggering suggestions - conversion %d%% < %d%% threshold OR prospects %d < %d min",
+	log.Printf("Automation service: triggering prompt suggestion - conversion %d%% < %d%% threshold OR prospects %d < %d min",
 		conversionRate, threshold, prospects, minProspects)
 
-	// relatedSearches are passed as context for LLM to generate query suggestions
-	s.checkAndSuggestQueryImprovement(cfg, relatedSearches)
 	s.checkAndSuggestPromptImprovement(cfg)
 }
 
@@ -1585,6 +1587,7 @@ func (s *AutomationService) generateQueryWithLLM(cfg *repositories.AutomationCon
 	analyticsContext := ""
 	if cfg.UseAnalytics {
 		analyticsContext = s.buildAnalyticsContext(cfg.ID)
+		log.Printf("🔍 Analytics context for query suggestion:\n%s", analyticsContext)
 	}
 
 	prompt := s.buildQuerySuggestionPrompt(currentQuery, systemPrompt, documentContext, analyticsContext, cfg.Location)
