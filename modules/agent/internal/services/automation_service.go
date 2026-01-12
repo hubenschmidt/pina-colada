@@ -40,17 +40,21 @@ type DocumentLoader interface {
 
 // AutomationService handles automation business logic
 type AutomationService struct {
-	automationRepo  *repositories.AutomationRepository
-	proposalRepo    *repositories.ProposalRepository
-	jobRepo         *repositories.JobRepository
-	proposalService ProposalCreator
-	docLoader       DocumentLoader
-	serperAPIKey    string
-	anthropicAPIKey string
-	openAIAPIKey    string
-	env             string
-	pushoverUser    string
-	pushoverToken   string
+	automationRepo   *repositories.AutomationRepository
+	proposalRepo     *repositories.ProposalRepository
+	jobRepo          *repositories.JobRepository
+	proposalService  ProposalCreator
+	docLoader        DocumentLoader
+	serperAPIKey     string
+	anthropicAPIKey  string
+	openAIAPIKey     string
+	env              string
+	pushoverUser     string
+	pushoverToken    string
+	httpClient       *http.Client
+	validatorClient  *http.Client
+	anthropicClient  anthropic.Client
+	openaiClient     openai.Client
 }
 
 // NewAutomationService creates a new automation service
@@ -67,7 +71,7 @@ func NewAutomationService(
 	pushoverUser string,
 	pushoverToken string,
 ) *AutomationService {
-	return &AutomationService{
+	svc := &AutomationService{
 		automationRepo:  automationRepo,
 		proposalRepo:    proposalRepo,
 		jobRepo:         jobRepo,
@@ -79,7 +83,35 @@ func NewAutomationService(
 		env:             env,
 		pushoverUser:    pushoverUser,
 		pushoverToken:   pushoverToken,
+		httpClient: &http.Client{
+			Timeout: 15 * time.Second,
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 10,
+				IdleConnTimeout:     90 * time.Second,
+			},
+		},
+		validatorClient: &http.Client{
+			Timeout: 3 * time.Second,
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return nil
+			},
+			Transport: &http.Transport{
+				MaxIdleConns:        100,
+				MaxIdleConnsPerHost: 20,
+				IdleConnTimeout:     30 * time.Second,
+			},
+		},
 	}
+
+	if anthropicAPIKey != "" {
+		svc.anthropicClient = anthropic.NewClient(option.WithAPIKey(anthropicAPIKey))
+	}
+	if openAIAPIKey != "" {
+		svc.openaiClient = openai.NewClient(openaiOption.WithAPIKey(openAIAPIKey))
+	}
+
+	return svc
 }
 
 // CleanupStaleRuns marks any "running" jobs as failed (called on startup)
@@ -638,7 +670,7 @@ func (s *AutomationService) processSearchResultsSimple(cfg *repositories.Automat
 
 	for _, job := range jobs {
 		if int64(totalProposalsCreated) >= deficit {
-			break
+			return totalProposalsCreated
 		}
 		created := s.tryCreateProposal(cfg, job, "", sourceDocument, source, configID, dedup)
 		totalProposalsCreated += int32(created)
@@ -673,24 +705,17 @@ func (s *AutomationService) processSearchResultsWithAgent(cfg *repositories.Auto
 	for _, r := range reviewed {
 		if r.Approved {
 			totalApproved++
-			continue
 		}
-		rejectedJobs = append(rejectedJobs, r)
+		if !r.Approved {
+			rejectedJobs = append(rejectedJobs, r)
+		}
 	}
 
 	// Create proposals from approved results
 	sourceDocument := strings.Join(extractDocumentNames(documentContext), ", ")
-	var totalProposalsCreated int32
 	source := "automation"
 	configID := cfg.ID
-
-	for _, job := range reviewed {
-		if int64(totalProposalsCreated) >= deficit {
-			break
-		}
-		created := s.tryCreateApprovedProposal(cfg, job, sourceDocument, source, configID, dedup)
-		totalProposalsCreated += int32(created)
-	}
+	totalProposalsCreated := s.createProposalsFromReviewed(cfg, reviewed, deficit, sourceDocument, source, configID, dedup)
 
 	return prospectsFound, totalProposalsCreated, searchResult.RelatedSearches
 }
@@ -715,6 +740,18 @@ func (s *AutomationService) tryCreateApprovedProposal(cfg *repositories.Automati
 	// Record rejected job to prevent re-review
 	s.recordRejectedJob(cfg, job)
 	return 0
+}
+
+func (s *AutomationService) createProposalsFromReviewed(cfg *repositories.AutomationConfigDTO, reviewed []reviewedJobResult, deficit int64, sourceDocument, source string, configID int64, dedup *dedupData) int32 {
+	var totalCreated int32
+	for _, job := range reviewed {
+		if int64(totalCreated) >= deficit {
+			return totalCreated
+		}
+		created := s.tryCreateApprovedProposal(cfg, job, sourceDocument, source, configID, dedup)
+		totalCreated += int32(created)
+	}
+	return totalCreated
 }
 
 func (s *AutomationService) recordRejectedJob(cfg *repositories.AutomationConfigDTO, job reviewedJobResult) {
@@ -830,7 +867,6 @@ func mapTimeFilter(timeFilter *string) string {
 }
 
 func (s *AutomationService) executeSerperRequest(jsonBody []byte) (*searchResultWithRelated, error) {
-	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequestWithContext(context.Background(), "POST", "https://google.serper.dev/search", bytes.NewBuffer(jsonBody))
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %w", err)
@@ -839,7 +875,7 @@ func (s *AutomationService) executeSerperRequest(jsonBody []byte) (*searchResult
 	req.Header.Set("X-API-KEY", s.serperAPIKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := client.Do(req)
+	resp, err := s.httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("search failed: %w", err)
 	}
@@ -946,36 +982,50 @@ func (s *AutomationService) loadDocumentContext(docIDs []int64) string {
 	}
 
 	const maxTotalChars = 15000
-	var builder strings.Builder
 
-	for _, docID := range docIDs {
-		s.appendDocumentContent(&builder, docID, maxTotalChars)
-		if builder.Len() > maxTotalChars {
-			return truncateDocumentContext(builder.String(), maxTotalChars, len(docIDs))
+	// Fetch all documents in parallel
+	results := make([]string, len(docIDs))
+	var wg sync.WaitGroup
+
+	for i, docID := range docIDs {
+		wg.Add(1)
+		go func(idx int, id int64) {
+			defer wg.Done()
+			results[idx] = s.fetchDocumentContent(id)
+		}(i, docID)
+	}
+	wg.Wait()
+
+	// Combine results maintaining order
+	var builder strings.Builder
+	for _, content := range results {
+		if content == "" {
+			// skip empty results
+		}
+		if content != "" {
+			builder.WriteString(content)
 		}
 	}
 
 	return truncateDocumentContext(builder.String(), maxTotalChars, len(docIDs))
 }
 
-func (s *AutomationService) appendDocumentContent(builder *strings.Builder, docID int64, maxChars int) {
+func (s *AutomationService) fetchDocumentContent(docID int64) string {
 	result, err := s.docLoader.GetDocumentByID(docID)
 	if err != nil {
 		log.Printf("Automation service: failed to load doc %d: %v", docID, err)
-		return
+		return ""
 	}
 	if result == nil || result.Content == nil {
-		return
+		return ""
 	}
 
 	content := extractDocumentContent(result.Document.ContentType, result.Content)
 	if content == "" {
-		return
+		return ""
 	}
 
-	builder.WriteString(fmt.Sprintf("=== Document: %s ===\n", result.Document.Filename))
-	builder.WriteString(content)
-	builder.WriteString("\n\n")
+	return fmt.Sprintf("=== Document: %s ===\n%s\n\n", result.Document.Filename, content)
 }
 
 func truncateDocumentContext(result string, maxChars, docCount int) string {
@@ -1146,7 +1196,6 @@ func (s *AutomationService) reviewWithAnthropic(model string, customPrompt *stri
 	systemPrompt := s.buildAgentSystemPrompt(customPrompt)
 	userPrompt := s.buildAgentUserPrompt(documentContext, results)
 
-	client := anthropic.NewClient(option.WithAPIKey(s.anthropicAPIKey))
 	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(model),
 		MaxTokens: 2048,
@@ -1163,7 +1212,7 @@ func (s *AutomationService) reviewWithAnthropic(model string, customPrompt *stri
 
 	log.Printf("🤖 [Anthropic] Calling API - model=%s, results=%d", model, len(results))
 	start := time.Now()
-	resp, err := client.Messages.New(ctx, params)
+	resp, err := s.anthropicClient.Messages.New(ctx, params)
 	if err != nil {
 		log.Printf("🤖 [Anthropic] API error after %v: %v", time.Since(start), err)
 		return approveAllResults(results)
@@ -1184,7 +1233,6 @@ func (s *AutomationService) reviewWithOpenAI(model string, customPrompt *string,
 	systemPrompt := s.buildAgentSystemPrompt(customPrompt)
 	userPrompt := s.buildAgentUserPrompt(documentContext, results)
 
-	client := openai.NewClient(openaiOption.WithAPIKey(s.openAIAPIKey))
 	params := openai.ChatCompletionNewParams{
 		Model: model,
 		Messages: []openai.ChatCompletionMessageParamUnion{
@@ -1199,7 +1247,7 @@ func (s *AutomationService) reviewWithOpenAI(model string, customPrompt *string,
 
 	log.Printf("🤖 [OpenAI] Calling API - model=%s, results=%d", model, len(results))
 	start := time.Now()
-	resp, err := client.Chat.Completions.New(ctx, params)
+	resp, err := s.openaiClient.Chat.Completions.New(ctx, params)
 	if err != nil {
 		log.Printf("🤖 [OpenAI] API error after %v: %v", time.Since(start), err)
 		return approveAllResults(results)
@@ -1855,7 +1903,6 @@ func (s *AutomationService) generateSuggestionWithAnthropic(model, prompt string
 		return ""
 	}
 
-	client := anthropic.NewClient(option.WithAPIKey(s.anthropicAPIKey))
 	params := anthropic.MessageNewParams{
 		Model:     anthropic.Model(model),
 		MaxTokens: 1024,
@@ -1867,7 +1914,7 @@ func (s *AutomationService) generateSuggestionWithAnthropic(model, prompt string
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	resp, err := client.Messages.New(ctx, params)
+	resp, err := s.anthropicClient.Messages.New(ctx, params)
 	if err != nil {
 		log.Printf("Automation service: failed to generate suggestion: %v", err)
 		return ""
@@ -1888,7 +1935,6 @@ func (s *AutomationService) generateSuggestionWithOpenAI(model, prompt string) s
 		return ""
 	}
 
-	client := openai.NewClient(openaiOption.WithAPIKey(s.openAIAPIKey))
 	params := openai.ChatCompletionNewParams{
 		Model: model,
 		Messages: []openai.ChatCompletionMessageParamUnion{
@@ -1900,7 +1946,7 @@ func (s *AutomationService) generateSuggestionWithOpenAI(model, prompt string) s
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	resp, err := client.Chat.Completions.New(ctx, params)
+	resp, err := s.openaiClient.Chat.Completions.New(ctx, params)
 	if err != nil {
 		log.Printf("Automation service: failed to generate suggestion: %v", err)
 		return ""
@@ -1963,17 +2009,21 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 
 // dedupData holds preloaded data for deduplication
 type dedupData struct {
-	mu               sync.RWMutex
-	existingJobs     []repositories.JobDedupInfo
-	pendingProposals []repositories.PendingJobProposal
-	rejectedJobs     []repositories.RejectedJobInfo
-	urlSource        map[string]string // URL -> source ("Job", "Proposal", "Rejected")
+	mu                sync.RWMutex
+	existingJobs      []repositories.JobDedupInfo
+	pendingProposals  []repositories.PendingJobProposal
+	rejectedJobs      []repositories.RejectedJobInfo
+	urlSource         map[string]string // URL -> source ("Job", "Proposal", "Rejected")
+	jobIndex          map[string]bool   // normalized "company|title" -> exists (for jobs)
+	proposalIndex     map[string]bool   // normalized "company|title" -> exists (for proposals)
 }
 
 // loadDedupData loads existing jobs, pending proposals, and rejected jobs for deduplication (parallel)
 func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	data := &dedupData{
-		urlSource: make(map[string]string),
+		urlSource:     make(map[string]string),
+		jobIndex:      make(map[string]bool),
+		proposalIndex: make(map[string]bool),
 	}
 
 	var wg sync.WaitGroup
@@ -2023,16 +2073,24 @@ func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 		if j.URL != "" {
 			data.urlSource[j.URL] = "Job"
 		}
+		key := buildCompanyTitleKey(j.Company, j.JobTitle)
+		if key != "" {
+			data.jobIndex[key] = true
+		}
 	}
-	log.Printf("🔍 Dedup [Job]: loaded %d existing jobs", len(jobs))
+	log.Printf("🔍 Dedup [Job]: loaded %d existing jobs, %d indexed", len(jobs), len(data.jobIndex))
 
 	data.pendingProposals = proposals
 	for _, p := range proposals {
 		if p.URL != "" {
 			data.urlSource[p.URL] = "Proposal"
 		}
+		key := buildCompanyTitleKey(p.Company, p.Title)
+		if key != "" {
+			data.proposalIndex[key] = true
+		}
 	}
-	log.Printf("🔍 Dedup [Proposal]: loaded %d pending proposals", len(proposals))
+	log.Printf("🔍 Dedup [Proposal]: loaded %d pending proposals, %d indexed", len(proposals), len(data.proposalIndex))
 
 	for _, p := range rejectedProposals {
 		if p.URL != "" {
@@ -2059,58 +2117,64 @@ func (d *dedupData) duplicateSource(job jobResult) string {
 	defer d.mu.RUnlock()
 
 	// Check URL first (fast path)
-	if job.URL != "" {
-		if source, ok := d.urlSource[job.URL]; ok {
-			return source
-		}
+	if source := d.checkURLMatch(job.URL); source != "" {
+		return source
 	}
 
-	// Check against existing jobs by company + title
 	normalizedCompany := normalizeCompanyName(job.Company)
 	normalizedTitle := normalizeTitleForMatch(job.Title)
 
-	if len(normalizedCompany) >= 4 {
-		for _, existing := range d.existingJobs {
-			existingCompany := normalizeCompanyName(existing.Company)
-			existingTitle := normalizeTitleForMatch(existing.JobTitle)
+	if len(normalizedCompany) < 4 {
+		return ""
+	}
 
-			if existingCompany == "" || len(existingCompany) < 4 {
-				continue
-			}
+	if d.matchesExistingJob(normalizedCompany, normalizedTitle) {
+		return "Job"
+	}
 
-			companyMatch := normalizedCompany == existingCompany ||
-				strings.Contains(normalizedCompany, existingCompany) ||
-				strings.Contains(existingCompany, normalizedCompany)
-
-			if companyMatch && (normalizedTitle == existingTitle ||
-				strings.Contains(normalizedTitle, existingTitle) ||
-				strings.Contains(existingTitle, normalizedTitle)) {
-				return "Job"
-			}
-		}
-
-		// Check against pending proposals by company + title
-		for _, pending := range d.pendingProposals {
-			pendingCompany := normalizeCompanyName(pending.Company)
-			pendingTitle := normalizeTitleForMatch(pending.Title)
-
-			if pendingCompany == "" || len(pendingCompany) < 4 {
-				continue
-			}
-
-			companyMatch := normalizedCompany == pendingCompany ||
-				strings.Contains(normalizedCompany, pendingCompany) ||
-				strings.Contains(pendingCompany, normalizedCompany)
-
-			if companyMatch && (normalizedTitle == pendingTitle ||
-				strings.Contains(normalizedTitle, pendingTitle) ||
-				strings.Contains(pendingTitle, normalizedTitle)) {
-				return "Proposal"
-			}
-		}
+	if d.matchesPendingProposal(normalizedCompany, normalizedTitle) {
+		return "Proposal"
 	}
 
 	return ""
+}
+
+func (d *dedupData) checkURLMatch(url string) string {
+	if url == "" {
+		return ""
+	}
+	if source, ok := d.urlSource[url]; ok {
+		return source
+	}
+	return ""
+}
+
+func (d *dedupData) matchesExistingJob(company, title string) bool {
+	// Fast O(1) exact match via hash index
+	key := company + "|" + title
+	if d.jobIndex[key] {
+		return true
+	}
+	return false
+}
+
+func (d *dedupData) matchesPendingProposal(company, title string) bool {
+	// Fast O(1) exact match via hash index
+	key := company + "|" + title
+	if d.proposalIndex[key] {
+		return true
+	}
+	return false
+}
+
+// buildCompanyTitleKey creates normalized key for hash index
+func buildCompanyTitleKey(company, title string) string {
+	normalizedCompany := normalizeCompanyName(company)
+	normalizedTitle := normalizeTitleForMatch(title)
+	if normalizedCompany == "" || len(normalizedCompany) < 4 {
+		return ""
+	}
+	return normalizedCompany + "|" + normalizedTitle
 }
 
 // markURL adds a URL to the dedup set (thread-safe)
@@ -2150,13 +2214,15 @@ func (s *AutomationService) filterDuplicates(results []jobResult, dedup *dedupDa
 	}
 	filtered := make([]jobResult, 0, len(results))
 	for _, job := range results {
-		if dupSource := dedup.duplicateSource(job); dupSource != "" {
+		dupSource := dedup.duplicateSource(job)
+		if dupSource != "" {
 			log.Printf("Automation: filtering duplicate [%s]: %s at %s", dupSource, job.Title, job.Company)
-			continue
 		}
-		// Mark URL immediately to prevent duplicates across concurrent batches
-		dedup.markURL(job.URL, "Pending")
-		filtered = append(filtered, job)
+		if dupSource == "" {
+			// Mark URL immediately to prevent duplicates across concurrent batches
+			dedup.markURL(job.URL, "Pending")
+			filtered = append(filtered, job)
+		}
 	}
 	return filtered
 }
@@ -2173,13 +2239,6 @@ func (s *AutomationService) validateURLs(results []jobResult) []jobResult {
 	var mu sync.Mutex
 	valid := make([]jobResult, 0, len(results))
 
-	client := &http.Client{
-		Timeout: 5 * time.Second,
-		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return nil // follow redirects
-		},
-	}
-
 	for _, r := range results {
 		wg.Add(1)
 		go func(job jobResult) {
@@ -2187,7 +2246,7 @@ func (s *AutomationService) validateURLs(results []jobResult) []jobResult {
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
-			if isURLValid(client, job.URL) {
+			if isURLValid(s.validatorClient, job.URL) {
 				mu.Lock()
 				valid = append(valid, job)
 				mu.Unlock()
@@ -2224,14 +2283,10 @@ func extractExclusions(query string) []string {
 	seen := make(map[string]bool)
 	words := strings.Fields(query)
 	for _, word := range words {
-		if !strings.HasPrefix(word, "-") {
-			continue
+		if strings.HasPrefix(word, "-") && !seen[word] {
+			seen[word] = true
+			exclusions = append(exclusions, word)
 		}
-		if seen[word] {
-			continue
-		}
-		seen[word] = true
-		exclusions = append(exclusions, word)
 	}
 	return exclusions
 }
