@@ -32,14 +32,18 @@ type AutomationConfigDTO struct {
 	IntervalSeconds    int
 	LastRunAt          *time.Time
 	NextRunAt          *time.Time
-	RunCount           int
-	ProspectsPerRun    int
-	ConcurrentSearches  int
-	CompilationTarget   int
+	RunCount          int
+	CompilationTarget int
 	DisableOnCompiled   bool
 	SystemPrompt        *string
-	SearchSlots        []string
-	ATSMode            bool
+	SuggestedPrompt       *string
+	UseSuggestedPrompt    bool
+	SuggestionThreshold   int
+	MinProspectsThreshold int
+	SearchQuery       *string
+	SuggestedQuery    *string
+	UseSuggestedQuery bool
+	ATSMode           bool
 	TimeFilter         *string
 	Location           *string
 	TargetType         *string
@@ -52,10 +56,14 @@ type AutomationConfigDTO struct {
 	LastDigestAt       *time.Time
 	UseAgent            bool
 	AgentModel          *string
-	CompiledAt          *time.Time
-	EmptyProposalLimit  int
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
+	UseAnalytics        bool
+	AnalyticsModel      *string
+	CompiledAt              *time.Time
+	EmptyProposalLimit      int
+	PromptCooldownRuns      int
+	PromptCooldownProspects int
+	CreatedAt               time.Time
+	UpdatedAt               time.Time
 }
 
 // AutomationConfigInput for creating/updating config
@@ -64,12 +72,17 @@ type AutomationConfigInput struct {
 	EntityType         *string
 	Enabled            *bool
 	IntervalSeconds    *int
-	ConcurrentSearches  *int
 	CompilationTarget   *int
 	DisableOnCompiled   *bool
-	SystemPrompt        *string
-	SearchSlots        []string
-	ATSMode            *bool
+	SystemPrompt          *string
+	SuggestedPrompt       *string
+	UseSuggestedPrompt    *bool
+	SuggestionThreshold   *int
+	MinProspectsThreshold *int
+	SearchQuery       *string
+	SuggestedQuery    *string
+	UseSuggestedQuery *bool
+	ATSMode           *bool
 	TimeFilter         *string
 	Location           *string
 	TargetType         *string
@@ -80,28 +93,35 @@ type AutomationConfigInput struct {
 	DigestTime         *string
 	DigestModel        *string
 	UseAgent           *bool
-	AgentModel         *string
-	EmptyProposalLimit *int
+	AgentModel           *string
+	UseAnalytics            *bool
+	AnalyticsModel          *string
+	EmptyProposalLimit      *int
+	PromptCooldownRuns      *int
+	PromptCooldownProspects *int
 }
 
 // AutomationRunLogDTO represents a run log entry
 type AutomationRunLogDTO struct {
-	ID               int64
-	StartedAt        time.Time
-	CompletedAt      *time.Time
-	Status           string
-	ProspectsFound   int
-	ProposalsCreated int
-	ErrorMessage     *string
-	SearchQuery      *string
-	SuggestedQueries *string
-	Compiled         bool
+	ID                            int64
+	StartedAt                     time.Time
+	CompletedAt                   *time.Time
+	Status                        string
+	ProspectsFound                int
+	ProposalsCreated              int
+	ErrorMessage                  *string
+	ExecutedQuery                 *string
+	ExecutedSystemPrompt          *string
+	ExecutedSystemPromptCharcount int
+	Compiled                      bool
+	QueryUpdated                  bool
+	PromptUpdated                 bool
 }
 
-// GetUserConfigs returns all automation configs for a user
-func (r *AutomationRepository) GetUserConfigs(tenantID, userID int64) ([]AutomationConfigDTO, error) {
+// GetTenantConfigs returns all automation configs for a tenant
+func (r *AutomationRepository) GetTenantConfigs(tenantID int64) ([]AutomationConfigDTO, error) {
 	var configs []models.AutomationConfig
-	err := r.db.Where("tenant_id = ? AND user_id = ?", tenantID, userID).
+	err := r.db.Where("tenant_id = ?", tenantID).
 		Order("created_at ASC").
 		Find(&configs).Error
 	if err != nil {
@@ -192,10 +212,29 @@ func (r *AutomationRepository) GetPausedCrawlers() ([]AutomationConfigDTO, error
 	return result, nil
 }
 
-// GetDueAutomations returns enabled automations that are due to run
+// GetDueAutomations returns enabled automations that are due to run.
+// Uses row locking to prevent race conditions with concurrent scheduler ticks.
 func (r *AutomationRepository) GetDueAutomations(now time.Time) ([]AutomationConfigDTO, error) {
 	var configs []models.AutomationConfig
-	err := r.db.Where("enabled = ? AND (next_run_at IS NULL OR next_run_at <= ?)", true, now).Find(&configs).Error
+
+	err := r.db.Transaction(func(tx *gorm.DB) error {
+		// Select due configs with row lock (SKIP LOCKED prevents blocking)
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
+			Where("enabled = ? AND (next_run_at IS NULL OR next_run_at <= ?)", true, now).
+			Find(&configs).Error; err != nil {
+			return err
+		}
+
+		// Claim configs by setting next_run_at to prevent re-pickup
+		for i := range configs {
+			nextRun := now.Add(time.Duration(configs[i].IntervalSeconds) * time.Second)
+			if err := tx.Model(&configs[i]).Update("next_run_at", nextRun).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+
 	if err != nil {
 		return nil, err
 	}
@@ -288,30 +327,37 @@ func (r *AutomationRepository) DisableConfig(configID int64) error {
 }
 
 // CreateRunLog creates a new run log entry
-func (r *AutomationRepository) CreateRunLog(configID int64, searchQuery string) (int64, error) {
+func (r *AutomationRepository) CreateRunLog(configID int64, executedQuery string, executedSystemPrompt *string) (int64, error) {
+	promptCharcount := 0
+	if executedSystemPrompt != nil {
+		promptCharcount = len(*executedSystemPrompt)
+	}
 	log := models.AutomationRunLog{
-		AutomationConfigID: configID,
-		StartedAt:          time.Now(),
-		Status:             "running",
-		SearchQuery:        &searchQuery,
+		AutomationConfigID:            configID,
+		StartedAt:                     time.Now(),
+		Status:                        "running",
+		ExecutedQuery:                 &executedQuery,
+		ExecutedSystemPrompt:          executedSystemPrompt,
+		ExecutedSystemPromptCharcount: promptCharcount,
 	}
 	err := r.db.Create(&log).Error
 	return log.ID, err
 }
 
 // CompleteRunLog marks a run log as completed
-func (r *AutomationRepository) CompleteRunLog(logID int64, status string, prospectsFound, proposalsCreated int, errorMsg, suggestedQueries *string, compiled bool) error {
+func (r *AutomationRepository) CompleteRunLog(logID int64, status string, prospectsFound, proposalsCreated int, errorMsg *string, compiled, queryUpdated, promptUpdated bool) error {
 	now := time.Now()
 	return r.db.Model(&models.AutomationRunLog{}).
 		Where("id = ?", logID).
 		Updates(map[string]interface{}{
-			"completed_at":       now,
-			"status":             status,
-			"prospects_found":    prospectsFound,
-			"proposals_created":  proposalsCreated,
-			"error_message":      errorMsg,
-			"suggested_queries":  suggestedQueries,
-			"compiled":           compiled,
+			"completed_at":      now,
+			"status":            status,
+			"prospects_found":   prospectsFound,
+			"proposals_created": proposalsCreated,
+			"error_message":     errorMsg,
+			"compiled":          compiled,
+			"query_updated":     queryUpdated,
+			"prompt_updated":    promptUpdated,
 		}).Error
 }
 
@@ -338,16 +384,19 @@ func (r *AutomationRepository) GetRunLogs(configID int64, page, limit int) ([]Au
 	result := make([]AutomationRunLogDTO, len(logs))
 	for i := range logs {
 		result[i] = AutomationRunLogDTO{
-			ID:               logs[i].ID,
-			StartedAt:        logs[i].StartedAt,
-			CompletedAt:      logs[i].CompletedAt,
-			Status:           logs[i].Status,
-			ProspectsFound:   logs[i].ProspectsFound,
-			ProposalsCreated: logs[i].ProposalsCreated,
-			ErrorMessage:     logs[i].ErrorMessage,
-			SearchQuery:      logs[i].SearchQuery,
-			SuggestedQueries: logs[i].SuggestedQueries,
-			Compiled:         logs[i].Compiled,
+			ID:                            logs[i].ID,
+			StartedAt:                     logs[i].StartedAt,
+			CompletedAt:                   logs[i].CompletedAt,
+			Status:                        logs[i].Status,
+			ProspectsFound:                logs[i].ProspectsFound,
+			ProposalsCreated:              logs[i].ProposalsCreated,
+			ErrorMessage:                  logs[i].ErrorMessage,
+			ExecutedQuery:                 logs[i].ExecutedQuery,
+			ExecutedSystemPrompt:          logs[i].ExecutedSystemPrompt,
+			ExecutedSystemPromptCharcount: logs[i].ExecutedSystemPromptCharcount,
+			Compiled:                      logs[i].Compiled,
+			QueryUpdated:                  logs[i].QueryUpdated,
+			PromptUpdated:                 logs[i].PromptUpdated,
 		}
 	}
 	return result, totalCount, nil
@@ -360,6 +409,31 @@ func (r *AutomationRepository) GetActiveProposals(configID int64) (int, error) {
 		Where("automation_config_id = ? AND status = ?", configID, "pending").
 		Count(&total).Error
 	return int(total), err
+}
+
+// HasRunningRun checks if a config has a run currently in progress
+func (r *AutomationRepository) HasRunningRun(configID int64) bool {
+	var count int64
+	r.db.Model(&models.AutomationRunLog{}).
+		Where("automation_config_id = ? AND status = ?", configID, "running").
+		Count(&count)
+	return count > 0
+}
+
+// GetLastCompletedRun returns the most recent completed run for a config
+func (r *AutomationRepository) GetLastCompletedRun(configID int64) (*AutomationRunLogDTO, error) {
+	var log models.AutomationRunLog
+	err := r.db.Where("automation_config_id = ? AND status = ?", configID, "done").
+		Order("started_at DESC").
+		First(&log).Error
+	if err != nil {
+		return nil, err
+	}
+	return &AutomationRunLogDTO{
+		ID:                   log.ID,
+		ExecutedQuery:        log.ExecutedQuery,
+		ExecutedSystemPrompt: log.ExecutedSystemPrompt,
+	}, nil
 }
 
 // CleanupStaleRuns marks any "running" jobs as failed (called on startup)
@@ -406,13 +480,18 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 		IntervalSeconds:    cfg.IntervalSeconds,
 		LastRunAt:          cfg.LastRunAt,
 		NextRunAt:          cfg.NextRunAt,
-		RunCount:           cfg.RunCount,
-		ProspectsPerRun:    cfg.ProspectsPerRun,
-		ConcurrentSearches: cfg.ConcurrentSearches,
-		CompilationTarget:  cfg.CompilationTarget,
+		RunCount:          cfg.RunCount,
+		CompilationTarget: cfg.CompilationTarget,
 		DisableOnCompiled:  cfg.DisableOnCompiled,
 		SystemPrompt:       cfg.SystemPrompt,
-		ATSMode:            cfg.ATSMode,
+		SuggestedPrompt:       cfg.SuggestedPrompt,
+		UseSuggestedPrompt:    cfg.UseSuggestedPrompt,
+		SuggestionThreshold:   cfg.SuggestionThreshold,
+		MinProspectsThreshold: cfg.MinProspectsThreshold,
+		SearchQuery:       cfg.SearchQuery,
+		SuggestedQuery:    cfg.SuggestedQuery,
+		UseSuggestedQuery: cfg.UseSuggestedQuery,
+		ATSMode:           cfg.ATSMode,
 		TimeFilter:         cfg.TimeFilter,
 		Location:           cfg.Location,
 		TargetType:         cfg.TargetType,
@@ -423,16 +502,17 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 		LastDigestAt:       cfg.LastDigestAt,
 		UseAgent:           cfg.UseAgent,
 		AgentModel:         cfg.AgentModel,
-		CompiledAt:         cfg.CompiledAt,
-		EmptyProposalLimit: cfg.EmptyProposalLimit,
-		CreatedAt:          cfg.CreatedAt,
-		UpdatedAt:          cfg.UpdatedAt,
+		UseAnalytics:       cfg.UseAnalytics,
+		AnalyticsModel:     cfg.AnalyticsModel,
+		CompiledAt:              cfg.CompiledAt,
+		EmptyProposalLimit:      cfg.EmptyProposalLimit,
+		PromptCooldownRuns:      cfg.PromptCooldownRuns,
+		PromptCooldownProspects: cfg.PromptCooldownProspects,
+		CreatedAt:               cfg.CreatedAt,
+		UpdatedAt:               cfg.UpdatedAt,
 	}
 
 	// Parse JSON arrays
-	if cfg.SearchSlots != nil {
-		_ = json.Unmarshal(cfg.SearchSlots, &dto.SearchSlots)
-	}
 	if cfg.TargetIDs != nil {
 		_ = json.Unmarshal(cfg.TargetIDs, &dto.TargetIDs)
 	}
@@ -456,9 +536,6 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.IntervalSeconds != nil {
 		cfg.IntervalSeconds = *input.IntervalSeconds
 	}
-	if input.ConcurrentSearches != nil {
-		cfg.ConcurrentSearches = *input.ConcurrentSearches
-	}
 	if input.CompilationTarget != nil {
 		cfg.CompilationTarget = *input.CompilationTarget
 	}
@@ -468,8 +545,26 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.SystemPrompt != nil {
 		cfg.SystemPrompt = input.SystemPrompt
 	}
-	if input.SearchSlots != nil {
-		cfg.SearchSlots = toJSON(input.SearchSlots)
+	if input.SuggestedPrompt != nil {
+		cfg.SuggestedPrompt = input.SuggestedPrompt
+	}
+	if input.UseSuggestedPrompt != nil {
+		cfg.UseSuggestedPrompt = *input.UseSuggestedPrompt
+	}
+	if input.SuggestionThreshold != nil {
+		cfg.SuggestionThreshold = *input.SuggestionThreshold
+	}
+	if input.MinProspectsThreshold != nil {
+		cfg.MinProspectsThreshold = *input.MinProspectsThreshold
+	}
+	if input.SearchQuery != nil {
+		cfg.SearchQuery = input.SearchQuery
+	}
+	if input.SuggestedQuery != nil {
+		cfg.SuggestedQuery = input.SuggestedQuery
+	}
+	if input.UseSuggestedQuery != nil {
+		cfg.UseSuggestedQuery = *input.UseSuggestedQuery
 	}
 	if input.ATSMode != nil {
 		cfg.ATSMode = *input.ATSMode
@@ -507,8 +602,20 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.AgentModel != nil {
 		cfg.AgentModel = input.AgentModel
 	}
+	if input.UseAnalytics != nil {
+		cfg.UseAnalytics = *input.UseAnalytics
+	}
+	if input.AnalyticsModel != nil {
+		cfg.AnalyticsModel = input.AnalyticsModel
+	}
 	if input.EmptyProposalLimit != nil {
 		cfg.EmptyProposalLimit = *input.EmptyProposalLimit
+	}
+	if input.PromptCooldownRuns != nil {
+		cfg.PromptCooldownRuns = *input.PromptCooldownRuns
+	}
+	if input.PromptCooldownProspects != nil {
+		cfg.PromptCooldownProspects = *input.PromptCooldownProspects
 	}
 }
 
@@ -582,3 +689,286 @@ func (r *AutomationRepository) GetRejectedJobs(tenantID int64) ([]RejectedJobInf
 func (r *AutomationRepository) ClearRejectedJobs(configID int64) error {
 	return r.db.Where("automation_config_id = ?", configID).Delete(&models.AutomationRejectedJob{}).Error
 }
+
+// RejectedJobForAnalysis contains job info for excluded term analysis
+type RejectedJobForAnalysis struct {
+	JobTitle string
+	Reason   string
+}
+
+// GetRecentRejectedJobsForConfig returns recent rejected jobs for excluded term analysis
+func (r *AutomationRepository) GetRecentRejectedJobsForConfig(configID int64, limit int) ([]RejectedJobForAnalysis, error) {
+	var jobs []models.AutomationRejectedJob
+	err := r.db.Select("job_title", "reason").
+		Where("automation_config_id = ?", configID).
+		Order("created_at DESC").
+		Limit(limit).
+		Find(&jobs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	var result []RejectedJobForAnalysis
+	for _, j := range jobs {
+		if j.JobTitle == nil || j.Reason == nil {
+			// Skip jobs without title or reason
+			result = result
+		} else {
+			result = append(result, RejectedJobForAnalysis{
+				JobTitle: *j.JobTitle,
+				Reason:   *j.Reason,
+			})
+		}
+	}
+	return result, nil
+}
+
+// UpdateSuggestedPrompt sets a suggested prompt for a config and enables use
+func (r *AutomationRepository) UpdateSuggestedPrompt(configID int64, suggestion string) error {
+	return r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Updates(map[string]interface{}{
+			"suggested_prompt":     suggestion,
+			"use_suggested_prompt": true,
+		}).Error
+}
+
+// ClearSuggestedPrompt removes the suggested prompt from a config and disables use
+func (r *AutomationRepository) ClearSuggestedPrompt(configID int64) error {
+	return r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Updates(map[string]interface{}{
+			"suggested_prompt":     nil,
+			"use_suggested_prompt": false,
+		}).Error
+}
+
+// AcceptSuggestedPrompt copies suggested_prompt to system_prompt and clears suggestion
+func (r *AutomationRepository) AcceptSuggestedPrompt(configID int64) error {
+	var cfg models.AutomationConfig
+	if err := r.db.First(&cfg, configID).Error; err != nil {
+		return err
+	}
+	if cfg.SuggestedPrompt == nil || *cfg.SuggestedPrompt == "" {
+		return nil
+	}
+	return r.db.Model(&cfg).Updates(map[string]interface{}{
+		"system_prompt":        *cfg.SuggestedPrompt,
+		"suggested_prompt":     nil,
+		"use_suggested_prompt": false,
+	}).Error
+}
+
+// UpdateSuggestedQuery sets suggested query for a config and auto-enables it
+func (r *AutomationRepository) UpdateSuggestedQuery(configID int64, query string) error {
+	return r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Updates(map[string]interface{}{
+			"suggested_query":     query,
+			"use_suggested_query": true,
+		}).Error
+}
+
+// ClearSuggestedQuery removes the suggested query and disables the flag
+func (r *AutomationRepository) ClearSuggestedQuery(configID int64) error {
+	return r.db.Model(&models.AutomationConfig{}).
+		Where("id = ?", configID).
+		Updates(map[string]interface{}{
+			"suggested_query":     nil,
+			"use_suggested_query": false,
+		}).Error
+}
+
+// QueryPerformance represents analytics for a single query
+type QueryPerformance struct {
+	Query            string
+	ProspectsFound   int
+	ProposalsCreated int
+	ConversionRate   float64
+	RunCount         int
+}
+
+// RunAnalytics holds aggregated analytics from historical runs
+type RunAnalytics struct {
+	TotalRuns           int
+	ConsecutiveZeroRuns int
+	AvgConversionRate   float64
+	BestQueries         []QueryPerformance
+	WorstQueries        []QueryPerformance
+}
+
+// GetRunAnalytics returns aggregated analytics for a config's historical runs
+func (r *AutomationRepository) GetRunAnalytics(configID int64, limit int) (*RunAnalytics, error) {
+	var logs []models.AutomationRunLog
+	err := r.db.Where("automation_config_id = ? AND status = ?", configID, "done").
+		Order("started_at DESC").
+		Limit(limit).
+		Find(&logs).Error
+	if err != nil {
+		return nil, err
+	}
+
+	if len(logs) == 0 {
+		return &RunAnalytics{}, nil
+	}
+
+	consecutiveZeroRuns := countConsecutiveZeroRuns(logs)
+	queryStats := aggregateQueryStats(logs)
+
+	// Calculate conversion rates and sort
+	var queryList []QueryPerformance
+	var totalConversion float64
+	for _, stats := range queryStats {
+		if stats.ProspectsFound > 0 {
+			stats.ConversionRate = float64(stats.ProposalsCreated) / float64(stats.ProspectsFound) * 100
+		}
+		queryList = append(queryList, *stats)
+		totalConversion += stats.ConversionRate
+	}
+
+	avgConversion := 0.0
+	if len(queryList) > 0 {
+		avgConversion = totalConversion / float64(len(queryList))
+	}
+
+	// Sort by proposals (best first)
+	sortedByProposals := make([]QueryPerformance, len(queryList))
+	copy(sortedByProposals, queryList)
+	for i := 0; i < len(sortedByProposals)-1; i++ {
+		for j := i + 1; j < len(sortedByProposals); j++ {
+			if sortedByProposals[j].ProposalsCreated > sortedByProposals[i].ProposalsCreated {
+				sortedByProposals[i], sortedByProposals[j] = sortedByProposals[j], sortedByProposals[i]
+			}
+		}
+	}
+
+	// Top 3 best queries
+	bestQueries := sortedByProposals
+	if len(bestQueries) > 3 {
+		bestQueries = bestQueries[:3]
+	}
+
+	// Bottom 3 worst queries (that had prospects but 0 proposals)
+	worstQueries := findWorstQueries(sortedByProposals, 3)
+
+	return &RunAnalytics{
+		TotalRuns:           len(logs),
+		ConsecutiveZeroRuns: consecutiveZeroRuns,
+		AvgConversionRate:   avgConversion,
+		BestQueries:         bestQueries,
+		WorstQueries:        worstQueries,
+	}, nil
+}
+
+// findWorstQueries returns queries that had prospects but zero proposals
+func findWorstQueries(sorted []QueryPerformance, limit int) []QueryPerformance {
+	var worst []QueryPerformance
+	for i := len(sorted) - 1; i >= 0; i-- {
+		if len(worst) >= limit {
+			return worst
+		}
+		worst = appendIfWorstQuery(sorted[i], worst)
+	}
+	return worst
+}
+
+func appendIfWorstQuery(q QueryPerformance, worst []QueryPerformance) []QueryPerformance {
+	if q.ProspectsFound == 0 || q.ProposalsCreated != 0 {
+		return worst
+	}
+	return append(worst, q)
+}
+
+// countConsecutiveZeroRuns counts consecutive zero-proposal runs from most recent
+func countConsecutiveZeroRuns(logs []models.AutomationRunLog) int {
+	count := 0
+	for _, log := range logs {
+		if log.ProposalsCreated != 0 {
+			return count
+		}
+		count++
+	}
+	return count
+}
+
+// aggregateQueryStats aggregates query performance data from logs
+func aggregateQueryStats(logs []models.AutomationRunLog) map[string]*QueryPerformance {
+	queryStats := make(map[string]*QueryPerformance)
+
+	for _, log := range logs {
+		queryStats = processLogQuery(log, queryStats)
+	}
+
+	return queryStats
+}
+
+func processLogQuery(log models.AutomationRunLog, queryStats map[string]*QueryPerformance) map[string]*QueryPerformance {
+	if log.ExecutedQuery == nil || *log.ExecutedQuery == "" {
+		return queryStats
+	}
+
+	query := *log.ExecutedQuery
+	stats, exists := queryStats[query]
+	if !exists {
+		stats = &QueryPerformance{Query: query}
+		queryStats[query] = stats
+	}
+	stats.ProspectsFound += log.ProspectsFound
+	stats.ProposalsCreated += log.ProposalsCreated
+	stats.RunCount++
+
+	return queryStats
+}
+
+// PromptCooldownStats holds metrics since last prompt update
+type PromptCooldownStats struct {
+	HasPreviousUpdate bool // true if a prompt_updated=true run exists
+	RunCount          int
+	TotalProspects    int
+	ThresholdMet      bool
+}
+
+// GetRunsSincePromptUpdate returns stats since the last prompt_updated=true run
+func (r *AutomationRepository) GetRunsSincePromptUpdate(configID int64, suggestionThreshold int) (*PromptCooldownStats, error) {
+	// Find most recent run where prompt was updated
+	var lastPromptUpdate models.AutomationRunLog
+	err := r.db.Where("automation_config_id = ? AND prompt_updated = ?", configID, true).
+		Order("started_at DESC").First(&lastPromptUpdate).Error
+
+	if err == gorm.ErrRecordNotFound {
+		// No prompt update ever - allow suggestion (first time)
+		return &PromptCooldownStats{HasPreviousUpdate: false, RunCount: 0, TotalProspects: 0, ThresholdMet: false}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	// Count runs and sum prospects since that update
+	var stats struct {
+		RunCount       int
+		TotalProspects int
+	}
+	err = r.db.Model(&models.AutomationRunLog{}).
+		Where("automation_config_id = ? AND started_at > ? AND status = ?",
+			configID, lastPromptUpdate.StartedAt, "done").
+		Select("COUNT(*) as run_count, COALESCE(SUM(prospects_found), 0) as total_prospects").
+		Scan(&stats).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// Check if threshold was ever met since last prompt update
+	var thresholdMetCount int64
+	r.db.Model(&models.AutomationRunLog{}).
+		Where("automation_config_id = ? AND started_at > ? AND status = ? AND prospects_found >= ?",
+			configID, lastPromptUpdate.StartedAt, "done", suggestionThreshold).
+		Count(&thresholdMetCount)
+
+	return &PromptCooldownStats{
+		HasPreviousUpdate: true,
+		RunCount:          stats.RunCount,
+		TotalProspects:    stats.TotalProspects,
+		ThresholdMet:      thresholdMetCount > 0,
+	}, nil
+}
+

@@ -47,12 +47,15 @@ type CrawlerRequest struct {
 	EntityType         *string  `json:"entity_type,omitempty"`
 	Enabled            *bool    `json:"enabled,omitempty"`
 	IntervalSeconds    *int     `json:"interval_seconds,omitempty"`
-	ConcurrentSearches *int     `json:"concurrent_searches,omitempty"`
 	CompilationTarget  *int     `json:"compilation_target,omitempty"`
 	DisableOnCompiled  *bool    `json:"disable_on_compiled,omitempty"`
-	SystemPrompt       *string    `json:"system_prompt,omitempty"`
-	SearchSlots        []string `json:"search_slots,omitempty"`
-	ATSMode            *bool      `json:"ats_mode,omitempty"`
+	SystemPrompt          *string `json:"system_prompt,omitempty"`
+	UseSuggestedPrompt    *bool   `json:"use_suggested_prompt,omitempty"`
+	SuggestionThreshold   *int    `json:"suggestion_threshold,omitempty"`
+	MinProspectsThreshold *int    `json:"min_prospects_threshold,omitempty"`
+	SearchQuery       *string `json:"search_query,omitempty"`
+	UseSuggestedQuery *bool   `json:"use_suggested_query,omitempty"`
+	ATSMode           *bool   `json:"ats_mode,omitempty"`
 	TimeFilter         *string  `json:"time_filter,omitempty"`
 	Location           *string  `json:"location,omitempty"`
 	TargetType         *string  `json:"target_type,omitempty"`
@@ -64,7 +67,13 @@ type CrawlerRequest struct {
 	DigestModel        *string  `json:"digest_model,omitempty"`
 	UseAgent           *bool    `json:"use_agent,omitempty"`
 	AgentModel         *string  `json:"agent_model,omitempty"`
-	EmptyProposalLimit *int     `json:"empty_proposal_limit,omitempty"`
+	UseAnalytics       *bool    `json:"use_analytics,omitempty"`
+	AnalyticsModel     *string  `json:"analytics_model,omitempty"`
+	EmptyProposalLimit      *int    `json:"empty_proposal_limit,omitempty"`
+	PromptCooldownRuns      *int    `json:"prompt_cooldown_runs,omitempty"`
+	PromptCooldownProspects *int    `json:"prompt_cooldown_prospects,omitempty"`
+	SuggestedQuery          *string `json:"suggested_query,omitempty"`
+	SuggestedPrompt         *string `json:"suggested_prompt,omitempty"`
 }
 
 // ToggleRequest represents the request body for toggling a crawler
@@ -80,13 +89,7 @@ func (c *AutomationController) GetCrawlers(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	userID, ok := middleware.GetUserID(r.Context())
-	if !ok {
-		writeAutomationError(w, http.StatusUnauthorized, "user not found")
-		return
-	}
-
-	result, err := c.automationService.GetCrawlers(tenantID, userID)
+	result, err := c.automationService.GetCrawlers(tenantID)
 	if err != nil {
 		writeAutomationError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -339,18 +342,55 @@ func (c *AutomationController) parseConfigID(r *http.Request) (int64, error) {
 	return strconv.ParseInt(idStr, 10, 64)
 }
 
+// AcceptSuggestedPrompt handles POST /automation/crawlers/{id}/accept-suggestion
+func (c *AutomationController) AcceptSuggestedPrompt(w http.ResponseWriter, r *http.Request) {
+	configID, err := c.parseConfigID(r)
+	if err != nil {
+		writeAutomationError(w, http.StatusBadRequest, "invalid crawler ID")
+		return
+	}
+
+	result, err := c.automationService.AcceptSuggestedPrompt(configID)
+	if err != nil {
+		writeAutomationError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeAutomationJSON(w, http.StatusOK, result)
+}
+
+// DismissSuggestedPrompt handles POST /automation/crawlers/{id}/dismiss-suggestion
+func (c *AutomationController) DismissSuggestedPrompt(w http.ResponseWriter, r *http.Request) {
+	configID, err := c.parseConfigID(r)
+	if err != nil {
+		writeAutomationError(w, http.StatusBadRequest, "invalid crawler ID")
+		return
+	}
+
+	result, err := c.automationService.DismissSuggestedPrompt(configID)
+	if err != nil {
+		writeAutomationError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	writeAutomationJSON(w, http.StatusOK, result)
+}
+
 func (c *AutomationController) requestToInput(req CrawlerRequest) repositories.AutomationConfigInput {
 	return repositories.AutomationConfigInput{
 		Name:               req.Name,
 		EntityType:         req.EntityType,
 		Enabled:            req.Enabled,
 		IntervalSeconds:    req.IntervalSeconds,
-		ConcurrentSearches: req.ConcurrentSearches,
 		CompilationTarget:  req.CompilationTarget,
 		DisableOnCompiled:  req.DisableOnCompiled,
-		SystemPrompt:       req.SystemPrompt,
-		SearchSlots:        req.SearchSlots,
-		ATSMode:            req.ATSMode,
+		SystemPrompt:          req.SystemPrompt,
+		UseSuggestedPrompt:    req.UseSuggestedPrompt,
+		SuggestionThreshold:   req.SuggestionThreshold,
+		MinProspectsThreshold: req.MinProspectsThreshold,
+		SearchQuery:       req.SearchQuery,
+		UseSuggestedQuery: req.UseSuggestedQuery,
+		ATSMode:           req.ATSMode,
 		TimeFilter:         req.TimeFilter,
 		Location:           req.Location,
 		TargetType:         req.TargetType,
@@ -362,7 +402,13 @@ func (c *AutomationController) requestToInput(req CrawlerRequest) repositories.A
 		DigestModel:        req.DigestModel,
 		UseAgent:           req.UseAgent,
 		AgentModel:         req.AgentModel,
-		EmptyProposalLimit: req.EmptyProposalLimit,
+		UseAnalytics:       req.UseAnalytics,
+		AnalyticsModel:     req.AnalyticsModel,
+		EmptyProposalLimit:      req.EmptyProposalLimit,
+		PromptCooldownRuns:      req.PromptCooldownRuns,
+		PromptCooldownProspects: req.PromptCooldownProspects,
+		SuggestedQuery:          req.SuggestedQuery,
+		SuggestedPrompt:         req.SuggestedPrompt,
 	}
 }
 

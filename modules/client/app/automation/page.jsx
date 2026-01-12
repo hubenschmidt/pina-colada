@@ -21,8 +21,10 @@ import {
   Modal,
   ActionIcon,
   Menu,
+  Tooltip,
 } from "@mantine/core";
 import { useDisclosure } from "@mantine/hooks";
+import { useMantineColorScheme } from "@mantine/core";
 import {
   Play,
   Clock,
@@ -87,8 +89,8 @@ const TARGET_TYPE_OPTIONS = {
 };
 
 const AGENT_MODEL_OPTIONS = [
-  { value: "claude-sonnet-4-20250514", label: "Claude Sonnet 4.5 (Recommended)" },
-  { value: "claude-haiku-4-20250514", label: "Claude Haiku 4.5 (Faster)" },
+  { value: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5 (Recommended)" },
+  { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (Faster)" },
   { value: "gpt-5.2", label: "GPT 5.2" },
   { value: "gpt-5.1", label: "GPT 5.1" },
 ];
@@ -103,10 +105,11 @@ const emptyForm = {
   entity_type: "job",
   interval_value: 30,
   interval_unit: "minutes",
-  concurrent_searches: 1,
   compilation_target: 100,
   disable_on_compiled: false,
-  search_slots: [""],
+  search_query: "",
+  suggested_query: null,
+  use_suggested_query: false,
   location: "",
   ats_mode: true,
   time_filter: "week",
@@ -114,18 +117,27 @@ const emptyForm = {
   target_ids: [],
   source_document_ids: [],
   system_prompt: "",
+  suggested_prompt: null,
+  use_suggested_prompt: false,
+  suggestion_threshold: 50,
+  min_prospects_threshold: 5,
   digest_enabled: true,
   digest_emails: "",
   digest_time: "09:00",
   digest_model: null,
   use_agent: false,
-  agent_model: "claude-sonnet-4-20250514",
+  agent_model: "claude-sonnet-4-5-20250929",
+  use_analytics: false,
+  analytics_model: "claude-3-haiku-20240307",
   empty_proposal_limit: null,
+  prompt_cooldown_runs: 5,
+  prompt_cooldown_prospects: 50,
 };
 
 const AutomationPage = () => {
   const { dispatchPageLoading } = usePageLoading();
   const { userState } = useUserContext();
+  const { colorScheme } = useMantineColorScheme();
   const [crawlers, setCrawlers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -244,10 +256,11 @@ const AutomationPage = () => {
       entity_type: crawler.entity_type || "job",
       interval_value: useMinutes ? seconds / 60 : seconds,
       interval_unit: useMinutes ? "minutes" : "seconds",
-      concurrent_searches: crawler.concurrent_searches || 1,
       compilation_target: crawler.compilation_target || 100,
       disable_on_compiled: crawler.disable_on_compiled ?? false,
-      search_slots: crawler.search_slots?.length ? crawler.search_slots : [""],
+      search_query: crawler.search_query || "",
+      suggested_query: crawler.suggested_query || null,
+      use_suggested_query: crawler.use_suggested_query ?? false,
       location: crawler.location || "",
       ats_mode: crawler.ats_mode ?? true,
       time_filter: crawler.time_filter || "week",
@@ -255,13 +268,21 @@ const AutomationPage = () => {
       target_ids: crawler.target_ids || [],
       source_document_ids: crawler.source_document_ids || [],
       system_prompt: crawler.system_prompt || "",
+      suggested_prompt: crawler.suggested_prompt || null,
+      use_suggested_prompt: crawler.use_suggested_prompt ?? false,
+      suggestion_threshold: crawler.suggestion_threshold ?? 50,
+      min_prospects_threshold: crawler.min_prospects_threshold ?? 5,
       digest_enabled: crawler.digest_enabled ?? true,
       digest_emails: crawler.digest_emails || "",
       digest_time: crawler.digest_time || "09:00",
       digest_model: crawler.digest_model || null,
       use_agent: crawler.use_agent ?? false,
-      agent_model: crawler.agent_model || "claude-sonnet-4-20250514",
+      agent_model: crawler.agent_model || "claude-sonnet-4-5-20250929",
+      use_analytics: crawler.use_analytics ?? false,
+      analytics_model: crawler.analytics_model || "claude-3-haiku-20240307",
       empty_proposal_limit: crawler.empty_proposal_limit || null,
+      prompt_cooldown_runs: crawler.prompt_cooldown_runs ?? 5,
+      prompt_cooldown_prospects: crawler.prompt_cooldown_prospects ?? 50,
     });
 
     // Load target entity names if set
@@ -307,11 +328,12 @@ const AutomationPage = () => {
       return;
     }
 
-    // Filter out empty slots before saving
-    const cleanedSlots = (form.search_slots || []).filter((slot) => slot && slot.trim().length > 0);
-
-    if (cleanedSlots.length === 0) {
-      setModalError("At least one search slot must have a query");
+    // Validate search query
+    const query = form.use_suggested_query && form.suggested_query
+      ? form.suggested_query
+      : form.search_query;
+    if (!query || !query.trim()) {
+      setModalError("Search query is required");
       return;
     }
 
@@ -322,7 +344,6 @@ const AutomationPage = () => {
 
     const cleanedForm = {
       ...form,
-      search_slots: cleanedSlots,
       interval_seconds: intervalSeconds,
       empty_proposal_limit: form.empty_proposal_limit || 0,
     };
@@ -454,7 +475,7 @@ const AutomationPage = () => {
   }));
 
   return (
-    <Container size="lg" py="xl">
+    <Container fluid py="xl" px="xl">
       <Stack gap="xl">
         {alert && (
           <Alert
@@ -510,6 +531,11 @@ const AutomationPage = () => {
                           {` • ${crawler.active_proposals || 0} proposals`}
                           {crawler.next_run_at && ` • Next: ${new Date(crawler.next_run_at).toLocaleString()}`}
                         </Text>
+                        {crawler.suggested_query && (
+                          <Text size="xs" c="lime" lineClamp={1}>
+                            Suggested query: {crawler.suggested_query}{crawler.location ? ` "${crawler.location}"` : ""}
+                          </Text>
+                        )}
                       </div>
                     </Group>
 
@@ -580,7 +606,7 @@ const AutomationPage = () => {
         opened={modalOpened}
         onClose={closeModal}
         title={editingCrawler ? "Edit Crawler" : "New Crawler"}
-        size={"xl"}
+        size={"1600"}
       >
         <Stack gap="md">
           <Group justify="flex-end">
@@ -641,13 +667,6 @@ const AutomationPage = () => {
 
           <Group grow>
             <NumberInput
-              label="Concurrent Searches"
-              value={form.concurrent_searches}
-              onChange={(val) => updateForm("concurrent_searches", val)}
-              min={1}
-              max={10}
-            />
-            <NumberInput
               label="Compilation Target"
               value={form.compilation_target}
               onChange={(val) => updateForm("compilation_target", val)}
@@ -675,28 +694,56 @@ const AutomationPage = () => {
           />
 
           <Stack gap="xs">
-            {Array.from({ length: form.concurrent_searches }).map((_, slotIndex) => (
-              <Textarea
-                key={slotIndex}
-                label={form.concurrent_searches === 1 ? "Search Query" : `Slot ${slotIndex + 1}`}
-                placeholder="e.g. (typescript OR javascript) node.js intitle:engineer -junior"
-                description={slotIndex === 0 ? "Operators: OR, (), \"\", -, intitle:" : undefined}
-                value={form.search_slots[slotIndex] || ""}
-                onChange={(e) => {
-                  const newSlots = [...(form.search_slots || [])];
-                  while (newSlots.length < form.concurrent_searches) {
-                    newSlots.push("");
-                  }
-                  newSlots[slotIndex] = e.target.value;
-                  updateForm("search_slots", newSlots);
-                }}
-                minRows={2}
-              />
-            ))}
-            {form.concurrent_searches > 1 && (
-              <Text size="xs" c="dimmed">Each slot runs as a separate concurrent search.</Text>
+            <Textarea
+              label="Search Query"
+              placeholder="e.g. (typescript OR javascript) node.js intitle:engineer"
+              description={'Operators: OR, (), "", intitle:, -exclude'}
+              value={form.search_query || ""}
+              onChange={(e) => updateForm("search_query", e.currentTarget.value)}
+              minRows={2}
+            />
+            {form.suggested_query && (
+              <Group gap="xs" align="center">
+                <Text size="xs" c="lime">
+                  Suggested: {form.suggested_query}
+                </Text>
+                <Button
+                  size="compact-xs"
+                  variant="light"
+                  color="lime"
+                  onClick={() => {
+                    updateForm("search_query", form.suggested_query);
+                    updateForm("suggested_query", null);
+                    updateForm("use_suggested_query", false);
+                  }}
+                >
+                  Accept
+                </Button>
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => {
+                    updateForm("suggested_query", null);
+                    updateForm("use_suggested_query", false);
+                  }}
+                >
+                  Dismiss
+                </Button>
+              </Group>
             )}
+
+            <Switch
+              label="Use suggested query"
+              description="Auto-generate and apply AI-suggested search queries"
+              checked={form.use_suggested_query}
+              onChange={(e) => updateForm("use_suggested_query", e.currentTarget.checked)}
+              color="lime"
+              size="sm"
+            />
+
           </Stack>
+
 
           <TextInput
             label="Location"
@@ -789,14 +836,95 @@ const AutomationPage = () => {
             />
           )}
 
-          <Textarea
-            label="System Prompt"
-            placeholder="Custom instructions for the automation agent..."
-            value={form.system_prompt}
-            onChange={(e) => updateForm("system_prompt", e.currentTarget.value)}
-            minRows={3}
-            autosize
+          <Switch
+            label="Use Query Analytics"
+            description="LLM analyzes historical runs to improve query suggestions"
+            checked={form.use_analytics}
+            onChange={(e) => updateForm("use_analytics", e.currentTarget.checked)}
+            color="lime"
           />
+
+          {form.use_analytics && (
+            <Select
+              label="Analytics Model"
+              description="Cheaper models recommended to reduce costs"
+              value={form.analytics_model}
+              onChange={(val) => updateForm("analytics_model", val)}
+              data={AGENT_MODEL_OPTIONS}
+            />
+          )}
+
+          <Stack gap="xs">
+            <Text size="sm" fw={500}>System Prompt</Text>
+            <Textarea
+              placeholder="Custom instructions for the automation agent..."
+              value={form.use_suggested_prompt && form.suggested_prompt ? form.suggested_prompt : form.system_prompt}
+              onChange={(e) => {
+                if (form.use_suggested_prompt && form.suggested_prompt) {
+                  updateForm("suggested_prompt", e.currentTarget.value);
+                } else {
+                  updateForm("system_prompt", e.currentTarget.value);
+                }
+              }}
+              minRows={3}
+              autosize
+              styles={form.use_suggested_prompt && form.suggested_prompt ? { input: { borderColor: "var(--mantine-color-lime-6)" } } : {}}
+            />
+            {form.suggested_prompt && (
+              <Text size="xs" c="dimmed">
+                {form.use_suggested_prompt
+                  ? "Editing suggested prompt. Toggle off to switch back to original."
+                  : "A suggested prompt is available. Toggle on to use it."}
+              </Text>
+            )}
+          </Stack>
+
+          <Group grow align="flex-start">
+            <Switch
+              label="Use suggested prompt"
+              description="Auto-generate and apply AI-suggested system prompts"
+              checked={form?.use_suggested_prompt}
+              onChange={(e) => updateForm("use_suggested_prompt", e.currentTarget.checked)}
+              color="lime"
+              size="sm"
+            />
+            <NumberInput
+              label="Suggestion Threshold"
+              description="Trigger suggestions when conversion rate below this %"
+              value={form.suggestion_threshold}
+              onChange={(val) => updateForm("suggestion_threshold", val)}
+              min={0}
+              max={100}
+              suffix="%"
+            />
+            <NumberInput
+              label="Min Prospects"
+              description="Also trigger suggestions if prospects below this count"
+              value={form.min_prospects_threshold}
+              onChange={(val) => updateForm("min_prospects_threshold", val)}
+              min={1}
+              max={50}
+            />
+          </Group>
+
+          <Group grow align="flex-start">
+            <NumberInput
+              label="Prompt Cooldown Runs"
+              description="Min runs after prompt update before suggesting again"
+              value={form.prompt_cooldown_runs}
+              onChange={(val) => updateForm("prompt_cooldown_runs", val)}
+              min={1}
+              max={100}
+            />
+            <NumberInput
+              label="Prompt Cooldown Prospects"
+              description="Min total prospects during cooldown before suggesting again"
+              value={form.prompt_cooldown_prospects}
+              onChange={(val) => updateForm("prompt_cooldown_prospects", val)}
+              min={1}
+              max={500}
+            />
+          </Group>
 
           <Switch
             label="Daily Digest"
@@ -857,11 +985,15 @@ const CrawlerRunsSSE = ({ crawlerId, isExpanded, pageValue, pageSizeValue, onPag
   const [localData, setLocalData] = useState(null);
 
   const handleSSEEvent = useCallback((type, payload) => {
-    // Handle config updates (e.g., crawler disabled on compilation target)
+    // Handle config updates (e.g., crawler disabled on compilation target, suggested query/prompt)
     if (type === "config_updated") {
       const updates = {
         ...(payload.enabled != null && { enabled: payload.enabled }),
         ...(payload.active_proposals != null && { active_proposals: payload.active_proposals }),
+        ...(payload.suggested_query != null && { suggested_query: payload.suggested_query }),
+        ...(payload.use_suggested_query != null && { use_suggested_query: payload.use_suggested_query }),
+        ...(payload.suggested_prompt != null && { suggested_prompt: payload.suggested_prompt }),
+        ...(payload.use_suggested_prompt != null && { use_suggested_prompt: payload.use_suggested_prompt }),
       };
       onCrawlerUpdate?.(crawlerId, updates);
       return;
@@ -952,6 +1084,7 @@ const CrawlerRunsSSE = ({ crawlerId, isExpanded, pageValue, pageSizeValue, onPag
 };
 
 const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onPageSizeChange }) => {
+  const { colorScheme } = useMantineColorScheme();
 
   const getStatusColor = (status) => {
     if (status === "done") return "lime";
@@ -977,6 +1110,14 @@ const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onP
       render: (row) => (row.compiled ? <CheckCircle size={16} color="lime" /> : null),
     },
     {
+      header: "Q+",
+      render: (row) => (row.query_updated ? <CheckCircle size={16} color="#228be6" /> : null),
+    },
+    {
+      header: "P+",
+      render: (row) => (row.prompt_updated ? <CheckCircle size={16} color="#228be6" /> : null),
+    },
+    {
       header: "Prospects",
       accessor: "prospects_found",
     },
@@ -987,10 +1128,32 @@ const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onP
     {
       header: "Query",
       render: (row) => (
-        <Text size="xs" lineClamp={1}>
-          {row.status === "running" ? "-" : (row.suggested_queries || row.search_query || "-")}
+        <Text size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+          {row.executed_query || "-"}
         </Text>
       ),
+    },
+    {
+      header: "Prompt",
+      render: (row) => (
+        <Tooltip
+          label={row.executed_system_prompt || "-"}
+          multiline
+          w={400}
+          withArrow
+          position="left"
+          disabled={!row.executed_system_prompt}
+          color={colorScheme === "dark" ? "dark" : "gray"}
+        >
+          <Text size="xs" c="dimmed" lineClamp={2} style={{ maxWidth: 300, cursor: row.executed_system_prompt ? "help" : "default" }}>
+            {row.executed_system_prompt || "-"}
+          </Text>
+        </Tooltip>
+      ),
+    },
+    {
+      header: "P#",
+      accessor: "executed_system_prompt_charcount",
     },
   ];
 

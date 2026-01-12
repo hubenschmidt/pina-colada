@@ -457,6 +457,8 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 				r.Post("/test", c.Automation.TestCrawler)
 				r.Post("/test-digest", c.Automation.SendTestDigest)
 				r.Delete("/rejected-jobs", c.Automation.ClearRejectedJobs)
+				r.Post("/accept-suggestion", c.Automation.AcceptSuggestedPrompt)
+				r.Post("/dismiss-suggestion", c.Automation.DismissSuggestedPrompt)
 			})
 		})
 	})
