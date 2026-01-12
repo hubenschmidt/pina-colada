@@ -13,20 +13,19 @@ type AutomationConfigResponse struct {
 	IntervalSeconds       int        `json:"interval_seconds"`
 	LastRunAt             *time.Time `json:"last_run_at"`
 	NextRunAt             *time.Time `json:"next_run_at"`
-	RunCount              int        `json:"run_count"`
-	ProspectsPerRun       int        `json:"prospects_per_run"`
-	CompilationTarget int  `json:"compilation_target"`
+	RunCount          int `json:"run_count"`
+	CompilationTarget int `json:"compilation_target"`
 	DisableOnCompiled bool `json:"disable_on_compiled"`
 	ActiveProposals   int  `json:"active_proposals"`
 	CompiledAt        *time.Time `json:"compiled_at"`
 	SystemPrompt       *string  `json:"system_prompt"`
-	SuggestedPrompt    *string  `json:"suggested_prompt"`
-	UseSuggestedPrompt  bool     `json:"use_suggested_prompt"`
-	SuggestionThreshold int      `json:"suggestion_threshold"`
+	SuggestedPrompt       *string `json:"suggested_prompt"`
+	UseSuggestedPrompt    bool    `json:"use_suggested_prompt"`
+	SuggestionThreshold   int     `json:"suggestion_threshold"`
+	MinProspectsThreshold int     `json:"min_prospects_threshold"`
 	SearchQuery       *string `json:"search_query"`
 	SuggestedQuery    *string `json:"suggested_query"`
 	UseSuggestedQuery bool    `json:"use_suggested_query"`
-	Excluded          *string `json:"excluded"`
 	ATSMode           bool    `json:"ats_mode"`
 	TimeFilter         *string    `json:"time_filter"`
 	Location           *string    `json:"location"`
@@ -42,9 +41,11 @@ type AutomationConfigResponse struct {
 	AgentModel         *string    `json:"agent_model"`
 	UseAnalytics       bool       `json:"use_analytics"`
 	AnalyticsModel     *string    `json:"analytics_model"`
-	EmptyProposalLimit int        `json:"empty_proposal_limit"`
-	CreatedAt          time.Time  `json:"created_at,omitempty"`
-	UpdatedAt          time.Time  `json:"updated_at,omitempty"`
+	EmptyProposalLimit      int       `json:"empty_proposal_limit"`
+	PromptCooldownRuns      int       `json:"prompt_cooldown_runs"`
+	PromptCooldownProspects int       `json:"prompt_cooldown_prospects"`
+	CreatedAt               time.Time `json:"created_at,omitempty"`
+	UpdatedAt               time.Time `json:"updated_at,omitempty"`
 }
 
 // AutomationRunLogResponse represents a run log entry for API responses
@@ -56,10 +57,12 @@ type AutomationRunLogResponse struct {
 	ProspectsFound   int        `json:"prospects_found"`
 	ProposalsCreated int        `json:"proposals_created"`
 	ErrorMessage     *string    `json:"error_message"`
-	ExecutedQuery        *string `json:"executed_query"`
-	ExecutedSystemPrompt *string `json:"executed_system_prompt"`
-	RelatedSearches      *string `json:"related_searches"`
-	Compiled             bool    `json:"compiled"`
+	ExecutedQuery                 *string `json:"executed_query"`
+	ExecutedSystemPrompt          *string `json:"executed_system_prompt"`
+	ExecutedSystemPromptCharcount int     `json:"executed_system_prompt_charcount"`
+	Compiled                      bool    `json:"compiled"`
+	QueryUpdated                  bool    `json:"query_updated"`
+	PromptUpdated                 bool    `json:"prompt_updated"`
 	// ConfigActiveProposals is included in SSE events to update crawler stats
 	ConfigActiveProposals *int `json:"config_active_proposals,omitempty"`
 	// ConfigEnabled is included in SSE events when crawler is auto-paused

@@ -12,9 +12,11 @@ type AutomationRunLog struct {
 	ProposalsCreated     int        `gorm:"column:proposals_created;not null;default:0" json:"proposals_created"`
 	ErrorMessage         *string    `gorm:"column:error_message" json:"error_message"`
 	ExecutedQuery        *string `gorm:"column:executed_query" json:"executed_query"`
-	ExecutedSystemPrompt *string `gorm:"column:executed_system_prompt" json:"executed_system_prompt"`
-	RelatedSearches      *string `gorm:"column:related_searches" json:"related_searches"`
-	Compiled             bool    `gorm:"column:compiled;not null;default:false" json:"compiled"`
+	ExecutedSystemPrompt          *string `gorm:"column:executed_system_prompt" json:"executed_system_prompt"`
+	ExecutedSystemPromptCharcount int     `gorm:"column:executed_system_prompt_charcount;not null;default:0" json:"executed_system_prompt_charcount"`
+	Compiled                      bool    `gorm:"column:compiled;not null;default:false" json:"compiled"`
+	QueryUpdated                  bool    `gorm:"column:query_updated;not null;default:false" json:"query_updated"`
+	PromptUpdated                 bool    `gorm:"column:prompt_updated;not null;default:false" json:"prompt_updated"`
 }
 
 func (AutomationRunLog) TableName() string {

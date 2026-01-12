@@ -49,12 +49,12 @@ type CrawlerRequest struct {
 	IntervalSeconds    *int     `json:"interval_seconds,omitempty"`
 	CompilationTarget  *int     `json:"compilation_target,omitempty"`
 	DisableOnCompiled  *bool    `json:"disable_on_compiled,omitempty"`
-	SystemPrompt       *string  `json:"system_prompt,omitempty"`
-	UseSuggestedPrompt  *bool    `json:"use_suggested_prompt,omitempty"`
-	SuggestionThreshold *int     `json:"suggestion_threshold,omitempty"`
+	SystemPrompt          *string `json:"system_prompt,omitempty"`
+	UseSuggestedPrompt    *bool   `json:"use_suggested_prompt,omitempty"`
+	SuggestionThreshold   *int    `json:"suggestion_threshold,omitempty"`
+	MinProspectsThreshold *int    `json:"min_prospects_threshold,omitempty"`
 	SearchQuery       *string `json:"search_query,omitempty"`
 	UseSuggestedQuery *bool   `json:"use_suggested_query,omitempty"`
-	Excluded          *string `json:"excluded,omitempty"`
 	ATSMode           *bool   `json:"ats_mode,omitempty"`
 	TimeFilter         *string  `json:"time_filter,omitempty"`
 	Location           *string  `json:"location,omitempty"`
@@ -69,7 +69,11 @@ type CrawlerRequest struct {
 	AgentModel         *string  `json:"agent_model,omitempty"`
 	UseAnalytics       *bool    `json:"use_analytics,omitempty"`
 	AnalyticsModel     *string  `json:"analytics_model,omitempty"`
-	EmptyProposalLimit *int     `json:"empty_proposal_limit,omitempty"`
+	EmptyProposalLimit      *int    `json:"empty_proposal_limit,omitempty"`
+	PromptCooldownRuns      *int    `json:"prompt_cooldown_runs,omitempty"`
+	PromptCooldownProspects *int    `json:"prompt_cooldown_prospects,omitempty"`
+	SuggestedQuery          *string `json:"suggested_query,omitempty"`
+	SuggestedPrompt         *string `json:"suggested_prompt,omitempty"`
 }
 
 // ToggleRequest represents the request body for toggling a crawler
@@ -386,13 +390,13 @@ func (c *AutomationController) requestToInput(req CrawlerRequest) repositories.A
 		IntervalSeconds:    req.IntervalSeconds,
 		CompilationTarget:  req.CompilationTarget,
 		DisableOnCompiled:  req.DisableOnCompiled,
-		SystemPrompt:       req.SystemPrompt,
-		UseSuggestedPrompt:  req.UseSuggestedPrompt,
-		SuggestionThreshold: req.SuggestionThreshold,
-		SearchQuery:         req.SearchQuery,
-		UseSuggestedQuery:   req.UseSuggestedQuery,
-		Excluded:            req.Excluded,
-		ATSMode:            req.ATSMode,
+		SystemPrompt:          req.SystemPrompt,
+		UseSuggestedPrompt:    req.UseSuggestedPrompt,
+		SuggestionThreshold:   req.SuggestionThreshold,
+		MinProspectsThreshold: req.MinProspectsThreshold,
+		SearchQuery:       req.SearchQuery,
+		UseSuggestedQuery: req.UseSuggestedQuery,
+		ATSMode:           req.ATSMode,
 		TimeFilter:         req.TimeFilter,
 		Location:           req.Location,
 		TargetType:         req.TargetType,
@@ -406,7 +410,11 @@ func (c *AutomationController) requestToInput(req CrawlerRequest) repositories.A
 		AgentModel:         req.AgentModel,
 		UseAnalytics:       req.UseAnalytics,
 		AnalyticsModel:     req.AnalyticsModel,
-		EmptyProposalLimit: req.EmptyProposalLimit,
+		EmptyProposalLimit:      req.EmptyProposalLimit,
+		PromptCooldownRuns:      req.PromptCooldownRuns,
+		PromptCooldownProspects: req.PromptCooldownProspects,
+		SuggestedQuery:          req.SuggestedQuery,
+		SuggestedPrompt:         req.SuggestedPrompt,
 	}
 }
 

@@ -110,7 +110,6 @@ const emptyForm = {
   search_query: "",
   suggested_query: null,
   use_suggested_query: false,
-  excluded: "",
   location: "",
   ats_mode: true,
   time_filter: "week",
@@ -121,6 +120,7 @@ const emptyForm = {
   suggested_prompt: null,
   use_suggested_prompt: false,
   suggestion_threshold: 50,
+  min_prospects_threshold: 5,
   digest_enabled: true,
   digest_emails: "",
   digest_time: "09:00",
@@ -130,6 +130,8 @@ const emptyForm = {
   use_analytics: false,
   analytics_model: "claude-3-haiku-20240307",
   empty_proposal_limit: null,
+  prompt_cooldown_runs: 5,
+  prompt_cooldown_prospects: 50,
 };
 
 const AutomationPage = () => {
@@ -259,7 +261,6 @@ const AutomationPage = () => {
       search_query: crawler.search_query || "",
       suggested_query: crawler.suggested_query || null,
       use_suggested_query: crawler.use_suggested_query ?? false,
-      excluded: crawler.excluded || "",
       location: crawler.location || "",
       ats_mode: crawler.ats_mode ?? true,
       time_filter: crawler.time_filter || "week",
@@ -270,6 +271,7 @@ const AutomationPage = () => {
       suggested_prompt: crawler.suggested_prompt || null,
       use_suggested_prompt: crawler.use_suggested_prompt ?? false,
       suggestion_threshold: crawler.suggestion_threshold ?? 50,
+      min_prospects_threshold: crawler.min_prospects_threshold ?? 5,
       digest_enabled: crawler.digest_enabled ?? true,
       digest_emails: crawler.digest_emails || "",
       digest_time: crawler.digest_time || "09:00",
@@ -279,6 +281,8 @@ const AutomationPage = () => {
       use_analytics: crawler.use_analytics ?? false,
       analytics_model: crawler.analytics_model || "claude-3-haiku-20240307",
       empty_proposal_limit: crawler.empty_proposal_limit || null,
+      prompt_cooldown_runs: crawler.prompt_cooldown_runs ?? 5,
+      prompt_cooldown_prospects: crawler.prompt_cooldown_prospects ?? 50,
     });
 
     // Load target entity names if set
@@ -345,8 +349,6 @@ const AutomationPage = () => {
     };
     delete cleanedForm.interval_value;
     delete cleanedForm.interval_unit;
-    delete cleanedForm.suggested_prompt; // Read-only from backend
-    delete cleanedForm.suggested_query; // Read-only from backend
 
     setSaving(true);
     try {
@@ -531,7 +533,7 @@ const AutomationPage = () => {
                         </Text>
                         {crawler.suggested_query && (
                           <Text size="xs" c="lime" lineClamp={1}>
-                            Suggested: {crawler.suggested_query}{crawler.excluded ? ` ${crawler.excluded}` : ""}{crawler.location ? ` "${crawler.location}"` : ""}
+                            Suggested query: {crawler.suggested_query}{crawler.location ? ` "${crawler.location}"` : ""}
                           </Text>
                         )}
                       </div>
@@ -695,41 +697,45 @@ const AutomationPage = () => {
             <Textarea
               label="Search Query"
               placeholder="e.g. (typescript OR javascript) node.js intitle:engineer"
-              description={'Operators: OR, (), "", intitle:'}
-              value={form.use_suggested_query && form.suggested_query
-                ? form.suggested_query
-                : form.search_query}
-              onChange={(e) => {
-                const value = e.currentTarget.value.replace(/-\w+/g, "").replace(/\s+/g, " ").trim();
-                const field = form.use_suggested_query && form.suggested_query
-                  ? "suggested_query"
-                  : "search_query";
-                updateForm(field, value);
-              }}
-              error={/^-|-\s/.test(form.search_query || "") ? "Use Excluded Terms field for exclusions (-)" : null}
+              description={'Operators: OR, (), "", intitle:, -exclude'}
+              value={form.search_query || ""}
+              onChange={(e) => updateForm("search_query", e.currentTarget.value)}
               minRows={2}
-              styles={form.use_suggested_query && form.suggested_query
-                ? { input: { borderColor: "var(--mantine-color-lime-6)" } }
-                : {}}
             />
             {form.suggested_query && (
-              <Text size="xs" c="dimmed">
-                {form.use_suggested_query
-                  ? "Editing suggested query. Toggle off to switch back to original."
-                  : "A suggested query is available. Toggle on to use it."}
-              </Text>
+              <Group gap="xs" align="center">
+                <Text size="xs" c="lime">
+                  Suggested: {form.suggested_query}
+                </Text>
+                <Button
+                  size="compact-xs"
+                  variant="light"
+                  color="lime"
+                  onClick={() => {
+                    updateForm("search_query", form.suggested_query);
+                    updateForm("suggested_query", null);
+                    updateForm("use_suggested_query", false);
+                  }}
+                >
+                  Accept
+                </Button>
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  color="gray"
+                  onClick={() => {
+                    updateForm("suggested_query", null);
+                    updateForm("use_suggested_query", false);
+                  }}
+                >
+                  Dismiss
+                </Button>
+              </Group>
             )}
-            <TextInput
-              label="Excluded Terms"
-              description="Operators: -, OR, (), intitle:"
-              placeholder="-junior -intern -entry"
-              value={form.excluded || ""}
-              onChange={(e) => updateForm("excluded", e.currentTarget.value)}
-            />
 
             <Switch
               label="Use suggested query"
-              description={form.suggested_query ? "AI-generated query from Serper related searches" : "Will use AI suggestions when available"}
+              description="Auto-generate and apply AI-suggested search queries"
               checked={form.use_suggested_query}
               onChange={(e) => updateForm("use_suggested_query", e.currentTarget.checked)}
               color="lime"
@@ -876,7 +882,7 @@ const AutomationPage = () => {
           <Group grow align="flex-start">
             <Switch
               label="Use suggested prompt"
-              description="AI-generated improvement"
+              description="Auto-generate and apply AI-suggested system prompts"
               checked={form?.use_suggested_prompt}
               onChange={(e) => updateForm("use_suggested_prompt", e.currentTarget.checked)}
               color="lime"
@@ -884,12 +890,39 @@ const AutomationPage = () => {
             />
             <NumberInput
               label="Suggestion Threshold"
-              description="Generate suggestion when approval rate below this %"
+              description="Trigger suggestions when conversion rate below this %"
               value={form.suggestion_threshold}
               onChange={(val) => updateForm("suggestion_threshold", val)}
               min={0}
               max={100}
               suffix="%"
+            />
+            <NumberInput
+              label="Min Prospects"
+              description="Also trigger suggestions if prospects below this count"
+              value={form.min_prospects_threshold}
+              onChange={(val) => updateForm("min_prospects_threshold", val)}
+              min={1}
+              max={50}
+            />
+          </Group>
+
+          <Group grow align="flex-start">
+            <NumberInput
+              label="Prompt Cooldown Runs"
+              description="Min runs after prompt update before suggesting again"
+              value={form.prompt_cooldown_runs}
+              onChange={(val) => updateForm("prompt_cooldown_runs", val)}
+              min={1}
+              max={100}
+            />
+            <NumberInput
+              label="Prompt Cooldown Prospects"
+              description="Min total prospects during cooldown before suggesting again"
+              value={form.prompt_cooldown_prospects}
+              onChange={(val) => updateForm("prompt_cooldown_prospects", val)}
+              min={1}
+              max={500}
             />
           </Group>
 
@@ -952,12 +985,15 @@ const CrawlerRunsSSE = ({ crawlerId, isExpanded, pageValue, pageSizeValue, onPag
   const [localData, setLocalData] = useState(null);
 
   const handleSSEEvent = useCallback((type, payload) => {
-    // Handle config updates (e.g., crawler disabled on compilation target, suggested query)
+    // Handle config updates (e.g., crawler disabled on compilation target, suggested query/prompt)
     if (type === "config_updated") {
       const updates = {
         ...(payload.enabled != null && { enabled: payload.enabled }),
         ...(payload.active_proposals != null && { active_proposals: payload.active_proposals }),
         ...(payload.suggested_query != null && { suggested_query: payload.suggested_query }),
+        ...(payload.use_suggested_query != null && { use_suggested_query: payload.use_suggested_query }),
+        ...(payload.suggested_prompt != null && { suggested_prompt: payload.suggested_prompt }),
+        ...(payload.use_suggested_prompt != null && { use_suggested_prompt: payload.use_suggested_prompt }),
       };
       onCrawlerUpdate?.(crawlerId, updates);
       return;
@@ -1074,6 +1110,14 @@ const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onP
       render: (row) => (row.compiled ? <CheckCircle size={16} color="lime" /> : null),
     },
     {
+      header: "Q+",
+      render: (row) => (row.query_updated ? <CheckCircle size={16} color="#228be6" /> : null),
+    },
+    {
+      header: "P+",
+      render: (row) => (row.prompt_updated ? <CheckCircle size={16} color="#228be6" /> : null),
+    },
+    {
       header: "Prospects",
       accessor: "prospects_found",
     },
@@ -1085,7 +1129,7 @@ const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onP
       header: "Query",
       render: (row) => (
         <Text size="xs" style={{ whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-          {row.status === "running" ? "-" : (row.executed_query || "-")}
+          {row.executed_query || "-"}
         </Text>
       ),
     },
@@ -1106,6 +1150,10 @@ const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onP
           </Text>
         </Tooltip>
       ),
+    },
+    {
+      header: "P#",
+      accessor: "executed_system_prompt_charcount",
     },
   ];
 
