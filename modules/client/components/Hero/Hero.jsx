@@ -74,7 +74,7 @@ const Hero = () => {
               <Github size={18} />
             </Link>
             <Link
-              href="https://www.linkedin.com/company/pinacoladaco"
+              href="https://www.linkedin.com/in/williamhubenschmidt"
               target="_blank"
               className="text-zinc-300 hover:text-white transition-colors duration-200">
               <Linkedin size={18} />

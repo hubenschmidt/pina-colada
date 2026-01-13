@@ -132,6 +132,36 @@ make LLAMA_HIPBLAS=1
 - Verify GPU is being used (not CPU fallback)
 - Check `HSA_OVERRIDE_GFX_VERSION` if needed for RDNA 3
 
+## GPU Optimizations
+
+Add to `~/.zshrc`:
+```bash
+# ROCm optimizations for RX 7900 XT
+export HSA_OVERRIDE_GFX_VERSION=11.0.0
+export GPU_MAX_HW_QUEUES=4
+export PYTORCH_ROCM_ARCH=gfx1100
+
+# Ollama optimizations
+export OLLAMA_NUM_CTX=8192
+export OLLAMA_NUM_GPU=99
+export OLLAMA_KEEP_ALIVE=300
+```
+
+### Optional: High-performance power mode
+```bash
+# Force high clocks (louder fans, faster first-token)
+echo "high" | sudo tee /sys/class/drm/card1/device/power_dpm_force_performance_level
+```
+
+### Monitoring
+```bash
+# Watch GPU stats
+watch -n 1 rocm-smi
+
+# Check GPU usage
+radeontop -b 03
+```
+
 ## References
 
 - [ROCm Documentation](https://rocm.docs.amd.com)
