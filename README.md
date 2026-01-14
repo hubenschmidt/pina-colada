@@ -1,4 +1,4 @@
-# PinaColada.co - AI Agent Architecture
+# PinaColada CRM Architecture
 
 ## Description
 
