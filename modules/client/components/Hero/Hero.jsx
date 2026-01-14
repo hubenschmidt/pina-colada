@@ -40,7 +40,7 @@ const Hero = () => {
 
       {/* Right Pane - Content */}
       <div className="relative w-full md:w-1/2 bg-zinc-800 flex items-center justify-center md:justify-start py-12 md:py-0">
-        <BandBg dark />
+        <BandBg dark sweep />
         <div className="relative z-10 animate-fade-in-up-delay-1 flex flex-col items-center md:items-start gap-5 pl-0 md:pl-12">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-3">
