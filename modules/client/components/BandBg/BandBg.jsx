@@ -8,8 +8,8 @@ const BandBg = ({ className = "", dark = false, sweep = false }) => {
   const fibCells = useMemo(() => {
     if (!sweep) return [];
 
-    // Fibonacci + fill rows to cover full height
-    const fibCols = [1, 2, 3, 5, 8, 13, 21, 34];
+    // Fibonacci + fill to cover full width and height
+    const fibCols = [1, 2, 3, 5, 8, 13, 21, 34, 45, 55, 65, 75];
     const fibRows = [1, 2, 3, 5, 8, 13, 21, 34, 40, 45, 50, 55];
     const cells = [];
 
@@ -28,8 +28,8 @@ const BandBg = ({ className = "", dark = false, sweep = false }) => {
     if (!sweep) return [];
 
     const cells = [];
-    const cols = 40;
-    const rows = 35;
+    const cols = 80;
+    const rows = 55;
 
     // Seeded random for consistent SSR/CSR
     const seededRandom = (seed) => {
