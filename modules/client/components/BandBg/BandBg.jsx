@@ -64,7 +64,7 @@ const BandBg = ({ className = "", dark = false, sweep = false }) => {
       {/* subtle grid */}
       <div className={`absolute inset-0 bg-[linear-gradient(to_right,currentColor_1px,transparent_1px),linear-gradient(to_bottom,currentColor_1px,transparent_1px)] [background-size:24px_24px] ${dark ? "text-zinc-300 opacity-[0.15]" : "text-zinc-900 opacity-[0.06]"}`} />
 
-      {/* Fibonacci grid - very subtle */}
+      {/* Fibonacci grid - subtle glow */}
       {sweep && fibCells.map((cell, i) => (
         <div
           key={`fib-${i}`}
@@ -74,7 +74,8 @@ const BandBg = ({ className = "", dark = false, sweep = false }) => {
             top: cell.y,
             width: 23,
             height: 23,
-            opacity: 0.08,
+            opacity: 0.12,
+            boxShadow: '0 0 8px rgba(161, 161, 170, 0.3)',
           }}
         />
       ))}

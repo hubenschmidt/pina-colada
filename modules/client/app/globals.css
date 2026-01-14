@@ -216,3 +216,18 @@ body {
 .animate-pulse-subtle {
   animation: pulse-subtle 2s ease-in-out infinite;
 }
+
+/* Glow pulse for accent cells */
+@keyframes glow-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(132, 204, 22, 0.2);
+    opacity: 0.1;
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(132, 204, 22, 0.6);
+    opacity: 0.25;
+  }
+}
+.animate-glow-pulse {
+  animation: glow-pulse 3s ease-in-out infinite;
+}
