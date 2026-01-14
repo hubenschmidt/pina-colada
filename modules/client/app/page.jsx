@@ -80,13 +80,13 @@ const Home = () => {
           <BandBg />
           <div className="relative mx-auto max-w-6xl px-4 py-24">
             <p className="mb-6 text-lg text-pretty text-zinc-600">
-              We design and build reliable technical solutions — from greenfield apps to high-performance integrations
-            </p>
-            <p className="mb-6 text-lg text-pretty text-zinc-600">
-              to unlock value and unleash efficiency in complex business, manufacturing and consumer landscapes.
+              We design and build reliable solutions. From greenfield apps to high-performance integrations.
             </p>
             <p className="mb-6 text-lg text-pretty text-orange-500">
-              Software and agents that just work for you.
+              Software and AI that just works.
+            </p>
+            <p className="mb-24 text-lg text-pretty text-zinc-600">
+              <b>Unlock value and unleash efficiency</b> in complex business, manufacturing and consumer landscapes.
             </p>
             <h2 className="mb-12 text-3xl font-semibold tracking-tight text-zinc-900">
               Software Development
@@ -251,7 +251,7 @@ const Home = () => {
                 GitHub
               </Link>
               <Link
-                href="https://www.linkedin.com/company/pinacoladaco"
+                href="https://www.linkedin.com/in/williamhubenschmidt"
                 target="_blank"
                 className="hover:text-white transition-colors duration-200">
                 LinkedIn

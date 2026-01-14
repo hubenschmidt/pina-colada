@@ -21,17 +21,17 @@ const Hero = () => {
         {/* Text content */}
         <div className="relative z-10 animate-fade-in-up text-center md:text-right pr-0 md:pr-12 px-6 py-4">
           <p className="pb-1">
-            <span className="bg-amber-50/90 px-4 py-1 rounded inline-block">
+            <span className="bg-amber-50/90 px-4 py-1 rounded inline box-decoration-clone">
               <span className="text-lg md:text-4xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">elegant software</span>
             </span>
           </p>
           <p className="pb-1">
-            <span className="bg-amber-50/90 px-4 py-1 rounded inline-block">
+            <span className="bg-amber-50/90 px-4 py-1 rounded inline box-decoration-clone">
               <span className="text-xl md:text-5xl font-semibold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-lime-500 via-yellow-400 to-lime-500">refreshing solutions</span>
             </span>
           </p>
           <p>
-            <span className="bg-amber-50/90 px-4 py-1 rounded inline-block">
+            <span className="bg-amber-50/90 px-4 py-1 rounded inline box-decoration-clone">
               <span className="text-2xl md:text-6xl font-semibold tracking-tight text-orange-400">business simplified</span><span className="text-2xl md:text-6xl font-semibold tracking-tight text-yellow-400">.</span>
             </span>
           </p>

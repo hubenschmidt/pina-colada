@@ -49,7 +49,7 @@ const Header = () => {
                 <Github size={20} />
               </Link>
               <Link
-                href="https://www.linkedin.com/company/pinacoladaco"
+                href="https://www.linkedin.com/in/williamhubenschmidt"
                 target="_blank"
                 className={`transition-colors duration-200 ${isDark ? "text-zinc-300 hover:text-white" : "text-zinc-600 hover:text-zinc-900"}`}>
                 <Linkedin size={20} />
