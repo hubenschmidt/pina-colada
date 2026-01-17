@@ -224,18 +224,18 @@ type WebSearchResult struct {
 
 // JobSearchResult is the result of a job search
 type JobSearchResult struct {
-	Results         string   `json:"results"`
-	Count           int      `json:"count"`
-	RelatedSearches []string `json:"related_searches,omitempty"`
+	Jobs            []JobListing `json:"jobs"`
+	Count           int          `json:"count"`
+	RelatedSearches []string     `json:"related_searches,omitempty"`
 }
 
-// JobListing represents a single job for compact cache storage
-// Uses short field names to minimize JSON size
+// JobListing represents a single job posting
 type JobListing struct {
-	C      string    `json:"c"`           // Company
-	T      string    `json:"t"`           // Title
-	U      string    `json:"u"`           // URL
-	Posted time.Time `json:"p,omitempty"` // Verified posting date (zero if unknown)
+	Company    string  `json:"company"`
+	Title      string  `json:"title"`
+	URL        string  `json:"url"`
+	DatePosted *string `json:"date_posted,omitempty"` // YYYY-MM-DD or nil
+	posted     time.Time // internal: parsed date for filtering
 }
 
 // fetchResult holds the result of fetching and parsing a job posting page
@@ -287,8 +287,8 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		log.Printf("🔍 job_search: LIMIT REACHED (%d/%d calls) - model has %d total results from queries: %v",
 			maxSearchesPerTurn, maxSearchesPerTurn, totalResults, queries)
 		return &JobSearchResult{
-			Results: fmt.Sprintf("Search limit reached (%d searches). You have %d results to choose from.", maxSearchesPerTurn, totalResults),
-			Count:   0,
+			Jobs:  []JobListing{},
+			Count: 0,
 		}, nil
 	}
 	t.callCount++
@@ -302,12 +302,12 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	case t.searchSem <- struct{}{}:
 		defer func() { <-t.searchSem }()
 	case <-ctx.Done():
-		return &JobSearchResult{Results: "Search cancelled: context deadline exceeded"}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 
 	if t.apiKey == "" {
 		log.Printf("SERPER_API_KEY not configured")
-		return &JobSearchResult{Results: "Job search not configured. SERPER_API_KEY required."}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 
 	// Load existing jobs from DB for deduplication
@@ -327,13 +327,13 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	reqBody := serperRequest{Q: enhancedQuery, GL: "us", Tbs: tbs, Location: params.Location}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		return &JobSearchResult{Results: fmt.Sprintf("Error encoding request: %v", err)}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("POST", "https://google.serper.dev/search", bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return &JobSearchResult{Results: fmt.Sprintf("Error creating request: %v", err)}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 
 	req.Header.Set("X-API-KEY", t.apiKey)
@@ -342,19 +342,19 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Serper API error: %v", err)
-		return &JobSearchResult{Results: fmt.Sprintf("Search failed: %v", err)}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		log.Printf("Serper API error: %d - %s", resp.StatusCode, string(body))
-		return &JobSearchResult{Results: fmt.Sprintf("Search failed: HTTP %d", resp.StatusCode)}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 
 	var serperResp serperResponse
 	if err := json.NewDecoder(resp.Body).Decode(&serperResp); err != nil {
-		return &JobSearchResult{Results: fmt.Sprintf("Error parsing response: %v", err)}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 
 	// Extract related searches for query suggestions (free alternative to LLM)
@@ -400,7 +400,7 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	// Mark returned URLs as seen for this session
 	var urls []string
 	for _, l := range listings {
-		urls = append(urls, l.U)
+		urls = append(urls, l.URL)
 	}
 	t.markURLsAsSeen(urls)
 
@@ -414,17 +414,15 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		myCallNum, maxSearchesPerTurn, listingCount, len(seenURLs), totalNow)
 
 	if listingCount == 0 {
-		msg := "No new job postings found. All results were either already shown, applied to, or marked as 'do not apply'. Try a different search query."
 		return &JobSearchResult{
-			Results:         msg,
+			Jobs:            []JobListing{},
 			Count:           0,
 			RelatedSearches: relatedSearches,
 		}, nil
 	}
 
-	// Format for display (show dates only when verification was attempted)
 	return &JobSearchResult{
-		Results:         formatListings(listings, maxAge > 0),
+		Jobs:            listings,
 		Count:           listingCount,
 		RelatedSearches: relatedSearches,
 	}, nil
@@ -513,38 +511,19 @@ func extractListing(item serperOrganicResult, existingJobs []JobInfo, seenURLs m
 		return nil
 	}
 
-	listing := &JobListing{C: company, T: title, U: item.Link}
+	listing := &JobListing{Company: company, Title: title, URL: item.Link}
 
 	// Parse date from Serper API if available (avoids page fetch)
 	if item.Date != "" {
-		listing.Posted = parseSerperDate(item.Date)
-		if !listing.Posted.IsZero() {
+		listing.posted = parseSerperDate(item.Date)
+		if !listing.posted.IsZero() {
+			dateStr := listing.posted.Format("2006-01-02")
+			listing.DatePosted = &dateStr
 			log.Printf("   📅 Using API date for %s: %s", company, item.Date)
 		}
 	}
 
 	return listing
-}
-
-// formatListings converts structured listings to display string
-// showDates should be true when date verification was attempted
-func formatListings(listings []JobListing, showDates bool) string {
-	if len(listings) == 0 {
-		return ""
-	}
-	var lines []string
-	for _, l := range listings {
-		line := fmt.Sprintf("- %s - %s - [url](%s)", l.C, l.T, l.U)
-		if showDates {
-			if l.Posted.IsZero() {
-				line += " (date unknown)"
-			} else {
-				line += fmt.Sprintf(" (posted: %s)", l.Posted.Format("Jan 2"))
-			}
-		}
-		lines = append(lines, line)
-	}
-	return strings.Join(lines, "\n")
 }
 
 // matchesAppliedJob checks if a search result matches any existing job in database
@@ -1005,17 +984,17 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilte
 
 	// First pass: check listings with API dates, collect those needing fetch
 	for i, listing := range listings {
-		if !listing.Posted.IsZero() {
-			// Already have date from API - apply cutoff directly
-			if listing.Posted.Before(cutoff) {
-				log.Printf("   📅 Filtered out old posting (%s): %s - %s [API date]", listing.Posted.Format("Jan 2"), listing.C, listing.T)
-				continue
-			}
-			verified = append(verified, listing)
-			log.Printf("   📅 Verified fresh posting (%s): %s - %s [API date]", listing.Posted.Format("Jan 2"), listing.C, listing.T)
+		if listing.posted.IsZero() {
+			needsFetch = append(needsFetch, i)
 			continue
 		}
-		needsFetch = append(needsFetch, i)
+		// Already have date from API - apply cutoff directly
+		if listing.posted.Before(cutoff) {
+			log.Printf("   📅 Filtered out old posting (%s): %s - %s [API date]", listing.posted.Format("Jan 2"), listing.Company, listing.Title)
+			continue
+		}
+		verified = append(verified, listing)
+		log.Printf("   📅 Verified fresh posting (%s): %s - %s [API date]", listing.posted.Format("Jan 2"), listing.Company, listing.Title)
 	}
 
 	// If no listings need fetching, return early
@@ -1040,7 +1019,7 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilte
 
 			posted, ok, source, isClosed := fetchPostingDate(url)
 			results <- fetchResult{index: i, posted: posted, ok: ok, source: source, isClosed: isClosed}
-		}(idx, listings[idx].U)
+		}(idx, listings[idx].URL)
 	}
 
 	go func() {
@@ -1058,7 +1037,11 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilte
 	for _, idx := range needsFetch {
 		listing := listings[idx]
 		r := postingDates[idx]
-		listing.Posted = r.posted
+		listing.posted = r.posted
+		if !r.posted.IsZero() {
+			dateStr := r.posted.Format("2006-01-02")
+			listing.DatePosted = &dateStr
+		}
 
 		v, u := classifyFetchedListing(listing, r, cutoff, strictFilter)
 		verified = append(verified, v...)
@@ -1073,26 +1056,26 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilte
 // Returns (verified, unknown) slices - one will have the listing, other empty
 func classifyFetchedListing(listing JobListing, r fetchResult, cutoff time.Time, strictFilter bool) ([]JobListing, []JobListing) {
 	if r.isClosed {
-		log.Printf("   🚫 Filtered out closed/expired job: %s - %s", listing.C, listing.T)
+		log.Printf("   🚫 Filtered out closed/expired job: %s - %s", listing.Company, listing.Title)
 		return nil, nil
 	}
 
 	if !r.ok && strictFilter {
-		log.Printf("   Filtered out (date unknown, strict filter): %s - %s", listing.C, listing.T)
+		log.Printf("   Filtered out (date unknown, strict filter): %s - %s", listing.Company, listing.Title)
 		return nil, nil
 	}
 
 	if !r.ok {
-		log.Printf("   Date unknown for: %s - %s (no parseable date found)", listing.C, listing.T)
+		log.Printf("   Date unknown for: %s - %s (no parseable date found)", listing.Company, listing.Title)
 		return nil, []JobListing{listing}
 	}
 
 	if r.posted.Before(cutoff) {
-		log.Printf("   📅 Filtered out old posting (%s): %s - %s [%s]", r.posted.Format("Jan 2"), listing.C, listing.T, r.source)
+		log.Printf("   📅 Filtered out old posting (%s): %s - %s [%s]", r.posted.Format("Jan 2"), listing.Company, listing.Title, r.source)
 		return nil, nil
 	}
 
-	log.Printf("   📅 Verified fresh posting (%s): %s - %s [%s]", r.posted.Format("Jan 2"), listing.C, listing.T, r.source)
+	log.Printf("   📅 Verified fresh posting (%s): %s - %s [%s]", r.posted.Format("Jan 2"), listing.Company, listing.Title, r.source)
 	return []JobListing{listing}, nil
 }
 

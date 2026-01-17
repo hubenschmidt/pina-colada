@@ -384,6 +384,7 @@ const getJobFormConfig = (selectedProjectId) => ({
         "resume",
         "salary_range_id",
         "job_url",
+        "date_posted",
         "status",
         "description",
       ],
@@ -460,6 +461,12 @@ const getJobFormConfig = (selectedProjectId) => ({
       gridColumn: "md:col-span-1",
     },
     {
+      name: "date_posted",
+      label: "Date Posted",
+      type: "date",
+      gridColumn: "md:col-span-1",
+    },
+    {
       name: "status",
       label: "Status",
       type: "select",
@@ -527,6 +534,7 @@ const getJobFormConfig = (selectedProjectId) => ({
         "job_title",
         "date",
         "job_url",
+        "date_posted",
         "salary_range",
         "salary_range_id",
         "description",

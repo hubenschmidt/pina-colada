@@ -21,6 +21,7 @@ type JobCreateInput struct {
 	SalaryRange     *string
 	SalaryRangeID   *int64
 	ResumeDate      *time.Time
+	DatePosted      *time.Time
 	ProjectIDs      []int64
 	AccountID       *int64
 	CurrentStatusID *int64
@@ -155,6 +156,7 @@ func (r *JobRepository) Create(input JobCreateInput) (int64, error) {
 			SalaryRange:   input.SalaryRange,
 			SalaryRangeID: input.SalaryRangeID,
 			ResumeDate:    input.ResumeDate,
+			DatePosted:    input.DatePosted,
 		}
 		if err := tx.Create(job).Error; err != nil {
 			return err

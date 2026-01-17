@@ -8,6 +8,7 @@ type Job struct {
 	Description   *string    `json:"description"` // was "notes", renamed in migration 043
 	JobURL        *string    `json:"job_url"`
 	ResumeDate    *time.Time `json:"resume_date"`
+	DatePosted    *time.Time `json:"date_posted"`
 	SalaryRange   *string    `json:"salary_range"` // Legacy field
 	SalaryRangeID *int64     `json:"salary_range_id"`
 

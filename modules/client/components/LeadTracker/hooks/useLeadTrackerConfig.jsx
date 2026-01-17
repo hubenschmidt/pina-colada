@@ -112,7 +112,7 @@ const getJobLeadConfig = (selectedProjectId) => {
     {
       header: "URL",
       accessor: "job_url",
-      width: "8%",
+      width: "6%",
       render: (job) => {
         if (!job.job_url) return <EmptyCell />;
         const url = job.job_url.startsWith("http") ? job.job_url : `https://${job.job_url}`;
@@ -127,6 +127,14 @@ const getJobLeadConfig = (selectedProjectId) => {
           </a>
         );
       },
+    },
+    {
+      header: "Date Posted",
+      accessor: "date_posted",
+      sortable: true,
+      sortKey: "date_posted",
+      width: "8%",
+      render: (job) => job.formatted_date_posted || <EmptyCell />,
     },
     {
       header: "Created",

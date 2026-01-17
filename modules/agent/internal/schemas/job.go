@@ -11,6 +11,7 @@ type JobCreate struct {
 	JobTitle      string    `json:"job_title" validate:"required"`
 	Date          *string   `json:"date"`
 	JobURL        *string   `json:"job_url" validate:"omitempty,url"`
+	DatePosted    *string   `json:"date_posted"`
 	SalaryRange   *string   `json:"salary_range"`
 	SalaryRangeID *int64    `json:"salary_range_id"`
 	Description   *string   `json:"description"`
@@ -27,6 +28,7 @@ type JobUpdate struct {
 	JobTitle      *string   `json:"job_title"`
 	Date          *string   `json:"date"`
 	JobURL        *string   `json:"job_url" validate:"omitempty,url"`
+	DatePosted    *string   `json:"date_posted"`
 	SalaryRange   *string   `json:"salary_range"`
 	SalaryRangeID *int64    `json:"salary_range_id"`
 	Description   *string   `json:"description"`

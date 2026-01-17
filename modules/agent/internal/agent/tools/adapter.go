@@ -225,13 +225,17 @@ func jobSearchTool(serper *SerperTools) agents.Tool {
 	}
 	return agents.NewFunctionTool(
 		"job_search",
-		"Search for job listings. Returns direct company career pages and ATS-hosted pages (Greenhouse, Lever, Ashby). Excludes job boards like LinkedIn, Indeed, Glassdoor.",
+		"Search for job listings. Returns structured JSON array with company, title, url, and date_posted fields. Excludes job boards like LinkedIn, Indeed, Glassdoor.",
 		func(ctx context.Context, args JobSearchParams) (string, error) {
 			result, err := serper.JobSearchCtx(ctx, args)
 			if err != nil {
 				return "", err
 			}
-			return result.Results, nil
+			jsonBytes, err := json.Marshal(result)
+			if err != nil {
+				return "", fmt.Errorf("failed to serialize job search result: %w", err)
+			}
+			return string(jsonBytes), nil
 		},
 	)
 }
