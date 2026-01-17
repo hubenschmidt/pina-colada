@@ -231,20 +231,22 @@ type JobSearchResult struct {
 
 // JobListing represents a single job posting
 type JobListing struct {
-	Company    string  `json:"company"`
-	Title      string  `json:"title"`
-	URL        string  `json:"url"`
-	DatePosted *string `json:"date_posted,omitempty"` // YYYY-MM-DD or nil
-	posted     time.Time // internal: parsed date for filtering
+	Company              string  `json:"company"`
+	Title                string  `json:"title"`
+	URL                  string  `json:"url"`
+	DatePosted           *string `json:"date_posted,omitempty"`            // YYYY-MM-DD or nil
+	DatePostedConfidence *string `json:"date_posted_confidence,omitempty"` // high, medium, low, none
+	posted               time.Time                                        // internal: parsed date for filtering
 }
 
 // fetchResult holds the result of fetching and parsing a job posting page
 type fetchResult struct {
-	index    int
-	posted   time.Time
-	ok       bool
-	source   string
-	isClosed bool
+	index      int
+	posted     time.Time
+	ok         bool
+	source     string
+	confidence string // high, medium, low, none
+	isClosed   bool
 }
 
 // --- Serper API Types ---
@@ -519,7 +521,9 @@ func extractListing(item serperOrganicResult, existingJobs []JobInfo, seenURLs m
 		if !listing.posted.IsZero() {
 			dateStr := listing.posted.Format("2006-01-02")
 			listing.DatePosted = &dateStr
-			log.Printf("   📅 Using API date for %s: %s", company, item.Date)
+			confidence := "medium" // Serper API absolute date
+			listing.DatePostedConfidence = &confidence
+			log.Printf("   📅 Using API date for %s: %s (confidence: medium)", company, item.Date)
 		}
 	}
 
@@ -778,29 +782,29 @@ var (
 )
 
 // fetchPostingDate fetches a job URL and extracts the posting date
-// Returns the date, success boolean, source description, and whether the job is closed
-func fetchPostingDate(url string) (time.Time, bool, string, bool) {
+// Returns the date, success boolean, source description, confidence level, and whether the job is closed
+func fetchPostingDate(url string) (time.Time, bool, string, string, bool) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return time.Time{}, false, "", false
+		return time.Time{}, false, "", "none", false
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; JobSearchBot/1.0)")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return time.Time{}, false, "", false
+		return time.Time{}, false, "", "none", false
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return time.Time{}, false, "", false
+		return time.Time{}, false, "", "none", false
 	}
 
 	// Read body (limit to 500KB to avoid huge pages)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 500*1024))
 	if err != nil {
-		return time.Time{}, false, "", false
+		return time.Time{}, false, "", "none", false
 	}
 	html := string(body)
 
@@ -808,16 +812,16 @@ func fetchPostingDate(url string) (time.Time, bool, string, bool) {
 	isClosed := isJobClosed(html)
 
 	// Try to extract date from HTML first
-	if date, ok, source := parsePostingDate(html); ok {
-		return date, true, source, isClosed
+	if date, ok, source, confidence := parsePostingDate(html); ok {
+		return date, true, source, confidence, isClosed
 	}
 
-	// Fall back to URL-based date extraction
+	// Fall back to URL-based date extraction (low confidence)
 	if date, ok, source := parseDateFromURL(url); ok {
-		return date, true, source, isClosed
+		return date, true, source, "low", isClosed
 	}
 
-	return time.Time{}, false, "", isClosed
+	return time.Time{}, false, "", "none", isClosed
 }
 
 // isJobClosed checks if the job posting indicates it's closed/filled/expired
@@ -857,59 +861,59 @@ func tryParseURLPattern(url string, pattern *regexp.Regexp) (time.Time, bool, st
 }
 
 // parsePostingDate extracts posting date from HTML content
-// Returns: date, success, source description
-func parsePostingDate(html string) (time.Time, bool, string) {
+// Returns: date, success, source description, confidence level
+func parsePostingDate(html string) (time.Time, bool, string, string) {
 	now := time.Now()
 
-	// Try JSON-LD datePosted first (most reliable)
+	// Try JSON-LD datePosted first (most reliable - high confidence)
 	if matches := jsonLDDatePattern.FindStringSubmatch(html); len(matches) > 1 {
 		if t, ok := parseFlexibleDate(matches[1]); ok {
-			return t, true, fmt.Sprintf("JSON-LD datePosted: %s", matches[1])
+			return t, true, fmt.Sprintf("JSON-LD datePosted: %s", matches[1]), "high"
 		}
 	}
 
-	// Try meta tags
+	// Try meta tags (high confidence)
 	if t, ok, src := tryMetaTagDate(html); ok {
-		return t, true, src
+		return t, true, src, "high"
 	}
 
-	// Try "posted today"
+	// Try "posted today" (low confidence - relative date)
 	if todayPattern.MatchString(html) {
-		return now.Truncate(24 * time.Hour), true, "text: 'posted today'"
+		return now.Truncate(24 * time.Hour), true, "text: 'posted today'", "low"
 	}
 
-	// Try "posted yesterday"
+	// Try "posted yesterday" (low confidence - relative date)
 	if yesterdayPattern.MatchString(html) {
-		return now.Add(-24 * time.Hour).Truncate(24 * time.Hour), true, "text: 'posted yesterday'"
+		return now.Add(-24 * time.Hour).Truncate(24 * time.Hour), true, "text: 'posted yesterday'", "low"
 	}
 
-	// Try "posted X days ago"
+	// Try "posted X days ago" (low confidence - relative date)
 	if matches := daysAgoPattern.FindStringSubmatch(html); len(matches) > 1 {
 		days := 0
 		fmt.Sscanf(matches[1], "%d", &days)
-		return now.Add(-time.Duration(days) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s days ago'", matches[1])
+		return now.Add(-time.Duration(days) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s days ago'", matches[1]), "low"
 	}
 
-	// Try "posted X weeks ago"
+	// Try "posted X weeks ago" (low confidence - relative date)
 	if matches := weeksAgoPattern.FindStringSubmatch(html); len(matches) > 1 {
 		weeks := 0
 		fmt.Sscanf(matches[1], "%d", &weeks)
-		return now.Add(-time.Duration(weeks*7) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s weeks ago'", matches[1])
+		return now.Add(-time.Duration(weeks*7) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s weeks ago'", matches[1]), "low"
 	}
 
-	// Try "posted X months ago"
+	// Try "posted X months ago" (low confidence - relative date)
 	if matches := monthsAgoPattern.FindStringSubmatch(html); len(matches) > 1 {
 		months := 0
 		fmt.Sscanf(matches[1], "%d", &months)
-		return now.Add(-time.Duration(months*30) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s months ago'", matches[1])
+		return now.Add(-time.Duration(months*30) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s months ago'", matches[1]), "low"
 	}
 
-	// Try validThrough as last resort (infer posting ~30 days before expiration)
+	// Try validThrough as last resort (infer posting ~30 days before expiration - low confidence)
 	if t, ok, src := tryValidThroughDate(html); ok {
-		return t, true, src
+		return t, true, src, "low"
 	}
 
-	return time.Time{}, false, ""
+	return time.Time{}, false, "", "none"
 }
 
 // tryMetaTagDate extracts date from HTML meta tags
@@ -1017,8 +1021,8 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilte
 			sem <- struct{}{}        // Acquire
 			defer func() { <-sem }() // Release
 
-			posted, ok, source, isClosed := fetchPostingDate(url)
-			results <- fetchResult{index: i, posted: posted, ok: ok, source: source, isClosed: isClosed}
+			posted, ok, source, confidence, isClosed := fetchPostingDate(url)
+			results <- fetchResult{index: i, posted: posted, ok: ok, source: source, confidence: confidence, isClosed: isClosed}
 		}(idx, listings[idx].URL)
 	}
 
@@ -1065,8 +1069,11 @@ func classifyFetchedListing(listing JobListing, r fetchResult, cutoff time.Time,
 		return nil, nil
 	}
 
+	// Set confidence on listing
+	listing.DatePostedConfidence = &r.confidence
+
 	if !r.ok {
-		log.Printf("   Date unknown for: %s - %s (no parseable date found)", listing.Company, listing.Title)
+		log.Printf("   Date unknown for: %s - %s (no parseable date found, confidence: none)", listing.Company, listing.Title)
 		return nil, []JobListing{listing}
 	}
 
@@ -1075,7 +1082,7 @@ func classifyFetchedListing(listing JobListing, r fetchResult, cutoff time.Time,
 		return nil, nil
 	}
 
-	log.Printf("   📅 Verified fresh posting (%s): %s - %s [%s]", r.posted.Format("Jan 2"), listing.Company, listing.Title, r.source)
+	log.Printf("   📅 Verified fresh posting (%s): %s - %s [%s] (confidence: %s)", r.posted.Format("Jan 2"), listing.Company, listing.Title, r.source, r.confidence)
 	return []JobListing{listing}, nil
 }
 

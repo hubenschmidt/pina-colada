@@ -385,6 +385,7 @@ const getJobFormConfig = (selectedProjectId) => ({
         "salary_range_id",
         "job_url",
         "date_posted",
+        "date_posted_confidence",
         "status",
         "description",
       ],
@@ -465,6 +466,36 @@ const getJobFormConfig = (selectedProjectId) => ({
       label: "Date Posted",
       type: "date",
       gridColumn: "md:col-span-1",
+    },
+    {
+      name: "date_posted_confidence",
+      label: "Date Confidence",
+      type: "custom",
+      gridColumn: "md:col-span-1",
+      showCondition: ({ isEditMode }) => isEditMode,
+      renderCustom: ({ value }) => {
+        const confidenceColors = {
+          high: "bg-green-100 text-green-800 border-green-300",
+          medium: "bg-yellow-100 text-yellow-800 border-yellow-300",
+          low: "bg-orange-100 text-orange-800 border-orange-300",
+          none: "bg-zinc-100 text-zinc-500 border-zinc-300",
+        };
+        const tooltips = {
+          high: "High: Date from structured data (JSON-LD or meta tags)",
+          medium: "Medium: Date from search API (absolute date like 'Jan 15, 2026')",
+          low: "Low: Date from relative text ('2 days ago') or URL pattern",
+          none: "None: No date source found",
+        };
+        const level = value || "none";
+        const colorClass = confidenceColors[level];
+        return (
+          <span
+            className={`inline-block px-2 py-1 text-xs font-medium border rounded cursor-help ${colorClass}`}
+            title={tooltips[level]}>
+            {level}
+          </span>
+        );
+      },
     },
     {
       name: "status",

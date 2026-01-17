@@ -45,6 +45,7 @@ type JobListResponse struct {
 	FormattedResumeDate   string     `json:"formatted_resume_date"`
 	DatePosted            *time.Time `json:"date_posted"`
 	FormattedDatePosted   string     `json:"formatted_date_posted"`
+	DatePostedConfidence  *string    `json:"date_posted_confidence"`
 	SalaryRange           *string    `json:"salary_range"`
 	SalaryRangeID         *int64     `json:"salary_range_id"`
 	Status                *string    `json:"status"`
@@ -132,20 +133,21 @@ type ProjectBrief struct {
 // JobToListResponse converts a Job model to list response
 func JobToListResponse(job *models.Job) JobListResponse {
 	resp := JobListResponse{
-		ID:                  job.ID,
-		JobTitle:            job.JobTitle,
-		JobURL:              job.JobURL,
-		Description:         job.Description,
-		Resume:              formatDateTimePtr(job.ResumeDate),
-		ResumeDate:          job.ResumeDate,
-		FormattedResumeDate: formatDisplayDatePtr(job.ResumeDate),
-		DatePosted:          job.DatePosted,
-		FormattedDatePosted: formatDisplayDatePtr(job.DatePosted),
-		SalaryRange:         job.SalaryRange,
-		SalaryRangeID:       job.SalaryRangeID,
-		Account:             "",
-		AccountType:         "Organization",
-		Source:              "manual",
+		ID:                   job.ID,
+		JobTitle:             job.JobTitle,
+		JobURL:               job.JobURL,
+		Description:          job.Description,
+		Resume:               formatDateTimePtr(job.ResumeDate),
+		ResumeDate:           job.ResumeDate,
+		FormattedResumeDate:  formatDisplayDatePtr(job.ResumeDate),
+		DatePosted:           job.DatePosted,
+		FormattedDatePosted:  formatDisplayDatePtr(job.DatePosted),
+		DatePostedConfidence: job.DatePostedConfidence,
+		SalaryRange:          job.SalaryRange,
+		SalaryRangeID:        job.SalaryRangeID,
+		Account:              "",
+		AccountType:          "Organization",
+		Source:               "manual",
 	}
 
 	if job.Lead == nil {
