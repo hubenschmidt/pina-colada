@@ -12,18 +12,20 @@ import (
 
 // JobCreateInput contains data needed to create a job
 type JobCreateInput struct {
-	TenantID        *int64
-	UserID          int64
-	JobTitle        string
-	Description     *string
-	Source          string
-	JobURL          *string
-	SalaryRange     *string
-	SalaryRangeID   *int64
-	ResumeDate      *time.Time
-	ProjectIDs      []int64
-	AccountID       *int64
-	CurrentStatusID *int64
+	TenantID             *int64
+	UserID               int64
+	JobTitle             string
+	Description          *string
+	Source               string
+	JobURL               *string
+	SalaryRange          *string
+	SalaryRangeID        *int64
+	ResumeDate           *time.Time
+	DatePosted           *time.Time
+	DatePostedConfidence *string
+	ProjectIDs           []int64
+	AccountID            *int64
+	CurrentStatusID      *int64
 }
 
 // JobRepository handles job data access
@@ -148,13 +150,15 @@ func (r *JobRepository) Create(input JobCreateInput) (int64, error) {
 		}
 
 		job := &models.Job{
-			ID:            lead.ID,
-			JobTitle:      input.JobTitle,
-			Description:   input.Description,
-			JobURL:        input.JobURL,
-			SalaryRange:   input.SalaryRange,
-			SalaryRangeID: input.SalaryRangeID,
-			ResumeDate:    input.ResumeDate,
+			ID:                   lead.ID,
+			JobTitle:             input.JobTitle,
+			Description:          input.Description,
+			JobURL:               input.JobURL,
+			SalaryRange:          input.SalaryRange,
+			SalaryRangeID:        input.SalaryRangeID,
+			ResumeDate:           input.ResumeDate,
+			DatePosted:           input.DatePosted,
+			DatePostedConfidence: input.DatePostedConfidence,
 		}
 		if err := tx.Create(job).Error; err != nil {
 			return err

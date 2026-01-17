@@ -95,18 +95,20 @@ func (s *JobService) CreateJob(input schemas.JobCreate, tenantID *int64, userID 
 	}
 
 	repoInput := repositories.JobCreateInput{
-		TenantID:        tenantID,
-		UserID:          userID,
-		JobTitle:        input.JobTitle,
-		Description:     input.Description,
-		Source:          input.Source,
-		JobURL:          input.JobURL,
-		SalaryRange:     input.SalaryRange,
-		SalaryRangeID:   input.SalaryRangeID,
-		ResumeDate:      parseDate(input.Resume),
-		ProjectIDs:      input.ProjectIDs,
-		AccountID:       accountID,
-		CurrentStatusID: statusID,
+		TenantID:             tenantID,
+		UserID:               userID,
+		JobTitle:             input.JobTitle,
+		Description:          input.Description,
+		Source:               input.Source,
+		JobURL:               input.JobURL,
+		SalaryRange:          input.SalaryRange,
+		SalaryRangeID:        input.SalaryRangeID,
+		ResumeDate:           parseDate(input.Resume),
+		DatePosted:           parseDate(input.DatePosted),
+		DatePostedConfidence: input.DatePostedConfidence,
+		ProjectIDs:           input.ProjectIDs,
+		AccountID:            accountID,
+		CurrentStatusID:      statusID,
 	}
 
 	jobID, err := s.jobRepo.Create(repoInput)
@@ -278,6 +280,12 @@ func buildJobUpdates(input schemas.JobUpdate) map[string]interface{} {
 	}
 	if input.JobURL != nil {
 		updates["job_url"] = *input.JobURL
+	}
+	if input.DatePosted != nil {
+		updates["date_posted"] = parseDate(input.DatePosted)
+	}
+	if input.DatePostedConfidence != nil {
+		updates["date_posted_confidence"] = *input.DatePostedConfidence
 	}
 	if input.SalaryRange != nil {
 		updates["salary_range"] = *input.SalaryRange

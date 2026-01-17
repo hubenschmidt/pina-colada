@@ -781,6 +781,12 @@ func (s *AutomationService) createProposalFromJob(cfg *repositories.AutomationCo
 		"source_document": combinedQuery,
 	}
 
+	if job.DatePosted != "" {
+		payload["date_posted"] = job.DatePosted
+	}
+	if job.DatePostedConfidence != "" {
+		payload["date_posted_confidence"] = job.DatePostedConfidence
+	}
 	if matchReason != "" {
 		payload["note"] = matchReason
 	}
@@ -795,10 +801,12 @@ func (s *AutomationService) createProposalFromJob(cfg *repositories.AutomationCo
 
 // jobResult represents a job search result
 type jobResult struct {
-	Title   string
-	Company string
-	URL     string
-	Snippet string
+	Title                string
+	Company              string
+	URL                  string
+	Snippet              string
+	DatePosted           string
+	DatePostedConfidence string // high, medium, low, none
 }
 
 // searchResultWithRelated wraps job results with related searches from Serper
@@ -907,6 +915,7 @@ func (s *AutomationService) parseSerperResponse(body io.Reader) (*searchResultWi
 			Title   string `json:"title"`
 			Link    string `json:"link"`
 			Snippet string `json:"snippet"`
+			Date    string `json:"date"`
 		} `json:"organic"`
 		RelatedSearches []struct {
 			Query string `json:"query"`
@@ -919,11 +928,14 @@ func (s *AutomationService) parseSerperResponse(body io.Reader) (*searchResultWi
 
 	var jobs []jobResult
 	for _, item := range serperResp.Organic {
+		datePosted, confidence := parseSerperDateWithConfidence(item.Date)
 		jobs = append(jobs, jobResult{
-			Title:   item.Title,
-			Company: extractCompanyFromTitle(item.Title),
-			URL:     item.Link,
-			Snippet: item.Snippet,
+			Title:                item.Title,
+			Company:              extractCompanyFromTitle(item.Title),
+			URL:                  item.Link,
+			Snippet:              item.Snippet,
+			DatePosted:           datePosted,
+			DatePostedConfidence: confidence,
 		})
 	}
 
@@ -955,6 +967,84 @@ func extractCompanyFromTitle(title string) string {
 		return strings.TrimSpace(title[:idx])
 	}
 	return "Unknown"
+}
+
+// parseSerperDateToISO converts Serper date strings to ISO format (YYYY-MM-DD)
+func parseSerperDateToISO(dateStr string) string {
+	if dateStr == "" {
+		return ""
+	}
+
+	now := time.Now()
+	lower := strings.ToLower(dateStr)
+
+	// Handle relative dates
+	if strings.Contains(lower, "ago") {
+		return parseRelativeDateToISO(lower, now)
+	}
+
+	// Try absolute date formats
+	formats := []string{
+		"Jan 2, 2006",
+		"January 2, 2006",
+		"2006-01-02",
+		"01/02/2006",
+	}
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			return t.Format("2006-01-02")
+		}
+	}
+
+	return ""
+}
+
+func parseRelativeDateToISO(lower string, now time.Time) string {
+	var num int
+	if _, err := fmt.Sscanf(lower, "%d day", &num); err == nil {
+		return now.AddDate(0, 0, -num).Format("2006-01-02")
+	}
+	if _, err := fmt.Sscanf(lower, "%d hour", &num); err == nil {
+		return now.Format("2006-01-02")
+	}
+	if _, err := fmt.Sscanf(lower, "%d week", &num); err == nil {
+		return now.AddDate(0, 0, -num*7).Format("2006-01-02")
+	}
+	if _, err := fmt.Sscanf(lower, "%d month", &num); err == nil {
+		return now.AddDate(0, -num, 0).Format("2006-01-02")
+	}
+	return ""
+}
+
+// parseSerperDateWithConfidence converts Serper date strings to ISO format and returns confidence level
+// Medium confidence for absolute dates (e.g., "Jan 15, 2026"), Low for relative dates ("2 days ago")
+func parseSerperDateWithConfidence(dateStr string) (string, string) {
+	if dateStr == "" {
+		return "", "none"
+	}
+
+	now := time.Now()
+	lower := strings.ToLower(dateStr)
+
+	// Handle relative dates (low confidence)
+	if strings.Contains(lower, "ago") {
+		return parseRelativeDateToISO(lower, now), "low"
+	}
+
+	// Try absolute date formats (medium confidence - from Serper API)
+	formats := []string{
+		"Jan 2, 2006",
+		"January 2, 2006",
+		"2006-01-02",
+		"01/02/2006",
+	}
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			return t.Format("2006-01-02"), "medium"
+		}
+	}
+
+	return "", "none"
 }
 
 // agentReview represents a single result review from the agent

@@ -224,18 +224,29 @@ type WebSearchResult struct {
 
 // JobSearchResult is the result of a job search
 type JobSearchResult struct {
-	Results         string   `json:"results"`
-	Count           int      `json:"count"`
-	RelatedSearches []string `json:"related_searches,omitempty"`
+	Jobs            []JobListing `json:"jobs"`
+	Count           int          `json:"count"`
+	RelatedSearches []string     `json:"related_searches,omitempty"`
 }
 
-// JobListing represents a single job for compact cache storage
-// Uses short field names to minimize JSON size
+// JobListing represents a single job posting
 type JobListing struct {
-	C      string    `json:"c"`           // Company
-	T      string    `json:"t"`           // Title
-	U      string    `json:"u"`           // URL
-	Posted time.Time `json:"p,omitempty"` // Verified posting date (zero if unknown)
+	Company              string  `json:"company"`
+	Title                string  `json:"title"`
+	URL                  string  `json:"url"`
+	DatePosted           *string `json:"date_posted,omitempty"`            // YYYY-MM-DD or nil
+	DatePostedConfidence *string `json:"date_posted_confidence,omitempty"` // high, medium, low, none
+	posted               time.Time                                        // internal: parsed date for filtering
+}
+
+// fetchResult holds the result of fetching and parsing a job posting page
+type fetchResult struct {
+	index      int
+	posted     time.Time
+	ok         bool
+	source     string
+	confidence string // high, medium, low, none
+	isClosed   bool
 }
 
 // --- Serper API Types ---
@@ -278,8 +289,8 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		log.Printf("🔍 job_search: LIMIT REACHED (%d/%d calls) - model has %d total results from queries: %v",
 			maxSearchesPerTurn, maxSearchesPerTurn, totalResults, queries)
 		return &JobSearchResult{
-			Results: fmt.Sprintf("Search limit reached (%d searches). You have %d results to choose from.", maxSearchesPerTurn, totalResults),
-			Count:   0,
+			Jobs:  []JobListing{},
+			Count: 0,
 		}, nil
 	}
 	t.callCount++
@@ -293,12 +304,12 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	case t.searchSem <- struct{}{}:
 		defer func() { <-t.searchSem }()
 	case <-ctx.Done():
-		return &JobSearchResult{Results: "Search cancelled: context deadline exceeded"}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 
 	if t.apiKey == "" {
 		log.Printf("SERPER_API_KEY not configured")
-		return &JobSearchResult{Results: "Job search not configured. SERPER_API_KEY required."}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 
 	// Load existing jobs from DB for deduplication
@@ -318,13 +329,13 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	reqBody := serperRequest{Q: enhancedQuery, GL: "us", Tbs: tbs, Location: params.Location}
 	jsonBody, err := json.Marshal(reqBody)
 	if err != nil {
-		return &JobSearchResult{Results: fmt.Sprintf("Error encoding request: %v", err)}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 
 	client := &http.Client{Timeout: 15 * time.Second}
 	req, err := http.NewRequest("POST", "https://google.serper.dev/search", bytes.NewBuffer(jsonBody))
 	if err != nil {
-		return &JobSearchResult{Results: fmt.Sprintf("Error creating request: %v", err)}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 
 	req.Header.Set("X-API-KEY", t.apiKey)
@@ -333,19 +344,19 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("Serper API error: %v", err)
-		return &JobSearchResult{Results: fmt.Sprintf("Search failed: %v", err)}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
 		log.Printf("Serper API error: %d - %s", resp.StatusCode, string(body))
-		return &JobSearchResult{Results: fmt.Sprintf("Search failed: HTTP %d", resp.StatusCode)}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 
 	var serperResp serperResponse
 	if err := json.NewDecoder(resp.Body).Decode(&serperResp); err != nil {
-		return &JobSearchResult{Results: fmt.Sprintf("Error parsing response: %v", err)}, nil
+		return &JobSearchResult{Jobs: []JobListing{}, Count: 0}, nil
 	}
 
 	// Extract related searches for query suggestions (free alternative to LLM)
@@ -391,7 +402,7 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 	// Mark returned URLs as seen for this session
 	var urls []string
 	for _, l := range listings {
-		urls = append(urls, l.U)
+		urls = append(urls, l.URL)
 	}
 	t.markURLsAsSeen(urls)
 
@@ -405,17 +416,15 @@ func (t *SerperTools) JobSearchCtx(ctx context.Context, params JobSearchParams) 
 		myCallNum, maxSearchesPerTurn, listingCount, len(seenURLs), totalNow)
 
 	if listingCount == 0 {
-		msg := "No new job postings found. All results were either already shown, applied to, or marked as 'do not apply'. Try a different search query."
 		return &JobSearchResult{
-			Results:         msg,
+			Jobs:            []JobListing{},
 			Count:           0,
 			RelatedSearches: relatedSearches,
 		}, nil
 	}
 
-	// Format for display (show dates only when verification was attempted)
 	return &JobSearchResult{
-		Results:         formatListings(listings, maxAge > 0),
+		Jobs:            listings,
 		Count:           listingCount,
 		RelatedSearches: relatedSearches,
 	}, nil
@@ -504,38 +513,21 @@ func extractListing(item serperOrganicResult, existingJobs []JobInfo, seenURLs m
 		return nil
 	}
 
-	listing := &JobListing{C: company, T: title, U: item.Link}
+	listing := &JobListing{Company: company, Title: title, URL: item.Link}
 
 	// Parse date from Serper API if available (avoids page fetch)
 	if item.Date != "" {
-		listing.Posted = parseSerperDate(item.Date)
-		if !listing.Posted.IsZero() {
-			log.Printf("   📅 Using API date for %s: %s", company, item.Date)
+		listing.posted = parseSerperDate(item.Date)
+		if !listing.posted.IsZero() {
+			dateStr := listing.posted.Format("2006-01-02")
+			listing.DatePosted = &dateStr
+			confidence := "medium" // Serper API absolute date
+			listing.DatePostedConfidence = &confidence
+			log.Printf("   📅 Using API date for %s: %s (confidence: medium)", company, item.Date)
 		}
 	}
 
 	return listing
-}
-
-// formatListings converts structured listings to display string
-// showDates should be true when date verification was attempted
-func formatListings(listings []JobListing, showDates bool) string {
-	if len(listings) == 0 {
-		return ""
-	}
-	var lines []string
-	for _, l := range listings {
-		line := fmt.Sprintf("- %s - %s - [url](%s)", l.C, l.T, l.U)
-		if showDates {
-			if l.Posted.IsZero() {
-				line += " (date unknown)"
-			} else {
-				line += fmt.Sprintf(" (posted: %s)", l.Posted.Format("Jan 2"))
-			}
-		}
-		lines = append(lines, line)
-	}
-	return strings.Join(lines, "\n")
 }
 
 // matchesAppliedJob checks if a search result matches any existing job in database
@@ -764,91 +756,220 @@ func formatWebResults(organic []serperOrganicResult) string {
 var (
 	// JSON-LD datePosted pattern (Lever, Greenhouse, etc.)
 	jsonLDDatePattern = regexp.MustCompile(`"datePosted"\s*:\s*"([^"]+)"`)
+	// JSON-LD validThrough pattern (can infer recency from expiration)
+	jsonLDValidThroughPattern = regexp.MustCompile(`"validThrough"\s*:\s*"([^"]+)"`)
 	// Relative date patterns
 	daysAgoPattern   = regexp.MustCompile(`(?i)posted\s+(\d+)\s+days?\s+ago`)
 	weeksAgoPattern  = regexp.MustCompile(`(?i)posted\s+(\d+)\s+weeks?\s+ago`)
 	monthsAgoPattern = regexp.MustCompile(`(?i)posted\s+(\d+)\s+months?\s+ago`)
 	todayPattern     = regexp.MustCompile(`(?i)posted\s+today`)
 	yesterdayPattern = regexp.MustCompile(`(?i)posted\s+yesterday`)
+	// Meta tag date patterns
+	metaDatePatterns = []*regexp.Regexp{
+		regexp.MustCompile(`<meta\s+property="article:published_time"\s+content="([^"]+)"`),
+		regexp.MustCompile(`<meta\s+content="([^"]+)"\s+property="article:published_time"`),
+		regexp.MustCompile(`<meta\s+name="date"\s+content="([^"]+)"`),
+		regexp.MustCompile(`<meta\s+content="([^"]+)"\s+name="date"`),
+	}
+	// URL date segment patterns (e.g., /2025/01/, /2025-01-15/)
+	urlDatePatterns = []*regexp.Regexp{
+		regexp.MustCompile(`/(\d{4})-(\d{2})-(\d{2})/`),
+		regexp.MustCompile(`/(\d{4})/(\d{2})/(\d{2})/`),
+		regexp.MustCompile(`/(\d{4})/(\d{2})/`),
+	}
+	// Closed/expired job indicators
+	closedJobPattern = regexp.MustCompile(`(?i)(this\s+(position|job|role)\s+(has\s+been\s+)?(closed|filled|expired)|no\s+longer\s+accepting|applications?\s+closed|position\s+filled)`)
 )
 
 // fetchPostingDate fetches a job URL and extracts the posting date
-// Returns the date, success boolean, and source description
-func fetchPostingDate(url string) (time.Time, bool, string) {
+// Returns the date, success boolean, source description, confidence level, and whether the job is closed
+func fetchPostingDate(url string) (time.Time, bool, string, string, bool) {
 	client := &http.Client{Timeout: 5 * time.Second}
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return time.Time{}, false, ""
+		return time.Time{}, false, "", "none", false
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; JobSearchBot/1.0)")
 
 	resp, err := client.Do(req)
 	if err != nil {
-		return time.Time{}, false, ""
+		return time.Time{}, false, "", "none", false
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return time.Time{}, false, ""
+		return time.Time{}, false, "", "none", false
 	}
 
 	// Read body (limit to 500KB to avoid huge pages)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 500*1024))
 	if err != nil {
-		return time.Time{}, false, ""
+		return time.Time{}, false, "", "none", false
 	}
 	html := string(body)
 
-	return parsePostingDate(html)
+	// Check if job is closed/expired
+	isClosed := isJobClosed(html)
+
+	// Try to extract date from HTML first
+	if date, ok, source, confidence := parsePostingDate(html); ok {
+		return date, true, source, confidence, isClosed
+	}
+
+	// Fall back to URL-based date extraction (low confidence)
+	if date, ok, source := parseDateFromURL(url); ok {
+		return date, true, source, "low", isClosed
+	}
+
+	return time.Time{}, false, "", "none", isClosed
+}
+
+// isJobClosed checks if the job posting indicates it's closed/filled/expired
+func isJobClosed(html string) bool {
+	return closedJobPattern.MatchString(html)
+}
+
+// parseDateFromURL extracts date from URL path segments
+func parseDateFromURL(url string) (time.Time, bool, string) {
+	for _, pattern := range urlDatePatterns {
+		t, ok, src := tryParseURLPattern(url, pattern)
+		if ok {
+			return t, true, src
+		}
+	}
+	return time.Time{}, false, ""
+}
+
+func tryParseURLPattern(url string, pattern *regexp.Regexp) (time.Time, bool, string) {
+	matches := pattern.FindStringSubmatch(url)
+	if len(matches) < 3 {
+		return time.Time{}, false, ""
+	}
+	year := 0
+	month := 0
+	day := 1
+	fmt.Sscanf(matches[1], "%d", &year)
+	fmt.Sscanf(matches[2], "%d", &month)
+	if len(matches) > 3 {
+		fmt.Sscanf(matches[3], "%d", &day)
+	}
+	if year < 2020 || year > 2030 || month < 1 || month > 12 {
+		return time.Time{}, false, ""
+	}
+	date := time.Date(year, time.Month(month), day, 0, 0, 0, 0, time.UTC)
+	return date, true, fmt.Sprintf("URL segment: %s", matches[0])
 }
 
 // parsePostingDate extracts posting date from HTML content
-// Returns: date, success, source description
-func parsePostingDate(html string) (time.Time, bool, string) {
+// Returns: date, success, source description, confidence level
+func parsePostingDate(html string) (time.Time, bool, string, string) {
 	now := time.Now()
 
-	// Try JSON-LD datePosted first (most reliable)
+	// Try JSON-LD datePosted first (most reliable - high confidence)
 	if matches := jsonLDDatePattern.FindStringSubmatch(html); len(matches) > 1 {
-		if t, err := time.Parse("2006-01-02", matches[1]); err == nil {
-			return t, true, fmt.Sprintf("JSON-LD datePosted: %s", matches[1])
-		}
-		if t, err := time.Parse(time.RFC3339, matches[1]); err == nil {
-			return t, true, fmt.Sprintf("JSON-LD datePosted: %s", matches[1])
+		if t, ok := parseFlexibleDate(matches[1]); ok {
+			return t, true, fmt.Sprintf("JSON-LD datePosted: %s", matches[1]), "high"
 		}
 	}
 
-	// Try "posted today"
+	// Try meta tags (high confidence)
+	if t, ok, src := tryMetaTagDate(html); ok {
+		return t, true, src, "high"
+	}
+
+	// Try "posted today" (low confidence - relative date)
 	if todayPattern.MatchString(html) {
-		return now.Truncate(24 * time.Hour), true, "text: 'posted today'"
+		return now.Truncate(24 * time.Hour), true, "text: 'posted today'", "low"
 	}
 
-	// Try "posted yesterday"
+	// Try "posted yesterday" (low confidence - relative date)
 	if yesterdayPattern.MatchString(html) {
-		return now.Add(-24 * time.Hour).Truncate(24 * time.Hour), true, "text: 'posted yesterday'"
+		return now.Add(-24 * time.Hour).Truncate(24 * time.Hour), true, "text: 'posted yesterday'", "low"
 	}
 
-	// Try "posted X days ago"
+	// Try "posted X days ago" (low confidence - relative date)
 	if matches := daysAgoPattern.FindStringSubmatch(html); len(matches) > 1 {
 		days := 0
 		fmt.Sscanf(matches[1], "%d", &days)
-		return now.Add(-time.Duration(days) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s days ago'", matches[1])
+		return now.Add(-time.Duration(days) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s days ago'", matches[1]), "low"
 	}
 
-	// Try "posted X weeks ago"
+	// Try "posted X weeks ago" (low confidence - relative date)
 	if matches := weeksAgoPattern.FindStringSubmatch(html); len(matches) > 1 {
 		weeks := 0
 		fmt.Sscanf(matches[1], "%d", &weeks)
-		return now.Add(-time.Duration(weeks*7) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s weeks ago'", matches[1])
+		return now.Add(-time.Duration(weeks*7) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s weeks ago'", matches[1]), "low"
 	}
 
-	// Try "posted X months ago"
+	// Try "posted X months ago" (low confidence - relative date)
 	if matches := monthsAgoPattern.FindStringSubmatch(html); len(matches) > 1 {
 		months := 0
 		fmt.Sscanf(matches[1], "%d", &months)
-		return now.Add(-time.Duration(months*30) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s months ago'", matches[1])
+		return now.Add(-time.Duration(months*30) * 24 * time.Hour).Truncate(24 * time.Hour), true, fmt.Sprintf("text: 'posted %s months ago'", matches[1]), "low"
 	}
 
+	// Try validThrough as last resort (infer posting ~30 days before expiration - low confidence)
+	if t, ok, src := tryValidThroughDate(html); ok {
+		return t, true, src, "low"
+	}
+
+	return time.Time{}, false, "", "none"
+}
+
+// tryMetaTagDate extracts date from HTML meta tags
+func tryMetaTagDate(html string) (time.Time, bool, string) {
+	for _, pattern := range metaDatePatterns {
+		t, ok, src := tryParseMetaPattern(html, pattern)
+		if ok {
+			return t, true, src
+		}
+	}
 	return time.Time{}, false, ""
+}
+
+func tryParseMetaPattern(html string, pattern *regexp.Regexp) (time.Time, bool, string) {
+	matches := pattern.FindStringSubmatch(html)
+	if len(matches) <= 1 {
+		return time.Time{}, false, ""
+	}
+	t, ok := parseFlexibleDate(matches[1])
+	if !ok {
+		return time.Time{}, false, ""
+	}
+	return t, true, fmt.Sprintf("meta tag: %s", matches[1])
+}
+
+// tryValidThroughDate estimates posting date from job expiration date
+func tryValidThroughDate(html string) (time.Time, bool, string) {
+	matches := jsonLDValidThroughPattern.FindStringSubmatch(html)
+	if len(matches) <= 1 {
+		return time.Time{}, false, ""
+	}
+	expiry, ok := parseFlexibleDate(matches[1])
+	if !ok {
+		return time.Time{}, false, ""
+	}
+	// Jobs typically expire 30-60 days after posting; estimate posting as 30 days before expiry
+	estimated := expiry.Add(-30 * 24 * time.Hour)
+	return estimated, true, fmt.Sprintf("validThrough (estimated): %s", matches[1])
+}
+
+// parseFlexibleDate tries multiple date formats
+func parseFlexibleDate(dateStr string) (time.Time, bool) {
+	formats := []string{
+		"2006-01-02",
+		time.RFC3339,
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04:05Z07:00",
+		"Jan 2, 2006",
+		"January 2, 2006",
+	}
+	for _, format := range formats {
+		if t, err := time.Parse(format, dateStr); err == nil {
+			return t, true
+		}
+	}
+	return time.Time{}, false
 }
 
 // verifyPostingDates filters listings by posting date
@@ -867,17 +988,17 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilte
 
 	// First pass: check listings with API dates, collect those needing fetch
 	for i, listing := range listings {
-		if !listing.Posted.IsZero() {
-			// Already have date from API - apply cutoff directly
-			if listing.Posted.Before(cutoff) {
-				log.Printf("   📅 Filtered out old posting (%s): %s - %s [API date]", listing.Posted.Format("Jan 2"), listing.C, listing.T)
-				continue
-			}
-			verified = append(verified, listing)
-			log.Printf("   📅 Verified fresh posting (%s): %s - %s [API date]", listing.Posted.Format("Jan 2"), listing.C, listing.T)
+		if listing.posted.IsZero() {
+			needsFetch = append(needsFetch, i)
 			continue
 		}
-		needsFetch = append(needsFetch, i)
+		// Already have date from API - apply cutoff directly
+		if listing.posted.Before(cutoff) {
+			log.Printf("   📅 Filtered out old posting (%s): %s - %s [API date]", listing.posted.Format("Jan 2"), listing.Company, listing.Title)
+			continue
+		}
+		verified = append(verified, listing)
+		log.Printf("   📅 Verified fresh posting (%s): %s - %s [API date]", listing.posted.Format("Jan 2"), listing.Company, listing.Title)
 	}
 
 	// If no listings need fetching, return early
@@ -888,14 +1009,8 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilte
 	log.Printf("   📅 %d listings have API dates, %d need page fetch", len(listings)-len(needsFetch), len(needsFetch))
 
 	// Second pass: fetch pages concurrently for listings without API dates
-	type result struct {
-		index  int
-		posted time.Time
-		ok     bool
-		source string
-	}
 
-	results := make(chan result, len(needsFetch))
+	results := make(chan fetchResult, len(needsFetch))
 	sem := make(chan struct{}, 5) // Limit to 5 concurrent requests
 
 	var wg sync.WaitGroup
@@ -906,9 +1021,9 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilte
 			sem <- struct{}{}        // Acquire
 			defer func() { <-sem }() // Release
 
-			posted, ok, source := fetchPostingDate(url)
-			results <- result{index: i, posted: posted, ok: ok, source: source}
-		}(idx, listings[idx].U)
+			posted, ok, source, confidence, isClosed := fetchPostingDate(url)
+			results <- fetchResult{index: i, posted: posted, ok: ok, source: source, confidence: confidence, isClosed: isClosed}
+		}(idx, listings[idx].URL)
 	}
 
 	go func() {
@@ -917,7 +1032,7 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilte
 	}()
 
 	// Collect results
-	postingDates := make(map[int]result)
+	postingDates := make(map[int]fetchResult)
 	for r := range results {
 		postingDates[r.index] = r
 	}
@@ -926,27 +1041,48 @@ func verifyPostingDates(listings []JobListing, maxAge time.Duration, strictFilte
 	for _, idx := range needsFetch {
 		listing := listings[idx]
 		r := postingDates[idx]
-		if !r.ok {
-			if strictFilter {
-				log.Printf("   Filtered out (date unknown, strict filter): %s - %s", listing.C, listing.T)
-				continue
-			}
-			unknown = append(unknown, listing)
-			log.Printf("   Date unknown for: %s - %s (no parseable date found)", listing.C, listing.T)
-			continue
+		listing.posted = r.posted
+		if !r.posted.IsZero() {
+			dateStr := r.posted.Format("2006-01-02")
+			listing.DatePosted = &dateStr
 		}
 
-		listing.Posted = r.posted
-		if r.posted.Before(cutoff) {
-			log.Printf("   Filtered out old posting (%s): %s - %s [%s]", r.posted.Format("Jan 2"), listing.C, listing.T, r.source)
-			continue
-		}
-
-		verified = append(verified, listing)
-		log.Printf("   Verified fresh posting (%s): %s - %s [%s]", r.posted.Format("Jan 2"), listing.C, listing.T, r.source)
+		v, u := classifyFetchedListing(listing, r, cutoff, strictFilter)
+		verified = append(verified, v...)
+		unknown = append(unknown, u...)
 	}
 
 	// Append unknown dates at the end (with warning)
 	return append(verified, unknown...)
+}
+
+// classifyFetchedListing categorizes a listing based on fetch results
+// Returns (verified, unknown) slices - one will have the listing, other empty
+func classifyFetchedListing(listing JobListing, r fetchResult, cutoff time.Time, strictFilter bool) ([]JobListing, []JobListing) {
+	if r.isClosed {
+		log.Printf("   🚫 Filtered out closed/expired job: %s - %s", listing.Company, listing.Title)
+		return nil, nil
+	}
+
+	if !r.ok && strictFilter {
+		log.Printf("   Filtered out (date unknown, strict filter): %s - %s", listing.Company, listing.Title)
+		return nil, nil
+	}
+
+	// Set confidence on listing
+	listing.DatePostedConfidence = &r.confidence
+
+	if !r.ok {
+		log.Printf("   Date unknown for: %s - %s (no parseable date found, confidence: none)", listing.Company, listing.Title)
+		return nil, []JobListing{listing}
+	}
+
+	if r.posted.Before(cutoff) {
+		log.Printf("   📅 Filtered out old posting (%s): %s - %s [%s]", r.posted.Format("Jan 2"), listing.Company, listing.Title, r.source)
+		return nil, nil
+	}
+
+	log.Printf("   📅 Verified fresh posting (%s): %s - %s [%s] (confidence: %s)", r.posted.Format("Jan 2"), listing.Company, listing.Title, r.source, r.confidence)
+	return []JobListing{listing}, nil
 }
 

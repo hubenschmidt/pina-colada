@@ -161,8 +161,10 @@ type CRMProposeLeadCreateParams struct {
 	ProjectID   *int64 `json:"project_id,omitempty" jsonschema:"description=Project ID to associate with this lead"`
 	Description string `json:"description,omitempty" jsonschema:"description=Description or notes"`
 	// Job-specific fields
-	JobTitle string `json:"job_title,omitempty" jsonschema:"description=Job title (required for job leads)"`
-	JobURL   string `json:"job_url,omitempty" jsonschema:"description=URL to the job posting (for job leads)"`
+	JobTitle             string  `json:"job_title,omitempty" jsonschema:"description=Job title (required for job leads)"`
+	JobURL               string  `json:"job_url,omitempty" jsonschema:"description=URL to the job posting (for job leads)"`
+	DatePosted           *string `json:"date_posted,omitempty" jsonschema:"description=Job posting date YYYY-MM-DD (for job leads)"`
+	DatePostedConfidence *string `json:"date_posted_confidence,omitempty" jsonschema:"description=Confidence level of date_posted: high medium low none"`
 	// Opportunity-specific fields
 	OpportunityName   string  `json:"opportunity_name,omitempty" jsonschema:"description=Opportunity name (required for opportunity leads)"`
 	EstimatedValue    *int64  `json:"estimated_value,omitempty" jsonschema:"description=Estimated deal value (for opportunity leads)"`
@@ -722,6 +724,12 @@ func addJobFields(data map[string]interface{}, leadType string, params CRMPropos
 	}
 	if params.JobURL != "" {
 		data["url"] = params.JobURL
+	}
+	if params.DatePosted != nil {
+		data["date_posted"] = *params.DatePosted
+	}
+	if params.DatePostedConfidence != nil {
+		data["date_posted_confidence"] = *params.DatePostedConfidence
 	}
 }
 

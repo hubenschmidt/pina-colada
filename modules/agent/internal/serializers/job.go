@@ -36,26 +36,29 @@ func formatDateTimePtr(t *time.Time) string {
 
 // JobListResponse represents a job in list view
 type JobListResponse struct {
-	ID                   int64      `json:"id"`
-	JobTitle             string     `json:"job_title"`
-	JobURL               *string    `json:"job_url"`
-	Description          *string    `json:"description"`
-	Resume               string     `json:"resume"`
-	ResumeDate           *time.Time `json:"resume_date"`
-	FormattedResumeDate  string     `json:"formatted_resume_date"`
-	SalaryRange          *string    `json:"salary_range"`
-	SalaryRangeID        *int64     `json:"salary_range_id"`
-	Status               *string    `json:"status"`
-	Account              string     `json:"account"`
-	AccountType          string     `json:"account_type"`
-	Date                 string     `json:"date"`
-	FormattedDate        string     `json:"formatted_date"`
-	CreatedAt            time.Time  `json:"created_at"`
-	FormattedCreatedAt   string     `json:"formatted_created_at"`
-	UpdatedAt            time.Time  `json:"updated_at"`
-	FormattedUpdatedAt   string     `json:"formatted_updated_at"`
-	Source               string     `json:"source"`
-	ProjectIDs           []int64    `json:"project_ids"`
+	ID                    int64      `json:"id"`
+	JobTitle              string     `json:"job_title"`
+	JobURL                *string    `json:"job_url"`
+	Description           *string    `json:"description"`
+	Resume                string     `json:"resume"`
+	ResumeDate            *time.Time `json:"resume_date"`
+	FormattedResumeDate   string     `json:"formatted_resume_date"`
+	DatePosted            *time.Time `json:"date_posted"`
+	FormattedDatePosted   string     `json:"formatted_date_posted"`
+	DatePostedConfidence  *string    `json:"date_posted_confidence"`
+	SalaryRange           *string    `json:"salary_range"`
+	SalaryRangeID         *int64     `json:"salary_range_id"`
+	Status                *string    `json:"status"`
+	Account               string     `json:"account"`
+	AccountType           string     `json:"account_type"`
+	Date                  string     `json:"date"`
+	FormattedDate         string     `json:"formatted_date"`
+	CreatedAt             time.Time  `json:"created_at"`
+	FormattedCreatedAt    string     `json:"formatted_created_at"`
+	UpdatedAt             time.Time  `json:"updated_at"`
+	FormattedUpdatedAt    string     `json:"formatted_updated_at"`
+	Source                string     `json:"source"`
+	ProjectIDs            []int64    `json:"project_ids"`
 }
 
 // JobDetailResponse represents a job in detail view
@@ -130,18 +133,21 @@ type ProjectBrief struct {
 // JobToListResponse converts a Job model to list response
 func JobToListResponse(job *models.Job) JobListResponse {
 	resp := JobListResponse{
-		ID:                  job.ID,
-		JobTitle:            job.JobTitle,
-		JobURL:              job.JobURL,
-		Description:         job.Description,
-		Resume:              formatDateTimePtr(job.ResumeDate),
-		ResumeDate:          job.ResumeDate,
-		FormattedResumeDate: formatDisplayDatePtr(job.ResumeDate),
-		SalaryRange:         job.SalaryRange,
-		SalaryRangeID:       job.SalaryRangeID,
-		Account:             "",
-		AccountType:         "Organization",
-		Source:              "manual",
+		ID:                   job.ID,
+		JobTitle:             job.JobTitle,
+		JobURL:               job.JobURL,
+		Description:          job.Description,
+		Resume:               formatDateTimePtr(job.ResumeDate),
+		ResumeDate:           job.ResumeDate,
+		FormattedResumeDate:  formatDisplayDatePtr(job.ResumeDate),
+		DatePosted:           job.DatePosted,
+		FormattedDatePosted:  formatDisplayDatePtr(job.DatePosted),
+		DatePostedConfidence: job.DatePostedConfidence,
+		SalaryRange:          job.SalaryRange,
+		SalaryRangeID:        job.SalaryRangeID,
+		Account:              "",
+		AccountType:          "Organization",
+		Source:               "manual",
 	}
 
 	if job.Lead == nil {

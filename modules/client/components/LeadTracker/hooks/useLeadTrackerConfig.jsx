@@ -112,7 +112,7 @@ const getJobLeadConfig = (selectedProjectId) => {
     {
       header: "URL",
       accessor: "job_url",
-      width: "8%",
+      width: "6%",
       render: (job) => {
         if (!job.job_url) return <EmptyCell />;
         const url = job.job_url.startsWith("http") ? job.job_url : `https://${job.job_url}`;
@@ -125,6 +125,41 @@ const getJobLeadConfig = (selectedProjectId) => {
             title="View job posting">
             <ExternalLink size={16} />
           </a>
+        );
+      },
+    },
+    {
+      header: "Date Posted",
+      accessor: "date_posted",
+      sortable: true,
+      sortKey: "date_posted",
+      width: "8%",
+      render: (job) => job.formatted_date_posted || <EmptyCell />,
+    },
+    {
+      header: "Confidence",
+      accessor: "date_posted_confidence",
+      width: "6%",
+      render: (job) => {
+        if (!job.date_posted_confidence) return <EmptyCell />;
+        const colors = {
+          high: "bg-green-100 text-green-800",
+          medium: "bg-yellow-100 text-yellow-800",
+          low: "bg-orange-100 text-orange-800",
+          none: "bg-zinc-100 text-zinc-500",
+        };
+        const tooltips = {
+          high: "High: Date from structured data (JSON-LD or meta tags)",
+          medium: "Medium: Date from search API (absolute date like 'Jan 15, 2026')",
+          low: "Low: Date from relative text ('2 days ago') or URL pattern",
+          none: "None: No date source found",
+        };
+        return (
+          <span
+            className={`px-1.5 py-0.5 text-xs rounded cursor-help ${colors[job.date_posted_confidence] || colors.none}`}
+            title={tooltips[job.date_posted_confidence] || tooltips.none}>
+            {job.date_posted_confidence}
+          </span>
         );
       },
     },
