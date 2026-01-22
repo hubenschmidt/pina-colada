@@ -2,7 +2,7 @@
 
 ## Description
 
-PinaColada is an AI-native CRM built on the OpenAI Agents Go SDK that manages relationships and workflows through natural conversation. Core entities include Contacts, Leads, Deals, Opportunities, Organizations, and Jobs. The system uses a triage agent with handoffs to specialized workers—all driven by conversational AI rather than traditional forms and dashboards.
+PinaColada is an AI-native CRM built on the OpenAI Agents Go SDK that manages relationships and workflows through natural conversation. Core entities include Contacts, Leads, Deals, Opportunities, Organizations, and Jobs. The system uses a triage agent with handoffs to specialized workers, all driven by conversational AI rather than traditional forms and dashboards.
 
 ## System Overview
 
