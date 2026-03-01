@@ -23,6 +23,8 @@ require (
 	github.com/lestrrat-go/jwx/v2 v2.1.3
 	github.com/nlpodyssey/openai-agents-go v0.1.0
 	github.com/openai/openai-go/v2 v2.5.0
+	github.com/pgvector/pgvector-go v0.3.0
+	github.com/robfig/cron/v3 v3.0.1
 	github.com/shopspring/decimal v1.4.0
 	gorm.io/datatypes v1.2.5
 	gorm.io/driver/postgres v1.5.11
@@ -75,7 +77,6 @@ require (
 	github.com/matteo-grella/dwarfreflect v0.1.0-alpha // indirect
 	github.com/mattn/go-sqlite3 v1.14.32 // indirect
 	github.com/modelcontextprotocol/go-sdk v0.7.0 // indirect
-	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/segmentio/asm v1.2.0 // indirect
 	github.com/tidwall/gjson v1.18.0 // indirect

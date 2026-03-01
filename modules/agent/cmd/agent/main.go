@@ -119,6 +119,15 @@ func main() {
 	docLoader := &documentLoaderAdapter{docService: docService}
 	automationService := services.NewAutomationService(automationRepo, proposalRepo, jobRepo, proposalService, docLoader, cfg.SerperAPIKey, cfg.AnthropicAPIKey, cfg.OpenAIAPIKey, cfg.Env, cfg.PushoverUser, cfg.PushoverToken)
 
+	// Wire embedding service for vector pre-filtering and proposal embeddings
+	if cfg.OpenAIAPIKey != "" {
+		embeddingRepo := repositories.NewEmbeddingRepository(database)
+		embeddingService := services.NewEmbeddingService(embeddingRepo, cfg.OpenAIAPIKey)
+		automationService.SetEmbeddingService(embeddingService)
+		docService.SetEmbedder(embeddingService)
+		log.Println("Vector embedding service initialized")
+	}
+
 	// Cleanup any stale automation runs from previous server runs
 	automationService.CleanupStaleRuns()
 

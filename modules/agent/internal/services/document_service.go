@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"agent/internal/repositories"
-	"agent/internal/schemas"
 	"agent/internal/serializers"
 )
 
@@ -40,10 +39,16 @@ type DocumentService struct {
 	docRepo     *repositories.DocumentRepository
 	storageRepo repositories.StorageRepository
 	summarizer  *DocumentSummarizer
+	embedder    DocumentEmbedder
 }
 
 func NewDocumentService(docRepo *repositories.DocumentRepository, storageRepo repositories.StorageRepository, summarizer *DocumentSummarizer) *DocumentService {
 	return &DocumentService{docRepo: docRepo, storageRepo: storageRepo, summarizer: summarizer}
+}
+
+// SetEmbedder sets the document embedder for generating vector embeddings
+func (s *DocumentService) SetEmbedder(embedder DocumentEmbedder) {
+	s.embedder = embedder
 }
 
 func (s *DocumentService) GetDocumentsByEntity(entityType string, entityID int64, tenantID *int64, page, pageSize int, orderBy, order string) (*serializers.PagedResponse, error) {
@@ -58,8 +63,8 @@ func (s *DocumentService) GetDocumentsByEntity(entityType string, entityID int64
 	return &resp, nil
 }
 
-func toDocumentResponses(dtos []repositories.DocumentDTO) []schemas.DocumentResponse {
-	result := make([]schemas.DocumentResponse, len(dtos))
+func toDocumentResponses(dtos []repositories.DocumentDTO) []serializers.DocumentResponse {
+	result := make([]serializers.DocumentResponse, len(dtos))
 	for i := range dtos {
 		result[i] = *toDocumentResponse(&dtos[i])
 	}
@@ -84,12 +89,12 @@ func (s *DocumentService) UnlinkDocument(documentID int64, entityType string, en
 }
 
 // GetRecentlyLinkedDocuments returns documents recently linked by a user
-func (s *DocumentService) GetRecentlyLinkedDocuments(userID int64, limit int) ([]schemas.DocumentResponse, error) {
+func (s *DocumentService) GetRecentlyLinkedDocuments(userID int64, limit int) ([]serializers.DocumentResponse, error) {
 	dtos, err := s.docRepo.GetRecentlyLinkedByUser(userID, limit)
 	if err != nil {
 		return nil, err
 	}
-	var result []schemas.DocumentResponse
+	var result []serializers.DocumentResponse
 	for _, dto := range dtos {
 		result = append(result, *toDocumentResponse(&dto))
 	}
@@ -97,7 +102,7 @@ func (s *DocumentService) GetRecentlyLinkedDocuments(userID int64, limit int) ([
 }
 
 // GetDocumentByID returns a single document by ID
-func (s *DocumentService) GetDocumentByID(id int64) (*schemas.DocumentResponse, error) {
+func (s *DocumentService) GetDocumentByID(id int64) (*serializers.DocumentResponse, error) {
 	dto, err := s.docRepo.FindDocumentByID(id)
 	if err != nil {
 		return nil, err
@@ -113,8 +118,8 @@ func (s *DocumentService) CheckFilenameExists(tenantID int64, filename string) (
 	return s.docRepo.FindByFilename(tenantID, filename)
 }
 
-func toDocumentResponse(dto *repositories.DocumentDTO) *schemas.DocumentResponse {
-	return &schemas.DocumentResponse{
+func toDocumentResponse(dto *repositories.DocumentDTO) *serializers.DocumentResponse {
+	return &serializers.DocumentResponse{
 		ID:          dto.ID,
 		TenantID:    dto.TenantID,
 		Filename:    dto.Filename,
@@ -198,29 +203,33 @@ func (s *DocumentService) UploadDocument(input UploadDocumentInput) (*repositori
 	}
 
 	// Generate summary and compressed content asynchronously
-	go s.processDocumentAsync(doc.ID, data, input.Filename, input.ContentType)
+	go s.processDocumentAsync(doc.ID, input.TenantID, data, input.Filename, input.ContentType)
 
 	return doc, nil
 }
 
-// processDocumentAsync generates summary and compressed content in background
-func (s *DocumentService) processDocumentAsync(docID int64, data []byte, filename, contentType string) {
-	if s.summarizer == nil {
-		return
-	}
-
+// processDocumentAsync generates summary, compressed content, and embeddings in background
+func (s *DocumentService) processDocumentAsync(docID, tenantID int64, data []byte, filename, contentType string) {
 	// Extract text content based on content type
 	content := extractTextContent(data, contentType)
 	if content == "" {
-		log.Printf("DocumentService: no text content to summarize for doc %d", docID)
+		log.Printf("DocumentService: no text content to process for doc %d", docID)
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 
-	if err := s.summarizer.ProcessDocument(ctx, docID, content, filename); err != nil {
-		log.Printf("DocumentService: failed to process doc %d: %v", docID, err)
+	if s.summarizer != nil {
+		if err := s.summarizer.ProcessDocument(ctx, docID, content, filename); err != nil {
+			log.Printf("DocumentService: failed to summarize doc %d: %v", docID, err)
+		}
+	}
+
+	if s.embedder != nil {
+		if err := s.embedder.EmbedDocumentChunks(ctx, tenantID, docID, content); err != nil {
+			log.Printf("DocumentService: failed to embed doc %d: %v", docID, err)
+		}
 	}
 }
 

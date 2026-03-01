@@ -59,11 +59,14 @@ type AutomationConfigDTO struct {
 	UseAnalytics        bool
 	AnalyticsModel      *string
 	CompiledAt              *time.Time
-	EmptyProposalLimit      int
-	PromptCooldownRuns      int
-	PromptCooldownProspects int
-	CreatedAt               time.Time
-	UpdatedAt               time.Time
+	EmptyProposalLimit        int
+	PromptCooldownRuns        int
+	PromptCooldownProspects   int
+	VectorPrefilterEnabled    bool
+	VectorSimilarityThreshold float64
+	VectorMaxResults          int
+	CreatedAt                 time.Time
+	UpdatedAt                 time.Time
 }
 
 // AutomationConfigInput for creating/updating config
@@ -96,9 +99,12 @@ type AutomationConfigInput struct {
 	AgentModel           *string
 	UseAnalytics            *bool
 	AnalyticsModel          *string
-	EmptyProposalLimit      *int
-	PromptCooldownRuns      *int
-	PromptCooldownProspects *int
+	EmptyProposalLimit        *int
+	PromptCooldownRuns        *int
+	PromptCooldownProspects   *int
+	VectorPrefilterEnabled    *bool
+	VectorSimilarityThreshold *float64
+	VectorMaxResults          *int
 }
 
 // AutomationRunLogDTO represents a run log entry
@@ -504,12 +510,15 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 		AgentModel:         cfg.AgentModel,
 		UseAnalytics:       cfg.UseAnalytics,
 		AnalyticsModel:     cfg.AnalyticsModel,
-		CompiledAt:              cfg.CompiledAt,
-		EmptyProposalLimit:      cfg.EmptyProposalLimit,
-		PromptCooldownRuns:      cfg.PromptCooldownRuns,
-		PromptCooldownProspects: cfg.PromptCooldownProspects,
-		CreatedAt:               cfg.CreatedAt,
-		UpdatedAt:               cfg.UpdatedAt,
+		CompiledAt:                cfg.CompiledAt,
+		EmptyProposalLimit:        cfg.EmptyProposalLimit,
+		PromptCooldownRuns:        cfg.PromptCooldownRuns,
+		PromptCooldownProspects:   cfg.PromptCooldownProspects,
+		VectorPrefilterEnabled:    cfg.VectorPrefilterEnabled,
+		VectorSimilarityThreshold: cfg.VectorSimilarityThreshold,
+		VectorMaxResults:          cfg.VectorMaxResults,
+		CreatedAt:                 cfg.CreatedAt,
+		UpdatedAt:                 cfg.UpdatedAt,
 	}
 
 	// Parse JSON arrays
@@ -548,12 +557,11 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.SuggestedPrompt != nil {
 		cfg.SuggestedPrompt = input.SuggestedPrompt
 	}
-	if input.UseSuggestedPrompt != nil && *input.UseSuggestedPrompt {
-		cfg.UseSuggestedPrompt = true
-	}
-	if input.UseSuggestedPrompt != nil && !*input.UseSuggestedPrompt {
-		cfg.UseSuggestedPrompt = false
-		cfg.SuggestedPrompt = nil
+	if input.UseSuggestedPrompt != nil {
+		cfg.UseSuggestedPrompt = *input.UseSuggestedPrompt
+		if !*input.UseSuggestedPrompt {
+			cfg.SuggestedPrompt = nil
+		}
 	}
 	if input.SuggestionThreshold != nil {
 		cfg.SuggestionThreshold = *input.SuggestionThreshold
@@ -567,12 +575,11 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.SuggestedQuery != nil {
 		cfg.SuggestedQuery = input.SuggestedQuery
 	}
-	if input.UseSuggestedQuery != nil && *input.UseSuggestedQuery {
-		cfg.UseSuggestedQuery = true
-	}
-	if input.UseSuggestedQuery != nil && !*input.UseSuggestedQuery {
-		cfg.UseSuggestedQuery = false
-		cfg.SuggestedQuery = nil
+	if input.UseSuggestedQuery != nil {
+		cfg.UseSuggestedQuery = *input.UseSuggestedQuery
+		if !*input.UseSuggestedQuery {
+			cfg.SuggestedQuery = nil
+		}
 	}
 	if input.ATSMode != nil {
 		cfg.ATSMode = *input.ATSMode
@@ -624,6 +631,15 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	}
 	if input.PromptCooldownProspects != nil {
 		cfg.PromptCooldownProspects = *input.PromptCooldownProspects
+	}
+	if input.VectorPrefilterEnabled != nil {
+		cfg.VectorPrefilterEnabled = *input.VectorPrefilterEnabled
+	}
+	if input.VectorSimilarityThreshold != nil {
+		cfg.VectorSimilarityThreshold = *input.VectorSimilarityThreshold
+	}
+	if input.VectorMaxResults != nil {
+		cfg.VectorMaxResults = *input.VectorMaxResults
 	}
 }
 

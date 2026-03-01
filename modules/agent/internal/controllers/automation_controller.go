@@ -72,8 +72,11 @@ type CrawlerRequest struct {
 	EmptyProposalLimit      *int    `json:"empty_proposal_limit,omitempty"`
 	PromptCooldownRuns      *int    `json:"prompt_cooldown_runs,omitempty"`
 	PromptCooldownProspects *int    `json:"prompt_cooldown_prospects,omitempty"`
-	SuggestedQuery          *string `json:"suggested_query,omitempty"`
-	SuggestedPrompt         *string `json:"suggested_prompt,omitempty"`
+	SuggestedQuery            *string  `json:"suggested_query,omitempty"`
+	SuggestedPrompt           *string  `json:"suggested_prompt,omitempty"`
+	VectorPrefilterEnabled    *bool    `json:"vector_prefilter_enabled,omitempty"`
+	VectorSimilarityThreshold *float64 `json:"vector_similarity_threshold,omitempty"`
+	VectorMaxResults          *int     `json:"vector_max_results,omitempty"`
 }
 
 // ToggleRequest represents the request body for toggling a crawler
@@ -407,8 +410,11 @@ func (c *AutomationController) requestToInput(req CrawlerRequest) repositories.A
 		EmptyProposalLimit:      req.EmptyProposalLimit,
 		PromptCooldownRuns:      req.PromptCooldownRuns,
 		PromptCooldownProspects: req.PromptCooldownProspects,
-		SuggestedQuery:          req.SuggestedQuery,
-		SuggestedPrompt:         req.SuggestedPrompt,
+		SuggestedQuery:            req.SuggestedQuery,
+		SuggestedPrompt:           req.SuggestedPrompt,
+		VectorPrefilterEnabled:    req.VectorPrefilterEnabled,
+		VectorSimilarityThreshold: req.VectorSimilarityThreshold,
+		VectorMaxResults:          req.VectorMaxResults,
 	}
 }
 

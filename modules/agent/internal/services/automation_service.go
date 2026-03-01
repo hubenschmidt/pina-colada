@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"net/url"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/ledongthuc/pdf"
 	"github.com/openai/openai-go/v2"
 	openaiOption "github.com/openai/openai-go/v2/option"
+	pgvector "github.com/pgvector/pgvector-go"
 
 	"agent/internal/lib"
 	"agent/internal/repositories"
@@ -45,6 +47,7 @@ type AutomationService struct {
 	jobRepo          *repositories.JobRepository
 	proposalService  ProposalCreator
 	docLoader        DocumentLoader
+	embeddingService *EmbeddingService
 	serperAPIKey     string
 	anthropicAPIKey  string
 	openAIAPIKey     string
@@ -112,6 +115,11 @@ func NewAutomationService(
 	}
 
 	return svc
+}
+
+// SetEmbeddingService sets the embedding service for vector pre-filtering
+func (s *AutomationService) SetEmbeddingService(embeddingService *EmbeddingService) {
+	s.embeddingService = embeddingService
 }
 
 // CleanupStaleRuns marks any "running" jobs as failed (called on startup)
@@ -621,6 +629,7 @@ func (s *AutomationService) logAutomationConfig(cfg *repositories.AutomationConf
 	log.Printf("  target_type=%s, target_ids=%v", ptrStr(cfg.TargetType), cfg.TargetIDs)
 	log.Printf("  source_document_ids=%v", cfg.SourceDocumentIDs)
 	log.Printf("  use_agent=%v, agent_model=%s", cfg.UseAgent, ptrStr(cfg.AgentModel))
+	log.Printf("  vector_prefilter=%v, threshold=%.2f, max_results=%d", cfg.VectorPrefilterEnabled, cfg.VectorSimilarityThreshold, cfg.VectorMaxResults)
 	log.Printf("  system_prompt=%s", truncateString(ptrStr(cfg.SystemPrompt), 100))
 }
 
@@ -693,6 +702,13 @@ func (s *AutomationService) processSearchResultsWithAgent(cfg *repositories.Auto
 	filtered = s.validateURLs(filtered)
 	if len(filtered) == 0 {
 		log.Printf("Automation: all URLs failed validation, skipping LLM review")
+		return prospectsFound, 0, searchResult.RelatedSearches
+	}
+
+	// Vector pre-filter to reduce LLM calls
+	filtered = s.vectorPreFilter(filtered, cfg)
+	if len(filtered) == 0 {
+		log.Printf("Automation: all results filtered by vector similarity, skipping LLM review")
 		return prospectsFound, 0, searchResult.RelatedSearches
 	}
 
@@ -791,11 +807,13 @@ func (s *AutomationService) createProposalFromJob(cfg *repositories.AutomationCo
 		payload["note"] = matchReason
 	}
 
-	_, err := s.proposalService.CreateProposal(cfg.TenantID, cfg.UserID, "job", "create", payload, &source, &configID)
+	proposalID, err := s.proposalService.CreateProposal(cfg.TenantID, cfg.UserID, "job", "create", payload, &source, &configID)
 	if err != nil {
 		log.Printf("Automation service: failed to create proposal: %v", err)
 		return false
 	}
+
+	go s.embedProposalAsync(cfg, job, proposalID)
 	return true
 }
 
@@ -1743,7 +1761,10 @@ func (s *AutomationService) generateQueryWithLLM(cfg *repositories.AutomationCon
 		consecutiveZeroRuns = analytics.ConsecutiveZeroRuns
 	}
 
-	prompt := s.buildQuerySuggestionPrompt(currentQuery, systemPrompt, documentContext, analyticsContext, cfg.Location, consecutiveZeroRuns)
+	// Add centroid context from approved proposals
+	centroidContext := s.buildCentroidContext(cfg.ID, cfg.SourceDocumentIDs)
+
+	prompt := s.buildQuerySuggestionPrompt(currentQuery, systemPrompt, documentContext, analyticsContext, centroidContext, cfg.Location, consecutiveZeroRuns)
 
 	model := s.getAnalyticsModel(cfg)
 
@@ -1811,7 +1832,7 @@ func (s *AutomationService) buildAnalyticsContext(configID int64) string {
 }
 
 // buildQuerySuggestionPrompt creates the prompt for query suggestion
-func (s *AutomationService) buildQuerySuggestionPrompt(currentQuery, systemPrompt, documentContext, analyticsContext string, location *string, consecutiveZeroRuns int) string {
+func (s *AutomationService) buildQuerySuggestionPrompt(currentQuery, systemPrompt, documentContext, analyticsContext, centroidContext string, location *string, consecutiveZeroRuns int) string {
 	var sb strings.Builder
 
 	sb.WriteString(`You are helping optimize a job search query. The current query is returning 0 relevant results.
@@ -1829,6 +1850,10 @@ CURRENT QUERY (DO NOT REPEAT THIS):
 
 	sb.WriteString("\n\nDocument context:\n")
 	sb.WriteString(documentContext)
+
+	if centroidContext != "" {
+		sb.WriteString(centroidContext)
+	}
 
 	sb.WriteString(`
 
@@ -2089,11 +2114,14 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 		AgentModel:          dto.AgentModel,
 		UseAnalytics:        dto.UseAnalytics,
 		AnalyticsModel:      dto.AnalyticsModel,
-		EmptyProposalLimit:      dto.EmptyProposalLimit,
-		PromptCooldownRuns:      dto.PromptCooldownRuns,
-		PromptCooldownProspects: dto.PromptCooldownProspects,
-		CreatedAt:               dto.CreatedAt,
-		UpdatedAt:               dto.UpdatedAt,
+		EmptyProposalLimit:        dto.EmptyProposalLimit,
+		PromptCooldownRuns:        dto.PromptCooldownRuns,
+		PromptCooldownProspects:   dto.PromptCooldownProspects,
+		VectorPrefilterEnabled:    dto.VectorPrefilterEnabled,
+		VectorSimilarityThreshold: dto.VectorSimilarityThreshold,
+		VectorMaxResults:          dto.VectorMaxResults,
+		CreatedAt:                 dto.CreatedAt,
+		UpdatedAt:                 dto.UpdatedAt,
 	}
 }
 
@@ -2365,6 +2393,146 @@ func isURLValid(client *http.Client, url string) bool {
 		return false
 	}
 	return true
+}
+
+// vectorPreFilter uses vector similarity to reduce results before LLM review
+func (s *AutomationService) vectorPreFilter(results []jobResult, cfg *repositories.AutomationConfigDTO) []jobResult {
+	if !cfg.VectorPrefilterEnabled || s.embeddingService == nil {
+		return results
+	}
+	if len(results) == 0 || len(cfg.SourceDocumentIDs) == 0 {
+		return results
+	}
+
+	docEmbeddings, err := s.embeddingService.GetDocumentEmbeddings(cfg.SourceDocumentIDs)
+	if err != nil || len(docEmbeddings) == 0 {
+		log.Printf("Automation: vector pre-filter skipped (no doc embeddings): %v", err)
+		return results
+	}
+
+	// Batch embed result snippets
+	texts := make([]string, len(results))
+	for i, r := range results {
+		texts[i] = r.Title + " - " + r.Snippet
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	vectors, err := s.embeddingService.EmbedTexts(ctx, texts)
+	if err != nil {
+		log.Printf("Automation: vector pre-filter embed failed: %v", err)
+		return results
+	}
+
+	// Compute max cosine similarity of each result against all doc chunks
+	type scored struct {
+		job   jobResult
+		score float64
+	}
+	var scored_results []scored
+	for i, vec := range vectors {
+		maxSim := maxCosineSimilarity(vec, docEmbeddings)
+		if maxSim >= cfg.VectorSimilarityThreshold {
+			scored_results = append(scored_results, scored{job: results[i], score: maxSim})
+		}
+	}
+
+	// Sort descending by score
+	for i := 0; i < len(scored_results)-1; i++ {
+		for j := i + 1; j < len(scored_results); j++ {
+			if scored_results[j].score > scored_results[i].score {
+				scored_results[i], scored_results[j] = scored_results[j], scored_results[i]
+			}
+		}
+	}
+
+	// Limit to max results
+	maxResults := cfg.VectorMaxResults
+	if maxResults <= 0 {
+		maxResults = 10
+	}
+	if len(scored_results) > maxResults {
+		scored_results = scored_results[:maxResults]
+	}
+
+	filtered := make([]jobResult, len(scored_results))
+	for i, sr := range scored_results {
+		filtered[i] = sr.job
+	}
+
+	log.Printf("Automation: vector pre-filter: %d/%d results passed (threshold=%.2f)", len(filtered), len(results), cfg.VectorSimilarityThreshold)
+	return filtered
+}
+
+// maxCosineSimilarity computes the max cosine similarity between a vector and document embeddings
+func maxCosineSimilarity(vec pgvector.Vector, docEmbeddings []repositories.EmbeddingDTO) float64 {
+	maxSim := -1.0
+	vecSlice := vec.Slice()
+	for _, de := range docEmbeddings {
+		sim := cosineSimilarity(vecSlice, de.Embedding.Slice())
+		if sim > maxSim {
+			maxSim = sim
+		}
+	}
+	return maxSim
+}
+
+// cosineSimilarity computes cosine similarity between two float32 slices
+func cosineSimilarity(a, b []float32) float64 {
+	if len(a) != len(b) || len(a) == 0 {
+		return 0
+	}
+	var dotProduct, normA, normB float64
+	for i := range a {
+		dotProduct += float64(a[i]) * float64(b[i])
+		normA += float64(a[i]) * float64(a[i])
+		normB += float64(b[i]) * float64(b[i])
+	}
+	if normA == 0 || normB == 0 {
+		return 0
+	}
+	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB))
+}
+
+// embedProposalAsync embeds a proposal's title+snippet in background
+func (s *AutomationService) embedProposalAsync(cfg *repositories.AutomationConfigDTO, job jobResult, proposalID int64) {
+	if s.embeddingService == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := s.embeddingService.EmbedProposal(ctx, cfg.TenantID, proposalID, cfg.ID, job.Title, job.Snippet); err != nil {
+		log.Printf("Automation: failed to embed proposal %d: %v", proposalID, err)
+	}
+}
+
+// buildCentroidContext builds text context from centroid-similar doc chunks
+func (s *AutomationService) buildCentroidContext(configID int64, docIDs []int64) string {
+	if s.embeddingService == nil || len(docIDs) == 0 {
+		return ""
+	}
+
+	centroid, count, err := s.embeddingService.GetProposalCentroid(configID)
+	if err != nil || count < 5 {
+		return ""
+	}
+
+	similar, err := s.embeddingService.FindSimilarDocChunks(docIDs, centroid, 5)
+	if err != nil || len(similar) == 0 {
+		return ""
+	}
+
+	var sb strings.Builder
+	sb.WriteString("\n\nAPPROVED PROPOSAL PROFILE (skills/experience that led to approvals):\n")
+	for _, s := range similar {
+		sb.WriteString(fmt.Sprintf("- %s (similarity: %.2f)\n", truncateString(s.ChunkText, 200), s.Similarity))
+	}
+
+	log.Printf("Automation: built centroid context from %d proposals, %d similar chunks", count, len(similar))
+	return sb.String()
 }
 
 // extractExclusions pulls out -term patterns from a search query

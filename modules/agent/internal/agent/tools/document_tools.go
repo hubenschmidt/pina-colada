@@ -9,7 +9,8 @@ import (
 	"strings"
 
 	"github.com/ledongthuc/pdf"
-	"agent/internal/schemas"
+
+	"agent/internal/serializers"
 	"agent/internal/services"
 )
 
@@ -79,7 +80,7 @@ func extractPageText(page pdf.Page, pageNum int, text *strings.Builder) {
 }
 
 // extractContent extracts readable content from a document based on its type
-func extractContent(doc *schemas.DocumentResponse, result *services.DownloadDocumentResult) string {
+func extractContent(doc *serializers.DocumentResponse, result *services.DownloadDocumentResult) string {
 	const maxChars = 15000
 
 	if result.Content == nil && result.RedirectURL != nil {
@@ -161,7 +162,7 @@ func (t *DocumentTools) SearchEntityDocumentsCtx(ctx context.Context, params Sea
 }
 
 func formatDocumentItems(items interface{}) []string {
-	if docs, ok := items.([]schemas.DocumentResponse); ok {
+	if docs, ok := items.([]serializers.DocumentResponse); ok {
 		return formatDocuments(docs)
 	}
 	if rawItems, ok := items.([]interface{}); ok {
@@ -171,7 +172,7 @@ func formatDocumentItems(items interface{}) []string {
 	return nil
 }
 
-func formatDocuments(docs []schemas.DocumentResponse) []string {
+func formatDocuments(docs []serializers.DocumentResponse) []string {
 	if len(docs) == 0 {
 		return nil
 	}
