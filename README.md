@@ -163,9 +163,9 @@ flowchart TD
     POST --> SUGG["triggerSuggestions()"]
     POST --> ZERO["trackZeroRuns()"]
 
-    style F3 fill:#e8f5e9,stroke:#2e7d32
-    style F5 fill:#e8f5e9,stroke:#2e7d32
-    style F4 fill:#fff3e0,stroke:#e65100
+    style F3 fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
+    style F5 fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
+    style F4 fill:#fff3e0,stroke:#e65100,color:#1a1a1a
 ```
 
 ### How Embeddings Improved the Pipeline
@@ -182,7 +182,7 @@ flowchart LR
 
     PROP -.->|"no feedback loop"| SERPER
 
-    style LLM fill:#ffcdd2,stroke:#b71c1c
+    style LLM fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
 ```
 
 Every result that passed dedup and URL checks went straight to the LLM for a full review. A typical run sent 8-15 results to Claude, but only 2-4 were relevant. The rest were obvious mismatches (wrong industry, wrong seniority, unrelated role) that a human would dismiss at a glance. Each wasted review burned ~2K tokens of input + output.
@@ -203,9 +203,9 @@ flowchart LR
     PROP -->|"embed async"| EMB[("Embedding table<br/>proposal vectors")]
     EMB -->|"centroid → query gen"| SERPER
 
-    style VPF fill:#e8f5e9,stroke:#2e7d32
-    style EMB fill:#e3f2fd,stroke:#1565c0
-    style LLM fill:#fff3e0,stroke:#e65100
+    style VPF fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
+    style EMB fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
+    style LLM fill:#fff3e0,stroke:#e65100,color:#1a1a1a
 ```
 
 The vector pre-filter embeds each result's `title + snippet` and compares against source document embeddings (resumes). Only semantically similar results pass through to the LLM.
@@ -231,9 +231,9 @@ flowchart TD
         A3 -->|"~1 rejected"| A5["minimal waste"]
     end
 
-    style B4 fill:#ffcdd2,stroke:#b71c1c
-    style A2 fill:#e8f5e9,stroke:#2e7d32
-    style A5 fill:#e8f5e9,stroke:#2e7d32
+    style B4 fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
+    style A2 fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
+    style A5 fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
 ```
 
 | Metric                   | Before                        | After                               |
@@ -260,9 +260,9 @@ flowchart TD
     CONTEXT -->|"injected into prompt"| QUERYGEN["Query suggestion LLM"]
     QUERYGEN -->|"better query"| SEARCH
 
-    style CENTROID fill:#f3e5f5,stroke:#6a1b9a
-    style CONTEXT fill:#e8f5e9,stroke:#2e7d32
-    style TABLE fill:#e3f2fd,stroke:#1565c0
+    style CENTROID fill:#f3e5f5,stroke:#6a1b9a,color:#1a1a1a
+    style CONTEXT fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
+    style TABLE fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
 ```
 
 1. **Runs 1-4**: No centroid yet. Pre-filter uses document embeddings only. Query suggestions are document-context only.
@@ -287,9 +287,9 @@ flowchart LR
     COS --> FILTER["Filter: sim ≥ threshold<br/>Sort desc · top N"]
     FILTER --> OUT["Filtered results<br/>→ LLM review"]
 
-    style DC fill:#e3f2fd,stroke:#1565c0
-    style OAI fill:#fff3e0,stroke:#e65100
-    style COS fill:#f3e5f5,stroke:#6a1b9a
+    style DC fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
+    style OAI fill:#fff3e0,stroke:#e65100,color:#1a1a1a
+    style COS fill:#f3e5f5,stroke:#6a1b9a,color:#1a1a1a
 ```
 
 - **Model**: `text-embedding-3-large` (3072 dimensions)
@@ -315,8 +315,8 @@ flowchart LR
     SIM --> TOP5["Top 5 doc chunks<br/>most similar to centroid"]
     TOP5 --> CTX["Appended to LLM prompt:<br/><b>APPROVED PROPOSAL PROFILE</b><br/><i>skills/experience that<br/>led to approvals</i>"]
 
-    style CENT fill:#f3e5f5,stroke:#6a1b9a
-    style CTX fill:#e8f5e9,stroke:#2e7d32
+    style CENT fill:#f3e5f5,stroke:#6a1b9a,color:#1a1a1a
+    style CTX fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
 ```
 
 ### Query & Prompt Suggestion Flows
@@ -338,8 +338,8 @@ flowchart TD
     COOL -->|yes| PLLM["LLM: suggest improved prompt<br/><i>current prompt + rejected jobs</i>"]
     PLLM --> PSAVE["Save suggested_prompt"]
 
-    style QLLM fill:#fff3e0,stroke:#e65100
-    style PLLM fill:#fff3e0,stroke:#e65100
+    style QLLM fill:#fff3e0,stroke:#e65100,color:#1a1a1a
+    style PLLM fill:#fff3e0,stroke:#e65100,color:#1a1a1a
 ```
 
 ### Document Embedding Flow
@@ -357,9 +357,9 @@ flowchart TD
     CHUNK --> API["OpenAI API<br/>text-embedding-3-large<br/>(batch embed)"]
     API --> DB2[("DB: Embedding table<br/>UpsertDocChunks<br/>delete + insert in tx")]
 
-    style SUMM fill:#fff3e0,stroke:#e65100
-    style API fill:#fff3e0,stroke:#e65100
-    style DB2 fill:#e3f2fd,stroke:#1565c0
+    style SUMM fill:#fff3e0,stroke:#e65100,color:#1a1a1a
+    style API fill:#fff3e0,stroke:#e65100,color:#1a1a1a
+    style DB2 fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
 ```
 
 ### Data Model
