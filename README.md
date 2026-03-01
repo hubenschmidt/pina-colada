@@ -1,5 +1,30 @@
 # PinaColada CRM Architecture
 
+## Table of Contents
+
+- [Description](#description)
+- [System Overview](#system-overview)
+  - [Key Components](#key-components)
+  - [Tools](#tools)
+  - [Handoff Mechanism](#handoff-mechanism)
+  - [Per-User Configuration](#per-user-configuration)
+- [Crawler Architecture](#crawler-architecture)
+  - [Pipeline Overview](#pipeline-overview)
+  - [How Embeddings Improved the Pipeline](#how-embeddings-improved-the-pipeline)
+    - [Before: keyword-only pipeline](#before-keyword-only-pipeline)
+    - [After: embedding-augmented pipeline](#after-embedding-augmented-pipeline)
+    - [Before vs after](#before-vs-after)
+  - [The Feedback Loop](#the-feedback-loop)
+  - [Vector Pre-Filter Detail](#vector-pre-filter-detail)
+  - [Centroid-Informed Query Generation](#centroid-informed-query-generation)
+  - [Query & Prompt Suggestion Flows](#query--prompt-suggestion-flows)
+  - [Document Embedding Flow](#document-embedding-flow)
+  - [Data Model](#data-model)
+  - [LLM Usage Summary](#llm-usage-summary)
+- [License](#license)
+
+---
+
 ## Description
 
 PinaColada is an AI-native CRM built on the OpenAI Agents Go SDK that manages relationships and workflows through natural conversation. Core entities include Contacts, Leads, Deals, Opportunities, Organizations, and Jobs. The system uses a triage agent with handoffs to specialized workers, all driven by conversational AI rather than traditional forms and dashboards.
