@@ -2425,6 +2425,16 @@ func (s *AutomationService) vectorPreFilter(results []jobResult, cfg *repositori
 		return results
 	}
 
+	// Compute rejection centroid for penalty (if enough rejections exist)
+	var rejectionCentroid pgvector.Vector
+	var hasRejectionCentroid bool
+	rejCentroid, rejCount, rejErr := s.embeddingService.GetRejectionCentroid(cfg.ID)
+	if rejErr == nil && rejCount >= 3 {
+		rejectionCentroid = rejCentroid
+		hasRejectionCentroid = true
+		log.Printf("Automation: rejection centroid loaded (%d user rejections)", rejCount)
+	}
+
 	// Compute max cosine similarity of each result against all doc chunks
 	type scored struct {
 		job   jobResult
@@ -2432,9 +2442,14 @@ func (s *AutomationService) vectorPreFilter(results []jobResult, cfg *repositori
 	}
 	var scored_results []scored
 	for i, vec := range vectors {
-		maxSim := maxCosineSimilarity(vec, docEmbeddings)
-		if maxSim >= cfg.VectorSimilarityThreshold {
-			scored_results = append(scored_results, scored{job: results[i], score: maxSim})
+		positiveScore := maxCosineSimilarity(vec, docEmbeddings)
+		finalScore := positiveScore
+		if hasRejectionCentroid {
+			rejSim := cosineSimilarity(vec.Slice(), rejectionCentroid.Slice())
+			finalScore = positiveScore - (rejSim * 0.3)
+		}
+		if finalScore >= cfg.VectorSimilarityThreshold {
+			scored_results = append(scored_results, scored{job: results[i], score: finalScore})
 		}
 	}
 
@@ -2532,6 +2547,24 @@ func (s *AutomationService) buildCentroidContext(configID int64, docIDs []int64)
 	}
 
 	log.Printf("Automation: built centroid context from %d proposals, %d similar chunks", count, len(similar))
+
+	// Add rejection context if enough user rejections exist
+	rejCentroid, rejCount, rejErr := s.embeddingService.GetRejectionCentroid(configID)
+	if rejErr != nil || rejCount < 3 {
+		return sb.String()
+	}
+
+	rejSimilar, rejSErr := s.embeddingService.FindSimilarDocChunks(docIDs, rejCentroid, 3)
+	if rejSErr != nil || len(rejSimilar) == 0 {
+		return sb.String()
+	}
+
+	sb.WriteString("\nUSER-REJECTED PROFILE (the user tends to reject jobs involving):\n")
+	for _, rs := range rejSimilar {
+		sb.WriteString(fmt.Sprintf("- %s (similarity: %.2f)\n", truncateString(rs.ChunkText, 200), rs.Similarity))
+	}
+	log.Printf("Automation: added rejection context from %d rejections, %d similar chunks", rejCount, len(rejSimilar))
+
 	return sb.String()
 }
 

@@ -31,74 +31,55 @@ PinaColada is an AI-native CRM built on the OpenAI Agents Go SDK that manages re
 
 ## System Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         FRONTEND (pinacolada.co)                    │
-│                         WebSocket Client                            │
-│  • Real-time streaming responses                                    │
-│  • Token usage display (current/cumulative)                         │
-└──────────────────────────┬──────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    GO HTTP SERVER (Chi + Gorilla WS)                │
-│                    cmd/agent/main.go                                │
-│  • REST endpoints (/agent/chat)                                     │
-│  • WebSocket streaming (/ws)                                        │
-│  • Token usage tracking                                             │
-└──────────────────────────┬──────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    ORCHESTRATOR                                     │
-│                    internal/agent/orchestrator.go                   │
-│                                                                     │
-│  • Manages agent lifecycle                                          │
-│  • Per-user model/settings via ConfigCache                          │
-│  • Conversation state (memory + DB persistence)                     │
-│  • Token usage accumulation                                         │
-└──────────────────────────┬──────────────────────────────────────────┘
-                           │
-                           ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    TRIAGE AGENT (OpenAI Agents SDK)                 │
-│                    (user-configurable model, default gpt-4o)        │
-│                                                                     │
-│  • Intent-based routing via native handoff mechanism                │
-│  • Routes to exactly ONE worker per message                         │
-│  • "search jobs" → job_search | "my leads" → crm | else → general   │
-└──────────────────────────┬──────────────────────────────────────────┘
-                           │
-         ┌─────────────────┼─────────────────┐
-         ▼                 ▼                 ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│  JOB SEARCH     │ │   CRM WORKER    │ │  GENERAL WORKER │
-│  WORKER         │ │                 │ │                 │
-│                 │ │ • crm_lookup    │ │ • crm_lookup    │
-│ • job_search    │ │ • crm_list      │ │ • read_document │
-│ • send_email    │ │ • crm_propose_* │ │ • Q&A           │
-│ • crm_lookup    │ │ • read_document │ │                 │
-│ • read_document │ │                 │ │                 │
-└────────┬────────┘ └────────┬────────┘ └────────┬────────┘
-         │                   │                   │
-         └───────────────────┴───────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                    EVALUATOR (Optional)                             │
-│                    internal/agent/evaluator.go                      │
-│                    (Claude, when ANTHROPIC_API_KEY set)             │
-│                                                                     │
-│  • Scores response 0-100                                            │
-│  • Types: Career | CRM | General                                    │
-│  • If score < 60 → retry agent with feedback                        │
-└──────────────────────────┬──────────────────────────────────────────┘
-                           │
-                           ▼
-                      ┌──────────┐
-                      │  DONE    │
-                      │ (Stream) │
-                      └──────────┘
+```mermaid
+flowchart TD
+    FE["Frontend (pinacolada.co)<br/><i>WebSocket client · streaming · token display</i>"]
+    FE --> SERVER["Go HTTP Server (Chi + Gorilla WS)<br/><i>REST · WebSocket · token tracking</i>"]
+
+    SERVER --> ORCH["Orchestrator<br/><i>agent lifecycle · per-user config · conversation state</i>"]
+    SERVER --> SCHED[/"Scheduler (cron)"/]
+    SERVER --> DATAPAGE["Data Management Page<br/><i>human review of proposals</i>"]
+
+    %% Conversational AI path
+    ORCH --> TRIAGE["Triage Agent (OpenAI Agents SDK)<br/><i>intent routing → one worker per message</i>"]
+    TRIAGE --> JSW["Job Search<br/>Worker"]
+    TRIAGE --> CRM["CRM<br/>Worker"]
+    TRIAGE --> GEN["General<br/>Worker"]
+    JSW --> EVAL
+    CRM --> EVAL
+    GEN --> EVAL
+    EVAL["Evaluator (Claude)<br/><i>score 0-100 · retry if &lt; 60</i>"] --> DONE["Done (Stream)"]
+
+    %% Crawler path
+    SCHED --> AUTO["Automation Service<br/><i>executeAutomation()</i>"]
+    AUTO --> SERPER["Serper API"]
+    SERPER --> PIPE["Processing Pipeline<br/><i>dedup → URLs → vector pre-filter → LLM review</i>"]
+    PIPE --> PROPOSALS[("Proposals")]
+
+    %% User feedback embedding loop
+    DATAPAGE -->|"approve"| APPR["Embed user_approved"]
+    DATAPAGE -->|"reject"| REJT["Embed user_rejected"]
+    APPR --> EMB[("Embedding Table<br/>(pgvector)")]
+    REJT --> EMB
+    AUTO -->|"embed async"| EMB
+    EMB -->|"positive centroid<br/>proposal + user_approved"| PIPE
+    EMB -->|"rejection centroid<br/>penalty + rejected profile"| PIPE
+    EMB -->|"centroid context →<br/>query suggestion"| AUTO
+
+    %% Shared DB
+    PROPOSALS --> DB[("PostgreSQL")]
+    JSW -.-> DB
+    CRM -.-> DB
+    GEN -.-> DB
+
+    style FE fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
+    style TRIAGE fill:#fff3e0,stroke:#e65100,color:#1a1a1a
+    style EVAL fill:#fff3e0,stroke:#e65100,color:#1a1a1a
+    style PIPE fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
+    style EMB fill:#f3e5f5,stroke:#6a1b9a,color:#1a1a1a
+    style DATAPAGE fill:#fff3e0,stroke:#e65100,color:#1a1a1a
+    style APPR fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
+    style REJT fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
 ```
 
 ### Key Components
@@ -220,7 +201,7 @@ Query suggestions relied entirely on keyword heuristics (Serper related searches
 flowchart LR
     SERPER["Serper API<br/>~10-20 results"] --> DEDUP["Dedup"]
     DEDUP --> URLS["URL validation"]
-    URLS --> VPF["Vector pre-filter<br/><b>embed + cosine</b><br/>~$0.0001/result"]
+    URLS --> VPF["Vector pre-filter<br/><b>embed + cosine<br/>− rejection penalty</b><br/>~$0.0001/result"]
     VPF -->|"top N similar"| LLM["LLM review<br/>(Claude/GPT)"]
     LLM -->|approved| PROP["Proposals"]
     LLM -->|rejected| REJ["Rejected jobs"]
@@ -228,14 +209,26 @@ flowchart LR
     PROP -->|"embed async"| EMB[("Embedding table<br/>proposal vectors")]
     EMB -->|"centroid → query gen"| SERPER
 
+    PROP -->|"user approves"| UAPPR["user_approved<br/>embedding"]
+    UAPPR --> EMB
+    PROP -->|"user rejects"| UREJ["user_rejected<br/>embedding"]
+    UREJ --> REJC["Rejection centroid"]
+    REJC -->|"penalty signal"| VPF
+    REJC -->|"USER-REJECTED PROFILE"| SERPER
+
     style VPF fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
     style EMB fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
     style LLM fill:#fff3e0,stroke:#e65100,color:#1a1a1a
+    style UAPPR fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
+    style UREJ fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
+    style REJC fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
 ```
 
 The vector pre-filter embeds each result's `title + snippet` and compares against source document embeddings (resumes). Only semantically similar results pass through to the LLM.
 
 Approved proposals are embedded and stored. Over time, their centroid vector becomes a semantic fingerprint of "what this crawler approves," which is injected into query suggestion prompts.
+
+When a user reviews proposals on the Data Management page, their decisions feed back into the embedding system: **approvals** reinforce the positive centroid, while **rejections** build a rejection centroid that penalizes similar results in future runs and informs query suggestions about what to avoid.
 
 #### Before vs after
 
@@ -261,18 +254,19 @@ flowchart TD
     style A5 fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
 ```
 
-| Metric                   | Before                        | After                               |
-| ------------------------ | ----------------------------- | ----------------------------------- |
-| Results sent to LLM      | All post-dedup (~8-15)        | Only semantically similar (~3-6)    |
-| LLM tokens per run       | ~20K-40K                      | ~8K-16K                             |
-| LLM cost per run         | ~$0.01-0.02                   | ~$0.004-0.008                       |
-| Embedding cost per run   | $0                            | ~$0.0002 (batch embed)              |
-| Query suggestion context | System prompt + doc text only | + centroid-informed skill profile   |
-| Learning from approvals  | None                          | Centroid refines with each approval |
+| Metric                   | Before                        | After                                                         |
+| ------------------------ | ----------------------------- | ------------------------------------------------------------- |
+| Results sent to LLM      | All post-dedup (~8-15)        | Only semantically similar (~3-6)                              |
+| LLM tokens per run       | ~20K-40K                      | ~8K-16K                                                       |
+| LLM cost per run         | ~$0.01-0.02                   | ~$0.004-0.008                                                 |
+| Embedding cost per run   | $0                            | ~$0.0002 (batch embed)                                        |
+| Query suggestion context | System prompt + doc text only | + centroid-informed skill profile + rejection profile         |
+| Learning from approvals  | None                          | Centroid refines with each approval                           |
+| Learning from rejections | None                          | Rejection centroid penalizes similar results, warns query LLM |
 
 ### The Feedback Loop
 
-The key architectural shift is that the system now learns from its own approvals:
+The key architectural shift is that the system learns from both automated approvals and human review decisions:
 
 ```mermaid
 flowchart TD
@@ -280,19 +274,36 @@ flowchart TD
     REVIEW -->|approved| PROPOSAL["Create proposal"]
     PROPOSAL --> EMBED["Embed proposal<br/><i>async goroutine</i>"]
     EMBED --> TABLE[("Embedding table<br/>source_type = 'proposal'")]
-    TABLE -->|"AVG(embedding)"| CENTROID["Centroid vector<br/><i>semantic profile of<br/>what gets approved</i>"]
-    CENTROID -->|"compare to resume chunks"| CONTEXT["Centroid context<br/><i>top 5 relevant skills</i>"]
+
+    PROPOSAL --> DATAPAGE["Data Management page<br/><i>human review</i>"]
+    DATAPAGE -->|"user approves"| UAPPR[("Embedding table<br/>source_type = 'user_approved'")]
+    DATAPAGE -->|"user rejects"| UREJ[("Embedding table<br/>source_type = 'user_rejected'")]
+
+    TABLE -->|"AVG(embedding)"| CENTROID["Positive centroid<br/><i>proposal + user_approved</i>"]
+    UAPPR -->|"AVG(embedding)"| CENTROID
+    CENTROID -->|"compare to resume chunks"| CONTEXT["APPROVED PROPOSAL PROFILE<br/><i>top 5 relevant skills</i>"]
     CONTEXT -->|"injected into prompt"| QUERYGEN["Query suggestion LLM"]
     QUERYGEN -->|"better query"| SEARCH
 
+    UREJ -->|"AVG(embedding)"| REJCENT["Rejection centroid<br/><i>user_rejected</i>"]
+    REJCENT -->|"penalty in pre-filter"| SEARCH
+    REJCENT -->|"compare to resume chunks"| REJCTX["USER-REJECTED PROFILE<br/><i>top 3 rejection-similar skills</i>"]
+    REJCTX -->|"injected into prompt"| QUERYGEN
+
     style CENTROID fill:#f3e5f5,stroke:#6a1b9a,color:#1a1a1a
+    style REJCENT fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
     style CONTEXT fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
+    style REJCTX fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
     style TABLE fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
+    style UAPPR fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
+    style UREJ fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
+    style DATAPAGE fill:#fff3e0,stroke:#e65100,color:#1a1a1a
 ```
 
 1. **Runs 1-4**: No centroid yet. Pre-filter uses document embeddings only. Query suggestions are document-context only.
 2. **Runs 5+**: Centroid activates. The system knows e.g. "this crawler approves backend engineering roles with distributed systems experience." The query suggestion LLM receives this as concrete context.
-3. **Runs 10+**: Centroid stabilizes. Pre-filter becomes more precise as the approval profile sharpens. Query suggestions increasingly target the niche the crawler has converged on.
+3. **User feedback**: When the user approves/rejects proposals on the Data Management page, the positive centroid is reinforced and a rejection centroid builds. After 3+ rejections, the rejection centroid penalizes similar results in the pre-filter (`finalScore = positiveScore - rejectionSimilarity * 0.3`) and a `USER-REJECTED PROFILE` section is injected into the query suggestion prompt.
+4. **Runs 10+**: Both centroids stabilize. Pre-filter becomes more precise as it promotes approval-similar and demotes rejection-similar results. Query suggestions target the approved niche while avoiding rejected patterns.
 
 ### Vector Pre-Filter Detail
 
@@ -306,29 +317,47 @@ flowchart LR
         SR["Search results<br/>title + snippet"] --> OAI["OpenAI<br/>text-embedding-3-large<br/>(batch embed)"]
     end
 
-    DC --> COS["Cosine similarity<br/>max(result vs all chunks)"]
-    OAI --> COS
+    subgraph REJECTION["From user feedback"]
+        RC["Rejection centroid<br/>(≥ 3 user rejections)"]
+    end
 
-    COS --> FILTER["Filter: sim ≥ threshold<br/>Sort desc · top N"]
+    DC --> COS["Cosine similarity<br/>max(result vs all chunks)<br/>→ positiveScore"]
+    OAI --> COS
+    OAI --> REJCOS["Cosine similarity<br/>vs rejection centroid<br/>→ rejectionSimilarity"]
+    RC --> REJCOS
+
+    COS --> SCORE["finalScore =<br/>positiveScore − rejSim × 0.3"]
+    REJCOS --> SCORE
+
+    SCORE --> FILTER["Filter: finalScore ≥ threshold<br/>Sort desc · top N"]
     FILTER --> OUT["Filtered results<br/>→ LLM review"]
 
     style DC fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
     style OAI fill:#fff3e0,stroke:#e65100,color:#1a1a1a
     style COS fill:#f3e5f5,stroke:#6a1b9a,color:#1a1a1a
+    style RC fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
+    style REJCOS fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
 ```
 
 - **Model**: `text-embedding-3-large` (3072 dimensions)
 - **Config**: `vector_similarity_threshold` (default 0.3), `vector_max_results` (default 10)
+- **Rejection penalty**: Applied when ≥ 3 user rejections exist for the config. Weight factor: 0.3
 
 ### Centroid-Informed Query Generation
 
 ```mermaid
 flowchart LR
-    subgraph PROPOSALS["Embedding table"]
-        PE["source_type = 'proposal'<br/>config_id = this crawler"]
+    subgraph PROPOSALS["Embedding table — positive"]
+        PE["source_type IN<br/>('proposal', 'user_approved')<br/>config_id = this crawler"]
     end
 
-    PE -->|"AVG(embedding)"| CENT["Centroid vector<br/><i>requires ≥ 5 proposals</i>"]
+    PE -->|"AVG(embedding)"| CENT["Positive centroid<br/><i>requires ≥ 5 embeddings</i>"]
+
+    subgraph REJECTIONS["Embedding table — negative"]
+        RE["source_type = 'user_rejected'<br/>config_id = this crawler"]
+    end
+
+    RE -->|"AVG(embedding)"| REJCENT["Rejection centroid<br/><i>requires ≥ 3 rejections</i>"]
 
     subgraph DOCUMENTS["Embedding table"]
         DE["source_type = 'document'<br/>source_id IN doc_ids"]
@@ -336,12 +365,21 @@ flowchart LR
 
     CENT --> SIM["Cosine similarity"]
     DE --> SIM
-
     SIM --> TOP5["Top 5 doc chunks<br/>most similar to centroid"]
-    TOP5 --> CTX["Appended to LLM prompt:<br/><b>APPROVED PROPOSAL PROFILE</b><br/><i>skills/experience that<br/>led to approvals</i>"]
+    TOP5 --> CTX["<b>APPROVED PROPOSAL PROFILE</b><br/><i>skills/experience that<br/>led to approvals</i>"]
+
+    REJCENT --> RSIM["Cosine similarity"]
+    DE --> RSIM
+    RSIM --> TOP3["Top 3 doc chunks<br/>most similar to rejection centroid"]
+    TOP3 --> RCTX["<b>USER-REJECTED PROFILE</b><br/><i>topics the user<br/>tends to reject</i>"]
+
+    CTX --> PROMPT["Appended to<br/>query suggestion LLM prompt"]
+    RCTX --> PROMPT
 
     style CENT fill:#f3e5f5,stroke:#6a1b9a,color:#1a1a1a
+    style REJCENT fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
     style CTX fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
+    style RCTX fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
 ```
 
 ### Query & Prompt Suggestion Flows
@@ -400,7 +438,7 @@ erDiagram
     Embedding {
         bigint id PK
         bigint tenant_id
-        varchar source_type "document | proposal"
+        varchar source_type "document | proposal | user_approved | user_rejected"
         bigint source_id "doc_id or proposal_id"
         bigint config_id FK "nullable"
         int chunk_index

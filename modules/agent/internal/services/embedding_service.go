@@ -110,6 +110,31 @@ func (s *EmbeddingService) EmbedProposal(ctx context.Context, tenantID, proposal
 	return nil
 }
 
+// EmbedWithSourceType embeds text and stores it with a custom source_type
+func (s *EmbeddingService) EmbedWithSourceType(ctx context.Context, tenantID, sourceID, configID int64, sourceType, text string) error {
+	vectors, err := s.EmbedTexts(ctx, []string{text})
+	if err != nil {
+		return fmt.Errorf("embedding %s: %w", sourceType, err)
+	}
+
+	if err := s.repo.InsertEmbeddingWithType(tenantID, sourceID, configID, sourceType, text, vectors[0]); err != nil {
+		return err
+	}
+
+	log.Printf("📐 Embedding: stored %s %d embedding (config=%d, %d chars)", sourceType, sourceID, configID, len(text))
+	return nil
+}
+
+// DeleteBySource deletes all embeddings for a given source type and ID
+func (s *EmbeddingService) DeleteBySource(sourceType string, sourceID int64) error {
+	return s.repo.DeleteBySource(sourceType, sourceID)
+}
+
+// GetRejectionCentroid returns the rejection centroid vector and count for a config
+func (s *EmbeddingService) GetRejectionCentroid(configID int64) (pgvector.Vector, int, error) {
+	return s.repo.GetRejectionCentroid(configID)
+}
+
 // GetDocumentEmbeddings returns embeddings for the given document IDs
 func (s *EmbeddingService) GetDocumentEmbeddings(docIDs []int64) ([]repositories.EmbeddingDTO, error) {
 	return s.repo.GetDocumentEmbeddings(docIDs)

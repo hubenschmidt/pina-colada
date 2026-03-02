@@ -1,17 +1,21 @@
 package services
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"sync"
+	"time"
+
+	"gorm.io/datatypes"
 
 	apperrors "agent/internal/errors"
 	"agent/internal/repositories"
 	"agent/internal/schemas"
 	"agent/internal/serializers"
 	"agent/internal/validation"
-	"gorm.io/datatypes"
 )
 
 var (
@@ -33,15 +37,88 @@ type ProposeResult struct {
 
 // ProposalService handles proposal business logic
 type ProposalService struct {
-	proposalRepo   *repositories.ProposalRepository
-	approvalRepo   *repositories.ApprovalConfigRepository
-	contactService *ContactService
-	orgService     *OrganizationService
-	indService     *IndividualService
-	noteService    *NoteService
-	taskService    *TaskService
-	jobService     *JobService
-	leadService    *LeadService
+	proposalRepo     *repositories.ProposalRepository
+	approvalRepo     *repositories.ApprovalConfigRepository
+	contactService   *ContactService
+	orgService       *OrganizationService
+	indService       *IndividualService
+	noteService      *NoteService
+	taskService      *TaskService
+	jobService       *JobService
+	leadService      *LeadService
+	embeddingService *EmbeddingService
+}
+
+// SetEmbeddingService sets the embedding service for user feedback embeddings
+func (s *ProposalService) SetEmbeddingService(es *EmbeddingService) {
+	s.embeddingService = es
+}
+
+// embedApprovedProposal embeds a user-approved proposal for centroid learning
+func (s *ProposalService) embedApprovedProposal(proposal *repositories.ProposalDTO) {
+	if s.embeddingService == nil || proposal.AutomationConfigID == nil {
+		return
+	}
+
+	title := extractProposalTitle(proposal.Payload)
+	if title == "" {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	err := s.embeddingService.EmbedWithSourceType(ctx, proposal.TenantID, proposal.ID, *proposal.AutomationConfigID, "user_approved", title)
+	if err != nil {
+		log.Printf("Proposal: failed to embed approved proposal %d: %v", proposal.ID, err)
+		return
+	}
+	log.Printf("Proposal: embedded user-approved proposal %d (config=%d)", proposal.ID, *proposal.AutomationConfigID)
+}
+
+// embedRejectedProposal removes existing embedding and stores a rejection embedding
+func (s *ProposalService) embedRejectedProposal(proposal *repositories.ProposalDTO) {
+	if s.embeddingService == nil || proposal.AutomationConfigID == nil {
+		return
+	}
+
+	_ = s.embeddingService.DeleteBySource("proposal", proposal.ID)
+
+	title := extractProposalTitle(proposal.Payload)
+	if title == "" {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	err := s.embeddingService.EmbedWithSourceType(ctx, proposal.TenantID, proposal.ID, *proposal.AutomationConfigID, "user_rejected", title)
+	if err != nil {
+		log.Printf("Proposal: failed to embed rejected proposal %d: %v", proposal.ID, err)
+		return
+	}
+	log.Printf("Proposal: embedded user-rejected proposal %d (config=%d)", proposal.ID, *proposal.AutomationConfigID)
+}
+
+// extractProposalTitle pulls a title from proposal payload JSON
+func extractProposalTitle(payload datatypes.JSON) string {
+	var data map[string]interface{}
+	if err := json.Unmarshal(payload, &data); err != nil {
+		return ""
+	}
+	if title, ok := data["job_title"].(string); ok && title != "" {
+		return title
+	}
+	if title, ok := data["title"].(string); ok && title != "" {
+		return title
+	}
+	if note, ok := data["note"].(string); ok && note != "" {
+		return note
+	}
+	if content, ok := data["content"].(string); ok && content != "" {
+		return content
+	}
+	return ""
 }
 
 // NewProposalService creates a new proposal service
@@ -244,6 +321,8 @@ func (s *ProposalService) ApproveProposal(proposalID, reviewerID int64) (*serial
 		return nil, err
 	}
 
+	go s.embedApprovedProposal(proposal)
+
 	proposal, _ = s.proposalRepo.FindByID(proposalID)
 	return proposalToResponse(proposal), nil
 }
@@ -265,6 +344,8 @@ func (s *ProposalService) RejectProposal(proposalID, reviewerID int64) (*seriali
 	if err != nil {
 		return nil, err
 	}
+
+	go s.embedRejectedProposal(proposal)
 
 	proposal, _ = s.proposalRepo.FindByID(proposalID)
 	return proposalToResponse(proposal), nil

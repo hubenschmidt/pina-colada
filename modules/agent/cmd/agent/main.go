@@ -125,6 +125,7 @@ func main() {
 		embeddingService := services.NewEmbeddingService(embeddingRepo, cfg.OpenAIAPIKey)
 		automationService.SetEmbeddingService(embeddingService)
 		docService.SetEmbedder(embeddingService)
+		proposalService.SetEmbeddingService(embeddingService)
 		log.Println("Vector embedding service initialized")
 	}
 

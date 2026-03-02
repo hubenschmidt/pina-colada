@@ -107,7 +107,22 @@ func (r *EmbeddingRepository) InsertProposalEmbedding(tenantID, proposalID, conf
 	return r.db.Create(&row).Error
 }
 
-// GetProposalCentroid returns the average embedding vector and count for a config's proposals
+// InsertEmbeddingWithType stores an embedding with a custom source_type
+func (r *EmbeddingRepository) InsertEmbeddingWithType(tenantID, sourceID, configID int64, sourceType, text string, embedding pgvector.Vector) error {
+	row := models.Embedding{
+		TenantID:   tenantID,
+		SourceType: sourceType,
+		SourceID:   sourceID,
+		ConfigID:   &configID,
+		ChunkIndex: 0,
+		ChunkText:  text,
+		Embedding:  embedding,
+		CreatedAt:  time.Now(),
+	}
+	return r.db.Create(&row).Error
+}
+
+// GetProposalCentroid returns the average embedding vector and count for a config's proposals (includes user approvals)
 func (r *EmbeddingRepository) GetProposalCentroid(configID int64) (pgvector.Vector, int, error) {
 	var result struct {
 		Centroid pgvector.Vector
@@ -115,7 +130,23 @@ func (r *EmbeddingRepository) GetProposalCentroid(configID int64) (pgvector.Vect
 	}
 
 	err := r.db.Raw(`SELECT AVG(embedding)::vector AS centroid, COUNT(*) AS count
-		FROM "Embedding" WHERE config_id = ? AND source_type = 'proposal'`, configID).
+		FROM "Embedding" WHERE config_id = ? AND source_type IN ('proposal', 'user_approved')`, configID).
+		Scan(&result).Error
+	if err != nil {
+		return pgvector.Vector{}, 0, err
+	}
+	return result.Centroid, result.Count, nil
+}
+
+// GetRejectionCentroid returns the average embedding vector and count for a config's rejected proposals
+func (r *EmbeddingRepository) GetRejectionCentroid(configID int64) (pgvector.Vector, int, error) {
+	var result struct {
+		Centroid pgvector.Vector
+		Count    int
+	}
+
+	err := r.db.Raw(`SELECT AVG(embedding)::vector AS centroid, COUNT(*) AS count
+		FROM "Embedding" WHERE config_id = ? AND source_type = 'user_rejected'`, configID).
 		Scan(&result).Error
 	if err != nil {
 		return pgvector.Vector{}, 0, err
