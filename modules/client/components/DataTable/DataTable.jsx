@@ -1,9 +1,9 @@
-import React from "react";
+import React, { memo } from "react";
 import { Box, Group, Pagination, Table, Text, Select, UnstyledButton } from "@mantine/core";
 import { ArrowUp, ArrowDown, ChevronsUpDown } from "lucide-react";
 import styles from "./DataTable.module.css";
 
-export const DataTable = ({
+export const DataTable = memo(({
   data,
   columns,
   onPageChange,
@@ -208,4 +208,4 @@ export const DataTable = ({
       </Table.ScrollContainer>
     </Box>
   );
-};
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import {
   Container,
   Stack,
@@ -248,13 +248,11 @@ const AutomationPage = () => {
     openModal();
   };
 
-  const handleOpenEdit = async (crawler) => {
-    setEditingCrawler(crawler);
-    // Convert seconds to appropriate unit for display
+  const crawlerToFormData = (crawler, nameOverride) => {
     const seconds = crawler.interval_seconds || 1800;
     const useMinutes = seconds >= 60 && seconds % 60 === 0;
-    const formData = {
-      name: crawler.name || "",
+    return {
+      name: nameOverride ?? (crawler.name || ""),
       entity_type: crawler.entity_type || "job",
       interval_value: useMinutes ? seconds / 60 : seconds,
       interval_unit: useMinutes ? "minutes" : "seconds",
@@ -286,114 +284,61 @@ const AutomationPage = () => {
       prompt_cooldown_runs: crawler.prompt_cooldown_runs ?? 5,
       prompt_cooldown_prospects: crawler.prompt_cooldown_prospects ?? 50,
     };
+  };
+
+  const TARGET_LABEL_FETCHERS = {
+    individual: async (id) => {
+      const ind = await getIndividual(id);
+      return `${ind.first_name} ${ind.last_name}`.trim() || ind.email || `ID: ${id}`;
+    },
+    organization: async (id) => {
+      const org = await getOrganization(id);
+      return org.name || `ID: ${id}`;
+    },
+    job: async (id) => {
+      const job = await getJob(id);
+      return job.job_title || `ID: ${id}`;
+    },
+    contact: async (id) => {
+      const c = await getContact(id);
+      return c.name || c.email || `ID: ${id}`;
+    },
+  };
+
+  const loadTargetOptions = async (crawler) => {
+    setTargetOptions([]);
+    if (!crawler.target_ids?.length || !crawler.target_type) return;
+
+    const fetcher = TARGET_LABEL_FETCHERS[crawler.target_type];
+    try {
+      const loadedOptions = await Promise.all(
+        crawler.target_ids.map(async (id) => ({
+          value: String(id),
+          label: fetcher ? await fetcher(id) : `ID: ${id}`,
+        }))
+      );
+      setTargetOptions(loadedOptions);
+    } catch {
+      setTargetOptions([]);
+    }
+  };
+
+  const handleOpenEdit = async (crawler) => {
+    setEditingCrawler(crawler);
+    const formData = crawlerToFormData(crawler);
     setForm(formData);
     setInitialForm(formData);
-
-    // Load target entity names if set
-    setTargetOptions([]);
-    if (crawler.target_ids?.length && crawler.target_type) {
-      try {
-        const loadedOptions = await Promise.all(
-          crawler.target_ids.map(async (id) => {
-            if (crawler.target_type === "individual") {
-              const ind = await getIndividual(id);
-              return { value: String(id), label: `${ind.first_name} ${ind.last_name}`.trim() || ind.email || `ID: ${id}` };
-            }
-            if (crawler.target_type === "organization") {
-              const org = await getOrganization(id);
-              return { value: String(id), label: org.name || `ID: ${id}` };
-            }
-            if (crawler.target_type === "job") {
-              const job = await getJob(id);
-              return { value: String(id), label: job.job_title || `ID: ${id}` };
-            }
-            if (crawler.target_type === "contact") {
-              const c = await getContact(id);
-              return { value: String(id), label: c.name || c.email || `ID: ${id}` };
-            }
-            return { value: String(id), label: `ID: ${id}` };
-          })
-        );
-        setTargetOptions(loadedOptions);
-      } catch {
-        setTargetOptions([]);
-      }
-    }
-
+    await loadTargetOptions(crawler);
     setModalError(null);
     openModal();
   };
 
   const handleDuplicate = async (crawler) => {
     setEditingCrawler(null);
-    const seconds = crawler.interval_seconds || 1800;
-    const useMinutes = seconds >= 60 && seconds % 60 === 0;
-    const formData = {
-      name: `Copy of ${crawler.name || ""}`,
-      entity_type: crawler.entity_type || "job",
-      interval_value: useMinutes ? seconds / 60 : seconds,
-      interval_unit: useMinutes ? "minutes" : "seconds",
-      compilation_target: crawler.compilation_target || 100,
-      disable_on_compiled: crawler.disable_on_compiled ?? false,
-      search_query: crawler.search_query || "",
-      suggested_query: crawler.suggested_query || null,
-      use_suggested_query: crawler.use_suggested_query ?? false,
-      location: crawler.location || "",
-      ats_mode: crawler.ats_mode ?? true,
-      time_filter: crawler.time_filter || "week",
-      target_type: crawler.target_type || null,
-      target_ids: crawler.target_ids || [],
-      source_document_ids: crawler.source_document_ids || [],
-      system_prompt: crawler.system_prompt || "",
-      suggested_prompt: crawler.suggested_prompt || null,
-      use_suggested_prompt: crawler.use_suggested_prompt ?? false,
-      suggestion_threshold: crawler.suggestion_threshold ?? 50,
-      min_prospects_threshold: crawler.min_prospects_threshold ?? 5,
-      digest_enabled: crawler.digest_enabled ?? true,
-      digest_emails: crawler.digest_emails || "",
-      digest_time: crawler.digest_time || "09:00",
-      digest_model: crawler.digest_model || null,
-      use_agent: crawler.use_agent ?? false,
-      agent_model: crawler.agent_model || "claude-sonnet-4-5-20250929",
-      use_analytics: crawler.use_analytics ?? false,
-      analytics_model: crawler.analytics_model || "claude-3-haiku-20240307",
-      empty_proposal_limit: crawler.empty_proposal_limit || null,
-      prompt_cooldown_runs: crawler.prompt_cooldown_runs ?? 5,
-      prompt_cooldown_prospects: crawler.prompt_cooldown_prospects ?? 50,
-    };
+    const formData = crawlerToFormData(crawler, `Copy of ${crawler.name || ""}`);
     setForm(formData);
     setInitialForm(formData);
-
-    setTargetOptions([]);
-    if (crawler.target_ids?.length && crawler.target_type) {
-      try {
-        const loadedOptions = await Promise.all(
-          crawler.target_ids.map(async (id) => {
-            if (crawler.target_type === "individual") {
-              const ind = await getIndividual(id);
-              return { value: String(id), label: `${ind.first_name} ${ind.last_name}`.trim() || ind.email || `ID: ${id}` };
-            }
-            if (crawler.target_type === "organization") {
-              const org = await getOrganization(id);
-              return { value: String(id), label: org.name || `ID: ${id}` };
-            }
-            if (crawler.target_type === "job") {
-              const job = await getJob(id);
-              return { value: String(id), label: job.job_title || `ID: ${id}` };
-            }
-            if (crawler.target_type === "contact") {
-              const c = await getContact(id);
-              return { value: String(id), label: c.name || c.email || `ID: ${id}` };
-            }
-            return { value: String(id), label: `ID: ${id}` };
-          })
-        );
-        setTargetOptions(loadedOptions);
-      } catch {
-        setTargetOptions([]);
-      }
-    }
-
+    await loadTargetOptions(crawler);
     setModalError(null);
     openModal();
   };
@@ -530,6 +475,14 @@ const AutomationPage = () => {
 
   const isFormDirty = JSON.stringify(form) !== JSON.stringify(initialForm);
 
+  const documentOptions = useMemo(
+    () => documents.map((doc) => ({
+      value: String(doc.id),
+      label: `${doc.filename} (v${doc.version_number || 1})`,
+    })),
+    [documents]
+  );
+
   if (!userState.isAuthed) {
     return (
       <Container size="lg" py="xl">
@@ -548,11 +501,6 @@ const AutomationPage = () => {
       </Container>
     );
   }
-
-  const documentOptions = documents.map((doc) => ({
-    value: String(doc.id),
-    label: `${doc.filename} (v${doc.version_number || 1})`,
-  }));
 
   return (
     <Container fluid py="xl" px="xl">

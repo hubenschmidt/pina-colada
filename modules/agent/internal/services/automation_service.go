@@ -1789,14 +1789,24 @@ CURRENT QUERY (DO NOT REPEAT THIS):
 
 	sb.WriteString(`
 
-Generate a COMPLETELY DIFFERENT search query. Requirements:
-- Must be substantially different from the current query
-- Use different keywords, job titles, or skill combinations
-- Try a different approach (broader, narrower, different technologies)
-- Keep it concise (under 100 characters if possible)
-- Use OR operators liberally to broaden results (e.g., "senior OR staff OR lead")
-- IMPORTANT: Space-separated terms are implicit ANDs - too many terms without OR will return 0 results
-- Group alternatives with OR: "(react OR vue OR angular)" not "react vue angular"`)
+Generate a COMPLETELY DIFFERENT search query using GROUPED BOOLEAN STRUCTURE.
+
+REQUIRED FORMAT — multiple intersected (OR group) clauses:
+  (role1 OR role2 OR "role phrase") (skill1 OR skill2 OR skill3) (qualifier1 OR qualifier2)
+
+EXAMPLES of well-structured queries:
+  (backend OR platform OR "software engineer") (go OR golang OR node OR "node.js") (api OR microservices OR saas)
+  ("data engineer" OR "integration engineer" OR "etl engineer") (etl OR pipeline OR "data pipeline") (azure OR "azure devops" OR docker)
+  (backend OR platform OR integration) (lead OR senior OR staff) (go OR node OR typescript)
+
+RULES:
+- Each parenthesized group is one DIMENSION (role, skills, qualifiers) joined by OR
+- Space between groups acts as AND — this intersects the dimensions to narrow precisely
+- Use 2-4 groups; more groups = more restrictive
+- Quoted phrases for multi-word terms: "software engineer", "data integration"
+- Must be substantially different from the current query — different titles, skills, or angles
+- Do NOT repeat the current query or minor variations of it`)
+
 
 	if location != nil && *location != "" {
 		sb.WriteString(fmt.Sprintf("\n- DO NOT include location '%s' in your query - it will be added automatically", *location))
@@ -1811,7 +1821,7 @@ Generate a COMPLETELY DIFFERENT search query. Requirements:
 
 	sb.WriteString(buildStalenessWarning(consecutiveZeroRuns))
 
-	sb.WriteString("\n\nReturn ONLY the new search query text. No explanations, quotes, or formatting.")
+	sb.WriteString("\n\nReturn ONLY the new search query in grouped boolean format. No explanations, no outer quotes, no markdown.")
 
 	return sb.String()
 }

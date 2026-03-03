@@ -18,6 +18,7 @@ import { BarChart2, User, Building, Code, Cpu, DollarSign } from "lucide-react";
 import { usePageLoading } from "../../context/pageLoadingContext";
 import { getUserUsage, getTenantUsage, getDeveloperAnalytics, getProviderCosts } from "../../api";
 import DeveloperFeature from "../../components/DeveloperFeature/DeveloperFeature";
+import { formatTokens, formatCost, formatAvg } from "../../lib/format";
 
 const PERIODS = [
   { value: "daily", label: "Day" },
@@ -26,17 +27,6 @@ const PERIODS = [
   { value: "quarterly", label: "Quarter" },
   { value: "annual", label: "Year" },
 ];
-
-const formatTokens = (count) => {
-  if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(2)}M`;
-  if (count >= 1_000) return `${(count / 1_000).toFixed(1)}K`;
-  return count.toString();
-};
-
-const formatCost = (amount) => {
-  if (amount === null || amount === undefined) return "—";
-  return `$${parseFloat(amount).toFixed(2)}`;
-};
 
 const UsageCard = ({ title, icon: Icon, data, loading }) => (
   <Paper withBorder p="md" radius="md">
@@ -66,11 +56,6 @@ const UsageCard = ({ title, icon: Icon, data, loading }) => (
     )}
   </Paper>
 );
-
-const formatAvg = (total, count) => {
-  if (!count) return "—";
-  return formatTokens(Math.round(total / count));
-};
 
 const AnalyticsTable = ({ data, labelKey, labelTitle }) => {
   if (!data?.length) {
@@ -156,60 +141,44 @@ const UsagePage = () => {
   const [nodeAnalytics, setNodeAnalytics] = useState([]);
   const [modelAnalytics, setModelAnalytics] = useState([]);
   const [providerCosts, setProviderCosts] = useState(null);
-  const [loadingUsage, setLoadingUsage] = useState(true);
-  const [loadingCosts, setLoadingCosts] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [analyticsTab, setAnalyticsTab] = useState("node");
   const { dispatchPageLoading } = usePageLoading();
 
-  // Fetch usage data (fast)
   useEffect(() => {
-    const fetchUsageData = async () => {
+    const fetchAll = async () => {
       if (!userState.isAuthed) {
         dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
         return;
       }
 
-      setLoadingUsage(true);
+      setLoading(true);
       try {
-        const [user, tenant, nodes, models] = await Promise.all([
+        const [user, tenant, nodes, models, costs] = await Promise.all([
           getUserUsage(period),
           getTenantUsage(period),
           getDeveloperAnalytics(period, "node"),
           getDeveloperAnalytics(period, "model"),
+          getProviderCosts(period).catch((err) => {
+            console.error("Failed to fetch provider costs:", err);
+            return null;
+          }),
         ]);
         setUserUsage(user);
         setTenantUsage(tenant);
         setNodeAnalytics(nodes.data || []);
         setModelAnalytics(models.data || []);
+        setProviderCosts(costs);
       } catch (error) {
         console.error("Failed to fetch usage data:", error);
       } finally {
-        setLoadingUsage(false);
+        setLoading(false);
         dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
       }
     };
 
-    fetchUsageData();
+    fetchAll();
   }, [userState.isAuthed, period, dispatchPageLoading]);
-
-  // Fetch provider costs separately (slow external API)
-  useEffect(() => {
-    const fetchCosts = async () => {
-      if (!userState.isAuthed) return;
-
-      setLoadingCosts(true);
-      try {
-        const costs = await getProviderCosts(period);
-        setProviderCosts(costs);
-      } catch (error) {
-        console.error("Failed to fetch provider costs:", error);
-      } finally {
-        setLoadingCosts(false);
-      }
-    };
-
-    fetchCosts();
-  }, [userState.isAuthed, period]);
 
   if (!userState.isAuthed) {
     return (
@@ -219,7 +188,7 @@ const UsagePage = () => {
     );
   }
 
-  if (loadingUsage && !userUsage) {
+  if (loading && !userUsage) {
     return (
       <Center mih={400}>
         <Stack align="center" gap="md">
@@ -238,15 +207,15 @@ const UsagePage = () => {
       </Group>
 
       <Group grow>
-        <UsageCard title="Your Usage" icon={User} data={userUsage} loading={loadingUsage} />
+        <UsageCard title="Your Usage" icon={User} data={userUsage} loading={loading} />
         <UsageCard
           title="Organization Usage"
           icon={Building}
           data={tenantUsage}
-          loading={loadingUsage}
+          loading={loading}
         />
         <DeveloperFeature>
-          <ProviderCostsCard costs={providerCosts} loading={loadingCosts} />
+          <ProviderCostsCard costs={providerCosts} loading={loading} />
         </DeveloperFeature>
       </Group>
 
