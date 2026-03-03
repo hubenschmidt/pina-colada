@@ -23,27 +23,18 @@ type LLMSettings struct {
 // unsupportedModelParams maps models to parameters they don't support
 // top_k is Anthropic-only, frequency/presence_penalty are OpenAI-only
 var unsupportedModelParams = map[string]map[string]bool{
-	// Anthropic models - don't support frequency/presence penalty
+	"claude-opus-4-6":            {"frequency_penalty": true, "presence_penalty": true},
+	"claude-sonnet-4-6":          {"frequency_penalty": true, "presence_penalty": true},
 	"claude-opus-4-5-20251101":   {"frequency_penalty": true, "presence_penalty": true},
 	"claude-sonnet-4-5-20250929": {"frequency_penalty": true, "presence_penalty": true},
 	"claude-sonnet-4-5":          {"frequency_penalty": true, "presence_penalty": true},
 	"claude-haiku-4-5-20251001":  {"frequency_penalty": true, "presence_penalty": true},
-	// OpenAI models - don't support top_k
-	"gpt-5":        {"top_k": true},
-	"gpt-5.1":      {"top_k": true},
-	"gpt-5.2":      {"top_k": true},
-	"gpt-5-mini":   {"top_k": true},
-	"gpt-5-nano":   {"top_k": true},
-	"gpt-4.1":      {"top_k": true},
-	"gpt-4.1-mini": {"top_k": true},
-	"gpt-4o":       {"top_k": true},
-	"gpt-4o-mini":  {"top_k": true},
-	"o3":           {"top_k": true},
-	"o4-mini":      {"top_k": true},
 }
 
 // anthropicModels can only use temperature OR top_p, not both
 var anthropicModels = map[string]bool{
+	"claude-opus-4-6":            true,
+	"claude-sonnet-4-6":          true,
 	"claude-opus-4-5-20251101":   true,
 	"claude-sonnet-4-5-20250929": true,
 	"claude-sonnet-4-5":          true,
@@ -113,7 +104,6 @@ type NodeConfigResponse struct {
 
 // AvailableModelsResponse contains models grouped by provider
 type AvailableModelsResponse struct {
-	OpenAI    []string `json:"openai"`
 	Anthropic []string `json:"anthropic"`
 }
 
@@ -285,14 +275,12 @@ func (s *AgentConfigService) ResetNodeConfig(userID int64, nodeName string) (*No
 
 // availableModels defines models available for selection (hardcoded)
 var availableModels = map[string][]string{
-	"openai":    {"gpt-5.2", "gpt-5.1", "gpt-5", "gpt-5-mini", "gpt-5-nano", "gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", "o3", "o4-mini"},
-	"anthropic": {"claude-sonnet-4-5-20250929", "claude-opus-4-5-20251101", "claude-haiku-4-5-20251001"},
+	"anthropic": {"claude-opus-4-6", "claude-sonnet-4-6", "claude-haiku-4-5-20251001"},
 }
 
 // GetAvailableModels returns all available models grouped by provider
 func (s *AgentConfigService) GetAvailableModels() *AvailableModelsResponse {
 	return &AvailableModelsResponse{
-		OpenAI:    availableModels["openai"],
 		Anthropic: availableModels["anthropic"],
 	}
 }
@@ -427,7 +415,6 @@ func (s *AgentConfigService) ApplyPreset(userID, presetID int64) (*AgentConfigRe
 type CostTierResponse struct {
 	Tier        string `json:"tier"`
 	Description string `json:"description"`
-	OpenAI      string `json:"openai_model"`
 	Anthropic   string `json:"anthropic_model"`
 }
 
@@ -439,7 +426,6 @@ func (s *AgentConfigService) GetCostTiers() []CostTierResponse {
 		result[i] = CostTierResponse{
 			Tier:        tier,
 			Description: repositories.CostTierDescriptions[tier],
-			OpenAI:      models.OpenAI,
 			Anthropic:   models.Anthropic,
 		}
 	}

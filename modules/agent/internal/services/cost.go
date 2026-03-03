@@ -38,9 +38,11 @@ var modelPricing = map[string]ModelPricing{
 	"o4-mini": {InputPerMillion: 1.10, OutputPerMillion: 4.40},
 
 	// Anthropic Claude Opus
-	"claude-opus-4-5-20251101": {InputPerMillion: 5.00, OutputPerMillion: 25.00},
+	"claude-opus-4-6":           {InputPerMillion: 5.00, OutputPerMillion: 25.00},
+	"claude-opus-4-5-20251101":  {InputPerMillion: 5.00, OutputPerMillion: 25.00},
 
 	// Anthropic Claude Sonnet
+	"claude-sonnet-4-6":          {InputPerMillion: 3.00, OutputPerMillion: 15.00},
 	"claude-sonnet-4-5-20250929": {InputPerMillion: 3.00, OutputPerMillion: 15.00},
 
 	// Anthropic Claude Haiku

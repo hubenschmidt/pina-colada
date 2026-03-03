@@ -117,16 +117,16 @@ func main() {
 	genericEntityService := services.NewGenericEntityService(genericEntityRepo)
 	visitorService := services.NewVisitorService(cfg)
 	docLoader := &documentLoaderAdapter{docService: docService}
-	automationService := services.NewAutomationService(automationRepo, proposalRepo, jobRepo, proposalService, docLoader, cfg.SerperAPIKey, cfg.AnthropicAPIKey, cfg.OpenAIAPIKey, cfg.Env, cfg.PushoverUser, cfg.PushoverToken)
+	automationService := services.NewAutomationService(automationRepo, proposalRepo, jobRepo, proposalService, docLoader, cfg.SerperAPIKey, cfg.AnthropicAPIKey, cfg.Env, cfg.PushoverUser, cfg.PushoverToken)
 
 	// Wire embedding service for vector pre-filtering and proposal embeddings
-	if cfg.OpenAIAPIKey != "" {
+	if cfg.VoyageAPIKey != "" {
 		embeddingRepo := repositories.NewEmbeddingRepository(database)
-		embeddingService := services.NewEmbeddingService(embeddingRepo, cfg.OpenAIAPIKey)
+		embeddingService := services.NewEmbeddingService(embeddingRepo, cfg.VoyageAPIKey)
 		automationService.SetEmbeddingService(embeddingService)
 		docService.SetEmbedder(embeddingService)
 		proposalService.SetEmbeddingService(embeddingService)
-		log.Println("Vector embedding service initialized")
+		log.Println("Vector embedding service initialized (Voyage AI)")
 	}
 
 	// Cleanup any stale automation runs from previous server runs
@@ -142,7 +142,7 @@ func main() {
 	// Initialize config cache for agent orchestrator
 	configCache := utils.NewConfigCache(agentConfigService)
 
-	// Initialize ADK agent orchestrator (only if OpenAI API key is configured)
+	// Initialize ADK agent orchestrator (only if Anthropic API key is configured)
 	agentOrchestrator := initOrchestrator(cfg, docService, jobService, convService, configCache, metricService, permService, proposalService, genericEntityService)
 
 	// Initialize automation worker (wraps service for scheduler)
@@ -240,8 +240,8 @@ func main() {
 
 // initOrchestrator initializes the agent orchestrator if configured
 func initOrchestrator(cfg *config.Config, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, permService *services.PermissionService, proposalService *services.ProposalService, entityService *services.GenericEntityService) *agent.Orchestrator {
-	if cfg.OpenAIAPIKey == "" {
-		log.Println("OPENAI_API_KEY not configured - agent endpoints disabled")
+	if cfg.AnthropicAPIKey == "" {
+		log.Println("ANTHROPIC_API_KEY not configured - agent endpoints disabled")
 		return nil
 	}
 

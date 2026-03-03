@@ -9,7 +9,7 @@ type AgentNodeConfig struct {
 	UserID           int64          `gorm:"not null" json:"user_id"`
 	NodeName         string         `gorm:"not null" json:"node_name"`
 	Model            string         `gorm:"not null" json:"model"`
-	Provider         string         `gorm:"not null;default:openai" json:"provider"`
+	Provider         string         `gorm:"not null;default:anthropic" json:"provider"`
 	Temperature      *float64       `gorm:"column:temperature" json:"temperature,omitempty"`
 	MaxTokens        *int           `gorm:"column:max_tokens" json:"max_tokens,omitempty"`
 	TopP             *float64       `gorm:"column:top_p" json:"top_p,omitempty"`
@@ -51,12 +51,12 @@ var DefaultModels = map[string]struct {
 	Model    string
 	Provider string
 }{
-	NodeTriageOrchestrator: {"gpt-5.2", "openai"},
-	NodeJobSearchWorker:    {"gpt-5.2", "openai"},
-	NodeCRMWorker:          {"gpt-5.2", "openai"},
-	NodeGeneralWorker:      {"gpt-5.2", "openai"},
-	NodeWriterWorker:       {"gpt-5.2", "openai"},
-	NodeEvaluator:          {"claude-sonnet-4-5-20250929", "anthropic"},
+	NodeTriageOrchestrator: {"claude-sonnet-4-6", "anthropic"},
+	NodeJobSearchWorker:    {"claude-sonnet-4-6", "anthropic"},
+	NodeCRMWorker:          {"claude-sonnet-4-6", "anthropic"},
+	NodeGeneralWorker:      {"claude-sonnet-4-6", "anthropic"},
+	NodeWriterWorker:       {"claude-sonnet-4-6", "anthropic"},
+	NodeEvaluator:          {"claude-sonnet-4-6", "anthropic"},
 	NodeTitleGenerator:     {"claude-haiku-4-5-20251001", "anthropic"},
 }
 

@@ -130,12 +130,6 @@ const ProviderCostsCard = ({ costs, loading }) => (
       <Stack gap="xs">
         <Group justify="space-between">
           <Text size="sm" c="dimmed">
-            OpenAI
-          </Text>
-          <Text fw={600}>{formatCost(costs?.openai?.spend)}</Text>
-        </Group>
-        <Group justify="space-between">
-          <Text size="sm" c="dimmed">
             Anthropic (includes Claude Code raw API cost)
           </Text>
           <Text fw={600}>{formatCost(costs?.anthropic?.spend)}</Text>

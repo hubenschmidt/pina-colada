@@ -50,9 +50,9 @@ func NewEvaluator(apiKey string, evalType EvaluatorType, model string, settings 
 	client := anthropic.NewClient(
 		option.WithAPIKey(apiKey),
 	)
-	// Default to Claude Sonnet 4.5 if no model specified
+	// Default to Claude Sonnet 4.6 if no model specified
 	if model == "" {
-		model = "claude-sonnet-4-5-20250929"
+		model = "claude-sonnet-4-6"
 	}
 	return &Evaluator{
 		client:     client,

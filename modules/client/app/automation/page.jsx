@@ -90,10 +90,9 @@ const TARGET_TYPE_OPTIONS = {
 };
 
 const AGENT_MODEL_OPTIONS = [
-  { value: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5 (Recommended)" },
+  { value: "claude-opus-4-6", label: "Claude Opus 4.6" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (Recommended)" },
   { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (Faster)" },
-  { value: "gpt-5.2", label: "GPT 5.2" },
-  { value: "gpt-5.1", label: "GPT 5.1" },
 ];
 
 const INTERVAL_UNITS = [

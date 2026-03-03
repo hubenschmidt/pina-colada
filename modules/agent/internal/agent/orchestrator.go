@@ -54,33 +54,21 @@ type Orchestrator struct {
 	allTools           []agents.Tool
 	metricService      *services.MetricService
 	serperTools        *tools.SerperTools
-	openaiProvider     *agents.OpenAIProvider
 	anthropicProvider  *agents.OpenAIProvider
 }
 
 // NewOrchestrator creates the agent orchestrator with triage-based routing via handoffs
 func NewOrchestrator(ctx context.Context, cfg *config.Config, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, permService *services.PermissionService, proposalService *services.ProposalService, entityService *services.GenericEntityService) (*Orchestrator, error) {
-	// Create providers for both OpenAI and Anthropic
-	// The correct provider is selected at runtime based on the model's provider setting
-	openaiProvider := agents.NewOpenAIProvider(agents.OpenAIProviderParams{
-		APIKey: param.NewOpt(cfg.OpenAIAPIKey),
-		// UseResponses defaults to true (responses API) - has proper token tracking
+	// Create Anthropic provider (OpenAI-compatible endpoint)
+	anthropicProvider := agents.NewOpenAIProvider(agents.OpenAIProviderParams{
+		BaseURL:      param.NewOpt("https://api.anthropic.com/v1/"),
+		APIKey:       param.NewOpt(cfg.AnthropicAPIKey),
+		UseResponses: param.NewOpt(false), // Anthropic only supports chat completions
 	})
+	log.Printf("Initialized Anthropic provider (OpenAI-compatible endpoint, chat completions mode)")
 
-	var anthropicProvider *agents.OpenAIProvider
-	if cfg.AnthropicAPIKey != "" {
-		anthropicProvider = agents.NewOpenAIProvider(agents.OpenAIProviderParams{
-			BaseURL:      param.NewOpt("https://api.anthropic.com/v1/"),
-			APIKey:       param.NewOpt(cfg.AnthropicAPIKey),
-			UseResponses: param.NewOpt(false), // Anthropic only supports chat completions
-		})
-		log.Printf("Initialized Anthropic provider (OpenAI-compatible endpoint, chat completions mode)")
-	}
-
-	log.Printf("Initialized OpenAI provider (responses API mode)")
-
-	// Use configured model as default
-	model := cfg.OpenAIModel
+	// Default model
+	model := "claude-sonnet-4-6"
 
 	// Create job service adapter for filtering applied jobs
 	var jobAdapter tools.JobServiceInterface
@@ -111,7 +99,7 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, docService *servic
 	// Create state manager
 	stateMgr := state.NewMemoryStateManager()
 
-	log.Printf("OpenAI Agents SDK orchestrator initialized with triage routing")
+	log.Printf("AI Agents SDK orchestrator initialized with triage routing")
 
 	return &Orchestrator{
 		triageAgent:       triageAgent,
@@ -123,7 +111,6 @@ func NewOrchestrator(ctx context.Context, cfg *config.Config, docService *servic
 		allTools:          allTools,
 		metricService:     metricService,
 		serperTools:       serperTools,
-		openaiProvider:    openaiProvider,
 		anthropicProvider: anthropicProvider,
 	}, nil
 }
@@ -624,21 +611,9 @@ func (s *streamState) tryHandleRawResponses(event agents.StreamEvent) {
 	s.handleRawResponse(e)
 }
 
-// getProviderForUser returns the appropriate model provider based on user's config
+// getProviderForUser returns the Anthropic model provider
 func (o *Orchestrator) getProviderForUser(userID int64) agents.ModelProvider {
-	if o.configCache == nil || userID == 0 {
-		return o.openaiProvider
-	}
-
-	// Check the triage orchestrator's provider setting
-	provider := o.configCache.GetProvider(userID, "triage_orchestrator")
-	if provider == "anthropic" && o.anthropicProvider != nil {
-		log.Printf("Using Anthropic provider for user %d", userID)
-		return o.anthropicProvider
-	}
-
-	log.Printf("Using OpenAI provider for user %d", userID)
-	return o.openaiProvider
+	return o.anthropicProvider
 }
 
 // runAgentStream runs the agent and returns the stream state and any error
@@ -1290,10 +1265,7 @@ func (o *Orchestrator) recordNodeMetric(userID int64, req RunRequest, startTime 
 	durationMs := int(endTime.Sub(startTime).Milliseconds())
 	configSnapshot := o.buildMetricConfigSnapshot(userID)
 
-	provider := "openai"
-	if strings.HasPrefix(model, "claude") {
-		provider = "anthropic"
-	}
+	provider := "anthropic"
 
 	metricInput := services.TurnMetricInput{
 		SessionID:      activeSession.ID,

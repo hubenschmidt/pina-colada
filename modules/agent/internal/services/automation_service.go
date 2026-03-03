@@ -18,8 +18,6 @@ import (
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/ledongthuc/pdf"
-	"github.com/openai/openai-go/v2"
-	openaiOption "github.com/openai/openai-go/v2/option"
 	pgvector "github.com/pgvector/pgvector-go"
 
 	"agent/internal/lib"
@@ -50,14 +48,12 @@ type AutomationService struct {
 	embeddingService *EmbeddingService
 	serperAPIKey     string
 	anthropicAPIKey  string
-	openAIAPIKey     string
 	env              string
 	pushoverUser     string
 	pushoverToken    string
 	httpClient       *http.Client
 	validatorClient  *http.Client
 	anthropicClient  anthropic.Client
-	openaiClient     openai.Client
 }
 
 // NewAutomationService creates a new automation service
@@ -69,7 +65,6 @@ func NewAutomationService(
 	docLoader DocumentLoader,
 	serperAPIKey string,
 	anthropicAPIKey string,
-	openAIAPIKey string,
 	env string,
 	pushoverUser string,
 	pushoverToken string,
@@ -82,7 +77,6 @@ func NewAutomationService(
 		docLoader:       docLoader,
 		serperAPIKey:    serperAPIKey,
 		anthropicAPIKey: anthropicAPIKey,
-		openAIAPIKey:    openAIAPIKey,
 		env:             env,
 		pushoverUser:    pushoverUser,
 		pushoverToken:   pushoverToken,
@@ -109,9 +103,6 @@ func NewAutomationService(
 
 	if anthropicAPIKey != "" {
 		svc.anthropicClient = anthropic.NewClient(option.WithAPIKey(anthropicAPIKey))
-	}
-	if openAIAPIKey != "" {
-		svc.openaiClient = openai.NewClient(openaiOption.WithAPIKey(openAIAPIKey))
 	}
 
 	return svc
@@ -1181,7 +1172,7 @@ func appendPDFPageText(text *strings.Builder, page pdf.Page) {
 }
 
 func (s *AutomationService) reviewResultsWithAgent(cfg *repositories.AutomationConfigDTO, results []jobResult, documentContext string) []reviewedJobResult {
-	model := "claude-sonnet-4-5-20250929"
+	model := "claude-sonnet-4-6"
 	if cfg.AgentModel != nil && *cfg.AgentModel != "" {
 		model = *cfg.AgentModel
 	}
@@ -1189,9 +1180,6 @@ func (s *AutomationService) reviewResultsWithAgent(cfg *repositories.AutomationC
 	activePrompt := s.getActivePrompt(cfg)
 	s.logAgentReviewContext(model, activePrompt, documentContext, results)
 
-	if strings.HasPrefix(model, "gpt-") {
-		return s.reviewWithOpenAI(model, activePrompt, documentContext, results)
-	}
 	return s.reviewWithAnthropic(model, activePrompt, documentContext, results)
 }
 
@@ -1332,40 +1320,6 @@ func (s *AutomationService) reviewWithAnthropic(model string, customPrompt *stri
 	return reviews
 }
 
-func (s *AutomationService) reviewWithOpenAI(model string, customPrompt *string, documentContext string, results []jobResult) []reviewedJobResult {
-	if s.openAIAPIKey == "" {
-		log.Printf("Automation service: OPENAI_API_KEY not configured, skipping agent review")
-		return approveAllResults(results)
-	}
-
-	systemPrompt := s.buildAgentSystemPrompt(customPrompt)
-	userPrompt := s.buildAgentUserPrompt(documentContext, results)
-
-	params := openai.ChatCompletionNewParams{
-		Model: model,
-		Messages: []openai.ChatCompletionMessageParamUnion{
-			openai.SystemMessage(systemPrompt),
-			openai.UserMessage(userPrompt),
-		},
-		MaxCompletionTokens: openai.Int(2048),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	log.Printf("🤖 [OpenAI] Calling API - model=%s, results=%d", model, len(results))
-	start := time.Now()
-	resp, err := s.openaiClient.Chat.Completions.New(ctx, params)
-	if err != nil {
-		log.Printf("🤖 [OpenAI] API error after %v: %v", time.Since(start), err)
-		return approveAllResults(results)
-	}
-	log.Printf("🤖 [OpenAI] API returned in %v", time.Since(start))
-
-	reviews := s.parseOpenAIAgentResponse(resp, results)
-	s.logAgentReviews(reviews)
-	return reviews
-}
 
 func (s *AutomationService) buildAgentSystemPrompt(customPrompt *string) string {
 	base := `You are evaluating search results for relevance to a candidate's profile. Review each result and determine if it's a strong match.
@@ -1421,22 +1375,6 @@ func (s *AutomationService) parseAgentResponse(resp *anthropic.Message, results 
 	return applyReviewsToResults(results, reviewResp.Reviews)
 }
 
-func (s *AutomationService) parseOpenAIAgentResponse(resp *openai.ChatCompletion, results []jobResult) []reviewedJobResult {
-	if resp == nil || len(resp.Choices) == 0 {
-		return approveAllResults(results)
-	}
-
-	text := strings.TrimSpace(resp.Choices[0].Message.Content)
-	text = extractJSONFromText(text)
-
-	var reviewResp agentReviewResponse
-	if err := json.Unmarshal([]byte(text), &reviewResp); err != nil {
-		log.Printf("Automation service: failed to parse OpenAI agent response: %v", err)
-		return approveAllResults(results)
-	}
-
-	return applyReviewsToResults(results, reviewResp.Reviews)
-}
 
 func extractTextFromResponse(resp *anthropic.Message) string {
 	var text string
@@ -1622,9 +1560,6 @@ func (s *AutomationService) checkAndSuggestPromptImprovement(cfg *repositories.A
 }
 
 func (s *AutomationService) callLLMForSuggestion(model, prompt string) string {
-	if strings.HasPrefix(model, "gpt-") {
-		return s.generateSuggestionWithOpenAI(model, prompt)
-	}
 	return s.generateSuggestionWithAnthropic(model, prompt)
 }
 
@@ -1768,9 +1703,6 @@ func (s *AutomationService) generateQueryWithLLM(cfg *repositories.AutomationCon
 
 	model := s.getAnalyticsModel(cfg)
 
-	if strings.HasPrefix(model, "gpt-") {
-		return s.generateSuggestionWithOpenAI(model, prompt)
-	}
 	return s.generateSuggestionWithAnthropic(model, prompt)
 }
 
@@ -1783,7 +1715,7 @@ func (s *AutomationService) getAnalyticsModel(cfg *repositories.AutomationConfig
 	if cfg.AgentModel != nil && *cfg.AgentModel != "" {
 		return *cfg.AgentModel
 	}
-	return "claude-sonnet-4-5-20250929" // Default to cheap model
+	return "claude-sonnet-4-6" // Default to cheap model
 }
 
 // buildAnalyticsContext fetches and formats historical run analytics
@@ -1938,14 +1870,11 @@ Suggest an improved system_prompt that would be more lenient on valid matches wh
 Return ONLY the improved system_prompt text, nothing else. Do not include explanations or markdown formatting.`,
 		approved*100/total, approved, total, currentPrompt, rejectedSample)
 
-	model := "claude-sonnet-4-5-20250929"
+	model := "claude-sonnet-4-6"
 	if cfg.AgentModel != nil && *cfg.AgentModel != "" {
 		model = *cfg.AgentModel
 	}
 
-	if strings.HasPrefix(model, "gpt-") {
-		return s.generateSuggestionWithOpenAI(model, prompt)
-	}
 	return s.generateSuggestionWithAnthropic(model, prompt)
 }
 
@@ -1972,14 +1901,11 @@ Suggest an improved system_prompt that would be more lenient on valid matches wh
 Return ONLY the improved system_prompt text, nothing else. Do not include explanations or markdown formatting.`,
 		currentPrompt, rejectedSample)
 
-	model := "claude-sonnet-4-5-20250929"
+	model := "claude-sonnet-4-6"
 	if cfg.AgentModel != nil && *cfg.AgentModel != "" {
 		model = *cfg.AgentModel
 	}
 
-	if strings.HasPrefix(model, "gpt-") {
-		return s.generateSuggestionWithOpenAI(model, prompt)
-	}
 	return s.generateSuggestionWithAnthropic(model, prompt)
 }
 
@@ -2045,33 +1971,6 @@ func (s *AutomationService) generateSuggestionWithAnthropic(model, prompt string
 	return strings.TrimSpace(text.Text)
 }
 
-func (s *AutomationService) generateSuggestionWithOpenAI(model, prompt string) string {
-	if s.openAIAPIKey == "" {
-		return ""
-	}
-
-	params := openai.ChatCompletionNewParams{
-		Model: model,
-		Messages: []openai.ChatCompletionMessageParamUnion{
-			openai.UserMessage(prompt),
-		},
-		MaxCompletionTokens: openai.Int(1024),
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	resp, err := s.openaiClient.Chat.Completions.New(ctx, params)
-	if err != nil {
-		log.Printf("Automation service: failed to generate suggestion: %v", err)
-		return ""
-	}
-
-	if len(resp.Choices) == 0 {
-		return ""
-	}
-	return strings.TrimSpace(resp.Choices[0].Message.Content)
-}
 
 func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO) *serializers.AutomationConfigResponse {
 	totalProposals, _ := s.automationRepo.GetActiveProposals(dto.ID)

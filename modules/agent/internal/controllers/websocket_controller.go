@@ -176,7 +176,7 @@ func (wc *WebSocketController) handleChatMessage(ctx context.Context, client *Cl
 	if wc.orchestrator == nil {
 		client.SendJSON(map[string]interface{}{
 			"type":    "error",
-			"message": "Agent not configured - OPENAI_API_KEY required",
+			"message": "Agent not configured - ANTHROPIC_API_KEY required",
 		})
 		return
 	}

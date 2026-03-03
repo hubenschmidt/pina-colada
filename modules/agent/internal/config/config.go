@@ -15,9 +15,8 @@ type Config struct {
 	DBDebug     bool
 
 	// LLM Providers
-	OpenAIAPIKey    string
-	OpenAIModel     string
 	AnthropicAPIKey string
+	VoyageAPIKey    string
 
 	// AWS S3
 	AWSRegion          string
@@ -52,9 +51,8 @@ func Load() *Config {
 		Env:         getEnv("ENV", "development"),
 		DatabaseURL: getEnv("DATABASE_URL", ""),
 		DBDebug:           getEnv("DB_DEBUG", "false") == "true",
-		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
-		OpenAIModel:       getEnv("OPENAI_MODEL", "gpt-5.2"),
 		AnthropicAPIKey:   getEnv("ANTHROPIC_API_KEY", ""),
+		VoyageAPIKey:      getEnv("VOYAGE_API_KEY", ""),
 		LangfusePublicKey: getEnv("LANGFUSE_PUBLIC_KEY", ""),
 		LangfuseSecretKey: getEnv("LANGFUSE_SECRET_KEY", ""),
 		LangfuseHost:      getEnv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
