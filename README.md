@@ -314,7 +314,7 @@ flowchart LR
     end
 
     subgraph RUNTIME["At search time"]
-        SR["Search results<br/>title + snippet"] --> OAI["OpenAI<br/>text-embedding-3-large<br/>(batch embed)"]
+        SR["Search results<br/>title + snippet"] --> OAI["Voyage AI<br/>voyage-4-large<br/>(batch embed)"]
     end
 
     subgraph REJECTION["From user feedback"]
@@ -339,7 +339,7 @@ flowchart LR
     style REJCOS fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
 ```
 
-- **Model**: `text-embedding-3-large` (3072 dimensions)
+- **Model**: `voyage-4-large` (1024 dimensions)
 - **Config**: `vector_similarity_threshold` (default 0.3), `vector_max_results` (default 10)
 - **Rejection penalty**: Applied when ≥ 3 user rejections exist for the config. Weight factor: 0.3
 
@@ -417,7 +417,7 @@ flowchart TD
     ASYNC --> EMBED["EmbedDocumentChunks()<br/>(OpenAI)"]
 
     EMBED --> CHUNK["ChunkText()<br/>sentence-boundary splitting<br/>512 tokens/chunk · 64 overlap"]
-    CHUNK --> API["OpenAI API<br/>text-embedding-3-large<br/>(batch embed)"]
+    CHUNK --> API["Voyage AI<br/>voyage-4-large<br/>(batch embed)"]
     API --> DB2[("DB: Embedding table<br/>UpsertDocChunks<br/>delete + insert in tx")]
 
     style SUMM fill:#fff3e0,stroke:#e65100,color:#1a1a1a
@@ -443,7 +443,7 @@ erDiagram
         bigint config_id FK "nullable"
         int chunk_index
         text chunk_text
-        vector embedding "vector(3072)"
+        vector embedding "vector(1024)"
         timestamptz created_at
     }
 
@@ -456,13 +456,13 @@ erDiagram
 
 | Call Site                      | Model                            | Purpose                              | Max Tokens |
 | ------------------------------ | -------------------------------- | ------------------------------------ | ---------- |
-| `reviewResultsWithAgent`       | Claude Sonnet 4.5 (default)      | Approve/reject search results        | 2048       |
-| `generateQueryWithLLM`         | Claude Sonnet 4.5 / configurable | Suggest new search query             | 1024       |
-| `generatePromptSuggestion`     | Claude Sonnet 4.5 / configurable | Suggest improved system prompt       | 1024       |
-| `EmbedTexts` (pre-filter)      | OpenAI text-embedding-3-large    | Embed search snippets for similarity | N/A        |
-| `EmbedDocumentChunks`          | OpenAI text-embedding-3-large    | Embed uploaded documents             | N/A        |
-| `EmbedProposal`                | OpenAI text-embedding-3-large    | Embed approved proposals             | N/A        |
-| `ProcessDocument` (summarizer) | Claude (Anthropic)               | Summarize uploaded documents         | varies     |
+| `reviewResultsWithAgent`       | Claude Sonnet 4-6 (default)      | Approve/reject search results        | 2048       |
+| `generateQueryWithLLM`         | Claude Sonnet 4-6 / configurable | Suggest new search query             | 1024       |
+| `generatePromptSuggestion`     | Claude Sonnet 4-6 / configurable | Suggest improved system prompt       | 1024       |
+| `EmbedTexts` (pre-filter)      | Voyage AI voyage-4-large         | Embed search snippets for similarity | N/A        |
+| `EmbedDocumentChunks`          | Voyage AI voyage-4-large         | Embed uploaded documents             | N/A        |
+| `EmbedProposal`                | Voyage AI voyage-4-large         | Embed approved proposals             | N/A        |
+| `ProcessDocument` (summarizer) | Claude Haiku 4.5 (Anthropic)     | Summarize uploaded documents         | varies     |
 
 ## License
 
