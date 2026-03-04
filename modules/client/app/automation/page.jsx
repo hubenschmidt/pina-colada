@@ -129,7 +129,7 @@ const emptyForm = {
   use_agent: true,
   agent_model: "claude-opus-4-6",
   vector_prefilter_enabled: true,
-  vector_similarity_threshold: 0.3,
+  vector_similarity_threshold: 0.4,
   use_analytics: true,
   analytics_model: "claude-opus-4-6",
   empty_proposal_limit: null,

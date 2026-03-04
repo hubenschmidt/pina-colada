@@ -2469,6 +2469,9 @@ func (s *AutomationService) vectorPreFilter(results []jobResult, cfg *repositori
 		if hasRejectionCentroid {
 			rejSim := cosineSimilarity(vec.Slice(), rejectionCentroid.Slice())
 			finalScore = positiveScore - (rejSim * 0.3)
+			log.Printf("  vector score [%d] %.3f (pos=%.3f, rej=%.3f) %s — %s", i, finalScore, positiveScore, rejSim, results[i].Title, passOrFail(finalScore, cfg.VectorSimilarityThreshold))
+		} else {
+			log.Printf("  vector score [%d] %.3f %s — %s", i, finalScore, results[i].Title, passOrFail(finalScore, cfg.VectorSimilarityThreshold))
 		}
 		if finalScore >= cfg.VectorSimilarityThreshold {
 			scored_results = append(scored_results, scored{job: results[i], score: finalScore})
@@ -2494,6 +2497,13 @@ func (s *AutomationService) vectorPreFilter(results []jobResult, cfg *repositori
 }
 
 // maxCosineSimilarity computes the max cosine similarity between a vector and document embeddings
+func passOrFail(score, threshold float64) string {
+	if score >= threshold {
+		return "PASS"
+	}
+	return "FAIL"
+}
+
 func maxCosineSimilarity(vec pgvector.Vector, docEmbeddings []repositories.EmbeddingDTO) float64 {
 	maxSim := -1.0
 	vecSlice := vec.Slice()

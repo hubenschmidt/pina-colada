@@ -90,7 +90,7 @@ BEGIN
         true,
         'claude-opus-4-6',
         true,
-        0.3,
+        0.4,
         true,
         'claude-opus-4-6',
         'Please job search for matches using the resume linked on his Individual record. Jobs should be located in New York and at startups (seed, series A, B, and C).',
