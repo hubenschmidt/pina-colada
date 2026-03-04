@@ -39,6 +39,7 @@ import {
   ChevronDown,
   ChevronRight,
   Copy,
+  HelpCircle,
 } from "lucide-react";
 import { DataTable } from "../../components/DataTable/DataTable";
 import SSEIndicator from "../../components/SSEIndicator/SSEIndicator";
@@ -125,10 +126,12 @@ const emptyForm = {
   digest_emails: "",
   digest_time: "09:00",
   digest_model: null,
-  use_agent: false,
-  agent_model: "claude-sonnet-4-5-20250929",
-  use_analytics: false,
-  analytics_model: "claude-3-haiku-20240307",
+  use_agent: true,
+  agent_model: "claude-opus-4-6",
+  vector_prefilter_enabled: true,
+  vector_similarity_threshold: 0.3,
+  use_analytics: true,
+  analytics_model: "claude-opus-4-6",
   empty_proposal_limit: null,
   prompt_cooldown_runs: 5,
   prompt_cooldown_prospects: 50,
@@ -278,6 +281,8 @@ const AutomationPage = () => {
       digest_model: crawler.digest_model || null,
       use_agent: crawler.use_agent ?? false,
       agent_model: crawler.agent_model || "claude-sonnet-4-5-20250929",
+      vector_prefilter_enabled: crawler.vector_prefilter_enabled ?? false,
+      vector_similarity_threshold: crawler.vector_similarity_threshold ?? 0.3,
       use_analytics: crawler.use_analytics ?? false,
       analytics_model: crawler.analytics_model || "claude-3-haiku-20240307",
       empty_proposal_limit: crawler.empty_proposal_limit || null,
@@ -873,6 +878,39 @@ const AutomationPage = () => {
               value={form.agent_model}
               onChange={(val) => updateForm("agent_model", val)}
               data={AGENT_MODEL_OPTIONS}
+            />
+          )}
+
+          <Switch
+            label="Vector Pre-filter"
+            description="Embed results and filter by cosine similarity before LLM review"
+            checked={form.vector_prefilter_enabled}
+            onChange={(e) => updateForm("vector_prefilter_enabled", e.currentTarget.checked)}
+            color="lime"
+          />
+
+          {form.vector_prefilter_enabled && (
+            <NumberInput
+              label={
+                <Group gap={4}>
+                  <Text size="sm" fw={500}>Similarity Threshold</Text>
+                  <Tooltip
+                    label="Each result's full text is embedded and compared against your source documents (resumes) using cosine similarity. Results below this threshold are filtered out before LLM review, saving tokens on irrelevant matches. A higher threshold (e.g. 0.5) is stricter — only closely matching roles pass through, but you may miss valid opportunities. A lower threshold (e.g. 0.2) is more permissive — more results reach the LLM, catching edge cases at the cost of more token usage."
+                    multiline
+                    w={300}
+                    withArrow
+                  >
+                    <HelpCircle size={14} style={{ cursor: "help", opacity: 0.5 }} />
+                  </Tooltip>
+                </Group>
+              }
+              description="Minimum cosine similarity (0-1)"
+              value={form.vector_similarity_threshold}
+              onChange={(val) => updateForm("vector_similarity_threshold", val)}
+              min={0}
+              max={1}
+              step={0.05}
+              decimalScale={2}
             />
           )}
 

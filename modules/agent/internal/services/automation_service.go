@@ -15,6 +15,7 @@ import (
 	"sync"
 	"time"
 
+	readability "codeberg.org/readeck/go-readability/v2"
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
 	"github.com/ledongthuc/pdf"
@@ -620,7 +621,7 @@ func (s *AutomationService) logAutomationConfig(cfg *repositories.AutomationConf
 	log.Printf("  target_type=%s, target_ids=%v", ptrStr(cfg.TargetType), cfg.TargetIDs)
 	log.Printf("  source_document_ids=%v", cfg.SourceDocumentIDs)
 	log.Printf("  use_agent=%v, agent_model=%s", cfg.UseAgent, ptrStr(cfg.AgentModel))
-	log.Printf("  vector_prefilter=%v, threshold=%.2f, max_results=%d", cfg.VectorPrefilterEnabled, cfg.VectorSimilarityThreshold, cfg.VectorMaxResults)
+	log.Printf("  vector_prefilter=%v, threshold=%.2f", cfg.VectorPrefilterEnabled, cfg.VectorSimilarityThreshold)
 	log.Printf("  system_prompt=%s", truncateString(ptrStr(cfg.SystemPrompt), 100))
 }
 
@@ -695,6 +696,9 @@ func (s *AutomationService) processSearchResultsWithAgent(cfg *repositories.Auto
 		log.Printf("Automation: all URLs failed validation, skipping LLM review")
 		return prospectsFound, 0, searchResult.RelatedSearches
 	}
+
+	// Fetch full text from job pages for richer embeddings
+	filtered = s.fetchFullText(filtered)
 
 	// Vector pre-filter to reduce LLM calls
 	filtered = s.vectorPreFilter(filtered, cfg)
@@ -816,6 +820,7 @@ type jobResult struct {
 	Snippet              string
 	DatePosted           string
 	DatePostedConfidence string // high, medium, low, none
+	FullText             string // extracted via go-readability; empty if fetch failed
 }
 
 // searchResultWithRelated wraps job results with related searches from Serper
@@ -1352,10 +1357,28 @@ func (s *AutomationService) buildAgentUserPrompt(documentContext string, results
 	sb.WriteString("## Search Results to Evaluate:\n")
 	for i, r := range results {
 		sb.WriteString(fmt.Sprintf("\n[%d] %s\nCompany: %s\nURL: %s\nSnippet: %s\n", i, r.Title, r.Company, r.URL, r.Snippet))
+		sb.WriteString(truncatedJobDescription(r.FullText, 3000))
 	}
 
 	sb.WriteString("\n\nEvaluate each result. Return JSON with reviews array.")
 	return sb.String()
+}
+
+func embeddingText(r jobResult) string {
+	if r.FullText != "" {
+		return r.FullText
+	}
+	return r.Title + " - " + r.Snippet
+}
+
+func truncatedJobDescription(fullText string, maxLen int) string {
+	if fullText == "" {
+		return ""
+	}
+	if len(fullText) > maxLen {
+		fullText = fullText[:maxLen] + "..."
+	}
+	return fmt.Sprintf("Job Description:\n%s\n", fullText)
 }
 
 func (s *AutomationService) parseAgentResponse(resp *anthropic.Message, results []jobResult) []reviewedJobResult {
@@ -2028,7 +2051,6 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 		PromptCooldownProspects:   dto.PromptCooldownProspects,
 		VectorPrefilterEnabled:    dto.VectorPrefilterEnabled,
 		VectorSimilarityThreshold: dto.VectorSimilarityThreshold,
-		VectorMaxResults:          dto.VectorMaxResults,
 		CreatedAt:                 dto.CreatedAt,
 		UpdatedAt:                 dto.UpdatedAt,
 	}
@@ -2304,6 +2326,90 @@ func isURLValid(client *http.Client, url string) bool {
 	return true
 }
 
+// fetchFullText fetches job pages and extracts readable text via go-readability.
+// Results that fail to fetch proceed unchanged (graceful degradation).
+func (s *AutomationService) fetchFullText(results []jobResult) []jobResult {
+	if len(results) == 0 {
+		return results
+	}
+
+	start := time.Now()
+	var wg sync.WaitGroup
+	for i := range results {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			text, err := extractReadableText(results[idx].URL)
+			if err != nil {
+				log.Printf("Automation: full text extraction failed for %s: %v", results[idx].URL, err)
+				return
+			}
+			results[idx].FullText = text
+			log.Printf("Automation: extracted %d chars from %s", len(text), results[idx].URL)
+		}(i)
+	}
+	wg.Wait()
+
+	fetched := 0
+	for _, r := range results {
+		if r.FullText != "" {
+			fetched++
+		}
+	}
+	log.Printf("Automation: full text extracted for %d/%d results in %s", fetched, len(results), time.Since(start).Round(time.Millisecond))
+	return results
+}
+
+func extractReadableText(pageURL string) (string, error) {
+	article, err := readability.FromURL(pageURL, 10*time.Second, func(r *http.Request) {
+		r.Header.Set("User-Agent", "Mozilla/5.0 (compatible; JobSearchBot/1.0)")
+	})
+	if err != nil {
+		return "", err
+	}
+
+	var buf bytes.Buffer
+	if err := article.RenderText(&buf); err != nil {
+		return "", fmt.Errorf("readability render: %w", err)
+	}
+
+	text := strings.TrimSpace(buf.String())
+	if len(text) > 8000 {
+		text = text[:8000]
+	}
+	return text, nil
+}
+
+// backfillDocumentEmbeddings lazily embeds source documents that have no stored embeddings yet.
+func (s *AutomationService) backfillDocumentEmbeddings(cfg *repositories.AutomationConfigDTO) []repositories.EmbeddingDTO {
+	if s.docLoader == nil {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	for _, docID := range cfg.SourceDocumentIDs {
+		result, err := s.docLoader.GetDocumentByID(docID)
+		if err != nil || result == nil || result.Content == nil {
+			log.Printf("Automation: backfill skip doc %d (fetch failed): %v", docID, err)
+			continue
+		}
+		content := extractDocumentContent(result.Document.ContentType, result.Content)
+		if content == "" {
+			log.Printf("Automation: backfill skip doc %d (no extractable text)", docID)
+			continue
+		}
+		log.Printf("Automation: backfilling embeddings for doc %d (%d chars)", docID, len(content))
+		if err := s.embeddingService.EmbedDocumentChunks(ctx, cfg.TenantID, docID, content); err != nil {
+			log.Printf("Automation: backfill embed failed for doc %d: %v", docID, err)
+		}
+	}
+
+	embeddings, _ := s.embeddingService.GetDocumentEmbeddings(cfg.SourceDocumentIDs)
+	return embeddings
+}
+
 // vectorPreFilter uses vector similarity to reduce results before LLM review
 func (s *AutomationService) vectorPreFilter(results []jobResult, cfg *repositories.AutomationConfigDTO) []jobResult {
 	if !cfg.VectorPrefilterEnabled || s.embeddingService == nil {
@@ -2314,15 +2420,22 @@ func (s *AutomationService) vectorPreFilter(results []jobResult, cfg *repositori
 	}
 
 	docEmbeddings, err := s.embeddingService.GetDocumentEmbeddings(cfg.SourceDocumentIDs)
-	if err != nil || len(docEmbeddings) == 0 {
-		log.Printf("Automation: vector pre-filter skipped (no doc embeddings): %v", err)
+	if err != nil {
+		log.Printf("Automation: vector pre-filter skipped (embedding lookup error): %v", err)
+		return results
+	}
+	if len(docEmbeddings) == 0 {
+		docEmbeddings = s.backfillDocumentEmbeddings(cfg)
+	}
+	if len(docEmbeddings) == 0 {
+		log.Printf("Automation: vector pre-filter skipped (no doc embeddings after backfill)")
 		return results
 	}
 
 	// Batch embed result snippets
 	texts := make([]string, len(results))
 	for i, r := range results {
-		texts[i] = r.Title + " - " + r.Snippet
+		texts[i] = embeddingText(r)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -2369,15 +2482,6 @@ func (s *AutomationService) vectorPreFilter(results []jobResult, cfg *repositori
 				scored_results[i], scored_results[j] = scored_results[j], scored_results[i]
 			}
 		}
-	}
-
-	// Limit to max results
-	maxResults := cfg.VectorMaxResults
-	if maxResults <= 0 {
-		maxResults = 10
-	}
-	if len(scored_results) > maxResults {
-		scored_results = scored_results[:maxResults]
 	}
 
 	filtered := make([]jobResult, len(scored_results))
@@ -2428,7 +2532,7 @@ func (s *AutomationService) embedProposalAsync(cfg *repositories.AutomationConfi
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	if err := s.embeddingService.EmbedProposal(ctx, cfg.TenantID, proposalID, cfg.ID, job.Title, job.Snippet); err != nil {
+	if err := s.embeddingService.EmbedProposal(ctx, cfg.TenantID, proposalID, cfg.ID, embeddingText(job)); err != nil {
 		log.Printf("Automation: failed to embed proposal %d: %v", proposalID, err)
 	}
 }

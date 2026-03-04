@@ -76,7 +76,6 @@ type CrawlerRequest struct {
 	SuggestedPrompt           *string  `json:"suggested_prompt,omitempty"`
 	VectorPrefilterEnabled    *bool    `json:"vector_prefilter_enabled,omitempty"`
 	VectorSimilarityThreshold *float64 `json:"vector_similarity_threshold,omitempty"`
-	VectorMaxResults          *int     `json:"vector_max_results,omitempty"`
 }
 
 // ToggleRequest represents the request body for toggling a crawler
@@ -414,7 +413,6 @@ func (c *AutomationController) requestToInput(req CrawlerRequest) repositories.A
 		SuggestedPrompt:           req.SuggestedPrompt,
 		VectorPrefilterEnabled:    req.VectorPrefilterEnabled,
 		VectorSimilarityThreshold: req.VectorSimilarityThreshold,
-		VectorMaxResults:          req.VectorMaxResults,
 	}
 }
 

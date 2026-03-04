@@ -64,7 +64,6 @@ type AutomationConfigDTO struct {
 	PromptCooldownProspects   int
 	VectorPrefilterEnabled    bool
 	VectorSimilarityThreshold float64
-	VectorMaxResults          int
 	CreatedAt                 time.Time
 	UpdatedAt                 time.Time
 }
@@ -104,7 +103,6 @@ type AutomationConfigInput struct {
 	PromptCooldownProspects   *int
 	VectorPrefilterEnabled    *bool
 	VectorSimilarityThreshold *float64
-	VectorMaxResults          *int
 }
 
 // AutomationRunLogDTO represents a run log entry
@@ -516,7 +514,6 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 		PromptCooldownProspects:   cfg.PromptCooldownProspects,
 		VectorPrefilterEnabled:    cfg.VectorPrefilterEnabled,
 		VectorSimilarityThreshold: cfg.VectorSimilarityThreshold,
-		VectorMaxResults:          cfg.VectorMaxResults,
 		CreatedAt:                 cfg.CreatedAt,
 		UpdatedAt:                 cfg.UpdatedAt,
 	}
@@ -637,9 +634,6 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	}
 	if input.VectorSimilarityThreshold != nil {
 		cfg.VectorSimilarityThreshold = *input.VectorSimilarityThreshold
-	}
-	if input.VectorMaxResults != nil {
-		cfg.VectorMaxResults = *input.VectorMaxResults
 	}
 }
 

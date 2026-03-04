@@ -158,10 +158,11 @@ flowchart TD
         direction TB
         F1["1. filterDuplicates — URL exact · company|title normalized"]
         F2["2. validateURLs — concurrent HEAD requests (5x)"]
-        F3["3. vectorPreFilter — embed snippets → cosine vs docs"]
+        F2b["2b. fetchFullText — concurrent page fetch (go-readability)"]
+        F3["3. vectorPreFilter — embed full text → cosine vs docs"]
         F4["4. reviewResultsWithAgent — Claude/GPT approval per result"]
-        F5["5. createProposalsFromReviewed → embedProposalAsync"]
-        F1 --> F2 --> F3 --> F4 --> F5
+        F5["5. createProposalsFromReviewed → embedProposalAsync (full text)"]
+        F1 --> F2 --> F2b --> F3 --> F4 --> F5
     end
 
     F5 --> POST["Post-run hooks"]
@@ -169,6 +170,7 @@ flowchart TD
     POST --> SUGG["triggerSuggestions()"]
     POST --> ZERO["trackZeroRuns()"]
 
+    style F2b fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
     style F3 fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
     style F5 fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
     style F4 fill:#fff3e0,stroke:#e65100,color:#1a1a1a
@@ -201,7 +203,8 @@ Query suggestions relied entirely on keyword heuristics (Serper related searches
 flowchart LR
     SERPER["Serper API<br/>~10-20 results"] --> DEDUP["Dedup"]
     DEDUP --> URLS["URL validation"]
-    URLS --> VPF["Vector pre-filter<br/><b>embed + cosine<br/>− rejection penalty</b><br/>~$0.0001/result"]
+    URLS --> FETCH["fetchFullText<br/>go-readability"]
+    FETCH --> VPF["Vector pre-filter<br/><b>embed full text + cosine<br/>− rejection penalty</b><br/>~$0.0001/result"]
     VPF -->|"top N similar"| LLM["LLM review<br/>(Claude/GPT)"]
     LLM -->|approved| PROP["Proposals"]
     LLM -->|rejected| REJ["Rejected jobs"]
@@ -216,6 +219,7 @@ flowchart LR
     REJC -->|"penalty signal"| VPF
     REJC -->|"USER-REJECTED PROFILE"| SERPER
 
+    style FETCH fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
     style VPF fill:#e8f5e9,stroke:#2e7d32,color:#1a1a1a
     style EMB fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
     style LLM fill:#fff3e0,stroke:#e65100,color:#1a1a1a
@@ -224,7 +228,7 @@ flowchart LR
     style REJC fill:#ffcdd2,stroke:#b71c1c,color:#1a1a1a
 ```
 
-The vector pre-filter embeds each result's `title + snippet` and compares against source document embeddings (resumes). Only semantically similar results pass through to the LLM.
+The vector pre-filter embeds each result's full job listing text (with title + snippet fallback) and compares against source document embeddings (resumes). Only semantically similar results pass through to the LLM.
 
 Approved proposals are embedded and stored. Over time, their centroid vector becomes a semantic fingerprint of "what this crawler approves," which is injected into query suggestion prompts.
 
@@ -309,12 +313,12 @@ flowchart TD
 
 ```mermaid
 flowchart LR
-    subgraph STORED["Stored at upload time"]
+    subgraph STORED["Stored at upload time (lazy backfill)"]
         DC["Doc chunk embeddings<br/>(Embedding table)"]
     end
 
     subgraph RUNTIME["At search time"]
-        SR["Search results<br/>title + snippet"] --> OAI["Voyage AI<br/>voyage-4-large<br/>(batch embed)"]
+        SR["Search results<br/>full text (title+snippet fallback)"] --> OAI["Voyage AI<br/>voyage-4-large<br/>(batch embed)"]
     end
 
     subgraph REJECTION["From user feedback"]
@@ -340,7 +344,7 @@ flowchart LR
 ```
 
 - **Model**: `voyage-4-large` (1024 dimensions)
-- **Config**: `vector_similarity_threshold` (default 0.3), `vector_max_results` (default 10)
+- **Config**: `vector_similarity_threshold` (default 0.3)
 - **Rejection penalty**: Applied when ≥ 3 user rejections exist for the config. Weight factor: 0.3
 
 ### Centroid-Informed Query Generation
@@ -414,15 +418,20 @@ flowchart TD
     ASYNC --> SUMM["Summarize<br/>(Anthropic Claude)"]
     SUMM --> DB1[("DB: summary field")]
 
-    ASYNC --> EMBED["EmbedDocumentChunks()<br/>(OpenAI)"]
+    ASYNC --> EXTRACT["extractTextContent()<br/><i>PDF · text · JSON</i>"]
+    EXTRACT --> EMBED["EmbedDocumentChunks()"]
 
     EMBED --> CHUNK["ChunkText()<br/>sentence-boundary splitting<br/>512 tokens/chunk · 64 overlap"]
     CHUNK --> API["Voyage AI<br/>voyage-4-large<br/>(batch embed)"]
     API --> DB2[("DB: Embedding table<br/>UpsertDocChunks<br/>delete + insert in tx")]
 
+    VPF["vectorPreFilter()"] -->|"no embeddings found"| BACKFILL["backfillDocumentEmbeddings()<br/><i>fetch doc · extract · embed</i>"]
+    BACKFILL --> EMBED
+
     style SUMM fill:#fff3e0,stroke:#e65100,color:#1a1a1a
     style API fill:#fff3e0,stroke:#e65100,color:#1a1a1a
     style DB2 fill:#e3f2fd,stroke:#1565c0,color:#1a1a1a
+    style BACKFILL fill:#fff9c4,stroke:#f57f17,color:#1a1a1a
 ```
 
 ### Data Model
@@ -430,9 +439,8 @@ flowchart TD
 ```mermaid
 erDiagram
     Automation_Config {
-        bool vector_prefilter_enabled "default false"
+        bool vector_prefilter_enabled "default true"
         float vector_similarity_threshold "default 0.3"
-        int vector_max_results "default 10"
     }
 
     Embedding {

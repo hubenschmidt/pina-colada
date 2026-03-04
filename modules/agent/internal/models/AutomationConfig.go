@@ -49,7 +49,6 @@ type AutomationConfig struct {
 	PromptCooldownProspects    int       `gorm:"column:prompt_cooldown_prospects;not null;default:50" json:"prompt_cooldown_prospects"`
 	VectorPrefilterEnabled     bool      `gorm:"column:vector_prefilter_enabled;not null;default:false" json:"vector_prefilter_enabled"`
 	VectorSimilarityThreshold  float64   `gorm:"column:vector_similarity_threshold;not null;default:0.3" json:"vector_similarity_threshold"`
-	VectorMaxResults           int       `gorm:"column:vector_max_results;not null;default:10" json:"vector_max_results"`
 	CreatedAt               time.Time `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt            time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 }

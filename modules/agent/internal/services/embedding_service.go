@@ -94,9 +94,8 @@ func (s *EmbeddingService) EmbedDocumentChunks(ctx context.Context, tenantID, do
 	return nil
 }
 
-// EmbedProposal embeds a proposal's title+snippet and stores it
-func (s *EmbeddingService) EmbedProposal(ctx context.Context, tenantID, proposalID, configID int64, title, snippet string) error {
-	text := title + " - " + snippet
+// EmbedProposal embeds a proposal's text and stores it
+func (s *EmbeddingService) EmbedProposal(ctx context.Context, tenantID, proposalID, configID int64, text string) error {
 	vectors, err := s.EmbedTexts(ctx, []string{text})
 	if err != nil {
 		return fmt.Errorf("embedding proposal: %w", err)

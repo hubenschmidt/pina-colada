@@ -238,8 +238,11 @@ func extractTextContent(data []byte, contentType string) string {
 	if strings.Contains(contentType, "text/") || strings.Contains(contentType, "application/json") {
 		return string(data)
 	}
-	// PDF extraction would require the pdf library - skip for now in async processing
-	// The full content extraction happens in document_tools.go when reading
+
+	if strings.Contains(contentType, "pdf") {
+		return extractPDFTextFromBytes(data)
+	}
+
 	return ""
 }
 
