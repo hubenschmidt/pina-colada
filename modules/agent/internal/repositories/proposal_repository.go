@@ -320,7 +320,7 @@ func modelToDTO(p *models.AgentProposal) *ProposalDTO {
 	}
 }
 
-// AutomationProposalDTO represents a simplified proposal for automation digest
+// AutomationProposalDTO represents a simplified proposal for automation
 type AutomationProposalDTO struct {
 	ID        int64
 	Status    string

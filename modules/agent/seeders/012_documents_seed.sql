@@ -211,10 +211,8 @@ BEGIN
             VALUES ('document', v_tenant_id, v_user_id, 'william_hubenschmidt_resume.pdf', 'application/pdf',
                     'Resume for William Hubenschmidt', v_user_id, v_user_id)
             RETURNING id INTO v_doc_id;
-            INSERT INTO "Document" (id, storage_path, file_size, summary, compressed)
-            VALUES (v_doc_id, v_tenant_id || '/seed/william_hubenschmidt_resume.pdf', 45000,
-                '{"text": "William Hubenschmidt is a Full Stack Engineer with 8+ years of experience in Python, TypeScript, Go, and React. He has expertise in AI/ML integration, cloud infrastructure (AWS, GCP), and building scalable distributed systems. Recent work includes AI-powered CRM platforms and real-time data pipelines.", "keywords": ["Full Stack Engineer", "Python", "TypeScript", "Go", "AI/ML"], "generated_at": "2025-01-01T00:00:00Z"}'::jsonb,
-                'William Hubenschmidt Full Stack Engineer 8+ years experience Python TypeScript Go React AWS GCP AI ML distributed systems cloud infrastructure real-time data pipelines');
+            INSERT INTO "Document" (id, storage_path, file_size)
+            VALUES (v_doc_id, v_tenant_id || '/seed/william_hubenschmidt_resume.pdf', 45000);
         END IF;
         INSERT INTO "Entity_Asset" (asset_id, entity_type, entity_id)
         VALUES (v_doc_id, 'Individual', v_entity_id) ON CONFLICT DO NOTHING;

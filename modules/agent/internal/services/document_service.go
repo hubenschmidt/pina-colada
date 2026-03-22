@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"agent/internal/filtering"
 	"agent/internal/repositories"
 	"agent/internal/serializers"
 )
@@ -240,7 +241,7 @@ func extractTextContent(data []byte, contentType string) string {
 	}
 
 	if strings.Contains(contentType, "pdf") {
-		return extractPDFTextFromBytes(data)
+		return filtering.ExtractDocumentContent(contentType, data)
 	}
 
 	return ""

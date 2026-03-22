@@ -64,10 +64,6 @@ BEGIN
         system_prompt,
         use_suggested_prompt,
         min_prospects_threshold,
-        digest_enabled,
-        digest_emails,
-        digest_time,
-        digest_model,
         created_at,
         updated_at
     )
@@ -96,10 +92,6 @@ BEGIN
         'Please job search for matches using the resume linked on his Individual record. Jobs should be located in New York and at startups (seed, series A, B, and C).',
         true,
         5,
-        true,
-        'whubenschmidt@gmail.com',
-        '09:00',
-        'claude-sonnet-4-5-20250929',
         NOW(),
         NOW()
     )
@@ -123,10 +115,6 @@ BEGIN
         system_prompt = EXCLUDED.system_prompt,
         use_suggested_prompt = EXCLUDED.use_suggested_prompt,
         min_prospects_threshold = EXCLUDED.min_prospects_threshold,
-        digest_enabled = EXCLUDED.digest_enabled,
-        digest_emails = EXCLUDED.digest_emails,
-        digest_time = EXCLUDED.digest_time,
-        digest_model = EXCLUDED.digest_model,
         updated_at = NOW();
 
     RAISE NOTICE 'Test job crawler created for William (tenant_id=%, user_id=%, individual_id=%, doc_id=%)',

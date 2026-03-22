@@ -49,11 +49,6 @@ type AutomationConfigDTO struct {
 	TargetType         *string
 	TargetIDs          []int64
 	SourceDocumentIDs  []int64
-	DigestEnabled      bool
-	DigestEmails       *string
-	DigestTime         *string
-	DigestModel        *string
-	LastDigestAt       *time.Time
 	UseAgent            bool
 	AgentModel          *string
 	UseAnalytics        bool
@@ -90,10 +85,6 @@ type AutomationConfigInput struct {
 	TargetType         *string
 	TargetIDs          []int64
 	SourceDocumentIDs  []int64
-	DigestEnabled      *bool
-	DigestEmails       *string
-	DigestTime         *string
-	DigestModel        *string
 	UseAgent           *bool
 	AgentModel           *string
 	UseAnalytics            *bool
@@ -269,34 +260,6 @@ func (r *AutomationRepository) SetNextRun(configID int64, nextRun time.Time) err
 		Updates(map[string]interface{}{
 			"next_run_at": nextRun,
 			"updated_at":  time.Now(),
-		}).Error
-}
-
-// GetDigestDueConfigs returns configs that need digest emails sent
-// Returns configs where digest is enabled and last_digest_at was before today
-func (r *AutomationRepository) GetDigestDueConfigs(now time.Time) ([]AutomationConfigDTO, error) {
-	startOfDay := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
-	var configs []models.AutomationConfig
-	err := r.db.Where("digest_enabled = ? AND (last_digest_at IS NULL OR last_digest_at < ?)",
-		true, startOfDay).Find(&configs).Error
-	if err != nil {
-		return nil, err
-	}
-
-	result := make([]AutomationConfigDTO, len(configs))
-	for i := range configs {
-		result[i] = *r.modelToDTO(&configs[i])
-	}
-	return result, nil
-}
-
-// UpdateLastDigest updates the last digest timestamp
-func (r *AutomationRepository) UpdateLastDigest(configID int64, digestTime time.Time) error {
-	return r.db.Model(&models.AutomationConfig{}).
-		Where("id = ?", configID).
-		Updates(map[string]interface{}{
-			"last_digest_at": digestTime,
-			"updated_at":     time.Now(),
 		}).Error
 }
 
@@ -499,11 +462,6 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 		TimeFilter:         cfg.TimeFilter,
 		Location:           cfg.Location,
 		TargetType:         cfg.TargetType,
-		DigestEnabled:      cfg.DigestEnabled,
-		DigestEmails:       cfg.DigestEmails,
-		DigestTime:         cfg.DigestTime,
-		DigestModel:        cfg.DigestModel,
-		LastDigestAt:       cfg.LastDigestAt,
 		UseAgent:           cfg.UseAgent,
 		AgentModel:         cfg.AgentModel,
 		UseAnalytics:       cfg.UseAnalytics,
@@ -595,18 +553,6 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	}
 	if input.SourceDocumentIDs != nil {
 		cfg.SourceDocumentIDs = toJSON(input.SourceDocumentIDs)
-	}
-	if input.DigestEnabled != nil {
-		cfg.DigestEnabled = *input.DigestEnabled
-	}
-	if input.DigestEmails != nil {
-		cfg.DigestEmails = input.DigestEmails
-	}
-	if input.DigestTime != nil {
-		cfg.DigestTime = input.DigestTime
-	}
-	if input.DigestModel != nil {
-		cfg.DigestModel = input.DigestModel
 	}
 	if input.UseAgent != nil {
 		cfg.UseAgent = *input.UseAgent
@@ -787,15 +733,6 @@ func (r *AutomationRepository) UpdateSuggestedQuery(configID int64, query string
 		}).Error
 }
 
-// ClearSuggestedQuery removes the suggested query and disables the flag
-func (r *AutomationRepository) ClearSuggestedQuery(configID int64) error {
-	return r.db.Model(&models.AutomationConfig{}).
-		Where("id = ?", configID).
-		Updates(map[string]interface{}{
-			"suggested_query":     nil,
-			"use_suggested_query": false,
-		}).Error
-}
 
 // QueryPerformance represents analytics for a single query
 type QueryPerformance struct {

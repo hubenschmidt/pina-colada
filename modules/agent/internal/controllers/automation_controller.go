@@ -20,24 +20,17 @@ type TestRunner interface {
 	ExecuteForConfig(configID int64) error
 }
 
-// DigestTester interface for sending test digests
-type DigestTester interface {
-	SendTestDigest(configID int64) error
-}
-
 // AutomationController handles automation HTTP requests
 type AutomationController struct {
 	automationService *services.AutomationService
 	testRunner        TestRunner
-	digestTester      DigestTester
 }
 
 // NewAutomationController creates a new automation controller
-func NewAutomationController(automationService *services.AutomationService, testRunner TestRunner, digestTester DigestTester) *AutomationController {
+func NewAutomationController(automationService *services.AutomationService, testRunner TestRunner) *AutomationController {
 	return &AutomationController{
 		automationService: automationService,
 		testRunner:        testRunner,
-		digestTester:      digestTester,
 	}
 }
 
@@ -61,10 +54,6 @@ type CrawlerRequest struct {
 	TargetType         *string  `json:"target_type,omitempty"`
 	TargetIDs          []int64  `json:"target_ids,omitempty"`
 	SourceDocumentIDs  []int64  `json:"source_document_ids,omitempty"`
-	DigestEnabled      *bool    `json:"digest_enabled,omitempty"`
-	DigestEmails       *string  `json:"digest_emails,omitempty"`
-	DigestTime         *string  `json:"digest_time,omitempty"`
-	DigestModel        *string  `json:"digest_model,omitempty"`
 	UseAgent           *bool    `json:"use_agent,omitempty"`
 	AgentModel         *string  `json:"agent_model,omitempty"`
 	UseAnalytics       *bool    `json:"use_analytics,omitempty"`
@@ -280,27 +269,6 @@ func (c *AutomationController) TestCrawler(w http.ResponseWriter, r *http.Reques
 	writeAutomationJSON(w, http.StatusOK, map[string]string{"status": "test run initiated"})
 }
 
-// SendTestDigest handles POST /automation/crawlers/{id}/test-digest
-func (c *AutomationController) SendTestDigest(w http.ResponseWriter, r *http.Request) {
-	configID, err := c.parseConfigID(r)
-	if err != nil {
-		writeAutomationError(w, http.StatusBadRequest, "invalid crawler ID")
-		return
-	}
-
-	if c.digestTester == nil {
-		writeAutomationError(w, http.StatusServiceUnavailable, "digest service not configured")
-		return
-	}
-
-	if err := c.digestTester.SendTestDigest(configID); err != nil {
-		writeAutomationError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	writeAutomationJSON(w, http.StatusOK, map[string]string{"status": "test digest sent"})
-}
-
 // StreamCrawlerRuns handles GET /automation/crawlers/{id}/runs/stream (SSE)
 func (c *AutomationController) StreamCrawlerRuns(w http.ResponseWriter, r *http.Request) {
 	configID, err := c.parseConfigID(r)
@@ -398,10 +366,6 @@ func (c *AutomationController) requestToInput(req CrawlerRequest) repositories.A
 		TargetType:         req.TargetType,
 		TargetIDs:          req.TargetIDs,
 		SourceDocumentIDs:  req.SourceDocumentIDs,
-		DigestEnabled:      req.DigestEnabled,
-		DigestEmails:       req.DigestEmails,
-		DigestTime:         req.DigestTime,
-		DigestModel:        req.DigestModel,
 		UseAgent:           req.UseAgent,
 		AgentModel:         req.AgentModel,
 		UseAnalytics:       req.UseAnalytics,

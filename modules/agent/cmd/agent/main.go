@@ -117,19 +117,19 @@ func main() {
 	genericEntityService := services.NewGenericEntityService(genericEntityRepo)
 	visitorService := services.NewVisitorService(cfg)
 	docLoader := &documentLoaderAdapter{docService: docService}
-	automationService := services.NewAutomationService(automationRepo, proposalRepo, jobRepo, proposalService, docLoader, cfg.SerperAPIKey, cfg.AnthropicAPIKey, cfg.Env, cfg.PushoverUser, cfg.PushoverToken)
+	automationService := services.NewAutomationService(automationRepo, proposalRepo, jobRepo, proposalService, docLoader, cfg.SerperAPIKey, cfg.AnthropicAPIKey, cfg.OpenAIAPIKey, cfg.Env, cfg.PushoverUser, cfg.PushoverToken)
 
 	// Wire embedding service for vector pre-filtering and proposal embeddings
-	if cfg.VoyageAPIKey != "" {
+	if cfg.OpenAIAPIKey != "" {
 		embeddingRepo := repositories.NewEmbeddingRepository(database)
-		embeddingService := services.NewEmbeddingService(embeddingRepo, cfg.VoyageAPIKey)
+		embeddingService := services.NewEmbeddingService(embeddingRepo, cfg.OpenAIAPIKey)
 		automationService.SetEmbeddingService(embeddingService)
 		docService.SetEmbedder(embeddingService)
 		proposalService.SetEmbeddingService(embeddingService)
-		log.Println("Vector embedding service initialized (Voyage AI)")
+		log.Println("Vector embedding service initialized")
 	}
 
-	// Cleanup any stale automation runs from previous server runs
+	// Cleanup any stale runs from previous server runs
 	automationService.CleanupStaleRuns()
 
 	// Stop any orphaned recording sessions from previous runs
@@ -142,23 +142,11 @@ func main() {
 	// Initialize config cache for agent orchestrator
 	configCache := utils.NewConfigCache(agentConfigService)
 
-	// Initialize ADK agent orchestrator (only if Anthropic API key is configured)
+	// Initialize ADK agent orchestrator (only if OpenAI API key is configured)
 	agentOrchestrator := initOrchestrator(cfg, docService, jobService, convService, configCache, metricService, permService, proposalService, genericEntityService)
 
-	// Initialize automation worker (wraps service for scheduler)
+	// Initialize workers (wrap services for scheduler)
 	automationWorker := scheduler.NewAutomationWorker(automationService)
-
-	// Initialize digest service (needed by controller and scheduler)
-	digestService := scheduler.NewDigestService(
-		automationRepo,
-		proposalRepo,
-		cfg.SMTPHost,
-		cfg.SMTPPort,
-		cfg.SMTPUsername,
-		cfg.SMTPPassword,
-		cfg.SMTPFromEmail,
-		cfg.AnthropicAPIKey,
-	)
 
 	// Initialize controllers
 	ctrls := &routes.Controllers{
@@ -191,7 +179,7 @@ func main() {
 		Proposal:       controllers.NewProposalController(proposalService),
 		ApprovalConfig: controllers.NewApprovalConfigController(approvalConfigService),
 		Role:           controllers.NewRoleController(roleService),
-		Automation:     controllers.NewAutomationController(automationService, automationWorker, digestService),
+		Automation:     controllers.NewAutomationController(automationService, automationWorker),
 	}
 
 	// Initialize router and register routes
@@ -199,7 +187,7 @@ func main() {
 	routes.RegisterRoutes(router, ctrls, authService)
 
 	// Initialize and start scheduler
-	sched := scheduler.NewScheduler(automationWorker, digestService)
+	sched := scheduler.NewScheduler(automationWorker)
 	if err := sched.Start(); err != nil {
 		log.Printf("Warning: failed to start scheduler: %v", err)
 	}
@@ -240,8 +228,8 @@ func main() {
 
 // initOrchestrator initializes the agent orchestrator if configured
 func initOrchestrator(cfg *config.Config, docService *services.DocumentService, jobService *services.JobService, convService *services.ConversationService, configCache *utils.ConfigCache, metricService *services.MetricService, permService *services.PermissionService, proposalService *services.ProposalService, entityService *services.GenericEntityService) *agent.Orchestrator {
-	if cfg.AnthropicAPIKey == "" {
-		log.Println("ANTHROPIC_API_KEY not configured - agent endpoints disabled")
+	if cfg.OpenAIAPIKey == "" {
+		log.Println("OPENAI_API_KEY not configured - agent endpoints disabled")
 		return nil
 	}
 

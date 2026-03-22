@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	embeddingModel     = "voyage-4-large"
-	embeddingDimension = 1024
+	embeddingModel     = "text-embedding-3-large"
+	embeddingDimension = 3072
 	chunkMaxTokens     = 512
 	chunkOverlapTokens = 64
-	voyageEmbedURL     = "https://api.voyageai.com/v1/embeddings"
+	openAIEmbedURL     = "https://api.openai.com/v1/embeddings"
 )
 
 // DocumentEmbedder is the interface used by DocumentService
@@ -31,23 +31,23 @@ type DocumentEmbedder interface {
 }
 
 type EmbeddingService struct {
-	repo       *repositories.EmbeddingRepository
-	apiKey     string
-	httpClient *http.Client
+	repo         *repositories.EmbeddingRepository
+	openAIAPIKey string
+	httpClient   *http.Client
 }
 
-func NewEmbeddingService(repo *repositories.EmbeddingRepository, voyageAPIKey string) *EmbeddingService {
+func NewEmbeddingService(repo *repositories.EmbeddingRepository, openAIAPIKey string) *EmbeddingService {
 	return &EmbeddingService{
-		repo:       repo,
-		apiKey:     voyageAPIKey,
-		httpClient: &http.Client{Timeout: 30 * time.Second},
+		repo:         repo,
+		openAIAPIKey: openAIAPIKey,
+		httpClient:   &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
-// EmbedTexts embeds a batch of texts via Voyage AI API
+// EmbedTexts embeds a batch of texts via OpenAI API
 func (s *EmbeddingService) EmbedTexts(ctx context.Context, texts []string) ([]pgvector.Vector, error) {
-	log.Printf("Embedding: calling Voyage AI %s for %d texts", embeddingModel, len(texts))
-	rawVectors, err := s.callEmbeddingAPI(ctx, texts)
+	log.Printf("📐 Embedding: calling OpenAI %s for %d texts", embeddingModel, len(texts))
+	rawVectors, err := s.callOpenAIEmbeddings(ctx, texts)
 	if err != nil {
 		return nil, err
 	}
@@ -233,16 +233,14 @@ func isAllSpace(s string) bool {
 	return true
 }
 
-// Voyage AI embeddings API types (OpenAI-compatible shape)
+// OpenAI embeddings API types
 
-type embeddingRequest struct {
-	Model           string   `json:"model"`
-	Input           []string `json:"input"`
-	InputType       string   `json:"input_type,omitempty"`
-	OutputDimension int      `json:"output_dimension,omitempty"`
+type openAIEmbeddingRequest struct {
+	Model string   `json:"model"`
+	Input []string `json:"input"`
 }
 
-type embeddingResponse struct {
+type openAIEmbeddingResponse struct {
 	Data []struct {
 		Embedding []float64 `json:"embedding"`
 	} `json:"data"`
@@ -251,23 +249,21 @@ type embeddingResponse struct {
 	} `json:"error"`
 }
 
-func (s *EmbeddingService) callEmbeddingAPI(ctx context.Context, texts []string) ([][]float64, error) {
-	body, err := json.Marshal(embeddingRequest{
-		Model:           embeddingModel,
-		Input:           texts,
-		InputType:       "document",
-		OutputDimension: embeddingDimension,
+func (s *EmbeddingService) callOpenAIEmbeddings(ctx context.Context, texts []string) ([][]float64, error) {
+	body, err := json.Marshal(openAIEmbeddingRequest{
+		Model: embeddingModel,
+		Input: texts,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, voyageEmbedURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, openAIEmbedURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+s.apiKey)
+	req.Header.Set("Authorization", "Bearer "+s.openAIAPIKey)
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -281,17 +277,17 @@ func (s *EmbeddingService) callEmbeddingAPI(ctx context.Context, texts []string)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		log.Printf("Voyage AI embeddings API error (status %d): %s", resp.StatusCode, string(respBody[:min(len(respBody), 200)]))
-		return nil, fmt.Errorf("voyage api error: status %d", resp.StatusCode)
+		log.Printf("OpenAI embeddings API error (status %d): %s", resp.StatusCode, string(respBody[:min(len(respBody), 200)]))
+		return nil, fmt.Errorf("openai api error: status %d", resp.StatusCode)
 	}
 
-	var result embeddingResponse
+	var result openAIEmbeddingResponse
 	if err := json.Unmarshal(respBody, &result); err != nil {
 		return nil, fmt.Errorf("unmarshal response: %w", err)
 	}
 
 	if result.Error != nil {
-		return nil, fmt.Errorf("voyage api: %s", result.Error.Message)
+		return nil, fmt.Errorf("openai api: %s", result.Error.Message)
 	}
 
 	vectors := make([][]float64, len(result.Data))

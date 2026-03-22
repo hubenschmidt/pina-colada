@@ -32,11 +32,6 @@ type AutomationConfigResponse struct {
 	TargetType         *string    `json:"target_type"`
 	TargetIDs          []int64    `json:"target_ids"`
 	SourceDocumentIDs  []int64    `json:"source_document_ids"`
-	DigestEnabled      bool       `json:"digest_enabled"`
-	DigestEmails       *string    `json:"digest_emails"`
-	DigestTime         *string    `json:"digest_time"`
-	DigestModel        *string    `json:"digest_model"`
-	LastDigestAt       *time.Time `json:"last_digest_at"`
 	UseAgent           bool       `json:"use_agent"`
 	AgentModel         *string    `json:"agent_model"`
 	UseAnalytics       bool       `json:"use_analytics"`

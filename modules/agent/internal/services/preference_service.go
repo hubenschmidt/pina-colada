@@ -95,8 +95,6 @@ func (s *PreferenceService) resolveTheme(userTheme *string, tenantID *int64) str
 	return "light"
 }
 
-var ErrTenantNotSet = errors.New("tenant not set")
-
 // TenantPreferencesResponse represents the tenant preferences response
 type TenantPreferencesResponse struct {
 	Theme string `json:"theme"`

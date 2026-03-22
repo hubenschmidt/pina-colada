@@ -121,7 +121,7 @@ const AgentConfigMenu = () => {
   const getModelsForProvider = (provider) => {
     const models = config?.available_models;
     if (!models) return [];
-    return models.anthropic || [];
+    return provider === "anthropic" ? models.anthropic : models.openai;
   };
 
   const handleSavePreset = async () => {
@@ -211,6 +211,8 @@ const AgentConfigMenu = () => {
     max_tokens: "Maximum number of tokens to generate in the response. Higher values allow longer responses.",
     top_p: "Nucleus sampling: only consider tokens with cumulative probability up to this value. Lower values make output more focused.",
     top_k: "Only sample from the top K most likely tokens. Lower values make output more focused. (Anthropic only)",
+    frequency_penalty: "Reduces repetition by penalizing tokens based on how often they appear. Positive values decrease repetition. (OpenAI only)",
+    presence_penalty: "Reduces repetition by penalizing tokens that have appeared at all. Positive values encourage new topics. (OpenAI only)",
   };
 
   return (
@@ -259,9 +261,10 @@ const AgentConfigMenu = () => {
               <label className={styles.providerLabel}>Global Provider</label>
               <select
                 className={styles.providerSelect}
-                value={config?.selected_provider || "anthropic"}
+                value={config?.selected_provider || ""}
                 onChange={(e) => handleGlobalProviderChange(e.target.value)}
                 disabled={changingProvider}>
+                <option value="openai">OpenAI</option>
                 <option value="anthropic">Anthropic</option>
               </select>
             </div>
@@ -356,6 +359,13 @@ const AgentConfigMenu = () => {
                       value={node.model}
                       onChange={(e) => handleModelChange(node.node_name, e.target.value)}
                       disabled={saving[node.node_name]}>
+                      <optgroup label="OpenAI">
+                        {getModelsForProvider("openai").map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </optgroup>
                       <optgroup label="Anthropic">
                         {getModelsForProvider("anthropic").map((m) => (
                           <option key={m} value={m}>
@@ -482,6 +492,60 @@ const AgentConfigMenu = () => {
                             className={styles.settingInput}
                           />
                         </div>
+                      )}
+                      {node.provider === "openai" && (
+                        <>
+                          <div className={styles.settingRow}>
+                            <label className={styles.settingLabel}>
+                              <span className={styles.labelWithTooltip}>
+                                Frequency Penalty
+                                <span className={styles.tooltipIcon} title={paramTooltips.frequency_penalty}>
+                                  <Info size={12} />
+                                </span>
+                              </span>
+                              <span className={styles.settingValue}>
+                                {node.frequency_penalty != null ? node.frequency_penalty.toFixed(2) : "default"}
+                              </span>
+                            </label>
+                            <input
+                              type="range"
+                              min="-2"
+                              max="2"
+                              step="0.1"
+                              value={node.frequency_penalty ?? 0}
+                              onChange={(e) =>
+                                handleNodeUpdate(node.node_name, { frequency_penalty: parseFloat(e.target.value) })
+                              }
+                              disabled={saving[node.node_name]}
+                              className={styles.settingSlider}
+                            />
+                          </div>
+                          <div className={styles.settingRow}>
+                            <label className={styles.settingLabel}>
+                              <span className={styles.labelWithTooltip}>
+                                Presence Penalty
+                                <span className={styles.tooltipIcon} title={paramTooltips.presence_penalty}>
+                                  <Info size={12} />
+                                </span>
+                              </span>
+                              <span className={styles.settingValue}>
+                                {node.presence_penalty != null ? node.presence_penalty.toFixed(2) : "default"}
+                              </span>
+                            </label>
+                            <input
+                              type="range"
+                              min="-2"
+                              max="2"
+                              step="0.1"
+                              value={node.presence_penalty ?? 0}
+                              onChange={(e) =>
+                                handleNodeUpdate(node.node_name, { presence_penalty: parseFloat(e.target.value) })
+                              }
+                              disabled={saving[node.node_name]}
+                              className={styles.settingSlider}
+                            />
+                          </div>
+                        </>
                       )}
                     </div>
                   )}

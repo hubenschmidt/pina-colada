@@ -8,20 +8,15 @@ import (
 
 // Scheduler manages scheduled automation jobs
 type Scheduler struct {
-	cron          *cron.Cron
-	worker        *AutomationWorker
-	digestService *DigestService
+	cron   *cron.Cron
+	worker *AutomationWorker
 }
 
 // NewScheduler creates a new scheduler
-func NewScheduler(
-	worker *AutomationWorker,
-	digestService *DigestService,
-) *Scheduler {
+func NewScheduler(worker *AutomationWorker) *Scheduler {
 	return &Scheduler{
-		cron:          cron.New(),
-		worker:        worker,
-		digestService: digestService,
+		cron:   cron.New(),
+		worker: worker,
 	}
 }
 
@@ -29,11 +24,6 @@ func NewScheduler(
 func (s *Scheduler) Start() error {
 	// Check for due automations every 10 seconds to support short intervals
 	_, err := s.cron.AddFunc("@every 10s", s.checkDueAutomations)
-	if err != nil {
-		return err
-	}
-
-	_, err = s.cron.AddFunc("@every 1h", s.runDailyDigest)
 	if err != nil {
 		return err
 	}
@@ -51,16 +41,8 @@ func (s *Scheduler) Stop() {
 }
 
 func (s *Scheduler) checkDueAutomations() {
-	if s.worker == nil {
-		return
+	if s.worker != nil {
+		s.worker.ResumePausedCrawlers()
+		s.worker.ProcessDueAutomations()
 	}
-	s.worker.ResumePausedCrawlers()
-	s.worker.ProcessDueAutomations()
-}
-
-func (s *Scheduler) runDailyDigest() {
-	if s.digestService == nil {
-		return
-	}
-	s.digestService.SendDailyDigests()
 }

@@ -34,11 +34,6 @@ type AutomationConfig struct {
 	TargetType        *string        `gorm:"column:target_type" json:"target_type"`
 	TargetIDs         datatypes.JSON `gorm:"column:target_ids;type:jsonb" json:"target_ids"`
 	SourceDocumentIDs datatypes.JSON `gorm:"column:source_document_ids;type:jsonb" json:"source_document_ids"`
-	DigestEnabled      bool           `gorm:"column:digest_enabled;not null;default:true" json:"digest_enabled"`
-	DigestEmails       *string        `gorm:"column:digest_emails" json:"digest_emails"`
-	DigestTime         *string        `gorm:"column:digest_time;default:'09:00'" json:"digest_time"`
-	DigestModel        *string        `gorm:"column:digest_model" json:"digest_model"`
-	LastDigestAt       *time.Time     `gorm:"column:last_digest_at" json:"last_digest_at"`
 	UseAgent           bool           `gorm:"column:use_agent;not null;default:false" json:"use_agent"`
 	AgentModel           *string        `gorm:"column:agent_model" json:"agent_model"`
 	UseAnalytics         bool           `gorm:"column:use_analytics;not null;default:false" json:"use_analytics"`

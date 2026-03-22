@@ -28,7 +28,6 @@ import { useMantineColorScheme } from "@mantine/core";
 import {
   Play,
   Clock,
-  Mail,
   AlertCircle,
   CheckCircle,
   Plus,
@@ -53,7 +52,6 @@ import {
   deleteCrawler,
   toggleCrawler,
   testCrawler,
-  sendTestDigest,
   clearRejectedJobs,
   searchIndividuals,
   searchOrganizations,
@@ -91,9 +89,11 @@ const TARGET_TYPE_OPTIONS = {
 };
 
 const AGENT_MODEL_OPTIONS = [
-  { value: "claude-opus-4-6", label: "Claude Opus 4.6" },
-  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6 (Recommended)" },
+  { value: "claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5 (Recommended)" },
   { value: "claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (Faster)" },
+  { value: "gpt-5.4", label: "GPT 5.4" },
+  { value: "gpt-5.4-mini", label: "GPT 5.4 Mini" },
+  { value: "gpt-5.2", label: "GPT 5.2" },
 ];
 
 const INTERVAL_UNITS = [
@@ -101,7 +101,7 @@ const INTERVAL_UNITS = [
   { value: "minutes", label: "Minutes" },
 ];
 
-const emptyForm = {
+const emptyCrawlerForm = {
   name: "",
   entity_type: "job",
   interval_value: 30,
@@ -122,10 +122,6 @@ const emptyForm = {
   use_suggested_prompt: false,
   suggestion_threshold: 50,
   min_prospects_threshold: 5,
-  digest_enabled: true,
-  digest_emails: "",
-  digest_time: "09:00",
-  digest_model: null,
   use_agent: true,
   agent_model: "claude-opus-4-6",
   vector_prefilter_enabled: true,
@@ -137,27 +133,38 @@ const emptyForm = {
   prompt_cooldown_prospects: 50,
 };
 
+const secondsToInterval = (seconds) => {
+  const useMinutes = seconds >= 60 && seconds % 60 === 0;
+  return {
+    value: useMinutes ? seconds / 60 : seconds,
+    unit: useMinutes ? "minutes" : "seconds",
+  };
+};
+
+const intervalToSeconds = (value, unit) => (unit === "minutes" ? value * 60 : value);
+
 const AutomationPage = () => {
   const { dispatchPageLoading } = usePageLoading();
   const { userState } = useUserContext();
-  const { colorScheme } = useMantineColorScheme();
-  const [crawlers, setCrawlers] = useState([]);
+
+  // Shared state
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [documents, setDocuments] = useState([]);
   const [alert, setAlert] = useState(null);
   const [modalError, setModalError] = useState(null);
 
-  const [modalOpened, { open: openModal, close: closeModal }] = useDisclosure(false);
+  // Crawler state
+  const [crawlers, setCrawlers] = useState([]);
+  const [crawlerModalOpened, { open: openCrawlerModal, close: closeCrawlerModal }] =
+    useDisclosure(false);
   const [editingCrawler, setEditingCrawler] = useState(null);
-  const [form, setForm] = useState(emptyForm);
-  const [initialForm, setInitialForm] = useState(emptyForm);
-
-  const [expandedRuns, setExpandedRuns] = useState({});
+  const [crawlerForm, setCrawlerForm] = useState(emptyCrawlerForm);
+  const [initialCrawlerForm, setInitialCrawlerForm] = useState(emptyCrawlerForm);
+  const [expandedCrawlerRuns, setExpandedCrawlerRuns] = useState({});
   const [crawlerPages, setCrawlerPages] = useState({});
   const [crawlerPageSizes, setCrawlerPageSizes] = useState({});
-  const [sseStatus, setSseStatus] = useState({});
-
+  const [crawlerSseStatus, setCrawlerSseStatus] = useState({});
   const [targetOptions, setTargetOptions] = useState([]);
   const [searchingTargets, setSearchingTargets] = useState(false);
 
@@ -165,6 +172,8 @@ const AutomationPage = () => {
     setAlert({ message, color });
     setTimeout(() => setAlert(null), 4000);
   };
+
+  // ── Data fetching ──
 
   const fetchCrawlers = async () => {
     try {
@@ -190,6 +199,13 @@ const AutomationPage = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
+    fetchData();
+  }, [dispatchPageLoading]);
+
+  // ── Target search (crawler-specific) ──
 
   const searchTargetsByType = async (targetType, query) => {
     if (targetType === "individual") {
@@ -217,78 +233,24 @@ const AutomationPage = () => {
   };
 
   const handleTargetSearch = async (query) => {
-    if (!query || query.length < 2 || !form.target_type) {
-      return;
-    }
+    if (!query || query.length < 2 || !crawlerForm.target_type) return;
     setSearchingTargets(true);
     try {
-      const options = await searchTargetsByType(form.target_type, query);
+      const options = await searchTargetsByType(crawlerForm.target_type, query);
       const safeOptions = Array.isArray(options) ? options : [];
       const currentOptions = Array.isArray(targetOptions) ? targetOptions : [];
-      const currentIds = Array.isArray(form.target_ids) ? form.target_ids : [];
-      // Merge with existing selected options to preserve selections
+      const currentIds = Array.isArray(crawlerForm.target_ids) ? crawlerForm.target_ids : [];
       const existingIds = new Set(currentOptions.map((o) => o.value));
       const newOptions = safeOptions.filter((o) => !existingIds.has(o.value));
-      setTargetOptions([...currentOptions.filter((o) => currentIds.includes(parseInt(o.value, 10))), ...newOptions]);
+      setTargetOptions([
+        ...currentOptions.filter((o) => currentIds.includes(parseInt(o.value, 10))),
+        ...newOptions,
+      ]);
     } catch {
       // Keep existing options on error
     } finally {
       setSearchingTargets(false);
     }
-  };
-
-  useEffect(() => {
-    dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
-    fetchData();
-  }, [dispatchPageLoading]);
-
-  const handleOpenCreate = () => {
-    setEditingCrawler(null);
-    setForm(emptyForm);
-    setInitialForm(emptyForm);
-    setTargetOptions([]);
-    setModalError(null);
-    openModal();
-  };
-
-  const crawlerToFormData = (crawler, nameOverride) => {
-    const seconds = crawler.interval_seconds || 1800;
-    const useMinutes = seconds >= 60 && seconds % 60 === 0;
-    return {
-      name: nameOverride ?? (crawler.name || ""),
-      entity_type: crawler.entity_type || "job",
-      interval_value: useMinutes ? seconds / 60 : seconds,
-      interval_unit: useMinutes ? "minutes" : "seconds",
-      compilation_target: crawler.compilation_target || 100,
-      disable_on_compiled: crawler.disable_on_compiled ?? false,
-      search_query: crawler.search_query || "",
-      suggested_query: crawler.suggested_query || null,
-      use_suggested_query: crawler.use_suggested_query ?? false,
-      location: crawler.location || "",
-      ats_mode: crawler.ats_mode ?? true,
-      time_filter: crawler.time_filter || "week",
-      target_type: crawler.target_type || null,
-      target_ids: crawler.target_ids || [],
-      source_document_ids: crawler.source_document_ids || [],
-      system_prompt: crawler.system_prompt || "",
-      suggested_prompt: crawler.suggested_prompt || null,
-      use_suggested_prompt: crawler.use_suggested_prompt ?? false,
-      suggestion_threshold: crawler.suggestion_threshold ?? 50,
-      min_prospects_threshold: crawler.min_prospects_threshold ?? 5,
-      digest_enabled: crawler.digest_enabled ?? true,
-      digest_emails: crawler.digest_emails || "",
-      digest_time: crawler.digest_time || "09:00",
-      digest_model: crawler.digest_model || null,
-      use_agent: crawler.use_agent ?? false,
-      agent_model: crawler.agent_model || "claude-sonnet-4-5-20250929",
-      vector_prefilter_enabled: crawler.vector_prefilter_enabled ?? false,
-      vector_similarity_threshold: crawler.vector_similarity_threshold ?? 0.3,
-      use_analytics: crawler.use_analytics ?? false,
-      analytics_model: crawler.analytics_model || "claude-3-haiku-20240307",
-      empty_proposal_limit: crawler.empty_proposal_limit || null,
-      prompt_cooldown_runs: crawler.prompt_cooldown_runs ?? 5,
-      prompt_cooldown_prospects: crawler.prompt_cooldown_prospects ?? 50,
-    };
   };
 
   const TARGET_LABEL_FETCHERS = {
@@ -313,7 +275,6 @@ const AutomationPage = () => {
   const loadTargetOptions = async (crawler) => {
     setTargetOptions([]);
     if (!crawler.target_ids?.length || !crawler.target_type) return;
-
     const fetcher = TARGET_LABEL_FETCHERS[crawler.target_type];
     try {
       const loadedOptions = await Promise.all(
@@ -328,52 +289,90 @@ const AutomationPage = () => {
     }
   };
 
-  const handleOpenEdit = async (crawler) => {
+  // ── Crawler handlers ──
+
+  const crawlerToFormData = (crawler, nameOverride) => {
+    const { value, unit } = secondsToInterval(crawler.interval_seconds || 1800);
+    return {
+      name: nameOverride ?? (crawler.name || ""),
+      entity_type: crawler.entity_type || "job",
+      interval_value: value,
+      interval_unit: unit,
+      compilation_target: crawler.compilation_target || 100,
+      disable_on_compiled: crawler.disable_on_compiled ?? false,
+      search_query: crawler.search_query || "",
+      suggested_query: crawler.suggested_query || null,
+      use_suggested_query: crawler.use_suggested_query ?? false,
+      location: crawler.location || "",
+      ats_mode: crawler.ats_mode ?? true,
+      time_filter: crawler.time_filter || "week",
+      target_type: crawler.target_type || null,
+      target_ids: crawler.target_ids || [],
+      source_document_ids: crawler.source_document_ids || [],
+      system_prompt: crawler.system_prompt || "",
+      suggested_prompt: crawler.suggested_prompt || null,
+      use_suggested_prompt: crawler.use_suggested_prompt ?? false,
+      suggestion_threshold: crawler.suggestion_threshold ?? 50,
+      min_prospects_threshold: crawler.min_prospects_threshold ?? 5,
+      use_agent: crawler.use_agent ?? false,
+      agent_model: crawler.agent_model || "claude-sonnet-4-5-20250929",
+      vector_prefilter_enabled: crawler.vector_prefilter_enabled ?? false,
+      vector_similarity_threshold: crawler.vector_similarity_threshold ?? 0.3,
+      use_analytics: crawler.use_analytics ?? false,
+      analytics_model: crawler.analytics_model || "claude-3-haiku-20240307",
+      empty_proposal_limit: crawler.empty_proposal_limit || null,
+      prompt_cooldown_runs: crawler.prompt_cooldown_runs ?? 5,
+      prompt_cooldown_prospects: crawler.prompt_cooldown_prospects ?? 50,
+    };
+  };
+
+  const handleOpenCrawlerCreate = () => {
+    setEditingCrawler(null);
+    setCrawlerForm(emptyCrawlerForm);
+    setInitialCrawlerForm(emptyCrawlerForm);
+    setTargetOptions([]);
+    setModalError(null);
+    openCrawlerModal();
+  };
+
+  const handleOpenCrawlerEdit = async (crawler) => {
     setEditingCrawler(crawler);
     const formData = crawlerToFormData(crawler);
-    setForm(formData);
-    setInitialForm(formData);
+    setCrawlerForm(formData);
+    setInitialCrawlerForm(formData);
     await loadTargetOptions(crawler);
     setModalError(null);
-    openModal();
+    openCrawlerModal();
   };
 
-  const handleDuplicate = async (crawler) => {
+  const handleDuplicateCrawler = async (crawler) => {
     setEditingCrawler(null);
     const formData = crawlerToFormData(crawler, `Copy of ${crawler.name || ""}`);
-    setForm(formData);
-    setInitialForm(formData);
+    setCrawlerForm(formData);
+    setInitialCrawlerForm(formData);
     await loadTargetOptions(crawler);
     setModalError(null);
-    openModal();
+    openCrawlerModal();
   };
 
-  const handleSave = async () => {
+  const handleSaveCrawler = async () => {
     setModalError(null);
-
-    if (!form.name.trim()) {
+    if (!crawlerForm.name.trim()) {
       setModalError("Name is required");
       return;
     }
-
-    // Validate search query
-    const query = form.use_suggested_query && form.suggested_query
-      ? form.suggested_query
-      : form.search_query;
+    const query =
+      crawlerForm.use_suggested_query && crawlerForm.suggested_query
+        ? crawlerForm.suggested_query
+        : crawlerForm.search_query;
     if (!query || !query.trim()) {
       setModalError("Search query is required");
       return;
     }
-
-    // Convert interval to seconds for API
-    const intervalSeconds = form.interval_unit === "minutes"
-      ? form.interval_value * 60
-      : form.interval_value;
-
     const cleanedForm = {
-      ...form,
-      interval_seconds: intervalSeconds,
-      empty_proposal_limit: form.empty_proposal_limit || 0,
+      ...crawlerForm,
+      interval_seconds: intervalToSeconds(crawlerForm.interval_value, crawlerForm.interval_unit),
+      empty_proposal_limit: crawlerForm.empty_proposal_limit || 0,
     };
     delete cleanedForm.interval_value;
     delete cleanedForm.interval_unit;
@@ -388,7 +387,7 @@ const AutomationPage = () => {
         showAlert("Crawler created", "lime");
       }
       await fetchCrawlers();
-      closeModal();
+      closeCrawlerModal();
     } catch (error) {
       setModalError(error.message);
     } finally {
@@ -396,7 +395,7 @@ const AutomationPage = () => {
     }
   };
 
-  const handleToggle = async (crawler, enabled) => {
+  const handleToggleCrawler = async (crawler, enabled) => {
     try {
       await toggleCrawler(crawler.id, enabled);
       await fetchCrawlers();
@@ -405,7 +404,7 @@ const AutomationPage = () => {
     }
   };
 
-  const handleDelete = async (crawler) => {
+  const handleDeleteCrawler = async (crawler) => {
     if (!window.confirm(`Delete crawler "${crawler.name}"?`)) return;
     try {
       await deleteCrawler(crawler.id);
@@ -416,18 +415,23 @@ const AutomationPage = () => {
     }
   };
 
-  const handleTestRun = async (crawler) => {
+  const handleTestCrawler = async (crawler) => {
     try {
       await testCrawler(crawler.id);
       showAlert(`Test run initiated for "${crawler.name}"`, "blue");
-      setTimeout(() => toggleRunsExpanded(crawler.id, true), 2000);
+      setTimeout(() => setExpandedCrawlerRuns((prev) => ({ ...prev, [crawler.id]: true })), 2000);
     } catch (error) {
       showAlert(error.message, "red");
     }
   };
 
-  const handleClearRejectedJobs = async (crawler) => {
-    if (!window.confirm(`Clear all rejected jobs for "${crawler.name}"? This will allow previously rejected results to be re-evaluated.`)) return;
+  const handleClearCrawlerRejected = async (crawler) => {
+    if (
+      !window.confirm(
+        `Clear all rejected jobs for "${crawler.name}"? This will allow previously rejected results to be re-evaluated.`
+      )
+    )
+      return;
     try {
       await clearRejectedJobs(crawler.id);
       showAlert("Rejected jobs cleared", "lime");
@@ -436,55 +440,28 @@ const AutomationPage = () => {
     }
   };
 
-  const handleSendTestDigest = async () => {
-    if (!editingCrawler) return;
-    try {
-      await sendTestDigest(editingCrawler.id);
-      showAlert("Test digest email sent", "lime");
-    } catch (error) {
-      setModalError(error.message);
-    }
-  };
-
-  // SSE handles data fetching - these just update state which triggers SSE reconnect
-  const handleCrawlerPageChange = (crawlerId, page) => {
-    setCrawlerPages((prev) => ({ ...prev, [crawlerId]: page }));
-  };
-
-  const handleCrawlerPageSizeChange = (crawlerId, pageSize) => {
-    setCrawlerPageSizes((prev) => ({ ...prev, [crawlerId]: pageSize }));
-    setCrawlerPages((prev) => ({ ...prev, [crawlerId]: 1 }));
-  };
-
-  const handleSseStatusChange = useCallback((crawlerId, status) => {
-    setSseStatus((prev) => ({ ...prev, [crawlerId]: status }));
+  const handleCrawlerSseStatus = useCallback((crawlerId, status) => {
+    setCrawlerSseStatus((prev) => ({ ...prev, [crawlerId]: status }));
   }, []);
 
   const handleCrawlerUpdate = useCallback((crawlerId, updates) => {
-    setCrawlers((prev) =>
-      prev.map((c) => (c.id === crawlerId ? { ...c, ...updates } : c))
-    );
+    setCrawlers((prev) => prev.map((c) => (c.id === crawlerId ? { ...c, ...updates } : c)));
   }, []);
 
-  const toggleRunsExpanded = (crawlerId, forceExpand = false) => {
-    if (forceExpand) {
-      setExpandedRuns((prev) => ({ ...prev, [crawlerId]: true }));
-      return;
-    }
-    setExpandedRuns((prev) => ({ ...prev, [crawlerId]: !prev[crawlerId] }));
+  const updateCrawlerForm = (field, value) => {
+    setCrawlerForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  const updateForm = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
-  };
+  const isCrawlerFormDirty = JSON.stringify(crawlerForm) !== JSON.stringify(initialCrawlerForm);
 
-  const isFormDirty = JSON.stringify(form) !== JSON.stringify(initialForm);
+  // ── Shared ──
 
   const documentOptions = useMemo(
-    () => documents.map((doc) => ({
-      value: String(doc.id),
-      label: `${doc.filename} (v${doc.version_number || 1})`,
-    })),
+    () =>
+      documents.map((doc) => ({
+        value: String(doc.id),
+        label: `${doc.filename} (v${doc.version_number || 1})`,
+      })),
     [documents]
   );
 
@@ -501,7 +478,7 @@ const AutomationPage = () => {
       <Container size="lg" py="xl">
         <Stack align="center" gap="md">
           <Loader />
-          <Text>Loading crawlers...</Text>
+          <Text>Loading automation...</Text>
         </Stack>
       </Container>
     );
@@ -515,156 +492,110 @@ const AutomationPage = () => {
             color={alert.color}
             icon={alert.color === "red" ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
             withCloseButton
-            onClose={() => setAlert(null)}
-          >
+            onClose={() => setAlert(null)}>
             {alert.message}
           </Alert>
         )}
 
-        <Group justify="space-between">
-          <div>
-            <Title order={1}>Crawlers</Title>
-            <Text c="dimmed">Configure automated lead sourcing crawlers for different entity types.</Text>
-          </div>
-          <Button leftSection={<Plus size={16} />} onClick={handleOpenCreate}>
-            New Crawler
-          </Button>
-        </Group>
+        <Stack gap="md">
+          <Group justify="space-between">
+            <div>
+              <Title order={2}>Crawlers</Title>
+              <Text c="dimmed" size="sm">
+                Automated lead sourcing via search engines.
+              </Text>
+            </div>
+            <Button leftSection={<Plus size={16} />} onClick={handleOpenCrawlerCreate}>
+              New Crawler
+            </Button>
+          </Group>
 
-        {crawlers.length === 0 ? (
-          <Paper p="xl" withBorder ta="center">
-            <Text c="dimmed">No crawlers configured. Create one to get started.</Text>
-          </Paper>
-        ) : (
-          <Stack gap="md">
-            {crawlers.map((crawler) => (
-              <Paper key={crawler.id} p="md" withBorder>
-                <Stack gap="sm">
-                  <Group justify="space-between" wrap="nowrap">
-                    <Group style={{ minWidth: 0 }}>
-                      <ActionIcon
-                        variant="subtle"
-                        onClick={() => toggleRunsExpanded(crawler.id)}
-                        size="sm"
-                      >
-                        {expandedRuns[crawler.id] ? (
-                          <ChevronDown size={16} />
-                        ) : (
-                          <ChevronRight size={16} />
-                        )}
-                      </ActionIcon>
-                      <div style={{ minWidth: 0 }}>
-                        <Group gap="xs">
-                          <SSEIndicator status={sseStatus[crawler.id]} />
-                          <Text fw={500}>{crawler.name}</Text>
-                          <Text size="xs" c="dimmed">(Target: {crawler.compilation_target})</Text>
-                        </Group>
-                        <Text size="xs" c="dimmed">
-                          {ENTITY_TYPES.find((t) => t.value === crawler.entity_type)?.label || crawler.entity_type}
-                          {` • ${crawler.active_proposals || 0} proposals`}
-                          {crawler.next_run_at && ` • Next: ${new Date(crawler.next_run_at).toLocaleString()}`}
-                        </Text>
-                        {crawler.suggested_query && crawler.use_suggested_query && (
-                          <Text size="xs" c="lime" lineClamp={1}>
-                            Suggested query: {crawler.suggested_query}{crawler.location ? ` "${crawler.location}"` : ""}
-                          </Text>
-                        )}
-                      </div>
-                    </Group>
-
-                    <Group gap="xs">
-                      {crawler.active_proposals >= crawler.compilation_target && (
-                        <Badge color="lime" size="sm" leftSection={<CheckCircle size={12} />}>
-                          Compiled
-                        </Badge>
-                      )}
-                      <Badge color={crawler.enabled ? "lime" : "gray"} size="sm">
-                        {crawler.enabled ? "Active" : "Inactive"}
-                      </Badge>
-                      <Switch
-                        checked={crawler.enabled}
-                        onChange={(e) => handleToggle(crawler, e.currentTarget.checked)}
-                        size="sm"
-                        color="lime"
+          {crawlers.length === 0 ? (
+            <Paper p="xl" withBorder ta="center">
+              <Text c="dimmed">No crawlers configured. Create one to get started.</Text>
+            </Paper>
+          ) : (
+            <Stack gap="md">
+              {crawlers.map((crawler) => (
+                <AutomationCard
+                  key={crawler.id}
+                  item={crawler}
+                  entityLabel={
+                    ENTITY_TYPES.find((t) => t.value === crawler.entity_type)?.label ||
+                    crawler.entity_type
+                  }
+                  suggestedLine={
+                    crawler.suggested_query && crawler.use_suggested_query
+                      ? `Suggested query: ${crawler.suggested_query}${crawler.location ? ` "${crawler.location}"` : ""}`
+                      : null
+                  }
+                  sseStatus={crawlerSseStatus[crawler.id]}
+                  isExpanded={expandedCrawlerRuns[crawler.id]}
+                  onToggleExpand={() =>
+                    setExpandedCrawlerRuns((prev) => ({ ...prev, [crawler.id]: !prev[crawler.id] }))
+                  }
+                  onToggle={(enabled) => handleToggleCrawler(crawler, enabled)}
+                  onEdit={() => handleOpenCrawlerEdit(crawler)}
+                  onDuplicate={() => handleDuplicateCrawler(crawler)}
+                  onTestRun={() => handleTestCrawler(crawler)}
+                  onClearRejected={() => handleClearCrawlerRejected(crawler)}
+                  onDelete={() => handleDeleteCrawler(crawler)}
+                  runsComponent={
+                    expandedCrawlerRuns[crawler.id] && (
+                      <CrawlerRunsSSE
+                        crawlerId={crawler.id}
+                        isExpanded={expandedCrawlerRuns[crawler.id]}
+                        pageValue={crawlerPages[crawler.id] || 1}
+                        pageSizeValue={crawlerPageSizes[crawler.id] || 10}
+                        onPageChange={(page) =>
+                          setCrawlerPages((prev) => ({ ...prev, [crawler.id]: page }))
+                        }
+                        onPageSizeChange={(size) => {
+                          setCrawlerPageSizes((prev) => ({ ...prev, [crawler.id]: size }));
+                          setCrawlerPages((prev) => ({ ...prev, [crawler.id]: 1 }));
+                        }}
+                        onStatusChange={handleCrawlerSseStatus}
+                        onCrawlerUpdate={handleCrawlerUpdate}
                       />
-                      <Menu position="bottom-end" shadow="md">
-                        <Menu.Target>
-                          <ActionIcon variant="subtle">
-                            <MoreVertical size={16} />
-                          </ActionIcon>
-                        </Menu.Target>
-                        <Menu.Dropdown>
-                          <Menu.Item leftSection={<Edit size={14} />} onClick={() => handleOpenEdit(crawler)}>
-                            Edit
-                          </Menu.Item>
-                          <Menu.Item leftSection={<Copy size={14} />} onClick={() => handleDuplicate(crawler)}>
-                            Duplicate
-                          </Menu.Item>
-                          <Menu.Item leftSection={<Play size={14} />} onClick={() => handleTestRun(crawler)}>
-                            Test Run
-                          </Menu.Item>
-                          <Menu.Item leftSection={<RefreshCw size={14} />} onClick={() => handleClearRejectedJobs(crawler)}>
-                            Clear Rejected Jobs
-                          </Menu.Item>
-                          <Menu.Divider />
-                          <Menu.Item
-                            leftSection={<Trash size={14} />}
-                            color="red"
-                            onClick={() => handleDelete(crawler)}
-                          >
-                            Delete
-                          </Menu.Item>
-                        </Menu.Dropdown>
-                      </Menu>
-                    </Group>
-                  </Group>
-
-                  {expandedRuns[crawler.id] && (
-                    <CrawlerRunsSSE
-                      crawlerId={crawler.id}
-                      isExpanded={expandedRuns[crawler.id]}
-                      pageValue={crawlerPages[crawler.id] || 1}
-                      pageSizeValue={crawlerPageSizes[crawler.id] || 10}
-                      onPageChange={(page) => handleCrawlerPageChange(crawler.id, page)}
-                      onPageSizeChange={(size) => handleCrawlerPageSizeChange(crawler.id, size)}
-                      onStatusChange={handleSseStatusChange}
-                      onCrawlerUpdate={handleCrawlerUpdate}
-                    />
-                  )}
-                </Stack>
-              </Paper>
-            ))}
-          </Stack>
-        )}
+                    )
+                  }
+                />
+              ))}
+            </Stack>
+          )}
+        </Stack>
       </Stack>
 
+      {/* ── Crawler Modal ── */}
       <Modal
-        opened={modalOpened}
-        onClose={closeModal}
+        opened={crawlerModalOpened}
+        onClose={closeCrawlerModal}
         title={
           <Group justify="space-between" w="100%">
             <Text fw={500}>{editingCrawler ? "Edit Crawler" : "New Crawler"}</Text>
             <Group gap="xs" mr="xl">
-              <Button variant="default" size="sm" onClick={closeModal}>
+              <Button variant="default" size="sm" onClick={closeCrawlerModal}>
                 Cancel
               </Button>
               <Button
                 size="sm"
-                color={isFormDirty ? "lime" : "gray"}
-                onClick={handleSave}
-                loading={saving}
-              >
+                color={isCrawlerFormDirty ? "lime" : "gray"}
+                onClick={handleSaveCrawler}
+                loading={saving}>
                 Save
               </Button>
             </Group>
           </Group>
         }
-        size={"1600"}
-        styles={{ title: { width: "100%" } }}
-      >
+        size="1600"
+        styles={{ title: { width: "100%" } }}>
         <Stack gap="md">
           {modalError && (
-            <Alert color="red" icon={<AlertCircle size={16} />} withCloseButton onClose={() => setModalError(null)}>
+            <Alert
+              color="red"
+              icon={<AlertCircle size={16} />}
+              withCloseButton
+              onClose={() => setModalError(null)}>
               {modalError}
             </Alert>
           )}
@@ -672,57 +603,55 @@ const AutomationPage = () => {
             <TextInput
               label="Name"
               placeholder="My Job Crawler"
-              value={form.name}
-              onChange={(e) => updateForm("name", e.currentTarget.value)}
+              value={crawlerForm.name}
+              onChange={(e) => updateCrawlerForm("name", e.currentTarget.value)}
               required
             />
             <Select
               label="Entity Type"
-              value={form.entity_type}
+              value={crawlerForm.entity_type}
               onChange={(val) => {
-                updateForm("entity_type", val);
-                updateForm("target_type", null);
-                updateForm("target_ids", []);
+                updateCrawlerForm("entity_type", val);
+                updateCrawlerForm("target_type", null);
+                updateCrawlerForm("target_ids", []);
                 setTargetOptions([]);
               }}
               data={ENTITY_TYPES}
             />
           </Group>
 
-          <Group grow>
-            <Group grow gap="xs">
-              <NumberInput
-                label="Interval"
-                value={form.interval_value}
-                onChange={(val) => updateForm("interval_value", val)}
-                min={1}
-                max={form.interval_unit === "minutes" ? 1440 : 86400}
-                leftSection={<Clock size={16} />}
-                style={{ flex: 2 }}
-              />
-              <Select
-                label="Unit"
-                value={form.interval_unit}
-                onChange={(val) => updateForm("interval_unit", val)}
-                data={INTERVAL_UNITS}
-                style={{ flex: 1 }}
-              />
-            </Group>
+          <Group grow gap="xs">
+            <NumberInput
+              label="Interval"
+              value={crawlerForm.interval_value}
+              onChange={(val) => updateCrawlerForm("interval_value", val)}
+              min={1}
+              max={crawlerForm.interval_unit === "minutes" ? 1440 : 86400}
+              leftSection={<Clock size={16} />}
+              style={{ flex: 2 }}
+            />
+            <Select
+              label="Unit"
+              value={crawlerForm.interval_unit}
+              onChange={(val) => updateCrawlerForm("interval_unit", val)}
+              data={INTERVAL_UNITS}
+              style={{ flex: 1 }}
+            />
           </Group>
 
           <Group grow>
             <NumberInput
               label="Compilation Target"
-              value={form.compilation_target}
-              onChange={(val) => updateForm("compilation_target", val)}
+              value={crawlerForm.compilation_target}
+              onChange={(val) => updateCrawlerForm("compilation_target", val)}
               min={1}
               max={1000}
             />
             <Switch
               label="Disable on target"
               description="Else crawler will pause on target"
-              checked={form.disable_on_compiled}
-              onChange={(e) => updateForm("disable_on_compiled", e.currentTarget.checked)}
+              checked={crawlerForm.disable_on_compiled}
+              onChange={(e) => updateCrawlerForm("disable_on_compiled", e.currentTarget.checked)}
               color="lime"
             />
           </Group>
@@ -731,8 +660,8 @@ const AutomationPage = () => {
             label="Empty Proposal Limit"
             description="Auto-disable after N consecutive runs with 0 proposals (blank = disabled)"
             placeholder="Disabled"
-            value={form.empty_proposal_limit ?? ""}
-            onChange={(val) => updateForm("empty_proposal_limit", val === "" ? null : val)}
+            value={crawlerForm.empty_proposal_limit ?? ""}
+            onChange={(val) => updateCrawlerForm("empty_proposal_limit", val === "" ? null : val)}
             min={1}
             max={100}
             allowDecimal={false}
@@ -743,25 +672,24 @@ const AutomationPage = () => {
               label="Search Query"
               placeholder="e.g. (typescript OR javascript) node.js intitle:engineer"
               description={'Operators: OR, (), "", intitle:, -exclude'}
-              value={form.search_query || ""}
-              onChange={(e) => updateForm("search_query", e.currentTarget.value)}
+              value={crawlerForm.search_query || ""}
+              onChange={(e) => updateCrawlerForm("search_query", e.currentTarget.value)}
               minRows={2}
             />
-            {form.suggested_query && form.use_suggested_query && (
+            {crawlerForm.suggested_query && crawlerForm.use_suggested_query && (
               <Group gap="xs" align="center">
                 <Text size="xs" c="lime">
-                  Suggested: {form.suggested_query}
+                  Suggested: {crawlerForm.suggested_query}
                 </Text>
                 <Button
                   size="compact-xs"
                   variant="light"
                   color="lime"
                   onClick={() => {
-                    updateForm("search_query", form.suggested_query);
-                    updateForm("suggested_query", null);
-                    updateForm("use_suggested_query", false);
-                  }}
-                >
+                    updateCrawlerForm("search_query", crawlerForm.suggested_query);
+                    updateCrawlerForm("suggested_query", null);
+                    updateCrawlerForm("use_suggested_query", false);
+                  }}>
                   Accept
                 </Button>
                 <Button
@@ -769,40 +697,36 @@ const AutomationPage = () => {
                   variant="subtle"
                   color="gray"
                   onClick={() => {
-                    updateForm("suggested_query", null);
-                    updateForm("use_suggested_query", false);
-                  }}
-                >
+                    updateCrawlerForm("suggested_query", null);
+                    updateCrawlerForm("use_suggested_query", false);
+                  }}>
                   Dismiss
                 </Button>
               </Group>
             )}
-
             <Switch
               label="Use suggested query"
               description="Auto-generate and apply AI-suggested search queries"
-              checked={form.use_suggested_query}
-              onChange={(e) => updateForm("use_suggested_query", e.currentTarget.checked)}
+              checked={crawlerForm.use_suggested_query}
+              onChange={(e) => updateCrawlerForm("use_suggested_query", e.currentTarget.checked)}
               color="lime"
               size="sm"
             />
-
           </Stack>
-
 
           <TextInput
             label="Location"
             description="Appended to search queries (e.g., NYC, Remote)"
             placeholder="Enter location..."
-            value={form.location || ""}
-            onChange={(e) => updateForm("location", e.currentTarget.value)}
+            value={crawlerForm.location || ""}
+            onChange={(e) => updateCrawlerForm("location", e.currentTarget.value)}
           />
 
           <Group grow>
             <Select
               label="Time Filter"
-              value={form.time_filter}
-              onChange={(val) => updateForm("time_filter", val)}
+              value={crawlerForm.time_filter}
+              onChange={(val) => updateCrawlerForm("time_filter", val)}
               data={[
                 { value: "day", label: "Past Day" },
                 { value: "week", label: "Past Week" },
@@ -812,345 +736,438 @@ const AutomationPage = () => {
             <Switch
               label="ATS Mode"
               description="Focus on direct application links"
-              checked={form.ats_mode}
-              onChange={(e) => updateForm("ats_mode", e.currentTarget.checked)}
+              checked={crawlerForm.ats_mode}
+              onChange={(e) => updateCrawlerForm("ats_mode", e.currentTarget.checked)}
               color="lime"
               mt="md"
             />
           </Group>
 
-          {TARGET_TYPE_OPTIONS[form.entity_type]?.length > 0 && (
+          {TARGET_TYPE_OPTIONS[crawlerForm.entity_type]?.length > 0 && (
             <>
               <Select
                 label="Target Type"
                 description="What entities to match against"
-                value={form.target_type}
+                value={crawlerForm.target_type}
                 onChange={(val) => {
-                  updateForm("target_type", val);
-                  updateForm("target_ids", []);
+                  updateCrawlerForm("target_type", val);
+                  updateCrawlerForm("target_ids", []);
                   setTargetOptions([]);
                 }}
-                data={TARGET_TYPE_OPTIONS[form.entity_type] || []}
+                data={TARGET_TYPE_OPTIONS[crawlerForm.entity_type] || []}
                 clearable
                 placeholder="Select target type..."
               />
-
-              {form.target_type && (
+              {crawlerForm.target_type && (
                 <MultiSelect
                   label="Targets"
                   description="Select one or more targets (type to search)"
-                  value={(form.target_ids || []).map(String)}
-                  onChange={(vals) => updateForm("target_ids", (vals || []).map((v) => parseInt(v, 10)))}
+                  value={(crawlerForm.target_ids || []).map(String)}
+                  onChange={(vals) =>
+                    updateCrawlerForm(
+                      "target_ids",
+                      (vals || []).map((v) => parseInt(v, 10))
+                    )
+                  }
                   data={Array.isArray(targetOptions) ? targetOptions : []}
                   searchable
                   clearable
                   placeholder="Search and select..."
                   onSearchChange={handleTargetSearch}
-                  nothingFoundMessage={searchingTargets ? "Searching..." : "Type at least 2 chars to search"}
+                  nothingFoundMessage={
+                    searchingTargets ? "Searching..." : "Type at least 2 chars to search"
+                  }
                   filter={({ options }) => options}
                 />
               )}
             </>
           )}
 
-          <MultiSelect
-            label="Source Documents"
-            description="Load documents into context for the automation"
-            value={(form.source_document_ids || []).map(String)}
-            onChange={(vals) => updateForm("source_document_ids", (vals || []).map((v) => parseInt(v, 10)))}
-            data={documentOptions}
-            searchable
-            clearable
-            placeholder="Select documents..."
+          <SharedFormFields
+            form={crawlerForm}
+            updateForm={updateCrawlerForm}
+            documentOptions={documentOptions}
           />
-
-          <Switch
-            label="Use Agent Review"
-            description="LLM reviews search results before creating proposals"
-            checked={form.use_agent}
-            onChange={(e) => updateForm("use_agent", e.currentTarget.checked)}
-            color="lime"
-          />
-
-          {form.use_agent && (
-            <Select
-              label="Agent Model"
-              value={form.agent_model}
-              onChange={(val) => updateForm("agent_model", val)}
-              data={AGENT_MODEL_OPTIONS}
-            />
-          )}
-
-          <Switch
-            label="Vector Pre-filter"
-            description="Embed results and filter by cosine similarity before LLM review"
-            checked={form.vector_prefilter_enabled}
-            onChange={(e) => updateForm("vector_prefilter_enabled", e.currentTarget.checked)}
-            color="lime"
-          />
-
-          {form.vector_prefilter_enabled && (
-            <NumberInput
-              label={
-                <Group gap={4}>
-                  <Text size="sm" fw={500}>Similarity Threshold</Text>
-                  <Tooltip
-                    label="Each result's full text is embedded and compared against your source documents (resumes) using cosine similarity. Results below this threshold are filtered out before LLM review, saving tokens on irrelevant matches. A higher threshold (e.g. 0.5) is stricter — only closely matching roles pass through, but you may miss valid opportunities. A lower threshold (e.g. 0.2) is more permissive — more results reach the LLM, catching edge cases at the cost of more token usage."
-                    multiline
-                    w={300}
-                    withArrow
-                  >
-                    <HelpCircle size={14} style={{ cursor: "help", opacity: 0.5 }} />
-                  </Tooltip>
-                </Group>
-              }
-              description="Minimum cosine similarity (0-1)"
-              value={form.vector_similarity_threshold}
-              onChange={(val) => updateForm("vector_similarity_threshold", val)}
-              min={0}
-              max={1}
-              step={0.05}
-              decimalScale={2}
-            />
-          )}
-
-          <Switch
-            label="Use Query Analytics"
-            description="LLM analyzes historical runs to improve query suggestions"
-            checked={form.use_analytics}
-            onChange={(e) => updateForm("use_analytics", e.currentTarget.checked)}
-            color="lime"
-          />
-
-          {form.use_analytics && (
-            <Select
-              label="Analytics Model"
-              description="Cheaper models recommended to reduce costs"
-              value={form.analytics_model}
-              onChange={(val) => updateForm("analytics_model", val)}
-              data={AGENT_MODEL_OPTIONS}
-            />
-          )}
-
-          <Stack gap="xs">
-            <Text size="sm" fw={500}>System Prompt</Text>
-            <Textarea
-              placeholder="Custom instructions for the automation agent..."
-              value={form.use_suggested_prompt && form.suggested_prompt ? form.suggested_prompt : form.system_prompt}
-              onChange={(e) => {
-                if (form.use_suggested_prompt && form.suggested_prompt) {
-                  updateForm("suggested_prompt", e.currentTarget.value);
-                } else {
-                  updateForm("system_prompt", e.currentTarget.value);
-                }
-              }}
-              minRows={3}
-              autosize
-              styles={form.use_suggested_prompt && form.suggested_prompt ? { input: { borderColor: "var(--mantine-color-lime-6)" } } : {}}
-            />
-            {form.suggested_prompt && (
-              <Text size="xs" c="dimmed">
-                {form.use_suggested_prompt
-                  ? "Editing suggested prompt. Toggle off to switch back to original."
-                  : "A suggested prompt is available. Toggle on to use it."}
-              </Text>
-            )}
-          </Stack>
-
-          <Group grow align="flex-start">
-            <Switch
-              label="Use suggested prompt"
-              description="Auto-generate and apply AI-suggested system prompts"
-              checked={form?.use_suggested_prompt}
-              onChange={(e) => updateForm("use_suggested_prompt", e.currentTarget.checked)}
-              color="lime"
-              size="sm"
-            />
-            <NumberInput
-              label="Suggestion Threshold"
-              description="Trigger suggestions when conversion rate below this %"
-              value={form.suggestion_threshold}
-              onChange={(val) => updateForm("suggestion_threshold", val)}
-              min={0}
-              max={100}
-              suffix="%"
-            />
-            <NumberInput
-              label="Min Prospects"
-              description="Also trigger suggestions if prospects below this count"
-              value={form.min_prospects_threshold}
-              onChange={(val) => updateForm("min_prospects_threshold", val)}
-              min={1}
-              max={50}
-            />
-          </Group>
-
-          <Group grow align="flex-start">
-            <NumberInput
-              label="Prompt Cooldown Runs"
-              description="Min runs after prompt update before suggesting again"
-              value={form.prompt_cooldown_runs}
-              onChange={(val) => updateForm("prompt_cooldown_runs", val)}
-              min={1}
-              max={100}
-            />
-            <NumberInput
-              label="Prompt Cooldown Prospects"
-              description="Min total prospects during cooldown before suggesting again"
-              value={form.prompt_cooldown_prospects}
-              onChange={(val) => updateForm("prompt_cooldown_prospects", val)}
-              min={1}
-              max={500}
-            />
-          </Group>
-
-          <Switch
-            label="Daily Digest"
-            description="Send a daily summary email of automation activity"
-            checked={form.digest_enabled}
-            onChange={(e) => updateForm("digest_enabled", e.currentTarget.checked)}
-            color="lime"
-          />
-
-          {form.digest_enabled && (
-            <>
-              <Group grow>
-                <TextInput
-                  label="Digest Recipients"
-                  placeholder="email1@example.com, email2@example.com"
-                  value={form.digest_emails}
-                  onChange={(e) => updateForm("digest_emails", e.currentTarget.value)}
-                  leftSection={<Mail size={16} />}
-                />
-                <TextInput
-                  label="Send Time"
-                  type="time"
-                  value={form.digest_time}
-                  onChange={(e) => updateForm("digest_time", e.currentTarget.value)}
-                />
-              </Group>
-
-              <Select
-                label="Digest AI Model (Optional)"
-                description="Use AI to generate insightful digest summaries"
-                value={form.digest_model}
-                onChange={(val) => updateForm("digest_model", val)}
-                data={AGENT_MODEL_OPTIONS}
-                clearable
-                placeholder="None - use simple format"
-              />
-
-              {editingCrawler && (
-                <Button
-                  variant="light"
-                  leftSection={<Mail size={16} />}
-                  onClick={handleSendTestDigest}
-                >
-                  Send Test Email
-                </Button>
-              )}
-            </>
-          )}
-
         </Stack>
       </Modal>
     </Container>
   );
 };
 
-// SSE-enabled wrapper for real-time run updates
-const CrawlerRunsSSE = ({ crawlerId, isExpanded, pageValue, pageSizeValue, onPageChange, onPageSizeChange, onStatusChange, onCrawlerUpdate }) => {
+// ── Shared card component ──
+
+const AutomationCard = ({
+  item,
+  entityLabel,
+  suggestedLine,
+  sourcesLine,
+  sseStatus,
+  isExpanded,
+  onToggleExpand,
+  onToggle,
+  onEdit,
+  onDuplicate,
+  onTestRun,
+  onClearRejected,
+  onDelete,
+  runsComponent,
+}) => (
+  <Paper p="md" withBorder>
+    <Stack gap="sm">
+      <Group justify="space-between" wrap="nowrap">
+        <Group style={{ minWidth: 0 }}>
+          <ActionIcon variant="subtle" onClick={onToggleExpand} size="sm">
+            {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+          </ActionIcon>
+          <div style={{ minWidth: 0 }}>
+            <Group gap="xs">
+              <SSEIndicator status={sseStatus} />
+              <Text fw={500}>{item.name}</Text>
+              <Text size="xs" c="dimmed">
+                (Target: {item.compilation_target})
+              </Text>
+            </Group>
+            <Text size="xs" c="dimmed">
+              {entityLabel}
+              {sourcesLine && ` • ${sourcesLine}`}
+              {` • ${item.active_proposals || 0} proposals`}
+              {item.next_run_at && ` • Next: ${new Date(item.next_run_at).toLocaleString()}`}
+            </Text>
+            {suggestedLine && (
+              <Text size="xs" c="lime" lineClamp={1}>
+                {suggestedLine}
+              </Text>
+            )}
+          </div>
+        </Group>
+
+        <Group gap="xs">
+          {item.active_proposals >= item.compilation_target && (
+            <Badge color="lime" size="sm" leftSection={<CheckCircle size={12} />}>
+              Compiled
+            </Badge>
+          )}
+          <Badge color={item.enabled ? "lime" : "gray"} size="sm">
+            {item.enabled ? "Active" : "Inactive"}
+          </Badge>
+          <Switch
+            checked={item.enabled}
+            onChange={(e) => onToggle(e.currentTarget.checked)}
+            size="sm"
+            color="lime"
+          />
+          <Menu position="bottom-end" shadow="md">
+            <Menu.Target>
+              <ActionIcon variant="subtle">
+                <MoreVertical size={16} />
+              </ActionIcon>
+            </Menu.Target>
+            <Menu.Dropdown>
+              <Menu.Item leftSection={<Edit size={14} />} onClick={onEdit}>
+                Edit
+              </Menu.Item>
+              <Menu.Item leftSection={<Copy size={14} />} onClick={onDuplicate}>
+                Duplicate
+              </Menu.Item>
+              <Menu.Item leftSection={<Play size={14} />} onClick={onTestRun}>
+                Test Run
+              </Menu.Item>
+              <Menu.Item leftSection={<RefreshCw size={14} />} onClick={onClearRejected}>
+                Clear Rejected Jobs
+              </Menu.Item>
+              <Menu.Divider />
+              <Menu.Item leftSection={<Trash size={14} />} color="red" onClick={onDelete}>
+                Delete
+              </Menu.Item>
+            </Menu.Dropdown>
+          </Menu>
+        </Group>
+      </Group>
+      {runsComponent}
+    </Stack>
+  </Paper>
+);
+
+// ── Shared form fields (used by both crawler and targeter modals) ──
+
+const SharedFormFields = ({ form, updateForm, documentOptions }) => (
+  <>
+    <MultiSelect
+      label="Source Documents"
+      description="Load documents into context for the automation"
+      value={(form.source_document_ids || []).map(String)}
+      onChange={(vals) =>
+        updateForm(
+          "source_document_ids",
+          (vals || []).map((v) => parseInt(v, 10))
+        )
+      }
+      data={documentOptions}
+      searchable
+      clearable
+      placeholder="Select documents..."
+    />
+
+    <Switch
+      label="Use Agent Review"
+      description="LLM reviews search results before creating proposals"
+      checked={form.use_agent}
+      onChange={(e) => updateForm("use_agent", e.currentTarget.checked)}
+      color="lime"
+    />
+    {form.use_agent && (
+      <Select
+        label="Agent Model"
+        value={form.agent_model}
+        onChange={(val) => updateForm("agent_model", val)}
+        data={AGENT_MODEL_OPTIONS}
+      />
+    )}
+
+    <Switch
+      label="Vector Pre-filter"
+      description="Embed results and filter by cosine similarity before LLM review"
+      checked={form.vector_prefilter_enabled}
+      onChange={(e) => updateForm("vector_prefilter_enabled", e.currentTarget.checked)}
+      color="lime"
+    />
+    {form.vector_prefilter_enabled && (
+      <NumberInput
+        label={
+          <Group gap={4}>
+            <Text size="sm" fw={500}>
+              Similarity Threshold
+            </Text>
+            <Tooltip
+              label="Each result's full text is embedded and compared against your source documents using cosine similarity. Results below this threshold are filtered out before LLM review."
+              multiline
+              w={300}
+              withArrow>
+              <HelpCircle size={14} style={{ cursor: "help", opacity: 0.5 }} />
+            </Tooltip>
+          </Group>
+        }
+        description="Minimum cosine similarity (0-1)"
+        value={form.vector_similarity_threshold}
+        onChange={(val) => updateForm("vector_similarity_threshold", val)}
+        min={0}
+        max={1}
+        step={0.05}
+        decimalScale={2}
+      />
+    )}
+
+    <Switch
+      label="Use Prompt Analytics"
+      description="LLM analyzes historical runs to improve prompt suggestions"
+      checked={form.use_analytics}
+      onChange={(e) => updateForm("use_analytics", e.currentTarget.checked)}
+      color="lime"
+    />
+    {form.use_analytics && (
+      <Select
+        label="Analytics Model"
+        description="Cheaper models recommended to reduce costs"
+        value={form.analytics_model}
+        onChange={(val) => updateForm("analytics_model", val)}
+        data={AGENT_MODEL_OPTIONS}
+      />
+    )}
+
+    <Stack gap="xs">
+      <Text size="sm" fw={500}>
+        System Prompt
+      </Text>
+      <Textarea
+        placeholder="Custom instructions for the automation agent..."
+        value={
+          form.use_suggested_prompt && form.suggested_prompt
+            ? form.suggested_prompt
+            : form.system_prompt
+        }
+        onChange={(e) => {
+          if (form.use_suggested_prompt && form.suggested_prompt) {
+            updateForm("suggested_prompt", e.currentTarget.value);
+          } else {
+            updateForm("system_prompt", e.currentTarget.value);
+          }
+        }}
+        minRows={3}
+        autosize
+        styles={
+          form.use_suggested_prompt && form.suggested_prompt
+            ? { input: { borderColor: "var(--mantine-color-lime-6)" } }
+            : {}
+        }
+      />
+      {form.suggested_prompt && (
+        <Text size="xs" c="dimmed">
+          {form.use_suggested_prompt
+            ? "Editing suggested prompt. Toggle off to switch back to original."
+            : "A suggested prompt is available. Toggle on to use it."}
+        </Text>
+      )}
+    </Stack>
+
+    <Group grow align="flex-start">
+      <Switch
+        label="Use suggested prompt"
+        description="Auto-generate and apply AI-suggested system prompts"
+        checked={form?.use_suggested_prompt}
+        onChange={(e) => updateForm("use_suggested_prompt", e.currentTarget.checked)}
+        color="lime"
+        size="sm"
+      />
+      <NumberInput
+        label="Suggestion Threshold"
+        description="Trigger suggestions when conversion rate below this %"
+        value={form.suggestion_threshold}
+        onChange={(val) => updateForm("suggestion_threshold", val)}
+        min={0}
+        max={100}
+        suffix="%"
+      />
+      <NumberInput
+        label="Min Prospects"
+        description="Also trigger suggestions if prospects below this count"
+        value={form.min_prospects_threshold}
+        onChange={(val) => updateForm("min_prospects_threshold", val)}
+        min={1}
+        max={50}
+      />
+    </Group>
+
+    <Group grow align="flex-start">
+      <NumberInput
+        label="Prompt Cooldown Runs"
+        description="Min runs after prompt update before suggesting again"
+        value={form.prompt_cooldown_runs}
+        onChange={(val) => updateForm("prompt_cooldown_runs", val)}
+        min={1}
+        max={100}
+      />
+      <NumberInput
+        label="Prompt Cooldown Prospects"
+        description="Min total prospects during cooldown before suggesting again"
+        value={form.prompt_cooldown_prospects}
+        onChange={(val) => updateForm("prompt_cooldown_prospects", val)}
+        min={1}
+        max={500}
+      />
+    </Group>
+  </>
+);
+
+// ── SSE-enabled run history for crawlers ──
+
+const CrawlerRunsSSE = ({
+  crawlerId,
+  isExpanded,
+  pageValue,
+  pageSizeValue,
+  onPageChange,
+  onPageSizeChange,
+  onStatusChange,
+  onCrawlerUpdate,
+}) => {
   const [localData, setLocalData] = useState(null);
 
-  const handleSSEEvent = useCallback((type, payload) => {
-    // Handle config updates (e.g., crawler disabled on compilation target, suggested query/prompt)
-    if (type === "config_updated") {
-      const updates = {
-        ...(payload.enabled != null && { enabled: payload.enabled }),
-        ...(payload.active_proposals != null && { active_proposals: payload.active_proposals }),
-        ...(payload.suggested_query != null && { suggested_query: payload.suggested_query }),
-        ...(payload.use_suggested_query != null && { use_suggested_query: payload.use_suggested_query }),
-        ...(payload.suggested_prompt != null && { suggested_prompt: payload.suggested_prompt }),
-        ...(payload.use_suggested_prompt != null && { use_suggested_prompt: payload.use_suggested_prompt }),
-      };
-      onCrawlerUpdate?.(crawlerId, updates);
-      return;
-    }
-
-    if (type !== "run_started" && type !== "run_completed") return;
-
-    // Update crawler stats if included in payload
-    const updates = {
-      ...(payload.config_active_proposals != null && { active_proposals: payload.config_active_proposals }),
-      ...(payload.config_enabled != null && { enabled: payload.config_enabled }),
-    };
-    if (type === "run_completed" && Object.keys(updates).length > 0) {
-      onCrawlerUpdate?.(crawlerId, updates);
-    }
-
-    setLocalData((prev) => {
-      if (!prev) return prev;
-
-      const items = prev.items || [];
-      const existingIndex = items.findIndex((r) => r.id === payload.id);
-
-      // Update existing run or prepend new one
-      if (existingIndex >= 0) {
-        const updated = [...items];
-        updated[existingIndex] = payload;
-        return { ...prev, items: updated };
+  const handleSSEEvent = useCallback(
+    (type, payload) => {
+      if (type === "config_updated") {
+        const updates = {
+          ...(payload.enabled != null && { enabled: payload.enabled }),
+          ...(payload.active_proposals != null && { active_proposals: payload.active_proposals }),
+          ...(payload.suggested_query != null && { suggested_query: payload.suggested_query }),
+          ...(payload.use_suggested_query != null && {
+            use_suggested_query: payload.use_suggested_query,
+          }),
+          ...(payload.suggested_prompt != null && { suggested_prompt: payload.suggested_prompt }),
+          ...(payload.use_suggested_prompt != null && {
+            use_suggested_prompt: payload.use_suggested_prompt,
+          }),
+        };
+        onCrawlerUpdate?.(crawlerId, updates);
+        return;
       }
 
-      // New run - prepend to list
-      return {
-        ...prev,
-        items: [payload, ...items].slice(0, pageSizeValue),
-        totalCount: prev.totalCount + 1,
+      if (type !== "run_started" && type !== "run_completed") return;
+
+      const updates = {
+        ...(payload.config_active_proposals != null && {
+          active_proposals: payload.config_active_proposals,
+        }),
+        ...(payload.config_enabled != null && { enabled: payload.config_enabled }),
       };
-    });
-  }, [crawlerId, pageSizeValue, onCrawlerUpdate]);
+      if (type === "run_completed" && Object.keys(updates).length > 0) {
+        onCrawlerUpdate?.(crawlerId, updates);
+      }
+
+      setLocalData((prev) => {
+        if (!prev) return prev;
+        const items = prev.items || [];
+        const existingIndex = items.findIndex((r) => r.id === payload.id);
+        if (existingIndex >= 0) {
+          const updated = [...items];
+          updated[existingIndex] = payload;
+          return { ...prev, items: updated };
+        }
+        return {
+          ...prev,
+          items: [payload, ...items].slice(0, pageSizeValue),
+          totalCount: prev.totalCount + 1,
+        };
+      });
+    },
+    [crawlerId, pageSizeValue, onCrawlerUpdate]
+  );
 
   const sseUrl = `/automation/crawlers/${crawlerId}/runs/stream?page=${pageValue}&limit=${pageSizeValue}`;
-  const { data: sseData, isConnected, error, lastPulse } = useSSE(sseUrl, {
+  const {
+    data: sseData,
+    isConnected,
+    lastPulse,
+  } = useSSE(sseUrl, {
     enabled: isExpanded && !!crawlerId,
     onEvent: handleSSEEvent,
   });
 
-  // Sync SSE init data to local state
   useEffect(() => {
-    if (sseData) {
-      setLocalData(sseData);
-    }
+    if (sseData) setLocalData(sseData);
   }, [sseData]);
 
-  // Reconnecting = had data but lost connection
   const isReconnecting = !isConnected && !!localData;
 
-  // Report connection status to parent, clear on unmount
   useEffect(() => {
-    onStatusChange(crawlerId, { connected: isConnected, reconnecting: isReconnecting, pulsing: false });
+    onStatusChange(crawlerId, {
+      connected: isConnected,
+      reconnecting: isReconnecting,
+      pulsing: false,
+    });
     return () => onStatusChange(crawlerId, null);
   }, [crawlerId, isConnected, isReconnecting, onStatusChange]);
 
-  // Pulse animation on keep-alive
   useEffect(() => {
     if (!lastPulse) return;
     onStatusChange(crawlerId, { connected: isConnected, reconnecting: false, pulsing: true });
-    const timer = setTimeout(() => onStatusChange(crawlerId, { connected: isConnected, reconnecting: false, pulsing: false }), 500);
+    const timer = setTimeout(
+      () =>
+        onStatusChange(crawlerId, { connected: isConnected, reconnecting: false, pulsing: false }),
+      500
+    );
     return () => clearTimeout(timer);
   }, [crawlerId, lastPulse, isConnected, onStatusChange]);
 
-  if (!localData && !error) {
+  if (!localData)
     return (
       <Group justify="center" py="md">
         <Loader size="sm" />
       </Group>
     );
-  }
 
   return (
     <Stack gap={4}>
-      <RunHistoryDataTable
+      <CrawlerRunHistoryTable
         data={localData}
         pageValue={pageValue}
         onPageChange={onPageChange}
@@ -1161,7 +1178,15 @@ const CrawlerRunsSSE = ({ crawlerId, isExpanded, pageValue, pageSizeValue, onPag
   );
 };
 
-const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onPageSizeChange }) => {
+// ── Crawler run history table ──
+
+const CrawlerRunHistoryTable = ({
+  data,
+  pageValue,
+  onPageChange,
+  pageSizeValue,
+  onPageSizeChange,
+}) => {
   const { colorScheme } = useMantineColorScheme();
 
   const getStatusColor = (status) => {
@@ -1171,10 +1196,7 @@ const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onP
   };
 
   const columns = [
-    {
-      header: "Started",
-      accessor: (row) => new Date(row.started_at).toLocaleString(),
-    },
+    { header: "Started", accessor: (row) => new Date(row.started_at).toLocaleString() },
     {
       header: "Status",
       render: (row) => (
@@ -1195,14 +1217,8 @@ const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onP
       header: "P+",
       render: (row) => (row.prompt_updated ? <CheckCircle size={16} color="#228be6" /> : null),
     },
-    {
-      header: "Prospects",
-      accessor: "prospects_found",
-    },
-    {
-      header: "Proposals",
-      accessor: "proposals_created",
-    },
+    { header: "Prospects", accessor: "prospects_found" },
+    { header: "Proposals", accessor: "proposals_created" },
     {
       header: "Query",
       render: (row) => (
@@ -1221,18 +1237,18 @@ const RunHistoryDataTable = ({ data, pageValue, onPageChange, pageSizeValue, onP
           withArrow
           position="left"
           disabled={!row.executed_system_prompt}
-          color={colorScheme === "dark" ? "dark" : "gray"}
-        >
-          <Text size="xs" c="dimmed" lineClamp={2} style={{ maxWidth: 300, cursor: row.executed_system_prompt ? "help" : "default" }}>
+          color={colorScheme === "dark" ? "dark" : "gray"}>
+          <Text
+            size="xs"
+            c="dimmed"
+            lineClamp={2}
+            style={{ maxWidth: 300, cursor: row.executed_system_prompt ? "help" : "default" }}>
             {row.executed_system_prompt || "-"}
           </Text>
         </Tooltip>
       ),
     },
-    {
-      header: "P#",
-      accessor: "executed_system_prompt_charcount",
-    },
+    { header: "P#", accessor: "executed_system_prompt_charcount" },
   ];
 
   return (

@@ -11,6 +11,9 @@ type ModelPricing struct {
 // Source: https://www.anthropic.com/pricing (Anthropic)
 var modelPricing = map[string]ModelPricing{
 	// OpenAI GPT-5 family
+	"gpt-5.4":      {InputPerMillion: 2.50, OutputPerMillion: 15.00},
+	"gpt-5.4-mini": {InputPerMillion: 0.75, OutputPerMillion: 4.50},
+	"gpt-5.4-nano": {InputPerMillion: 0.20, OutputPerMillion: 1.25},
 	"gpt-5.2":     {InputPerMillion: 1.75, OutputPerMillion: 14.00},
 	"gpt-5.1":     {InputPerMillion: 1.25, OutputPerMillion: 10.00},
 	"gpt-5":       {InputPerMillion: 1.25, OutputPerMillion: 10.00},
@@ -62,11 +65,3 @@ func CalculateCost(model string, inputTokens, outputTokens int32) float64 {
 	return inputCost + outputCost
 }
 
-// GetModelPricing returns the pricing for a model, or nil if not found
-func GetModelPricing(model string) *ModelPricing {
-	pricing, ok := modelPricing[model]
-	if !ok {
-		return nil
-	}
-	return &pricing
-}

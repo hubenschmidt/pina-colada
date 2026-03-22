@@ -30,6 +30,7 @@ type ProviderCosts struct {
 type CombinedCostsResponse struct {
 	Period     string         `json:"period"`
 	FetchedAt  string         `json:"fetched_at"`
+	OpenAI     *ProviderCosts `json:"openai"`
 	Anthropic  *ProviderCosts `json:"anthropic"`
 	TotalSpend float64        `json:"total_spend"`
 }
@@ -48,9 +49,13 @@ func (s *CostService) GetCombinedCosts(period string) (*CombinedCostsResponse, e
 		period = "monthly"
 	}
 
+	openaiCosts := s.fetchOpenAICosts(period)
 	anthropicCosts := s.fetchAnthropicCosts(period)
 
 	totalSpend := 0.0
+	if openaiCosts != nil {
+		totalSpend += openaiCosts.Spend
+	}
 	if anthropicCosts != nil {
 		totalSpend += anthropicCosts.Spend
 	}
@@ -58,6 +63,7 @@ func (s *CostService) GetCombinedCosts(period string) (*CombinedCostsResponse, e
 	return &CombinedCostsResponse{
 		Period:     period,
 		FetchedAt:  time.Now().UTC().Format(time.RFC3339),
+		OpenAI:     openaiCosts,
 		Anthropic:  anthropicCosts,
 		TotalSpend: totalSpend,
 	}, nil
@@ -99,6 +105,67 @@ func (s *CostService) getPeriodTimestamps(period string) (time.Time, time.Time) 
 		offset = costPeriodOffsets["monthly"]
 	}
 	return now.AddDate(offset[0], offset[1], offset[2]), now
+}
+
+func (s *CostService) fetchOpenAICosts(period string) *ProviderCosts {
+	adminKey := os.Getenv("OPENAI_ADMIN_KEY")
+	if adminKey == "" {
+		return nil
+	}
+
+	start, end := s.getPeriodTimestamps(period)
+
+	url := fmt.Sprintf(
+		"https://api.openai.com/v1/organization/costs?start_time=%d&end_time=%d&bucket_width=1d&limit=180",
+		start.Unix(), end.Unix(),
+	)
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return nil
+	}
+	req.Header.Set("Authorization", "Bearer "+adminKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 30 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil
+	}
+
+	var data struct {
+		Data []struct {
+			Results []struct {
+				Amount struct {
+					Value float64 `json:"value"`
+				} `json:"amount"`
+			} `json:"results"`
+		} `json:"data"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return nil
+	}
+
+	totalSpend := 0.0
+	for _, bucket := range data.Data {
+		for _, result := range bucket.Results {
+			totalSpend += result.Amount.Value
+		}
+	}
+
+	return &ProviderCosts{
+		Provider:  "openai",
+		Spend:     totalSpend,
+		Currency:  "USD",
+		Period:    period,
+		FetchedAt: time.Now().UTC().Format(time.RFC3339),
+	}
 }
 
 func (s *CostService) fetchAnthropicCosts(period string) *ProviderCosts {

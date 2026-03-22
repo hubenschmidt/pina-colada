@@ -51,12 +51,12 @@ type DefaultModelConfig struct {
 
 // DefaultModels defines the default model for each node
 var DefaultModels = map[string]DefaultModelConfig{
-	NodeTriageOrchestrator: {"claude-sonnet-4-6", "anthropic"},
-	NodeJobSearchWorker:    {"claude-sonnet-4-6", "anthropic"},
-	NodeCRMWorker:          {"claude-sonnet-4-6", "anthropic"},
-	NodeGeneralWorker:      {"claude-sonnet-4-6", "anthropic"},
-	NodeWriterWorker:       {"claude-sonnet-4-6", "anthropic"},
-	NodeEvaluator:          {"claude-sonnet-4-6", "anthropic"},
+	NodeTriageOrchestrator: {"gpt-5.4", "openai"},
+	NodeJobSearchWorker:    {"gpt-5.4", "openai"},
+	NodeCRMWorker:          {"gpt-5.4", "openai"},
+	NodeGeneralWorker:      {"gpt-5.4", "openai"},
+	NodeWriterWorker:       {"gpt-5.4", "openai"},
+	NodeEvaluator:          {"claude-sonnet-4-5-20250929", "anthropic"},
 	NodeTitleGenerator:     {"claude-haiku-4-5-20251001", "anthropic"},
 }
 
@@ -103,16 +103,17 @@ var AllCostTiers = []string{
 
 // CostTierModelConfig defines models for a cost tier
 type CostTierModelConfig struct {
+	OpenAI    string
 	Anthropic string
 }
 
 // CostTierModels maps cost tiers to model selections
 var CostTierModels = map[string]CostTierModelConfig{
-	CostTierBasic:    {"claude-haiku-4-5-20251001"},
-	CostTierEconomy:  {"claude-haiku-4-5-20251001"},
-	CostTierStandard: {"claude-sonnet-4-6"},
-	CostTierPremium:  {"claude-sonnet-4-6"},
-	CostTierMax:      {"claude-opus-4-6"},
+	CostTierBasic:    {"gpt-5.4-nano", "claude-haiku-4-5-20251001"},
+	CostTierEconomy:  {"gpt-5.4-mini", "claude-haiku-4-5-20251001"},
+	CostTierStandard: {"gpt-5", "claude-sonnet-4-5-20250929"},
+	CostTierPremium:  {"gpt-5.2", "claude-sonnet-4-5-20250929"},
+	CostTierMax:      {"gpt-5.4", "claude-opus-4-5-20251101"},
 }
 
 // CostTierDescriptions provides human-readable descriptions for cost tiers
@@ -409,14 +410,14 @@ func (r *AgentConfigRepository) GetUserSelection(userID int64) (*UserSelectionDT
 	var selection models.AgentConfigUserSelection
 	err := r.db.Where("user_id = ?", userID).First(&selection).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return &UserSelectionDTO{SelectedCostTier: CostTierPremium, SelectedProvider: "anthropic"}, nil
+		return &UserSelectionDTO{SelectedCostTier: CostTierPremium, SelectedProvider: "openai"}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
 	provider := selection.SelectedProvider
 	if provider == "" {
-		provider = "anthropic"
+		provider = "openai"
 	}
 	return &UserSelectionDTO{
 		SelectedParamPresetID: selection.SelectedParamPresetID,
@@ -459,9 +460,15 @@ func (r *AgentConfigRepository) SetSelectedCostTier(userID int64, costTier, prov
 		FirstOrCreate(&selection).Error
 }
 
-// getModelForTier returns the model and provider for a given tier
-func getModelForTier(tierConfig CostTierModelConfig, _ string) (model, provider string) {
-	return tierConfig.Anthropic, "anthropic"
+// getModelForTier returns the model and provider for a given tier and base provider
+func getModelForTier(tierConfig CostTierModelConfig, baseProvider string) (model, provider string) {
+	providerModels := map[string]string{
+		"anthropic": tierConfig.Anthropic,
+		"openai":    tierConfig.OpenAI,
+	}
+	model = providerModels[baseProvider]
+	provider = baseProvider
+	return model, provider
 }
 
 // ApplyCostTierToNodes applies cost tier model selections to all nodes for a user

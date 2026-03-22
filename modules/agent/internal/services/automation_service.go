@@ -8,19 +8,18 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math"
 	"net/http"
 	"net/url"
 	"strings"
 	"sync"
 	"time"
 
-	readability "codeberg.org/readeck/go-readability/v2"
 	"github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/option"
-	"github.com/ledongthuc/pdf"
-	pgvector "github.com/pgvector/pgvector-go"
+	"github.com/openai/openai-go/v2"
+	openaiOption "github.com/openai/openai-go/v2/option"
 
+	"agent/internal/filtering"
 	"agent/internal/lib"
 	"agent/internal/repositories"
 	"agent/internal/serializers"
@@ -49,12 +48,14 @@ type AutomationService struct {
 	embeddingService *EmbeddingService
 	serperAPIKey     string
 	anthropicAPIKey  string
+	openAIAPIKey     string
 	env              string
 	pushoverUser     string
 	pushoverToken    string
 	httpClient       *http.Client
 	validatorClient  *http.Client
 	anthropicClient  anthropic.Client
+	openaiClient     openai.Client
 }
 
 // NewAutomationService creates a new automation service
@@ -66,6 +67,7 @@ func NewAutomationService(
 	docLoader DocumentLoader,
 	serperAPIKey string,
 	anthropicAPIKey string,
+	openAIAPIKey string,
 	env string,
 	pushoverUser string,
 	pushoverToken string,
@@ -78,6 +80,7 @@ func NewAutomationService(
 		docLoader:       docLoader,
 		serperAPIKey:    serperAPIKey,
 		anthropicAPIKey: anthropicAPIKey,
+		openAIAPIKey:    openAIAPIKey,
 		env:             env,
 		pushoverUser:    pushoverUser,
 		pushoverToken:   pushoverToken,
@@ -105,6 +108,9 @@ func NewAutomationService(
 	if anthropicAPIKey != "" {
 		svc.anthropicClient = anthropic.NewClient(option.WithAPIKey(anthropicAPIKey))
 	}
+	if openAIAPIKey != "" {
+		svc.openaiClient = openai.NewClient(openaiOption.WithAPIKey(openAIAPIKey))
+	}
 
 	return svc
 }
@@ -112,6 +118,35 @@ func NewAutomationService(
 // SetEmbeddingService sets the embedding service for vector pre-filtering
 func (s *AutomationService) SetEmbeddingService(embeddingService *EmbeddingService) {
 	s.embeddingService = embeddingService
+}
+
+// docLoaderAdapter wraps the service's DocumentLoader to satisfy filtering.DocumentLoader
+func (s *AutomationService) docLoaderAdapter() filtering.DocumentLoader {
+	if s.docLoader == nil {
+		return nil
+	}
+	return &docLoaderBridge{loader: s.docLoader}
+}
+
+type docLoaderBridge struct {
+	loader DocumentLoader
+}
+
+func (b *docLoaderBridge) GetDocumentByID(id int64) (*filtering.DocumentResult, error) {
+	result, err := b.loader.GetDocumentByID(id)
+	if err != nil {
+		return nil, err
+	}
+	if result == nil {
+		return nil, nil
+	}
+	return &filtering.DocumentResult{
+		Document: filtering.DocumentMeta{
+			Filename:    result.Document.Filename,
+			ContentType: result.Document.ContentType,
+		},
+		Content: result.Content,
+	}, nil
 }
 
 // CleanupStaleRuns marks any "running" jobs as failed (called on startup)
@@ -622,7 +657,7 @@ func (s *AutomationService) logAutomationConfig(cfg *repositories.AutomationConf
 	log.Printf("  source_document_ids=%v", cfg.SourceDocumentIDs)
 	log.Printf("  use_agent=%v, agent_model=%s", cfg.UseAgent, ptrStr(cfg.AgentModel))
 	log.Printf("  vector_prefilter=%v, threshold=%.2f", cfg.VectorPrefilterEnabled, cfg.VectorSimilarityThreshold)
-	log.Printf("  system_prompt=%s", truncateString(ptrStr(cfg.SystemPrompt), 100))
+	log.Printf("  system_prompt=%s", filtering.TruncateString(ptrStr(cfg.SystemPrompt), 100))
 }
 
 func (s *AutomationService) calculateDeficit(cfg *repositories.AutomationConfigDTO) int64 {
@@ -667,7 +702,7 @@ func (s *AutomationService) processSearchResultsSimple(cfg *repositories.Automat
 	var totalProposalsCreated int32
 	source := "automation"
 	configID := cfg.ID
-	sourceDocument := strings.Join(extractDocumentNames(documentContext), ", ")
+	sourceDocument := strings.Join(filtering.ExtractDocumentNames(documentContext), ", ")
 
 	for _, job := range jobs {
 		if int64(totalProposalsCreated) >= deficit {
@@ -723,7 +758,7 @@ func (s *AutomationService) processSearchResultsWithAgent(cfg *repositories.Auto
 	}
 
 	// Create proposals from approved results
-	sourceDocument := strings.Join(extractDocumentNames(documentContext), ", ")
+	sourceDocument := strings.Join(filtering.ExtractDocumentNames(documentContext), ", ")
 	source := "automation"
 	configID := cfg.ID
 	totalProposalsCreated := s.createProposalsFromReviewed(cfg, reviewed, deficit, sourceDocument, source, configID, dedup)
@@ -738,14 +773,14 @@ func (s *AutomationService) tryCreateProposal(cfg *repositories.AutomationConfig
 	}
 	// Update dedup status from "Pending" to "Proposal"
 	if dedup != nil {
-		dedup.markURL(job.URL, "Proposal")
+		dedup.MarkURL(job.URL, "Proposal")
 	}
 	return 1
 }
 
 func (s *AutomationService) tryCreateApprovedProposal(cfg *repositories.AutomationConfigDTO, job reviewedJobResult, combinedQuery, source string, configID int64, dedup *dedupData) int {
 	if job.Approved {
-		return s.tryCreateProposal(cfg, job.jobResult, job.Reason, combinedQuery, source, configID, dedup)
+		return s.tryCreateProposal(cfg, job.JobResult, job.Reason, combinedQuery, source, configID, dedup)
 	}
 
 	// Record rejected job to prevent re-review
@@ -812,16 +847,8 @@ func (s *AutomationService) createProposalFromJob(cfg *repositories.AutomationCo
 	return true
 }
 
-// jobResult represents a job search result
-type jobResult struct {
-	Title                string
-	Company              string
-	URL                  string
-	Snippet              string
-	DatePosted           string
-	DatePostedConfidence string // high, medium, low, none
-	FullText             string // extracted via go-readability; empty if fetch failed
-}
+// jobResult is an alias for the shared filtering type
+type jobResult = filtering.JobResult
 
 // searchResultWithRelated wraps job results with related searches from Serper
 type searchResultWithRelated struct {
@@ -1061,123 +1088,16 @@ func parseSerperDateWithConfidence(dateStr string) (string, string) {
 	return "", "none"
 }
 
-// agentReview represents a single result review from the agent
-type agentReview struct {
-	Index    int    `json:"index"`
-	Approved bool   `json:"approved"`
-	Reason   string `json:"reason"`
-}
-
-// agentReviewResponse is the JSON response from the LLM
-type agentReviewResponse struct {
-	Reviews []agentReview `json:"reviews"`
-}
-
-// reviewedJobResult extends jobResult with agent analysis
-type reviewedJobResult struct {
-	jobResult
-	Approved bool
-	Reason   string
-}
+type agentReview = filtering.AgentReview
+type agentReviewResponse = filtering.AgentReviewResponse
+type reviewedJobResult = filtering.ReviewedJobResult
 
 func (s *AutomationService) loadDocumentContext(docIDs []int64) string {
-	if s.docLoader == nil || len(docIDs) == 0 {
-		return ""
-	}
-
-	const maxTotalChars = 15000
-
-	// Fetch all documents in parallel
-	results := make([]string, len(docIDs))
-	var wg sync.WaitGroup
-
-	for i, docID := range docIDs {
-		wg.Add(1)
-		go func(idx int, id int64) {
-			defer wg.Done()
-			results[idx] = s.fetchDocumentContent(id)
-		}(i, docID)
-	}
-	wg.Wait()
-
-	// Combine results maintaining order
-	var builder strings.Builder
-	for _, content := range results {
-		if content == "" {
-			// skip empty results
-		}
-		if content != "" {
-			builder.WriteString(content)
-		}
-	}
-
-	return truncateDocumentContext(builder.String(), maxTotalChars, len(docIDs))
-}
-
-func (s *AutomationService) fetchDocumentContent(docID int64) string {
-	result, err := s.docLoader.GetDocumentByID(docID)
-	if err != nil {
-		log.Printf("Automation service: failed to load doc %d: %v", docID, err)
-		return ""
-	}
-	if result == nil || result.Content == nil {
-		return ""
-	}
-
-	content := extractDocumentContent(result.Document.ContentType, result.Content)
-	if content == "" {
-		return ""
-	}
-
-	return fmt.Sprintf("=== Document: %s ===\n%s\n\n", result.Document.Filename, content)
-}
-
-func truncateDocumentContext(result string, maxChars, docCount int) string {
-	if len(result) > maxChars {
-		result = result[:maxChars] + "\n[Truncated]"
-	}
-	log.Printf("Automation service: Loaded %d documents (%d chars)", docCount, len(result))
-	return result
-}
-
-func extractDocumentContent(contentType string, data []byte) string {
-	if strings.Contains(contentType, "text/") || strings.Contains(contentType, "application/json") {
-		return string(data)
-	}
-	if strings.Contains(contentType, "pdf") {
-		return extractPDFTextFromBytes(data)
-	}
-	return ""
-}
-
-func extractPDFTextFromBytes(data []byte) string {
-	reader := bytes.NewReader(data)
-	pdfReader, err := pdf.NewReader(reader, int64(len(data)))
-	if err != nil {
-		return ""
-	}
-
-	var text strings.Builder
-	for i := 1; i <= pdfReader.NumPage(); i++ {
-		appendPDFPageText(&text, pdfReader.Page(i))
-	}
-	return text.String()
-}
-
-func appendPDFPageText(text *strings.Builder, page pdf.Page) {
-	if page.V.IsNull() {
-		return
-	}
-	pageText, err := page.GetPlainText(nil)
-	if err != nil {
-		return
-	}
-	text.WriteString(pageText)
-	text.WriteString("\n")
+	return filtering.LoadDocumentContext(docIDs, s.docLoaderAdapter())
 }
 
 func (s *AutomationService) reviewResultsWithAgent(cfg *repositories.AutomationConfigDTO, results []jobResult, documentContext string) []reviewedJobResult {
-	model := "claude-sonnet-4-6"
+	model := "claude-sonnet-4-5-20250929"
 	if cfg.AgentModel != nil && *cfg.AgentModel != "" {
 		model = *cfg.AgentModel
 	}
@@ -1185,7 +1105,86 @@ func (s *AutomationService) reviewResultsWithAgent(cfg *repositories.AutomationC
 	activePrompt := s.getActivePrompt(cfg)
 	s.logAgentReviewContext(model, activePrompt, documentContext, results)
 
-	return s.reviewWithAnthropic(model, activePrompt, documentContext, results)
+	if strings.HasPrefix(model, "gpt-") {
+		return s.reviewWithOpenAI(model, activePrompt, documentContext, results)
+	}
+	if s.anthropicAPIKey == "" {
+		log.Printf("Automation service: ANTHROPIC_API_KEY not configured, skipping agent review")
+		return filtering.ApproveAllResults(results)
+	}
+
+	systemPrompt := filtering.BuildAgentSystemPrompt(activePrompt)
+	userPrompt := filtering.BuildAgentUserPrompt(documentContext, results)
+
+	reviewed := filtering.ReviewWithAnthropic(s.anthropicClient, model, systemPrompt, userPrompt)
+	if reviewed == nil {
+		return filtering.ApproveAllResults(results)
+	}
+
+	// Map reviews back to results
+	mapped := filtering.ApplyReviewsToResults(results, s.extractReviews(reviewed))
+	filtering.LogAgentReviews(mapped)
+	return mapped
+}
+
+func (s *AutomationService) extractReviews(reviewed []reviewedJobResult) []agentReview {
+	reviews := make([]agentReview, len(reviewed))
+	for i, r := range reviewed {
+		reviews[i] = agentReview{Index: i, Approved: r.Approved, Reason: r.Reason}
+	}
+	return reviews
+}
+
+func (s *AutomationService) reviewWithOpenAI(model string, customPrompt *string, documentContext string, results []jobResult) []reviewedJobResult {
+	if s.openAIAPIKey == "" {
+		log.Printf("Automation service: OPENAI_API_KEY not configured, skipping agent review")
+		return filtering.ApproveAllResults(results)
+	}
+
+	systemPrompt := filtering.BuildAgentSystemPrompt(customPrompt)
+	userPrompt := filtering.BuildAgentUserPrompt(documentContext, results)
+
+	params := openai.ChatCompletionNewParams{
+		Model: model,
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.SystemMessage(systemPrompt),
+			openai.UserMessage(userPrompt),
+		},
+		MaxCompletionTokens: openai.Int(2048),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	log.Printf("🤖 [OpenAI] Calling API - model=%s, results=%d", model, len(results))
+	start := time.Now()
+	resp, err := s.openaiClient.Chat.Completions.New(ctx, params)
+	if err != nil {
+		log.Printf("🤖 [OpenAI] API error after %v: %v", time.Since(start), err)
+		return filtering.ApproveAllResults(results)
+	}
+	log.Printf("🤖 [OpenAI] API returned in %v", time.Since(start))
+
+	reviews := s.parseOpenAIAgentResponse(resp, results)
+	filtering.LogAgentReviews(reviews)
+	return reviews
+}
+
+func (s *AutomationService) parseOpenAIAgentResponse(resp *openai.ChatCompletion, results []jobResult) []reviewedJobResult {
+	if resp == nil || len(resp.Choices) == 0 {
+		return filtering.ApproveAllResults(results)
+	}
+
+	text := strings.TrimSpace(resp.Choices[0].Message.Content)
+	text = filtering.ExtractJSONFromText(text)
+
+	var reviewResp agentReviewResponse
+	if err := json.Unmarshal([]byte(text), &reviewResp); err != nil {
+		log.Printf("Automation service: failed to parse OpenAI agent response: %v", err)
+		return filtering.ApproveAllResults(results)
+	}
+
+	return filtering.ApplyReviewsToResults(results, reviewResp.Reviews)
 }
 
 func (s *AutomationService) getActivePrompt(cfg *repositories.AutomationConfigDTO) *string {
@@ -1202,18 +1201,15 @@ func (s *AutomationService) getActivePrompt(cfg *repositories.AutomationConfigDT
 func (s *AutomationService) detectValueChanges(configID int64, query string, prompt *string) (queryChanged, promptChanged bool) {
 	lastRun, err := s.automationRepo.GetLastCompletedRun(configID)
 	if err != nil || lastRun == nil {
-		// No previous run - this is the first run, no changes
 		return false, false
 	}
 
-	// Compare query (trim whitespace for consistent comparison)
 	prevQuery := ""
 	if lastRun.ExecutedQuery != nil {
 		prevQuery = strings.TrimSpace(*lastRun.ExecutedQuery)
 	}
 	queryChanged = strings.TrimSpace(query) != prevQuery
 
-	// Compare prompt
 	prevPrompt := ""
 	if lastRun.ExecutedSystemPrompt != nil {
 		prevPrompt = strings.TrimSpace(*lastRun.ExecutedSystemPrompt)
@@ -1231,7 +1227,6 @@ func (s *AutomationService) detectValueChanges(configID int64, query string, pro
 func (s *AutomationService) getActiveQuery(cfg *repositories.AutomationConfigDTO) string {
 	var query string
 
-	// LLM generates complete queries with exclusions built-in (e.g., "software engineer" -junior -intern)
 	if cfg.UseSuggestedQuery && cfg.SuggestedQuery != nil && *cfg.SuggestedQuery != "" {
 		query = *cfg.SuggestedQuery
 	} else if cfg.SearchQuery != nil {
@@ -1255,237 +1250,17 @@ func (s *AutomationService) logAgentReviewContext(model string, systemPrompt *st
 
 	promptPreview := "(none)"
 	if systemPrompt != nil && *systemPrompt != "" {
-		promptPreview = truncateString(*systemPrompt, 200)
+		promptPreview = filtering.TruncateString(*systemPrompt, 200)
 	}
 	log.Printf("  system_prompt: %s", promptPreview)
 
-	docNames := extractDocumentNames(documentContext)
+	docNames := filtering.ExtractDocumentNames(documentContext)
 	log.Printf("  documents: %v (%d chars)", docNames, len(documentContext))
 
 	log.Printf("  results_to_evaluate: %d", len(results))
 	for i, r := range results {
 		log.Printf("    [%d] %s @ %s", i, r.Title, r.Company)
 	}
-}
-
-func extractDocumentNames(context string) []string {
-	var names []string
-	lines := strings.Split(context, "\n")
-	for _, line := range lines {
-		if strings.HasPrefix(line, "=== Document: ") && strings.HasSuffix(line, " ===") {
-			name := strings.TrimPrefix(line, "=== Document: ")
-			name = strings.TrimSuffix(name, " ===")
-			names = append(names, name)
-		}
-	}
-	return names
-}
-
-func truncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
-		return s
-	}
-	return s[:maxLen] + "..."
-}
-
-func (s *AutomationService) reviewWithAnthropic(model string, customPrompt *string, documentContext string, results []jobResult) []reviewedJobResult {
-	if s.anthropicAPIKey == "" {
-		log.Printf("Automation service: ANTHROPIC_API_KEY not configured, skipping agent review")
-		return approveAllResults(results)
-	}
-
-	systemPrompt := s.buildAgentSystemPrompt(customPrompt)
-	userPrompt := s.buildAgentUserPrompt(documentContext, results)
-
-	params := anthropic.MessageNewParams{
-		Model:     anthropic.Model(model),
-		MaxTokens: 2048,
-		System: []anthropic.TextBlockParam{
-			{Text: systemPrompt},
-		},
-		Messages: []anthropic.MessageParam{
-			anthropic.NewUserMessage(anthropic.NewTextBlock(userPrompt)),
-		},
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	log.Printf("🤖 [Anthropic] Calling API - model=%s, results=%d", model, len(results))
-	start := time.Now()
-	resp, err := s.anthropicClient.Messages.New(ctx, params)
-	if err != nil {
-		log.Printf("🤖 [Anthropic] API error after %v: %v", time.Since(start), err)
-		return approveAllResults(results)
-	}
-	log.Printf("🤖 [Anthropic] API returned in %v", time.Since(start))
-
-	reviews := s.parseAgentResponse(resp, results)
-	s.logAgentReviews(reviews)
-	return reviews
-}
-
-
-func (s *AutomationService) buildAgentSystemPrompt(customPrompt *string) string {
-	base := `You are evaluating search results for relevance to a candidate's profile. Review each result and determine if it's a strong match.
-
-Return ONLY a JSON object with this structure:
-{
-  "reviews": [
-    {"index": 0, "approved": true, "reason": "Brief explanation"},
-    {"index": 1, "approved": false, "reason": "Brief explanation"}
-  ]
-}
-
-Be selective - only approve results that are genuinely relevant matches.`
-
-	if customPrompt != nil && *customPrompt != "" {
-		return base + "\n\nAdditional Instructions:\n" + *customPrompt
-	}
-	return base
-}
-
-func (s *AutomationService) buildAgentUserPrompt(documentContext string, results []jobResult) string {
-	var sb strings.Builder
-
-	if documentContext != "" {
-		sb.WriteString("## Candidate Profile/Resume:\n")
-		sb.WriteString(documentContext)
-		sb.WriteString("\n\n")
-	}
-
-	sb.WriteString("## Search Results to Evaluate:\n")
-	for i, r := range results {
-		sb.WriteString(fmt.Sprintf("\n[%d] %s\nCompany: %s\nURL: %s\nSnippet: %s\n", i, r.Title, r.Company, r.URL, r.Snippet))
-		sb.WriteString(truncatedJobDescription(r.FullText, 3000))
-	}
-
-	sb.WriteString("\n\nEvaluate each result. Return JSON with reviews array.")
-	return sb.String()
-}
-
-func embeddingText(r jobResult) string {
-	if r.FullText != "" {
-		return r.FullText
-	}
-	return r.Title + " - " + r.Snippet
-}
-
-func truncatedJobDescription(fullText string, maxLen int) string {
-	if fullText == "" {
-		return ""
-	}
-	if len(fullText) > maxLen {
-		fullText = fullText[:maxLen] + "..."
-	}
-	return fmt.Sprintf("Job Description:\n%s\n", fullText)
-}
-
-func (s *AutomationService) parseAgentResponse(resp *anthropic.Message, results []jobResult) []reviewedJobResult {
-	if resp == nil || len(resp.Content) == 0 {
-		return approveAllResults(results)
-	}
-
-	text := extractTextFromResponse(resp)
-	text = extractJSONFromText(text)
-
-	var reviewResp agentReviewResponse
-	if err := json.Unmarshal([]byte(text), &reviewResp); err != nil {
-		log.Printf("Automation service: failed to parse agent response: %v", err)
-		return approveAllResults(results)
-	}
-
-	return applyReviewsToResults(results, reviewResp.Reviews)
-}
-
-
-func extractTextFromResponse(resp *anthropic.Message) string {
-	var text string
-	for _, block := range resp.Content {
-		if block.Type == "text" {
-			text += block.Text
-		}
-	}
-	return strings.TrimSpace(text)
-}
-
-func applyReviewsToResults(results []jobResult, reviews []agentReview) []reviewedJobResult {
-	reviewed := make([]reviewedJobResult, len(results))
-	for i, r := range results {
-		reviewed[i] = reviewedJobResult{jobResult: r, Approved: true, Reason: ""}
-	}
-
-	for _, review := range reviews {
-		applyReviewIfValid(reviewed, review)
-	}
-
-	return reviewed
-}
-
-func applyReviewIfValid(reviewed []reviewedJobResult, review agentReview) {
-	if review.Index < 0 || review.Index >= len(reviewed) {
-		return
-	}
-	reviewed[review.Index].Approved = review.Approved
-	reviewed[review.Index].Reason = review.Reason
-}
-
-func extractJSONFromText(text string) string {
-	if strings.HasPrefix(text, "```json") {
-		text = strings.TrimPrefix(text, "```json")
-		if idx := strings.Index(text, "```"); idx > 0 {
-			text = text[:idx]
-		}
-	}
-	if strings.HasPrefix(text, "```") {
-		text = strings.TrimPrefix(text, "```")
-		if idx := strings.Index(text, "```"); idx > 0 {
-			text = text[:idx]
-		}
-	}
-	startIdx := strings.Index(text, "{")
-	endIdx := strings.LastIndex(text, "}")
-	if startIdx >= 0 && endIdx > startIdx {
-		text = text[startIdx : endIdx+1]
-	}
-	return strings.TrimSpace(text)
-}
-
-func approveAllResults(results []jobResult) []reviewedJobResult {
-	reviewed := make([]reviewedJobResult, len(results))
-	for i, r := range results {
-		reviewed[i] = reviewedJobResult{jobResult: r, Approved: true, Reason: ""}
-	}
-	return reviewed
-}
-
-func (s *AutomationService) logAgentReviews(reviews []reviewedJobResult) {
-	approvedCount := countApproved(reviews)
-	logRejections(reviews)
-	log.Printf("Automation service: agent approved %d/%d results", approvedCount, len(reviews))
-}
-
-func countApproved(reviews []reviewedJobResult) int {
-	count := 0
-	for _, r := range reviews {
-		if r.Approved {
-			count++
-		}
-	}
-	return count
-}
-
-func logRejections(reviews []reviewedJobResult) {
-	for _, r := range reviews {
-		logRejectionIfApplicable(r)
-	}
-}
-
-func logRejectionIfApplicable(r reviewedJobResult) {
-	if r.Approved {
-		return
-	}
-	log.Printf("Automation service: rejected: \"%s\" - %s", r.Title, r.Reason)
 }
 
 func (s *AutomationService) checkAndTriggerSuggestions(cfg *repositories.AutomationConfigDTO, prospects, proposals int, relatedSearches []string) {
@@ -1583,6 +1358,9 @@ func (s *AutomationService) checkAndSuggestPromptImprovement(cfg *repositories.A
 }
 
 func (s *AutomationService) callLLMForSuggestion(model, prompt string) string {
+	if strings.HasPrefix(model, "gpt-") {
+		return s.generateSuggestionWithOpenAI(model, prompt)
+	}
 	return s.generateSuggestionWithAnthropic(model, prompt)
 }
 
@@ -1610,7 +1388,7 @@ func (s *AutomationService) checkAndSuggestQueryImprovement(cfg *repositories.Au
 	currentQuery := getCurrentQueryLower(cfg)
 
 	log.Printf("Automation service: checking query improvement for config=%d, %d related searches, currentQuery=%q",
-		cfg.ID, len(relatedSearches), truncateString(currentQuery, 80))
+		cfg.ID, len(relatedSearches), filtering.TruncateString(currentQuery, 80))
 
 	suggested, source := s.findQuerySuggestion(cfg, relatedSearches, currentQuery)
 
@@ -1648,7 +1426,7 @@ func getCurrentQueryLower(cfg *repositories.AutomationConfigDTO) string {
 func (s *AutomationService) findQuerySuggestion(cfg *repositories.AutomationConfigDTO, relatedSearches []string, currentQuery string) (string, string) {
 	suggested := findFirstNewRelatedSearch(relatedSearches, currentQuery)
 	if suggested != "" {
-		log.Printf("Automation service: picked Serper suggestion: %s", truncateString(suggested, 80))
+		log.Printf("Automation service: picked Serper suggestion: %s", filtering.TruncateString(suggested, 80))
 		return sanitizeSuggestedQuery(suggested, cfg), "serper"
 	}
 
@@ -1694,7 +1472,7 @@ func findFirstNewRelatedSearch(relatedSearches []string, currentQuery string) st
 		if strings.ToLower(rs) != currentQuery {
 			return rs
 		}
-		log.Printf("Automation service: skipping related search (matches current): %s", truncateString(rs, 80))
+		log.Printf("Automation service: skipping related search (matches current): %s", filtering.TruncateString(rs, 80))
 	}
 	return ""
 }
@@ -1726,6 +1504,9 @@ func (s *AutomationService) generateQueryWithLLM(cfg *repositories.AutomationCon
 
 	model := s.getAnalyticsModel(cfg)
 
+	if strings.HasPrefix(model, "gpt-") {
+		return s.generateSuggestionWithOpenAI(model, prompt)
+	}
 	return s.generateSuggestionWithAnthropic(model, prompt)
 }
 
@@ -1738,7 +1519,7 @@ func (s *AutomationService) getAnalyticsModel(cfg *repositories.AutomationConfig
 	if cfg.AgentModel != nil && *cfg.AgentModel != "" {
 		return *cfg.AgentModel
 	}
-	return "claude-sonnet-4-6" // Default to cheap model
+	return "claude-sonnet-4-5-20250929" // Default to cheap model
 }
 
 // buildAnalyticsContext fetches and formats historical run analytics
@@ -1763,7 +1544,7 @@ func (s *AutomationService) buildAnalyticsContext(configID int64) string {
 		sb.WriteString("\nBEST PERFORMING QUERIES:\n")
 		for _, q := range analytics.BestQueries {
 			sb.WriteString(fmt.Sprintf("- \"%s\" - %d proposals (%.1f%% conversion)\n",
-				truncateString(q.Query, 80), q.ProposalsCreated, q.ConversionRate))
+				filtering.TruncateString(q.Query, 80), q.ProposalsCreated, q.ConversionRate))
 		}
 	}
 
@@ -1771,14 +1552,14 @@ func (s *AutomationService) buildAnalyticsContext(configID int64) string {
 		sb.WriteString("\nWORST PERFORMING QUERIES (had prospects but 0 proposals):\n")
 		for _, q := range analytics.WorstQueries {
 			sb.WriteString(fmt.Sprintf("- \"%s\" - %d prospects, 0 proposals\n",
-				truncateString(q.Query, 80), q.ProspectsFound))
+				filtering.TruncateString(q.Query, 80), q.ProspectsFound))
 		}
 	}
 
 	if len(analytics.RecentQueries) > 0 {
 		sb.WriteString("\nRECENT QUERIES TRIED (avoid similar):\n")
 		for _, q := range analytics.RecentQueries {
-			sb.WriteString(fmt.Sprintf("- %s\n", truncateString(q, 80)))
+			sb.WriteString(fmt.Sprintf("- %s\n", filtering.TruncateString(q, 80)))
 		}
 	}
 
@@ -1903,11 +1684,14 @@ Suggest an improved system_prompt that would be more lenient on valid matches wh
 Return ONLY the improved system_prompt text, nothing else. Do not include explanations or markdown formatting.`,
 		approved*100/total, approved, total, currentPrompt, rejectedSample)
 
-	model := "claude-sonnet-4-6"
+	model := "claude-sonnet-4-5-20250929"
 	if cfg.AgentModel != nil && *cfg.AgentModel != "" {
 		model = *cfg.AgentModel
 	}
 
+	if strings.HasPrefix(model, "gpt-") {
+		return s.generateSuggestionWithOpenAI(model, prompt)
+	}
 	return s.generateSuggestionWithAnthropic(model, prompt)
 }
 
@@ -1934,11 +1718,14 @@ Suggest an improved system_prompt that would be more lenient on valid matches wh
 Return ONLY the improved system_prompt text, nothing else. Do not include explanations or markdown formatting.`,
 		currentPrompt, rejectedSample)
 
-	model := "claude-sonnet-4-6"
+	model := "claude-sonnet-4-5-20250929"
 	if cfg.AgentModel != nil && *cfg.AgentModel != "" {
 		model = *cfg.AgentModel
 	}
 
+	if strings.HasPrefix(model, "gpt-") {
+		return s.generateSuggestionWithOpenAI(model, prompt)
+	}
 	return s.generateSuggestionWithAnthropic(model, prompt)
 }
 
@@ -2004,6 +1791,33 @@ func (s *AutomationService) generateSuggestionWithAnthropic(model, prompt string
 	return strings.TrimSpace(text.Text)
 }
 
+func (s *AutomationService) generateSuggestionWithOpenAI(model, prompt string) string {
+	if s.openAIAPIKey == "" {
+		return ""
+	}
+
+	params := openai.ChatCompletionNewParams{
+		Model: model,
+		Messages: []openai.ChatCompletionMessageParamUnion{
+			openai.UserMessage(prompt),
+		},
+		MaxCompletionTokens: openai.Int(1024),
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	resp, err := s.openaiClient.Chat.Completions.New(ctx, params)
+	if err != nil {
+		log.Printf("Automation service: failed to generate suggestion: %v", err)
+		return ""
+	}
+
+	if len(resp.Choices) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(resp.Choices[0].Message.Content)
+}
 
 func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO) *serializers.AutomationConfigResponse {
 	totalProposals, _ := s.automationRepo.GetActiveProposals(dto.ID)
@@ -2037,11 +1851,6 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 		TargetType:          dto.TargetType,
 		TargetIDs:           dto.TargetIDs,
 		SourceDocumentIDs:   dto.SourceDocumentIDs,
-		DigestEnabled:       dto.DigestEnabled,
-		DigestEmails:        dto.DigestEmails,
-		DigestTime:          dto.DigestTime,
-		DigestModel:         dto.DigestModel,
-		LastDigestAt:        dto.LastDigestAt,
 		UseAgent:            dto.UseAgent,
 		AgentModel:          dto.AgentModel,
 		UseAnalytics:        dto.UseAnalytics,
@@ -2056,24 +1865,11 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 	}
 }
 
-// dedupData holds preloaded data for deduplication
-type dedupData struct {
-	mu                sync.RWMutex
-	existingJobs      []repositories.JobDedupInfo
-	pendingProposals  []repositories.PendingJobProposal
-	rejectedJobs      []repositories.RejectedJobInfo
-	urlSource         map[string]string // URL -> source ("Job", "Proposal", "Rejected")
-	jobIndex          map[string]bool   // normalized "company|title" -> exists (for jobs)
-	proposalIndex     map[string]bool   // normalized "company|title" -> exists (for proposals)
-}
+type dedupData = filtering.DedupData
 
 // loadDedupData loads existing jobs, pending proposals, and rejected jobs for deduplication (parallel)
 func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
-	data := &dedupData{
-		urlSource:     make(map[string]string),
-		jobIndex:      make(map[string]bool),
-		proposalIndex: make(map[string]bool),
-	}
+	data := filtering.NewDedupData()
 
 	var wg sync.WaitGroup
 	var jobs []repositories.JobDedupInfo
@@ -2117,420 +1913,72 @@ func (s *AutomationService) loadDedupData(tenantID int64) *dedupData {
 	wg.Wait()
 
 	// Merge results (single-threaded, no lock needed)
-	data.existingJobs = jobs
 	for _, j := range jobs {
 		if j.URL != "" {
-			data.urlSource[j.URL] = "Job"
+			data.URLSource[j.URL] = "Job"
 		}
-		key := buildCompanyTitleKey(j.Company, j.JobTitle)
+		key := filtering.BuildCompanyTitleKey(j.Company, j.JobTitle)
 		if key != "" {
-			data.jobIndex[key] = true
+			data.JobIndex[key] = true
 		}
 	}
-	log.Printf("🔍 Dedup [Job]: loaded %d existing jobs, %d indexed", len(jobs), len(data.jobIndex))
+	log.Printf("Dedup [Job]: loaded %d existing jobs, %d indexed", len(jobs), len(data.JobIndex))
 
-	data.pendingProposals = proposals
 	for _, p := range proposals {
 		if p.URL != "" {
-			data.urlSource[p.URL] = "Proposal"
+			data.URLSource[p.URL] = "Proposal"
 		}
-		key := buildCompanyTitleKey(p.Company, p.Title)
+		key := filtering.BuildCompanyTitleKey(p.Company, p.Title)
 		if key != "" {
-			data.proposalIndex[key] = true
+			data.ProposalIndex[key] = true
 		}
 	}
-	log.Printf("🔍 Dedup [Proposal]: loaded %d pending proposals, %d indexed", len(proposals), len(data.proposalIndex))
+	log.Printf("Dedup [Proposal]: loaded %d pending proposals, %d indexed", len(proposals), len(data.ProposalIndex))
 
 	for _, p := range rejectedProposals {
 		if p.URL != "" {
-			data.urlSource[p.URL] = "UserRejected"
+			data.URLSource[p.URL] = "UserRejected"
 		}
 	}
-	log.Printf("🔍 Dedup [UserRejected]: loaded %d user-rejected proposals", len(rejectedProposals))
+	log.Printf("Dedup [UserRejected]: loaded %d user-rejected proposals", len(rejectedProposals))
 
-	data.rejectedJobs = rejected
 	for _, r := range rejected {
 		if r.URL != "" {
-			data.urlSource[r.URL] = "Rejected"
+			data.URLSource[r.URL] = "Rejected"
 		}
 	}
-	log.Printf("🔍 Dedup [Rejected]: loaded %d agent-rejected jobs", len(rejected))
+	log.Printf("Dedup [Rejected]: loaded %d agent-rejected jobs", len(rejected))
 
-	log.Printf("✅ Dedup ready: %d total URLs to check against", len(data.urlSource))
+	log.Printf("Dedup ready: %d total URLs to check against", len(data.URLSource))
 	return data
 }
 
-// duplicateSource returns the source of the duplicate ("Job", "Proposal", "Rejected") or empty if not duplicate
-func (d *dedupData) duplicateSource(job jobResult) string {
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	// Check URL first (fast path)
-	if source := d.checkURLMatch(job.URL); source != "" {
-		return source
-	}
-
-	normalizedCompany := normalizeCompanyName(job.Company)
-	normalizedTitle := normalizeTitleForMatch(job.Title)
-
-	if len(normalizedCompany) < 4 {
-		return ""
-	}
-
-	if d.matchesExistingJob(normalizedCompany, normalizedTitle) {
-		return "Job"
-	}
-
-	if d.matchesPendingProposal(normalizedCompany, normalizedTitle) {
-		return "Proposal"
-	}
-
-	return ""
-}
-
-func (d *dedupData) checkURLMatch(url string) string {
-	if url == "" {
-		return ""
-	}
-	if source, ok := d.urlSource[url]; ok {
-		return source
-	}
-	return ""
-}
-
-func (d *dedupData) matchesExistingJob(company, title string) bool {
-	// Fast O(1) exact match via hash index
-	key := company + "|" + title
-	if d.jobIndex[key] {
-		return true
-	}
-	return false
-}
-
-func (d *dedupData) matchesPendingProposal(company, title string) bool {
-	// Fast O(1) exact match via hash index
-	key := company + "|" + title
-	if d.proposalIndex[key] {
-		return true
-	}
-	return false
-}
-
-// buildCompanyTitleKey creates normalized key for hash index
-func buildCompanyTitleKey(company, title string) string {
-	normalizedCompany := normalizeCompanyName(company)
-	normalizedTitle := normalizeTitleForMatch(title)
-	if normalizedCompany == "" || len(normalizedCompany) < 4 {
-		return ""
-	}
-	return normalizedCompany + "|" + normalizedTitle
-}
-
-// markURL adds a URL to the dedup set (thread-safe)
-func (d *dedupData) markURL(url, source string) {
-	if url == "" {
-		return
-	}
-	d.mu.Lock()
-	d.urlSource[url] = source
-	d.mu.Unlock()
-}
-
-// normalizeCompanyName removes common suffixes and normalizes for comparison
-func normalizeCompanyName(name string) string {
-	name = strings.ToLower(strings.TrimSpace(name))
-	suffixes := []string{", inc.", ", inc", " inc.", " inc", ", llc", " llc", ", corp.", " corp.", ", corp", " corp", ", ltd.", " ltd.", ", ltd", " ltd", " co.", " co"}
-	for _, suffix := range suffixes {
-		name = strings.TrimSuffix(name, suffix)
-	}
-	return strings.TrimSpace(name)
-}
-
-// normalizeTitleForMatch removes seniority modifiers for fuzzy matching
-func normalizeTitleForMatch(title string) string {
-	title = strings.ToLower(strings.TrimSpace(title))
-	prefixes := []string{"senior ", "sr. ", "sr ", "lead ", "principal ", "staff ", "junior ", "jr. ", "jr ", "associate ", "entry level ", "entry-level "}
-	for _, prefix := range prefixes {
-		title = strings.TrimPrefix(title, prefix)
-	}
-	return strings.TrimSpace(title)
-}
-
-// filterDuplicates removes jobs that already exist in the dedup data
+// filterDuplicates delegates to the shared filtering package
 func (s *AutomationService) filterDuplicates(results []jobResult, dedup *dedupData) []jobResult {
-	if dedup == nil {
-		return results
-	}
-	filtered := make([]jobResult, 0, len(results))
-	for _, job := range results {
-		dupSource := dedup.duplicateSource(job)
-		if dupSource != "" {
-			log.Printf("Automation: filtering duplicate [%s]: %s at %s", dupSource, job.Title, job.Company)
-		}
-		if dupSource == "" {
-			// Mark URL immediately to prevent duplicates across concurrent batches
-			dedup.markURL(job.URL, "Pending")
-			filtered = append(filtered, job)
-		}
-	}
-	return filtered
+	return filtering.FilterDuplicates(results, dedup)
 }
 
-// validateURLs checks URLs with HEAD requests to filter broken links (concurrent)
+// validateURLs delegates to the shared filtering package
 func (s *AutomationService) validateURLs(results []jobResult) []jobResult {
-	if len(results) == 0 {
-		return results
-	}
-
-	const maxConcurrent = 5
-	sem := make(chan struct{}, maxConcurrent)
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	valid := make([]jobResult, 0, len(results))
-
-	for _, r := range results {
-		wg.Add(1)
-		go func(job jobResult) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			if isURLValid(s.validatorClient, job.URL) {
-				mu.Lock()
-				valid = append(valid, job)
-				mu.Unlock()
-			}
-		}(r)
-	}
-	wg.Wait()
-
-	if len(valid) < len(results) {
-		log.Printf("Automation: URL validation filtered %d/%d broken links", len(results)-len(valid), len(results))
-	}
-
-	return valid
+	return filtering.ValidateURLs(results, s.validatorClient)
 }
 
-func isURLValid(client *http.Client, url string) bool {
-	resp, err := client.Head(url)
-	if err != nil {
-		log.Printf("Automation: URL validation failed for %s: %v", url, err)
-		return false
-	}
-	resp.Body.Close()
-
-	if resp.StatusCode >= 400 {
-		log.Printf("Automation: skipping broken link %s (status %d)", url, resp.StatusCode)
-		return false
-	}
-	return true
-}
-
-// fetchFullText fetches job pages and extracts readable text via go-readability.
-// Results that fail to fetch proceed unchanged (graceful degradation).
+// fetchFullText delegates to the shared filtering package
 func (s *AutomationService) fetchFullText(results []jobResult) []jobResult {
-	if len(results) == 0 {
-		return results
-	}
-
-	start := time.Now()
-	var wg sync.WaitGroup
-	for i := range results {
-		wg.Add(1)
-		go func(idx int) {
-			defer wg.Done()
-			text, err := extractReadableText(results[idx].URL)
-			if err != nil {
-				log.Printf("Automation: full text extraction failed for %s: %v", results[idx].URL, err)
-				return
-			}
-			results[idx].FullText = text
-			log.Printf("Automation: extracted %d chars from %s", len(text), results[idx].URL)
-		}(i)
-	}
-	wg.Wait()
-
-	fetched := 0
-	for _, r := range results {
-		if r.FullText != "" {
-			fetched++
-		}
-	}
-	log.Printf("Automation: full text extracted for %d/%d results in %s", fetched, len(results), time.Since(start).Round(time.Millisecond))
-	return results
+	return filtering.FetchFullText(results)
 }
 
-func extractReadableText(pageURL string) (string, error) {
-	article, err := readability.FromURL(pageURL, 10*time.Second, func(r *http.Request) {
-		r.Header.Set("User-Agent", "Mozilla/5.0 (compatible; JobSearchBot/1.0)")
-	})
-	if err != nil {
-		return "", err
-	}
-
-	var buf bytes.Buffer
-	if err := article.RenderText(&buf); err != nil {
-		return "", fmt.Errorf("readability render: %w", err)
-	}
-
-	text := strings.TrimSpace(buf.String())
-	if len(text) > 8000 {
-		text = text[:8000]
-	}
-	return text, nil
-}
-
-// backfillDocumentEmbeddings lazily embeds source documents that have no stored embeddings yet.
-func (s *AutomationService) backfillDocumentEmbeddings(cfg *repositories.AutomationConfigDTO) []repositories.EmbeddingDTO {
-	if s.docLoader == nil {
-		return nil
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
-
-	for _, docID := range cfg.SourceDocumentIDs {
-		result, err := s.docLoader.GetDocumentByID(docID)
-		if err != nil || result == nil || result.Content == nil {
-			log.Printf("Automation: backfill skip doc %d (fetch failed): %v", docID, err)
-			continue
-		}
-		content := extractDocumentContent(result.Document.ContentType, result.Content)
-		if content == "" {
-			log.Printf("Automation: backfill skip doc %d (no extractable text)", docID)
-			continue
-		}
-		log.Printf("Automation: backfilling embeddings for doc %d (%d chars)", docID, len(content))
-		if err := s.embeddingService.EmbedDocumentChunks(ctx, cfg.TenantID, docID, content); err != nil {
-			log.Printf("Automation: backfill embed failed for doc %d: %v", docID, err)
-		}
-	}
-
-	embeddings, _ := s.embeddingService.GetDocumentEmbeddings(cfg.SourceDocumentIDs)
-	return embeddings
-}
-
-// vectorPreFilter uses vector similarity to reduce results before LLM review
+// vectorPreFilter delegates to the shared filtering package
 func (s *AutomationService) vectorPreFilter(results []jobResult, cfg *repositories.AutomationConfigDTO) []jobResult {
 	if !cfg.VectorPrefilterEnabled || s.embeddingService == nil {
 		return results
 	}
-	if len(results) == 0 || len(cfg.SourceDocumentIDs) == 0 {
-		return results
-	}
-
-	docEmbeddings, err := s.embeddingService.GetDocumentEmbeddings(cfg.SourceDocumentIDs)
-	if err != nil {
-		log.Printf("Automation: vector pre-filter skipped (embedding lookup error): %v", err)
-		return results
-	}
-	if len(docEmbeddings) == 0 {
-		docEmbeddings = s.backfillDocumentEmbeddings(cfg)
-	}
-	if len(docEmbeddings) == 0 {
-		log.Printf("Automation: vector pre-filter skipped (no doc embeddings after backfill)")
-		return results
-	}
-
-	// Batch embed result snippets
-	texts := make([]string, len(results))
-	for i, r := range results {
-		texts[i] = embeddingText(r)
-	}
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-
-	vectors, err := s.embeddingService.EmbedTexts(ctx, texts)
-	if err != nil {
-		log.Printf("Automation: vector pre-filter embed failed: %v", err)
-		return results
-	}
-
-	// Compute rejection centroid for penalty (if enough rejections exist)
-	var rejectionCentroid pgvector.Vector
-	var hasRejectionCentroid bool
-	rejCentroid, rejCount, rejErr := s.embeddingService.GetRejectionCentroid(cfg.ID)
-	if rejErr == nil && rejCount >= 3 {
-		rejectionCentroid = rejCentroid
-		hasRejectionCentroid = true
-		log.Printf("Automation: rejection centroid loaded (%d user rejections)", rejCount)
-	}
-
-	// Compute max cosine similarity of each result against all doc chunks
-	type scored struct {
-		job   jobResult
-		score float64
-	}
-	var scored_results []scored
-	for i, vec := range vectors {
-		positiveScore := maxCosineSimilarity(vec, docEmbeddings)
-		finalScore := positiveScore
-		if hasRejectionCentroid {
-			rejSim := cosineSimilarity(vec.Slice(), rejectionCentroid.Slice())
-			finalScore = positiveScore - (rejSim * 0.3)
-			log.Printf("  vector score [%d] %.3f (pos=%.3f, rej=%.3f) %s — %s", i, finalScore, positiveScore, rejSim, results[i].Title, passOrFail(finalScore, cfg.VectorSimilarityThreshold))
-		} else {
-			log.Printf("  vector score [%d] %.3f %s — %s", i, finalScore, results[i].Title, passOrFail(finalScore, cfg.VectorSimilarityThreshold))
-		}
-		if finalScore >= cfg.VectorSimilarityThreshold {
-			scored_results = append(scored_results, scored{job: results[i], score: finalScore})
-		}
-	}
-
-	// Sort descending by score
-	for i := 0; i < len(scored_results)-1; i++ {
-		for j := i + 1; j < len(scored_results); j++ {
-			if scored_results[j].score > scored_results[i].score {
-				scored_results[i], scored_results[j] = scored_results[j], scored_results[i]
-			}
-		}
-	}
-
-	filtered := make([]jobResult, len(scored_results))
-	for i, sr := range scored_results {
-		filtered[i] = sr.job
-	}
-
-	log.Printf("Automation: vector pre-filter: %d/%d results passed (threshold=%.2f)", len(filtered), len(results), cfg.VectorSimilarityThreshold)
-	return filtered
-}
-
-// maxCosineSimilarity computes the max cosine similarity between a vector and document embeddings
-func passOrFail(score, threshold float64) string {
-	if score >= threshold {
-		return "PASS"
-	}
-	return "FAIL"
-}
-
-func maxCosineSimilarity(vec pgvector.Vector, docEmbeddings []repositories.EmbeddingDTO) float64 {
-	maxSim := -1.0
-	vecSlice := vec.Slice()
-	for _, de := range docEmbeddings {
-		sim := cosineSimilarity(vecSlice, de.Embedding.Slice())
-		if sim > maxSim {
-			maxSim = sim
-		}
-	}
-	return maxSim
-}
-
-// cosineSimilarity computes cosine similarity between two float32 slices
-func cosineSimilarity(a, b []float32) float64 {
-	if len(a) != len(b) || len(a) == 0 {
-		return 0
-	}
-	var dotProduct, normA, normB float64
-	for i := range a {
-		dotProduct += float64(a[i]) * float64(b[i])
-		normA += float64(a[i]) * float64(a[i])
-		normB += float64(b[i]) * float64(b[i])
-	}
-	if normA == 0 || normB == 0 {
-		return 0
-	}
-	return dotProduct / (math.Sqrt(normA) * math.Sqrt(normB))
+	return filtering.VectorPreFilter(results, filtering.VectorPreFilterConfig{
+		ConfigID:            cfg.ID,
+		TenantID:            cfg.TenantID,
+		SourceDocumentIDs:   cfg.SourceDocumentIDs,
+		SimilarityThreshold: cfg.VectorSimilarityThreshold,
+	}, s.embeddingService, s.docLoaderAdapter())
 }
 
 // embedProposalAsync embeds a proposal's title+snippet in background
@@ -2542,7 +1990,7 @@ func (s *AutomationService) embedProposalAsync(cfg *repositories.AutomationConfi
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	if err := s.embeddingService.EmbedProposal(ctx, cfg.TenantID, proposalID, cfg.ID, embeddingText(job)); err != nil {
+	if err := s.embeddingService.EmbedProposal(ctx, cfg.TenantID, proposalID, cfg.ID, filtering.EmbeddingText(job)); err != nil {
 		log.Printf("Automation: failed to embed proposal %d: %v", proposalID, err)
 	}
 }
@@ -2566,7 +2014,7 @@ func (s *AutomationService) buildCentroidContext(configID int64, docIDs []int64)
 	var sb strings.Builder
 	sb.WriteString("\n\nAPPROVED PROPOSAL PROFILE (skills/experience that led to approvals):\n")
 	for _, s := range similar {
-		sb.WriteString(fmt.Sprintf("- %s (similarity: %.2f)\n", truncateString(s.ChunkText, 200), s.Similarity))
+		sb.WriteString(fmt.Sprintf("- %s (similarity: %.2f)\n", filtering.TruncateString(s.ChunkText, 200), s.Similarity))
 	}
 
 	log.Printf("Automation: built centroid context from %d proposals, %d similar chunks", count, len(similar))
@@ -2584,7 +2032,7 @@ func (s *AutomationService) buildCentroidContext(configID int64, docIDs []int64)
 
 	sb.WriteString("\nUSER-REJECTED PROFILE (the user tends to reject jobs involving):\n")
 	for _, rs := range rejSimilar {
-		sb.WriteString(fmt.Sprintf("- %s (similarity: %.2f)\n", truncateString(rs.ChunkText, 200), rs.Similarity))
+		sb.WriteString(fmt.Sprintf("- %s (similarity: %.2f)\n", filtering.TruncateString(rs.ChunkText, 200), rs.Similarity))
 	}
 	log.Printf("Automation: added rejection context from %d rejections, %d similar chunks", rejCount, len(rejSimilar))
 

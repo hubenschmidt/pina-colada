@@ -14,10 +14,42 @@ import (
 	"github.com/joho/godotenv"
 )
 
+var openAIModels = []string{
+	"gpt-5.4",
+	"gpt-5.4-mini",
+	"gpt-5.4-nano",
+	"gpt-5.2",
+	"gpt-5.1",
+	"gpt-5",
+	"gpt-5-mini",
+	"gpt-5-nano",
+	"gpt-4.1",
+	"gpt-4.1-mini",
+	"gpt-4o",
+	"gpt-4o-mini",
+	"o3",
+	"o4-mini",
+}
+
 var anthropicModels = []string{
-	"claude-opus-4-6",
-	"claude-sonnet-4-6",
+	"claude-sonnet-4-5-20250929",
+	"claude-opus-4-5-20251101",
 	"claude-haiku-4-5-20251001",
+}
+
+// All ModelSettings params from OpenAI Agents SDK
+var openAIParams = []struct {
+	name  string
+	value any
+}{
+	{"temperature", 0.7},
+	{"top_p", 0.9},
+	{"frequency_penalty", 0.5},
+	{"presence_penalty", 0.5},
+	{"max_tokens", 100},
+	{"parallel_tool_calls", true},
+	{"truncation", "auto"},
+	{"store", true},
 }
 
 var anthropicParams = []struct {
@@ -44,8 +76,13 @@ func main() {
 	// Load .env from parent directory (agent-go/)
 	_ = godotenv.Load("../.env")
 
+	openAIKey := os.Getenv("OPENAI_API_KEY")
 	anthropicKey := os.Getenv("ANTHROPIC_API_KEY")
 
+	if openAIKey == "" {
+		fmt.Println("OPENAI_API_KEY not set")
+		return
+	}
 	if anthropicKey == "" {
 		fmt.Println("ANTHROPIC_API_KEY not set")
 		return
@@ -56,7 +93,18 @@ func main() {
 	fmt.Println()
 
 	var wg sync.WaitGroup
-	resultsChan := make(chan ModelResult, len(anthropicModels))
+	resultsChan := make(chan ModelResult, len(openAIModels)+len(anthropicModels))
+
+	// Launch OpenAI model tests concurrently
+	for _, model := range openAIModels {
+		wg.Add(1)
+		go func(m string) {
+			defer wg.Done()
+			result := testOpenAIModel(m, openAIKey)
+			resultsChan <- result
+			fmt.Printf("✓ Tested %s\n", m)
+		}(model)
+	}
 
 	// Launch Anthropic model tests concurrently
 	for _, model := range anthropicModels {
@@ -183,6 +231,59 @@ func printGoCode(results []ModelResult) {
 		}
 	}
 	fmt.Println("}")
+}
+
+func testOpenAIModel(model, apiKey string) ModelResult {
+	result := ModelResult{
+		Model:    model,
+		Provider: "openai",
+		Params:   make(map[string]ParamResult),
+	}
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+
+	for _, p := range openAIParams {
+		wg.Add(1)
+		go func(param string, value any) {
+			defer wg.Done()
+			errMsg := testOpenAIWithParam(model, apiKey, param, value)
+			supported := errMsg == "" || !strings.Contains(errMsg, "Unsupported parameter")
+
+			mu.Lock()
+			result.Params[param] = ParamResult{Supported: supported, Error: errMsg}
+			mu.Unlock()
+		}(p.name, p.value)
+	}
+
+	wg.Wait()
+	return result
+}
+
+func testOpenAIWithParam(model, apiKey, param string, value any) string {
+	payload := map[string]any{
+		"model": model,
+		"input": "Say hi",
+	}
+	payload[param] = value
+
+	body, _ := json.Marshal(payload)
+	req, _ := http.NewRequest("POST", "https://api.openai.com/v1/responses", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err.Error()
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode == 200 {
+		return ""
+	}
+
+	respBody, _ := io.ReadAll(resp.Body)
+	return string(respBody)
 }
 
 func testAnthropicModel(model, apiKey string) ModelResult {

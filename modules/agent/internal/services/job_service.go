@@ -13,8 +13,6 @@ import (
 
 var ErrJobNotFound = errors.New("job not found")
 var ErrJobTitleRequired = errors.New("job_title is required")
-var ErrAccountRequired = errors.New("account is required")
-
 type JobService struct {
 	jobRepo    *repositories.JobRepository
 	orgRepo    *repositories.OrganizationRepository

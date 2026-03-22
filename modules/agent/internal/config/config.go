@@ -15,20 +15,9 @@ type Config struct {
 	DBDebug     bool
 
 	// LLM Providers
+	OpenAIAPIKey    string
+	OpenAIModel     string
 	AnthropicAPIKey string
-	VoyageAPIKey    string
-
-	// AWS S3
-	AWSRegion          string
-	AWSAccessKeyID     string
-	AWSSecretAccessKey string
-	S3Bucket           string
-
-	// Observability
-	LangfusePublicKey string
-	LangfuseSecretKey string
-	LangfuseHost      string
-
 	// External APIs
 	SerperAPIKey string
 
@@ -51,11 +40,9 @@ func Load() *Config {
 		Env:         getEnv("ENV", "development"),
 		DatabaseURL: getEnv("DATABASE_URL", ""),
 		DBDebug:           getEnv("DB_DEBUG", "false") == "true",
+		OpenAIAPIKey:      getEnv("OPENAI_API_KEY", ""),
+		OpenAIModel:       getEnv("OPENAI_MODEL", "gpt-5.4"),
 		AnthropicAPIKey:   getEnv("ANTHROPIC_API_KEY", ""),
-		VoyageAPIKey:      getEnv("VOYAGE_API_KEY", ""),
-		LangfusePublicKey: getEnv("LANGFUSE_PUBLIC_KEY", ""),
-		LangfuseSecretKey: getEnv("LANGFUSE_SECRET_KEY", ""),
-		LangfuseHost:      getEnv("LANGFUSE_HOST", "https://cloud.langfuse.com"),
 		SerperAPIKey:      getEnv("SERPER_API_KEY", ""),
 		PushoverUser:      getEnv("PUSHOVER_USER", ""),
 		PushoverToken:     getEnv("PUSHOVER_TOKEN", ""),

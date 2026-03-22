@@ -1483,11 +1483,9 @@ export const testCrawler = async (id) => {
   return apiPost(`/automation/crawlers/${id}/test`);
 };
 
-export const sendTestDigest = async (id) => {
-  return apiPost(`/automation/crawlers/${id}/test-digest`);
-};
-
 export const clearRejectedJobs = async (id) => {
   return apiDelete(`/automation/crawlers/${id}/rejected-jobs`);
 };
+
+
 

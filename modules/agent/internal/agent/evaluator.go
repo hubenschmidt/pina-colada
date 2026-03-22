@@ -50,9 +50,9 @@ func NewEvaluator(apiKey string, evalType EvaluatorType, model string, settings 
 	client := anthropic.NewClient(
 		option.WithAPIKey(apiKey),
 	)
-	// Default to Claude Sonnet 4.6 if no model specified
+	// Default to Claude Sonnet 4.5 if no model specified
 	if model == "" {
-		model = "claude-sonnet-4-6"
+		model = "claude-sonnet-4-5-20250929"
 	}
 	return &Evaluator{
 		client:     client,
@@ -283,19 +283,6 @@ func (e *Evaluator) IncrementRetry() {
 	e.retryCount++
 }
 
-// ResetRetry resets the retry counter
-func (e *Evaluator) ResetRetry() {
-	e.retryCount = 0
-}
-
-// ShouldRetry returns true if we should retry based on evaluation
-func (e *Evaluator) ShouldRetry(result *EvaluatorResult) bool {
-	if result.SuccessCriteriaMet || result.UserInputNeeded {
-		return false
-	}
-	// Retry if score is below 60 (pass threshold)
-	return result.Score < 60 && e.retryCount < e.maxRetries
-}
 
 var careerKeywords = []string{"job", "career", "resume", "cover letter", "hiring", "position", "role", "employment"}
 var crmKeywords = []string{"crm", "contact", "account", "organization", "individual", "lookup", "record"}

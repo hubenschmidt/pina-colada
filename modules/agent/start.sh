@@ -10,6 +10,10 @@ trap _term TERM INT
 echo "Running migrations..."
 go run ./cmd/migrate up || echo "Could not run migrations"
 
+echo "Clearing stale seed documents..."
+rm -rf /storage/*/seed/
+go run ./cmd/seed-documents --cleanup || echo "Could not clean up seed documents"
+
 echo "Running seeders..."
 go run ./cmd/seed || echo "Could not run seeders"
 

@@ -20,10 +20,6 @@ type CrawlerRequest struct {
 	TargetType         *string  `json:"target_type,omitempty"`
 	TargetIDs          []int64  `json:"target_ids,omitempty"`
 	SourceDocumentIDs  []int64  `json:"source_document_ids,omitempty"`
-	DigestEnabled      *bool    `json:"digest_enabled,omitempty"`
-	DigestEmails       *string  `json:"digest_emails,omitempty"`
-	DigestTime         *string  `json:"digest_time,omitempty"`
-	DigestModel        *string  `json:"digest_model,omitempty"`
 	UseAgent           *bool    `json:"use_agent,omitempty"`
 	AgentModel         *string  `json:"agent_model,omitempty"`
 	UseAnalytics       *bool    `json:"use_analytics,omitempty"`

@@ -1,0 +1,13 @@
+seed-documents/
+.env
+.env.*
+!.env.example
+*.log
+.git/
+.gitignore
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+*.md
