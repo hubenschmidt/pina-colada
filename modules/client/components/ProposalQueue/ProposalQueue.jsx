@@ -263,7 +263,7 @@ const ProposalQueue = () => {
         if (!url) return "-";
         return (
           <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-            <ExternalLink size={16} />
+            <ExternalLink size={16} color="var(--mantine-color-blue-5)" />
           </a>
         );
       },
