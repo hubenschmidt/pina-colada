@@ -737,6 +737,14 @@ func normalizeJobPayload(payload datatypes.JSON) datatypes.JSON {
 		}
 	}
 
+	// Map "city" -> "location" if location not present
+	_, hasLocation := data["location"]
+	city, hasCity := data["city"]
+	if !hasLocation && hasCity {
+		data["location"] = city
+		delete(data, "city")
+	}
+
 	// Default status to "Lead" if not present
 	if _, hasStatus := data["status"]; !hasStatus {
 		data["status"] = "Lead"

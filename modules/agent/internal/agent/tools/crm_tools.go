@@ -163,6 +163,7 @@ type CRMProposeLeadCreateParams struct {
 	// Job-specific fields
 	JobTitle             string  `json:"job_title,omitempty" jsonschema:"description=Job title (required for job leads)"`
 	JobURL               string  `json:"job_url,omitempty" jsonschema:"description=URL to the job posting (for job leads)"`
+	Location             string  `json:"location,omitempty" jsonschema:"description=Job location e.g. city state or remote (for job leads)"`
 	DatePosted           *string `json:"date_posted,omitempty" jsonschema:"description=Job posting date YYYY-MM-DD (for job leads)"`
 	DatePostedConfidence *string `json:"date_posted_confidence,omitempty" jsonschema:"description=Confidence level of date_posted: high medium low none"`
 	// Opportunity-specific fields
@@ -724,6 +725,9 @@ func addJobFields(data map[string]interface{}, leadType string, params CRMPropos
 	}
 	if params.JobURL != "" {
 		data["url"] = params.JobURL
+	}
+	if params.Location != "" {
+		data["location"] = params.Location
 	}
 	if params.DatePosted != nil {
 		data["date_posted"] = *params.DatePosted

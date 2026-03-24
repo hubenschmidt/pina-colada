@@ -12,6 +12,7 @@ type Job struct {
 	DatePostedConfidence *string    `json:"date_posted_confidence"` // high, medium, low, none
 	SalaryRange          *string    `json:"salary_range"`           // Legacy field
 	SalaryRangeID        *int64     `json:"salary_range_id"`
+	Location             *string    `json:"location"`
 
 	// Relations
 	Lead           *Lead        `gorm:"foreignKey:ID" json:"lead,omitempty"`

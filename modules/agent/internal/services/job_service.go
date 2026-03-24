@@ -104,6 +104,7 @@ func (s *JobService) CreateJob(input schemas.JobCreate, tenantID *int64, userID 
 		ResumeDate:           parseDate(input.Resume),
 		DatePosted:           parseDate(input.DatePosted),
 		DatePostedConfidence: input.DatePostedConfidence,
+		Location:             input.Location,
 		ProjectIDs:           input.ProjectIDs,
 		AccountID:            accountID,
 		CurrentStatusID:      statusID,
@@ -290,6 +291,9 @@ func buildJobUpdates(input schemas.JobUpdate) map[string]interface{} {
 	}
 	if input.SalaryRangeID != nil {
 		updates["salary_range_id"] = *input.SalaryRangeID
+	}
+	if input.Location != nil {
+		updates["location"] = *input.Location
 	}
 	if t := parseDate(input.Resume); t != nil {
 		updates["resume_date"] = t

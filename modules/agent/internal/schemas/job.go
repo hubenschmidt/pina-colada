@@ -16,6 +16,7 @@ type JobCreate struct {
 	SalaryRange          *string   `json:"salary_range"`
 	SalaryRangeID        *int64    `json:"salary_range_id"`
 	Description          *string   `json:"description"`
+	Location             *string   `json:"location"`
 	Resume               *string   `json:"resume"`
 	Status               string    `json:"status"`
 	Source               string    `json:"source" validate:"omitempty,oneof=manual inbound referral event campaign agent"`
@@ -34,6 +35,7 @@ type JobUpdate struct {
 	SalaryRange          *string   `json:"salary_range"`
 	SalaryRangeID        *int64    `json:"salary_range_id"`
 	Description          *string   `json:"description"`
+	Location             *string   `json:"location"`
 	Resume               *string   `json:"resume"`
 	Status               *string   `json:"status"`
 	Source               *string   `json:"source"`

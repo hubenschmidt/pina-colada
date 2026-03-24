@@ -833,6 +833,9 @@ func (s *AutomationService) createProposalFromJob(cfg *repositories.AutomationCo
 	if job.DatePostedConfidence != "" {
 		payload["date_posted_confidence"] = job.DatePostedConfidence
 	}
+	if cfg.Location != nil && *cfg.Location != "" {
+		payload["location"] = *cfg.Location
+	}
 	if matchReason != "" {
 		payload["note"] = matchReason
 	}

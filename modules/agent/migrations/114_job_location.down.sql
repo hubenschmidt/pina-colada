@@ -1,0 +1,1 @@
+ALTER TABLE "Job" DROP COLUMN IF EXISTS location;

@@ -23,6 +23,7 @@ type JobCreateInput struct {
 	ResumeDate           *time.Time
 	DatePosted           *time.Time
 	DatePostedConfidence *string
+	Location             *string
 	ProjectIDs           []int64
 	AccountID            *int64
 	CurrentStatusID      *int64
@@ -159,6 +160,7 @@ func (r *JobRepository) Create(input JobCreateInput) (int64, error) {
 			ResumeDate:           input.ResumeDate,
 			DatePosted:           input.DatePosted,
 			DatePostedConfidence: input.DatePostedConfidence,
+			Location:             input.Location,
 		}
 		if err := tx.Create(job).Error; err != nil {
 			return err

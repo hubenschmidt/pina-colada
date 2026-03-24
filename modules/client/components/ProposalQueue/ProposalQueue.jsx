@@ -10,7 +10,7 @@ import {
   Badge,
   Alert,
 } from "@mantine/core";
-import { Check, X, AlertTriangle } from "lucide-react";
+import { Check, X, AlertTriangle, ExternalLink } from "lucide-react";
 import {
   getProposals,
   approveProposal,
@@ -253,9 +253,29 @@ const ProposalQueue = () => {
       ),
     },
     {
-      header: "Entity ID",
-      accessor: "entity_id",
-      render: (row) => row.entity_id || "-",
+      header: "URL",
+      width: 50,
+      render: (row) => {
+        const payload = typeof row.payload === "string"
+          ? JSON.parse(row.payload || "{}")
+          : row.payload || {};
+        const url = payload.job_url || payload.url;
+        if (!url) return "-";
+        return (
+          <a href={url} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+            <ExternalLink size={16} />
+          </a>
+        );
+      },
+    },
+    {
+      header: "Location",
+      render: (row) => {
+        const payload = typeof row.payload === "string"
+          ? JSON.parse(row.payload || "{}")
+          : row.payload || {};
+        return payload.location || "-";
+      },
     },
     {
       header: "Created",
@@ -270,12 +290,11 @@ const ProposalQueue = () => {
       render: (row) => row.automation_config_name || "-",
     },
     {
-      header: "Status",
+      header: "Errors",
+      width: 60,
       render: (row) =>
         hasValidationErrors(row) ? (
-          <Badge color="orange" leftSection={<AlertTriangle size={12} />}>
-            Validation Errors
-          </Badge>
+          <AlertTriangle size={16} color="orange" />
         ) : null,
     },
   ];

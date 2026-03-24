@@ -48,6 +48,7 @@ type JobListResponse struct {
 	DatePostedConfidence  *string    `json:"date_posted_confidence"`
 	SalaryRange           *string    `json:"salary_range"`
 	SalaryRangeID         *int64     `json:"salary_range_id"`
+	Location              *string    `json:"location"`
 	Status                *string    `json:"status"`
 	Account               string     `json:"account"`
 	AccountType           string     `json:"account_type"`
@@ -145,6 +146,7 @@ func JobToListResponse(job *models.Job) JobListResponse {
 		DatePostedConfidence: job.DatePostedConfidence,
 		SalaryRange:          job.SalaryRange,
 		SalaryRangeID:        job.SalaryRangeID,
+		Location:             job.Location,
 		Account:              "",
 		AccountType:          "Organization",
 		Source:               "manual",
