@@ -10,7 +10,7 @@ import {
   Badge,
   Alert,
 } from "@mantine/core";
-import { Check, X, AlertTriangle, ExternalLink } from "lucide-react";
+import { Check, X, ExternalLink } from "lucide-react";
 import {
   getProposals,
   approveProposal,
@@ -152,14 +152,6 @@ const ProposalQueue = () => {
     setActiveProposal(null);
   };
 
-  const hasValidationErrors = (proposal) => {
-    if (!proposal.validation_errors) return false;
-    if (typeof proposal.validation_errors === "string") {
-      return proposal.validation_errors !== "null" && proposal.validation_errors !== "[]";
-    }
-    return Array.isArray(proposal.validation_errors) && proposal.validation_errors.length > 0;
-  };
-
   const formatDate = (dateStr) => {
     if (!dateStr) return "-";
     const date = new Date(dateStr);
@@ -288,14 +280,6 @@ const ProposalQueue = () => {
       header: "Source",
       accessor: "automation_config_name",
       render: (row) => row.automation_config_name || "-",
-    },
-    {
-      header: "Errors",
-      width: 60,
-      render: (row) =>
-        hasValidationErrors(row) ? (
-          <AlertTriangle size={16} color="orange" />
-        ) : null,
     },
   ];
 
