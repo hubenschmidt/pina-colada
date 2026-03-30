@@ -251,6 +251,9 @@ func (s *JobService) addStatusUpdate(updates map[string]interface{}, status *str
 		return nil
 	}
 	st, err := s.lookupRepo.FindStatusByName(*status, "job")
+	if errors.Is(err, apperrors.ErrNotFound) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}

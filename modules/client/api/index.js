@@ -1359,8 +1359,12 @@ export const getProposals = async (page = 1, limit = 50, orderBy = "created_at",
   return apiGet(`/proposals?${params}`);
 };
 
-export const approveProposal = async (id) => {
-  return apiPost(`/proposals/${id}/approve`);
+export const deleteProposal = async (id) => {
+  return apiDelete(`/proposals/${id}`);
+};
+
+export const approveProposal = async (id, status) => {
+  return apiPost(`/proposals/${id}/approve`, { status });
 };
 
 export const rejectProposal = async (id) => {

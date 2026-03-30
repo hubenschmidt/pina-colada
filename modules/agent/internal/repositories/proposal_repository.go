@@ -137,6 +137,11 @@ func (r *ProposalRepository) Create(input ProposalCreateInput) (int64, error) {
 	return proposal.ID, nil
 }
 
+// Delete hard-deletes a pending proposal by ID
+func (r *ProposalRepository) Delete(id int64) error {
+	return r.db.Delete(&models.AgentProposal{}, id).Error
+}
+
 // FindByID returns a proposal by ID
 func (r *ProposalRepository) FindByID(id int64) (*ProposalDTO, error) {
 	var proposal models.AgentProposal

@@ -51,6 +51,10 @@ func (c *ProposalController) GetPending(w http.ResponseWriter, r *http.Request) 
 	writeProposalJSON(w, http.StatusOK, result)
 }
 
+type approveRequest struct {
+	Status string `json:"status"`
+}
+
 // Approve handles POST /proposals/{id}/approve
 func (c *ProposalController) Approve(w http.ResponseWriter, r *http.Request) {
 	proposalID, err := parseProposalID(r)
@@ -65,8 +69,36 @@ func (c *ProposalController) Approve(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := c.proposalService.ApproveProposal(proposalID, reviewerID)
+	var req approveRequest
+	// Body is optional; ignore decode errors (empty body is fine)
+	_ = json.NewDecoder(r.Body).Decode(&req)
+
+	result, err := c.proposalService.ApproveProposal(proposalID, reviewerID, req.Status)
 	writeProposalResponse(w, http.StatusOK, result, err)
+}
+
+// Delete handles DELETE /proposals/{id}
+func (c *ProposalController) Delete(w http.ResponseWriter, r *http.Request) {
+	proposalID, err := parseProposalID(r)
+	if err != nil {
+		writeProposalError(w, http.StatusBadRequest, "invalid proposal ID")
+		return
+	}
+
+	err = c.proposalService.DeleteProposal(proposalID)
+	if errors.Is(err, services.ErrProposalNotFound) {
+		writeProposalError(w, http.StatusNotFound, err.Error())
+		return
+	}
+	if errors.Is(err, services.ErrProposalNotPending) {
+		writeProposalError(w, http.StatusConflict, err.Error())
+		return
+	}
+	if err != nil {
+		writeProposalError(w, http.StatusInternalServerError, err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // Reject handles POST /proposals/{id}/reject

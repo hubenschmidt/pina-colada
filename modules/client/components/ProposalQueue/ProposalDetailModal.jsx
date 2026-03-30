@@ -36,11 +36,11 @@ const ProposalDetailModal = ({ proposal, onClose, onApprove, onReject, onPayload
     setExecuteError(null);
   }, [proposal]);
 
-  const handleApprove = async () => {
+  const handleApprove = async (status) => {
     setApproving(true);
     setExecuteError(null);
     try {
-      await onApprove(proposal.id);
+      await onApprove(proposal.id, status);
     } catch (e) {
       setExecuteError(e.message);
     } finally {
@@ -157,11 +157,20 @@ const ProposalDetailModal = ({ proposal, onClose, onApprove, onReject, onPayload
             <Button
               color="green"
               leftSection={<Check size={16} />}
-              onClick={handleApprove}
+              onClick={() => handleApprove("Lead")}
               disabled={hasValidationErrors}
               loading={approving}
             >
-              Approve
+              Approve Lead
+            </Button>
+            <Button
+              color="blue"
+              leftSection={<Check size={16} />}
+              onClick={() => handleApprove("Applied")}
+              disabled={hasValidationErrors}
+              loading={approving}
+            >
+              Applied
             </Button>
           </Group>
         </Group>

@@ -289,8 +289,9 @@ func (s *ProposalService) GetPendingProposals(tenantID int64, page, pageSize int
 	return &resp, nil
 }
 
-// ApproveProposal approves and executes a proposal
-func (s *ProposalService) ApproveProposal(proposalID, reviewerID int64) (*serializers.ProposalResponse, error) {
+// ApproveProposal approves and executes a proposal.
+// statusOverride optionally sets the status field in the payload before execution.
+func (s *ProposalService) ApproveProposal(proposalID, reviewerID int64, statusOverride string) (*serializers.ProposalResponse, error) {
 	proposal, err := s.proposalRepo.FindByID(proposalID)
 	if errors.Is(err, apperrors.ErrNotFound) {
 		return nil, ErrProposalNotFound
@@ -305,7 +306,12 @@ func (s *ProposalService) ApproveProposal(proposalID, reviewerID int64) (*serial
 		return nil, ErrProposalHasValidationErrors
 	}
 
-	err = s.execute(proposal.EntityType, proposal.Operation, proposal.EntityID, proposal.Payload, proposal.TenantID, reviewerID)
+	payload := proposal.Payload
+	if statusOverride != "" {
+		payload = injectStatusOverride(payload, statusOverride)
+	}
+
+	err = s.execute(proposal.EntityType, proposal.Operation, proposal.EntityID, payload, proposal.TenantID, reviewerID)
 	if err != nil {
 		_ = s.proposalRepo.SetError(proposalID, err.Error())
 		return nil, fmt.Errorf("%w: %s", ErrProposalExecutionFailed, err.Error())
@@ -325,6 +331,35 @@ func (s *ProposalService) ApproveProposal(proposalID, reviewerID int64) (*serial
 
 	proposal, _ = s.proposalRepo.FindByID(proposalID)
 	return proposalToResponse(proposal), nil
+}
+
+// injectStatusOverride sets the "status" key in a JSON payload.
+func injectStatusOverride(payload datatypes.JSON, status string) datatypes.JSON {
+	var data map[string]interface{}
+	if err := json.Unmarshal(payload, &data); err != nil {
+		return payload
+	}
+	data["status"] = status
+	out, err := json.Marshal(data)
+	if err != nil {
+		return payload
+	}
+	return datatypes.JSON(out)
+}
+
+// DeleteProposal deletes a pending proposal
+func (s *ProposalService) DeleteProposal(proposalID int64) error {
+	proposal, err := s.proposalRepo.FindByID(proposalID)
+	if errors.Is(err, apperrors.ErrNotFound) {
+		return ErrProposalNotFound
+	}
+	if err != nil {
+		return err
+	}
+	if proposal.Status != repositories.ProposalStatusPending {
+		return ErrProposalNotPending
+	}
+	return s.proposalRepo.Delete(proposalID)
 }
 
 // RejectProposal rejects a proposal
@@ -427,7 +462,7 @@ func (s *ProposalService) bulkProcess(proposalIDs []int64, reviewerID int64, fn 
 }
 
 func (s *ProposalService) approveOne(id, reviewerID int64) (*serializers.ProposalResponse, error) {
-	return s.ApproveProposal(id, reviewerID)
+	return s.ApproveProposal(id, reviewerID, "")
 }
 
 func (s *ProposalService) rejectOne(id, reviewerID int64) (*serializers.ProposalResponse, error) {

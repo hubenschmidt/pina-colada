@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
-import { Stack, Title, Text, Tabs } from "@mantine/core";
+import { useEffect, useState } from "react";
+import { Stack, Title, Text, Tabs, Badge } from "@mantine/core";
 import { ListChecks, Settings2 } from "lucide-react";
 import { usePageLoading } from "../../context/pageLoadingContext";
 import { useUserContext } from "../../context/userContext";
@@ -11,6 +11,7 @@ import ApprovalConfigPanel from "../../components/ApprovalConfig/ApprovalConfigP
 const DbaPage = () => {
   const { dispatchPageLoading } = usePageLoading();
   const { userState } = useUserContext();
+  const [proposalCount, setProposalCount] = useState(0);
 
   useEffect(() => {
     dispatchPageLoading({ type: "SET_PAGE_LOADING", payload: false });
@@ -33,7 +34,11 @@ const DbaPage = () => {
 
       <Tabs defaultValue="proposals">
         <Tabs.List>
-          <Tabs.Tab value="proposals" leftSection={<ListChecks size={16} />}>
+          <Tabs.Tab
+            value="proposals"
+            leftSection={<ListChecks size={16} />}
+            rightSection={proposalCount > 0 ? <Badge size="sm" variant="filled" circle>{proposalCount}</Badge> : null}
+          >
             Pending Proposals
           </Tabs.Tab>
           <Tabs.Tab value="config" leftSection={<Settings2 size={16} />}>
@@ -42,7 +47,7 @@ const DbaPage = () => {
         </Tabs.List>
 
         <Tabs.Panel value="proposals" pt="xl">
-          <ProposalQueue />
+          <ProposalQueue onCountChange={setProposalCount} />
         </Tabs.Panel>
 
         <Tabs.Panel value="config" pt="xl">

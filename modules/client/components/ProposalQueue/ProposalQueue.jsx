@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import {
-  Title,
   Stack,
   Group,
   Button,
@@ -10,11 +9,12 @@ import {
   Badge,
   Alert,
 } from "@mantine/core";
-import { Check, X, ExternalLink } from "lucide-react";
+import { Check, X, ExternalLink, Trash2 } from "lucide-react";
 import {
   getProposals,
   approveProposal,
   rejectProposal,
+  deleteProposal,
   bulkApproveProposals,
   bulkRejectProposals,
   approveAllProposals,
@@ -29,7 +29,7 @@ const operationColors = {
   delete: "red",
 };
 
-const ProposalQueue = () => {
+const ProposalQueue = ({ onCountChange }) => {
   const [proposals, setProposals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -53,7 +53,9 @@ const ProposalQueue = () => {
       const data = await getProposals(page, pageSize, sortBy, sortDirection);
       setProposals(data.items || []);
       setTotalPages(data.totalPages || 1);
-      setTotalCount(data.totalCount || 0);
+      const count = data.totalCount || 0;
+      setTotalCount(count);
+      onCountChange?.(count);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -140,8 +142,8 @@ const ProposalQueue = () => {
     }
   };
 
-  const handleSingleApprove = async (id) => {
-    await approveProposal(id);
+  const handleSingleApprove = async (id, status) => {
+    await approveProposal(id, status);
     loadProposals();
     setActiveProposal(null);
   };
@@ -150,6 +152,16 @@ const ProposalQueue = () => {
     await rejectProposal(id);
     loadProposals();
     setActiveProposal(null);
+  };
+
+  const handleDelete = async (id, e) => {
+    e?.stopPropagation?.();
+    try {
+      await deleteProposal(id);
+      loadProposals();
+    } catch (err) {
+      setError(err.message);
+    }
   };
 
   const formatDate = (dateStr) => {
@@ -234,6 +246,20 @@ const ProposalQueue = () => {
       render: (row) => getSummary(row),
     },
     {
+      header: "",
+      width: 40,
+      render: (row) => (
+        <div onClick={(e) => e.stopPropagation()}>
+          <Trash2
+            size={16}
+            color="var(--mantine-color-red-5)"
+            style={{ cursor: "pointer" }}
+            onClick={(e) => handleDelete(row.id, e)}
+          />
+        </div>
+      ),
+    },
+    {
       header: "Operation",
       accessor: "operation",
       sortKey: "operation",
@@ -293,61 +319,58 @@ const ProposalQueue = () => {
 
   return (
     <Stack gap="md">
-        <Group justify="space-between">
-          <Title order={4}>Pending Proposals ({totalCount})</Title>
-          <Group gap="xs">
-            {selectedIds.size > 0 && (
-              <>
-                <span className="text-sm text-zinc-500">{selectedIds.size} selected</span>
-                <Button
-                  size="xs"
-                  color="green"
-                  leftSection={<Check size={14} />}
-                  onClick={handleBulkApprove}
-                  loading={approveLoading}
-                  disabled={rejectLoading}
-                >
-                  Approve
-                </Button>
-                <Button
-                  size="xs"
-                  color="red"
-                  leftSection={<X size={14} />}
-                  onClick={handleBulkReject}
-                  loading={rejectLoading}
-                  disabled={approveLoading}
-                >
-                  Reject
-                </Button>
-              </>
-            )}
-            {totalCount > 0 && (
-              <>
-                <Button
-                  size="xs"
-                  variant="light"
-                  color="green"
-                  leftSection={<Check size={14} />}
-                  onClick={handleApproveAll}
-                  loading={approveAllLoading}
-                  disabled={rejectAllLoading}
-                >
-                  Approve All
-                </Button>
-                <Button
-                  size="xs"
-                  variant="light"
-                  color="red"
-                  leftSection={<X size={14} />}
-                  onClick={handleRejectAll}
-                  loading={rejectAllLoading}
-                  disabled={approveAllLoading}
-                >
-                  Reject All
-                </Button>
-              </>
-            )}
-          </Group>
+        <Group justify="flex-start" gap="xs">
+          {selectedIds.size > 0 && (
+            <>
+              <span className="text-sm text-zinc-500">{selectedIds.size} selected</span>
+              <Button
+                size="xs"
+                color="green"
+                leftSection={<Check size={14} />}
+                onClick={handleBulkApprove}
+                loading={approveLoading}
+                disabled={rejectLoading}
+              >
+                Approve
+              </Button>
+              <Button
+                size="xs"
+                color="red"
+                leftSection={<X size={14} />}
+                onClick={handleBulkReject}
+                loading={rejectLoading}
+                disabled={approveLoading}
+              >
+                Reject
+              </Button>
+            </>
+          )}
+          {totalCount > 0 && (
+            <>
+              <Button
+                size="xs"
+                variant="light"
+                color="green"
+                leftSection={<Check size={14} />}
+                onClick={handleApproveAll}
+                loading={approveAllLoading}
+                disabled={rejectAllLoading}
+              >
+                Approve All
+              </Button>
+              <Button
+                size="xs"
+                variant="light"
+                color="red"
+                leftSection={<X size={14} />}
+                onClick={handleRejectAll}
+                loading={rejectAllLoading}
+                disabled={approveAllLoading}
+              >
+                Reject All
+              </Button>
+            </>
+          )}
         </Group>
 
         {error && (
