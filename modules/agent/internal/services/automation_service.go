@@ -699,6 +699,9 @@ func (s *AutomationService) executeSearch(cfg *repositories.AutomationConfigDTO,
 }
 
 func (s *AutomationService) processSearchResultsSimple(cfg *repositories.AutomationConfigDTO, jobs []jobResult, deficit int64, dedup *dedupData, documentContext string) int32 {
+	jobs = filtering.FilterBlacklistedDomains(jobs, cfg.DomainBlacklist)
+	jobs = filtering.FilterInternationalResults(jobs)
+
 	var totalProposalsCreated int32
 	source := "automation"
 	configID := cfg.ID
@@ -718,8 +721,21 @@ func (s *AutomationService) processSearchResultsSimple(cfg *repositories.Automat
 func (s *AutomationService) processSearchResultsWithAgent(cfg *repositories.AutomationConfigDTO, searchResult *searchResultWithRelated, deficit int64, dedup *dedupData, documentContext string) (int32, int32, []string) {
 	prospectsFound := int32(len(searchResult.Jobs))
 
+	// Filter blacklisted domains before any expensive processing
+	jobs := filtering.FilterBlacklistedDomains(searchResult.Jobs, cfg.DomainBlacklist)
+	if len(jobs) < len(searchResult.Jobs) {
+		log.Printf("Automation: filtered %d blacklisted domain results", len(searchResult.Jobs)-len(jobs))
+	}
+
+	// Filter international results
+	preIntl := len(jobs)
+	jobs = filtering.FilterInternationalResults(jobs)
+	if len(jobs) < preIntl {
+		log.Printf("Automation: filtered %d international results", preIntl-len(jobs))
+	}
+
 	// Filter duplicates BEFORE sending to LLM
-	filtered := s.filterDuplicates(searchResult.Jobs, dedup)
+	filtered := s.filterDuplicates(jobs, dedup)
 	if len(filtered) == 0 {
 		log.Printf("Automation: all %d results are duplicates, skipping", len(searchResult.Jobs))
 		return prospectsFound, 0, searchResult.RelatedSearches
@@ -744,18 +760,6 @@ func (s *AutomationService) processSearchResultsWithAgent(cfg *repositories.Auto
 
 	log.Printf("Automation: %d results passed filters, sending to LLM review", len(filtered))
 	reviewed := s.reviewResultsWithAgent(cfg, filtered, documentContext)
-
-	// Count stats for prompt suggestion
-	var totalApproved int
-	var rejectedJobs []reviewedJobResult
-	for _, r := range reviewed {
-		if r.Approved {
-			totalApproved++
-		}
-		if !r.Approved {
-			rejectedJobs = append(rejectedJobs, r)
-		}
-	}
 
 	// Create proposals from approved results
 	sourceDocument := strings.Join(filtering.ExtractDocumentNames(documentContext), ", ")
@@ -1229,11 +1233,11 @@ func (s *AutomationService) detectValueChanges(configID int64, query string, pro
 
 func (s *AutomationService) getActiveQuery(cfg *repositories.AutomationConfigDTO) string {
 	var query string
-
+	if cfg.SearchQuery != nil {
+		query = *cfg.SearchQuery
+	}
 	if cfg.UseSuggestedQuery && cfg.SuggestedQuery != nil && *cfg.SuggestedQuery != "" {
 		query = *cfg.SuggestedQuery
-	} else if cfg.SearchQuery != nil {
-		query = *cfg.SearchQuery
 	}
 
 	if query == "" {
@@ -1329,7 +1333,7 @@ func (s *AutomationService) checkAndSuggestPromptImprovement(cfg *repositories.A
 		return false
 	}
 
-	rejectedJobs, err := s.automationRepo.GetRecentRejectedJobsForConfig(cfg.ID, 20)
+	rejectedJobs, err := s.automationRepo.GetRecentRejectedJobsForConfig(cfg.ID, cfg.AnalyticsRunLimit)
 	if err != nil {
 		log.Printf("Automation service: failed to get rejected jobs for prompt suggestion: %v", err)
 		return false
@@ -1492,10 +1496,10 @@ func (s *AutomationService) generateQueryWithLLM(cfg *repositories.AutomationCon
 	analyticsContext := ""
 	consecutiveZeroRuns := 0
 	if cfg.UseAnalytics {
-		analyticsContext = s.buildAnalyticsContext(cfg.ID)
+		analyticsContext = s.buildAnalyticsContext(cfg.ID, cfg.AnalyticsRunLimit)
 		log.Printf("🔍 Analytics context for query suggestion:\n%s", analyticsContext)
 	}
-	analytics, err := s.automationRepo.GetRunAnalytics(cfg.ID, 20)
+	analytics, err := s.automationRepo.GetRunAnalytics(cfg.ID, cfg.AnalyticsRunLimit)
 	if err == nil && analytics != nil {
 		consecutiveZeroRuns = analytics.ConsecutiveZeroRuns
 	}
@@ -1526,8 +1530,8 @@ func (s *AutomationService) getAnalyticsModel(cfg *repositories.AutomationConfig
 }
 
 // buildAnalyticsContext fetches and formats historical run analytics
-func (s *AutomationService) buildAnalyticsContext(configID int64) string {
-	analytics, err := s.automationRepo.GetRunAnalytics(configID, 20)
+func (s *AutomationService) buildAnalyticsContext(configID int64, limit int) string {
+	analytics, err := s.automationRepo.GetRunAnalytics(configID, limit)
 	if err != nil {
 		log.Printf("Automation service: failed to get analytics: %v", err)
 		return ""
@@ -1859,10 +1863,12 @@ func (s *AutomationService) dtoToResponse(dto *repositories.AutomationConfigDTO)
 		UseAnalytics:        dto.UseAnalytics,
 		AnalyticsModel:      dto.AnalyticsModel,
 		EmptyProposalLimit:        dto.EmptyProposalLimit,
+		AnalyticsRunLimit:         dto.AnalyticsRunLimit,
 		PromptCooldownRuns:        dto.PromptCooldownRuns,
 		PromptCooldownProspects:   dto.PromptCooldownProspects,
 		VectorPrefilterEnabled:    dto.VectorPrefilterEnabled,
 		VectorSimilarityThreshold: dto.VectorSimilarityThreshold,
+		DomainBlacklist:           dto.DomainBlacklist,
 		CreatedAt:                 dto.CreatedAt,
 		UpdatedAt:                 dto.UpdatedAt,
 	}

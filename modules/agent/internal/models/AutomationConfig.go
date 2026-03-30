@@ -40,11 +40,13 @@ type AutomationConfig struct {
 	AnalyticsModel       *string        `gorm:"column:analytics_model" json:"analytics_model"`
 	ConsecutiveZeroRuns  int            `gorm:"column:consecutive_zero_runs;not null;default:0" json:"consecutive_zero_runs"`
 	EmptyProposalLimit      int       `gorm:"column:empty_proposal_limit;not null;default:0" json:"empty_proposal_limit"`
+	AnalyticsRunLimit       int       `gorm:"column:analytics_run_limit;not null;default:20" json:"analytics_run_limit"`
 	PromptCooldownRuns         int       `gorm:"column:prompt_cooldown_runs;not null;default:5" json:"prompt_cooldown_runs"`
 	PromptCooldownProspects    int       `gorm:"column:prompt_cooldown_prospects;not null;default:50" json:"prompt_cooldown_prospects"`
 	VectorPrefilterEnabled     bool      `gorm:"column:vector_prefilter_enabled;not null;default:false" json:"vector_prefilter_enabled"`
-	VectorSimilarityThreshold  float64   `gorm:"column:vector_similarity_threshold;not null;default:0.4" json:"vector_similarity_threshold"`
-	CreatedAt               time.Time `gorm:"autoCreateTime" json:"created_at"`
+	VectorSimilarityThreshold  float64        `gorm:"column:vector_similarity_threshold;not null;default:0.4" json:"vector_similarity_threshold"`
+	DomainBlacklist            datatypes.JSON `gorm:"column:domain_blacklist;type:jsonb;not null;default:'[]'" json:"domain_blacklist"`
+	CreatedAt                  time.Time      `gorm:"autoCreateTime" json:"created_at"`
 	UpdatedAt            time.Time      `gorm:"autoUpdateTime" json:"updated_at"`
 }
 

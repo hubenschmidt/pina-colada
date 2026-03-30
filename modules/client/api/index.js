@@ -57,6 +57,22 @@ const apiPatch = (path, data, config) => apiRequest("patch", path, data, config)
 
 const apiDelete = (path, config) => apiRequest("delete", path, undefined, config);
 
+const apiBlobGet = async (path) => {
+  const client = getClient();
+  const authHeaders = await fetchBearerToken();
+  const url = `${getApiUrl()}${path}`;
+  const response = await client.get(url, { ...authHeaders, responseType: "blob" });
+  return response.data;
+};
+
+const apiBlobPost = async (path, data) => {
+  const client = getClient();
+  const authHeaders = await fetchBearerToken();
+  const url = `${getApiUrl()}${path}`;
+  const response = await client.post(url, data, { ...authHeaders, responseType: "blob" });
+  return response.data;
+};
+
 export const getJobs = async (
   page = 1,
   limit = 50,
@@ -773,14 +789,7 @@ export const runCustomReport = async (query) => {
 };
 
 export const exportCustomReport = async (query) => {
-  const client = axios.create();
-  const authHeaders = await fetchBearerToken();
-  const apiUrl = getApiUrl();
-  const response = await client.post(`${apiUrl}/reports/custom/export`, query, {
-    ...authHeaders,
-    responseType: "blob",
-  });
-  return response.data;
+  return apiBlobPost("/reports/custom/export", query);
 };
 
 // Saved Reports CRUD
@@ -1103,20 +1112,7 @@ export const deleteDocument = async (id) => {
 };
 
 export const downloadDocument = async (id, filename) => {
-  const apiUrl = getApiUrl();
-  const { headers } = await fetchBearerToken();
-
-  const response = await fetch(`${apiUrl}/assets/documents/${id}/download`, {
-    headers,
-  });
-
-  if (!response.ok) {
-    const text = await response.text();
-    console.error("Download error:", response.status, text);
-    throw new Error(`Download failed: ${response.status}`);
-  }
-
-  const blob = await response.blob();
+  const blob = await apiBlobGet(`/assets/documents/${id}/download`);
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -1128,16 +1124,7 @@ export const downloadDocument = async (id, filename) => {
 };
 
 export const getDocumentPreviewUrl = async (id) => {
-  const apiUrl = getApiUrl();
-  const { headers } = await fetchBearerToken();
-
-  const response = await fetch(`${apiUrl}/assets/documents/${id}/download`, {
-    headers,
-  });
-
-  if (!response.ok) throw new Error("Failed to load preview");
-
-  const blob = await response.blob();
+  const blob = await apiBlobGet(`/assets/documents/${id}/download`);
   return window.URL.createObjectURL(blob);
 };
 

@@ -55,10 +55,12 @@ type AutomationConfigDTO struct {
 	AnalyticsModel      *string
 	CompiledAt              *time.Time
 	EmptyProposalLimit        int
+	AnalyticsRunLimit         int
 	PromptCooldownRuns        int
 	PromptCooldownProspects   int
 	VectorPrefilterEnabled    bool
 	VectorSimilarityThreshold float64
+	DomainBlacklist           []string
 	CreatedAt                 time.Time
 	UpdatedAt                 time.Time
 }
@@ -90,10 +92,12 @@ type AutomationConfigInput struct {
 	UseAnalytics            *bool
 	AnalyticsModel          *string
 	EmptyProposalLimit        *int
+	AnalyticsRunLimit         *int
 	PromptCooldownRuns        *int
 	PromptCooldownProspects   *int
 	VectorPrefilterEnabled    *bool
 	VectorSimilarityThreshold *float64
+	DomainBlacklist           []string
 }
 
 // AutomationRunLogDTO represents a run log entry
@@ -468,6 +472,7 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 		AnalyticsModel:     cfg.AnalyticsModel,
 		CompiledAt:                cfg.CompiledAt,
 		EmptyProposalLimit:        cfg.EmptyProposalLimit,
+		AnalyticsRunLimit:         cfg.AnalyticsRunLimit,
 		PromptCooldownRuns:        cfg.PromptCooldownRuns,
 		PromptCooldownProspects:   cfg.PromptCooldownProspects,
 		VectorPrefilterEnabled:    cfg.VectorPrefilterEnabled,
@@ -482,6 +487,9 @@ func (r *AutomationRepository) modelToDTO(cfg *models.AutomationConfig) *Automat
 	}
 	if cfg.SourceDocumentIDs != nil {
 		_ = json.Unmarshal(cfg.SourceDocumentIDs, &dto.SourceDocumentIDs)
+	}
+	if cfg.DomainBlacklist != nil {
+		_ = json.Unmarshal(cfg.DomainBlacklist, &dto.DomainBlacklist)
 	}
 
 	return dto
@@ -532,9 +540,9 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	}
 	if input.UseSuggestedQuery != nil {
 		cfg.UseSuggestedQuery = *input.UseSuggestedQuery
-		if !*input.UseSuggestedQuery {
-			cfg.SuggestedQuery = nil
-		}
+	}
+	if input.UseSuggestedQuery != nil && !*input.UseSuggestedQuery {
+		cfg.SuggestedQuery = nil
 	}
 	if input.ATSMode != nil {
 		cfg.ATSMode = *input.ATSMode
@@ -569,6 +577,9 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	if input.EmptyProposalLimit != nil {
 		cfg.EmptyProposalLimit = *input.EmptyProposalLimit
 	}
+	if input.AnalyticsRunLimit != nil {
+		cfg.AnalyticsRunLimit = *input.AnalyticsRunLimit
+	}
 	if input.PromptCooldownRuns != nil {
 		cfg.PromptCooldownRuns = *input.PromptCooldownRuns
 	}
@@ -580,6 +591,9 @@ func (r *AutomationRepository) applyInput(cfg *models.AutomationConfig, input Au
 	}
 	if input.VectorSimilarityThreshold != nil {
 		cfg.VectorSimilarityThreshold = *input.VectorSimilarityThreshold
+	}
+	if input.DomainBlacklist != nil {
+		cfg.DomainBlacklist = toJSON(input.DomainBlacklist)
 	}
 }
 
@@ -674,10 +688,7 @@ func (r *AutomationRepository) GetRecentRejectedJobsForConfig(configID int64, li
 
 	var result []RejectedJobForAnalysis
 	for _, j := range jobs {
-		if j.JobTitle == nil || j.Reason == nil {
-			// Skip jobs without title or reason
-			result = result
-		} else {
+		if j.JobTitle != nil && j.Reason != nil {
 			result = append(result, RejectedJobForAnalysis{
 				JobTitle: *j.JobTitle,
 				Reason:   *j.Reason,

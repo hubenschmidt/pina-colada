@@ -25,10 +25,12 @@ type CrawlerRequest struct {
 	UseAnalytics       *bool    `json:"use_analytics,omitempty"`
 	AnalyticsModel     *string  `json:"analytics_model,omitempty"`
 	EmptyProposalLimit      *int    `json:"empty_proposal_limit,omitempty"`
+	AnalyticsRunLimit       *int    `json:"analytics_run_limit,omitempty"`
 	PromptCooldownRuns      *int    `json:"prompt_cooldown_runs,omitempty"`
 	PromptCooldownProspects *int    `json:"prompt_cooldown_prospects,omitempty"`
-	SuggestedQuery          *string `json:"suggested_query,omitempty"`
-	SuggestedPrompt         *string `json:"suggested_prompt,omitempty"`
+	SuggestedQuery          *string  `json:"suggested_query,omitempty"`
+	SuggestedPrompt         *string  `json:"suggested_prompt,omitempty"`
+	DomainBlacklist         []string `json:"domain_blacklist,omitempty"`
 }
 
 // ToggleRequest represents the request body for toggling a crawler

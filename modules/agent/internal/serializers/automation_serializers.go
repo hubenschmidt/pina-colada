@@ -37,10 +37,12 @@ type AutomationConfigResponse struct {
 	UseAnalytics       bool       `json:"use_analytics"`
 	AnalyticsModel     *string    `json:"analytics_model"`
 	EmptyProposalLimit        int       `json:"empty_proposal_limit"`
+	AnalyticsRunLimit         int       `json:"analytics_run_limit"`
 	PromptCooldownRuns        int       `json:"prompt_cooldown_runs"`
 	PromptCooldownProspects   int       `json:"prompt_cooldown_prospects"`
 	VectorPrefilterEnabled    bool      `json:"vector_prefilter_enabled"`
 	VectorSimilarityThreshold float64   `json:"vector_similarity_threshold"`
+	DomainBlacklist           []string  `json:"domain_blacklist"`
 	CreatedAt                 time.Time `json:"created_at,omitempty"`
 	UpdatedAt                 time.Time `json:"updated_at,omitempty"`
 }

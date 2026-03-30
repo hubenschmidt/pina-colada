@@ -16,6 +16,7 @@ import {
   Badge,
   Select,
   MultiSelect,
+  TagsInput,
   Loader,
   Alert,
   Modal,
@@ -96,6 +97,61 @@ const AGENT_MODEL_OPTIONS = [
   { value: "gpt-5.2", label: "GPT 5.2" },
 ];
 
+const US_STATES = [
+  { value: "Remote", label: "Remote" },
+  { value: "Alabama", label: "Alabama" },
+  { value: "Alaska", label: "Alaska" },
+  { value: "Arizona", label: "Arizona" },
+  { value: "Arkansas", label: "Arkansas" },
+  { value: "California", label: "California" },
+  { value: "Colorado", label: "Colorado" },
+  { value: "Connecticut", label: "Connecticut" },
+  { value: "Delaware", label: "Delaware" },
+  { value: "Florida", label: "Florida" },
+  { value: "Georgia", label: "Georgia" },
+  { value: "Hawaii", label: "Hawaii" },
+  { value: "Idaho", label: "Idaho" },
+  { value: "Illinois", label: "Illinois" },
+  { value: "Indiana", label: "Indiana" },
+  { value: "Iowa", label: "Iowa" },
+  { value: "Kansas", label: "Kansas" },
+  { value: "Kentucky", label: "Kentucky" },
+  { value: "Louisiana", label: "Louisiana" },
+  { value: "Maine", label: "Maine" },
+  { value: "Maryland", label: "Maryland" },
+  { value: "Massachusetts", label: "Massachusetts" },
+  { value: "Michigan", label: "Michigan" },
+  { value: "Minnesota", label: "Minnesota" },
+  { value: "Mississippi", label: "Mississippi" },
+  { value: "Missouri", label: "Missouri" },
+  { value: "Montana", label: "Montana" },
+  { value: "Nebraska", label: "Nebraska" },
+  { value: "Nevada", label: "Nevada" },
+  { value: "New Hampshire", label: "New Hampshire" },
+  { value: "New Jersey", label: "New Jersey" },
+  { value: "New Mexico", label: "New Mexico" },
+  { value: "New York", label: "New York" },
+  { value: "North Carolina", label: "North Carolina" },
+  { value: "North Dakota", label: "North Dakota" },
+  { value: "Ohio", label: "Ohio" },
+  { value: "Oklahoma", label: "Oklahoma" },
+  { value: "Oregon", label: "Oregon" },
+  { value: "Pennsylvania", label: "Pennsylvania" },
+  { value: "Rhode Island", label: "Rhode Island" },
+  { value: "South Carolina", label: "South Carolina" },
+  { value: "South Dakota", label: "South Dakota" },
+  { value: "Tennessee", label: "Tennessee" },
+  { value: "Texas", label: "Texas" },
+  { value: "Utah", label: "Utah" },
+  { value: "Vermont", label: "Vermont" },
+  { value: "Virginia", label: "Virginia" },
+  { value: "Washington", label: "Washington" },
+  { value: "West Virginia", label: "West Virginia" },
+  { value: "Wisconsin", label: "Wisconsin" },
+  { value: "Wyoming", label: "Wyoming" },
+  { value: "District of Columbia", label: "District of Columbia" },
+];
+
 const INTERVAL_UNITS = [
   { value: "seconds", label: "Seconds" },
   { value: "minutes", label: "Minutes" },
@@ -129,8 +185,10 @@ const emptyCrawlerForm = {
   use_analytics: true,
   analytics_model: "claude-opus-4-6",
   empty_proposal_limit: null,
+  analytics_run_limit: 20,
   prompt_cooldown_runs: 5,
   prompt_cooldown_prospects: 50,
+  domain_blacklist: [],
 };
 
 const secondsToInterval = (seconds) => {
@@ -321,8 +379,10 @@ const AutomationPage = () => {
       use_analytics: crawler.use_analytics ?? false,
       analytics_model: crawler.analytics_model || "claude-3-haiku-20240307",
       empty_proposal_limit: crawler.empty_proposal_limit || null,
+      analytics_run_limit: crawler.analytics_run_limit ?? 20,
       prompt_cooldown_runs: crawler.prompt_cooldown_runs ?? 5,
       prompt_cooldown_prospects: crawler.prompt_cooldown_prospects ?? 50,
+      domain_blacklist: crawler.domain_blacklist || [],
     };
   };
 
@@ -666,6 +726,15 @@ const AutomationPage = () => {
             max={100}
             allowDecimal={false}
           />
+          <NumberInput
+            label="Analytics Run Limit"
+            description="Number of recent runs to analyze for historical trends"
+            value={crawlerForm.analytics_run_limit}
+            onChange={(val) => updateCrawlerForm("analytics_run_limit", val)}
+            min={1}
+            max={100}
+            allowDecimal={false}
+          />
 
           <Stack gap="xs">
             <Textarea
@@ -714,12 +783,15 @@ const AutomationPage = () => {
             />
           </Stack>
 
-          <TextInput
+          <Select
             label="Location"
-            description="Appended to search queries (e.g., NYC, Remote)"
-            placeholder="Enter location..."
-            value={crawlerForm.location || ""}
-            onChange={(e) => updateCrawlerForm("location", e.currentTarget.value)}
+            description="US state — appended to search queries"
+            placeholder="Select state..."
+            value={crawlerForm.location || null}
+            onChange={(val) => updateCrawlerForm("location", val || "")}
+            data={US_STATES}
+            searchable
+            clearable
           />
 
           <Group grow>
@@ -923,6 +995,15 @@ const SharedFormFields = ({ form, updateForm, documentOptions }) => (
         data={AGENT_MODEL_OPTIONS}
       />
     )}
+
+    <TagsInput
+      label="Domain Blacklist"
+      description="Domains to auto-reject (e.g., jobleads.com). Press Enter or comma to add."
+      placeholder="Add domain..."
+      value={form.domain_blacklist}
+      onChange={(val) => updateForm("domain_blacklist", val)}
+      splitChars={[","]}
+    />
 
     <Switch
       label="Vector Pre-filter"

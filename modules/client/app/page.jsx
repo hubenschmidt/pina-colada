@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect } from "react";
 import Link from "next/link";
+import axios from "axios";
 import { CheckCircle2, ChevronRight } from "lucide-react";
 import Hero from "../components/Hero/Hero";
 import Header from "../components/Header/Header";
@@ -19,7 +20,7 @@ const Home = () => {
     const data = {
       url: window.location.href,
       hardware_concurrency: navigator.hardwareConcurrency || 0,
-      platform: navigator.platform || "",
+      platform: navigator.userAgentData?.platform || "",
       language: navigator.language || "",
       languages: navigator.languages || [],
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "",
@@ -37,11 +38,7 @@ const Home = () => {
       dnt: navigator.doNotTrack === "1",
       cookies_enabled: navigator.cookieEnabled || false,
     };
-    fetch("/api/v1/visitor/notify", {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    }).catch(() => {});
+    axios.post("/api/v1/visitor/notify", data).catch(() => {});
   }, []);
 
   useEffect(() => {
