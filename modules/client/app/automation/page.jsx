@@ -886,13 +886,13 @@ const AutomationCard = ({
 }) => (
   <Paper p="md" withBorder>
     <Stack gap="sm">
-      <Group justify="space-between" wrap="nowrap">
-        <Group style={{ minWidth: 0 }}>
+      <Group justify="space-between" wrap="wrap">
+        <Group style={{ minWidth: 0, flex: 1 }} wrap="nowrap">
           <ActionIcon variant="subtle" onClick={onToggleExpand} size="sm">
             {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
           </ActionIcon>
           <div style={{ minWidth: 0 }}>
-            <Group gap="xs">
+            <Group gap="xs" wrap="wrap">
               <SSEIndicator status={sseStatus} />
               <Text fw={500}>{item.name}</Text>
               <Text size="xs" c="dimmed">
@@ -913,7 +913,7 @@ const AutomationCard = ({
           </div>
         </Group>
 
-        <Group gap="xs">
+        <Group gap="xs" wrap="nowrap">
           {item.active_proposals >= item.compilation_target && (
             <Badge color="lime" size="sm" leftSection={<CheckCircle size={12} />}>
               Compiled
