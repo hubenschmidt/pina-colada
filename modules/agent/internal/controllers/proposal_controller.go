@@ -77,30 +77,6 @@ func (c *ProposalController) Approve(w http.ResponseWriter, r *http.Request) {
 	writeProposalResponse(w, http.StatusOK, result, err)
 }
 
-// Delete handles DELETE /proposals/{id}
-func (c *ProposalController) Delete(w http.ResponseWriter, r *http.Request) {
-	proposalID, err := parseProposalID(r)
-	if err != nil {
-		writeProposalError(w, http.StatusBadRequest, "invalid proposal ID")
-		return
-	}
-
-	err = c.proposalService.DeleteProposal(proposalID)
-	if errors.Is(err, services.ErrProposalNotFound) {
-		writeProposalError(w, http.StatusNotFound, err.Error())
-		return
-	}
-	if errors.Is(err, services.ErrProposalNotPending) {
-		writeProposalError(w, http.StatusConflict, err.Error())
-		return
-	}
-	if err != nil {
-		writeProposalError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	w.WriteHeader(http.StatusNoContent)
-}
-
 // Reject handles POST /proposals/{id}/reject
 func (c *ProposalController) Reject(w http.ResponseWriter, r *http.Request) {
 	proposalID, err := parseProposalID(r)

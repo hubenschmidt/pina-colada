@@ -347,21 +347,6 @@ func injectStatusOverride(payload datatypes.JSON, status string) datatypes.JSON 
 	return datatypes.JSON(out)
 }
 
-// DeleteProposal deletes a pending proposal
-func (s *ProposalService) DeleteProposal(proposalID int64) error {
-	proposal, err := s.proposalRepo.FindByID(proposalID)
-	if errors.Is(err, apperrors.ErrNotFound) {
-		return ErrProposalNotFound
-	}
-	if err != nil {
-		return err
-	}
-	if proposal.Status != repositories.ProposalStatusPending {
-		return ErrProposalNotPending
-	}
-	return s.proposalRepo.Delete(proposalID)
-}
-
 // RejectProposal rejects a proposal
 func (s *ProposalService) RejectProposal(proposalID, reviewerID int64) (*serializers.ProposalResponse, error) {
 	proposal, err := s.proposalRepo.FindByID(proposalID)

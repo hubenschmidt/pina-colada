@@ -408,7 +408,6 @@ func RegisterRoutes(r *chi.Mux, c *Controllers, userLoader appMiddleware.UserLoa
 			r.Get("/", c.Proposal.GetPending)
 			r.Post("/{id}/approve", c.Proposal.Approve)
 			r.Post("/{id}/reject", c.Proposal.Reject)
-			r.Delete("/{id}", c.Proposal.Delete)
 			r.Put("/{id}/payload", c.Proposal.UpdatePayload)
 			r.Post("/bulk-approve", c.Proposal.BulkApprove)
 			r.Post("/bulk-reject", c.Proposal.BulkReject)

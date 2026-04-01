@@ -14,7 +14,6 @@ import {
   getProposals,
   approveProposal,
   rejectProposal,
-  deleteProposal,
   bulkApproveProposals,
   bulkRejectProposals,
   approveAllProposals,
@@ -157,7 +156,7 @@ const ProposalQueue = ({ onCountChange }) => {
   const handleDelete = async (id, e) => {
     e?.stopPropagation?.();
     try {
-      await deleteProposal(id);
+      await rejectProposal(id);
       loadProposals();
     } catch (err) {
       setError(err.message);
