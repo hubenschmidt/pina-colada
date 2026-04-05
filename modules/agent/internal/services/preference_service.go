@@ -97,7 +97,8 @@ func (s *PreferenceService) resolveTheme(userTheme *string, tenantID *int64) str
 
 // TenantPreferencesResponse represents the tenant preferences response
 type TenantPreferencesResponse struct {
-	Theme string `json:"theme"`
+	Theme              string `json:"theme"`
+	MinCrawlerInterval int    `json:"min_crawler_interval"`
 }
 
 // GetTenantPreferences returns tenant preferences
@@ -108,19 +109,30 @@ func (s *PreferenceService) GetTenantPreferences(tenantID int64) (*TenantPrefere
 	}
 
 	return &TenantPreferencesResponse{
-		Theme: prefs.Theme,
+		Theme:              prefs.Theme,
+		MinCrawlerInterval: prefs.MinCrawlerInterval,
 	}, nil
 }
 
 // UpdateTenantPreferences updates tenant preferences
-func (s *PreferenceService) UpdateTenantPreferences(tenantID int64, theme string) (*TenantPreferencesResponse, error) {
-	// Ensure prefs exist
+func (s *PreferenceService) UpdateTenantPreferences(tenantID int64, theme *string, minCrawlerInterval *int) (*TenantPreferencesResponse, error) {
 	_, err := s.prefsRepo.FindOrCreateTenantPreferences(tenantID)
 	if err != nil {
 		return nil, err
 	}
 
-	updates := map[string]interface{}{"theme": theme}
+	updates := make(map[string]interface{})
+	if theme != nil {
+		updates["theme"] = *theme
+	}
+	if minCrawlerInterval != nil {
+		updates["min_crawler_interval"] = *minCrawlerInterval
+	}
+
+	if len(updates) == 0 {
+		return s.GetTenantPreferences(tenantID)
+	}
+
 	if err := s.prefsRepo.UpdateTenantPreferences(tenantID, updates); err != nil {
 		return nil, err
 	}

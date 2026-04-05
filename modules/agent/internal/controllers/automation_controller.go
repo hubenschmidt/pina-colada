@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
 	"net/http"
 	"strconv"
@@ -114,6 +115,10 @@ func (c *AutomationController) CreateCrawler(w http.ResponseWriter, r *http.Requ
 	input := c.requestToInput(req)
 
 	result, err := c.automationService.CreateCrawler(tenantID, userID, input)
+	if errors.Is(err, services.ErrIntervalTooLow) {
+		writeAutomationError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err != nil {
 		writeAutomationError(w, http.StatusInternalServerError, err.Error())
 		return
@@ -145,6 +150,12 @@ func (c *AutomationController) GetCrawler(w http.ResponseWriter, r *http.Request
 
 // UpdateCrawler handles PUT /automation/crawlers/{id}
 func (c *AutomationController) UpdateCrawler(w http.ResponseWriter, r *http.Request) {
+	tenantID, ok := middleware.GetTenantID(r.Context())
+	if !ok {
+		writeAutomationError(w, http.StatusUnauthorized, "tenant not found")
+		return
+	}
+
 	configID, err := c.parseConfigID(r)
 	if err != nil {
 		writeAutomationError(w, http.StatusBadRequest, "invalid crawler ID")
@@ -159,7 +170,11 @@ func (c *AutomationController) UpdateCrawler(w http.ResponseWriter, r *http.Requ
 
 	input := c.requestToInput(req)
 
-	result, err := c.automationService.UpdateCrawler(configID, input)
+	result, err := c.automationService.UpdateCrawler(tenantID, configID, input)
+	if errors.Is(err, services.ErrIntervalTooLow) {
+		writeAutomationError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	if err != nil {
 		writeAutomationError(w, http.StatusInternalServerError, err.Error())
 		return

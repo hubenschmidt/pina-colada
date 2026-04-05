@@ -27,6 +27,7 @@ import (
 )
 
 var ErrCrawlerNotFound = errors.New("crawler not found")
+var ErrIntervalTooLow = errors.New("interval_seconds is below the minimum allowed")
 
 // ProposalCreator interface for creating proposals
 type ProposalCreator interface {
@@ -43,6 +44,7 @@ type AutomationService struct {
 	automationRepo   *repositories.AutomationRepository
 	proposalRepo     *repositories.ProposalRepository
 	jobRepo          *repositories.JobRepository
+	prefsRepo        *repositories.PreferenceRepository
 	proposalService  ProposalCreator
 	docLoader        DocumentLoader
 	embeddingService *EmbeddingService
@@ -63,6 +65,7 @@ func NewAutomationService(
 	automationRepo *repositories.AutomationRepository,
 	proposalRepo *repositories.ProposalRepository,
 	jobRepo *repositories.JobRepository,
+	prefsRepo *repositories.PreferenceRepository,
 	proposalService ProposalCreator,
 	docLoader DocumentLoader,
 	serperAPIKey string,
@@ -76,6 +79,7 @@ func NewAutomationService(
 		automationRepo:  automationRepo,
 		proposalRepo:    proposalRepo,
 		jobRepo:         jobRepo,
+		prefsRepo:       prefsRepo,
 		proposalService: proposalService,
 		docLoader:       docLoader,
 		serperAPIKey:    serperAPIKey,
@@ -189,6 +193,10 @@ func (s *AutomationService) GetCrawler(configID int64) (*serializers.AutomationC
 
 // CreateCrawler creates a new crawler
 func (s *AutomationService) CreateCrawler(tenantID, userID int64, input repositories.AutomationConfigInput) (*serializers.AutomationConfigResponse, error) {
+	if err := s.validateInterval(tenantID, input.IntervalSeconds); err != nil {
+		return nil, err
+	}
+
 	cfg, err := s.automationRepo.CreateConfig(tenantID, userID, input)
 	if err != nil {
 		return nil, err
@@ -197,7 +205,11 @@ func (s *AutomationService) CreateCrawler(tenantID, userID int64, input reposito
 }
 
 // UpdateCrawler updates an existing crawler
-func (s *AutomationService) UpdateCrawler(configID int64, input repositories.AutomationConfigInput) (*serializers.AutomationConfigResponse, error) {
+func (s *AutomationService) UpdateCrawler(tenantID, configID int64, input repositories.AutomationConfigInput) (*serializers.AutomationConfigResponse, error) {
+	if err := s.validateInterval(tenantID, input.IntervalSeconds); err != nil {
+		return nil, err
+	}
+
 	oldCfg, err := s.automationRepo.GetConfigByID(configID)
 	if err != nil {
 		return nil, err
@@ -211,6 +223,20 @@ func (s *AutomationService) UpdateCrawler(configID int64, input repositories.Aut
 	s.handleDisableOnCompiledChange(configID, oldCfg, cfg)
 
 	return s.dtoToResponse(cfg), nil
+}
+
+func (s *AutomationService) validateInterval(tenantID int64, intervalSeconds *int) error {
+	if intervalSeconds == nil {
+		return nil
+	}
+	prefs, err := s.prefsRepo.GetTenantPreferences(tenantID)
+	if err != nil {
+		return nil
+	}
+	if *intervalSeconds < prefs.MinCrawlerInterval {
+		return fmt.Errorf("%w: minimum is %d seconds", ErrIntervalTooLow, prefs.MinCrawlerInterval)
+	}
+	return nil
 }
 
 func (s *AutomationService) handleDisableOnCompiledChange(configID int64, oldCfg, cfg *repositories.AutomationConfigDTO) {
@@ -305,7 +331,7 @@ func (s *AutomationService) ToggleCrawler(configID int64, enabled bool) (*serial
 	input := repositories.AutomationConfigInput{Enabled: &enabled}
 
 	if !enabled {
-		return s.UpdateCrawler(configID, input)
+		return s.UpdateCrawler(cfg.TenantID, configID, input)
 	}
 
 	// Set next run time if enabling - run immediately (unless already running)

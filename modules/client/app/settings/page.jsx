@@ -15,6 +15,7 @@ import {
   Center,
   Select,
   Tabs,
+  NumberInput,
 } from "@mantine/core";
 import { Settings, Shield } from "lucide-react";
 import {
@@ -33,6 +34,7 @@ const SettingsPage = () => {
   const [userTimezone, setUserTimezone] = useState("America/New_York");
   const [timezoneOptions, setTimezoneOptions] = useState([]);
   const [tenantTheme, setTenantTheme] = useState("light");
+  const [minCrawlerInterval, setMinCrawlerInterval] = useState(10);
   const [loading, setLoading] = useState(true);
   const { dispatchPageLoading } = usePageLoading();
 
@@ -56,6 +58,7 @@ const SettingsPage = () => {
         if (userState.canEditTenantTheme) {
           const tenantPrefs = await getTenantPreferences();
           setTenantTheme(tenantPrefs.theme);
+          setMinCrawlerInterval(tenantPrefs.min_crawler_interval ?? 10);
         }
       } catch (error) {
         console.error("Failed to fetch preferences:", error);
@@ -101,7 +104,7 @@ const SettingsPage = () => {
   const updateTenantTheme = (newTheme) => {
     if (!userState.isAuthed || !userState.canEditTenantTheme) return;
 
-    updateTenantPreferences(newTheme)
+    updateTenantPreferences({ theme: newTheme })
       .then(() => {
         setTenantTheme(newTheme);
 
@@ -192,6 +195,7 @@ const SettingsPage = () => {
               </Stack>
 
               {userState.canEditTenantTheme && (
+                <>
                 <Paper withBorder p="md">
                   <Stack gap="md">
                     <div>
@@ -210,6 +214,31 @@ const SettingsPage = () => {
                     </Radio.Group>
                   </Stack>
                 </Paper>
+
+                <Paper withBorder p="md">
+                  <Stack gap="md">
+                    <div>
+                      <Title order={2} size="h3" mb="xs">
+                        Minimum Crawler Interval (Admin)
+                      </Title>
+                      <Text size="sm" c="dimmed">
+                        The minimum interval (in seconds) allowed when creating or updating crawlers.
+                      </Text>
+                    </div>
+                    <NumberInput
+                      value={minCrawlerInterval}
+                      onChange={(val) => {
+                        setMinCrawlerInterval(val);
+                        updateTenantPreferences({ min_crawler_interval: val });
+                      }}
+                      min={10}
+                      max={86400}
+                      suffix=" seconds"
+                      w={200}
+                    />
+                  </Stack>
+                </Paper>
+                </>
               )}
             </Stack>
           </Tabs.Panel>

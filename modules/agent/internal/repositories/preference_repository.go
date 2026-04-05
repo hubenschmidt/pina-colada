@@ -25,7 +25,8 @@ type UserPrefsDTO struct {
 
 // TenantPrefsDTO is the data returned for tenant preferences
 type TenantPrefsDTO struct {
-	Theme string
+	Theme              string
+	MinCrawlerInterval int
 }
 
 // UserTenantDTO contains user and tenant info
@@ -76,7 +77,7 @@ func (r *PreferenceRepository) GetTenantPreferences(tenantID int64) (*TenantPref
 	if err != nil {
 		return nil, err
 	}
-	return &TenantPrefsDTO{Theme: prefs.Theme}, nil
+	return &TenantPrefsDTO{Theme: prefs.Theme, MinCrawlerInterval: prefs.MinCrawlerInterval}, nil
 }
 
 func (r *PreferenceRepository) GetUserWithTenant(userID int64) (*UserTenantDTO, error) {
@@ -102,7 +103,7 @@ func (r *PreferenceRepository) FindOrCreateTenantPreferences(tenantID int64) (*T
 	if err := r.db.Where("tenant_id = ?", tenantID).First(&result).Error; err != nil {
 		return nil, err
 	}
-	return &TenantPrefsDTO{Theme: result.Theme}, nil
+	return &TenantPrefsDTO{Theme: result.Theme, MinCrawlerInterval: result.MinCrawlerInterval}, nil
 }
 
 // UpdateTenantPreferences updates tenant preferences

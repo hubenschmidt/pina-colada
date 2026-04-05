@@ -62,6 +62,7 @@ import {
   getJob,
   getContact,
   getDocuments,
+  getTenantPreferences,
 } from "../../api";
 
 const ENTITY_TYPES = [
@@ -225,6 +226,7 @@ const AutomationPage = () => {
   const [crawlerSseStatus, setCrawlerSseStatus] = useState({});
   const [targetOptions, setTargetOptions] = useState([]);
   const [searchingTargets, setSearchingTargets] = useState(false);
+  const [minCrawlerInterval, setMinCrawlerInterval] = useState(10);
 
   const showAlert = (message, color = "blue") => {
     setAlert({ message, color });
@@ -245,12 +247,14 @@ const AutomationPage = () => {
   const fetchData = async () => {
     setLoading(true);
     try {
-      const [crawlersData, docsData] = await Promise.all([
+      const [crawlersData, docsData, tenantPrefs] = await Promise.all([
         getCrawlers(),
         getDocuments(1, 100).catch(() => ({ items: [] })),
+        getTenantPreferences().catch(() => ({ min_crawler_interval: 10 })),
       ]);
       setCrawlers(crawlersData.crawlers || []);
       setDocuments(docsData.items || []);
+      setMinCrawlerInterval(tenantPrefs.min_crawler_interval ?? 10);
     } catch (error) {
       showAlert(error.message, "red");
     } finally {
@@ -685,7 +689,7 @@ const AutomationPage = () => {
               label="Interval"
               value={crawlerForm.interval_value}
               onChange={(val) => updateCrawlerForm("interval_value", val)}
-              min={1}
+              min={crawlerForm.interval_unit === "minutes" ? Math.ceil(minCrawlerInterval / 60) : minCrawlerInterval}
               max={crawlerForm.interval_unit === "minutes" ? 1440 : 86400}
               leftSection={<Clock size={16} />}
               style={{ flex: 2 }}

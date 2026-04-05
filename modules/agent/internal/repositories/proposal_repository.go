@@ -387,7 +387,8 @@ type PendingJobProposal struct {
 // GetPendingJobProposals returns pending job proposals with URL, title, and company for deduplication
 func (r *ProposalRepository) GetPendingJobProposals(tenantID int64) ([]PendingJobProposal, error) {
 	var proposals []models.AgentProposal
-	err := r.db.Where("tenant_id = ? AND status = ? AND entity_type = ?", tenantID, ProposalStatusPending, "job").
+	err := r.db.Select("payload").
+		Where("tenant_id = ? AND status = ? AND entity_type = ?", tenantID, ProposalStatusPending, "job").
 		Find(&proposals).Error
 	if err != nil {
 		return nil, err
@@ -417,7 +418,8 @@ func (r *ProposalRepository) GetPendingJobProposals(tenantID int64) ([]PendingJo
 // GetRejectedJobProposals returns user-rejected job proposals for deduplication
 func (r *ProposalRepository) GetRejectedJobProposals(tenantID int64) ([]PendingJobProposal, error) {
 	var proposals []models.AgentProposal
-	err := r.db.Where("tenant_id = ? AND status = ? AND entity_type = ?", tenantID, ProposalStatusRejected, "job").
+	err := r.db.Select("payload").
+		Where("tenant_id = ? AND status = ? AND entity_type = ?", tenantID, ProposalStatusRejected, "job").
 		Find(&proposals).Error
 	if err != nil {
 		return nil, err

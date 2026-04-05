@@ -1,0 +1,2 @@
+DROP INDEX IF EXISTS idx_agent_proposal_tenant_status_entity;
+DROP INDEX IF EXISTS idx_automation_run_log_config_status;

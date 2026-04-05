@@ -116,7 +116,8 @@ func (c *PreferenceController) GetTenantPreferences(w http.ResponseWriter, r *ht
 
 // UpdateTenantPreferencesRequest represents the request body for updating tenant preferences
 type UpdateTenantPreferencesRequest struct {
-	Theme string `json:"theme"`
+	Theme              *string `json:"theme"`
+	MinCrawlerInterval *int    `json:"min_crawler_interval"`
 }
 
 // UpdateTenantPreferences handles PATCH /preferences/tenant
@@ -133,12 +134,7 @@ func (c *PreferenceController) UpdateTenantPreferences(w http.ResponseWriter, r 
 		return
 	}
 
-	if input.Theme == "" {
-		writePrefsError(w, http.StatusBadRequest, "theme is required")
-		return
-	}
-
-	result, err := c.prefsService.UpdateTenantPreferences(tenantID, input.Theme)
+	result, err := c.prefsService.UpdateTenantPreferences(tenantID, input.Theme, input.MinCrawlerInterval)
 	if err != nil {
 		writePrefsError(w, http.StatusInternalServerError, err.Error())
 		return

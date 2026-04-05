@@ -230,10 +230,10 @@ export const getTenantPreferences = async () => {
 };
 
 /**
- * Update tenant theme preference (Admin/SuperAdmin only)
+ * Update tenant preferences (Admin/SuperAdmin only)
  */
-export const updateTenantPreferences = async (theme) => {
-  return apiPatch("/preferences/tenant", { theme });
+export const updateTenantPreferences = async (updates) => {
+  return apiPatch("/preferences/tenant", updates);
 };
 
 // Contact Types
